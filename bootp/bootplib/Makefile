@@ -107,6 +107,9 @@ subnets: IPv4ClasslessRoute.c subnets.c cfutil.c DNSNameList.c util.c ptrlist.c 
 test-dhcpv6-options: DHCPv6Options.c DHCPv6.c DHCPDUID.c ptrlist.c util.c DNSNameList.c cfutil.c
 	$(CC) -DTEST_DHCPV6_OPTIONS -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
+test-duid: DHCPDUID.c cfutil.c
+	$(CC) -DTEST_DHCPDUID -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
+
 clean:
 	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets test-dhcpv6-options IPv4ClasslessRoute inetroute interfaces-no-sc
 	rm -rf *.dSYM/

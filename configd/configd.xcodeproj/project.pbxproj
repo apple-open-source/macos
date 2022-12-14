@@ -8637,8 +8637,6 @@
 					"$(inherited)",
 					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
 					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
-					"-weak_framework",
-					PrivacyAccounting,
 					"-weak-lBASupport",
 				);
 				"OTHER_LDFLAGS[sdk=watchsimulator*]" = (
@@ -8678,8 +8676,6 @@
 					"$(inherited)",
 					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
 					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
-					"-weak_framework",
-					PrivacyAccounting,
 					"-weak-lBASupport",
 				);
 				"OTHER_LDFLAGS[sdk=watchsimulator*]" = (

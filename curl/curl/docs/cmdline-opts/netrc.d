@@ -17,9 +17,9 @@ neither world- nor group-readable). The environment variable "HOME" is used
 to find the home directory.
 
 A quick and simple example of how to setup a *.netrc* to allow curl to FTP to
-the machine host.domain.com with user name \&'myself' and password \&'secret'
+the machine host.domain.com with user name 'myself' and password 'secret'
 could look similar to:
 
  machine host.domain.com
  login myself
- password secret"
+ password secret

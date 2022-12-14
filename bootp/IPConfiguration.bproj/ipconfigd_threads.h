@@ -107,6 +107,7 @@ typedef enum {
 
 typedef struct {
     LinkInfo			info;
+    link_status_t		link_status;
 } link_event_data, *link_event_data_t;
 
 /*
@@ -147,7 +148,6 @@ netboot_addresses(struct in_addr * ip, struct in_addr * server_ip);
 /* 
  * interface configuration "threads" 
  */
-IPConfigFunc bootp_thread;
 IPConfigFunc dhcp_thread;
 IPConfigFunc manual_thread;
 IPConfigFunc inform_thread;

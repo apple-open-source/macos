@@ -57,7 +57,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
 
         // Before you call joinWithBottle, you need to call fetchViableBottles.
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             fetchViableExpectation.fulfill()
@@ -199,7 +199,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
 
         // Before you call joinWithBottle, you need to call fetchViableBottles.
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             fetchViableExpectation.fulfill()
@@ -1051,7 +1051,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         }
         let FetchAllViableBottles = self.expectation(description: "FetchAllViableBottles callback occurs")
 
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             XCTAssertEqual(viable?.count, 2, "There should be 2 bottles")
@@ -1064,7 +1064,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 10)
 
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             fetchViableExpectation.fulfill()
@@ -1082,7 +1082,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         }
         let fetchExpectation = self.expectation(description: "fetchExpectation callback occurs")
 
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             fetchExpectation.fulfill()
@@ -1174,7 +1174,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         }
         let FetchAllViableBottles = self.expectation(description: "FetchAllViableBottles callback occurs")
 
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             FetchAllViableBottles.fulfill()
@@ -1183,7 +1183,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 10)
 
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             fetchViableExpectation.fulfill()
@@ -1201,7 +1201,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         }
         let fetchExpectation = self.expectation(description: "fetchExpectation callback occurs")
 
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             fetchExpectation.fulfill()
@@ -1306,7 +1306,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.fakeCuttlefishServer.fetchViableBottlesDontReturnBottleWithID = bottleToExclude
         var FetchAllViableBottles = self.expectation(description: "FetchAllViableBottles callback occurs")
 
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             FetchAllViableBottles.fulfill()
@@ -1328,7 +1328,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
 
         FetchAllViableBottles = self.expectation(description: "FetchAllViableBottles callback occurs")
 
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             FetchAllViableBottles.fulfill()

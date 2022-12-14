@@ -27,6 +27,7 @@
 #include "DAInternal.h"
 #include "DALog.h"
 #include "DAPrivate.h"
+#include "DAMain.h"
 
 #include <grp.h>
 #include <paths.h>
@@ -57,6 +58,7 @@ struct __DADisk
     char *                 _deviceLink[2];
     dev_t                  _deviceNode;
     char *                 _devicePath[2];
+    char *                 _containerId;
     SInt32                 _deviceUnit;
     DAFileSystemRef        _filesystem;
     char *                 _id;
@@ -132,6 +134,7 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
         disk->_deviceNode           = 0;
         disk->_devicePath[0]        = NULL;
         disk->_devicePath[1]        = NULL;
+        disk->_containerId          = NULL;
         disk->_deviceUnit           = -1;
         disk->_filesystem           = NULL;
         disk->_id                   = strdup( id );
@@ -180,6 +183,7 @@ static void __DADiskDeallocate( CFTypeRef object )
     if ( disk->_media                )  IOObjectRelease( disk->_media );
     if ( disk->_propertyNotification )  IOObjectRelease( disk->_propertyNotification );
     if ( disk->_serialization        )  CFRelease( disk->_serialization );
+    if ( disk->_containerId        )    free( disk->_containerId );
 }
 
 static Boolean __DADiskEqual( CFTypeRef object1, CFTypeRef object2 )
@@ -1422,4 +1426,39 @@ void DADiskSetState( DADiskRef disk, DADiskState state, Boolean value )
 {
     disk->_state &= ~state;
     disk->_state |= value ? state : 0;
+}
+
+void DADiskSetContainerId( DADiskRef disk, char * containerId )
+{
+    disk->_containerId = strdup ( containerId );
+}
+
+char * DADiskGetContainerId( DADiskRef disk )
+{
+    return disk->_containerId;
+}
+
+DADiskRef DADiskGetContainerDisk( DADiskRef disk )
+{
+    CFIndex count;
+    CFIndex index;
+
+    count = CFArrayGetCount( gDADiskList );
+
+    if ( disk->_containerId )
+    {
+        for ( index = 0; index < count; index++ )
+        {
+            DADiskRef diskRef;
+
+            diskRef = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+            if ( strcmp( DADiskGetID( diskRef ), disk->_containerId ) == 0 )
+            {
+                return diskRef;
+            }
+        }
+    }
+    return NULL;
+    
 }

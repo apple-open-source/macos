@@ -1087,7 +1087,8 @@ void WebPage::sendTapHighlightForNodeIfNecessary(WebKit::TapIdentifier requestID
     Vector<FloatQuad> quads;
     if (RenderObject *renderer = node->renderer()) {
         renderer->absoluteQuads(quads);
-        Color highlightColor = renderer->style().tapHighlightColor();
+        auto& style = renderer->style();
+        auto highlightColor = style.colorResolvingCurrentColor(style.tapHighlightColor());
         if (!node->document().frame()->isMainFrame()) {
             FrameView* view = node->document().frame()->view();
             for (auto& quad : quads)
@@ -3370,7 +3371,7 @@ void WebPage::performActionOnElement(uint32_t action, const String& authorizatio
                 return;
             sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
         }
-        send(Messages::WebPageProxy::SaveImageToLibrary(SharedMemory::IPCHandle { WTFMove(handle), buffer->size() }, authorizationToken));
+        send(Messages::WebPageProxy::SaveImageToLibrary(WTFMove(handle), authorizationToken));
     }
 }
 

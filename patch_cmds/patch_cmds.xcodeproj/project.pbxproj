@@ -76,6 +76,8 @@
 		2A288F072854655900AD4B5B /* eof_patch.patch in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A288F022854654900AD4B5B /* eof_patch.patch */; };
 		2A288F082854655C00AD4B5B /* eof_patch.txt in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A288F032854654900AD4B5B /* eof_patch.txt */; };
 		2A325F9028149F9E003170C3 /* apple_patch_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A325F8F28149F94003170C3 /* apple_patch_test.sh */; };
+		2A36389628DEC88C00D47F6C /* bof_100350977.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A36389428DEC87700D47F6C /* bof_100350977.in */; };
+		2A36389728DEC89000D47F6C /* bof_100350977.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A36389528DEC87700D47F6C /* bof_100350977.out */; };
 		2A527576278F359C00FF9EC3 /* diff.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A05053626CCCAFD0059AB87 /* diff.1 */; };
 		2A8F57E228199AEB006DE93E /* vcs.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A8F57E128199AEB006DE93E /* vcs.c */; };
 		2ACEF700280DF03B00B9166D /* b_flag.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2ACEF6FC280DF02F00B9166D /* b_flag.out */; };
@@ -153,6 +155,16 @@
 		2AFCBACE26FADC4500DC11F4 /* regular.c in Sources */ = {isa = PBXBuildFile; fileRef = 2AFCBAC826FADC4400DC11F4 /* regular.c */; };
 		2AFCBACF26FADC4500DC11F4 /* cmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 2AFCBAC926FADC4400DC11F4 /* cmp.c */; };
 		2AFCBAD026FADC4500DC11F4 /* special.c in Sources */ = {isa = PBXBuildFile; fileRef = 2AFCBACA26FADC4400DC11F4 /* special.c */; };
+		32768B1728DC581900A647C0 /* diff_output_unidiff.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B0728DC581900A647C0 /* diff_output_unidiff.c */; };
+		32768B1828DC581900A647C0 /* diff_myers.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B0928DC581900A647C0 /* diff_myers.c */; };
+		32768B1928DC581900A647C0 /* diff_patience.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B0A28DC581900A647C0 /* diff_patience.c */; };
+		32768B1A28DC581900A647C0 /* diff_output_plain.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B0B28DC581900A647C0 /* diff_output_plain.c */; };
+		32768B1B28DC581900A647C0 /* recallocarray.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B1128DC581900A647C0 /* recallocarray.c */; };
+		32768B1C28DC581900A647C0 /* diff_output.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B1228DC581900A647C0 /* diff_output.c */; };
+		32768B1D28DC581900A647C0 /* diff_atomize_text.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B1328DC581900A647C0 /* diff_atomize_text.c */; };
+		32768B1E28DC581900A647C0 /* diff_output_edscript.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B1428DC581900A647C0 /* diff_output_edscript.c */; };
+		32768B1F28DC581900A647C0 /* diffreg_new.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B1528DC581900A647C0 /* diffreg_new.c */; };
+		32768B2028DC581900A647C0 /* diff_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 32768B1628DC581900A647C0 /* diff_main.c */; };
 		E108C92F2729E80F00D7FD3A /* edit.c in Sources */ = {isa = PBXBuildFile; fileRef = E108C9212729E7AE00D7FD3A /* edit.c */; };
 		E108C9302729E80F00D7FD3A /* extern.h in Sources */ = {isa = PBXBuildFile; fileRef = E108C9242729E7AE00D7FD3A /* extern.h */; };
 		E108C9322729E80F00D7FD3A /* sdiff.c in Sources */ = {isa = PBXBuildFile; fileRef = E108C9222729E7AE00D7FD3A /* sdiff.c */; };
@@ -326,6 +338,8 @@
 			dstSubfolderSpec = 0;
 			files = (
 				2A325F9028149F9E003170C3 /* apple_patch_test.sh in Copy Test Files */,
+				2A36389628DEC88C00D47F6C /* bof_100350977.in in Copy Test Files */,
+				2A36389728DEC89000D47F6C /* bof_100350977.out in Copy Test Files */,
 				2A288F052854655100AD4B5B /* bof_patch.patch in Copy Test Files */,
 				2A288F062854655600AD4B5B /* bof_patch.txt in Copy Test Files */,
 				2A288F072854655900AD4B5B /* eof_patch.patch in Copy Test Files */,
@@ -461,6 +475,8 @@
 		2A288F042854654900AD4B5B /* bof_patch.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = bof_patch.patch; path = tests/bof_patch.patch; sourceTree = "<group>"; };
 		2A325F85280F5AD9003170C3 /* patch_cmds.plist.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = patch_cmds.plist.in; sourceTree = "<group>"; };
 		2A325F8F28149F94003170C3 /* apple_patch_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = apple_patch_test.sh; path = tests/apple_patch_test.sh; sourceTree = "<group>"; };
+		2A36389428DEC87700D47F6C /* bof_100350977.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = bof_100350977.in; path = tests/bof_100350977.in; sourceTree = "<group>"; };
+		2A36389528DEC87700D47F6C /* bof_100350977.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = bof_100350977.out; path = tests/bof_100350977.out; sourceTree = "<group>"; };
 		2A8F57E128199AEB006DE93E /* vcs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = vcs.c; sourceTree = "<group>"; };
 		2ACEF6FC280DF02F00B9166D /* b_flag.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = b_flag.out; path = tests/b_flag.out; sourceTree = "<group>"; };
 		2ACEF6FD280DF02F00B9166D /* t_cmp.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = t_cmp.sh; path = tests/t_cmp.sh; sourceTree = "<group>"; };
@@ -540,6 +556,24 @@
 		2AFCBAC826FADC4400DC11F4 /* regular.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = regular.c; sourceTree = "<group>"; };
 		2AFCBAC926FADC4400DC11F4 /* cmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmp.c; sourceTree = "<group>"; };
 		2AFCBACA26FADC4400DC11F4 /* special.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = special.c; sourceTree = "<group>"; };
+		3287F237281FDD50008433C5 /* xmalloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmalloc.c; sourceTree = "<group>"; };
+		3287F238281FDD50008433C5 /* xmalloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xmalloc.h; sourceTree = "<group>"; };
+		32768B0728DC581900A647C0 /* diff_output_unidiff.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = diff_output_unidiff.c; sourceTree = "<group>"; };
+		32768B0828DC581900A647C0 /* arraylist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = arraylist.h; sourceTree = "<group>"; };
+		32768B0928DC581900A647C0 /* diff_myers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = diff_myers.c; sourceTree = "<group>"; };
+		32768B0A28DC581900A647C0 /* diff_patience.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = diff_patience.c; sourceTree = "<group>"; };
+		32768B0B28DC581900A647C0 /* diff_output_plain.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = diff_output_plain.c; sourceTree = "<group>"; };
+		32768B0C28DC581900A647C0 /* diff_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = diff_main.h; sourceTree = "<group>"; };
+		32768B0D28DC581900A647C0 /* diff_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = diff_internal.h; sourceTree = "<group>"; };
+		32768B0E28DC581900A647C0 /* stdlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stdlib.h; sourceTree = "<group>"; };
+		32768B0F28DC581900A647C0 /* diff_output.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = diff_output.h; sourceTree = "<group>"; };
+		32768B1028DC581900A647C0 /* diff_debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = diff_debug.h; sourceTree = "<group>"; };
+		32768B1128DC581900A647C0 /* recallocarray.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = recallocarray.c; sourceTree = "<group>"; };
+		32768B1228DC581900A647C0 /* diff_output.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = diff_output.c; sourceTree = "<group>"; };
+		32768B1328DC581900A647C0 /* diff_atomize_text.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = diff_atomize_text.c; sourceTree = "<group>"; };
+		32768B1428DC581900A647C0 /* diff_output_edscript.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = diff_output_edscript.c; sourceTree = "<group>"; };
+		32768B1528DC581900A647C0 /* diffreg_new.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = diffreg_new.c; sourceTree = "<group>"; };
+		32768B1628DC581900A647C0 /* diff_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = diff_main.c; sourceTree = "<group>"; };
 		E108C9212729E7AE00D7FD3A /* edit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = edit.c; sourceTree = "<group>"; };
 		E108C9222729E7AE00D7FD3A /* sdiff.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sdiff.c; sourceTree = "<group>"; };
 		E108C9232729E7AE00D7FD3A /* sdiff.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = sdiff.1; sourceTree = "<group>"; };
@@ -607,6 +641,22 @@
 		2A05052A26CCCAD60059AB87 /* diff */ = {
 			isa = PBXGroup;
 			children = (
+				32768B0828DC581900A647C0 /* arraylist.h */,
+				32768B1328DC581900A647C0 /* diff_atomize_text.c */,
+				32768B1028DC581900A647C0 /* diff_debug.h */,
+				32768B0D28DC581900A647C0 /* diff_internal.h */,
+				32768B1628DC581900A647C0 /* diff_main.c */,
+				32768B0C28DC581900A647C0 /* diff_main.h */,
+				32768B0928DC581900A647C0 /* diff_myers.c */,
+				32768B1428DC581900A647C0 /* diff_output_edscript.c */,
+				32768B0B28DC581900A647C0 /* diff_output_plain.c */,
+				32768B0728DC581900A647C0 /* diff_output_unidiff.c */,
+				32768B1228DC581900A647C0 /* diff_output.c */,
+				32768B0F28DC581900A647C0 /* diff_output.h */,
+				32768B0A28DC581900A647C0 /* diff_patience.c */,
+				32768B1528DC581900A647C0 /* diffreg_new.c */,
+				32768B1128DC581900A647C0 /* recallocarray.c */,
+				32768B0E28DC581900A647C0 /* stdlib.h */,
 				2A05053626CCCAFD0059AB87 /* diff.1 */,
 				2A05053726CCCAFD0059AB87 /* diff.c */,
 				2A05053826CCCAFD0059AB87 /* diff.h */,
@@ -686,6 +736,8 @@
 			isa = PBXGroup;
 			children = (
 				2A325F8F28149F94003170C3 /* apple_patch_test.sh */,
+				2A36389428DEC87700D47F6C /* bof_100350977.in */,
+				2A36389528DEC87700D47F6C /* bof_100350977.out */,
 				2A288F042854654900AD4B5B /* bof_patch.patch */,
 				2A288F012854654900AD4B5B /* bof_patch.txt */,
 				2A288F022854654900AD4B5B /* eof_patch.patch */,
@@ -1012,10 +1064,20 @@
 			buildActionMask = 2147483647;
 			files = (
 				2A05054026CCCC570059AB87 /* xmalloc.c in Sources */,
+				32768B1928DC581900A647C0 /* diff_patience.c in Sources */,
+				32768B1E28DC581900A647C0 /* diff_output_edscript.c in Sources */,
+				32768B1728DC581900A647C0 /* diff_output_unidiff.c in Sources */,
 				2A05053C26CCCAFD0059AB87 /* diffreg.c in Sources */,
+				32768B1B28DC581900A647C0 /* recallocarray.c in Sources */,
+				32768B2028DC581900A647C0 /* diff_main.c in Sources */,
 				2A05053926CCCAFD0059AB87 /* diffdir.c in Sources */,
 				2A05053D26CCCAFD0059AB87 /* diff.c in Sources */,
 				2A05053B26CCCAFD0059AB87 /* pr.c in Sources */,
+				32768B1828DC581900A647C0 /* diff_myers.c in Sources */,
+				32768B1D28DC581900A647C0 /* diff_atomize_text.c in Sources */,
+				32768B1C28DC581900A647C0 /* diff_output.c in Sources */,
+				32768B1F28DC581900A647C0 /* diffreg_new.c in Sources */,
+				32768B1A28DC581900A647C0 /* diff_output_plain.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1168,6 +1230,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/diff";
 				INSTALL_PATH = /usr/bin;
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -1293,6 +1356,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/bin;
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;

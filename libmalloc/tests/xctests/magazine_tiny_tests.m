@@ -52,7 +52,7 @@ assert_freelist_block_zero(void *ptr, size_t len, bool cache)
 @implementation magazine_tiny_tests
 
 - (void)setUp {
-	malloc_zero_on_free = true;
+	malloc_zero_policy = MALLOC_ZERO_ON_FREE;
 
 	memset(&tiny_rack, 'a', sizeof(tiny_rack));
 	rack_init(&tiny_rack, RACK_TYPE_TINY, 1, 0);
@@ -272,7 +272,7 @@ assert_freelist_block_zero(void *ptr, size_t len, bool cache)
 @implementation magazine_tiny_scribble_tests
 
 - (void)setUp {
-	malloc_zero_on_free = true;
+	malloc_zero_policy = MALLOC_ZERO_ON_FREE;
 	aggressive_madvise_enabled = true;
 
 	memset(&tiny_rack, 'a', sizeof(tiny_rack));

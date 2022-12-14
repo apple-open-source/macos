@@ -329,10 +329,11 @@ void AXIsolatedTree::queueRemovalsAndUnresolvedChanges(const Vector<AXID>& subtr
 void AXIsolatedTree::collectNodeChangesForSubtree(AXCoreObject& axObject)
 {
     AXTRACE("AXIsolatedTree::collectNodeChangesForSubtree"_s);
+    AXLOG(&axObject);
     ASSERT(isMainThread());
 
-    if (!axObject.objectID().isValid()) {
-        // Bail out here, we can't build an isolated tree branch rooted at an object with no ID.
+    if (axObject.isDetached()) {
+        AXLOG("Can't build an isolated tree branch rooted at a detached object.");
         return;
     }
 
@@ -433,8 +434,8 @@ void AXIsolatedTree::updateNodeProperty(AXCoreObject& axObject, AXPropertyName p
     case AXPropertyName::CanSetValueAttribute:
         propertyMap.set(AXPropertyName::CanSetValueAttribute, axObject.canSetValueAttribute());
         break;
-    case AXPropertyName::CurrentValue:
-        propertyMap.set(AXPropertyName::CurrentValue, axObject.currentValue().isolatedCopy());
+    case AXPropertyName::CurrentState:
+        propertyMap.set(AXPropertyName::CurrentState, static_cast<int>(axObject.currentState()));
         break;
     case AXPropertyName::DisclosedRows:
         propertyMap.set(AXPropertyName::DisclosedRows, axIDs(axObject.disclosedRows()));

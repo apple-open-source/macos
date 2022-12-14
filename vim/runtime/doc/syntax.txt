@@ -1,4 +1,4 @@
-*syntax.txt*	For Vim version 9.0.  Last change: 2022 Jun 10
+*syntax.txt*	For Vim version 9.0.  Last change: 2022 Sep 26
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -3153,7 +3153,7 @@ The default is to use the twice sh_minlines.  Set it to a smaller number to
 speed up displaying.  The disadvantage is that highlight errors may appear.
 
 syntax/sh.vim tries to flag certain problems as errors; usually things like
-extra ']'s, 'done's, 'fi's, etc.  If you find the error handling problematic
+unmatched "]", "done", "fi", etc.  If you find the error handling problematic
 for your purposes, you may suppress such error highlighting by putting
 the following line in your .vimrc: >
 
@@ -5368,7 +5368,9 @@ CursorLineFold	Like FoldColumn when 'cursorline' is set for the cursor line.
 							*hl-MatchParen*
 MatchParen	Character under the cursor or just before it, if it
 		is a paired bracket, and its match. |pi_paren.txt|
-
+							*hl-MessageWindow*
+MessageWindow	Messages popup window used when 'cmdheight' is zero.  If not
+		defined |hl-WarningMsg| is used.
 							*hl-ModeMsg*
 ModeMsg		'showmode' message (e.g., "-- INSERT --").
 							*hl-MoreMsg*
@@ -5388,6 +5390,10 @@ PmenuSel	Popup menu: Selected item.
 PmenuSbar	Popup menu: Scrollbar.
 							*hl-PmenuThumb*
 PmenuThumb	Popup menu: Thumb of the scrollbar.
+							*hl-PopupNotification*
+PopupNotification
+		Popup window created with |popup_notification()|.  If not
+		defined |hl-WarningMsg| is used.
 							*hl-Question*
 Question	|hit-enter| prompt and yes/no questions.
 							*hl-QuickFixLine*

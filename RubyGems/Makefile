@@ -25,6 +25,9 @@ build::
 	for l in $(SRCROOT)/*.txt; do \
 		$(INSTALL_FILE) $$l $(OSL); \
 	done
+
+	./updateNokogirigem.sh
+
 	$(INSTALL_FILE) $(SRCROOT)/RubyGems.plist $(OSV)
 	for g in $(GEMS); do \
 		echo "Installing gem $$g"; \
@@ -39,4 +42,3 @@ build::
 		date >> $$f; \
 	done
 	$(FIND) $(DSTROOT) \( -name .gemtest -or -name .RUBYARCHDIR.time -or -name '*.o' -or -name script -or -name test -or -empty \) -print -delete
-	

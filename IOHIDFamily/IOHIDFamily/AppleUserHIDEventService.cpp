@@ -63,18 +63,21 @@ enum {
 struct EventCopyCaller
 {
     STAILQ_ENTRY(EventCopyCaller) eventLink;
+    uint64_t id;
     IOHIDEvent * event;
 };
 
 struct SetPropertiesCaller
 {
     STAILQ_ENTRY(SetPropertiesCaller) setLink;
+    uint64_t id;
     IOReturn status;
 };
 
 struct SetLEDCaller
 {
     STAILQ_ENTRY(SetLEDCaller) setLink;
+    uint64_t id;
     IOReturn status;
 };
 
@@ -253,6 +256,7 @@ IOReturn AppleUserHIDEventService::setElementValue(UInt32 usagePage,
 {
     __block IOReturn status = kIOReturnNotReady;
     SetLEDCaller caller;
+    static uint64_t callerID = 0;
 
     require(!isInactive() && _setLEDAction, exit);
 
@@ -268,10 +272,11 @@ IOReturn AppleUserHIDEventService::setElementValue(UInt32 usagePage,
 
     retain();
 
+    caller.id = callerID++;
     STAILQ_INSERT_TAIL(&_setLEDCallers, &caller, setLink);
     caller.status = kIOReturnAborted;
 
-    SetLEDAction(usagePage, usage, value, (uint64_t)&caller, _setLEDAction);
+    SetLEDAction(usagePage, usage, value, caller.id, _setLEDAction);
 
     _commandGate->commandSleep(&caller, THREAD_UNINT);
 
@@ -427,6 +432,7 @@ IOHIDEvent * AppleUserHIDEventService::copyMatchingEvent(OSDictionary * matching
 {
     __block IOHIDEvent * event = NULL;
     EventCopyCaller      caller;
+    static uint64_t callerID = 0;
 
     require_quiet(!isInactive() && _eventCopyAction, exit);
 
@@ -440,10 +446,11 @@ IOHIDEvent * AppleUserHIDEventService::copyMatchingEvent(OSDictionary * matching
 
     retain();
     
+    caller.id = callerID++;
     STAILQ_INSERT_TAIL(&_eventCopyCallers, &caller, eventLink);
     caller.event = NULL;
     
-    CopyEvent(matching, (uint64_t)&caller, _eventCopyAction);
+    CopyEvent(matching, caller.id, _eventCopyAction);
 
     _commandGate->commandSleep(&caller, THREAD_UNINT);
 
@@ -487,7 +494,7 @@ void AppleUserHIDEventService::completeCopyEvent(OSAction * action, IOHIDEvent *
         }
 
         STAILQ_FOREACH (caller, &_eventCopyCallers, eventLink) {
-            if ((uint64_t)caller == context) {
+            if (caller->id == context) {
                 if (event) {
                     event->retain();
                 }
@@ -505,6 +512,7 @@ IOReturn AppleUserHIDEventService::setProperties(OSObject *properties)
     OSDictionaryPtr propDict = OSDynamicCast(OSDictionary, properties);
     __block IOReturn status = kIOReturnNotReady;
     SetPropertiesCaller caller;
+    static uint64_t callerID = 0;
 
     require(!isInactive() && _setPropertiesAction && propDict, exit);
 
@@ -518,10 +526,11 @@ IOReturn AppleUserHIDEventService::setProperties(OSObject *properties)
 
     retain();
 
+    caller.id = callerID;
     STAILQ_INSERT_TAIL(&_setPropertiesCallers, &caller, setLink);
     caller.status = kIOReturnAborted;
 
-    SetUserProperties(propDict, (uint64_t)&caller, _setPropertiesAction);
+    SetUserProperties(propDict, caller.id, _setPropertiesAction);
 
     _commandGate->commandSleep(&caller, THREAD_UNINT);
 
@@ -564,7 +573,7 @@ void AppleUserHIDEventService::completeSetProperties(OSAction * action, IOReturn
         }
 
         STAILQ_FOREACH (caller, &_setPropertiesCallers, setLink) {
-            if ((uint64_t)caller == context) {
+            if (caller->id == context) {
                 caller->status = status;
                 _commandGate->commandWakeup(caller);
                 break;
@@ -603,7 +612,7 @@ void AppleUserHIDEventService::completeSetLED(OSAction * action, IOReturn status
         }
 
         STAILQ_FOREACH (caller, &_setLEDCallers, setLink) {
-            if ((uint64_t)caller == context) {
+            if (caller->id == context) {
                 caller->status = status;
                 _commandGate->commandWakeup(caller);
                 break;

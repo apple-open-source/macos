@@ -267,11 +267,11 @@ struct netdissect_options {
     int ndo_kflag;		/* don't print the libpcap comment field */
     int ndo_Pflag;		/* pcap-ng file format */
     int ndo_t0flag;		/* print packet arrival time */
-    int ndo_t1flag;		/* print packet arrival time */
-    int ndo_t2flag;		/* print packet arrival time */
-    int ndo_t3flag;		/* print packet arrival time */
-    int ndo_t4flag;		/* print packet arrival time */
-    int ndo_t5flag;		/* print packet arrival time */
+    int ndo_t1flag;		/* no time */
+    int ndo_t2flag;		/* unformatted timestamp */
+    int ndo_t3flag;		/* microseconds since previous line */
+    int ndo_t4flag;		/* date and time */
+    int ndo_t5flag;		/* microseconds since first line */
     int ndo_ext_fmt;    /* print extended format (on by default) */
     int ndo_pktapv2;
     void  *ndo_pcap; 	/* For source with multiple DLTs (e.g. PCAP-NG or PKTAP) */

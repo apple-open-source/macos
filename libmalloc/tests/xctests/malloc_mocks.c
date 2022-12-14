@@ -4,7 +4,7 @@
 bool
 malloc_tracing_enabled = false;
 
-bool malloc_zero_on_free = MALLOC_ZERO_ON_FREE_ENABLED_DEFAULT;
+malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 unsigned malloc_zero_on_free_sample_period = 0;
 
 void

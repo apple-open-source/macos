@@ -239,7 +239,7 @@ private:
     void acceleratedRenderingStateChanged() override;
     void notifyActiveSourceBuffersChanged() override;
 
-    void playerContentBoxRectChanged(const LayoutRect&) final;
+    void setPresentationSize(const IntSize&) final;
 
     void updateDisplayLayerAndDecompressionSession();
 
@@ -296,6 +296,8 @@ private:
     MediaTime clampTimeToLastSeekTime(const MediaTime&) const;
 
     bool shouldEnsureLayer() const;
+
+    void playerContentBoxRectChanged(const LayoutRect&) final;
 
     friend class MediaSourcePrivateAVFObjC;
 

@@ -253,8 +253,8 @@ static SOSAccount* SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_ges
         if (!account)
             secnotice("account", "Got NULL creating account");
     }
-    [account startStateMachine];
     [account sosEvaluateIfNeeded];
+    [account startStateMachine];
 done:
     CFReleaseNull(savedAccount);
     return account;
@@ -461,6 +461,7 @@ static SOSAccount* GetSharedAccount(bool onlyIfItExists) {
 
     dispatch_once(&onceToken, ^{
         secdebug("account", "Account Creation start");
+        static SOSAccount* tmpSharedAccount = NULL;
 
         CFDictionaryRef gestalt = CreateDeviceGestaltDictionaryAndRegisterForUpdate(dispatch_get_global_queue(SOS_ACCOUNT_PRIORITY, 0), NULL);
 
@@ -472,9 +473,9 @@ static SOSAccount* GetSharedAccount(bool onlyIfItExists) {
 #endif
         }
         
-        sSharedAccount = SOSKeychainAccountCreateSharedAccount(gestalt);
+        tmpSharedAccount = SOSKeychainAccountCreateSharedAccount(gestalt);
         
-        SOSAccountAddChangeBlock(sSharedAccount, ^(SOSAccount *account, SOSCircleRef circle,
+        SOSAccountAddChangeBlock(tmpSharedAccount, ^(SOSAccount *account, SOSCircleRef circle,
                                                    CFSetRef peer_additions,      CFSetRef peer_removals,
                                                    CFSetRef applicant_additions, CFSetRef applicant_removals) {
             CFErrorRef pi_error = NULL;
@@ -553,7 +554,7 @@ static SOSAccount* GetSharedAccount(bool onlyIfItExists) {
         });
         CFReleaseSafe(gestalt);
 
-        sSharedAccount.saveBlock = ^(CFDataRef flattenedAccount, CFErrorRef flattenFailError) {
+        tmpSharedAccount.saveBlock = ^(CFDataRef flattenedAccount, CFErrorRef flattenFailError) {
             if (flattenedAccount) {
                 SOSKeychainAccountEnsureSaved(flattenedAccount);
             } else {
@@ -567,8 +568,8 @@ static SOSAccount* GetSharedAccount(bool onlyIfItExists) {
         // provide state handler to sysdiagnose and logging
         os_state_add_handler(dispatch_get_global_queue(0, 0), accountStateBlock);
 
-        [sSharedAccount ghostBustSchedule];
-
+        [tmpSharedAccount ghostBustSchedule];
+        sSharedAccount = tmpSharedAccount;
     });
 
     return sSharedAccount;

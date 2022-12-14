@@ -265,6 +265,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/DetachedRTCDataChannel.h
     Modules/mediastream/DoubleRange.h
     Modules/mediastream/LongRange.h
+    Modules/mediastream/MediaDeviceHashSalts.h
     Modules/mediastream/MediaStreamTrack.h
     Modules/mediastream/MediaTrackConstraints.h
     Modules/mediastream/RTCController.h
@@ -1498,11 +1499,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/FontBaseline.h
     platform/graphics/FontCache.h
     platform/graphics/FontCascade.h
+    platform/graphics/FontCascadeCache.h
     platform/graphics/FontCascadeDescription.h
     platform/graphics/FontCascadeFonts.h
     platform/graphics/FontCreationContext.h
     platform/graphics/FontDescription.h
     platform/graphics/FontFamilySpecificationNull.h
+    platform/graphics/FontFeatureValues.h
     platform/graphics/FontGenericFamilies.h
     platform/graphics/FontMetrics.h
     platform/graphics/FontPalette.h
@@ -1616,6 +1619,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/SourceBufferPrivateClient.h
     platform/graphics/SourceImage.h
     platform/graphics/StringTruncator.h
+    platform/graphics/SystemFallbackFontCache.h
     platform/graphics/SystemImage.h
     platform/graphics/TabSize.h
     platform/graphics/TextRun.h

@@ -1480,6 +1480,9 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
 	printf("     [ drop overflow: %llu\tearly: %llu\tmemfail: %u\tduprexmt:%u ]\n",
 	    fqst->fcls_drop_overflow, fqst->fcls_drop_early,
 	    fqst->fcls_drop_memfailure, fqst->fcls_dup_rexmts);
+    printf("     [ l4s target qdelay: %10s ]\n", nsec_to_str(fqst->fcls_l4s_target_qdelay));
+    printf("     [ ce marked:%llu\tce mark failures:%llu\tL4S pkts:%llu   ]\n",
+           fqst->fcls_ce_marked, fqst->fcls_ce_mark_failures, fqst->fcls_l4s_pkts);
 	printf("     [ flows total: %u\tnew: %u\told: %u ]\n",
 	    fqst->fcls_flows_cnt,
 	    fqst->fcls_newflows_cnt, fqst->fcls_oldflows_cnt);

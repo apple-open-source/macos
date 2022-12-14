@@ -243,20 +243,16 @@ const RenderStyle& RenderElement::firstLineStyle() const
 
 StyleDifference RenderElement::adjustStyleDifference(StyleDifference diff, OptionSet<StyleDifferenceContextSensitiveProperty> contextSensitiveProperties) const
 {
-    // If transform changed, and we are not composited, need to do a layout.
     if (contextSensitiveProperties & StyleDifferenceContextSensitiveProperty::Transform) {
-        // FIXME: when transforms are taken into account for overflow, we will need to do a layout.
-        if (!hasLayer() || !downcast<RenderLayerModelObject>(*this).layer()->isComposited()) {
-            if (!hasLayer())
-                diff = std::max(diff, StyleDifference::Layout);
-            else {
-                // We need to set at least SimplifiedLayout, but if PositionedMovementOnly is already set
-                // then we actually need SimplifiedLayoutAndPositionedMovement.
-                diff = std::max(diff, (diff == StyleDifference::LayoutPositionedMovementOnly) ? StyleDifference::SimplifiedLayoutAndPositionedMovement : StyleDifference::SimplifiedLayout);
-            }
-        
+        // Transform change requires at least SimplifiedLayout to re-compute scrollable overflow.
+        // e.g. translate a box outside of a scrollable containing block's content box should trigger scrollbars.
+        if (!hasLayer())
+            diff = std::max(diff, StyleDifference::Layout);
+        else if (diff == StyleDifference::LayoutPositionedMovementOnly) {
+            // Upgrading LayoutPositionedMovementOnly to SimplifiedLayout makes the positioning part of layout bits skipped (i.e. not an upgrade).
+            diff = StyleDifference::SimplifiedLayoutAndPositionedMovement;
         } else
-            diff = std::max(diff, StyleDifference::RecompositeLayer);
+            diff = std::max(diff, StyleDifference::SimplifiedLayout);
     }
 
     if (contextSensitiveProperties & StyleDifferenceContextSensitiveProperty::Opacity) {
@@ -314,7 +310,7 @@ inline bool RenderElement::shouldRepaintForStyleDifference(StyleDifference diff)
     return diff == StyleDifference::Repaint || (diff == StyleDifference::RepaintIfText && hasImmediateNonWhitespaceTextChild());
 }
 
-void RenderElement::updateFillImages(const FillLayer* oldLayers, const FillLayer& newLayers)
+void RenderElement::updateFillImages(const FillLayer* oldLayers, const FillLayer* newLayers)
 {
     auto fillImagesAreIdentical = [](const FillLayer* layer1, const FillLayer* layer2) -> bool {
         if (layer1 == layer2)
@@ -335,7 +331,7 @@ void RenderElement::updateFillImages(const FillLayer* oldLayers, const FillLayer
     };
 
     auto isRegisteredWithNewFillImages = [&]() -> bool {
-        for (auto* layer = &newLayers; layer; layer = layer->next()) {
+        for (auto* layer = newLayers; layer; layer = layer->next()) {
             if (layer->image() && !layer->image()->hasClient(*this))
                 return false;
         }
@@ -344,11 +340,11 @@ void RenderElement::updateFillImages(const FillLayer* oldLayers, const FillLayer
 
     // If images have the same characteristics and this element is already registered as a
     // client to the new images, there is nothing to do.
-    if (fillImagesAreIdentical(oldLayers, &newLayers) && isRegisteredWithNewFillImages())
+    if (fillImagesAreIdentical(oldLayers, newLayers) && isRegisteredWithNewFillImages())
         return;
 
     // Add before removing, to avoid removing all clients of an image that is in both sets.
-    for (auto* layer = &newLayers; layer; layer = layer->next()) {
+    for (auto* layer = newLayers; layer; layer = layer->next()) {
         if (layer->image())
             layer->image()->addClient(*this);
     }
@@ -514,9 +510,9 @@ void RenderElement::setStyle(RenderStyle&& style, StyleDifference minimalStyleDi
             setNeedsPositionedMovementLayout(&oldStyle);
         else if (updatedDiff == StyleDifference::SimplifiedLayoutAndPositionedMovement) {
             setNeedsPositionedMovementLayout(&oldStyle);
-            setNeedsSimplifiedNormalFlowLayout();
+            setNeedsSimplifiedNormalFlowLayout(&oldStyle);
         } else if (updatedDiff == StyleDifference::SimplifiedLayout)
-            setNeedsSimplifiedNormalFlowLayout();
+            setNeedsSimplifiedNormalFlowLayout(&oldStyle);
     }
 
     if (!didRepaint && (updatedDiff == StyleDifference::RepaintLayer || shouldRepaintForStyleDifference(updatedDiff))) {
@@ -880,19 +876,20 @@ static inline bool areCursorsEqual(const RenderStyle* a, const RenderStyle* b)
 
 void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
-    auto registerImages = [this](auto& style, auto* oldStyle) {
-        updateFillImages(oldStyle ? &oldStyle->backgroundLayers() : nullptr, style.backgroundLayers());
-        updateFillImages(oldStyle ? &oldStyle->maskLayers() : nullptr, style.maskLayers());
-        updateImage(oldStyle ? oldStyle->borderImage().image() : nullptr, style.borderImage().image());
-        updateImage(oldStyle ? oldStyle->maskBoxImage().image() : nullptr, style.maskBoxImage().image());
-        updateShapeImage(oldStyle ? oldStyle->shapeOutside() : nullptr, style.shapeOutside());
+    auto registerImages = [this](auto* style, auto* oldStyle) {
+        if (!style && !oldStyle)
+            return;
+        updateFillImages(oldStyle ? &oldStyle->backgroundLayers() : nullptr, style ? &style->backgroundLayers() : nullptr);
+        updateFillImages(oldStyle ? &oldStyle->maskLayers() : nullptr, style ? &style->maskLayers() : nullptr);
+        updateImage(oldStyle ? oldStyle->borderImage().image() : nullptr, style ? style->borderImage().image() : nullptr);
+        updateImage(oldStyle ? oldStyle->maskBoxImage().image() : nullptr, style ? style->maskBoxImage().image() : nullptr);
+        updateShapeImage(oldStyle ? oldStyle->shapeOutside() : nullptr, style ? style->shapeOutside() : nullptr);
     };
 
-    registerImages(style(), oldStyle);
+    registerImages(&style(), oldStyle);
 
     // Are there other pseudo-elements that need the resources to be registered?
-    if (auto* firstLineStyle = style().getCachedPseudoStyle(PseudoId::FirstLine))
-        registerImages(*firstLineStyle, oldStyle ? oldStyle->getCachedPseudoStyle(PseudoId::FirstLine) : nullptr);
+    registerImages(style().getCachedPseudoStyle(PseudoId::FirstLine), oldStyle ? oldStyle->getCachedPseudoStyle(PseudoId::FirstLine) : nullptr);
 
     SVGRenderSupport::styleChanged(*this, oldStyle);
 
@@ -916,10 +913,10 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
         if (diff == StyleDifference::Layout)
             setNeedsLayoutAndPrefWidthsRecalc();
         else
-            setNeedsSimplifiedNormalFlowLayout();
+            setNeedsSimplifiedNormalFlowLayout(oldStyle);
     } else if (diff == StyleDifference::SimplifiedLayoutAndPositionedMovement) {
         setNeedsPositionedMovementLayout(oldStyle);
-        setNeedsSimplifiedNormalFlowLayout();
+        setNeedsSimplifiedNormalFlowLayout(oldStyle);
     } else if (diff == StyleDifference::LayoutPositionedMovementOnly)
         setNeedsPositionedMovementLayout(oldStyle);
 
@@ -1069,15 +1066,23 @@ void RenderElement::clearChildNeedsLayout()
     setNeedsPositionedMovementLayoutBit(false);
 }
 
-void RenderElement::setNeedsSimplifiedNormalFlowLayout()
+void RenderElement::setNeedsSimplifiedNormalFlowLayout(const RenderStyle* oldStyle)
 {
     ASSERT(!isSetNeedsLayoutForbidden());
     if (needsSimplifiedNormalFlowLayout())
         return;
     setNeedsSimplifiedNormalFlowLayoutBit(true);
     markContainingBlocksForLayout();
-    if (hasLayer())
-        setLayerNeedsFullRepaint();
+    auto needsLayerRepaint = [&] {
+        if (!hasLayer() || !oldStyle)
+            return false;
+        auto isComposited = downcast<RenderLayerModelObject>(*this).layer()->isComposited();
+        if (style().diffRequiresLayerRepaint(*oldStyle, isComposited))
+            return true;
+        return !isComposited && style().hasTransform() && oldStyle->hasTransform() && style().transform() != oldStyle->transform();
+    };
+    if (needsLayerRepaint())
+        return setLayerNeedsFullRepaint();
 }
 
 static inline void paintPhase(RenderElement& element, PaintPhase phase, PaintInfo& paintInfo, const LayoutPoint& childPoint)
@@ -1689,12 +1694,12 @@ LayoutRect RenderElement::absoluteAnchorRect(bool* insideFixed) const
     return enclosingLayoutRect(FloatRect(upperLeft, lowerRight.expandedTo(upperLeft) - upperLeft));
 }
 
-LayoutRect RenderElement::absoluteAnchorRectWithScrollMargin(bool* insideFixed) const
+MarginRect RenderElement::absoluteAnchorRectWithScrollMargin(bool* insideFixed) const
 {
     LayoutRect anchorRect = absoluteAnchorRect(insideFixed);
     const LengthBox& scrollMargin = style().scrollMargin();
     if (scrollMargin.isZero())
-        return anchorRect;
+        return { anchorRect, anchorRect };
 
     // The scroll snap specification says that the scroll-margin should be applied in the
     // coordinate system of the scroll container and applied to the rectangular bounding
@@ -1705,8 +1710,9 @@ LayoutRect RenderElement::absoluteAnchorRectWithScrollMargin(bool* insideFixed) 
         valueForLength(scrollMargin.right(), anchorRect.width()),
         valueForLength(scrollMargin.bottom(), anchorRect.height()),
         valueForLength(scrollMargin.left(), anchorRect.width()));
-    anchorRect.expand(margin);
-    return anchorRect;
+    auto marginRect = anchorRect;
+    marginRect.expand(margin);
+    return { marginRect, anchorRect };
 }
 
 void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const FloatRect& rect, BoxSide side, Color color, BorderStyle borderStyle, float adjacentWidth1, float adjacentWidth2, bool antialias) const

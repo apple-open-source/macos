@@ -233,7 +233,10 @@ const char data3[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345
  * radars - comma seperated (no spaces) list of related radars, may be NULL
  * server_exclusive - comma seperated (no spaces) list of servers that this
  *        unit test is valid for. If NULL, then valid for all servers. Valid
- *        values are "apple,samba,windows"
+ *        values are "apple,samba,windows,no_server_required"
+ *
+ * Note: If no server is needed for the unit test, then set smb_Version to NULL,
+ *       and set server_exclusive to "no_server_required"
  */
 void do_list_test_meta_data(const char *desc,
                             const char *tags,
@@ -4224,7 +4227,7 @@ struct urlToDictToURLStrings urlToDictToURL[] = {
                                "smb_url_to_dictionary,smb_dictionary_to_url,url",
                                NULL,
                                NULL,
-                               NULL);
+                               "no_server_required");
         return;
     }
 
@@ -4399,7 +4402,7 @@ struct urlToDictStrings urlToDict[] = {
                                "smb_url_to_dictionary,url",
                                NULL,
                                NULL,
-                               NULL);
+                               "no_server_required");
         return;
     }
 
@@ -4763,6 +4766,15 @@ done:
     CFMutableDictionaryRef OpenOptions = NULL;
     CFDictionaryRef shares = NULL;
     
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("This tests SMBNetFsCreateSessionRef, SMBNetFsOpenSession and smb_netshareenum works for SMBv1",
+                               "netfs_apis,srvsvc",
+                               "1",
+                               NULL,
+                               NULL);
+        return;
+    }
+
     error = SMBNetFsCreateSessionRef(&serverConnection);
     if (error) {
         XCTFail("SMBNetFsCreateSessionRef failed %d for <%s>\n",
@@ -5462,7 +5474,7 @@ done:
                                "netbios",
                                NULL,
                                NULL,
-                               NULL);
+                               "no_server_required");
         return;
     }
 
@@ -7303,7 +7315,7 @@ done:
      */
     
     if (list_tests_with_mdata == 1) {
-        do_list_test_meta_data("Test for correct O_SHLOCK behavior with other processes",
+        do_list_test_meta_data("Test for correct O_SHLOCK behavior all in a single process",
                                "open,close,read,write,O_SHLOCK",
                                "1,2,3",
                                NULL,
@@ -7655,7 +7667,7 @@ done:
 
     if (list_tests_with_mdata == 1) {
         do_list_test_meta_data("Test that a SMB fd can be transferred to another process and still work",
-                               "open,close,read,writeO_EXLOCK,O_SHLOCK",
+                               "open,close,read,write,O_EXLOCK,O_SHLOCK",
                                "1,2,3",
                                NULL,
                                NULL);
@@ -14715,7 +14727,7 @@ int rmfile_cb(const char *path, const struct stat *sb, int typeflag, struct FTW 
 
     if (list_tests_with_mdata == 1) {
         do_list_test_meta_data("Test that cookies are malloced and freed using GetAttrBulk",
-                               "created directories and enumerate through them",
+                               "enumeration",
                                "1,2,3",
                                "87967770",
                                NULL);
@@ -15878,6 +15890,16 @@ done:
 - (void)testNegotiateIoctlSaLen
 {
     int error = 0;
+    
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test that a security fix for negotiate works",
+                               "negotiate",
+                               NULL,
+                               "91452444",
+                               "no_server_required");
+        return;
+    }
+    
     error = smb_load_library();
     if (error != 0) {
         XCTFail("smb_load_library failed %d\n",error);

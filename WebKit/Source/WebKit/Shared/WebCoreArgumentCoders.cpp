@@ -1759,6 +1759,7 @@ void ArgumentCoder<ShareDataWithParsedURL>::encode(Encoder& encoder, const Share
     encoder << settings.shareData;
     encoder << settings.url;
     encoder << settings.files;
+    encoder << settings.originator;
 }
 
 bool ArgumentCoder<ShareDataWithParsedURL>::decode(Decoder& decoder, ShareDataWithParsedURL& settings)
@@ -1768,6 +1769,8 @@ bool ArgumentCoder<ShareDataWithParsedURL>::decode(Decoder& decoder, ShareDataWi
     if (!decoder.decode(settings.url))
         return false;
     if (!decoder.decode(settings.files))
+        return false;
+    if (!decoder.decode(settings.originator))
         return false;
     return true;
 }
@@ -2919,7 +2922,7 @@ void ArgumentCoder<WebCore::FragmentedSharedBuffer>::encode(Encoder& encoder, co
         auto sharedMemoryBuffer = SharedMemory::copyBuffer(buffer);
         sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
     }
-    encoder << SharedMemory::IPCHandle { WTFMove(handle), bufferSize };
+    encoder << WTFMove(handle);
 #endif
 }
 
@@ -2943,11 +2946,11 @@ std::optional<Ref<WebCore::FragmentedSharedBuffer>> ArgumentCoder<WebCore::Fragm
 
     return SharedBuffer::create(WTFMove(data));
 #else
-    SharedMemory::IPCHandle ipcHandle;
-    if (!decoder.decode(ipcHandle))
+    SharedMemory::Handle handle;
+    if (!decoder.decode(handle))
         return std::nullopt;
 
-    auto sharedMemoryBuffer = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
+    auto sharedMemoryBuffer = SharedMemory::map(handle, SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryBuffer)
         return std::nullopt;
 

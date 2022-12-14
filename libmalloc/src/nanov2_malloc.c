@@ -1127,7 +1127,7 @@ nanov2_free_definite_size(nanozonev2_t *nanozone, void *ptr, size_t size)
 	if (ptr && nanov2_has_valid_signature(ptr)) {
 		nanov2_size_class_t size_class = nanov2_size_class_from_size(size);
 
-		if (malloc_zero_on_free) {
+		if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
 			if (size_class != 0) {
 				nanov2_bzero((char *)ptr + sizeof(nanov2_free_slot_t),
 						size - sizeof(nanov2_free_slot_t));
@@ -1157,7 +1157,7 @@ _nanov2_free(nanozonev2_t *nanozone, void *ptr, bool try)
 		size_t size = nanov2_pointer_size_inline(nanozone, ptr, FALSE,
 				&size_class, &block_metap);
 		if (size) {
-			if (malloc_zero_on_free) {
+			if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
 				if (size > sizeof(nanov2_free_slot_t)) {
 					nanov2_bzero((char *)ptr + sizeof(nanov2_free_slot_t),
 							size - sizeof(nanov2_free_slot_t));
@@ -1189,6 +1189,51 @@ nanov2_try_free_default(nanozonev2_t *nanozone, void *ptr)
 	_nanov2_free(nanozone, ptr, true);
 }
 
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+void *
+nanov2_malloc_zero(nanozonev2_t *nanozone, size_t rounded_size)
+{
+	nanov2_block_meta_t *madvise_block_metap = NULL;
+	nanov2_size_class_t size_class = nanov2_size_class_from_size(rounded_size);
+
+	// Get the index of the pointer to the block from which we are should be
+	// allocating. This currently depends on the physical CPU number.
+	int allocation_index = nanov2_get_allocation_block_index();
+
+	// Get the current allocation block meta data pointer. If this is NULL,
+	// we need to find a new allocation block.
+	nanov2_block_meta_t **block_metapp =
+			&nanozone->current_block[size_class][allocation_index];
+	nanov2_block_meta_t *block_metap = os_atomic_load(block_metapp, relaxed);
+	bool corruption = false;
+	void *ptr = NULL;
+	if (block_metap) {
+		// Fast path: we have a block -- try to allocate from it.
+		ptr = nanov2_allocate_from_block_inline(nanozone, block_metap,
+				size_class, &madvise_block_metap, &corruption);
+		if (ptr && !corruption) {
+			if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
+				// Always clear the double-free guard so that we can recognize that
+				// this block is not on the free list.
+				nanov2_free_slot_t *slotp = (nanov2_free_slot_t *)ptr;
+				os_atomic_store(&slotp->double_free_guard, 0, relaxed);
+
+				// We know the body of the allocation is already clear, so we just
+				// need to clean up the next_slot word to get to all-zero.  Do so in
+				// all cases, even if a cleared allocation is not requested, to
+				// prevent any leakage through the next_slot bits.
+				os_atomic_store(&slotp->next_slot, 0, relaxed);
+			} else {
+				nanov2_bzero(ptr, rounded_size);
+			}
+			return ptr;
+		}
+	}
+
+	return nanov2_allocate_outlined(nanozone, block_metapp, rounded_size,
+			size_class, allocation_index, madvise_block_metap, ptr, true);
+}
+
 MALLOC_NOEXPORT void *
 nanov2_calloc(nanozonev2_t *nanozone, size_t num_items, size_t size)
 {
@@ -1198,49 +1243,23 @@ nanov2_calloc(nanozonev2_t *nanozone, size_t num_items, size_t size)
 	}
 	size_t rounded_size = _nano_common_good_size(total_bytes);
 	if (total_bytes <= NANO_MAX_SIZE) {
-		nanov2_block_meta_t *madvise_block_metap = NULL;
-		nanov2_size_class_t size_class = nanov2_size_class_from_size(rounded_size);
-
-		// Get the index of the pointer to the block from which we are should be
-		// allocating. This currently depends on the physical CPU number.
-		int allocation_index = nanov2_get_allocation_block_index();
-
-		// Get the current allocation block meta data pointer. If this is NULL,
-		// we need to find a new allocation block.
-		nanov2_block_meta_t **block_metapp =
-				&nanozone->current_block[size_class][allocation_index];
-		nanov2_block_meta_t *block_metap = os_atomic_load(block_metapp, relaxed);
-		bool corruption = false;
-		void *ptr = NULL;
-		if (block_metap) {
-			// Fast path: we have a block -- try to allocate from it.
-			ptr = nanov2_allocate_from_block_inline(nanozone, block_metap,
-					size_class, &madvise_block_metap, &corruption);
-			if (ptr && !corruption) {
-				if (malloc_zero_on_free) {
-					// Always clear the double-free guard so that we can recognize that
-					// this block is not on the free list.
-					nanov2_free_slot_t *slotp = (nanov2_free_slot_t *)ptr;
-					os_atomic_store(&slotp->double_free_guard, 0, relaxed);
-
-					// We know the body of the allocation is already clear, so we just
-					// need to clean up the next_slot word to get to all-zero.  Do so in
-					// all cases, even if a cleared allocation is not requested, to
-					// prevent any leakage through the next_slot bits.
-					os_atomic_store(&slotp->next_slot, 0, relaxed);
-				} else {
-					nanov2_bzero(ptr, rounded_size);
-				}
-				return ptr;
-			}
-		}
-
-		return nanov2_allocate_outlined(nanozone, block_metapp, rounded_size,
-				size_class, allocation_index, madvise_block_metap, ptr, true);
+		return nanov2_malloc_zero(nanozone, rounded_size);
 	}
 
 	// Too big for nano, so delegate to the helper zone.
 	return nanozone->helper_zone->calloc(nanozone->helper_zone, 1, total_bytes);
+}
+
+MALLOC_NOEXPORT void *
+nanov2_malloc_zero_on_alloc(nanozonev2_t *nanozone, size_t size)
+{
+	size_t rounded_size = _nano_common_good_size(size);
+	if (rounded_size <= NANO_MAX_SIZE) {
+		return nanov2_malloc_zero(nanozone, rounded_size);
+	}
+
+	// Too big for nano, so delegate to the helper zone.
+	return nanozone->helper_zone->malloc(nanozone->helper_zone, size);
 }
 #endif // OS_VARIANT_RESOLVED
 
@@ -2912,7 +2931,8 @@ unlock:
 
 done:
 	if (os_likely(ptr)) {
-		if (malloc_zero_on_free) {
+		switch (malloc_zero_policy) {
+		case MALLOC_ZERO_ON_FREE: {
 			// Always clear the double-free guard so that we can recognize that
 			// this block is not on the free list.
 			nanov2_free_slot_t *slotp = (nanov2_free_slot_t *)ptr;
@@ -2923,15 +2943,20 @@ done:
 			// all cases, even if a cleared allocation is not requested, to
 			// prevent any leakage through the next_slot bits.
 			os_atomic_store(&slotp->next_slot, 0, relaxed);
-		} else {
-			if (clear) {
-				memset(ptr, '\0', rounded_size);
-			} else {
+			break;
+		}
+		case MALLOC_ZERO_NONE:
+			if (!clear) {
 				// Always clear the double-free guard so that we can recognize that
 				// this block is not on the free list.
 				nanov2_free_slot_t *slotp = (nanov2_free_slot_t *)ptr;
 				os_atomic_store(&slotp->double_free_guard, 0, relaxed);
+				break;
 			}
+			// fall through
+		case MALLOC_ZERO_ON_ALLOC:
+			memset(ptr, '\0', rounded_size);
+			break;
 		}
 	} else {
 		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
@@ -3052,7 +3077,12 @@ nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	// Set up the basic_zone portion of the nanozonev2 structure
 	nanozone->basic_zone.version = 13;
 	nanozone->basic_zone.size = OS_RESOLVED_VARIANT_ADDR(nanov2_size);
-	nanozone->basic_zone.malloc = OS_RESOLVED_VARIANT_ADDR(nanov2_malloc);
+	if (malloc_zero_policy == MALLOC_ZERO_ON_ALLOC) {
+		nanozone->basic_zone.malloc =
+				OS_RESOLVED_VARIANT_ADDR(nanov2_malloc_zero_on_alloc);
+	} else {
+		nanozone->basic_zone.malloc = OS_RESOLVED_VARIANT_ADDR(nanov2_malloc);
+	}
 	nanozone->basic_zone.calloc = OS_RESOLVED_VARIANT_ADDR(nanov2_calloc);
 	nanozone->basic_zone.valloc = (void *)nanov2_valloc;
 	nanozone->basic_zone.free = OS_RESOLVED_VARIANT_ADDR(nanov2_free);

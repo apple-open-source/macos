@@ -35,7 +35,7 @@ int
 get_if_count();
 
 ipconfig_status_t
-get_if_addr(const char * name, u_int32_t * addr);
+get_if_addr(const char * name, ip_address_t * addr);
 
 ipconfig_status_t
 get_if_option(const char * name, int option_code, 
@@ -94,5 +94,11 @@ copy_if_summary(const char * name, CFDictionaryRef * summary);
 
 ipconfig_status_t
 copy_interface_list(CFArrayRef * list);
+
+ipconfig_status_t
+get_dhcp_duid(dataOut_t * dhcp_duid, mach_msg_type_number_t * dhcp_duid_cnt);
+
+ipconfig_status_t
+get_dhcp_ia_id(const char * name, DHCPIAID * ia_id_p);
 
 #endif /* _S_IPCONFIGD_H */

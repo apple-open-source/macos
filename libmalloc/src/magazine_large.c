@@ -449,6 +449,7 @@ large_in_use_enumerator(task_t task,
 #if CONFIG_LARGE_CACHE
 /*
  * Remove the entry at idx from the death row cache.
+ * If supplied, adjusts best to account for compaction.
  * Does not operate on the entry itself.
  * Caller must hold the szone lock.
  *
@@ -456,7 +457,7 @@ large_in_use_enumerator(task_t task,
  * so that the caller can iterate through the buffer while removing entries.
  */
 static int
-remove_from_death_row_no_lock(szone_t *szone, int idx)
+remove_from_death_row_no_lock(szone_t *szone, int idx, int *best)
 {
 	int i, next_idx = -1;
 	// Compact live ring to fill entry now vacated at large_entry_cache[best]
@@ -465,6 +466,10 @@ remove_from_death_row_no_lock(szone_t *szone, int idx)
 		// Ring hasn't wrapped. Fill in from right.
 		for (i = idx; i < szone->large_entry_cache_newest; ++i) {
 			szone->large_entry_cache[i] = szone->large_entry_cache[i + 1];
+		}
+
+		if (best && *best != -1) {
+			(*best)--;
 		}
 
 		if (idx == szone->large_entry_cache_oldest) {
@@ -479,6 +484,10 @@ remove_from_death_row_no_lock(szone_t *szone, int idx)
 			// Fill from right.
 			for (i = idx; i < szone->large_entry_cache_newest; ++i) {
 				szone->large_entry_cache[i] = szone->large_entry_cache[i + 1];
+			}
+
+			if (best && *best != -1) {
+				(*best)--;
 			}
 
 			if (0 < szone->large_entry_cache_newest) {
@@ -497,6 +506,8 @@ remove_from_death_row_no_lock(szone_t *szone, int idx)
 				szone->large_entry_cache[i] = szone->large_entry_cache[i - 1];
 			}
 
+			// best does not need adjustment
+
 			if (idx == szone->large_entry_cache_oldest) {
 				next_idx = -1;
 			} else {
@@ -513,6 +524,12 @@ remove_from_death_row_no_lock(szone_t *szone, int idx)
 		// By trichotomy, large_entry_cache_newest == large_entry_cache_oldest.
 		// That implies best == large_entry_cache_newest == large_entry_cache_oldest
 		// and the ring is now empty.
+
+		// If we are removing the only entry, there must be no current best.
+		if (best && *best != -1) {
+			malloc_zone_error(szone->debug_flags, true, "Invalid best: %d\n", *best);
+		}
+
 		szone->large_entry_cache[idx].address = 0;
 		szone->large_entry_cache[idx].size = 0;
 #if CONFIG_DEFERRED_RECLAIM
@@ -552,7 +569,7 @@ large_malloc_best_fit_in_cache(szone_t *szone, size_t size, unsigned char alignm
 					// Kernel has already reclaimed this entry or
 					// is in the process of trying to reclaim it.
 					// Remove it from death row & keep looking
-					idx = remove_from_death_row_no_lock(szone, idx);
+					idx = remove_from_death_row_no_lock(szone, idx, &best);
 					stop_idx = szone->large_entry_cache_oldest;
 					if (idx == -1) {
 						// We've looked at all entries in the cache
@@ -588,7 +605,7 @@ large_malloc_best_fit_in_cache(szone_t *szone, size_t size, unsigned char alignm
 
 	entry = szone->large_entry_cache[best];
 
-	remove_from_death_row_no_lock(szone, best);
+	remove_from_death_row_no_lock(szone, best, NULL);
 
 	return entry;
 }
@@ -760,14 +777,13 @@ free_large(szone_t *szone, void *ptr, bool try)
 					uint64_t reclaim_index = szone->large_entry_cache[idx].reclaim_index;
 					if (curr_size + 2 * large_vm_page_quanta_size <= UINT32_MAX &&
 							!mvm_reclaim_is_available(reclaim_index)) {
-						int next_idx = idx;
-
 						// Entry has been reclaimed
 						// Remove it from the cache
 
-						next_idx = remove_from_death_row_no_lock(szone, idx);
+						idx = remove_from_death_row_no_lock(szone, idx, NULL);
 						stop_idx = szone->large_entry_cache_oldest;
-						if (next_idx == -1) {
+
+						if (idx == -1) {
 							// Ring buffer is now empty
 							break;
 						}

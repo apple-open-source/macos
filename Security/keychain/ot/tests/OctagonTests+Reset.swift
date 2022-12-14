@@ -177,6 +177,51 @@ class OctagonResetTests: OctagonTestsBase {
         XCTAssertNotEqual(zoneKeys?.tlk?.uuid, laterZoneKeys?.tlk?.uuid, "CKKS zone should now have different keys")
     }
 
+    // rdar://problem/99159585
+    // Make sure that local CKKS deletes have finished before calling cuttlefish reset -> which invokes
+    // the container-wipping ckserver plugin.
+    func testOctagonResetAlsoResetsCKKSViewsMissingTLKsBeforeCallingCuttlefish() {
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putFakeDeviceStatusesInCloudKit()
+
+        let zoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
+        XCTAssertNotNil(zoneKeys, "Should have some zone keys")
+        XCTAssertNotNil(zoneKeys?.tlk, "Should have a tlk in the original key set")
+
+        self.startCKAccountStatusMock()
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 10 * NSEC_PER_SEC)
+
+        self.silentZoneDeletesAllowed = true
+
+        let resetExpectation = self.expectation(description: "resetExpectation")
+        
+        self.fakeCuttlefishServer.resetListener = { [unowned self] _ in
+            let laterZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
+            XCTAssertNil(laterZoneKeys, "Should not have any zone keys")
+
+            self.fakeCuttlefishServer.resetListener = nil
+            resetExpectation.fulfill()
+            return nil
+        }
+
+        do {
+            _ = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+        } catch {
+            XCTFail("failed to make new friends: \(error)")
+        }
+        self.wait(for: [resetExpectation], timeout: 5)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        let laterZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
+        XCTAssertNotNil(laterZoneKeys, "Should have some zone keys")
+        XCTAssertNotNil(laterZoneKeys?.tlk, "Should have a tlk in the newly created keyset")
+        XCTAssertNotEqual(zoneKeys?.tlk?.uuid, laterZoneKeys?.tlk?.uuid, "CKKS zone should now have different keys")
+    }
+
     func testOctagonResetIgnoresOldRemoteDevicesWithKeysAndResetsCKKS() {
         // CKKS has no keys, and there's another device claiming to have them already, but it's old
         self.putFakeKeyHierarchiesInCloudKit()
@@ -782,7 +827,7 @@ class OctagonResetTests: OctagonTestsBase {
 
         // Before you call joinWithBottle, you need to call fetchViableBottles.
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
-        joinerContext.rpcFetchAllViableBottles { viable, _, error in
+        joinerContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             fetchViableExpectation.fulfill()

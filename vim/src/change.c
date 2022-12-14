@@ -362,6 +362,7 @@ invoke_listeners(buf_T *buf)
     int		save_updating_screen = updating_screen;
     static int	recursive = FALSE;
     listener_T	*next;
+    listener_T	*prev;
 
     if (buf->b_recorded_changes == NULL  // nothing changed
 	    || buf->b_listener == NULL   // no listeners
@@ -406,10 +407,9 @@ invoke_listeners(buf_T *buf)
     }
 
     // If f_listener_remove() was called may have to remove a listener now.
+    prev = NULL;
     for (lnr = buf->b_listener; lnr != NULL; lnr = next)
     {
-	listener_T	*prev = NULL;
-
 	next = lnr->lr_next;
 	if (lnr->lr_id == 0)
 	    remove_listener(buf, lnr, prev);
@@ -705,6 +705,13 @@ changed_bytes(linenr_T lnum, colnr_T col)
     changedOneline(curbuf, lnum);
     changed_common(lnum, col, lnum + 1, 0L);
 
+#ifdef FEAT_SPELL
+    // When text has been changed at the end of the line, possibly the start of
+    // the next line may have SpellCap that should be removed or it needs to be
+    // displayed.  Schedule the next line for redrawing just in case.
+    if (spell_check_window(curwin) && lnum < curbuf->b_ml.ml_line_count)
+	redrawWinline(curwin, lnum + 1);
+#endif
 #ifdef FEAT_DIFF
     // Diff highlighting in other diff windows may need to be updated too.
     if (curwin->w_p_diff)
@@ -1400,11 +1407,18 @@ open_line(
     int		vreplace_mode;
     int		did_append;		// appended a new line
     int		saved_pi = curbuf->b_p_pi; // copy of preserveindent setting
+#ifdef FEAT_PROP_POPUP
+    int		at_eol;			// cursor after last character
+#endif
 
     // make a copy of the current line so we can mess with it
     saved_line = vim_strsave(ml_get_curline());
     if (saved_line == NULL)	    // out of memory!
 	return FALSE;
+
+#ifdef FEAT_PROP_POPUP
+    at_eol = curwin->w_cursor.col >= (int)STRLEN(saved_line);
+#endif
 
     if (State & VREPLACE_FLAG)
     {
@@ -2129,7 +2143,7 @@ open_line(
 	if ((State & MODE_INSERT) && (State & VREPLACE_FLAG) == 0)
 	    // Properties after the split move to the next line.
 	    adjust_props_for_split(curwin->w_cursor.lnum, curwin->w_cursor.lnum,
-		    curwin->w_cursor.col + 1, 0);
+		    curwin->w_cursor.col + 1, 0, at_eol);
 #endif
     }
     else

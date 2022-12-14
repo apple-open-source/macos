@@ -32,6 +32,7 @@
 #import "MediaPlayerPrivateRemote.h"
 #import "VideoLayerRemote.h"
 #import <WebCore/FloatRect.h>
+#import <WebCore/GeometryUtilities.h>
 #import <WebCore/Timer.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/MachSendRight.h>
@@ -111,14 +112,37 @@ static const Seconds PostAnimationDelay { 100_ms };
 
     WebCore::FloatRect sourceVideoFrame = self.videoLayerFrame;
     WebCore::FloatRect targetVideoFrame = self.bounds;
-    CGAffineTransform transform = CGAffineTransformIdentity;
-    if (!sourceVideoFrame.isEmpty()) {
-        if ([self resizePreservingGravity]) {
-            auto scale = std::fmax(targetVideoFrame.width() / sourceVideoFrame.width(), targetVideoFrame.height() / sourceVideoFrame.height());
-            transform = CGAffineTransformMakeScale(scale, scale);
-        } else
-            transform = CGAffineTransformMakeScale(targetVideoFrame.width() / sourceVideoFrame.width(), targetVideoFrame.height() / sourceVideoFrame.height());
+
+    if (sourceVideoFrame == targetVideoFrame && CGAffineTransformIsIdentity(self.affineTransform))
+        return;
+
+    if (sourceVideoFrame.isEmpty()) {
+        // The initial resize will have an empty videoLayerFrame, which makes
+        // the subsequent calculations incorrect. When this happens, just do
+        // the synchronous resize step instead.
+        [self resolveBounds];
+        return;
     }
+
+    CGAffineTransform transform = CGAffineTransformIdentity;
+    if ([self resizePreservingGravity]) {
+        WebCore::FloatSize naturalSize { };
+        if (auto *mediaPlayer = _mediaPlayerPrivateRemote.get())
+            naturalSize = mediaPlayer->naturalSize();
+
+        if (!naturalSize.isEmpty()) {
+            // The video content will be sized within the remote layer, preserving aspect
+            // ratio according to its naturalSize(), so use that natural size to determine
+            // the scaling factor.
+            auto naturalAspectRatio = naturalSize.aspectRatio();
+
+            sourceVideoFrame = largestRectWithAspectRatioInsideRect(naturalAspectRatio, sourceVideoFrame);
+            targetVideoFrame = largestRectWithAspectRatioInsideRect(naturalAspectRatio, targetVideoFrame);
+        }
+        auto scale = std::fmax(targetVideoFrame.width() / sourceVideoFrame.width(), targetVideoFrame.height() / sourceVideoFrame.height());
+        transform = CGAffineTransformMakeScale(scale, scale);
+    } else
+        transform = CGAffineTransformMakeScale(targetVideoFrame.width() / sourceVideoFrame.width(), targetVideoFrame.height() / sourceVideoFrame.height());
 
     auto* videoSublayer = [sublayers objectAtIndex:0];
     [CATransaction begin];
@@ -187,7 +211,9 @@ PlatformLayerContainer createVideoLayerRemote(MediaPlayerPrivateRemote* mediaPla
     [videoLayerRemote setVideoGravity:videoGravity];
     [videoLayerRemote setMediaPlayerPrivateRemote:mediaPlayerPrivateRemote];
     auto layerForHostContext = LayerHostingContext::createPlatformLayerForHostingContext(contextId).get();
-    [layerForHostContext setFrame:CGRectMake(0, 0, contentSize.width(), contentSize.height())];
+    auto frame = CGRectMake(0, 0, contentSize.width(), contentSize.height());
+    [videoLayerRemote setVideoLayerFrame:frame];
+    [layerForHostContext setFrame:frame];
     [videoLayerRemote addSublayer:WTFMove(layerForHostContext)];
 
     return videoLayerRemote;

@@ -38,31 +38,3 @@ T_DECL(malloc_zone_batch, "malloc_zone_batch_malloc and malloc_zone_batch_free")
 	malloc_zone_batch_free(malloc_default_zone(), results, count);
 	free(results);
 }
-
-T_DECL(malloc_zone_batch_zero_on_free, "malloc_zone_batch_free must zero-on-free",
-		T_META_ENVVAR("MallocZeroOnFree=1"),
-		T_META_ENVVAR("MallocCheckZeroOnFreeCorruption=1"),
-		T_META_ENVVAR("MallocNanoZone=0"))
-{
-	const int n = 3;
-	const size_t size = 272;
-	void *allocations[n];
-	for (int i = 0; i < n; i++) {
-		allocations[i] = malloc(size);
-		T_QUIET; T_ASSERT_NOTNULL(allocations[i], "malloc()");
-		memset(allocations[i], 'a', size);
-	}
-
-	malloc_zone_batch_free(malloc_default_zone(), allocations, n);
-
-	char *allocation = calloc(1, size);
-	T_QUIET; T_ASSERT_NOTNULL(allocation, "calloc()");
-
-	for (size_t i = 0; i < size; i++) {
-		T_QUIET; T_ASSERT_EQ(allocation[i], '\0', "byte %zu should be 0", i);
-	}
-
-	free(allocation);
-
-	T_PASS("Successful calloc after batch free");
-}

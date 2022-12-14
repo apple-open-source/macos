@@ -278,7 +278,7 @@ mvm_madvise_free(void *rack, void *r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t 
 	if (pgHi > pgLo) {
 		size_t len = pgHi - pgLo;
 
-		if (scribble && !malloc_zero_on_free) {
+		if (scribble && malloc_zero_policy != MALLOC_ZERO_ON_FREE) {
 			memset((void *)pgLo, SCRUBBLE_BYTE, len); // Scribble on MADV_FREEd memory
 		}
 

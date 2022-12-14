@@ -1412,7 +1412,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	    goto stop;
 	}
 	if (G_dhcpv6_enabled) {
-	    rtadv->dhcp_client = DHCPv6ClientCreate(if_p);
+	    rtadv->dhcp_client = DHCPv6ClientCreate(service_p);
 	    DHCPv6ClientSetNotificationCallBack(rtadv->dhcp_client,
 						rtadv_dhcp_callback,
 						service_p);
@@ -1452,7 +1452,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 
     case IFEventID_ipv6_address_changed_e:
 	if (rtadv->dhcp_client != NULL) {
-	    DHCPv6ClientAddressChanged(rtadv->dhcp_client, event_data);
+	    DHCPv6ClientHandleEvent(rtadv->dhcp_client, evid, event_data);
 	}
 	rtadv_address_changed_common(service_p, event_data);
 	break;
@@ -1460,12 +1460,11 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     case IFEventID_wake_e:
     case IFEventID_renew_e:
     case IFEventID_link_status_changed_e: {
-	link_status_t		link_status;
+	link_event_data_t	link_event = (link_event_data_t)event_data;
+	link_status_t *		link_status_p;
 
-	link_status = service_link_status(service_p);
-	if (link_status.valid == FALSE
-	    || link_status.active == TRUE) {
-	    link_event_data_t	link_event = (link_event_data_t)event_data;
+	link_status_p = &link_event->link_status;
+	if (link_status_is_active(link_status_p)) {
 	    boolean_t		network_changed;
 
 	    network_changed = (link_event->info == kLinkInfoNetworkChanged);
@@ -1490,8 +1489,17 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	else {
 	    rtadv->try = 0;
 	}
+	if (rtadv->dhcp_client != NULL) {
+	    DHCPv6ClientHandleEvent(rtadv->dhcp_client, evid, event_data);
+	}
 	break;
     }
+    case IFEventID_bssid_changed_e:
+	if (rtadv->dhcp_client != NULL) {
+	    DHCPv6ClientHandleEvent(rtadv->dhcp_client, evid, event_data);
+	}
+	break;
+
     case IFEventID_link_timer_expired_e:
 	rtadv_inactive(service_p);
 	if (rtadv->dhcp_client != NULL) {

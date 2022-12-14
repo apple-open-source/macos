@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -79,6 +79,13 @@
  * - indicates IPv6 link-local modifiers should expire
  */
 #define kIPv6LinkLocalModifierExpires	CFSTR("IPv6LinkLocalModifierExpires")	/* boolean */
+
+/*
+ * kDHCPDUIDType
+ * - specifies the DHCP DUID type to use
+ */
+#define kDHCPDUIDType			CFSTR("DHCPDUIDType")	/* int */
+
 
 STATIC SCPreferencesRef				S_prefs;
 STATIC IPConfigurationControlPrefsCallBack	S_callback;
@@ -243,6 +250,38 @@ prefs_set_boolean(CFStringRef key, CFBooleanRef b)
     return;
 }
 
+STATIC CFNumberRef
+prefs_get_number(CFStringRef key)
+{
+    CFNumberRef	n = NULL;
+
+#if TARGET_OS_IPHONE
+    n = SCPreferencesGetValue(IPConfigurationControlManagedPrefsGet(), key);
+    n = isA_CFNumber(n);
+#endif /* TARGET_OS_IPHONE */
+    if (n == NULL) {
+	n = SCPreferencesGetValue(IPConfigurationControlPrefsGet(), key);
+	n = isA_CFNumber(n);
+    }
+    return (n);
+}
+
+STATIC void
+prefs_set_number(CFStringRef key, CFNumberRef n)
+{
+    SCPreferencesRef	prefs = IPConfigurationControlPrefsGet();
+
+    if (prefs != NULL) {
+	if (isA_CFNumber(n) == NULL) {
+	    SCPreferencesRemoveValue(prefs, key);
+	}
+	else {
+	    SCPreferencesSetValue(prefs, key, n);
+	}
+    }
+    return;
+}
+
 STATIC CFStringRef
 prefs_get_string(CFStringRef key)
 {
@@ -374,6 +413,20 @@ IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires(void)
 	return (expires);
 }
 
+PRIVATE_EXTERN DHCPDUIDType
+IPConfigurationControlPrefsGetDHCPDUIDType(void)
+{
+	int		type = kDHCPDUIDTypeNone;
+	CFNumberRef	val;
+
+	val = prefs_get_number(kDHCPDUIDType);
+	if (val != NULL) {
+		CFNumberGetValue(val, kCFNumberIntType, &type);
+	}
+	return (type);
+}
+
+
 /**
  ** Set
  **/
@@ -422,6 +475,24 @@ IPConfigurationControlPrefsSetIPv6LinkLocalModifierExpires(Boolean expires)
 	else {
 		prefs_set_boolean(kIPv6LinkLocalModifierExpires,
 				  kCFBooleanFalse);
+	}
+	return (IPConfigurationControlPrefsSave());
+}
+
+PRIVATE_EXTERN Boolean
+IPConfigurationControlPrefsSetDHCPDUIDType(DHCPDUIDType type)
+{
+	if (type == kDHCPDUIDTypeNone) {
+		/* no specified type */
+		prefs_set_number(kDHCPDUIDType, NULL);
+	}
+	else {
+		CFNumberRef	n;
+		int		t = type;
+
+		n = CFNumberCreate(NULL, kCFNumberIntType, &t);
+		prefs_set_number(kDHCPDUIDType, n);
+		CFRelease(n);
 	}
 	return (IPConfigurationControlPrefsSave());
 }

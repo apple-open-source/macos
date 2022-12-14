@@ -113,14 +113,20 @@ endif
 ifeq ($(CURL_AR),)
 CURL_AR := $(CROSSPREFIX)ar
 endif
+ifeq ($(CURL_RC),)
+CURL_RC := $(CROSSPREFIX)windres
+endif
+ifeq ($(CURL_STRIP),)
+CURL_STRIP := $(CROSSPREFIX)strip
+endif
 
 CC = $(CURL_CC)
 CFLAGS = -O3 $(CURL_CFLAG_EXTRAS) -W -Wall
 LDFLAGS = $(CURL_LDFLAG_EXTRAS) $(CURL_LDFLAG_EXTRAS_EXE)
 AR = $(CURL_AR)
-RC = $(CROSSPREFIX)windres
-RCFLAGS = --include-dir=$(PROOT)/include -O coff -DCURL_EMBED_MANIFEST
-STRIP   = $(CROSSPREFIX)strip -g
+RC = $(CURL_RC)
+RCFLAGS = --include-dir=$(PROOT)/include -O coff -DCURL_EMBED_MANIFEST $(CURL_RCFLAG_EXTRAS)
+STRIP   = $(CURL_STRIP) -g
 
 # We may need these someday
 # PERL = perl
@@ -135,6 +141,7 @@ ARCH = w32
 endif
 endif
 
+ifneq ($(ARCH),custom)
 ifeq ($(ARCH),w64)
 CFLAGS  += -m64
 LDFLAGS += -m64
@@ -143,6 +150,7 @@ else
 CFLAGS  += -m32
 LDFLAGS += -m32
 RCFLAGS += -F pe-i386
+endif
 endif
 
 # Platform-dependent helper tool macros
@@ -291,20 +299,27 @@ ifdef SSH2
   curl_LDADD += -L"$(LIBSSH2_PATH)/win32" -lssh2
   ifdef SCHANNEL
     ifndef DYN
-      curl_LDADD += -lbcrypt -lcrypt32
+      curl_LDADD += -lcrypt32
+    endif
+  endif
+endif
+ifdef NGHTTP3
+  CFLAGS += -DUSE_NGHTTP3
+  curl_LDADD += -L"$(NGHTTP3_PATH)/lib" -lnghttp3
+  ifdef NGTCP2
+    CFLAGS += -DUSE_NGTCP2
+    curl_LDADD += -L"$(NGTCP2_PATH)/lib"
+    ifdef NGTCP2_LIBS
+      curl_LDADD += $(NGTCP2_LIBS)
+    else
+      curl_LDADD += -lngtcp2
+      ifdef SSL
+        curl_LDADD += -lngtcp2_crypto_openssl
+      endif
     endif
   endif
 endif
 ifdef SSL
-  ifdef NGHTTP3
-    CFLAGS += -DUSE_NGHTTP3
-    curl_LDADD += -L"$(NGHTTP3_PATH)/lib" -lnghttp3
-    ifdef NGTCP2
-      CFLAGS += -DUSE_NGTCP2
-      curl_LDADD += -L"$(NGTCP2_PATH)/lib" -lngtcp2 -lngtcp2_crypto_openssl
-    endif
-  endif
-
   ifndef OPENSSL_INCLUDE
     ifeq "$(wildcard $(OPENSSL_PATH)/outinc)" "$(OPENSSL_PATH)/outinc"
       OPENSSL_INCLUDE = $(OPENSSL_PATH)/outinc
@@ -399,7 +414,7 @@ ifndef USE_LDAP_OPENLDAP
 curl_LDADD += -lwldap32
 endif
 endif
-curl_LDADD += -lws2_32
+curl_LDADD += -lws2_32 -lbcrypt
 
 # Makefile.inc provides the CSOURCES and HHEADERS defines
 include Makefile.inc

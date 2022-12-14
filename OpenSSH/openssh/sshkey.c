@@ -3128,10 +3128,6 @@ sshkey_cert_check_authority(const struct sshkey *k,
 			return SSH_ERR_KEY_CERT_INVALID;
 		}
 	}
-	if (verify_time < k->cert->valid_after) {
-		*reason = "Certificate invalid: not yet valid";
-		return SSH_ERR_KEY_CERT_INVALID;
-	}
 #ifdef __APPLE__
 #if TARGET_OS_OSX
 #else

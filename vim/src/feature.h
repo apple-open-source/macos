@@ -118,12 +118,18 @@
  * +textobjects		Text objects: "vaw", "das", etc.
  * +file_in_path	"gf" and "<cfile>" commands.
  * +path_extra		up/downwards searching in 'path' and 'tags'.
+ * +wildignore		'wildignore' and 'backupskip' options
+ * +wildmenu		'wildmenu' option
+ * +builtin_terms	all builtin termcap entries included
+ * +float		Floating point variables.
  *
  * Obsolete:
  * +tag_old_static	Old style static tags: "file:tag  file  ..".
  *			Support was removed in 8.1.1093.
  * +farsi		Farsi (Persian language) Keymap support.
  *			Removed in patch 8.1.0932
+ * +footer		Motif only: Add a message area at the bottom of the
+ *			main window area.
  */
 
 /*
@@ -146,12 +152,9 @@
  * +digraphs		Digraphs.
  *			In insert mode and on the command line you will be
  *			able to use digraphs. The CTRL-K command will work.
- *			Define OLD_DIGRAPHS to get digraphs compatible with
- *			Vim 5.x.  The new ones are from RFC 1345.
  */
 #ifdef FEAT_NORMAL
 # define FEAT_DIGRAPHS
-// #define OLD_DIGRAPHS
 #endif
 
 /*
@@ -249,13 +252,9 @@
 /*
  * +eval		Built-in script language and expression evaluation,
  *			":let", ":if", etc.
- * +float		Floating point variables.
  */
 #ifdef FEAT_NORMAL
 # define FEAT_EVAL
-# if defined(HAVE_FLOAT_FUNCS) || defined(MSWIN) || defined(MACOS_X)
-#  define FEAT_FLOAT
-# endif
 #endif
 
 #ifdef FEAT_EVAL
@@ -285,7 +284,7 @@
 /*
  * +timers		timer_start()
  */
-#if defined(FEAT_RELTIME) && (defined(UNIX) || defined(MSWIN) || defined(VMS) )
+#if defined(FEAT_RELTIME) && (defined(UNIX) || defined(MSWIN) || defined(VMS))
 # define FEAT_TIMERS
 #endif
 
@@ -338,21 +337,6 @@
 #endif
 
 /*
- * +wildignore		'wildignore' and 'backupskip' options
- *			Needed for Unix to make "crontab -e" work.
- */
-#if defined(FEAT_NORMAL) || defined(UNIX)
-# define FEAT_WILDIGN
-#endif
-
-/*
- * +wildmenu		'wildmenu' option
- */
-#if defined(FEAT_NORMAL)
-# define FEAT_WILDMENU
-#endif
-
-/*
  * +viminfo		reading/writing the viminfo file. Takes about 8Kbyte
  *			of code.
  * VIMINFO_FILE		Location of user .viminfo file (should start with $).
@@ -388,37 +372,17 @@
 #endif
 
 /*
- * +builtin_terms	Choose one out of the following four:
- *
- * NO_BUILTIN_TCAPS	Do not include any builtin termcap entries (used only
- *			with HAVE_TGETENT defined).
- *
- * (nothing)		Machine specific termcap entries will be included.
- *
- * SOME_BUILTIN_TCAPS	Include most useful builtin termcap entries (used only
- *			with NO_BUILTIN_TCAPS not defined).
- *			This is the default.
- *
- * ALL_BUILTIN_TCAPS	Include all builtin termcap entries
- *			(used only with NO_BUILTIN_TCAPS not defined).
- */
-#ifdef HAVE_TGETENT
-// #define NO_BUILTIN_TCAPS
-#endif
-
-#if !defined(NO_BUILTIN_TCAPS)
-# ifdef FEAT_BIG
-#  define ALL_BUILTIN_TCAPS
-# else
-#  define SOME_BUILTIN_TCAPS		// default
-# endif
-#endif
-
-/*
- * +cryptv		Encryption (by Mohsin Ahmed <mosh@sasi.com>).
+ * +cryptv		Encryption (originally by Mohsin Ahmed <mosh@sasi.com>).
  */
 #if defined(FEAT_NORMAL) && !defined(FEAT_CRYPT) || defined(PROTO)
 # define FEAT_CRYPT
+#endif
+
+/*
+ * libsodium - add cryptography support
+ */
+#if defined(HAVE_SODIUM) && defined(FEAT_BIG)
+# define FEAT_SODIUM
 #endif
 
 /*
@@ -525,13 +489,6 @@
 #endif
 #if defined(FEAT_SOUND) && defined(HAVE_CANBERRA)
 # define FEAT_SOUND_CANBERRA
-#endif
-
-/*
- * libsodium - add cryptography support
- */
-#if defined(HAVE_SODIUM) && defined(FEAT_BIG)
-# define FEAT_SODIUM
 #endif
 
 // There are two ways to use XPM.
@@ -1103,6 +1060,13 @@
 # define FEAT_PROP_POPUP
 #endif
 
+/*
+ * +message_window	use a popup for messages when 'cmdheight' is zero
+ */
+#if defined(FEAT_PROP_POPUP) && defined(FEAT_TIMERS)
+# define HAS_MESSAGE_WINDOW
+#endif
+
 #if defined(FEAT_SYN_HL) && defined(FEAT_RELTIME)
 // Can limit syntax highlight time to 'redrawtime'.
 # define SYN_TIME_LIMIT 1
@@ -1166,14 +1130,6 @@
 # if !defined(FEAT_MENU)
 #  define FEAT_MENU
 # endif
-#endif
-
-#if 0
-/*
- * +footer		Motif only: Add a message area at the bottom of the
- *			main window area.
- */
-# define FEAT_FOOTER
 #endif
 
 /*

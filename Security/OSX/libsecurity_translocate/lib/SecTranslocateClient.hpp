@@ -55,7 +55,7 @@ private:
     TranslocatorClient() = delete;
     TranslocatorClient(const TranslocatorClient &that) = delete;
     
-    string requestTranslocation(const int fdToTranslocate, const int destFd, const TranslocationOptions flags);
+    string requestTranslocation(const int fdToTranslocate, const char * pathInsideTranslocationPoint, const int destFd, const TranslocationOptions flags);
     
     dispatch_queue_t syncQ;
     xpc_connection_t service;

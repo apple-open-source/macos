@@ -386,6 +386,7 @@ SOSPeerInfoRef SOSPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, CFDictio
 
 SOSPeerInfoRef SOSPeerInfoCreateCopy(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFErrorRef* error) {
     if(!toCopy) return NULL;
+    SOSPeerInfoPackV2Data(toCopy); // Make sure V2 Dictionary is DERed into pi->description entry for V2Data
     SOSPeerInfoRef pi = CFTypeAllocate(SOSPeerInfo, struct __OpaqueSOSPeerInfo, allocator);
 
     pi->description = CFDictionaryCreateMutableCopy(allocator, 0, toCopy->description);

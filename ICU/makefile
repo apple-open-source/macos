@@ -552,7 +552,6 @@ ifndef TZAUXFILESDIR
 	TZAUXFILESDIR:=.
 endif
 
-APPLE_INTERNAL_DIR=/AppleInternal
 DSYMTOOL := /usr/bin/dsymutil
 DSYMSUFFIX := .dSYM
 
@@ -577,7 +576,7 @@ else
     HDR_MAKE_SUBDIR = ./common/ ./i18n/ ./io/ $(EXTRA_HDRS)
 endif
 ifeq "$(WINDOWS)" "YES"
-	PRIVATE_HDR_PREFIX=$(APPLE_INTERNAL_DIR)
+	PRIVATE_HDR_PREFIX=/AppleInternal
 else ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
 	HDR_PREFIX=/usr
 	PRIVATE_HDR_PREFIX=/usr/local
@@ -983,7 +982,7 @@ ifeq "$(WINDOWS)" "YES"
 	ENV_PROFILE=
 else ifeq "$(LINUX)" "YES"
 	ifeq "$(ARCH64)" "YES"
-		ENV_CONFIGURE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		ENV_CONFIGURE= \
 			LANG="en_US.utf8" \
 			CPPFLAGS="-DU_DISABLE_RENAMING=1 $(DEFINE_BUILD_LEVEL)"  \
 			CC="$(CC)" \
@@ -993,7 +992,7 @@ else ifeq "$(LINUX)" "YES"
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-		ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		ENV= \
 			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
@@ -1002,7 +1001,7 @@ else ifeq "$(LINUX)" "YES"
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-		ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		ENV_DEBUG= \
 			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
@@ -1011,7 +1010,7 @@ else ifeq "$(LINUX)" "YES"
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-		ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		ENV_PROFILE= \
 			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
@@ -1020,7 +1019,7 @@ else ifeq "$(LINUX)" "YES"
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 	else
-		ENV_CONFIGURE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		ENV_CONFIGURE= \
 			LANG="en_US.utf8" \
 			CPPFLAGS="-DU_DISABLE_RENAMING=1 $(DEFINE_BUILD_LEVEL)" \
 			CC="$(CC)" \
@@ -1030,7 +1029,7 @@ else ifeq "$(LINUX)" "YES"
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-		ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		ENV= \
 			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
@@ -1039,7 +1038,7 @@ else ifeq "$(LINUX)" "YES"
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-		ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		ENV_DEBUG= \
 			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
@@ -1048,7 +1047,7 @@ else ifeq "$(LINUX)" "YES"
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-		ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		ENV_PROFILE= \
 			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
@@ -1060,7 +1059,7 @@ else ifeq "$(LINUX)" "YES"
 	LDFLAGS += -lpthread
 else
 	CPPOPTIONS =
-	ENV_CONFIGURE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+	ENV_CONFIGURE= \
 		CPPFLAGS="$(DEFINE_BUILD_LEVEL) -DSTD_INSPIRED -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) $(ISYSROOT) $(ENV_CONFIGURE_ARCHS)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
@@ -1071,7 +1070,7 @@ else
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-	ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+	ENV= \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
@@ -1081,7 +1080,7 @@ else
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-	ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+	ENV_DEBUG= \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
@@ -1091,7 +1090,7 @@ else
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-	ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+	ENV_PROFILE= \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
@@ -1101,7 +1100,7 @@ else
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-	ENV_CONFIGURE_BUILDHOST= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+	ENV_CONFIGURE_BUILDHOST= \
 		CPPFLAGS="$(DEFINE_BUILD_LEVEL) -DSTD_INSPIRED -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) $(HOSTISYSROOT)" \
 		CC="$(HOSTCC)" \
 		CXX="$(HOSTCXX)" \
@@ -1111,7 +1110,7 @@ else
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
-	ENV_BUILDHOST= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+	ENV_BUILDHOST= \
 		CC="$(HOSTCC)" \
 		CXX="$(HOSTCXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(CFLAGS_SANITIZER)" \
@@ -1523,10 +1522,10 @@ endif
 			$(INSTALL) -d -m 0755 $(DSTROOT)/$(libdir)/; \
 		fi; \
 		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/$(INSTALLED_DYLIB) $(DSTROOT)/$(libdir)$(INSTALLED_DYLIB); \
+		if test ! -d $(SYMROOT_CURRENT)/; then \
+			$(INSTALL) -d -m 0755 $(SYMROOT_CURRENT)/; \
+		fi; \
 		if test "$(LINUX)" = "YES"; then \
-			if test ! -d $(SYMROOT_CURRENT)/; then \
-				$(INSTALL) -d -m 0755 $(SYMROOT_CURRENT)/; \
-			fi; \
 			cp $(OBJROOT_CURRENT)/$(INSTALLED_DYLIB) $(SYMROOT_CURRENT)/$(INSTALLED_DYLIB); \
 			strip -x -S $(DSTROOT)/$(libdir)$(INSTALLED_DYLIB); \
 		else \

@@ -61,8 +61,8 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(updateWithSpecificUser:forceRefetch:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:secureElementIdentity:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(setPreapprovedKeysWithSpecificUser:preapprovedKeys:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(updateTLKsWithSpecificUser:ckksKeys:tlkShares:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(fetchViableBottlesWithSpecificUser:reply:) argumentIndex:2 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(fetchViableEscrowRecordsWithSpecificUser:forceFetch:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(fetchViableBottlesWithSpecificUser:source:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(fetchViableEscrowRecordsWithSpecificUser:source:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchEscrowContentsWithSpecificUser:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchPolicyDocumentsWithSpecificUser:versions:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchRecoverableTLKSharesWithSpecificUser:peerID:reply:) argumentIndex:1 ofReply:YES];

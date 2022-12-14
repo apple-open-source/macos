@@ -998,7 +998,7 @@ get_breakindent_win(
 		    if (wp->w_briopt_list > 0)
 			prev_list = wp->w_briopt_list;
 		    else
-			prev_list = (*regmatch.endp - *regmatch.startp);
+			prev_indent = (*regmatch.endp - *regmatch.startp);
 		}
 		vim_regfree(regmatch.regprog);
 	    }
@@ -1017,13 +1017,8 @@ get_breakindent_win(
     bri += win_col_off2(wp);
 
     // add additional indent for numbered lists
-    if (wp->w_briopt_list != 0)
-    {
-	if (wp->w_briopt_list > 0)
-	    bri += prev_list;
-	else
-	    bri = prev_list;
-    }
+    if (wp->w_briopt_list > 0)
+	bri += prev_list;
 
     // indent minus the length of the showbreak string
     if (wp->w_briopt_sbr)
@@ -1294,6 +1289,9 @@ change_indent(
     // for the following tricks we don't want list mode
     save_p_list = curwin->w_p_list;
     curwin->w_p_list = FALSE;
+#ifdef FEAT_PROP_POPUP
+    ignore_text_props = TRUE;
+#endif
     vc = getvcol_nolist(&curwin->w_cursor);
     vcol = vc;
 
@@ -1445,6 +1443,9 @@ change_indent(
 	    ++start_col;
 	}
     }
+#ifdef FEAT_PROP_POPUP
+    ignore_text_props = FALSE;
+#endif
 
     // For MODE_VREPLACE state, we also have to fix the replace stack.  In this
     // case it is always possible because we backspace over the whole line and
@@ -1905,7 +1906,7 @@ get_expr_indent(void)
     inde_copy = vim_strsave(curbuf->b_p_inde);
     if (inde_copy != NULL)
     {
-	indent = (int)eval_to_number(inde_copy);
+	indent = (int)eval_to_number(inde_copy, TRUE);
 	vim_free(inde_copy);
     }
 

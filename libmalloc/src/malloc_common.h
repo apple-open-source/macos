@@ -62,4 +62,13 @@ MALLOC_NOEXPORT
 void
 find_zone_and_free(void *ptr, bool known_non_default);
 
+typedef enum {
+	MALLOC_ZERO_ON_FREE = 0, // this is the 0 case so most checks can be 0-tests
+	MALLOC_ZERO_NONE = 1,
+	MALLOC_ZERO_ON_ALLOC = 2,
+} malloc_zero_policy_t;
+
+MALLOC_NOEXPORT
+extern malloc_zero_policy_t malloc_zero_policy;
+
 #endif // __MALLOC_COMMON_H

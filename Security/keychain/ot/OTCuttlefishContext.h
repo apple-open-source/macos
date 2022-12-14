@@ -199,12 +199,13 @@ NS_ASSUME_NONNULL_BEGIN
                                  BOOL isLocked,
                                  NSError * _Nullable))reply;
 - (void)rpcFetchDeviceNamesByPeerID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply;
-- (void)rpcFetchAllViableBottles:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs,
-                                           NSArray<NSString*>* _Nullable sortedPartialEscrowRecordIDs,
-                                           NSError* _Nullable error))reply;
-
-- (void)rpcFetchAllViableEscrowRecords:(BOOL)forceFetch reply:(void (^)(NSArray<NSData*>* _Nullable records,
-                                                                        NSError* _Nullable error))reply;
+- (void)rpcFetchAllViableBottlesFromSource:(OTEscrowRecordFetchSource)source
+                                     reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs,
+                                                     NSArray<NSString*>* _Nullable sortedPartialEscrowRecordIDs,
+                                                     NSError* _Nullable error))reply;
+- (void)rpcFetchAllViableEscrowRecordsFromSource:(OTEscrowRecordFetchSource)source
+                                           reply:(void (^)(NSArray<NSData*>* _Nullable records,
+                                                           NSError* _Nullable error))reply;
 - (void)rpcInvalidateEscrowCache:(void (^)(NSError* _Nullable error))reply;
 
 - (void)fetchEscrowContents:(void (^)(NSData* _Nullable entropy,
@@ -237,7 +238,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcFetchTrustedSecureElementIdentities:(void (^)(OTCurrentSecureElementIdentities* _Nullable currentSet,
                                                          NSError* _Nullable replyError))reply;
 
-- (void)rpcTlkRecoverabilityForEscrowRecordData:(NSData*)recordData reply:(void (^)(NSArray<NSString*>* views, NSError* replyError))reply;
+- (void)rpcTlkRecoverabilityForEscrowRecordData:(NSData*)recordData
+                                         source:(OTEscrowRecordFetchSource)source
+                                          reply:(void (^)(NSArray<NSString*>* views,
+                                                          NSError* replyError))reply;
 
 
 - (void)rpcWaitForPriorityViewKeychainDataRecovery:(void (^)(NSError* _Nullable replyError))reply NS_SWIFT_NAME(rpcWaitForPriorityViewKeychainDataRecovery(reply:));;

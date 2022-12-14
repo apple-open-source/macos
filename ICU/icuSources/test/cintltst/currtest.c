@@ -308,6 +308,8 @@ static const DisplayNameTestEntry DISPLAY_NAME_TESTDATA[]  = {
     { "vi",    u"LVL", UCURR_LONG_NAME,          u"Lats Latvia" },
     // Apple test for rdar://95729967
     { "kk",    u"AUD", UCURR_LONG_NAME,          u"Аустралия доллары" },
+    // Apple test for rdar://100769206
+    { "hr",    u"EUR", UCURR_SYMBOL_NAME,        u"€" },
 
     { NULL,    NULL,   0,                        NULL }
 };

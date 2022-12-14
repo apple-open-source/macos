@@ -1,0 +1,34 @@
+# CODEOWNERS
+# Maintainers, owners, and mandatory code reviewers for the CloudServices repository.
+#
+# Comments with a "Radar: " prefix indicate the radar component for all files
+# grouped before the first subsequent newline.
+#
+# The first element on each line is a file pattern, as accepted by git ls-files.
+# Subsequent elements are @stash_usernames for each owner.
+#
+
+@@@usersecrets awesterlund@apple.com kmowery@apple.com lyssa@apple.com mauricchio@apple.com murf@apple.com rlpm@apple.com toby@apple.com
+
+Analytics/ @@usersecrets
+CircleJoinRequested/ @@usersecrets
+KeychainCircle/ @@usersecrets
+KeychainSyncAccountNotification/ @@usersecrets
+keychain/ @@usersecrets
+OSX/Keychain/ @@usersecrets
+"OSX/Keychain Circle Notification/" @@usersecrets
+OSX/libsecurityd/ @@usersecrets
+OSX/security2/ @@usersecrets
+OSX/sec/KeychainSyncingOverIDSProxy/ @@usersecrets
+OSX/sec/ipc/ @@usersecrets
+OSX/sec/SharedWebCredential/ @@usersecrets
+OSX/sec/os_log/ @@usersecrets
+secdtests/ @@usersecrets
+security-sysdiagnose/ @@usersecrets
+securityd/ @@usersecrets
+SecurityTool/ @@usersecrets
+SOSCCAuthPlugin/ @@usersecrets
+supd/ @@usersecrets
+supdctl/ @@usersecrets
+tests/secdmockaks/ @@usersecrets
+

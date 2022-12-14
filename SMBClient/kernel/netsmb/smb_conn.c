@@ -807,6 +807,7 @@ static struct smb_session*
 smb_session_find(uint8_t *uuid)
 {
     struct smb_session *sessionp, *tsessionp;
+    struct smb_session *ret_sessionp = NULL;
     // static variables are automatically initialized to zero
     static const uint8_t zero_array[sizeof(sessionp->uuid)];
 
@@ -818,12 +819,15 @@ smb_session_find(uint8_t *uuid)
         return NULL;
     }
     
+    smb_sm_lock_session_list();
     SMBCO_FOREACH_SAFE(sessionp, &smb_session_list, tsessionp) {
         if (memcmp(sessionp->uuid, uuid, sizeof(sessionp->uuid)) == 0) {
-            return sessionp;
+            ret_sessionp = sessionp;
+            break;
         }
     }
-    return NULL;
+    smb_sm_unlock_session_list();
+    return ret_sessionp;
 }
 
 /*

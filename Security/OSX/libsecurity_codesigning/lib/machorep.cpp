@@ -459,6 +459,17 @@ CFDictionaryRef MachORep::copyDiskRepInformation()
 //
 string MachORep::recommendedIdentifier(const SigningContext &ctx)
 {
+	std::string identifier = explicitIdentifier();
+	if (!identifier.empty()) {
+		return identifier;
+	}
+
+	// ah well. Use the default
+	return SingleDiskRep::recommendedIdentifier(ctx);
+}
+
+string MachORep::explicitIdentifier()
+{
 	if (CFDataRef info = infoPlist()) {
 		if (CFRef<CFDictionaryRef> dict = makeCFDictionaryFrom(info)) {
 			CFStringRef code = CFStringRef(CFDictionaryGetValue(dict, kCFBundleIdentifierKey));
@@ -469,11 +480,8 @@ string MachORep::recommendedIdentifier(const SigningContext &ctx)
 		} else
 			MacOSError::throwMe(errSecCSBadDictionaryFormat);
 	}
-	
-	// ah well. Use the default
-	return SingleDiskRep::recommendedIdentifier(ctx);
+	return "";
 }
-
 
 //
 // The default suggested requirements for Mach-O binaries are as follows:

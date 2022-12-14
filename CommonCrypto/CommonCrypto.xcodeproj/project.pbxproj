@@ -2065,6 +2065,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "-Werror=format-nonliteral";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
 			};
@@ -2076,6 +2077,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "-Werror=format-nonliteral";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
 			};
@@ -2443,7 +2445,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/local/bin;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-Werror=format-nonliteral";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
@@ -2457,7 +2459,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/local/bin;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-Werror=format-nonliteral";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";

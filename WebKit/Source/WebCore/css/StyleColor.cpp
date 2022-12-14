@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 Google Inc. All rights reserved.
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016, 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,19 +32,47 @@
 #include "config.h"
 #include "StyleColor.h"
 
+#include "CSSPrimitiveValue.h"
+#include "ColorSerialization.h"
 #include "HashTools.h"
 #include "RenderTheme.h"
 
 namespace WebCore {
 
-Color StyleColor::colorFromKeyword(CSSValueID keyword, OptionSet<StyleColorOptions> options)
+String serializationForRenderTreeAsText(const StyleColor& color)
 {
+    return serializationForRenderTreeAsText(color.resolveColorWithoutCurrentColor());
+}
+
+String serializationForCSS(const StyleColor& color)
+{
+    if (color.isAbsoluteColor())
+        return serializationForCSS(color.absoluteColor());
+
+    if (color.isCurrentColor())
+        return "currentcolor"_s;
+
+    ASSERT_NOT_REACHED();
+    return { };
+}
+
+Color StyleColor::colorFromAbsoluteKeyword(CSSValueID keyword)
+{
+    // TODO: maybe it should be a constexpr map for performance.
+    ASSERT(StyleColor::isAbsoluteColorKeyword(keyword));
     if (const char* valueName = getValueName(keyword)) {
-        if (const NamedColor* namedColor = findColor(valueName, strlen(valueName)))
+        if (auto namedColor = findColor(valueName, strlen(valueName)))
             return asSRGBA(PackedColor::ARGB { namedColor->ARGBValue });
     }
+    ASSERT_NOT_REACHED();
+    return { };
+}
 
-    ASSERT(!isAbsoluteColorKeyword(keyword));
+Color StyleColor::colorFromKeyword(CSSValueID keyword , OptionSet<StyleColorOptions> options)
+{
+    if (isAbsoluteColorKeyword(keyword))
+        return colorFromAbsoluteKeyword(keyword);
+
     return RenderTheme::singleton().systemColor(keyword, options);
 }
 
@@ -52,7 +80,7 @@ static bool isVGAPaletteColor(CSSValueID id)
 {
     // https://drafts.csswg.org/css-color-4/#named-colors
     // "16 of CSS’s named colors come from the VGA palette originally, and were then adopted into HTML"
-    return (id >= CSSValueAqua && id <= CSSValueYellow) || id == CSSValueGrey;
+    return (id >= CSSValueAqua && id <= CSSValueGrey);
 }
 
 static bool isNonVGANamedColor(CSSValueID id)
@@ -70,15 +98,76 @@ bool StyleColor::isAbsoluteColorKeyword(CSSValueID id)
 bool StyleColor::isSystemColorKeyword(CSSValueID id)
 {
     // https://drafts.csswg.org/css-color-4/#css-system-colors
+    return (id >= CSSValueCanvas && id <= CSSValueInternalDocumentTextColor) || id == CSSValueText || isDeprecatedSystemColorKeyword(id);
+}
+
+bool StyleColor::isDeprecatedSystemColorKeyword(CSSValueID id)
+{
     // https://drafts.csswg.org/css-color-4/#deprecated-system-colors
-    return (id >= CSSValueWebkitLink && id <= CSSValueWebkitFocusRingColor) || id == CSSValueWebkitText || id == CSSValueMenu || id == CSSValueText;
+    return (id >= CSSValueActiveborder && id <= CSSValueWindowtext) || id == CSSValueMenu;
 }
 
 bool StyleColor::isColorKeyword(CSSValueID id, OptionSet<CSSColorType> allowedColorTypes)
 {
     return (allowedColorTypes.contains(CSSColorType::Absolute) && isAbsoluteColorKeyword(id))
-        || (allowedColorTypes.contains(CSSColorType::Current) && id == CSSValueCurrentcolor)
+        || (allowedColorTypes.contains(CSSColorType::Current) && isCurrentColorKeyword(id))
         || (allowedColorTypes.contains(CSSColorType::System) && isSystemColorKeyword(id));
+}
+
+WTF::TextStream& operator<<(WTF::TextStream& out, const StyleColor& v)
+{
+    out << "StyleColor[";
+    if (v.isAbsoluteColor()) {
+        out << "absoluteColor(";
+        out << v.absoluteColor().debugDescription();
+        out << ")";
+    } else if (v.isCurrentColor())
+        out << "currentColor";
+    
+    out << "]";
+    return out;
+}
+
+String StyleColor::debugDescription() const
+{
+    TextStream ts;
+    ts << *this;
+    return ts.release();
+}
+
+Color StyleColor::resolveColor(const Color& currentColor) const
+{
+    if (isAbsoluteColor())
+        return absoluteColor();
+
+    if (isCurrentColor())
+        return currentColor;
+
+    return { };
+}
+
+Color StyleColor::resolveColorWithoutCurrentColor() const
+{
+    if (isAbsoluteColor())
+        return absoluteColor();
+    
+    return { };
+}
+
+bool StyleColor::isCurrentColor() const
+{
+    return std::holds_alternative<CurrentColor>(m_color);
+}
+
+bool StyleColor::isAbsoluteColor() const
+{
+    return std::holds_alternative<Color>(m_color);
+}
+
+const Color& StyleColor::absoluteColor() const
+{
+    ASSERT(isAbsoluteColor());
+    return std::get<Color>(m_color);
 }
 
 } // namespace WebCore

@@ -192,14 +192,19 @@ extension Container {
         return escrowRecords
     }
 
-    func fetchEscrowRecords(forceFetch: Bool, reply: @escaping ([Data]?, Error?) -> Void) {
+    func fetchEscrowRecords(from source: OTEscrowRecordFetchSource, with reply: @escaping ([Data]?, Error?) -> Void) {
         self.semaphore.wait()
-        let reply: ([Data]?, Error?) -> Void = {
-            logger.info("fetchEscrowRecords complete: \(traceError($1), privacy: .public)")
+        self.fetchEscrowRecordsWithSemaphore(from: source) { result in
             self.semaphore.signal()
-            reply($0, $1)
+            
+            switch result {
+            case let .success(data):
+                logger.info("fetchEscrowRecords succeeded with \(data.count, privacy: .public) records")
+                reply(data, nil)
+            case let .failure(error):
+                logger.error("fetchEscrowRecords failed with \(traceError(error), privacy: .public)")
+                reply(nil, error)
+            }
         }
-
-        self.fetchEscrowRecordsWithSemaphore(forceFetch: forceFetch, reply: reply)
     }
 }

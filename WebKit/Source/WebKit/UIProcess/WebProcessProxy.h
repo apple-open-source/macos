@@ -143,6 +143,10 @@ public:
     static Ref<WebProcessProxy> create(WebProcessPool&, WebsiteDataStore*, CaptivePortalMode, IsPrewarmed, WebCore::CrossOriginMode = WebCore::CrossOriginMode::Shared, ShouldLaunchProcess = ShouldLaunchProcess::Yes);
     static Ref<WebProcessProxy> createForRemoteWorkers(RemoteWorkerType, WebProcessPool&, WebCore::RegistrableDomain&&, WebsiteDataStore&);
 
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    static Ref<WebProcessProxy> createForWebContentCrashy(WebProcessPool&);
+#endif
+
     ~WebProcessProxy();
 
     static void forWebPagesWithOrigin(PAL::SessionID, const WebCore::SecurityOriginData&, const Function<void(WebPageProxy&)>&);
@@ -202,6 +206,10 @@ public:
     bool isRunningWorkers() const { return m_sharedWorkerInformation || m_serviceWorkerInformation; }
 
     bool isDummyProcessProxy() const;
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    bool isCrashyProcess() const { return m_isWebContentCrashyProcess; }
+#endif
 
     void didCreateWebPageInProcess(WebCore::PageIdentifier);
 
@@ -469,6 +477,10 @@ protected:
 
     void validateFreezerStatus();
 
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    void setIsCrashyProcess() { m_isWebContentCrashyProcess = true; }
+#endif
+
 private:
     static HashMap<WebCore::ProcessIdentifier, WebProcessProxy*>& allProcesses();
 
@@ -638,6 +650,10 @@ private:
 #endif
 #if PLATFORM(IOS) && !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     bool m_hasManagedSessionSandboxAccess { false };
+#endif
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    bool m_isWebContentCrashyProcess { false };
 #endif
 
 #if PLATFORM(WATCHOS)

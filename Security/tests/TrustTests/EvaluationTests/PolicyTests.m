@@ -107,7 +107,7 @@ const NSString *kSecTrustTestPinnningTest = @"PinningPolicyTrustTest";
 {
     SecCertificateRef baltimoreRoot = NULL, appleISTCA2 = NULL, pinnedNonCT = NULL;
     SecTrustRef trust = NULL;
-    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("caldav.icloud.com"));
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("p02-ckdatabasews.icloud.com"));
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:676000000.0]; // June 3, 2022 at 6:46:40 PM PDT
     NSArray *certs = nil, *enforcement_anchors = nil;
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.apple.security"];
@@ -118,7 +118,7 @@ const NSString *kSecTrustTestPinnningTest = @"PinningPolicyTrustTest";
     require_action(appleISTCA2 = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"AppleISTCA2G1-Baltimore"
                                                                                        subdirectory:(NSString *)kSecTrustTestPinningPolicyResources],
                    errOut, fail("failed to create apple IST CA"));
-    require_action(pinnedNonCT = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"caldav"
+    require_action(pinnedNonCT = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ckdatabasews"
                                                                                        subdirectory:(NSString *)kSecTrustTestPinningPolicyResources],
                    errOut, fail("failed to create deprecated SSL Server cert"));
 

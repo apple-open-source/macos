@@ -252,7 +252,7 @@ static xsmp_config_T xsmp;
 /*
  * I have seen
  *  extern char *_sys_siglist[NSIG];
- * on Irix, Linux, NetBSD and Solaris. It contains a nice list of strings
+ * on Linux, NetBSD and Solaris. It contains a nice list of strings
  * that describe the signals. That is nearly what we want here.  But
  * autoconf does only check for sys_siglist (without the underscore), I
  * do not want to change everything today.... jw.
@@ -985,7 +985,7 @@ static volatile sig_atomic_t lc_signal;
 
 // TRUE when lc_jump_env is valid.
 // Volatile because it is used in signal handler deathtrap().
-static volatile sig_atomic_t lc_active INIT(= FALSE);
+static volatile sig_atomic_t lc_active = FALSE;
 
 /*
  * A simplistic version of setjmp() that only allows one level of using.
@@ -4552,7 +4552,7 @@ mch_call_shell_terminal(
     // restore curwin/curbuf and a few other things
     aucmd_restbuf(&aco);
 
-    // only require pressing Enter when redrawing, to avoid that system() gets
+    // Only require pressing Enter when redrawing, to avoid that system() gets
     // the hit-enter prompt even though it didn't output anything.
     if (!RedrawingDisabled)
 	wait_return(TRUE);
@@ -5051,7 +5051,6 @@ mch_call_shell_fork(
 				{
 				    // finished all the lines, close pipe
 				    close(toshell_fd);
-				    toshell_fd = -1;
 				    break;
 				}
 				lp = ml_get(lnum);
@@ -5429,7 +5428,7 @@ finished:
 	     * child already exited.
 	     */
 	    if (wait_pid != pid)
-		wait_pid = wait4pid(pid, &status);
+		(void)wait4pid(pid, &status);
 
 # ifdef FEAT_GUI
 	    // Close slave side of pty.  Only do this after the child has
@@ -5507,7 +5506,8 @@ mch_call_shell(
     ch_log(NULL, "executing shell command: %s", cmd);
 #endif
 #if defined(FEAT_GUI) && defined(FEAT_TERMINAL)
-    if (gui.in_use && vim_strchr(p_go, GO_TERMINAL) != NULL)
+    if (gui.in_use && vim_strchr(p_go, GO_TERMINAL) != NULL
+					      && (options & SHELL_SILENT) == 0)
 	return mch_call_shell_terminal(cmd, options);
 #endif
 #ifdef USE_SYSTEM
@@ -6525,7 +6525,7 @@ select_eintr:
 #ifdef FEAT_JOB_CHANNEL
 	// also call when ret == 0, we may be polling a keep-open channel
 	if (ret >= 0)
-	    ret = channel_select_check(ret, &rfds, &wfds);
+	    (void)channel_select_check(ret, &rfds, &wfds);
 #endif
 
 #endif // HAVE_SELECT

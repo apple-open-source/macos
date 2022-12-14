@@ -28,8 +28,7 @@
 namespace WebCore {
 
 RealtimeIncomingAudioSourceGStreamer::RealtimeIncomingAudioSourceGStreamer(AtomString&& audioTrackId)
-    : RealtimeMediaSource(RealtimeMediaSource::Type::Audio, WTFMove(audioTrackId))
-    , RealtimeIncomingSourceGStreamer()
+    : RealtimeIncomingSourceGStreamer(CaptureDevice { WTFMove(audioTrackId), CaptureDevice::DeviceType::Microphone, emptyString() })
 {
     start();
 }
@@ -37,21 +36,6 @@ RealtimeIncomingAudioSourceGStreamer::RealtimeIncomingAudioSourceGStreamer(AtomS
 RealtimeIncomingAudioSourceGStreamer::~RealtimeIncomingAudioSourceGStreamer()
 {
     stop();
-}
-
-void RealtimeIncomingAudioSourceGStreamer::startProducingData()
-{
-    openValve();
-}
-
-void RealtimeIncomingAudioSourceGStreamer::stopProducingData()
-{
-    closeValve();
-}
-
-const RealtimeMediaSourceCapabilities& RealtimeIncomingAudioSourceGStreamer::capabilities()
-{
-    return RealtimeMediaSourceCapabilities::emptyCapabilities();
 }
 
 const RealtimeMediaSourceSettings& RealtimeIncomingAudioSourceGStreamer::settings()

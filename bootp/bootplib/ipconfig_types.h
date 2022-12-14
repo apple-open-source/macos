@@ -103,7 +103,8 @@ ServiceIDCreateCFString(ServiceID service_id)
 typedef uint8_t * xmlData_t;
 typedef uint8_t * xmlDataOut_t;
 typedef uint8_t * dataOut_t;
-typedef u_int32_t ip_address_t;
+typedef uint32_t ip_address_t;
+typedef uint32_t DHCPIAID;
 
 typedef enum {
     ipconfig_status_success_e = 0,

@@ -252,6 +252,11 @@
     modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
+#if TARGET_OS_TV
+    // This operation is needed during CKKS bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
+    modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;
+#endif
+
     modifyRecordsOp.group = self.deps.ckoperationGroup;
     ckksnotice("ckksshare", viewState.zoneID, "Operation group is %@", self.deps.ckoperationGroup);
 

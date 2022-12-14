@@ -277,7 +277,12 @@ void
 ts_print(netdissect_options *ndo,
          const struct timeval *tvp)
 {
+#ifdef __APPLE__
+	static struct timeval tv_ref_3;
+	static struct timeval tv_ref_5;
+#else
 	static struct timeval tv_ref;
+#endif /* __APPLE__ */
 	struct timeval tv_result;
 	int negative_offset;
 	int nano_prec;
@@ -341,23 +346,26 @@ ts_print(netdissect_options *ndo,
 		break;
 	}
 #else /* __APPLE__ */
-	if (ndo->ndo_tflag == 1 || ndo->ndo_t1flag) { /* No time stamp */
-		return;
+	if (ndo->ndo_t4flag) { /* Date + Default */
+		ts_date_hmsfrac_print(ndo, tvp->tv_sec, tvp->tv_usec,
+							  WITH_DATE, LOCAL_TIME);
+		ND_PRINT(" ");
 	}
 
-	if (ndo->ndo_tflag == 0 || ndo->ndo_t0flag) { /* Default */
+	if (ndo->ndo_t0flag) { /* Default */
 		ts_date_hmsfrac_print(ndo, tvp->tv_sec, tvp->tv_usec,
 							  WITHOUT_DATE, LOCAL_TIME);
 		ND_PRINT(" ");
 	}
 
-	if (ndo->ndo_tflag == 2 || ndo->ndo_t2flag) { /* Unix timeval style */
+	if (ndo->ndo_t2flag) { /* Unix timeval style */
 		ts_unix_print(ndo, tvp->tv_sec, tvp->tv_usec);
 		ND_PRINT(" ");
 	}
 
-	if (ndo->ndo_tflag == 3 || ndo->ndo_t3flag ||  /* Microseconds/nanoseconds since previous packet */
-		ndo->ndo_tflag == 5 || ndo->ndo_t5flag) { /* Microseconds/nanoseconds since first packet */
+	if (ndo->ndo_t3flag) {  /* Microseconds/nanoseconds since previous packet */
+		struct timeval tv_ref = tv_ref_3;
+
 #ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
 		switch (ndo->ndo_tstamp_precision) {
 			case PCAP_TSTAMP_PRECISION_MICRO:
@@ -387,13 +395,42 @@ ts_print(netdissect_options *ndo,
 							  WITHOUT_DATE, UTC_TIME);
 		ND_PRINT(" ");
 
-		if (ndo->ndo_tflag == 3)
-			tv_ref = *tvp; /* set timestamp for previous packet */
+		tv_ref = *tvp; /* set timestamp for previous packet */
+		tv_ref_3 = tv_ref;
 	}
 
-	if (ndo->ndo_tflag == 4 || ndo->ndo_t4flag) { /* Date + Default */
-		ts_date_hmsfrac_print(ndo, tvp->tv_sec, tvp->tv_usec,
-							  WITH_DATE, LOCAL_TIME);
+	if (ndo->ndo_t5flag) { /* Microseconds/nanoseconds since first packet */
+		struct timeval tv_ref = tv_ref_5;
+
+#ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
+		switch (ndo->ndo_tstamp_precision) {
+			case PCAP_TSTAMP_PRECISION_MICRO:
+				nano_prec = 0;
+				break;
+			case PCAP_TSTAMP_PRECISION_NANO:
+				nano_prec = 1;
+				break;
+			default:
+				nano_prec = 0;
+				break;
+		}
+#else
+		nano_prec = 0;
+#endif
+		if (!(netdissect_timevalisset(&tv_ref))) {
+			tv_ref = *tvp; /* set timestamp for first packet */
+			tv_ref_5 = tv_ref;
+		}
+
+		negative_offset = netdissect_timevalcmp(tvp, &tv_ref, <);
+		if (negative_offset)
+			netdissect_timevalsub(&tv_ref, tvp, &tv_result, nano_prec);
+		else
+			netdissect_timevalsub(tvp, &tv_ref, &tv_result, nano_prec);
+
+		ND_PRINT((negative_offset ? "-" : " "));
+		ts_date_hmsfrac_print(ndo, tv_result.tv_sec, tv_result.tv_usec,
+							  WITHOUT_DATE, UTC_TIME);
 		ND_PRINT(" ");
 	}
 #endif /* __APPLE__ */

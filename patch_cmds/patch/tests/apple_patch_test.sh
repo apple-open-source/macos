@@ -414,6 +414,19 @@ quiet_body()
 	atf_check patch -s my_file my_file.diff
 }
 
+atf_test_case bof_100350977
+bof_100350977_body()
+{
+	srcdir="$(atf_get_srcdir)"
+	inf="$srcdir"/bof_100350977.in
+	outf="$srcdir"/bof_100350977.out
+
+	atf_check -s exit:1 -o save:ctx.diff diff -c "$inf" "$outf"
+	atf_check patch -so file.out "$inf" ctx.diff
+
+	atf_check cmp -s "$outf" file.out
+}
+
 atf_init_test_cases()
 {
 	atf_add_test_case backup_policy
@@ -429,4 +442,5 @@ atf_init_test_cases()
 	atf_add_test_case eof_patch
 	atf_add_test_case bof_patch
 	atf_add_test_case quiet
+	atf_add_test_case bof_100350977
 }

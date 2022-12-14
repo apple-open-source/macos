@@ -46,6 +46,8 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/storage/IOMedia.h>
 #include <os/log.h>
+#include <MediaKit/GPTTypes.h>
+#include <IOKit/IOBSD.h>
 ///w:start
 #include <dlfcn.h>
 #if TARGET_OS_OSX
@@ -149,6 +151,61 @@ static DADiskRef __DADiskListGetDiskWithIOMedia( io_service_t media )
     return NULL;
 }
 
+static void DADiskSetContainer( DADiskRef disk )
+{
+    if ( disk )
+    {
+        io_service_t media;
+        io_service_t parent = IO_OBJECT_NULL;
+        media = DADiskGetIOMedia( disk );
+        IORegistryEntryGetParentEntry( media, kIOServicePlane, &parent );
+        media = parent;
+        
+        while ( media )
+        {
+    
+            if ( IOObjectConformsTo( media, kIOMediaClass ) )
+            {
+                CFTypeRef content;
+
+                content = IORegistryEntryCreateCFProperty( media, CFSTR( kIOBSDUnitKey ), CFGetAllocator( disk ), 0 );
+
+                if ( content )
+                {
+                    UInt32 bsdUnit;
+                    CFNumberGetValue( content, kCFNumberSInt32Type, &bsdUnit );
+                    if ( bsdUnit != DADiskGetBSDUnit( disk ) )
+                    {
+                        CFTypeRef object = IORegistryEntryCreateCFProperty( media, CFSTR( kIOBSDNameKey ), CFGetAllocator( disk ), 0 );
+
+                        io_name_t name;
+                        char path[PATH_MAX];
+
+                        CFStringGetCString( object, name, sizeof( name ), kCFStringEncodingUTF8 );
+                        strlcpy( path, _PATH_DEV, sizeof( path ) );
+                        strlcat( path, name,      sizeof( path ) );
+                       
+                        DADiskSetContainerId(disk, path);
+                        
+                        IOObjectRelease( media );
+                        CFRelease( content );
+
+                        return ;
+                    }
+
+                    CFRelease( content );
+                }
+            }
+
+            IORegistryEntryGetParentEntry( media, kIOServicePlane, &parent );
+
+            IOObjectRelease( media );
+
+            media = parent;
+        }
+    }
+
+}
 static void __DAMediaBusyStateChangedCallback( void * context, io_service_t service, void * argument )
 {
     DADiskRef disk;
@@ -1151,6 +1208,9 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                 if ( CFEqual( content, CFSTR( "41504653-0000-11AA-AA11-00306543ECAC" ) ) )
                 {
                     DAUnitSetState( disk, _kDAUnitStateHasAPFS, TRUE );
+#if TARGET_OS_IOS
+                    DADiskSetContainer( disk );
+#endif
                 }
                 
                 if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )

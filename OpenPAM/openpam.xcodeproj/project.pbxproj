@@ -176,6 +176,7 @@
 		1C3D9EE0101FC89C007934F5 /* pam.conf.5 in Copy to man5 */ = {isa = PBXBuildFile; fileRef = 1C3D9EA2101FC838007934F5 /* pam.conf.5 */; };
 		1C3D9F03101FC965007934F5 /* other in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C3D9F02101FC965007934F5 /* other */; };
 		1CEE194A1027B0EA002306F4 /* pam_shim.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D02101FB8DA007934F5 /* pam_shim.c */; };
+		43CA07E329021604001BBC0B /* openpam_apple_chains.c in Sources */ = {isa = PBXBuildFile; fileRef = 43CA07E129021604001BBC0B /* openpam_apple_chains.c */; };
 		7413C87E108E1025001F12F6 /* pam_unsetenv.c in Sources */ = {isa = PBXBuildFile; fileRef = 7413C87D108E1025001F12F6 /* pam_unsetenv.c */; };
 		74A4846910A2788900D13119 /* pam_unsetenv.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 74A4846810A2780400D13119 /* pam_unsetenv.3 */; };
 /* End PBXBuildFile section */
@@ -494,6 +495,7 @@
 		1C3D9EA2101FC838007934F5 /* pam.conf.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam.conf.5; path = openpam/doc/man/pam.conf.5; sourceTree = "<group>"; };
 		1C3D9F02101FC965007934F5 /* other */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = other; path = pam.d/other; sourceTree = "<group>"; };
 		1CEE19481027B0BE002306F4 /* libpam.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libpam.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		43CA07E129021604001BBC0B /* openpam_apple_chains.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = openpam_apple_chains.c; path = openpam/lib/openpam_apple_chains.c; sourceTree = "<group>"; };
 		7413C87D108E1025001F12F6 /* pam_unsetenv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_unsetenv.c; path = openpam/lib/pam_unsetenv.c; sourceTree = "<group>"; };
 		74A4846810A2780400D13119 /* pam_unsetenv.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_unsetenv.3; path = openpam/doc/man/pam_unsetenv.3; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -604,6 +606,7 @@
 		1C3D9D3A101FBA8B007934F5 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				43CA07E129021604001BBC0B /* openpam_apple_chains.c */,
 				1C3D9D3B101FBA9F007934F5 /* openpam_borrow_cred.c */,
 				1C3D9D3C101FBA9F007934F5 /* openpam_configure.c */,
 				1C3D9D3D101FBA9F007934F5 /* openpam_dispatch.c */,
@@ -955,6 +958,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				43CA07E329021604001BBC0B /* openpam_apple_chains.c in Sources */,
 				1C3D9D75101FBA9F007934F5 /* openpam_borrow_cred.c in Sources */,
 				1C3D9D76101FBA9F007934F5 /* openpam_configure.c in Sources */,
 				1C3D9D77101FBA9F007934F5 /* openpam_dispatch.c in Sources */,

@@ -126,11 +126,16 @@ struct pam_saved_cred {
 #define PAM_OTHER	"other"
 
 int		 openpam_configure(pam_handle_t *, const char *);
+int		 openpam_configure_default(pam_handle_t *);
 int		 openpam_dispatch(pam_handle_t *, int, int);
 int		 openpam_findenv(pam_handle_t *, const char *, size_t);
 pam_module_t	*openpam_load_module(const char *);
 void			openpam_release_module(pam_module_t *module);
 void		 openpam_clear_chains(pam_chain_t **);
+
+typedef enum { pam_conf_style, pam_d_style } openpam_style_t;
+
+int		 openpam_configure_apple(pam_handle_t *, const char *);
 
 #ifdef OPENPAM_STATIC_MODULES
 pam_module_t	*openpam_static(const char *);

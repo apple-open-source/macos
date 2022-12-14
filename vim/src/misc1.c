@@ -377,8 +377,8 @@ plines_win_nofill(
     if (!wp->w_p_wrap)
 	lines = 1
 #ifdef FEAT_PROP_POPUP
-	    // add a line for each "below" aligned text property
-		    + prop_count_below(wp->w_buffer, lnum)
+	    // add a line for each "above" and "below" aligned text property
+	    + prop_count_above_below(wp->w_buffer, lnum)
 #endif
 	;
     else
@@ -616,7 +616,7 @@ ask_yesno(char_u *str, int direct)
 
     while (r != 'y' && r != 'n')
     {
-	// same highlighting as for wait_return
+	// same highlighting as for wait_return()
 	smsg_attr(HL_ATTR(HLF_R), "%s (y/n)?", str);
 	if (direct)
 	    r = get_keystroke();
@@ -2016,18 +2016,14 @@ get_env_name(
     expand_T	*xp UNUSED,
     int		idx)
 {
-# if defined(AMIGA)
-    /*
-     * No environ[] on the Amiga.
-     */
+#if defined(AMIGA)
+    // No environ[] on the Amiga.
     return NULL;
-# else
+#else
 # ifndef __WIN32__
     // Borland C++ 5.2 has this in a header file.
     extern char		**environ;
 # endif
-# define ENVNAMELEN 100
-    static char_u	name[ENVNAMELEN];
     char_u		*str;
     int			n;
 
@@ -2035,15 +2031,15 @@ get_env_name(
     if (str == NULL)
 	return NULL;
 
-    for (n = 0; n < ENVNAMELEN - 1; ++n)
+    for (n = 0; n < EXPAND_BUF_LEN - 1; ++n)
     {
 	if (str[n] == '=' || str[n] == NUL)
 	    break;
-	name[n] = str[n];
+	xp->xp_buf[n] = str[n];
     }
-    name[n] = NUL;
-    return name;
-# endif
+    xp->xp_buf[n] = NUL;
+    return xp->xp_buf;
+#endif
 }
 
 /*

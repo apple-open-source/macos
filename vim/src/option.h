@@ -452,9 +452,7 @@ EXTERN unsigned	bo_flags;
 #define BO_TERM		0x40000
 #define BO_WILD		0x80000
 
-#ifdef FEAT_WILDIGN
 EXTERN char_u	*p_bsk;		// 'backupskip'
-#endif
 #ifdef FEAT_CRYPT
 EXTERN char_u	*p_cm;		// 'cryptmethod'
 #endif
@@ -928,6 +926,7 @@ EXTERN char_u	*p_spo;		// 'spelloptions'
 EXTERN char_u	*p_sps;		// 'spellsuggest'
 #endif
 EXTERN int	p_spr;		// 'splitright'
+EXTERN int	p_spsc;		// 'splitscroll'
 EXTERN int	p_sol;		// 'startofline'
 EXTERN char_u	*p_su;		// 'suffixes'
 EXTERN char_u	*p_sws;		// 'swapsync'
@@ -1063,18 +1062,14 @@ EXTERN long	p_window;	// 'window'
 #define FEAT_WAK
 EXTERN char_u	*p_wak;		// 'winaltkeys'
 #endif
-#ifdef FEAT_WILDIGN
 EXTERN char_u	*p_wig;		// 'wildignore'
-#endif
 EXTERN int	p_wiv;		// 'weirdinvert'
 EXTERN char_u	*p_ww;		// 'whichwrap'
 EXTERN long	p_wc;		// 'wildchar'
 EXTERN long	p_wcm;		// 'wildcharm'
 EXTERN int	p_wic;		// 'wildignorecase'
 EXTERN char_u	*p_wim;		// 'wildmode'
-#ifdef FEAT_WILDMENU
 EXTERN int	p_wmnu;		// 'wildmenu'
-#endif
 EXTERN long	p_wh;		// 'winheight'
 EXTERN long	p_wmh;		// 'winminheight'
 EXTERN long	p_wmw;		// 'winminwidth'

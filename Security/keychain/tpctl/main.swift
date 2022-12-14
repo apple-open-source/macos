@@ -40,7 +40,7 @@ enum Command {
     case update
     case reset
     case validate
-    case viableBottles
+    case viableBottles // (OTEscrowRecordFetchSource)
     case vouch(String, Data, Data, Data, Data)
     case vouchWithBottle(String, Data, String)
     case fetchRecoverableTLKShares(String)
@@ -751,7 +751,7 @@ for command in commands {
 
     case .viableBottles:
         logger.log("viableBottles (\(container), \(context))")
-        tpHelper.fetchViableBottles(with: specificUser) { sortedBottleIDs, partialBottleIDs, error in
+        tpHelper.fetchViableBottles(with: specificUser, source: .default) { sortedBottleIDs, partialBottleIDs, error in
             guard error == nil else {
                 print("Error fetching viable bottles:", error!)
                 return

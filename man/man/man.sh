@@ -287,7 +287,11 @@ man_check_for_so() {
 	# We need to loop to accommodate multiple .so directives.
 	while true
 	do
-		line=$($cattool $manpage | head -1)
+#ifdef __APPLE__
+		line=$($cattool "$manpage" | head -1)
+#else
+#		line=$($cattool $manpage | head -1)
+#endif
 		case "$line" in
 		.so*)	trim "${line#.so}"
 			decho "$manpage includes $tstr"
@@ -332,10 +336,18 @@ man_display_page() {
 			ret=0
 		else
 			if [ $debug -gt 0 ]; then
-				decho "Command: $cattool $catpage | $MANPAGER"
+#ifdef __APPLE__
+				decho "Command: $cattool \"$catpage\" | $MANPAGER"
+#else
+#				decho "Command: $cattool $catpage | $MANPAGER"
+#endif
 				ret=0
 			else
-				eval "$cattool $catpage | $MANPAGER"
+#ifdef __APPLE__
+				eval "$cattool \"$catpage\" | $MANPAGER"
+#else
+#				eval "$cattool $catpage | $MANPAGER"
+#endif
 				ret=$?
 			fi
 		fi
@@ -360,7 +372,11 @@ man_display_page() {
 		pipeline="mandoc $mandoc_args | $MANPAGER"
 	fi
 
-	if ! eval "$cattool $manpage | $testline" ;then
+#ifdef __APPLE__
+	if ! eval "$cattool \"$manpage\" | $testline" ;then
+#else
+#	if ! eval "$cattool $manpage | $testline" ;then
+#endif
 		if which -s groff; then
 #ifdef __APPLE__
 			man_display_page_groff $path
@@ -387,14 +403,14 @@ man_display_page() {
 
 	if [ $debug -gt 0 ]; then
 #ifdef __APPLE__
-		decho "Command: cd $path && $cattool $manpage | $pipeline"
+		decho "Command: cd $path && $cattool \"$manpage\" | $pipeline"
 #else
 #		decho "Command: $cattool $manpage | $pipeline"
 #endif
 		ret=0
 	else
 #ifdef __APPLE__
-		(cd $path && eval "$cattool $manpage | $pipeline")
+		(cd $path && eval "$cattool \"$manpage\" | $pipeline")
 #else
 #		eval "$cattool $manpage | $pipeline"
 #endif
@@ -500,14 +516,14 @@ man_display_page_groff() {
 
 	if [ $debug -gt 0 ]; then
 #ifdef __APPLE_
-		decho "Command: cd $path && $cattool $manpage | $pipeline"
+		decho "Command: cd $path && $cattool \"$manpage\" | $pipeline"
 #else
 #		decho "Command: $cattool $manpage | $pipeline"
 #endif
 		ret=0
 	else
 #ifdef __APPLE__
-		(cd $path && eval "$cattool $manpage | $pipeline")
+		(cd $path && eval "$cattool \"$manpage\" | $pipeline")
 #else
 #		eval "$cattool $manpage | $pipeline"
 #endif
@@ -529,17 +545,16 @@ man_find_and_display() {
 			manpage="$1"
 #ifdef __APPLE__
 			path=$(dirname "$manpage")
-#endif
-			setup_cattool $manpage
-#ifdef __APPLE__
-			if man_check_for_so $manpage $path; then
+			setup_cattool "$manpage"
+			if man_check_for_so "$manpage" "$path"; then
 #else
+#			setup_cattool $manpage
 #			if man_check_for_so $manpage $(dirname $manpage); then
 #endif
 				found_page=yes
 #ifdef __APPLE__
 				manpage=$(realpath "$manpage")
-				man_display_page $path
+				man_display_page "$path"
 #else
 #				man_display_page
 #endif
@@ -691,7 +706,23 @@ man_parse_args() {
 	done
 	unset IFS
 
-	pages="$*"
+#ifdef __APPLE__
+	# Convoluted to simplify later handling of these path args; just
+	# expanding $* into $pages won't DTRT, we'll break up args with internal
+	# spaces.  Sidestep it entirely by instead shuffling the remainder of
+	# our args over into a newline-delimited $pages, which we can then
+	# process through with read.
+	nl=$'\n'
+	for i in $(seq 1 $#); do
+		eval page=\"\${${i}}\"
+		if [ "${i}" -gt 1 ]; then
+			pages="${pages}${nl}"
+		fi
+		pages="${pages}${page}"
+	done
+#else
+#	pages="$*"
+#endif
 }
 
 # Usage: man_setup
@@ -1197,10 +1228,23 @@ do_man() {
 	fi
 	man_setup
 
-	for page in $pages; do
+#ifdef __APPLE__
+	while read page; do
+		if [ -z "${page}" ]; then
+			continue
+		fi
+#else
+#	for page in $pages; do
+#endif
 		decho "Searching for $page"
 		man_find_and_display "$page"
-	done
+#ifndef __APPLE__
+#	done
+#else
+	done <<EOF
+$pages
+EOF
+#endif
 
 	exit ${ret:-0}
 }

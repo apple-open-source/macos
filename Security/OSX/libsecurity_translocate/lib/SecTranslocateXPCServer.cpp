@@ -44,6 +44,7 @@ namespace SecTranslocate {
 static void doCreate(xpc_object_t msg, xpc_object_t reply, audit_token_t audit_token)
 {
     const int original = xpc_dictionary_dup_fd(msg, kSecTranslocateXPCMessageOriginalPath);
+    const char* pathInsideTranslocationPoint = xpc_dictionary_get_string(msg, kSecTranslocateXPCMessagePathInsideTranslocationPoint);
     const int dest = xpc_dictionary_dup_fd(msg, kSecTranslocateXPCMessageDestinationPath);
     const int64_t opts = xpc_dictionary_get_int64(msg, kSecTranslocateXPCMessageOptions);
 
@@ -86,6 +87,10 @@ static void doCreate(xpc_object_t msg, xpc_object_t reply, audit_token_t audit_t
         }
     } else {
         TranslocationPath tPath(original, TranslocationOptions::Default);
+        if (pathInsideTranslocationPoint != NULL) {
+            string tmpString(pathInsideTranslocationPoint);
+            tPath.setPathInsideTranslocation(tmpString);
+        }
         result = tPath.getOriginalRealPath();
 
         if (tPath.shouldTranslocate()) {

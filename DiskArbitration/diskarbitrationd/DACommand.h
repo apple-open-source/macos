@@ -36,7 +36,8 @@ extern "C" {
 enum
 {
     kDACommandExecuteOptionDefault       = 0x00000000,
-    kDACommandExecuteOptionCaptureOutput = 0x00000001
+    kDACommandExecuteOptionCaptureOutput = 0x00000001,
+    kDACommandExecuteOptionSetFd         = 0x00000002
 };
 
 typedef UInt32 DACommandExecuteOptions;
@@ -49,6 +50,7 @@ extern void DACommandExecute( CFURLRef                 executable,
                               DACommandExecuteOptions  options,
                               uid_t                    userUID,
                               gid_t                    userGID,
+                              int                      fd,
                               DACommandExecuteCallback callback,
                               void *                   callbackContext,
                               ... );

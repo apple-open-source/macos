@@ -229,6 +229,16 @@
     self.fetchRecordZoneChangesOperation.group = self.ckoperationGroup;
     ckksnotice_global("ckksfetch", "Operation group is %@", self.ckoperationGroup);
 
+#if TARGET_OS_TV
+    if([self.fetchReasons containsObject:CKKSFetchBecauseAPIFetchRequest] ||
+       [self.fetchReasons containsObject:CKKSFetchBecauseInitialStart] ||
+       [self.fetchReasons containsObject:CKKSFetchBecauseMoreComing] ||
+       [self.fetchReasons containsObject:CKKSFetchBecauseKeyHierarchy]) {
+        // This operation is needed during CKKS bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
+        self.fetchRecordZoneChangesOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+    }
+#endif
+
     self.fetchRecordZoneChangesOperation.recordChangedBlock = ^(CKRecord *record) {
         STRONGIFY(self);
         ckksinfo_global("ckksfetch", "CloudKit notification: record changed(%@): %@", [record recordType], record);

@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 18,
+    "assetVersion": 19,
     "operators": [
         {
             "email": [
@@ -339,13 +339,9 @@
                     "log_id": "u9nfvB+KcbWTlCOXqpJ7RzhXlQqrUugakJZkNo4e0YU=",
                     "mmd": 86400,
                     "state": {
-                        "readonly": {
-                            "final_tree_head": {
-                                "sha256_root_hash": "m8mPaxXwy+EdNwnfdsSWCKdhEk1bm/5Mp84ilMB5xvc=",
-                                "tree_size": 312892829
-                            },
-                            "timestamp": "2022-05-02T00:00:00Z",
-                            "version": "144"
+                        "retired": {
+                            "timestamp": "2022-09-15T00:00:00Z",
+                            "version": "168"
                         }
                     },
                     "url": "https://ct.googleapis.com/skydiver/"
@@ -373,13 +369,9 @@
                     "log_id": "pLkJkLQYWBSHuxOizGdwCjw1mAT5G9+443fNDsgN3BA=",
                     "mmd": 86400,
                     "state": {
-                        "readonly": {
-                            "final_tree_head": {
-                                "sha256_root_hash": "57gZIfRLpXho89LUBCQeZUDIHx8gA9PL1M4hc71W90E=",
-                                "tree_size": 1077336645
-                            },
-                            "timestamp": "2022-05-02T00:00:00Z",
-                            "version": "146"
+                        "retired": {
+                            "timestamp": "2022-09-15T00:00:00Z",
+                            "version": "170"
                         }
                     },
                     "url": "https://ct.googleapis.com/pilot/"
@@ -458,13 +450,9 @@
                     "log_id": "7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=",
                     "mmd": 86400,
                     "state": {
-                        "readonly": {
-                            "final_tree_head": {
-                                "sha256_root_hash": "Fj49ZSzvzvjNlEOCVhdkwpTlP7hyp82SFsmfWPScpv0=",
-                                "tree_size": 1117582774
-                            },
-                            "timestamp": "2022-05-02T00:00:00Z",
-                            "version": "145"
+                        "retired": {
+                            "timestamp": "2022-09-15T00:00:00Z",
+                            "version": "169"
                         }
                     },
                     "url": "https://ct.googleapis.com/rocketeer/"
@@ -543,13 +531,9 @@
                     "log_id": "KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=",
                     "mmd": 86400,
                     "state": {
-                        "readonly": {
-                            "final_tree_head": {
-                                "sha256_root_hash": "D1H4wAJmq0MRCeLfeOtrsZ9Am015anO5MkeasNhnQWI=",
-                                "tree_size": 762430819
-                            },
-                            "timestamp": "2022-05-02T00:00:00Z",
-                            "version": "143"
+                        "retired": {
+                            "timestamp": "2022-09-15T00:00:00Z",
+                            "version": "167"
                         }
                     },
                     "url": "https://ct.googleapis.com/icarus/"
@@ -630,14 +614,14 @@
                     "state": {
                         "qualified": {
                             "timestamp": "2022-08-30T02:30:16Z",
-                            "version": "154"
+                            "version": "165"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2025-01-01T00:00:00Z",
                         "start_inclusive": "2024-01-01T00:00:00Z"
                     },
-                    "url": "https://ct.googleapis.com/logs/argon2024/"
+                    "url": "https://ct.googleapis.com/logs/us1/argon2024/"
                 },
                 {
                     "description": "Google 'Xenon 2024' log",
@@ -647,14 +631,14 @@
                     "state": {
                         "qualified": {
                             "timestamp": "2022-08-30T02:30:32Z",
-                            "version": "155"
+                            "version": "166"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2025-01-01T00:00:00Z",
                         "start_inclusive": "2024-01-01T00:00:00Z"
                     },
-                    "url": "https://ct.googleapis.com/logs/xenon2024/"
+                    "url": "https://ct.googleapis.com/logs/eu1/xenon2024/"
                 }
             ],
             "name": "Google"
@@ -947,9 +931,9 @@
                     "log_id": "Nc8ZG7+xbFe/D61MbULLu7YnICZR6j/hKu+oA8M71kw=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2019-12-02T18:33:19Z",
-                            "version": "72"
+                        "retired": {
+                            "timestamp": "2022-09-29T00:00:00Z",
+                            "version": "172"
                         }
                     },
                     "temporal_interval": {
@@ -981,9 +965,9 @@
                     "log_id": "BZwB0yDgB4QTlYBJjRF8kDJmr69yULWvO0akPhGEDUo=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2021-11-15T19:49:20Z",
-                            "version": "106"
+                        "retired": {
+                            "timestamp": "2022-09-29T00:00:00Z",
+                            "version": "171"
                         }
                     },
                     "temporal_interval": {
@@ -1301,5 +1285,5 @@
             "name": "TrustAsia"
         }
     ],
-    "version": "164"
+    "version": "172"
 }

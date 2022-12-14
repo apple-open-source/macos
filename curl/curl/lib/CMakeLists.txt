@@ -95,7 +95,7 @@ if(NOT BUILD_SHARED_LIBS)
     set_target_properties(${LIB_NAME} PROPERTIES INTERFACE_COMPILE_DEFINITIONS CURL_STATICLIB)
 endif()
 
-target_link_libraries(${LIB_NAME} ${CURL_LIBS})
+target_link_libraries(${LIB_NAME} PRIVATE ${CURL_LIBS})
 
 set_target_properties(${LIB_NAME} PROPERTIES
   COMPILE_DEFINITIONS BUILDING_LIBCURL
@@ -119,7 +119,6 @@ endif()
 
 if(WIN32)
   if(BUILD_SHARED_LIBS)
-    set_property(TARGET ${LIB_NAME} APPEND PROPERTY COMPILE_DEFINITIONS "_USRDLL")
     if(MSVC)
       # Add "_imp" as a suffix before the extension to avoid conflicting with
       # the statically linked "libcurl.lib"
@@ -140,6 +139,6 @@ install(TARGETS ${LIB_NAME}
 )
 
 export(TARGETS ${LIB_NAME}
-       APPEND FILE ${PROJECT_BINARY_DIR}/libcurl-target.cmake
+       FILE ${PROJECT_BINARY_DIR}/libcurl-target.cmake
        NAMESPACE ${PROJECT_NAME}::
 )

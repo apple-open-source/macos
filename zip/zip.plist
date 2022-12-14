@@ -47,6 +47,7 @@
 			<string>&lt;rdar://problem/25537454&gt; Format string misuse in zip [-Wformat-security]</string>
 			<string>Remove unsupported MacOS9 options from man page (4126223)</string>
 			<string>Fix CVE-2022-0530 (89134229)</string>
+			<string>CVE-2021-4217 from Ubuntu</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>unzip</string>

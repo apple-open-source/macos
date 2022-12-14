@@ -4989,11 +4989,8 @@ f_term_dumpwrite(typval_T *argvars, typval_T *rettv UNUSED)
     {
 	dict_T *d;
 
-	if (argvars[2].v_type != VAR_DICT)
-	{
-	    emsg(_(e_dictionary_required));
+	if (check_for_dict_arg(argvars, 2) == FAIL)
 	    return;
-	}
 	d = argvars[2].vval.v_dict;
 	if (d != NULL)
 	{
@@ -6465,11 +6462,9 @@ f_term_setansicolors(typval_T *argvars, typval_T *rettv UNUSED)
     if (term->tl_vterm == NULL)
 	return;
 
-    if (argvars[1].v_type != VAR_LIST || argvars[1].vval.v_list == NULL)
-    {
-	emsg(_(e_list_required));
+    if (check_for_nonnull_list_arg(argvars, 1) == FAIL)
 	return;
-    }
+
     if (argvars[1].vval.v_list->lv_first == &range_list_item
 	    || argvars[1].vval.v_list->lv_len != 16)
     {

@@ -10,7 +10,7 @@
 #include "magazine_testing.h"
 
 // Stubs
-bool malloc_zero_on_free = MALLOC_ZERO_ON_FREE_ENABLED_DEFAULT;
+malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 

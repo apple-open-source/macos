@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -140,7 +140,7 @@ get_preboot_path(void)
 
 /*
  * get_preboot_path_prefix
- * - when in the FVUnlock Preboot environment, retrieve the path to the
+ * - when in the FVUnlock/Migration Basesystem environment, retrieve the path to the
  *   Preboot folder, which contains these two SCPreferences-managed files:
  *	Library/Preferences/SystemConfiguration/preferences.plist
  *	Library/Preferences/SystemConfiguration/NetworkInterfaces.plist
@@ -152,14 +152,11 @@ get_preboot_path_prefix(void)
 	const char *	path = NULL;
 
 	mode = get_boot_mode();
-	if (mode == NULL) {
-		goto done;
+	if (mode != NULL
+	    && (strcmp(mode, OS_BOOT_MODE_FVUNLOCK) == 0
+		|| strcmp(mode, OS_BOOT_MODE_MIGRATION) == 0)) {
+		path = get_preboot_path();
 	}
-	if (strcmp(mode, OS_BOOT_MODE_FVUNLOCK) != 0) {
-		goto done;
-	}
-	path = get_preboot_path();
- done:
 	return (path);
 }
 

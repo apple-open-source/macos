@@ -113,6 +113,17 @@ typedef NS_ENUM(NSInteger, CuttlefishResetReason) {
 extern NSString* const CuttlefishErrorDomain;
 extern NSString* const CuttlefishErrorRetryAfterKey;
 
+typedef NS_ENUM(NSInteger, OTEscrowRecordFetchSource) {
+    /// Default is equivalent to cache or cuttlefish, depending on recency of cache update.
+    OTEscrowRecordFetchSourceDefault = 0,
+    
+    /// Forces the escrow record fetch to only use local on-disk cache, even if stale.
+    OTEscrowRecordFetchSourceCache = 1,
+    
+    /// Forces the escrow record fetch to only use cuttlefish, even if cache is recent.
+    OTEscrowRecordFetchSourceCuttlefish = 2,
+};
+
 #endif // __OBJC__
 
 #endif /* OTConstants_h */

@@ -198,9 +198,7 @@ gui_mch_set_rendering_options(char_u *s)
 # ifndef __MINGW32__
 #  include <shellapi.h>
 # endif
-# if defined(FEAT_TOOLBAR) || defined(FEAT_BEVAL_GUI) || defined(FEAT_GUI_TABLINE)
-#  include <commctrl.h>
-# endif
+# include <commctrl.h>
 # include <windowsx.h>
 
 #endif // PROTO
@@ -8096,6 +8094,20 @@ tabline_wndproc(
 		}
 		break;
 	    }
+	case WM_MBUTTONUP:
+	    {
+		TCHITTESTINFO htinfo;
+
+		htinfo.pt.x = GET_X_LPARAM(lParam);
+		htinfo.pt.y = GET_Y_LPARAM(lParam);
+		idx0 = TabCtrl_HitTest(hwnd, &htinfo);
+		if (idx0 != -1)
+		{
+		    idx0 += 1;
+		    send_tabline_menu_event(idx0, TABLINE_MENU_CLOSE);
+		}
+		break;
+	    }
 	default:
 	    break;
     }
@@ -8649,6 +8661,7 @@ test_gui_w32_sendevent(dict_T *args)
 	inputs[0].ki.wVk = vkCode;
 	if (STRICMP(event, "keyup") == 0)
 	    inputs[0].ki.dwFlags = KEYEVENTF_KEYUP;
+	(void)SetForegroundWindow(s_hwnd);
 	SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
     }
     else

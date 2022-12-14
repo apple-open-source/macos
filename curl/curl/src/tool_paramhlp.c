@@ -116,21 +116,6 @@ ParameterError file2memory(char **bufp, size_t *size, FILE *file)
   return PARAM_OK;
 }
 
-void cleanarg(char *str)
-{
-#ifdef HAVE_WRITABLE_ARGV
-  /* now that GetStr has copied the contents of nextarg, wipe the next
-   * argument out so that the username:password isn't displayed in the
-   * system process list */
-  if(str) {
-    size_t len = strlen(str);
-    memset(str, ' ', len);
-  }
-#else
-  (void)str;
-#endif
-}
-
 /*
  * Parse the string and write the long in the given address. Return PARAM_OK
  * on success, otherwise a parameter specific error enum.
@@ -275,8 +260,8 @@ ParameterError str2udouble(double *valp, const char *str, long max)
 }
 
 /*
- * Parse the string and modify the long in the given address. Return
- * non-zero on failure, zero on success.
+ * Parse the string and provide an allocated libcurl compatible protocol
+ * string output. Return non-zero on failure, zero on success.
  *
  * The string is a list of protocols
  *
@@ -285,17 +270,22 @@ ParameterError str2udouble(double *valp, const char *str, long max)
  * data.
  */
 
-long proto2num(struct OperationConfig *config, long *val, const char *str)
+ParameterError proto2num(struct OperationConfig *config,
+                         unsigned int val, char **ostr, const char *str)
 {
   char *buffer;
   const char *sep = ",";
   char *token;
+  char obuf[256] = "";
+  size_t olen = sizeof(obuf);
+  char *optr;
+  struct sprotos const *pp;
 
   static struct sprotos {
     const char *name;
-    long bit;
+    unsigned int bit;
   } const protos[] = {
-    { "all", CURLPROTO_ALL },
+    { "all", (unsigned int)CURLPROTO_ALL },
     { "http", CURLPROTO_HTTP },
     { "https", CURLPROTO_HTTPS },
     { "ftp", CURLPROTO_FTP },
@@ -305,6 +295,7 @@ long proto2num(struct OperationConfig *config, long *val, const char *str)
     { "telnet", CURLPROTO_TELNET },
     { "ldap", CURLPROTO_LDAP },
     { "ldaps", CURLPROTO_LDAPS },
+    { "mqtt", CURLPROTO_MQTT },
     { "dict", CURLPROTO_DICT },
     { "file", CURLPROTO_FILE },
     { "tftp", CURLPROTO_TFTP },
@@ -316,17 +307,18 @@ long proto2num(struct OperationConfig *config, long *val, const char *str)
     { "smtps", CURLPROTO_SMTPS },
     { "rtsp", CURLPROTO_RTSP },
     { "gopher", CURLPROTO_GOPHER },
+    { "gophers", CURLPROTO_GOPHERS },
     { "smb", CURLPROTO_SMB },
     { "smbs", CURLPROTO_SMBS },
     { NULL, 0 }
   };
 
   if(!str)
-    return 1;
+    return PARAM_OPTION_AMBIGUOUS;
 
   buffer = strdup(str); /* because strtok corrupts it */
   if(!buffer)
-    return 1;
+    return PARAM_NO_MEM;
 
   /* Allow strtok() here since this isn't used threaded */
   /* !checksrc! disable BANNEDFUNC 2 */
@@ -334,8 +326,6 @@ long proto2num(struct OperationConfig *config, long *val, const char *str)
       token;
       token = strtok(NULL, sep)) {
     enum e_action { allow, deny, set } action = allow;
-
-    struct sprotos const *pp;
 
     /* Process token modifiers */
     while(!ISALNUM(*token)) { /* may be NULL if token is all modifiers */
@@ -351,7 +341,7 @@ long proto2num(struct OperationConfig *config, long *val, const char *str)
         break;
       default: /* Includes case of terminating NULL */
         Curl_safefree(buffer);
-        return 1;
+        return PARAM_BAD_USE;
       }
     }
 
@@ -359,13 +349,13 @@ long proto2num(struct OperationConfig *config, long *val, const char *str)
       if(curl_strequal(token, pp->name)) {
         switch(action) {
         case deny:
-          *val &= ~(pp->bit);
+          val &= ~(pp->bit);
           break;
         case allow:
-          *val |= pp->bit;
+          val |= pp->bit;
           break;
         case set:
-          *val = pp->bit;
+          val = pp->bit;
           break;
         }
         break;
@@ -376,12 +366,25 @@ long proto2num(struct OperationConfig *config, long *val, const char *str)
       /* If they have specified only this protocol, we say treat it as
          if no protocols are allowed */
       if(action == set)
-        *val = 0;
+        val = 0;
       warnf(config->global, "unrecognized protocol '%s'\n", token);
     }
   }
   Curl_safefree(buffer);
-  return 0;
+
+  optr = obuf;
+  for(pp = &protos[1]; pp->name; pp++) {
+    if(val & pp->bit) {
+      size_t n = msnprintf(optr, olen, "%s%s",
+                           olen != sizeof(obuf) ? "," : "",
+                           pp->name);
+      olen -= n;
+      optr += n;
+    }
+  }
+  *ostr = strdup(obuf);
+
+  return *ostr ? PARAM_OK : PARAM_NO_MEM;
 }
 
 /**
@@ -392,7 +395,7 @@ long proto2num(struct OperationConfig *config, long *val, const char *str)
  * @return PARAM_LIBCURL_UNSUPPORTED_PROTOCOL  protocol not supported
  * @return PARAM_REQUIRES_PARAMETER   missing parameter
  */
-int check_protocol(const char *str)
+ParameterError check_protocol(const char *str)
 {
   const char * const *pp;
   const curl_version_info_data *curlinfo = curl_version_info(CURLVERSION_NOW);

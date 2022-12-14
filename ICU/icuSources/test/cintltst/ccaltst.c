@@ -3027,11 +3027,36 @@ void TestWeekOfYear() {
         { 2021, 02}, // 19: 2021 Jan 08, Fri
         { 2021, 02}, // 20: 2021 Jan 09, Sat
     };
+    static const int32_t yearWeekSI[WOY_TEST_DAY_COUNT][2] = {
+        //   Y  ww             y MMM dd, EEE
+        { 2020, 51}, // 00: 2020 Dec 20, Sun
+        { 2020, 52}, // 01: 2020 Dec 21, Mon
+        { 2020, 52}, // 02: 2020 Dec 22, Tue
+        { 2020, 52}, // 03: 2020 Dec 23, Wed
+        { 2020, 52}, // 04: 2020 Dec 24, Thu
+        { 2020, 52}, // 05: 2021 Dec 25, Fri
+        { 2020, 52}, // 06: 2021 Dec 26, Sat
+        { 2020, 52}, // 07: 2020 Dec 27, Sun
+        { 2020, 53}, // 08: 2020 Dec 28, Mon
+        { 2020, 53}, // 09: 2020 Dec 29, Tue
+        { 2020, 53}, // 10: 2020 Dec 30, Wed
+        { 2020, 53}, // 11: 2020 Dec 31, Thu
+        { 2020, 53}, // 12: 2021 Jan 01, Fri
+        { 2020, 53}, // 13: 2021 Jan 02, Sat
+        { 2020, 53}, // 14: 2021 Jan 03, Sun
+        { 2021, 01}, // 15: 2021 Jan 04, Mon
+        { 2021, 01}, // 16: 2021 Jan 05, Tue
+        { 2021, 01}, // 17: 2021 Jan 06, Wed
+        { 2021, 01}, // 18: 2021 Jan 07, Thu
+        { 2021, 01}, // 19: 2021 Jan 08, Fri
+        { 2021, 01}, // 20: 2021 Jan 09, Sat
+    };
     static const LocaleYearWeeks locYrWks[] = {
         { "en_US",                  1, 1, &yearWeekUS },
         { "en_US@calendar=iso8601", 2, 4, &yearWeekISO },
         { "zh_CN",                  1, 5, &yearWeekCN },
         { "ar_AE",                  2, 1, &yearWeekAE },    // rdar://88496195
+		{ "sl_SI",                  2, 4, &yearWeekSI },    // rdar://98849488
         { NULL, 0, 0, NULL }
     };
     const LocaleYearWeeks* locYrWksPtr;

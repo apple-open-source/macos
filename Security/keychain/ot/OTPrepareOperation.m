@@ -130,12 +130,27 @@
         if (metadata.hasSettings) {
             settings = [[OTAccountSettings alloc]init];
             
+#if APPLE_FEATURE_WALRUS
+            if ([metadata.settings hasW]) {
+                OTWalrus* walrus = [[OTWalrus alloc]init];
+                walrus.enabled = metadata.settings.w ? YES : NO;
+                settings.walrus = walrus;
+            }
+#else
             if ([metadata.settings hasW]) {
                 OTTag1* w = [[OTTag1 alloc]init];
                 w.enabled = metadata.settings.w ? YES : NO;
                 settings.tag1 = w;
             }
+#endif
             
+#if APPLE_FEATURE_WALRUS_UI
+            if ([metadata.settings hasWebAccess]) {
+                OTWebAccess* webAccess = [[OTWebAccess alloc]init];
+                webAccess.enabled = metadata.settings.webAccess ? YES : NO;
+                settings.webAccess = webAccess;
+            }
+#endif
         }
         metadata.attemptedJoin = OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED;
 

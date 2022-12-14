@@ -111,6 +111,7 @@ public enum ContainerError: Error {
     case peerRegisteredButNotStored(String)
     case configuredContainerDoesNotMatchSpecifiedUser(TPSpecificUser)
     case noSpecifiedUser
+    case noEscrowCache
 }
 
 extension ContainerError: LocalizedError {
@@ -212,6 +213,8 @@ extension ContainerError: LocalizedError {
             return "Existing container configuration does not match user \(user)"
         case .noSpecifiedUser:
             return "No user specified"
+        case .noEscrowCache:
+            return "No escrow cache available"
         }
     }
 }
@@ -321,6 +324,8 @@ extension ContainerError: CustomNSError {
             return 49
         case .noSpecifiedUser:
             return 50
+        case .noEscrowCache:
+            return 51
         }
     }
 
@@ -3257,15 +3262,20 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func fetchViableBottles(reply: @escaping ([String]?, [String]?, Error?) -> Void) {
+    func fetchViableBottles(from source: OTEscrowRecordFetchSource, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
         self.semaphore.wait()
-        let reply: ([String]?, [String]?, Error?) -> Void = {
-            logger.info("fetchViableBottles complete: \(traceError($2), privacy: .public)")
+        self.fetchViableBottlesWithSemaphore(from: source) { result in
             self.semaphore.signal()
-            reply($0, $1, $2)
+            
+            switch result {
+            case let .success((viableBottles, partialBottles)):
+                logger.info("fetchViableBottles succeeded with \(viableBottles.count, privacy: .public) viable bottles and \(partialBottles.count, privacy: .public) partial bottles")
+                reply(viableBottles, partialBottles, nil)
+            case let .failure(error):
+                logger.error("fetchViableBottles failed with \(traceError(error), privacy: .public)")
+                reply(nil, nil, error)
+            }
         }
-
-        self.fetchViableBottlesWithSemaphore(reply: reply)
     }
 
     func handleFetchViableBottlesResponseWithSemaphore(response: FetchViableBottlesResponse?) {
@@ -3392,71 +3402,13 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func fetchViableBottlesWithSemaphore(reply: @escaping ([String]?, [String]?, Error?) -> Void) {
-        logger.info("beginning a fetchViableBottles")
-
-        self.moc.performAndWait {
-            var cachedBottles = TPCachedViableBottles(viableBottles: [], partialBottles: [])
-
-            if let lastDate = self.containerMO.escrowFetchDate {
-                if Date() < lastDate.addingTimeInterval(escrowCacheTimeout) {
-                    logger.info("escrow cache still valid")
-                    cachedBottles = onqueueCachedBottlesFromEscrowRecords()
-                } else {
-                    logger.info("escrow cache no longer valid")
-                    if let records = self.containerMO.fullyViableEscrowRecords {
-                        self.containerMO.removeFromFullyViableEscrowRecords(records)
-                    }
-                    if let records = self.containerMO.partiallyViableEscrowRecords {
-                        self.containerMO.removeFromPartiallyViableEscrowRecords(records)
-                   }
-                    self.containerMO.escrowFetchDate = nil
-                }
-            }
-
-            if !cachedBottles.viableBottles.isEmpty || !cachedBottles.partialBottles.isEmpty {
-                logger.info("returning from fetchViableBottles, using cached bottles")
-                reply(cachedBottles.viableBottles, cachedBottles.partialBottles, nil)
-                return
-            }
-
-            let request = FetchViableBottlesRequest.with {
-                $0.filterRequest = OctagonPlatformSupportsSOS() ? .unknown : .byOctagonOnly
-            }
-            if request.filterRequest == .byOctagonOnly {
-                logger.info("Requesting Cuttlefish sort records by Octagon Only")
-            }
-
-            self.cuttlefish.fetchViableBottles(request) { response in
-                switch response {
-                case .success(let response):
-                    self.moc.performAndWait {
-                        let escrowPairs = response.viableBottles
-                        let  partialPairs = response.partialBottles
-
-                        let viableBottleIDs = escrowPairs.compactMap { $0.bottle.bottleID }
-                        logger.info("fetchViableBottles returned viable bottles: \(viableBottleIDs, privacy: .public)")
-
-                        let partialBottleIDs = partialPairs.compactMap { $0.bottle.bottleID }
-                        logger.info("fetchViableBottles returned partial bottles: \(partialBottleIDs, privacy: .public)")
-
-                        self.handleFetchViableBottlesResponseWithSemaphore(response: response)
-
-                        do {
-                            try self.moc.save()
-                            logger.info("fetchViableBottles saved bottles")
-                            self.containerMO.escrowFetchDate = Date()
-                            reply(viableBottleIDs, partialBottleIDs, nil)
-                        } catch {
-                            logger.info("fetchViableBottles unable to save bottles: \(String(describing: error), privacy: .public)")
-                            reply(nil, nil, error)
-                        }
-                    }
-                case .failure(let error):
-                    logger.info("fetchViableBottles failed: \(String(describing: error), privacy: .public)")
-                    reply(nil, nil, error)
-                    return
-                }
+    func fetchViableBottlesWithSemaphore(from source: OTEscrowRecordFetchSource, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
+        self.fetchViableBottlesWithSemaphore(from: source) { result in
+            switch result {
+            case let .success((viableBottles, partialBottles)):
+                reply(viableBottles, partialBottles, nil)
+            case let .failure(error):
+                reply(nil, nil, error)
             }
         }
     }
@@ -3489,88 +3441,166 @@ class Container: NSObject, ConfiguredCloudKit {
         }
         self.containerMO.escrowFetchDate = nil
     }
-
-    func fetchEscrowRecordsWithSemaphore(forceFetch: Bool, reply: @escaping ([Data]?, Error?) -> Void) {
-        logger.info("beginning a fetchEscrowRecords")
-
-        self.moc.performAndWait {
-            var cachedRecords: [OTEscrowRecord] = []
-
-            if forceFetch == false {
-                logger.info("fetchEscrowRecords: force fetch flag is off")
-                if let lastDate = self.containerMO.escrowFetchDate {
-                    if Date() < lastDate.addingTimeInterval(escrowCacheTimeout) {
-                        logger.info("escrow cache still valid")
-                        cachedRecords = onqueueCachedEscrowRecords()
+    
+    func fetchViableBottlesWithSemaphore(from source: OTEscrowRecordFetchSource, reply: @escaping (Result<([String], [String]), Error>) -> Void) {
+        logger.info("beginning a fetchViableBottles from source \(source.rawValue)")
+        
+        switch source {
+        case .cache:
+            self.fetchViableBottlesFromCacheWithSemaphore(checkingTimeout: false, reply: reply)
+        case .cuttlefish:
+            self.fetchViableBottlesFromCuttlefishWithSemaphore(reply: reply)
+        case .default:
+            fallthrough
+        @unknown default:
+            self.fetchViableBottlesFromCacheWithSemaphore(checkingTimeout: true) { result in
+                switch result {
+                case let .success((viableBottles, partialBottles)):
+                    if viableBottles.isEmpty, partialBottles.isEmpty {
+                        fallthrough
                     } else {
-                        logger.info("escrow cache no longer valid")
-                        self.onQueueRemoveEscrowCache()
+                        logger.info("fetchViableBottlesFromCache returned bottles")
+                        reply(.success((viableBottles, partialBottles)))
                     }
+                case .failure(_):
+                    logger.info("fetchViableBottlesFromCache did not return any bottles, checking cuttlefish")
+                    self.fetchViableBottlesFromCuttlefishWithSemaphore(reply: reply)
                 }
+            }
+        }
+    }
+
+    func fetchEscrowRecordsWithSemaphore(from source: OTEscrowRecordFetchSource, reply: @escaping (Result<[Data], Error>) -> Void) {
+        logger.info("starting fetchEscrowRecordsWithSemaphore from source \(source.rawValue)")
+        
+        switch source {
+        case .cache:
+            self.fetchEscrowRecordsFromCacheWithSemaphore(checkingTimeout: false, reply: reply)
+        case .cuttlefish:
+            self.fetchEscrowRecordsFromCuttlefishWithSemaphore(reply: reply)
+        case .default:
+            fallthrough
+        @unknown default:
+            self.fetchEscrowRecordsFromCacheWithSemaphore(checkingTimeout: true) { result in
+                switch result {
+                case let .success(records):
+                    if records.isEmpty {
+                        fallthrough
+                    } else {
+                        logger.info("fetchEscrowRecordsFromCache returned records")
+                        reply(.success(records))
+                    }
+                case .failure(_):
+                    logger.info("fetchEscrowRecordsFromCache did not return any records, checking cuttlefish")
+                    self.fetchEscrowRecordsFromCuttlefishWithSemaphore(reply: reply)
+                }
+            }
+        }
+    }
+    
+    func fetchViableBottlesFromCacheWithSemaphore(checkingTimeout: Bool, reply: @escaping (Result<([String], [String]), Error>) -> Void) {
+        logger.info("starting fetchViableBottlesFromCacheWithSemaphore and will check timeout: \(checkingTimeout)")
+        self.moc.performAndWait {
+            self.fetchFromEscrowCacheWithSemaphore(checkingTimeout: checkingTimeout, cacheFetch: {
+                let bottles = self.onqueueCachedBottlesFromEscrowRecords()
+                return (
+                    collection: (bottles.viableBottles, bottles.partialBottles),
+                    isEmpty: bottles.viableBottles.isEmpty && bottles.partialBottles.isEmpty
+                )
+            }, reply: reply)
+        }
+    }
+    
+    func fetchEscrowRecordsFromCacheWithSemaphore(checkingTimeout: Bool, reply: @escaping (Result<[Data], Error>) -> Void) {
+        logger.info("starting fetchEscrowRecordsFromCacheWithSemaphore and will check timeout: \(checkingTimeout)")
+        self.moc.performAndWait {
+            self.fetchFromEscrowCacheWithSemaphore(checkingTimeout: checkingTimeout, cacheFetch: {
+                let records = self.onqueueCachedEscrowRecords().compactMap { $0.data }
+                return (
+                    collection: records,
+                    isEmpty: records.isEmpty
+                )
+            }, reply: reply)
+        }
+    }
+    
+    func fetchFromEscrowCacheWithSemaphore<T>(
+        checkingTimeout: Bool,
+        cacheFetch: () -> (collection: T, isEmpty: Bool),
+        reply: @escaping (Result<T, Error>) -> Void
+    ) {
+        logger.info("starting fetchFromEscrowCacheWithSemaphore and will check timeout: \(checkingTimeout)")
+        reply(self.moc.performAndWait {
+            let (records, isEmpty) = cacheFetch()
+            guard !isEmpty || self.containerMO.escrowFetchDate != nil else {
+                logger.info("no cached records were found, no saved escrowFetchDate either, returning no cache error")
+                return .failure(ContainerError.noEscrowCache)
+            }
+            
+            guard checkingTimeout else {
+                logger.info("skipping timeout check and directly returning cached records")
+                return .success(records)
+            }
+            
+            if let lastDate = self.containerMO.escrowFetchDate, Date() < lastDate.addingTimeInterval(self.escrowCacheTimeout) {
+                logger.info("escrow cache still valid")
+                return .success(records)
             } else {
-                logger.info("fetchEscrowRecords: force fetch flag is on, removing escrow cache")
-                self.onQueueRemoveEscrowCache()
+                logger.info("escrow cache no longer valid")
+                return .failure(ContainerError.failedToFetchEscrowContents)
             }
-
-            if !cachedRecords.isEmpty {
-                logger.info("returning from fetchEscrowRecords, using cached escrow records")
-                let recordData: [Data] = cachedRecords.map { $0.data }
-                reply(recordData, nil)
-                return
+        })
+    }
+    
+    func fetchViableBottlesFromCuttlefishWithSemaphore(reply: @escaping (Result<([String], [String]), Error>) -> Void) {
+        logger.info("starting fetchViableBottlesWithSemaphoreFromCuttlefish")
+        
+        let request = FetchViableBottlesRequest.with { request in
+            if OctagonPlatformSupportsSOS() {
+                request.filterRequest = .unknown
+            } else {
+                logger.info("Requesting Cuttlefish to filter records by Octagon Only")
+                request.filterRequest = .byOctagonOnly
             }
-
-            let request = FetchViableBottlesRequest.with {
-                $0.filterRequest = OctagonPlatformSupportsSOS() ? .unknown : .byOctagonOnly
-            }
-            if request.filterRequest == .byOctagonOnly {
-                logger.info("Requesting Cuttlefish sort records by Octagon Only")
-            }
-
-            self.cuttlefish.fetchViableBottles(request) { response in
-                switch response {
-                case .success(let response):
-                    self.moc.performAndWait {
-                        do {
-                            self.handleFetchViableBottlesResponseWithSemaphore(response: response)
-
-                            try self.moc.save()
-                            logger.info("fetchViableBottles saved bottles and records")
-                            self.containerMO.escrowFetchDate = Date()
-
-                            var allEscrowRecordData: [Data] = []
-                            if let fullyViableRecords = self.containerMO.fullyViableEscrowRecords as? Set<EscrowRecordMO> {
-                                for record in fullyViableRecords {
-                                    if let r = self.escrowRecordMOToEscrowRecords(record: record, viability: .full) {
-                                        allEscrowRecordData.append(r.data)
-                                    }
-                                }
-                            }
-                            if let partiallyViableRecords = self.containerMO.partiallyViableEscrowRecords as? Set<EscrowRecordMO> {
-                                for record in partiallyViableRecords {
-                                    if let r = self.escrowRecordMOToEscrowRecords(record: record, viability: .partial) {
-                                        allEscrowRecordData.append(r.data)
-                                    }
-                                }
-                            }
-                            if let legacyRecords = self.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO> {
-                                for record in legacyRecords {
-                                    if let r = self.escrowRecordMOToEscrowRecords(record: record, viability: .none) {
-                                        allEscrowRecordData.append(r.data)
-                                    }
-                                }
-                            }
-                            reply(allEscrowRecordData, nil)
-                        } catch {
-                            logger.info("fetchViableBottles unable to save bottles and records: \(String(describing: error), privacy: .public)")
-                            reply(nil, error)
-                        }
+        }
+        
+        self.cuttlefish.fetchViableBottles(request) { result in
+            switch result {
+            case let .success(response):
+                reply(self.moc.performAndWait {
+                    do {
+                        // Purge escrow cache before updating with a fresh response.
+                        self.onQueueRemoveEscrowCache()
+                        self.handleFetchViableBottlesResponseWithSemaphore(response: response)
+                        self.containerMO.escrowFetchDate = Date()
+                        
+                        try self.moc.save()
+                        logger.info("fetchViableBottles saved bottles and records")
+                        
+                        let viableBottleIDs = response.viableBottles.map { $0.bottle.bottleID }
+                        let partialBottleIDs = response.partialBottles.map { $0.bottle.bottleID }
+                        
+                        logger.info("fetchViableBottles returned viable bottles: \(viableBottleIDs, privacy: .public)")
+                        logger.info("fetchViableBottles returned partial bottles: \(partialBottleIDs, privacy: .public)")
+                        
+                        return .success((viableBottleIDs, partialBottleIDs))
+                    } catch {
+                        logger.error("fetchViableBottles unable to save bottles and records with \(traceError(error), privacy: .public)")
+                        return .failure(error)
                     }
-                case .failure(let error):
-                    logger.info("fetchViableBottles failed: \(String(describing: error), privacy: .public)")
-                    reply(nil, error)
-                    return
-                }
+                })
+            case let .failure(error):
+                logger.error("fetchViableBottles failed with \(traceError(error), privacy: .public)")
+                reply(.failure(error))
             }
+        }
+    }
+    
+    func fetchEscrowRecordsFromCuttlefishWithSemaphore(reply: @escaping (Result<[Data], Error>) -> Void) {
+        self.fetchViableBottlesFromCuttlefishWithSemaphore { result in
+            reply(self.moc.performAndWait { result.map { _ in
+                self.onqueueCachedEscrowRecords().compactMap { $0.data }
+            }})
         }
     }
 

@@ -1263,7 +1263,7 @@ static Boolean __DARequestUnmount( DARequestRef request )
         DALogInfo( "unmounted disk, id = %@, ongoing.", disk );
 
         DAThreadExecute( __DARequestUnmountUnmount, request, __DARequestUnmountCallback, request );
-
+        
         return TRUE;
     }
     else
@@ -1309,7 +1309,7 @@ static void __DARequestUnmountCallback( int status, void * context )
          */
         if ( mountListIndex == mountListCount )
         {
-            DALogDebug( " %@ is not mounted. Ignore the umount error", disk);
+            DALogDebug( " %@ is not mounted. Ignore the umount error %d", disk, status);
             status = 0;
             goto handleumount;
         }
@@ -1330,12 +1330,14 @@ static void __DARequestUnmountCallback( int status, void * context )
             dissenter = DADissenterCreate( kCFAllocatorDefault, unix_err( status ) );
 
             DARequestSetDissenter( request, dissenter );
-
-            DAThreadExecute( __DARequestUnmountGetProcessID, request, __DARequestUnmountCallback, request );
-
+            
             CFRelease( dissenter );
 
+#if TARGET_OS_OSX
+            DAThreadExecute( __DARequestUnmountGetProcessID, request, __DARequestUnmountCallback, request );
+
             return;
+#endif
         }
 
         __DARequestDispatchCallback( request, dissenter );
@@ -1429,15 +1431,15 @@ static int __DARequestUnmountUnmount( void * context )
     int          status = EINVAL;
     
     disk = DARequestGetDisk( request );
-
+    
     mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
-
+    
     path = ___CFURLCopyFileSystemRepresentation( mountpoint );
     
     if ( path )
     {
         DADiskUnmountOptions options;
-
+        
         options = DARequestGetArgument1( request );
         
         if ( options & kDADiskUnmountOptionForce )
@@ -1464,8 +1466,9 @@ static int __DARequestUnmountUnmount( void * context )
         {
             status = errno;
         }
+        free( path );
     }
-        
+    
     return status;
 }
 

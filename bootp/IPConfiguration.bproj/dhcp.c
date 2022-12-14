@@ -1229,14 +1229,16 @@ inform_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       case IFEventID_wake_e:
       case IFEventID_renew_e:
       case IFEventID_link_status_changed_e: {
-	  link_status_t	link_status;
+	  link_event_data_t	link_event;
+	  link_status_t *	link_status_p;
 
+	  link_event = (link_event_data_t)event_data;
+	  link_status_p = &link_event->link_status;
 	  if (inform == NULL) {
 	      return (ipconfig_status_internal_error_e);
 	  }
 	  inform->user_warned = FALSE;
-	  link_status = service_link_status(service_p);
-	  if (link_status.valid == TRUE && link_status.active == FALSE) {
+	  if (link_status_is_inactive(link_status_p)) {
 	      inform_cancel_pending_events(service_p);
 	  }
 	  else if (event_id != IFEventID_wake_e
@@ -1713,12 +1715,12 @@ dhcp_check_lease(ServiceRef service_p, absolute_time_t current_time)
 }
 
 static void
-dhcp_check_link(ServiceRef service_p, IFEventID_t event_id)
+dhcp_check_link_with_status(ServiceRef service_p, IFEventID_t event_id,
+			    link_status_t * link_status_p)
 {
     absolute_time_t 	current_time = timer_current_secs();
     Service_dhcp_t *	dhcp = (Service_dhcp_t *)ServiceGetPrivate(service_p);
     interface_t *	if_p = service_interface(service_p);
-    link_status_t	link_status = service_link_status(service_p);
     boolean_t		wait_for_link_active;
 
     if (if_is_wireless(if_p)) {
@@ -1728,10 +1730,10 @@ dhcp_check_link(ServiceRef service_p, IFEventID_t event_id)
 	 * time is not desirable since it is inherently stale and not
 	 * applicable to the current SSID.
 	 */
-	wait_for_link_active = !link_status.valid || !link_status.active;
+	wait_for_link_active = !link_status_p->valid || !link_status_p->active;
     }
     else {
-	wait_for_link_active = link_status.valid && !link_status.active;
+	wait_for_link_active = link_status_is_inactive(link_status_p);
     }
     if (wait_for_link_active) {
 	/* ensure that we'll retry when the link goes back up */
@@ -1747,8 +1749,8 @@ dhcp_check_link(ServiceRef service_p, IFEventID_t event_id)
 	CFStringRef	ssid = ServiceGetSSID(service_p);
 
 	if (ssid == NULL) {
-	    my_log(LOG_NOTICE, "%s: dhcp_check_link: no SSID",
-		   if_name(if_p));
+	    my_log(LOG_NOTICE, "%s: %s: no SSID",
+		   if_name(if_p), __func__);
 	}
 	else if (!my_CFStringEqual(dhcp->lease.ssid, ssid)
 		 && !my_CFStringEqual(dhcp->lease.networkID, networkID)) {
@@ -1794,6 +1796,15 @@ dhcp_check_link(ServiceRef service_p, IFEventID_t event_id)
 	return;
     }
     return;
+}
+
+static void
+dhcp_check_link(ServiceRef service_p, IFEventID_t event_id)
+{
+    link_status_t	link_status;
+
+    link_status = service_link_status(service_p);
+    dhcp_check_link_with_status(service_p, event_id, &link_status);
 }
 
 INLINE boolean_t
@@ -2227,7 +2238,8 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      linklocal_service_change(service_p, LINKLOCAL_NO_ALLOCATE);
 	  }
 	  /* make sure to start DHCP again */
-	  dhcp_check_link(service_p, event_id);
+	  dhcp_check_link_with_status(service_p, event_id,
+				      &link_event->link_status);
 	  break;
       }
       case IFEventID_link_timer_expired_e:
@@ -2246,8 +2258,8 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  break;
       }
       case IFEventID_wake_e: {
-	  link_status_t		link_status;
 	  link_event_data_t	link_event;
+	  link_status_t *	link_status_p;
 
 	  if (ServiceIsNetBoot(service_p)) {
 	      break;
@@ -2263,17 +2275,18 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	   * - we're not on the same ethernet network
 	   */
 	  link_event = (link_event_data_t)event_data;
-	  link_status = service_link_status(service_p);
-	  if ((link_status.valid && link_status.active == FALSE)
+	  link_status_p = &link_event->link_status;
+	  if (link_status_is_inactive(link_status_p)
 	      || (if_is_wireless(if_p) 
 		  && link_event->info == kLinkInfoNetworkChanged)
 	      || (if_is_wireless(if_p) == FALSE
-		  && link_status.wake_on_same_network == FALSE)) {
+		  && !link_status_p->wake_on_same_network)) {
 	      /* make sure there's no IP address assigned when we wake */
 	      service_remove_address(service_p);
 	      service_publish_failure(service_p,
 				      ipconfig_status_network_changed_e);
-	      dhcp_check_link(service_p, event_id);
+	      dhcp_check_link_with_status(service_p, event_id,
+					  link_status_p);
 	  }
 	  else {
 	      absolute_time_t 	current_time;

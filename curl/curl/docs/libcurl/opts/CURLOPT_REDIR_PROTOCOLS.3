@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_REDIR_PROTOCOLS 3 "May 17, 2022" "libcurl 7.84.0" "curl_easy_setopt options"
+.TH CURLOPT_REDIR_PROTOCOLS 3 "June 13, 2022" "libcurl 7.85.0" "curl_easy_setopt options"
 
 .SH NAME
 CURLOPT_REDIR_PROTOCOLS \- protocols allowed to redirect to
@@ -33,6 +33,10 @@ CURLOPT_REDIR_PROTOCOLS \- protocols allowed to redirect to
 CURLcode curl_easy_setopt(CURL *handle, CURLOPT_REDIR_PROTOCOLS, long bitmask);
 .fi
 .SH DESCRIPTION
+This option is deprecated. We strongly recommend using
+\fICURLOPT_REDIR_PROTOCOLS_STR(3)\fP instead because this option cannot
+control all available protocols!
+
 Pass a long that holds a bitmask of CURLPROTO_* defines. If used, this bitmask
 limits what protocols libcurl may use in a transfer that it follows to in a
 redirect when \fICURLOPT_FOLLOWLOCATION(3)\fP is enabled. This allows you to

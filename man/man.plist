@@ -20,6 +20,7 @@
 		<string>man.sh: use more -E for the default PAGER (82464700)</string>
 		<string>man.sh: implement whatis MANSECT filtering (8400932)</string>
 		<string>man.1: describe apropos/whatis (8400932)</string>
+		<string>man.sh: fix spaces in paths (100414217)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

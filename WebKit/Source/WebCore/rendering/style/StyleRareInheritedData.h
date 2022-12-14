@@ -24,12 +24,11 @@
 
 #pragma once
 
-#include "Color.h"
 #include "Length.h"
 #include "RenderStyleConstants.h"
+#include "StyleColor.h"
 #include "StyleCustomPropertyData.h"
 #include "TabSize.h"
-#include "TextDecorationThickness.h"
 #include "TextUnderlineOffset.h"
 #include "TouchAction.h"
 #include <wtf/DataRef.h>
@@ -77,18 +76,18 @@ public:
     RefPtr<StyleImage> listStyleImage;
     AtomString listStyleStringValue;
 
-    Color textStrokeColor;
-    Color textFillColor;
-    Color textEmphasisColor;
+    StyleColor textStrokeColor;
+    StyleColor textFillColor;
+    StyleColor textEmphasisColor;
     
-    Color visitedLinkTextStrokeColor;
-    Color visitedLinkTextFillColor;
-    Color visitedLinkTextEmphasisColor;
+    StyleColor visitedLinkTextStrokeColor;
+    StyleColor visitedLinkTextFillColor;
+    StyleColor visitedLinkTextEmphasisColor;
 
-    Color caretColor;
-    Color visitedLinkCaretColor;
+    StyleColor caretColor;
+    StyleColor visitedLinkCaretColor;
 
-    Color accentColor;
+    StyleColor accentColor;
 
     std::unique_ptr<ShadowData> textShadow;
     
@@ -97,7 +96,6 @@ public:
     float effectiveZoom;
 
     TextUnderlineOffset textUnderlineOffset;
-    TextDecorationThickness textDecorationThickness;
     
     Length wordSpacing;
     float miterLimit;
@@ -174,8 +172,8 @@ public:
     OptionSet<EventListenerRegionType> eventListenerRegionTypes;
 
     Length strokeWidth;
-    Color strokeColor;
-    Color visitedLinkStrokeColor;
+    StyleColor strokeColor;
+    StyleColor visitedLinkStrokeColor;
 
     AtomString hyphenationString;
     short hyphenationLimitBefore { -1 };
@@ -202,7 +200,7 @@ public:
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-    Color tapHighlightColor;
+    StyleColor tapHighlightColor;
 #endif
 
 private:

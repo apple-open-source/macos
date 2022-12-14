@@ -177,6 +177,8 @@ public:
     void getRawCookies(const URL&, WebCore::MediaPlayerClient::GetRawCookiesCallback&&) const;
 #endif
 
+    WebCore::FloatSize naturalSize() const final;
+
 #if !RELEASE_LOG_DISABLED
     const void* mediaPlayerLogIdentifier() { return logIdentifier(); }
     const Logger& mediaPlayerLogger() { return logger(); }
@@ -246,8 +248,6 @@ private:
 
     bool canSaveMediaData() const final;
 
-    WebCore::FloatSize naturalSize() const final;
-
     bool hasVideo() const final;
     bool hasAudio() const final;
 
@@ -289,6 +289,8 @@ private:
     unsigned long long totalBytes() const final;
     bool didLoadingProgress() const final;
     void didLoadingProgressAsync(WebCore::MediaPlayer::DidLoadingProgressCompletionHandler&&) const final;
+
+    void setPresentationSize(const WebCore::IntSize&) final;
 
     void paint(WebCore::GraphicsContext&, const WebCore::FloatRect&) final;
     void paintCurrentFrameInContext(WebCore::GraphicsContext&, const WebCore::FloatRect&) final;

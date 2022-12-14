@@ -6341,7 +6341,8 @@ static enum
     EXP_SUBCMD,	    // expand ":syn" sub-commands
     EXP_CASE,	    // expand ":syn case" arguments
     EXP_SPELL,	    // expand ":syn spell" arguments
-    EXP_SYNC	    // expand ":syn sync" arguments
+    EXP_SYNC,	    // expand ":syn sync" arguments
+    EXP_CLUSTER	    // expand ":syn list @cluster" arguments
 } expand_what;
 
 /*
@@ -6396,10 +6397,17 @@ set_context_in_syntax_cmd(expand_T *xp, char_u *arg)
 		expand_what = EXP_SPELL;
 	    else if (STRNICMP(arg, "sync", p - arg) == 0)
 		expand_what = EXP_SYNC;
-	    else if (  STRNICMP(arg, "keyword", p - arg) == 0
+	    else if (STRNICMP(arg, "list", p - arg) == 0)
+	    {
+		p = skipwhite(p);
+		if (*p == '@')
+		    expand_what = EXP_CLUSTER;
+		else
+		    xp->xp_context = EXPAND_HIGHLIGHT;
+	    }
+	    else if (STRNICMP(arg, "keyword", p - arg) == 0
 		    || STRNICMP(arg, "region", p - arg) == 0
-		    || STRNICMP(arg, "match", p - arg) == 0
-		    || STRNICMP(arg, "list", p - arg) == 0)
+		    || STRNICMP(arg, "match", p - arg) == 0)
 		xp->xp_context = EXPAND_HIGHLIGHT;
 	    else
 		xp->xp_context = EXPAND_NOTHING;
@@ -6412,7 +6420,7 @@ set_context_in_syntax_cmd(expand_T *xp, char_u *arg)
  * expansion.
  */
     char_u *
-get_syntax_name(expand_T *xp UNUSED, int idx)
+get_syntax_name(expand_T *xp, int idx)
 {
     switch (expand_what)
     {
@@ -6436,6 +6444,17 @@ get_syntax_name(expand_T *xp UNUSED, int idx)
 		 "linebreaks=", "linecont", "lines=", "match",
 		 "maxlines=", "minlines=", "region", NULL};
 	    return (char_u *)sync_args[idx];
+	}
+	case EXP_CLUSTER:
+	{
+	    if (idx < curwin->w_s->b_syn_clusters.ga_len)
+	    {
+		vim_snprintf((char *)xp->xp_buf, EXPAND_BUF_LEN, "@%s",
+					 SYN_CLSTR(curwin->w_s)[idx].scl_name);
+		return xp->xp_buf;
+	    }
+	    else
+		return NULL;
 	}
     }
     return NULL;
@@ -6675,7 +6694,7 @@ syntime_report(void)
 {
     int		idx;
     synpat_T	*spp;
-# if defined(FEAT_RELTIME) && defined(FEAT_FLOAT)
+# if defined(FEAT_RELTIME)
     proftime_T	tm;
 # endif
     int		len;
@@ -6705,7 +6724,7 @@ syntime_report(void)
 	    p->match = spp->sp_time.match;
 	    total_count += spp->sp_time.count;
 	    p->slowest = spp->sp_time.slowest;
-# if defined(FEAT_RELTIME) && defined(FEAT_FLOAT)
+# if defined(FEAT_RELTIME)
 	    profile_divide(&spp->sp_time.total, spp->sp_time.count, &tm);
 	    p->average = tm;
 # endif
@@ -6739,10 +6758,8 @@ syntime_report(void)
 	msg_puts(profile_msg(&p->slowest));
 	msg_puts(" ");
 	msg_advance(38);
-# ifdef FEAT_FLOAT
 	msg_puts(profile_msg(&p->average));
 	msg_puts(" ");
-# endif
 	msg_advance(50);
 	msg_outtrans(highlight_group_name(p->id - 1));
 	msg_puts(" ");

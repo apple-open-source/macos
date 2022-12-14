@@ -318,6 +318,26 @@ Similar to
 but will not abort in out of memory conditions, making it more useful to catch
 only those errors which will cause memory corruption.
 MallocCorruptionAbort is always set on 64-bit processes.
+.It Ev MallocZeroOnFree
+Starting in macOS 13, iOS 16.1 and aligned releases,
+.Xr free 3
+fully zeroes many blocks immediately.
+This may expose some previously-silent bugs in existing applications.
+In particular, read-after-free bugs may now observe zeroes instead of the
+previous content of an allocation, and write-after-free bugs may cause
+.Xr calloc 3
+to return non-zero memory.
+.Ev MallocZeroOnFree
+can be set to 0 or 1 to explicitly disable or enable this zeroing behavior to
+aid in diagnosing such bugs.
+Support for this environment variable will eventually be removed, and it should
+not be used by shipping software.
+.It Ev MallocCheckZeroOnFreeCorruption
+When zero-on-free behavior is active, this environment variable can be set to 1
+to cause the allocator to check that the free block chosen for a given
+allocation remained fully zeroed and was not corrupted by any invalid
+use-after-free writes.
+If corruption is detected, the allocator will abort.
 .It Ev MallocHelp
 If set, print a list of environment variables that are paid heed to by the
 allocation-related functions, along with short descriptions.

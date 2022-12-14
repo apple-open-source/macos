@@ -2260,10 +2260,10 @@ void GraphicsLayerCA::updateGeometry(float pageScaleFactor, const FloatPoint& po
 
     // Update position.
     // Position is offset on the layer by the layer anchor point.
-    FloatPoint adjustedPosition(scaledPosition.x() + scaledAnchorPoint.x() * scaledSize.width(), scaledPosition.y() + scaledAnchorPoint.y() * scaledSize.height());
+    FloatPoint3D adjustedPosition(scaledPosition.x() + scaledAnchorPoint.x() * scaledSize.width(), scaledPosition.y() + scaledAnchorPoint.y() * scaledSize.height(), scaledAnchorPoint.z());
 
     if (m_structuralLayer) {
-        FloatPoint layerPosition(m_position.x() + m_anchorPoint.x() * m_size.width(), m_position.y() + m_anchorPoint.y() * m_size.height());
+        FloatPoint3D layerPosition(m_position.x() + m_anchorPoint.x() * m_size.width(), m_position.y() + m_anchorPoint.y() * m_size.height(), scaledAnchorPoint.z());
         FloatRect layerBounds(m_boundsOrigin, m_size);
 
         m_structuralLayer->setPosition(layerPosition);
@@ -2273,7 +2273,7 @@ void GraphicsLayerCA::updateGeometry(float pageScaleFactor, const FloatPoint& po
         if (m_layerClones) {
             for (auto& clone : m_layerClones->structuralLayerClones) {
                 PlatformCALayer* cloneLayer = clone.value.get();
-                FloatPoint clonePosition = layerPosition;
+                FloatPoint3D clonePosition = layerPosition;
 
                 if (m_replicaLayer && isReplicatedRootClone(clone.key)) {
                     // Maintain the special-case position for the root of a clone subtree,
@@ -2303,7 +2303,7 @@ void GraphicsLayerCA::updateGeometry(float pageScaleFactor, const FloatPoint& po
     if (m_layerClones) {
         for (auto& clone : m_layerClones->primaryLayerClones) {
             PlatformCALayer* cloneLayer = clone.value.get();
-            FloatPoint clonePosition = adjustedPosition;
+            FloatPoint3D clonePosition = adjustedPosition;
 
             if (!m_structuralLayer && m_replicaLayer && isReplicatedRootClone(clone.key)) {
                 // Maintain the special-case position for the root of a clone subtree,
@@ -3475,7 +3475,7 @@ static const TransformOperations& transformationAnimationValueAt(const KeyframeV
     return static_cast<const TransformAnimationValue&>(valueList.at(i)).value();
 }
 
-static bool hasBigRotationAngle(const KeyframeValueList& valueList, const SharedPrimitivesPrefix& prefix)
+static bool hasBig3DRotation(const KeyframeValueList& valueList, const SharedPrimitivesPrefix& prefix)
 {
     // Hardware non-matrix animations are used for every function in the shared primitives prefix.
     // These kind of animations have issues with large rotation angles, so for every function that
@@ -3485,7 +3485,7 @@ static bool hasBigRotationAngle(const KeyframeValueList& valueList, const Shared
     const auto& primitives = prefix.primitives();
     for (unsigned animationIndex = 0; animationIndex < primitives.size(); ++animationIndex) {
         auto type = primitives[animationIndex];
-        if (type != TransformOperation::ROTATE && type != TransformOperation::ROTATE_3D)
+        if (type != TransformOperation::ROTATE_3D)
             continue;
         for (size_t i = 1; i < valueList.size(); ++i) {
             // Since the shared primitive at this index is a rotation, both of these transform
@@ -3522,7 +3522,7 @@ bool GraphicsLayerCA::createTransformAnimationsFromKeyframes(const KeyframeValue
     // If this animation has a big rotation between two keyframes, fall back to software animation. CoreAnimation
     // will always take the shortest path between two rotations, which will result in incorrect animation when
     // the keyframes specify angles larger than one half rotation.
-    if (hasBigRotationAngle(valueList, prefix))
+    if (hasBig3DRotation(valueList, prefix))
         return false;
 
     const auto& primitives = prefix.primitives();

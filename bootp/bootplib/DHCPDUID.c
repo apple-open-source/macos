@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,24 @@
 #include "cfutil.h"
 #include "symbol_scope.h"
 
+PRIVATE_EXTERN const char *
+DHCPDUIDTypeToString(DHCPDUIDType type)
+{
+    static const char * str[] = {
+				 "none",
+				 "LLT",
+				 "EN",
+				 "LL",
+				 "UUID"
+    };
+    unsigned int	str_count = countof(str);
+
+    if (type < str_count) {
+	return (str[type]);
+    }
+    return ("<unknown>");
+}
+
 /*
  * Function: seconds_since_Jan_1_2000
  * Purpose:
@@ -70,6 +88,7 @@ DHCPDUIDPrintToString(CFMutableStringRef str,
 {
     int			required_len;
     DHCPDUIDType	type;
+    uuid_string_t	uuid_str;
 
     required_len = offsetof(DHCPDUID_LLT, hardware_type);
     if (duid_len < required_len) {
@@ -111,6 +130,16 @@ DHCPDUIDPrintToString(CFMutableStringRef str,
 	my_CFStringAppendBytesAsHex(str, duid->ll.linklayer_address,
 				    duid_len - required_len, ':');
 	break;
+    case kDHCPDUIDTypeUUID:
+	required_len = sizeof(duid->uuid);
+	if (duid_len < required_len) {
+	    goto too_short;
+	}
+	uuid_unparse(duid->uuid.uuid, uuid_str);
+	CFStringAppendFormat(str, NULL,
+			     CFSTR("DUID UUID %s"),
+			     uuid_str);
+	break;
     default:
 	CFStringAppendFormat(str, NULL, CFSTR("DUID (unrecognized type=%d): "),
 			     type);
@@ -133,35 +162,33 @@ DHCPDUIDIsValid(const DHCPDUIDRef duid, int duid_len)
 {
     int			required_len;
     DHCPDUIDType	type;
+    bool		valid = false;
 
     required_len = offsetof(DHCPDUID_LLT, hardware_type);
     if (duid_len < required_len) {
-	return (FALSE);
+	goto done;
     }
     type = DHCPDUIDGetType(duid);
     switch (type) {
     case kDHCPDUIDTypeLLT:
-	required_len = offsetof(DHCPDUID_LLT, linklayer_address);
-	if (duid_len <= required_len) {
-	    return (FALSE);
-	}
+	required_len = offsetof(DHCPDUID_LLT, linklayer_address) + 1;
 	break;
     case kDHCPDUIDTypeEN:
-	required_len = offsetof(DHCPDUID_EN, identifier);
-	if (duid_len <= required_len) {
-	    return (FALSE);
-	}
+	required_len = offsetof(DHCPDUID_EN, identifier) + 1;
 	break;
     case kDHCPDUIDTypeLL:
-	required_len = offsetof(DHCPDUID_LL, linklayer_address);
-	if (duid_len <= required_len) {
-	    return (FALSE);
-	}
+	required_len = offsetof(DHCPDUID_LL, linklayer_address) + 1;
+	break;
+    case kDHCPDUIDTypeUUID:
+	required_len = sizeof(duid->uuid);
 	break;
     default:
-	break;
+	goto done;
     }
-    return (TRUE);
+    valid = (duid_len >= required_len);
+
+ done:
+    return (valid);
 }
 
 PRIVATE_EXTERN CFDataRef
@@ -181,7 +208,7 @@ DHCPDUID_LLDataCreate(const void * ll_addr, int ll_len, int ll_type)
     return (data);
 }
 
-CFDataRef
+PRIVATE_EXTERN CFDataRef
 DHCPDUID_LLTDataCreate(const void * ll_addr, int ll_len, int ll_type)
 {
     CFMutableDataRef	data;
@@ -198,3 +225,59 @@ DHCPDUID_LLTDataCreate(const void * ll_addr, int ll_len, int ll_type)
     DHCPDUID_LLTSetTime(llt_p, S_seconds_since_Jan_1_2000());
     return (data);
 }
+
+PRIVATE_EXTERN CFDataRef
+DHCPDUID_UUIDDataCreate(const uuid_t uuid)
+{
+    CFMutableDataRef	data;
+    int			duid_len;
+    DHCPDUID_UUIDRef	uuid_p;
+
+    duid_len = sizeof(DHCPDUID_UUID);
+    data = CFDataCreateMutable(NULL, duid_len);
+    CFDataSetLength(data, duid_len);
+    uuid_p = (DHCPDUID_UUIDRef)CFDataGetMutableBytePtr(data);
+    DHCPDUIDSetType((DHCPDUIDRef)uuid_p, kDHCPDUIDTypeUUID);
+    uuid_copy(uuid_p->uuid, uuid);
+    return (data);
+}
+
+#ifdef TEST_DHCPDUID
+
+#include <net/if_arp.h>
+#include <SystemConfiguration/SCPrivate.h>
+
+int
+main(int argc, char * argv[])
+{
+    CFDataRef		duid_ll;
+    CFDataRef		duid_llt;
+    CFDataRef		duid_uuid;
+    uint8_t		lladdr[6] = { 0, 1, 2, 3, 4, 5 };
+    CFMutableStringRef	str;
+    struct timespec	ts = { 0, 0 };
+    uuid_t		uuid;
+
+    duid_ll = DHCPDUID_LLDataCreate(lladdr, sizeof(lladdr), ARPHRD_ETHER);
+    duid_llt = DHCPDUID_LLTDataCreate(lladdr, sizeof(lladdr), ARPHRD_ETHER);
+    if (gethostuuid(uuid, &ts) != 0) {
+	perror("gethostuuid");
+	exit(1);
+    }
+    duid_uuid = DHCPDUID_UUIDDataCreate(uuid);
+    str = CFStringCreateMutable(NULL, 0);
+    DHCPDUIDPrintToString(str, (DHCPDUIDRef)CFDataGetBytePtr(duid_ll),
+			  CFDataGetLength(duid_ll));
+    STRING_APPEND_STR(str, "\n");
+    DHCPDUIDPrintToString(str, (DHCPDUIDRef)CFDataGetBytePtr(duid_llt),
+			  CFDataGetLength(duid_llt));
+    STRING_APPEND_STR(str, "\n");
+    DHCPDUIDPrintToString(str, (DHCPDUIDRef)CFDataGetBytePtr(duid_uuid),
+			  CFDataGetLength(duid_uuid));
+    STRING_APPEND_STR(str, "\n");
+    SCPrint(TRUE, stdout, CFSTR("%@"), str);
+    CFRelease(str);
+    exit(0);
+}
+
+#endif /* TEST_DHCPDUID */

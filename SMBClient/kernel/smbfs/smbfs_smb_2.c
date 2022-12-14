@@ -3296,31 +3296,8 @@ smb2fs_smb_cmpd_query_async(struct smb_share *share, vnode_t dvp,
 
     SMB_MALLOC_TYPE_COUNT(pb, struct compound_pb, dir_cache_async_cnt, Z_WAITOK);
     /* Zero out param blocks */
-    for (i = 0; i < dir_cache_async_cnt; i++) {
-        pb[i].dnp = NULL;
-        pb[i].entryp = NULL;
-        
-        pb[i].createp = NULL;
-        pb[i].queryp = NULL;
-        pb[i].closep = NULL;
-        pb[i].stream_infop = NULL;
-        
-        pb[i].create_rqp = NULL;
-        pb[i].query_rqp = NULL;
-        pb[i].close_rqp = NULL;
-        
-        bzero(&pb[i].fattr, sizeof(pb[i].fattr));
-        pb[i].fid = 0;
-        pb[i].rsrc_size = 0;
-        pb[i].alloc_rsrc_size = 0;
-        pb[i].stream_flags = 0;
-        
-        bzero(&pb[i].finfo, sizeof(pb[i].finfo));
-        pb[i].finfo_uio = NULL;
-        
-        pb[i].pending = 0;
-    }
-    
+    bzero(pb, dir_cache_async_cnt * sizeof(struct compound_pb));
+
     /*
      * Count how many entries need Meta Data or Finder Info.
      * All entries will need their Meta Data fetched, but only those items that

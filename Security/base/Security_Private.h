@@ -109,6 +109,8 @@
 #include <Security/SecureObjectSync/SOSTypes.h>
 #include <Security/SecureObjectSync/SOSViews.h>
 #include <Security/SecureTransportPriv.h>
+#include <Security/SecTapToRadar.h>
+#include <Security/SecABC.h>
 #include <Security/SecXPCError.h>
 #include <Security/SecXPCHelper.h>
 #include <Security/SFAnalytics.h>

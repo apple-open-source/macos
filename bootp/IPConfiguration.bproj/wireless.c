@@ -36,7 +36,7 @@
 #include "mylog.h"
 #include "symbol_scope.h"
 
-#ifndef TEST_WIRELESS
+#if !defined(TEST_WIRELESS) && !defined(TEST_DHCPV6_CLIENT)
 #include "my_darwin.h"
 #endif
 

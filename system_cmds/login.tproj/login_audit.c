@@ -87,11 +87,6 @@ au_login_success(int fflag)
 	pid_t pid = getpid();
 	int au_cond;
 
-#ifdef __APPLE__
-	if (ess_notify_login_login != NULL)
-		ess_notify_login_login(true, NULL, pwd->pw_name, &uid);
-#endif /* __APPLE__ */
-
 	/* If we are not auditing, don't cut an audit record; just return. */
  	if (auditon(A_GETCOND, &au_cond, sizeof(au_cond)) < 0) {
 		if (errno == ENOSYS)
@@ -130,6 +125,16 @@ au_login_success(int fflag)
 	}
 	setenv("SECURITYSESSIONID", session, 1);
 	free(session);
+
+#ifdef __APPLE__
+	/*
+	 * Emit ES event after setting up the audit session, so the audit
+	 * session ID and audit user ID in the event represent the newly
+	 * created session for this login.
+	 */
+	if (ess_notify_login_login != NULL)
+		ess_notify_login_login(true, NULL, pwd->pw_name, &uid);
+#endif /* __APPLE__ */
 
 	/* If we are not auditing, don't cut an audit record; just return. */
 	if (au_cond == AUC_NOAUDIT)

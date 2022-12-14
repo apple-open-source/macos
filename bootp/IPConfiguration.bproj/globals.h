@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include "timer.h"
 #include "IPConfigurationControlPrefs.h"
+#include "DHCPDUID.h"
 
 extern uint16_t 		G_client_port;
 extern boolean_t		G_dhcp_accepts_bootp;
@@ -54,7 +55,7 @@ extern int			G_dhcp_lease_write_t1_threshold_secs;
 extern int			G_manual_conflict_retry_interval_secs;
 extern boolean_t		G_dhcpv6_enabled;
 extern boolean_t		G_dhcpv6_stateful_enabled;
-extern int			G_dhcp_duid_type;
+extern DHCPDUIDType		G_dhcp_duid_type;
 extern boolean_t		G_is_netboot;
 extern int			G_min_short_wake_interval_secs;
 extern int			G_min_wake_interval_secs;

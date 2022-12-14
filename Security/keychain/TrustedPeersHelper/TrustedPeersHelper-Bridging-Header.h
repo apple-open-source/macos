@@ -18,7 +18,7 @@
 #import <TrustedPeers/TPECPublicKeyFactory.h>
 
 #import "utilities/SecFileLocations.h"
-#import "utilities/SecTapToRadar.h"
+#import <Security/SecTapToRadar.h>
 
 #import <SecurityFoundation/SFKeychain.h>
 #import <SecurityFoundation/SFIdentity.h>

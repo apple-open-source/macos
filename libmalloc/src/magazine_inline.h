@@ -754,9 +754,6 @@ medium_region_for_ptr_no_lock(rack_t *rack, const void *ptr)
 #pragma mark zero on free
 
 MALLOC_NOEXPORT
-extern bool malloc_zero_on_free;
-
-MALLOC_NOEXPORT
 extern unsigned malloc_zero_on_free_sample_period;
 
 static MALLOC_INLINE bool

@@ -337,6 +337,11 @@ SEC_EXP_CLASS(CKKSExternalKey)
 SEC_EXP_CLASS(CKKSExternalTLKShare)
 SEC_EXP_CLASS(SecuritydXPCClient)
 
+/* Diagnostics */
+SEC_EXP_CLASS(SecTapToRadar)
+_SecABCTrigger
+SEC_EXP_CLASS(SecABC)
+
 #if __OBJC2__
 SEC_EXP_CLASS(SecXPCHelper)
 SEC_EXP_CLASS(OTClique)

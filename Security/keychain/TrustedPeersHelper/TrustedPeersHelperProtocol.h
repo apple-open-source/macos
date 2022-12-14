@@ -384,10 +384,11 @@ NS_ASSUME_NONNULL_BEGIN
                              reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable error))reply;
 
 - (void)fetchViableBottlesWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                    source:(OTEscrowRecordFetchSource)source
                                      reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply;
 
 - (void)fetchViableEscrowRecordsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-                                      forceFetch:(BOOL)forceFetch
+                                          source:(OTEscrowRecordFetchSource)source
                                            reply:(void (^)(NSArray<NSData*>* _Nullable records, NSError* _Nullable error))reply;
 
 - (void)fetchEscrowContentsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser

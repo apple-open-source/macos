@@ -92,7 +92,7 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
     for (OTEscrowRecord* record in list) {
         if (record.escrowInformationMetadata.clientMetadata.hasSecureBackupUsesNumericPassphrase &&
             record.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase) {
-          
+
             [numericFirst addObject:record];
         } else {
             [leftover addObject:record];
@@ -379,7 +379,7 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
 
     OTEscrowRecord_SOSViability viableForSOS = record ? record.viabilityStatus : OTEscrowRecord_SOSViability_SOS_VIABLE_UNKNOWN;
     OTEscrowRecord_RecordViability viability = record ? record.recordViability : OTEscrowRecord_RecordViability_RECORD_VIABILITY_LEGACY;
-    
+
     // Join SOS circle if platform is supported and we didn't previously reset SOS
     if (OctagonPlatformSupportsSOS() && resetToOfferingOccured == NO) {
         // Check if the account setup script flag has been set and if so, only evaluate record viability instead of sos viability
@@ -487,7 +487,7 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
         subTaskSuccess = (recoverError == nil) ? true : false;
         OctagonSignpostEnd(recoverFromSBDSignPost, OctagonSignpostNamePerformRecoveryFromSBD, OctagonSignpostNumber1(OctagonSignpostNamePerformRecoveryFromSBD), (int)subTaskSuccess);
     }
-    
+
     OTClique* clique = [OTClique handleRecoveryResults:data recoveredInformation:recoveredInformation record:escrowRecord performedSilentBurn:NO recoverError:recoverError error:error];
 
     if(recoverError) {
@@ -801,9 +801,10 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
     }
 
     __block NSArray<NSString *> * _Nullable views = nil;
-    
+
     [control tlkRecoverabilityForEscrowRecordData:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
                                        recordData:record.data
+                                           source:self.ctx.escrowFetchSource
                                             reply:^(NSArray<NSString *> * _Nullable blockViews, NSError * _Nullable replyError) {
         if(replyError) {
             secnotice("octagon-tlk-recoverability", "tlkRecoverabilityForEscrowRecordData errored: %@", replyError);
@@ -813,7 +814,7 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
         views = blockViews;
         localError = replyError;
     }];
-    
+
     if(error && localError) {
         *error = localError;
     }

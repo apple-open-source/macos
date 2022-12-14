@@ -487,7 +487,6 @@ GetFileAndPassword(char *nextarg, char **file, char **password)
     Curl_safefree(*password);
     *password = passphrase;
   }
-  cleanarg(nextarg);
 }
 
 /* Get a size parameter for '--limit-rate' or '--max-filesize'.
@@ -542,6 +541,21 @@ static ParameterError GetSizeParameter(struct GlobalConfig *global,
   return PARAM_OK;
 }
 
+#ifdef HAVE_WRITABLE_ARGV
+static void cleanarg(argv_item_t str)
+{
+  /* now that GetStr has copied the contents of nextarg, wipe the next
+   * argument out so that the username:password isn't displayed in the
+   * system process list */
+  if(str) {
+    size_t len = strlen(str);
+    memset(str, ' ', len);
+  }
+}
+#else
+#define cleanarg(x)
+#endif
+
 ParameterError getparameter(const char *flag, /* f or -long-flag */
                             char *nextarg,    /* NULL if unset */
                             bool *usedarg,    /* set to TRUE if the arg
@@ -561,7 +575,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
   ParameterError err;
   bool toggle = TRUE; /* how to switch boolean options, on or off. Controlled
                          by using --OPTION or --no-OPTION */
-
+#ifdef HAVE_WRITABLE_ARGV
+  argv_item_t clearthis = NULL;
+#endif
   *usedarg = FALSE; /* default is that we don't use the arg */
 
   if(('-' != flag[0]) || ('-' == flag[1])) {
@@ -637,6 +653,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       /* this option requires an extra parameter */
       if(!longopt && parse[1]) {
         nextarg = (char *)&parse[1]; /* this is the actual extra parameter */
+#ifdef HAVE_WRITABLE_ARGV
+        clearthis = nextarg;
+#endif
         singleopt = TRUE;   /* don't loop anymore after this */
       }
       else if(!nextarg)
@@ -675,7 +694,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         break;
       case 'B': /* OAuth 2.0 bearer token */
         GetStr(&config->oauth_bearer, nextarg);
-        cleanarg(nextarg);
+        cleanarg(clearthis);
         config->authtype |= CURLAUTH_BEARER;
         break;
       case 'c': /* connect-timeout */
@@ -686,6 +705,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         break;
       case 'C': /* doh-url */
         GetStr(&config->doh_url, nextarg);
+        if(config->doh_url && !config->doh_url[0])
+          /* if given a blank string, we make it NULL again */
+          Curl_safefree(config->doh_url);
         break;
       case 'd': /* ciphers */
         GetStr(&config->cipher_list, nextarg);
@@ -1184,12 +1206,16 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         break;
       case 'D': /* --proto */
         config->proto_present = TRUE;
-        if(proto2num(config, &config->proto, nextarg))
-          return PARAM_BAD_USE;
+        err = proto2num(config, (unsigned int)CURLPROTO_ALL,
+                        &config->proto_str, nextarg);
+        if(err)
+          return err;
         break;
       case 'E': /* --proto-redir */
         config->proto_redir_present = TRUE;
-        if(proto2num(config, &config->proto_redir, nextarg))
+        if(proto2num(config, CURLPROTO_HTTP|CURLPROTO_HTTPS|
+                     CURLPROTO_FTP|CURLPROTO_FTPS,
+                     &config->proto_redir_str, nextarg))
           return PARAM_BAD_USE;
         break;
       case 'F': /* --resolve */
@@ -1633,6 +1659,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
     case 'E':
       switch(subletter) {
       case '\0': /* certificate file */
+        cleanarg(clearthis);
         GetFileAndPassword(nextarg, &config->cert, &config->key_passwd);
         break;
       case 'a': /* CA info PEM file */
@@ -1649,7 +1676,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         break;
       case 'e': /* private key passphrase */
         GetStr(&config->key_passwd, nextarg);
-        cleanarg(nextarg);
+        cleanarg(clearthis);
         break;
       case 'f': /* crypto engine */
         GetStr(&config->engine, nextarg);
@@ -1675,19 +1702,19 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         break;
       case 'k': /* TLS username */
         if(!(curlinfo->features & CURL_VERSION_TLSAUTH_SRP)) {
-          cleanarg(nextarg);
+          cleanarg(clearthis);
           return PARAM_LIBCURL_DOESNT_SUPPORT;
         }
         GetStr(&config->tls_username, nextarg);
-        cleanarg(nextarg);
+        cleanarg(clearthis);
         break;
       case 'l': /* TLS password */
         if(!(curlinfo->features & CURL_VERSION_TLSAUTH_SRP)) {
-          cleanarg(nextarg);
+          cleanarg(clearthis);
           return PARAM_LIBCURL_DOESNT_SUPPORT;
         }
         GetStr(&config->tls_password, nextarg);
-        cleanarg(nextarg);
+        cleanarg(clearthis);
         break;
       case 'm': /* TLS authentication type */
         if(curlinfo->features & CURL_VERSION_TLSAUTH_SRP) {
@@ -1748,21 +1775,19 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         break;
 
       case 'u': /* TLS username for proxy */
+        cleanarg(clearthis);
         if(!(curlinfo->features & CURL_VERSION_TLSAUTH_SRP)) {
-          cleanarg(nextarg);
           return PARAM_LIBCURL_DOESNT_SUPPORT;
         }
         GetStr(&config->proxy_tls_username, nextarg);
-        cleanarg(nextarg);
         break;
 
       case 'v': /* TLS password for proxy */
+        cleanarg(clearthis);
         if(!(curlinfo->features & CURL_VERSION_TLSAUTH_SRP)) {
-          cleanarg(nextarg);
           return PARAM_LIBCURL_DOESNT_SUPPORT;
         }
         GetStr(&config->proxy_tls_password, nextarg);
-        cleanarg(nextarg);
         break;
 
       case 'w': /* TLS authentication type for proxy */
@@ -1776,6 +1801,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         break;
 
       case 'x': /* certificate file for proxy */
+        cleanarg(clearthis);
         GetFileAndPassword(nextarg, &config->proxy_cert,
                            &config->proxy_key_passwd);
         break;
@@ -1794,7 +1820,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
 
       case '1': /* private key passphrase for proxy */
         GetStr(&config->proxy_key_passwd, nextarg);
-        cleanarg(nextarg);
+        cleanarg(clearthis);
         break;
 
       case '2': /* ciphers for proxy */
@@ -2242,12 +2268,12 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
     case 'u':
       /* user:password  */
       GetStr(&config->userpwd, nextarg);
-      cleanarg(nextarg);
+      cleanarg(clearthis);
       break;
     case 'U':
       /* Proxy user:password  */
       GetStr(&config->proxyuserpwd, nextarg);
-      cleanarg(nextarg);
+      cleanarg(clearthis);
       break;
     case 'v':
       if(toggle) {
@@ -2420,11 +2446,17 @@ ParameterError parse_args(struct GlobalConfig *global, int argc,
            following (URL) argument to start with -. */
         stillflags = FALSE;
       else {
-        char *nextarg = (i < (argc - 1))
-          ? curlx_convert_tchar_to_UTF8(argv[i + 1])
-          : NULL;
+        char *nextarg = NULL;
+        if(i < (argc - 1)) {
+          nextarg = curlx_convert_tchar_to_UTF8(argv[i + 1]);
+          if(!nextarg) {
+            curlx_unicodefree(orig_opt);
+            return PARAM_NO_MEM;
+          }
+        }
 
-        result = getparameter(orig_opt, nextarg, &passarg, global, config);
+        result = getparameter(orig_opt, nextarg, &passarg,
+                              global, config);
 
         curlx_unicodefree(nextarg);
         config = global->last;
@@ -2462,8 +2494,7 @@ ParameterError parse_args(struct GlobalConfig *global, int argc,
       bool used;
 
       /* Just add the URL please */
-      result = getparameter("--url", orig_opt, &used, global,
-                            config);
+      result = getparameter("--url", orig_opt, &used, global, config);
     }
 
     if(!result)

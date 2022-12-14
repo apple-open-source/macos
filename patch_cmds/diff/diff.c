@@ -54,9 +54,9 @@ bool	 ignore_file_case, suppress_common, color, noderef;
 static bool help = false;
 #ifdef __APPLE__
 unsigned int diff_context;
-int	 diff_format, status;
+int	 diff_format, diff_algorithm, status;
 #else
-int	 diff_format, diff_context, status;
+int	 diff_format, diff_context, diff_algorithm, status;
 #endif	/* __APPLE__ */
 int	 tabsize = 8, width = 130;
 static int	colorflag = COLORFLAG_NEVER;
@@ -68,9 +68,19 @@ struct stat stb1, stb2;
 struct excludes *excludes_list;
 regex_t	 ignore_re, most_recent_re;
 
-bool	unix2003_compat;	/* __APPLE__ */
+bool   unix2003_compat;        /* __APPLE__ */
 
-#define	OPTIONS	"0123456789aBbC:cdD:efF:HhI:iL:lnNPpqrS:sTtU:uwW:X:x:y"
+static struct algorithm {
+	const char *name;
+	int id;
+} algorithms[] = {
+	{"stone", D_DIFFSTONE},
+	{"myers", D_DIFFMYERS},
+	{"patience", D_DIFFPATIENCE},
+	{NULL, D_DIFFNONE}
+};
+
+#define	OPTIONS	"0123456789A:aBbC:cdD:efF:HhI:iL:lnNPpqrS:sTtU:uwW:X:x:y"
 enum {
 	OPT_TSIZE = CHAR_MAX + 1,
 	OPT_STRIPCR,
@@ -87,6 +97,7 @@ enum {
 };
 
 static struct option longopts[] = {
+	{ "algorithm",			required_argument,	0,	'A' },
 	{ "text",			no_argument,		0,	'a' },
 	{ "ignore-space-change",	no_argument,		0,	'b' },
 	{ "context",			optional_argument,	0,	'C' },
@@ -159,6 +170,7 @@ main(int argc, char **argv)
 	newarg = 1;
 	diff_context = 3;
 	diff_format = D_UNSET;
+	diff_algorithm = D_DIFFMYERS;
 #define	FORMAT_MISMATCHED(type)	\
 	(diff_format != D_UNSET && diff_format != (type))
 	while ((ch = getopt_long(argc, argv, OPTIONS, longopts, NULL)) != -1) {
@@ -172,6 +184,20 @@ main(int argc, char **argv)
 			else if (!isdigit(lastch) || diff_context > INT_MAX / 10)
 				usage();
 			diff_context = (diff_context * 10) + (ch - '0');
+			break;
+		case 'A':
+			diff_algorithm = D_DIFFNONE;
+			for (struct algorithm *a = algorithms; a->name;a++) {
+				if(strcasecmp(optarg, a->name) == 0) {
+					diff_algorithm = a->id;
+					break;
+				}
+			}
+
+			if (diff_algorithm == D_DIFFNONE) {
+				printf("unknown algorithm: %s\n", optarg);
+				usage();
+			}
 			break;
 		case 'a':
 			dflags |= D_FORCEASCII;

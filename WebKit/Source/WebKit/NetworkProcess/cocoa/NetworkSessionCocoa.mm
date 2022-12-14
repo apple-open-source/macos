@@ -1340,6 +1340,11 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkProcess& networkProcess, const N
         m_resourceLoadStatistics->setAppBoundDomains(HashSet<WebCore::RegistrableDomain> { parameters.resourceLoadStatisticsParameters.appBoundDomains }, [] { });
 #endif
 
+#if ENABLE(MANAGED_DOMAINS)
+    if (m_resourceLoadStatistics && !parameters.resourceLoadStatisticsParameters.managedDomains.isEmpty())
+        m_resourceLoadStatistics->setManagedDomains(HashSet<WebCore::RegistrableDomain> { parameters.resourceLoadStatisticsParameters.managedDomains }, [] { });
+#endif
+
 #if HAVE(SESSION_CLEANUP)
     activateSessionCleanup(*this, parameters);
 #endif
@@ -1676,7 +1681,7 @@ DMFWebsitePolicyMonitor *NetworkSessionCocoa::deviceManagementPolicyMonitor()
 }
 
 #if HAVE(NSURLSESSION_WEBSOCKET)
-std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageProxyIdentifier webPageProxyID, NetworkSocketChannel& channel, const WebCore::ResourceRequest& request, const String& protocol, const WebCore::ClientOrigin& clientOrigin, bool hadMainFrameMainResourcePrivateRelayed)
+std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageProxyIdentifier webPageProxyID, NetworkSocketChannel& channel, const WebCore::ResourceRequest& request, const String& protocol, const WebCore::ClientOrigin& clientOrigin, bool hadMainFrameMainResourcePrivateRelayed, bool allowPrivacyProxy)
 {
     ASSERT(!request.hasHTTPHeaderField(WebCore::HTTPHeaderName::SecWebSocketProtocol));
     auto nsRequest = retainPtr(request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
@@ -1698,7 +1703,15 @@ std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageP
     appPrivacyReportTestingData().didLoadAppInitiatedRequest(nsRequest.get().attribution == NSURLRequestAttributionDeveloper);
 #endif
 
-    // FIXME: This function can make up to 3 copies of a request.
+#if HAVE(PROHIBIT_PRIVACY_PROXY)
+    if (!allowPrivacyProxy) {
+        RetainPtr<NSMutableURLRequest> mutableRequest = adoptNS([nsRequest.get() mutableCopy]);
+        [mutableRequest _setProhibitPrivacyProxy:YES];
+        nsRequest = WTFMove(mutableRequest);
+    }
+#endif
+
+    // FIXME: This function can make up to 4 copies of a request.
     // Reduce that to one if the protocol is null, the request isn't app initiated,
     // or the main frame main resource was private relayed, then set all properties
     // on the one copy.
@@ -1822,7 +1835,7 @@ void NetworkSessionCocoa::donateToSKAdNetwork(WebCore::PrivateClickMeasurement&&
     config.get().adNetworkRegistrableDomain = pcm.destinationSite().registrableDomain.string();
     config.get().impressionId = pcm.ephemeralSourceNonce()->nonce;
     config.get().sourceWebRegistrableDomain = pcm.sourceSite().registrableDomain.string();
-    config.get().version = @"3";
+    config.get().version = @"4.0";
     config.get().attributionContext = AttributionTypeDefault;
     [[ASDInstallAttribution sharedInstance] addInstallWebAttributionParamsWithConfig:config.get() completionHandler:^(NSError *) { }];
 #endif

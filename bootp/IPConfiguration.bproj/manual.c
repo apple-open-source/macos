@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -418,7 +418,8 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
       case IFEventID_wake_e:
       case IFEventID_renew_e:
       case IFEventID_link_status_changed_e: {
-	  link_status_t		link_status;
+	  link_event_data_t	link_event;
+	  link_status_t *	link_status_p;
 
 	  if (manual == NULL) {
 	      return (ipconfig_status_internal_error_e);
@@ -426,9 +427,10 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  if (manual->ignore_link_status) {
 	      break;
 	  }
+	  link_event = (link_event_data_t)event_data;
+	  link_status_p = &link_event->link_status;
 	  manual->user_warned = FALSE;
-	  link_status = service_link_status(service_p);
-	  if (link_status.valid == TRUE && link_status.active == FALSE) {
+	  if (link_status_is_inactive(link_status_p)) {
 	      manual_cancel_pending_events(service_p);
 	  }
 	  else if (evid != IFEventID_wake_e

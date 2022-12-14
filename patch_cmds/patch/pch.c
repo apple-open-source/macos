@@ -50,6 +50,12 @@
 #include "pch.h"
 #include "pathnames.h"
 
+#ifdef __APPLE__
+#ifndef MAX
+#define	MAX(a,b)	(((a)>(b))?(a):(b))
+#endif
+#endif
+
 /* Patch (diff listing) abstract type. */
 
 static off_t	p_filesize;	/* size of the patch file */
@@ -61,7 +67,7 @@ static LINENUM	p_end = -1;	/* last line in hunk */
 static LINENUM	p_max;		/* max allowed value of p_end */
 static LINENUM	p_context = 3;	/* # of context lines */
 #ifdef __APPLE__
-static LINENUM	p_leading_ctx;	/* # of leading context lines */
+static LINENUM	p_leading_ctx = -1;	/* # of leading context lines */
 static LINENUM	p_trailing_ctx;	/* # of trailing context lines */
 #endif
 static LINENUM	p_input_line = 0;	/* current line # from patch file */
@@ -106,7 +112,8 @@ re_patch(void)
 	p_max = 0;
 	p_indent = 0;
 #ifdef __APPLE__
-	p_leading_ctx = p_trailing_ctx = 0;
+	p_leading_ctx = -1;
+	p_trailing_ctx = 0;
 #endif
 }
 
@@ -798,7 +805,8 @@ another_hunk(void)
 				}
 				context = 0;
 #ifdef __APPLE__
-				p_leading_ctx = p_trailing_ctx = 0;
+				p_leading_ctx = -1;
+				p_trailing_ctx = 0;
 #endif
 				p_line[p_end] = savestr(buf);
 				if (out_of_mem) {
@@ -944,7 +952,8 @@ another_hunk(void)
 					 * beginning, p_leading_ctx == 0 will
 					 * hold true.
 					 */
-					p_leading_ctx = p_context;
+					if (p_leading_ctx < 0)
+						p_leading_ctx = p_context;
 #endif
 					context = -1000;
 				}
@@ -1273,7 +1282,8 @@ hunk_done:
 				if (context < p_context)
 					p_context = context;
 #ifdef __APPLE__
-				p_leading_ctx = p_context;
+				if (p_leading_ctx < 0)
+					p_leading_ctx = p_context;
 #endif
 				context = -1000;
 			}
@@ -1632,7 +1642,7 @@ pch_context(void)
 LINENUM
 pch_leading_context(void)
 {
-	return p_leading_ctx;
+	return MAX(0, p_leading_ctx);
 }
 
 /*

@@ -52,6 +52,7 @@
 - (void)updateSmartPowerNapState:(BOOL)active;
 - (void)updateLockState:(uint64_t)state;
 - (void)updateBacklightState:(BOOL)state;
+- (void)updatePluginState:(BOOL)state;
 - (void)updateMotionState:(BOOL)state;
 
 /*

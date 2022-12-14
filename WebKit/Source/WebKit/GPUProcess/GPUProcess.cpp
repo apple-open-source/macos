@@ -419,6 +419,11 @@ void GPUProcess::removeMockMediaDevice(const String& persistentId)
     MockRealtimeMediaSourceCenter::removeDevice(persistentId);
 }
 
+void GPUProcess::setMockMediaDeviceIsEphemeral(const String& persistentId, bool isEphemeral)
+{
+    MockRealtimeMediaSourceCenter::setDeviceIsEphemeral(persistentId, isEphemeral);
+}
+
 void GPUProcess::resetMockMediaDevices()
 {
     MockRealtimeMediaSourceCenter::resetDevices();
@@ -427,6 +432,11 @@ void GPUProcess::resetMockMediaDevices()
 void GPUProcess::setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted)
 {
     MockRealtimeMediaSourceCenter::setMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted);
+}
+
+void GPUProcess::triggerMockMicrophoneConfigurationChange()
+{
+    MockRealtimeMediaSourceCenter::singleton().triggerMockMicrophoneConfigurationChange();
 }
 #endif // ENABLE(MEDIA_STREAM)
 

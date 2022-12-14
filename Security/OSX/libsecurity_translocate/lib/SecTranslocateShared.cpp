@@ -68,6 +68,7 @@ const char* kSecTranslocateXPCFuncCheckIn = "check-in";
 /* XPC message argument keys */
 const char* kSecTranslocateXPCMessageFunction = "function";
 const char* kSecTranslocateXPCMessageOriginalPath = "original";
+const char* kSecTranslocateXPCMessagePathInsideTranslocationPoint = "inside-path";
 const char* kSecTranslocateXPCMessageDestinationPath = "dest";
 const char* kSecTranslocateXPCMessageOptions= "opts";
 const char* kSecTranslocateXPCMessagePid = "pid";
@@ -197,6 +198,23 @@ string TranslocationPath::getTranslocatedPathToOriginalPath(const string &transl
         //If we weren't supposed to translocate return the original path.
         return mRealOriginalPath;
     }
+}
+
+bool TranslocationPath::setPathInsideTranslocation(string& relativePath)
+{
+    if (!mPathInsideTranslocationPoint.empty()) {
+        secerror("SecTranslocate, TranslocationPath, pathInsideTranslocation already set: %s, ignoring new path: %s", mPathInsideTranslocationPoint.c_str(), relativePath.c_str());
+        return false;
+    }
+    if (relativePath.empty()) {
+        return true;
+    }
+    if (relativePath[0] == '/') {
+        secerror("Sectranslocate, TranslocationPath, new pathInsideTranslocation is not relative: %s", relativePath.c_str());
+        return false;
+    }
+    mPathInsideTranslocationPoint = relativePath;
+    return true;
 }
 
 int TranslocationPath::getFdForPathToTranslocate() const

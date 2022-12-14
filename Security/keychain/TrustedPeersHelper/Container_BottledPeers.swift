@@ -50,7 +50,7 @@ extension Container {
                             return
                         }
 
-                        self.fetchViableBottlesWithSemaphore { _, _, fetchBottlesError in
+                        self.fetchViableBottlesWithSemaphore(from: .default) { _, _, fetchBottlesError in
                             guard fetchBottlesError == nil else {
                                 logger.info("preflightVouchWithBottle unable to fetch viable bottles: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
                                 reply(nil, nil, true, fetchBottlesError)

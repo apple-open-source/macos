@@ -102,7 +102,9 @@ extern void               DADiskSetOption( DADiskRef disk, DADiskOption option, 
 extern void               DADiskSetOptions( DADiskRef disk, DADiskOptions options, Boolean value );
 extern void               DADiskSetPropertyNotification( DADiskRef disk, io_object_t notification );
 extern void               DADiskSetState( DADiskRef disk, DADiskState state, Boolean value );
-
+extern void               DADiskSetContainerId( DADiskRef disk, char * containerId );
+extern char *             DADiskGetContainerId( DADiskRef disk );
+extern DADiskRef          DADiskGetContainerDisk( DADiskRef disk );
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

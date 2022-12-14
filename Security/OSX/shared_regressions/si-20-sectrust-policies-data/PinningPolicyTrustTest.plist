@@ -3305,11 +3305,11 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>caldav.icloud.com</string>
+				<string>p02-ckdatabasews.icloud.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>caldav</string>
+		<string>ckdatabasews</string>
 		<key>Intermediates</key>
 		<string>AppleISTCA2G1-Baltimore</string>
 		<key>Anchors</key>
@@ -3337,11 +3337,11 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>caldav.icloud.com</string>
+				<string>p02-ckdatabasews.icloud.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>caldav</string>
+		<string>ckdatabasews</string>
 		<key>Intermediates</key>
 		<array>
 			<string>AppleISTCA2G1</string>
@@ -3372,11 +3372,11 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>caldav.icloud.com</string>
+				<string>p02-ckdatabasews.icloud.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>caldav</string>
+		<string>ckdatabasews</string>
 		<key>Intermediates</key>
 		<array>
 			<string>AppleISTCA2G1</string>
@@ -3408,11 +3408,11 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>caldav.icloud.com</string>
+				<string>p02-ckdatabasews.icloud.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>caldav</string>
+		<string>ckdatabasews</string>
 		<key>Intermediates</key>
 		<string>AppleISTCA2G1-Baltimore</string>
 		<key>Anchors</key>
@@ -3496,11 +3496,11 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>caldav.icloud.com</string>
+				<string>p02-ckdatabasews.icloud.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>caldav</string>
+		<string>ckdatabasews</string>
 		<key>Intermediates</key>
 		<array>
 			<string>AppleISTCA2G1-Baltimore</string>
@@ -3532,11 +3532,11 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>caldav.icloud.com</string>
+				<string>p02-ckdatabasews.icloud.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>caldav</string>
+		<string>ckdatabasews</string>
 		<key>Intermediates</key>
 		<array>
 			<string>AppleISTCA2G1-Baltimore</string>
@@ -3565,13 +3565,13 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>caldav.icloud.com</string>
+				<string>p02-ckdatabasews.icloud.com</string>
 				<key>SecPolicyPolicyName</key>
 				<string>no-system-pinning-rules</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>caldav</string>
+		<string>ckdatabasews</string>
 		<key>Intermediates</key>
 		<array>
 			<string>AppleISTCA2G1-Baltimore</string>

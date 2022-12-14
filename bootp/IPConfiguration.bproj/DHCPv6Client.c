@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,6 +103,26 @@ DHCPv6ClientStateGetName(DHCPv6ClientState cstate)
     return ("<unknown>");
 }
 
+INLINE bool
+S_dhcp_state_is_bound_renew_or_rebind(DHCPv6ClientState state)
+{
+    bool	ret;
+
+    switch (state) {
+    case kDHCPv6ClientStateBound:
+    case kDHCPv6ClientStateRenew:
+    case kDHCPv6ClientStateRebind:
+	ret = true;
+	break;
+    default:
+	ret = false;
+	break;
+    }
+    return (ret);
+}
+
+
+
 STATIC const char *
 DHCPv6ClientModeGetName(DHCPv6ClientMode mode)
 {
@@ -126,6 +146,8 @@ typedef struct {
     uint32_t			valid_lifetime;
     uint32_t			preferred_lifetime;
     bool			valid;
+    /* if this is a Wi-Fi network, remember the SSID */
+    CFStringRef			ssid;
 } lease_info_t;
 
 typedef struct {
@@ -143,6 +165,7 @@ struct DHCPv6Client {
     DHCPv6ClientMode			mode;
     DHCPv6ClientState			cstate;
     DHCPv6SocketRef			sock;
+    ServiceRef				service_p;
     timer_callout_t *			timer;
     uint32_t				transaction_id;
     int					try;
@@ -156,6 +179,7 @@ struct DHCPv6Client {
     lease_info_t			lease;
     bool				private_address;
     CFDataRef				duid;
+    CFAbsoluteTime			renew_rebind_time;
 };
 
 STATIC DHCPv6ClientEventFunc	DHCPv6Client_Bound;
@@ -272,6 +296,26 @@ get_new_transaction_id(void)
 }
 
 
+STATIC void
+DHCPv6ClientLogAddressInReply(DHCPv6ClientRef client,
+			      DHCPv6OptionIAADDRRef ia_addr)
+{
+    interface_t * 	if_p;
+    char 		ntopbuf[INET6_ADDRSTRLEN];
+
+    if_p = DHCPv6ClientGetInterface(client);
+    my_log(LOG_INFO, "DHCPv6 %s: %s Received Reply (try=%d) "
+	   "IAADDR %s Preferred %d Valid=%d",
+	   if_name(if_p),
+	   DHCPv6ClientStateGetName(client->cstate),
+	   client->try,
+	   inet_ntop(AF_INET6,
+		     DHCPv6OptionIAADDRGetAddress(ia_addr),
+		     ntopbuf, sizeof(ntopbuf)),
+	   DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr),
+	   DHCPv6OptionIAADDRGetValidLifetime(ia_addr));
+}
+
 STATIC bool
 DHCPv6ClientUsePrivateAddress(DHCPv6ClientRef client)
 {
@@ -283,6 +327,16 @@ DHCPv6ClientSetUsePrivateAddress(DHCPv6ClientRef client,
 				 bool use_private_address)
 {
     client->private_address = use_private_address;
+}
+
+STATIC void
+DHCPv6ClientSetSSID(DHCPv6ClientRef client, CFStringRef ssid)
+{
+    if (ssid != NULL) {
+	CFRetain(ssid);
+    }
+    my_CFRelease(&client->lease.ssid);
+    client->lease.ssid = ssid;
 }
 
 STATIC CFDataRef
@@ -300,7 +354,7 @@ DHCPv6ClientGetDUID(DHCPv6ClientRef client)
 	return (client->duid);
     }
     if (duid == NULL) {
-	duid = DHCPDUIDGet(get_interface_list());
+	duid = DHCPDUIDEstablishAndGet(G_dhcp_duid_type);
     }
     return (duid);
 }
@@ -360,10 +414,12 @@ S_duid_matches(DHCPv6ClientRef client, DHCPv6OptionListRef options)
 }
 
 STATIC DHCPv6OptionIA_NARef
-get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
-	       DHCPv6OptionListRef options,
-	       DHCPv6OptionIAADDRRef * ret_ia_addr)
+get_ia_na_addr_code(DHCPv6ClientRef client, int msg_type,
+		    DHCPv6OptionListRef options,
+		    DHCPv6OptionIAADDRRef * ret_ia_addr,
+		    DHCPv6StatusCode * ret_code)
 {
+    DHCPv6StatusCode		code = kDHCPv6StatusCodeSuccess;
     DHCPv6OptionErrorString 	err;
     DHCPv6OptionIA_NARef	ia_na;
     DHCPv6OptionListRef		ia_na_options;
@@ -383,14 +439,14 @@ get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
     if (ia_na == NULL
 	|| option_len <= DHCPv6OptionIA_NA_MIN_LENGTH) {
 	/* no IA_NA option */
-	return (NULL);
+	goto done;
     }
     t1 = DHCPv6OptionIA_NAGetT1(ia_na);
     t2 = DHCPv6OptionIA_NAGetT2(ia_na);
     if (t1 != 0 && t2 != 0) {
 	if (t1 > t2) {
 	    /* server is confused */
-	    return (NULL);
+	    goto done;
 	}
     }
     option_len -= DHCPv6OptionIA_NA_MIN_LENGTH;
@@ -399,9 +455,18 @@ get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
 	my_log(LOG_INFO,
 	       "DHCPv6 %s: %s IA_NA contains no options",
 	       if_name(if_p), DHCPv6MessageName(msg_type));
-	/* no options */
-	return (NULL);
+	goto done;
     }
+    if (!DHCPv6OptionListGetStatusCode(ia_na_options, &code)) {
+	/* ignore bad data */
+	goto done;
+    }
+    if (code != kDHCPv6StatusCodeSuccess) {
+	my_log(LOG_INFO,
+	       "DHCPv6 %s: IA_NA StatusCode is %s", if_name(if_p),
+	       DHCPv6StatusCodeGetName(code));
+    }
+
     /* find the first ia_addr with non-zero lifetime */
     for (start_index = 0; true; start_index++) {
 	DHCPv6OptionIAADDRRef	ia_addr;
@@ -443,11 +508,23 @@ get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
 
     DHCPv6OptionListRelease(&ia_na_options);
 
+ done:
     /* if we didn't find a suitable IAADDR, then ignore the IA_NA */
     if (*ret_ia_addr == NULL) {
 	ia_na = NULL;
     }
+    if (ret_code != NULL) {
+	*ret_code = code;
+    }
     return (ia_na);
+}
+
+STATIC DHCPv6OptionIA_NARef
+get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
+	       DHCPv6OptionListRef options,
+	       DHCPv6OptionIAADDRRef * ret_ia_addr)
+{
+    return (get_ia_na_addr_code(client, msg_type, options, ret_ia_addr, NULL));
 }
 
 STATIC uint8_t
@@ -759,13 +836,16 @@ DHCPv6ClientCancelPendingEvents(DHCPv6ClientRef client)
 }
 
 STATIC void
+DHCPv6ClientClearLease(DHCPv6ClientRef client)
+{
+    DHCPv6ClientSetSSID(client, NULL);
+    bzero(&client->lease, sizeof(client->lease));
+}
+
+STATIC void
 DHCPv6ClientClearPacket(DHCPv6ClientRef client)
 {
-    if (client->saved.pkt_len == 0) {
-	return;
-    }
-    bzero(&client->lease, sizeof(client->lease));
-    client->saved.pkt_len = 0;
+    DHCPv6ClientClearLease(client);
     if (client->saved.pkt != NULL) {
 	free(client->saved.pkt);
 	client->saved.pkt = NULL;
@@ -775,6 +855,7 @@ DHCPv6ClientClearPacket(DHCPv6ClientRef client)
     client->ia_na = NULL;
     client->ia_addr = NULL;
     client->saved_verified = false;
+    client->saved.pkt_len = 0;
     return;
 }
 
@@ -789,9 +870,37 @@ DHCPv6ClientInactive(DHCPv6ClientRef client)
 }
 
 STATIC bool
-DHCPv6ClientLeaseStillValid(DHCPv6ClientRef client)
+DHCPv6ClientLeaseOnSameNetwork(DHCPv6ClientRef client)
 {
-    CFAbsoluteTime		current_time;
+    bool		same_network;
+
+    if (!if_is_wireless(service_interface(client->service_p))) {
+	same_network = true;
+    }
+    else {
+	interface_t *	if_p = DHCPv6ClientGetInterface(client);
+	CFStringRef	ssid;
+
+	ssid = ServiceGetSSID(client->service_p);
+	if (ssid != NULL && client->lease.ssid != NULL) {
+	    same_network = CFEqual(ssid, client->lease.ssid);
+	}
+	else {
+	    same_network = false;
+	}
+	if (!same_network) {
+	    my_log(LOG_INFO, "%s: SSID now %@ (was %@)",
+		   if_name(if_p), ssid, client->lease.ssid);
+	}
+    }
+    return (same_network);
+}
+
+STATIC bool
+DHCPv6ClientLeaseStillValid(DHCPv6ClientRef client,
+			    CFAbsoluteTime current_time)
+{
+    interface_t *		if_p;
     lease_info_t *		lease_p = &client->lease;
 
     if (!lease_p->valid) {
@@ -800,15 +909,17 @@ DHCPv6ClientLeaseStillValid(DHCPv6ClientRef client)
     if (lease_p->valid_lifetime == DHCP_INFINITE_LEASE) {
 	goto done;
     }
-    current_time = timer_get_current_time();
+    if_p = DHCPv6ClientGetInterface(client);
     if (current_time < lease_p->start) {
 	/* time went backwards */
 	DHCPv6ClientClearPacket(client);
 	lease_p->valid = false;
+	my_log(LOG_INFO, "DHCPv6 %s: lease no longer valid", if_name(if_p));
 	goto done;
     }
     if ((current_time - lease_p->start) >= lease_p->valid_lifetime) {
 	/* expired */
+	my_log(LOG_INFO, "DHCPv6 %s: lease has expired", if_name(if_p));
 	DHCPv6ClientClearPacket(client);
 	lease_p->valid = false;
     }
@@ -825,11 +936,14 @@ DHCPv6ClientSavePacket(DHCPv6ClientRef client, DHCPv6SocketReceiveDataRef data)
     lease_info_t *		lease_p = &client->lease;
     int				option_len;
     uint32_t			preferred_lifetime;
+    CFStringRef			ssid;
     uint32_t			t1;
     uint32_t			t2;
     uint32_t			valid_lifetime;
 
     DHCPv6ClientClearPacket(client);
+    ssid = ServiceGetSSID(client->service_p);
+    DHCPv6ClientSetSSID(client, ssid);
     client->saved.pkt_len = data->pkt_len;
     client->saved.pkt = malloc(client->saved.pkt_len);
     bcopy(data->pkt, client->saved.pkt, client->saved.pkt_len);
@@ -1206,7 +1320,7 @@ DHCPv6Client_Decline(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6ClientSetState(client, kDHCPv6ClientStateDecline);
 	DHCPv6ClientRemoveAddress(client, "Decline");
 	DHCPv6ClientCancelPendingEvents(client);
-	client->lease.valid = false;
+	DHCPv6ClientClearLease(client);
 	client->saved_verified = false;
 	DHCPv6ClientPostNotification(client);
 	DHCPv6ClientClearRetransmit(client);
@@ -1289,18 +1403,11 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 	CFTimeInterval	time_since_start;
 	CFTimeInterval	wait_time;
 
-	if (current_time < client->lease.start) {
-	    /* time went backwards? */
+	if (!DHCPv6ClientLeaseStillValid(client, current_time)) {
 	    DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
 	    return;
 	}
 	time_since_start = current_time - client->lease.start;
-	if (((uint32_t)time_since_start) >= client->lease.valid_lifetime) {
-	    /* expired */
-	    DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
-	    return;
-	}
-	
 	if (((uint32_t)time_since_start) < client->lease.t2) {
 	    CFTimeInterval	time_until_t2;
 
@@ -1333,24 +1440,24 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 		wait_time = time_until_expiration;
 	    }
 	}
+	client->renew_rebind_time = current_time + wait_time;
 	timer_callout_set(client->timer,
 			  wait_time,
 			  (timer_func_t *)DHCPv6Client_RenewRebind, 
 			  client, (void *)IFEventID_timeout_e, NULL);
-	my_log(LOG_INFO, "DHCPv6 %s: %s Transmit (try=%d)",
+	my_log(LOG_INFO, "DHCPv6 %s: %s Transmit (try=%d) (wait_time=%lu)",
 	       if_name(if_p), DHCPv6ClientStateGetName(client->cstate),
-	       client->try);
+	       client->try, (unsigned long)wait_time);
 	DHCPv6ClientSendPacket(client);
 	break;
     }
     case IFEventID_data_e: {
+	DHCPv6StatusCode		code;
 	DHCPv6SocketReceiveDataRef 	data;
-	DHCPv6OptionIA_NARef		ia_na;
 	DHCPv6OptionIAADDRRef		ia_addr;
-	char 				ntopbuf[INET6_ADDRSTRLEN];
+	DHCPv6OptionIA_NARef		ia_na;
 	int				option_len;
 	DHCPDUIDRef			server_id;
-	DHCPv6OptionSTATUS_CODERef	status_code;
 
 	data = (DHCPv6SocketReceiveDataRef)event_data;
 	if (data->pkt->msg_type != kDHCPv6MessageREPLY
@@ -1369,24 +1476,14 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 	    /* missing/invalid DUID */
 	    break;
 	}
-	status_code = (DHCPv6OptionSTATUS_CODERef)
-	    DHCPv6OptionListGetOptionDataAndLength(data->options,
-						   kDHCPv6OPTION_STATUS_CODE,
-						   &option_len, NULL);
-	if (status_code != NULL) {
-	    uint16_t	code;
-
-	    if (option_len < DHCPv6OptionSTATUS_CODE_MIN_LENGTH) {
-		/* too short */
-		break;
-	    }
-	    
-	    code = DHCPv6OptionSTATUS_CODEGetCode(status_code);
-	    if (code != kDHCPv6StatusCodeSuccess) {
-		/* XXX check for a specific value maybe? */
-		DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
-		return;
-	    }
+	if (!DHCPv6OptionListGetStatusCode(data->options, &code)) {
+	    /* ignore bad data */
+	    break;
+	}
+	if (code != kDHCPv6StatusCodeSuccess) {
+	    /* XXX check for a specific value maybe? */
+	    DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
+	    return;
 	}
 	ia_na = get_ia_na_addr(client, data->pkt->msg_type,
 			       data->options, &ia_addr);
@@ -1394,16 +1491,7 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 	    DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
 	    break;
 	}
-	my_log(LOG_INFO, "DHCPv6 %s: %s Received Reply (try=%d) "
-	       "IAADDR %s Preferred %d Valid=%d",
-	       if_name(if_p),
-	       DHCPv6ClientStateGetName(client->cstate),
-	       client->try,
-	       inet_ntop(AF_INET6,
-			 DHCPv6OptionIAADDRGetAddress(ia_addr),
-			 ntopbuf, sizeof(ntopbuf)),
-	       DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr),
-	       DHCPv6OptionIAADDRGetValidLifetime(ia_addr));
+	DHCPv6ClientLogAddressInReply(client, ia_addr);
 	DHCPv6ClientSavePacket(client, data);
 	DHCPv6Client_Bound(client, IFEventID_start_e, NULL);
 	break;
@@ -1457,7 +1545,7 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 		done = true;
 	    }
 	    if (done) {
-		if (DHCPv6ClientLeaseStillValid(client)) {
+		if (DHCPv6ClientLeaseStillValid(client, current_time)) {
 		    DHCPv6Client_Bound(client, IFEventID_start_e, NULL);
 		    return;
 		}
@@ -1476,10 +1564,10 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6ClientSendPacket(client);
 	break;
     case IFEventID_data_e: {
+	DHCPv6StatusCode		code;
 	DHCPv6SocketReceiveDataRef 	data;
 	int				option_len;
 	DHCPDUIDRef			server_id;
-	DHCPv6OptionSTATUS_CODERef	status_code;
 
 	data = (DHCPv6SocketReceiveDataRef)event_data;
 	if (data->pkt->msg_type != kDHCPv6MessageREPLY
@@ -1498,20 +1586,13 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 	    /* missing/invalid DUID */
 	    break;
 	}
-	status_code = (DHCPv6OptionSTATUS_CODERef)
-	    DHCPv6OptionListGetOptionDataAndLength(data->options,
-						   kDHCPv6OPTION_STATUS_CODE,
-						   &option_len, NULL);
-	if (status_code != NULL) {
-	    if (option_len < DHCPv6OptionSTATUS_CODE_MIN_LENGTH) {
-		/* too short */
-		break;
-	    }
-	    if (DHCPv6OptionSTATUS_CODEGetCode(status_code)
-		!= kDHCPv6StatusCodeSuccess) {
-		DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
-		return;
-	    }
+	if (!DHCPv6OptionListGetStatusCode(data->options, &code)) {
+	    /* ignore bad data */
+	    break;
+	}
+	if (code != kDHCPv6StatusCodeSuccess) {
+	    DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
+	    return;
 	}
 	my_log(LOG_INFO, "DHCPv6 %s: Reply Received (try=%d)",
 	       if_name(if_p), client->try);
@@ -1572,6 +1653,7 @@ DHCPv6ClientHandleAddressChanged(DHCPv6ClientRef client,
 		else {
 		    t1 = 10; /* wakeup in 10 seconds */
 		}
+		client->renew_rebind_time = current_time + t1;
 		timer_callout_set(client->timer, t1,
 				  (timer_func_t *)DHCPv6Client_RenewRebind,
 				  client, (void *)IFEventID_start_e, NULL);
@@ -1591,6 +1673,110 @@ DHCPv6ClientSimulateAddressChanged(DHCPv6ClientRef client)
     inet6_addrlist_copy(&addr_list, if_link_index(if_p));
     DHCPv6ClientHandleAddressChanged(client, &addr_list);
     inet6_addrlist_free(&addr_list);
+    return;
+}
+
+/*
+ * Function: S_time_in_future
+ * Purpose:
+ *   Returns whether the given time is in the future by at least the
+ *   time interval specified by 'time_interval'.
+ */
+INLINE bool
+S_time_in_future(CFAbsoluteTime current_time,
+		 CFAbsoluteTime the_time,
+		 CFTimeInterval time_interval)
+{
+    return (current_time < the_time
+	    && (the_time - current_time) >= time_interval);
+}
+
+STATIC void
+DHCPv6ClientHandleWake(DHCPv6ClientRef client,
+		       void * event_data)
+{
+    interface_t *	if_p;
+    link_event_data_t	link_event;
+    link_status_t *	link_status_p;
+    bool		wait_for_link_active;
+
+    /*
+     * While asleep, we could have switched networks without knowing it.
+     * Unless we know with some confidence that we're on the same network,
+     * we need to remove the IP address from the interface.
+     *
+     * We remove the IP address if any of the following are true:
+     * - we're not connected to a network (link status is inactive)
+     * - we're on a different Wi-Fi network (the SSID changed)
+     * - we're not on the same ethernet network
+     */
+    if_p = DHCPv6ClientGetInterface(client);
+    link_event = (link_event_data_t)event_data;
+    link_status_p = &link_event->link_status;
+    wait_for_link_active = link_status_is_inactive(link_status_p);
+    if (wait_for_link_active
+	|| (if_is_wireless(if_p)
+	    && link_event->info == kLinkInfoNetworkChanged)
+	|| (!if_is_wireless(if_p)
+	    && !link_status_p->wake_on_same_network)) {
+	DHCPv6ClientRemoveAddress(client, "Wake");
+	if (wait_for_link_active) {
+	    return;
+	}
+	if (client->cstate != kDHCPv6ClientStateSolicit) {
+	    DHCPv6Client_Solicit(client, IFEventID_start_e, NULL);
+	}
+    }
+    else {
+	CFAbsoluteTime		current_time = timer_get_current_time();
+
+	if (!DHCPv6ClientLeaseStillValid(client, current_time)) {
+	    if (client->cstate != kDHCPv6ClientStateSolicit) {
+		DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
+	    }
+	    return;
+	}
+	/*
+	 * If we're not in bound, renew, or rebind states, or the BSSID
+	 * has changed, enter the Confirm state.
+	 */
+	if (!S_dhcp_state_is_bound_renew_or_rebind(client->cstate)
+	    || link_event->info == kLinkInfoBSSIDChanged) {
+	    DHCPv6Client_Confirm(client, IFEventID_start_e, NULL);
+	    return;
+	}
+
+	/* If an infinite lease, no need to do any maintenance */
+	if (client->lease.valid_lifetime == DHCP_INFINITE_LEASE) {
+	    return;
+	}
+
+	/*
+	 * Check the timer we had scheduled. If it is sufficiently in the
+	 * future, schedule a new timer to wakeup in RENEW/REBIND then.
+	 * Otherwise, enter RENEW/REBIND now.
+	 *
+	 * Note that re-scheduling a timer at wake is important because
+	 * timers stop counting down while the system is asleep.
+	 */
+	if (S_time_in_future(current_time, client->renew_rebind_time,
+			     G_wake_skew_secs)) {
+	    CFAbsoluteTime	delta;
+
+	    delta = client->renew_rebind_time - current_time;
+	    my_log(LOG_INFO,
+		   "DHCPv6 %s: wake: calculated new timer (%lu secs)",
+		   if_name(if_p), (unsigned long)delta);
+	    timer_callout_set(client->timer, delta,
+			      (timer_func_t *)DHCPv6Client_RenewRebind,
+			      client, (void *)IFEventID_start_e, NULL);
+	}
+	else {
+	    my_log(LOG_INFO, "DHCPv6 %s: wake: need to renew/rebind",
+		   if_name(if_p));
+	    DHCPv6Client_RenewRebind(client, IFEventID_start_e, NULL);
+	}
+    }
     return;
 }
 
@@ -1691,6 +1877,8 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 		   strerror(errno), errno);
 	}
 	else if (same_address) {
+	    CFAbsoluteTime		current_time = timer_get_current_time();
+
 	    /* notify that we're ready */
 	    DHCPv6ClientPostNotification(client);
 	    DHCPv6ClientCancelPendingEvents(client);
@@ -1706,6 +1894,7 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 		    t1 = 10; /* wakeup in 10 seconds */
 		    
 		}
+		client->renew_rebind_time = current_time + t1;
 		timer_callout_set(client->timer, t1,
 				  (timer_func_t *)DHCPv6Client_RenewRebind,
 				  client, (void *)IFEventID_start_e, NULL);
@@ -1777,13 +1966,12 @@ DHCPv6Client_Request(DHCPv6ClientRef client, IFEventID_t event_id,
 	break;
     }
     case IFEventID_data_e: {
+	DHCPv6StatusCode		code;
 	DHCPv6SocketReceiveDataRef 	data;
 	DHCPv6OptionIA_NARef		ia_na;
 	DHCPv6OptionIAADDRRef		ia_addr;
-	char 				ntopbuf[INET6_ADDRSTRLEN];
 	int				option_len;
 	DHCPDUIDRef			server_id;
-	DHCPv6OptionSTATUS_CODERef	status_code;
 
 	data = (DHCPv6SocketReceiveDataRef)event_data;
 	if (data->pkt->msg_type != kDHCPv6MessageREPLY
@@ -1802,40 +1990,28 @@ DHCPv6Client_Request(DHCPv6ClientRef client, IFEventID_t event_id,
 	    /* missing/invalid DUID */
 	    break;
 	}
-	status_code = (DHCPv6OptionSTATUS_CODERef)
-	    DHCPv6OptionListGetOptionDataAndLength(data->options,
-						   kDHCPv6OPTION_STATUS_CODE,
-						   &option_len, NULL);
-	if (status_code != NULL) {
-	    uint16_t	code;
-
-	    if (option_len < DHCPv6OptionSTATUS_CODE_MIN_LENGTH) {
-		/* too short */
-		break;
-	    }
-	    
-	    code = DHCPv6OptionSTATUS_CODEGetCode(status_code);
-	    if (code != kDHCPv6StatusCodeSuccess) {
-		if (code == kDHCPv6StatusCodeNoAddrsAvail) {
-		    /* must ignore it */
-		    break;
-		}
-	    }
-	}
-	ia_na = get_ia_na_addr(client, data->pkt->msg_type,
-			       data->options, &ia_addr);
-	if (ia_na == NULL) {
+	if (!DHCPv6OptionListGetStatusCode(data->options, &code)) {
+	    /* ignore bad data */
 	    break;
 	}
-	my_log(LOG_INFO, "DHCPv6 %s: Reply Received (try=%d) "
-	       "IAADDR %s Preferred %d Valid=%d",
-	       if_name(if_p),
-	       client->try,
-	       inet_ntop(AF_INET6,
-			 DHCPv6OptionIAADDRGetAddress(ia_addr),
-			 ntopbuf, sizeof(ntopbuf)),
-	       DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr),
-	       DHCPv6OptionIAADDRGetValidLifetime(ia_addr));
+	if (code == kDHCPv6StatusCodeNoAddrsAvail) {
+	    /* must ignore it */
+	    break;
+	}
+	ia_na = get_ia_na_addr_code(client, data->pkt->msg_type,
+				    data->options, &ia_addr, &code);
+	if (code == kDHCPv6StatusCodeNotOnLink) {
+	    /* go back to Solicit */
+	    my_log(LOG_NOTICE, "DHCPv6 %s: NotOnLink",
+		   if_name(if_p));
+	    DHCPv6Client_Solicit(client, IFEventID_start_e, NULL);
+	    return;
+	}
+	if (ia_na == NULL) {
+	    /* no address binding */
+	    break;
+	}
+	DHCPv6ClientLogAddressInReply(client, ia_addr);
 	DHCPv6ClientSavePacket(client, data);
 	DHCPv6Client_Bound(client, IFEventID_start_e, NULL);
 	break;
@@ -1908,6 +2084,7 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 	break;
     }
     case IFEventID_data_e: {
+	DHCPv6StatusCode		code;
 	DHCPv6SocketReceiveDataRef 	data;
 	DHCPv6OptionIA_NARef		ia_na;
 	DHCPv6OptionIAADDRRef		ia_addr;
@@ -1915,7 +2092,6 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 	int				option_len;
 	uint8_t				pref;
 	DHCPDUIDRef			server_id;
-	DHCPv6OptionSTATUS_CODERef	status_code;
 
 	data = (DHCPv6SocketReceiveDataRef)event_data;
 	if (data->pkt->msg_type != kDHCPv6MessageADVERTISE
@@ -1934,25 +2110,13 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 	    /* missing/invalid DUID */
 	    break;
 	}
-	status_code = (DHCPv6OptionSTATUS_CODERef)
-	    DHCPv6OptionListGetOptionDataAndLength(data->options,
-						   kDHCPv6OPTION_STATUS_CODE,
-						   &option_len, NULL);
-	if (status_code != NULL) {
-	    uint16_t	code;
-
-	    if (option_len < DHCPv6OptionSTATUS_CODE_MIN_LENGTH) {
-		/* too short */
-		break;
-	    }
-	    
-	    code = DHCPv6OptionSTATUS_CODEGetCode(status_code);
-	    if (code != kDHCPv6StatusCodeSuccess) {
-		if (code == kDHCPv6StatusCodeNoAddrsAvail) {
-		    /* must ignore it */
-		    break;
-		}
-	    }
+	if (!DHCPv6OptionListGetStatusCode(data->options, &code)) {
+	    /* ignore bad data */
+	    break;
+	}
+	if (code == kDHCPv6StatusCodeNoAddrsAvail) {
+	    /* must ignore it */
+	    break;
 	}
 	ia_na = get_ia_na_addr(client, data->pkt->msg_type,
 			       data->options, &ia_addr);
@@ -2014,13 +2178,15 @@ DHCPv6ClientGetMode(DHCPv6ClientRef client)
 }
 
 PRIVATE_EXTERN DHCPv6ClientRef
-DHCPv6ClientCreate(interface_t * if_p)
+DHCPv6ClientCreate(ServiceRef service_p)
 {
     DHCPv6ClientRef		client;
+    interface_t * 		if_p = service_interface(service_p);
     char			timer_name[32];
 
     client = (DHCPv6ClientRef)malloc(sizeof(*client));
     bzero(client, sizeof(*client));
+    client->service_p = service_p;
     client->sock = DHCPv6SocketCreate(if_p);
     snprintf(timer_name, sizeof(timer_name),
 	     "DHCPv6-%s", if_name(if_p));
@@ -2033,24 +2199,37 @@ DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address,
 		  bool privacy_required)
 {
     interface_t *			if_p = DHCPv6ClientGetInterface(client);
+    DHCPv6ClientMode			new_mode;
 
-    my_log(LOG_NOTICE, "%s(%s): use %s address", __func__, if_name(if_p),
+    new_mode = allocate_address
+	? kDHCPv6ClientModeStateful : kDHCPv6ClientModeStateless;
+    my_log(LOG_NOTICE, "%s(%s): %s using %s address",
+	   __func__, if_name(if_p),
+	   DHCPv6ClientModeGetName(new_mode),
 	   privacy_required ? "private" : "permanent");
     DHCPv6ClientSetUsePrivateAddress(client, privacy_required);
     if (allocate_address) {
+	CFAbsoluteTime		current_time;
+
+	current_time = timer_get_current_time();
 	client->mode = kDHCPv6ClientModeStateful;
+
 	/* start Stateful */
-	if (DHCPv6ClientLeaseStillValid(client)) {
+	if (DHCPv6ClientLeaseStillValid(client, current_time)
+	    && DHCPv6ClientLeaseOnSameNetwork(client)) {
 	    DHCPv6Client_Confirm(client, IFEventID_start_e, NULL);
 	}
 	else {
+	    DHCPv6ClientRemoveAddress(client, "Stateful");
+	    DHCPv6ClientClearPacket(client);
 	    DHCPv6Client_Solicit(client, IFEventID_start_e, NULL);
 	}
     }
     else {
 	/* start Stateless */
 	client->mode = kDHCPv6ClientModeStateless;
-	DHCPv6ClientRemoveAddress(client, "Start");
+	DHCPv6ClientRemoveAddress(client, "Stateless");
+	DHCPv6ClientClearPacket(client);
 	DHCPv6Client_Inform(client, IFEventID_start_e, NULL);
     }
     return;
@@ -2079,22 +2258,21 @@ PRIVATE_EXTERN void
 DHCPv6ClientRelease(DHCPv6ClientRef * client_p)
 {
     DHCPv6ClientRef	client = *client_p;
+    CFAbsoluteTime	current_time;
 
     if (client == NULL) {
 	return;
     }
     *client_p = NULL;
-    if (DHCPv6ClientLeaseStillValid(client)) {
+    current_time = timer_get_current_time();
+    if (DHCPv6ClientLeaseStillValid(client, current_time)) {
 	DHCPv6Client_Release(client, IFEventID_start_e, NULL);
     }
     if (client->timer != NULL) {
 	timer_callout_free(&client->timer);
     }
     DHCPv6SocketRelease(&client->sock);
-    if (client->saved.pkt != NULL) {
-	free(client->saved.pkt);
-	client->saved.pkt = NULL;
-    }
+    DHCPv6ClientClearPacket(client);
     DHCPv6ClientSetNotificationCallBack(client, NULL, NULL);
     DHCPv6OptionListRelease(&client->saved.options);
     my_CFRelease(&client->duid);
@@ -2175,24 +2353,93 @@ DHCPv6ClientSetNotificationCallBack(DHCPv6ClientRef client,
     return;
 }
 
-PRIVATE_EXTERN void
-DHCPv6ClientAddressChanged(DHCPv6ClientRef client, 
-			   inet6_addrlist_t * addr_list_p)
+void
+DHCPv6ClientHandleEvent(DHCPv6ClientRef client, IFEventID_t event_ID,
+			void * event_data)
 {
-    DHCPv6ClientHandleAddressChanged(client, addr_list_p);
+    if (DHCPv6ClientGetMode(client) != kDHCPv6ClientModeStateful) {
+	/* not stateful, ignore */
+	return;
+    }
+
+    switch (event_ID) {
+    case IFEventID_ipv6_address_changed_e:
+	DHCPv6ClientHandleAddressChanged(client,
+					 (inet6_addrlist_t *)event_data);
+	break;
+    case IFEventID_wake_e: {
+	DHCPv6ClientHandleWake(client, event_data);
+	break;
+    }
+    case IFEventID_renew_e:
+    case IFEventID_link_status_changed_e: {
+	link_event_data_t	link_event = (link_event_data_t)event_data;
+	link_status_t *		link_status_p;
+
+	link_status_p = &link_event->link_status;
+	if (link_status_is_active(link_status_p)) {
+	    CFAbsoluteTime	current_time;
+
+	    /* trigger a confirm (if we're not already on it) */
+	    current_time = timer_get_current_time();
+	    if (DHCPv6ClientLeaseStillValid(client, current_time)
+		&& S_dhcp_state_is_bound_renew_or_rebind(client->cstate)) {
+		DHCPv6Client_Confirm(client, IFEventID_start_e, NULL);
+	    }
+	}
+	break;
+    }
+    case IFEventID_bssid_changed_e: {
+	CFAbsoluteTime	current_time;
+
+	/* we roamed, confirm the address if necessary */
+	my_log(LOG_NOTICE,
+	       "DHCPv6Client: roamed, state is %s",
+	       DHCPv6ClientStateGetName(client->cstate));
+	current_time = timer_get_current_time();
+	if (DHCPv6ClientLeaseStillValid(client, current_time)
+	    && S_dhcp_state_is_bound_renew_or_rebind(client->cstate)) {
+	    DHCPv6Client_Confirm(client, IFEventID_start_e, NULL);
+	}
+	break;
+    }
+    default:
+	break;
+    }
     return;
 }
 
+
 #if TEST_DHCPV6_CLIENT
 #include "sysconfig.h"
-
+#include "wireless.h"
 #include <SystemConfiguration/SCPrivate.h>
 
 boolean_t G_is_netboot;
-int G_dhcp_duid_type;
+DHCPDUIDType G_dhcp_duid_type;
 Boolean G_IPConfiguration_verbose = TRUE;
-
 bool S_allocate_address;
+int  G_wake_skew_secs = 30;
+
+struct ServiceInfo {
+    interface_t	*	if_p;
+    WiFiInfoRef		wifi_info_p;
+};
+
+interface_t *
+service_interface(ServiceRef service_p)
+{
+    return (service_p->if_p);
+}
+
+CFStringRef
+ServiceGetSSID(ServiceRef service_p)
+{
+    if (service_p->wifi_info_p == NULL) {
+	return (NULL);
+    }
+    return (WiFiInfoGetSSID(service_p->wifi_info_p));
+}
 
 STATIC void
 DHCPv6ClientSendBadOptions(DHCPv6ClientRef client)
@@ -2313,7 +2560,9 @@ handle_change(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
 	    my_log(LOG_NOTICE, "address changed");
 	    /* get the addresses from the interface and deliver the event */
 	    inet6_addrlist_copy(&addr_list, if_link_index(if_p));
-	    DHCPv6ClientAddressChanged(client, &addr_list);
+	    DHCPv6ClientHandleEvent(client,
+				    IFEventID_ipv6_address_changed_e,
+				    &addr_list);
 	    inet6_addrlist_free(&addr_list);
 	}
     }
@@ -2342,7 +2591,7 @@ notification_init(DHCPv6ClientRef client)
     ifname_cf
 	= CFStringCreateWithCString(NULL,
 				    if_name(DHCPv6ClientGetInterface(client)),
-				    kCFStringEncodingASCII);
+				    kCFStringEncodingUTF8);
     keys[0] = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							    kSCDynamicStoreDomainState,
 							    ifname_cf,
@@ -2370,6 +2619,7 @@ main(int argc, char * argv[])
     interface_list_t *		interfaces = NULL;
     bool			use_privacy = false;
     bool			send_bad_options = false;
+    struct ServiceInfo		service;
 
     if (argc < 2) {
 	fprintf(stderr, "%s <ifname>\n", argv[0]);
@@ -2404,7 +2654,17 @@ main(int argc, char * argv[])
     }
     (void) openlog("DHCPv6Client", LOG_PERROR | LOG_PID, LOG_DAEMON);
     DHCPv6SocketSetVerbose(true);
-    client = DHCPv6ClientCreate(if_p);
+    bzero(&service, sizeof(service));
+    service.if_p = if_p;
+    if (if_is_wireless(if_p)) {
+	CFStringRef	ifname_cf;
+
+	ifname_cf = CFStringCreateWithCString(NULL, if_name(if_p),
+					      kCFStringEncodingUTF8);
+	service.wifi_info_p = WiFiInfoCopy(ifname_cf);
+	CFRelease(ifname_cf);
+    }
+    client = DHCPv6ClientCreate(&service);
     if (client == NULL) {
 	fprintf(stderr, "DHCPv6ClientCreate(%s) failed\n", ifname);
 	exit(2);

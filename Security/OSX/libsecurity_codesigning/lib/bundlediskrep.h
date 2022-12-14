@@ -83,6 +83,7 @@ public:
     CFDictionaryRef copyDiskRepInformation();
 
 	std::string recommendedIdentifier(const SigningContext &ctx);
+	std::string explicitIdentifier();
 	CFDictionaryRef defaultResourceRules(const SigningContext &ctx);
 	const Requirements *defaultRequirements(const Architecture *arch, const SigningContext &ctx);
 	size_t pageSize(const SigningContext &ctx);

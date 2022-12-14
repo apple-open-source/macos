@@ -54,12 +54,11 @@ extern CFMutableSetRef	_plugins_verbose;		/* bundle identifiers to enable verbos
 extern Boolean	_should_log_path;
 
 /*
- * PrivacyAccounting framework is only available on:
+ * PrivacyAccounting framework is only available on (non-simulator):
  * - iphoneos
- * - iphonesimulator
  * - watchos
  */
-#if ((TARGET_OS_IOS || (TARGET_OS_WATCH && !TARGET_OS_SIMULATOR)))	
+#if (TARGET_OS_IOS || TARGET_OS_WATCH) && !TARGET_OS_SIMULATOR
 #define _HAVE_PRIVACY_ACCOUNTING		1
 #else
 #define _HAVE_PRIVACY_ACCOUNTING		0
@@ -68,10 +67,9 @@ extern Boolean	_should_log_path;
 /*
  * BASupport library is only available on
  * - iphoneos
- * - iphonesimulator
  * - macOS
  */
-#if ((TARGET_OS_IOS || TARGET_OS_OSX))
+#if TARGET_OS_IOS || TARGET_OS_OSX
 #define _HAVE_BASUPPORT				1
 #else
 #define _HAVE_BASUPPORT				0

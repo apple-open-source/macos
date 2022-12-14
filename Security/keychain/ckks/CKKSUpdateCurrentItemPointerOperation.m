@@ -292,6 +292,11 @@
         self.modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
         self.modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
+#if TARGET_OS_TV
+        // This operation might be needed during CKKS/Manatee bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
+        self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+#endif
+
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
         self.modifyRecordsOperation.group = self.ckoperationGroup;
 

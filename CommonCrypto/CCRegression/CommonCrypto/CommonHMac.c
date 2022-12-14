@@ -78,9 +78,12 @@ static HMacVector hmv[] = {
 
 static size_t hmvLen = sizeof(hmv) / sizeof(HMacVector);
 
-static char * testString(const char *format, CCDigestAlgorithm alg) {
+static char * testString(const char *prefix, CCDigestAlgorithm alg) {
     static char thestring[80];
-    snprintf(thestring, 80, format, digestName(alg));
+    size_t p_nbytes = strlen(prefix);
+    memcpy(thestring, prefix, p_nbytes);
+    assert(p_nbytes <= 80);
+    snprintf(thestring + p_nbytes, 80 - p_nbytes, "%s", digestName(alg));
     return thestring;
 }
 
@@ -90,7 +93,7 @@ static int testOriginalOneShotHMac(CCDigestAlgorithm alg, byteBuffer key, char *
     int status = 0;
     
     CCHmac(hmacAlg, key->bytes, key->len, input, strlen(input), computedMD->bytes);
-    ok(status = expectedEqualsComputed(testString("Original OneShot HMac-%s", alg), expected, computedMD), "HMac is as expected");
+    ok(status = expectedEqualsComputed(testString("Original OneShot HMac-", alg), expected, computedMD), "HMac is as expected");
     free(computedMD);
     return status;
 }
@@ -104,7 +107,7 @@ static int testOriginalDiscreteHMac(CCDigestAlgorithm alg, byteBuffer key, char 
     CCHmacInit(&ctx, hmacAlg, key->bytes, key->len);
     CCHmacUpdate(&ctx, input, strlen(input));
     CCHmacFinal(&ctx, computedMD->bytes);
-    ok(status = expectedEqualsComputed(testString("Original Discrete HMac-%s", alg), expected, computedMD), "HMac is as expected");
+    ok(status = expectedEqualsComputed(testString("Original Discrete HMac-", alg), expected, computedMD), "HMac is as expected");
     free(computedMD);
     return status;
 }
@@ -114,7 +117,7 @@ static int testNewOneShotHMac(CCDigestAlgorithm alg, byteBuffer key, char *input
     int status = 0;
     
     CCHmacOneShot(alg, key->bytes, key->len, input, strlen(input), computedMD->bytes);
-    ok(status = expectedEqualsComputed(testString("New OneShot HMac-%s", alg), expected, computedMD), "HMac is as expected");
+    ok(status = expectedEqualsComputed(testString("New OneShot HMac-", alg), expected, computedMD), "HMac is as expected");
     free(computedMD);
     return status;
 }
@@ -132,8 +135,8 @@ static int testNewDiscreteHMac(CCDigestAlgorithm alg, byteBuffer key, char *inpu
     CCHmacUpdate(ctx2, input, strlen(input));
     CCHmacFinal(ctx2, computedMD2->bytes);
     CCHmacDestroy(ctx2);
-    ok(status = expectedEqualsComputed(testString("New OneShot HMac-%s", alg), expected, computedMD), "HMac is as expected");
-    ok(status = expectedEqualsComputed(testString("New OneShot HMac-%s", alg), expected, computedMD2), "HMac is as expected");
+    ok(status = expectedEqualsComputed(testString("New OneShot HMac-", alg), expected, computedMD), "HMac is as expected");
+    ok(status = expectedEqualsComputed(testString("New OneShot HMac-", alg), expected, computedMD2), "HMac is as expected");
     free(computedMD);
     free(computedMD2);
     return status;

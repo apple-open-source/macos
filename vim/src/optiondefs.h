@@ -427,13 +427,8 @@ static struct vimoption options[] =
 #endif
 					    (char_u *)0L} SCTX_INIT},
     {"backupskip",  "bsk",  P_STRING|P_VI_DEF|P_ONECOMMA|P_NODUP,
-#ifdef FEAT_WILDIGN
 			    (char_u *)&p_bsk, PV_NONE,
 			    {(char_u *)"", (char_u *)0L}
-#else
-			    (char_u *)NULL, PV_NONE,
-			    {(char_u *)0L, (char_u *)0L}
-#endif
 			    SCTX_INIT},
     {"balloondelay","bdlay",P_NUM|P_VI_DEF,
 #ifdef FEAT_BEVAL
@@ -1312,11 +1307,7 @@ static struct vimoption options[] =
 			    {(char_u *)FALSE, (char_u *)0L} SCTX_INIT},
     {"imdisable",   "imd",  P_BOOL|P_VI_DEF,
 			    (char_u *)&p_imdisable, PV_NONE,
-#ifdef __sgi
-			    {(char_u *)TRUE, (char_u *)0L}
-#else
 			    {(char_u *)FALSE, (char_u *)0L}
-#endif
 			    SCTX_INIT},
     {"iminsert",    "imi",  P_NUM|P_VI_DEF,
 			    (char_u *)&p_iminsert, PV_IMI,
@@ -2358,6 +2349,9 @@ static struct vimoption options[] =
     {"splitright",  "spr",  P_BOOL|P_VI_DEF,
 			    (char_u *)&p_spr, PV_NONE,
 			    {(char_u *)FALSE, (char_u *)0L} SCTX_INIT},
+    {"splitscroll", "spsc", P_BOOL,
+			    (char_u *)&p_spsc, PV_NONE,
+			    {(char_u *)TRUE, (char_u *)TRUE} SCTX_INIT},
     {"startofline", "sol",  P_BOOL|P_VI_DEF|P_VIM,
 			    (char_u *)&p_sol, PV_NONE,
 			    {(char_u *)TRUE, (char_u *)0L} SCTX_INIT},
@@ -2757,21 +2751,13 @@ static struct vimoption options[] =
 			    (char_u *)&p_wcm, PV_NONE,
 			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
     {"wildignore",  "wig",  P_STRING|P_VI_DEF|P_ONECOMMA|P_NODUP,
-#ifdef FEAT_WILDIGN
 			    (char_u *)&p_wig, PV_NONE,
-#else
-			    (char_u *)NULL, PV_NONE,
-#endif
 			    {(char_u *)"", (char_u *)0L} SCTX_INIT},
     {"wildignorecase", "wic", P_BOOL|P_VI_DEF,
 			    (char_u *)&p_wic, PV_NONE,
 			    {(char_u *)FALSE, (char_u *)0L} SCTX_INIT},
     {"wildmenu",    "wmnu", P_BOOL|P_VI_DEF,
-#ifdef FEAT_WILDMENU
 			    (char_u *)&p_wmnu, PV_NONE,
-#else
-			    (char_u *)NULL, PV_NONE,
-#endif
 			    {(char_u *)FALSE, (char_u *)0L} SCTX_INIT},
     {"wildmode",    "wim",  P_STRING|P_VI_DEF|P_ONECOMMA|P_NODUP,
 			    (char_u *)&p_wim, PV_NONE,

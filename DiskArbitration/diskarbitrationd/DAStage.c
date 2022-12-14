@@ -655,6 +655,7 @@ static void __DAStageProbe( DADiskRef disk )
      * We commence the "probe" stage if the conditions are right.
      */
 
+    DADiskRef contDisk = NULL;
     if ( DAUnitGetStateRecursively( disk, kDAUnitStateCommandActive ) == FALSE )
     {
         /*
@@ -662,14 +663,19 @@ static void __DAStageProbe( DADiskRef disk )
          */
 
         CFRetain( disk );
+        
 
         DADiskSetState( disk, kDADiskStateStagedProbe, TRUE );
 
         DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
 
         DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
+        
+#if TARGET_OS_IOS
+        contDisk = DADiskGetContainerDisk( disk );
+#endif
 
-        DAProbe( disk, __DAStageProbeCallback, disk );
+        DAProbe( disk, contDisk,  __DAStageProbeCallback, disk );
     }
 }
 
@@ -731,6 +737,7 @@ static void __DAStageProbeCallback( int             status,
             clean = kCFBooleanTrue;
         }
 ///w:stop
+        
         if ( clean == kCFBooleanFalse )
         {
             DADiskSetState( disk, kDADiskStateRequireRepair,       TRUE );
@@ -738,6 +745,7 @@ static void __DAStageProbeCallback( int             status,
             DADiskSetState( disk, kDADiskStateRequireRepairQuotas, TRUE );
 #endif
         }
+
     }
 
     keys = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );

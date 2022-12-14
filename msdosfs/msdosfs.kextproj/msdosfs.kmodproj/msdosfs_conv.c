@@ -73,20 +73,16 @@
 /*
  * System include files.
  */
-
-#ifndef USB_STORAGE_PLUGIN
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/systm.h>
 #include <sys/dirent.h>
-#else
-#include "Conv.h"
-#endif
 
 /*
  * MSDOSFS include files.
  */
 #include "direntry.h"
+
 
 /*
  * Total number of days that have passed for each month in a regular year.

@@ -168,6 +168,7 @@
 #include <WebCore/GlobalWindowIdentifier.h>
 #include <WebCore/LengthBox.h>
 #include <WebCore/MIMETypeRegistry.h>
+#include <WebCore/MediaDeviceHashSalts.h>
 #include <WebCore/MediaStreamRequest.h>
 #include <WebCore/ModalContainerTypes.h>
 #include <WebCore/PerformanceLoggingClient.h>
@@ -2918,6 +2919,13 @@ void WebPageProxy::handleMouseEvent(const NativeWebMouseEvent& event)
     if (!hasRunningProcess())
         return;
 
+#if ENABLE(CONTEXT_MENU_EVENT)
+    if (event.button() == WebMouseEvent::RightButton && event.type() == WebEvent::MouseDown) {
+        ASSERT(m_contextMenuPreventionState != EventPreventionState::Waiting);
+        m_contextMenuPreventionState = EventPreventionState::Waiting;
+    }
+#endif
+
 #if ENABLE(ASYNC_SCROLLING) && PLATFORM(COCOA)
     if (m_scrollingCoordinatorProxy)
         m_scrollingCoordinatorProxy->handleMouseEvent(platform(event));
@@ -3667,7 +3675,7 @@ void WebPageProxy::receivedPolicyDecision(PolicyAction action, API::Navigation* 
     sender->send(PolicyDecision { sender->identifier(), isNavigatingToAppBoundDomain(), action, navigation ? navigation->navigationID() : 0, downloadID, WTFMove(websitePoliciesData), WTFMove(sandboxExtensionHandle) });
 }
 
-void WebPageProxy::commitProvisionalPage(FrameIdentifier frameID, FrameInfoData&& frameInfo, ResourceRequest&& request, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType frameLoadType, const WebCore::CertificateInfo& certificateInfo, bool usedLegacyTLS, bool containsPluginDocument, std::optional<WebCore::HasInsecureContent> forcedHasInsecureContent, WebCore::MouseEventPolicy mouseEventPolicy, const UserData& userData)
+void WebPageProxy::commitProvisionalPage(FrameIdentifier frameID, FrameInfoData&& frameInfo, ResourceRequest&& request, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType frameLoadType, const WebCore::CertificateInfo& certificateInfo, bool usedLegacyTLS, bool privateRelayed, bool containsPluginDocument, std::optional<WebCore::HasInsecureContent> forcedHasInsecureContent, WebCore::MouseEventPolicy mouseEventPolicy, const UserData& userData)
 {
     ASSERT(m_provisionalPage);
     WEBPAGEPROXY_RELEASE_LOG(Loading, "commitProvisionalPage: newPID=%i", m_provisionalPage->process().processIdentifier());
@@ -3701,7 +3709,7 @@ void WebPageProxy::commitProvisionalPage(FrameIdentifier frameID, FrameInfoData&
     const auto oldWebPageID = m_webPageID;
     swapToProvisionalPage(std::exchange(m_provisionalPage, nullptr));
 
-    didCommitLoadForFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, containsPluginDocument, forcedHasInsecureContent, mouseEventPolicy, userData);
+    didCommitLoadForFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, containsPluginDocument, forcedHasInsecureContent, mouseEventPolicy, userData);
 
     m_inspectorController->didCommitProvisionalPage(oldWebPageID, m_webPageID);
 }
@@ -4822,6 +4830,7 @@ void WebPageProxy::didStartProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& 
     RefPtr frame = process->webFrame(frameID);
     MESSAGE_CHECK(process, frame);
     MESSAGE_CHECK_URL(process, url);
+    MESSAGE_CHECK_URL(process, unreachableURL);
 
     // If the page starts a new main frame provisional load, then cancel any pending one in a provisional process.
     if (frame->isMainFrame() && m_provisionalPage && m_provisionalPage->mainFrame() != frame) {
@@ -5079,7 +5088,7 @@ static OptionSet<CrossSiteNavigationDataTransfer::Flag> checkIfNavigationContain
 }
 #endif
 
-void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&& frameInfo, ResourceRequest&& request, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType frameLoadType, const WebCore::CertificateInfo& certificateInfo, bool usedLegacyTLS, bool containsPluginDocument, std::optional<HasInsecureContent> hasInsecureContent, WebCore::MouseEventPolicy mouseEventPolicy, const UserData& userData)
+void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&& frameInfo, ResourceRequest&& request, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType frameLoadType, const WebCore::CertificateInfo& certificateInfo, bool usedLegacyTLS, bool wasPrivateRelayed, bool containsPluginDocument, std::optional<HasInsecureContent> hasInsecureContent, WebCore::MouseEventPolicy mouseEventPolicy, const UserData& userData)
 {
     LOG(Loading, "(Loading) WebPageProxy %" PRIu64 " didCommitLoadForFrame in navigation %" PRIu64, m_identifier.toUInt64(), navigationID);
     LOG(BackForward, "(Back/Forward) After load commit, back/forward list is now:%s", m_backForwardList->loggingString());
@@ -5122,7 +5131,7 @@ void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&
     bool markPageInsecure = hasInsecureContent ? hasInsecureContent.value() == HasInsecureContent::Yes : certificateInfo.containsNonRootSHA1SignedCertificate();
 
     if (frame->isMainFrame()) {
-        m_pageLoadState.didCommitLoad(transaction, webCertificateInfo, markPageInsecure, usedLegacyTLS);
+        m_pageLoadState.didCommitLoad(transaction, webCertificateInfo, markPageInsecure, usedLegacyTLS, wasPrivateRelayed);
         m_shouldSuppressNextAutomaticNavigationSnapshot = false;
     } else if (markPageInsecure)
         m_pageLoadState.didDisplayOrRunInsecureContent(transaction);
@@ -5200,6 +5209,11 @@ void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&
 #if ENABLE(MEDIA_SESSION_COORDINATOR) && HAVE(GROUP_ACTIVITIES)
     if (frame->isMainFrame() && m_preferences->mediaSessionCoordinatorEnabled())
         GroupActivitiesSessionNotifier::sharedNotifier().webPageURLChanged(*this);
+#endif
+
+#if ENABLE(MEDIA_STREAM)
+    if (m_userMediaPermissionRequestManager)
+        m_userMediaPermissionRequestManager->didCommitLoadForFrame(frameID);
 #endif
 }
 
@@ -6541,6 +6555,7 @@ void WebPageProxy::showShareSheet(const ShareDataWithParsedURL& shareData, Compl
 {
     MESSAGE_CHECK(m_process, !shareData.url || shareData.url->protocolIsInHTTPFamily() || shareData.url->protocolIsData());
     MESSAGE_CHECK(m_process, shareData.files.isEmpty() || m_preferences->webShareFileAPIEnabled());
+    MESSAGE_CHECK(m_process, shareData.originator == ShareDataOriginator::Web);
     pageClient().showShareSheet(shareData, WTFMove(completionHandler));
 }
 
@@ -7413,6 +7428,28 @@ void WebPageProxy::handleContextMenuKeyEvent()
 }
 #endif // ENABLE(CONTEXT_MENUS)
 
+#if ENABLE(CONTEXT_MENU_EVENT)
+
+void WebPageProxy::dispatchAfterCurrentContextMenuEvent(CompletionHandler<void(bool)>&& completionHandler)
+{
+    m_contextMenuCallbacks.append(WTFMove(completionHandler));
+
+    processContextMenuCallbacks();
+}
+
+void WebPageProxy::processContextMenuCallbacks()
+{
+    if (m_contextMenuPreventionState == EventPreventionState::Waiting)
+        return;
+
+    bool handled = m_contextMenuPreventionState == EventPreventionState::Prevented;
+
+    for (auto&& callback : std::exchange(m_contextMenuCallbacks, { }))
+        callback(handled);
+}
+
+#endif // ENABLE(CONTEXT_MENU_EVENT)
+
 #if PLATFORM(IOS_FAMILY)
 void WebPageProxy::didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vector<String>& fileURLs, const String& displayString, const API::Data* iconData)
 {
@@ -7740,6 +7777,18 @@ void WebPageProxy::didReceiveEvent(uint32_t opaqueType, bool handled)
         MESSAGE_CHECK(m_process, !m_mouseEventQueue.isEmpty());
         auto event = m_mouseEventQueue.takeFirst();
         MESSAGE_CHECK(m_process, type == event.type());
+
+#if ENABLE(CONTEXT_MENU_EVENT)
+        if (event.button() == WebMouseEvent::RightButton) {
+            if (event.type() == WebEvent::MouseDown) {
+                ASSERT(m_contextMenuPreventionState == EventPreventionState::Waiting);
+                m_contextMenuPreventionState = handled ? EventPreventionState::Prevented : EventPreventionState::Allowed;
+            } else if (m_contextMenuPreventionState != EventPreventionState::Waiting)
+                m_contextMenuPreventionState = EventPreventionState::None;
+
+            processContextMenuCallbacks();
+        }
+#endif
 
         if (!m_mouseEventQueue.isEmpty()) {
             LOG(MouseHandling, " UIProcess: handling a queued mouse event from didReceiveEvent");
@@ -8960,7 +9009,7 @@ void WebPageProxy::requestUserMediaPermissionForFrame(UserMediaRequestIdentifier
 #endif
 }
 
-void WebPageProxy::enumerateMediaDevicesForFrame(FrameIdentifier frameID, const WebCore::SecurityOriginData& userMediaDocumentOriginData, const WebCore::SecurityOriginData& topLevelDocumentOriginData, CompletionHandler<void(const Vector<CaptureDevice>&, const String&)>&& completionHandler)
+void WebPageProxy::enumerateMediaDevicesForFrame(FrameIdentifier frameID, const WebCore::SecurityOriginData& userMediaDocumentOriginData, const WebCore::SecurityOriginData& topLevelDocumentOriginData, CompletionHandler<void(const Vector<WebCore::CaptureDevice>&, WebCore::MediaDeviceHashSalts&&)>&& completionHandler)
 {
 #if ENABLE(MEDIA_STREAM)
     WebFrameProxy* frame = m_process->webFrame(frameID);

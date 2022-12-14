@@ -94,6 +94,8 @@ static void test_crypto_sign(id key1, id key2, SecKeyAlgorithm algorithm) {
     isnt(pk1, nil, "failed to get pubkey from key %@", key1);
     id pk2 = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)key2));
     isnt(pk2, nil, "failed to get pubkey from key %@", key2);
+    ok(SecKeyIsAlgorithmSupported((SecKeyRef)key1, kSecKeyOperationTypeSign, algorithm));
+    ok(SecKeyIsAlgorithmSupported((SecKeyRef)key2, kSecKeyOperationTypeSign, algorithm));
 
     NSData *message = [@"Hello" dataUsingEncoding:NSUTF8StringEncoding];
     NSError *error;
@@ -107,14 +109,16 @@ static void test_crypto_sign(id key1, id key2, SecKeyAlgorithm algorithm) {
     isnt(signature2, nil, "failed to sign data with algorithm %@: %@", algorithm, error);
     ok(SecKeyVerifySignature((SecKeyRef)pk1, algorithm, (CFDataRef)message, (CFDataRef)signature1, (void *)&error), "failed to verify data with algorithm %@: %@", algorithm, error);
 }
-static const int TestKeyCryptoSignCount = 6;
+static const int TestKeyCryptoSignCount = 8;
 
 static void test_crypto_encrypt(id key1, id key2, SecKeyAlgorithm algorithm) {
     id pk1 = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)key1));
     isnt(pk1, nil, "failed to get pubkey from key %@", key1);
     id pk2 = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)key2));
     isnt(pk2, nil, "failed to get pubkey from key %@", key2);
-    
+    ok(SecKeyIsAlgorithmSupported((SecKeyRef)key1, kSecKeyOperationTypeDecrypt, algorithm));
+    ok(SecKeyIsAlgorithmSupported((SecKeyRef)key2, kSecKeyOperationTypeDecrypt, algorithm));
+
     NSData *message = [@"Hello" dataUsingEncoding:NSUTF8StringEncoding];
     NSError *error;
     NSData *ciphertext1 = CFBridgingRelease(SecKeyCreateEncryptedData((SecKeyRef)pk1, algorithm, (CFDataRef)message, (void *)&error));
@@ -129,13 +133,15 @@ static void test_crypto_encrypt(id key1, id key2, SecKeyAlgorithm algorithm) {
     NSData *plaintext2 = CFBridgingRelease(SecKeyCreateDecryptedData((SecKeyRef)key1, algorithm, (CFDataRef)ciphertext2, (void *)&error));
     ok([plaintext2 isEqualToData:message], "encrypt/decrypt differs from message: %@ vs %@", message, plaintext2);
 }
-static const int TestKeyCryptoEncryptCount = 6;
+static const int TestKeyCryptoEncryptCount = 8;
 
 static void test_crypto_kxchg(id key1, id key2, SecKeyAlgorithm algorithm) {
     id pk1 = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)key1));
     isnt(pk1, nil, "failed to get pubkey from key %@", key1);
     id pk2 = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)key2));
     isnt(pk2, nil, "failed to get pubkey from key %@", key2);
+    ok(SecKeyIsAlgorithmSupported((SecKeyRef)key1, kSecKeyOperationTypeKeyExchange, algorithm));
+    ok(SecKeyIsAlgorithmSupported((SecKeyRef)key2, kSecKeyOperationTypeKeyExchange, algorithm));
 
     NSError *error;
     NSData *result1 = CFBridgingRelease(SecKeyCopyKeyExchangeResult((SecKeyRef)key1, algorithm, (SecKeyRef)pk2, (CFDictionaryRef)@{}, (void *)&error));
@@ -144,7 +150,7 @@ static void test_crypto_kxchg(id key1, id key2, SecKeyAlgorithm algorithm) {
     isnt(result1, nil, "failed to keyexchange data with algorithm %@: %@", algorithm, error);
     ok([result1 isEqualToData:result2], "keyexchange results differ!");
 }
-static const int TestKeyCryptoKeyExchange = 5;
+static const int TestKeyCryptoKeyExchange = 7;
 
 static void test_key_proxy_crypto_ops_RSA(void) {
     NSError *error;

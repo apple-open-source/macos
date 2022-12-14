@@ -730,12 +730,14 @@ css/CSSFontFaceSet.cpp
 css/CSSFontFaceSource.cpp
 css/CSSFontFaceSrcValue.cpp
 css/CSSFontFeatureValue.cpp
+css/CSSFontFeatureValuesRule.cpp
 css/CSSFontPaletteValuesOverrideColorsValue.cpp
 css/CSSFontPaletteValuesRule.cpp
 css/CSSFontSelector.cpp
 css/CSSFontStyleRangeValue.cpp
 css/CSSFontStyleValue.cpp
 css/CSSFontValue.cpp
+css/CSSFontVariantAlternatesValue.cpp
 css/CSSFontVariationValue.cpp
 css/CSSFunctionValue.cpp
 css/CSSGradientValue.cpp
@@ -2053,10 +2055,12 @@ platform/graphics/FloatSize.cpp
 platform/graphics/Font.cpp
 platform/graphics/FontCache.cpp
 platform/graphics/FontCascade.cpp
+platform/graphics/FontCascadeCache.cpp
 platform/graphics/FontCascadeDescription.cpp
 platform/graphics/FontCascadeFonts.cpp
 platform/graphics/FontDescription.cpp
 platform/graphics/FontFamilySpecificationNull.cpp
+platform/graphics/FontFeatureValues.cpp
 platform/graphics/FontGenericFamilies.cpp
 platform/graphics/FontPlatformData.cpp
 platform/graphics/FontRanges.cpp
@@ -2120,6 +2124,7 @@ platform/graphics/SourceBufferPrivateClient.cpp
 platform/graphics/SourceImage.cpp
 platform/graphics/StringTruncator.cpp
 platform/graphics/SystemFontDatabase.cpp
+platform/graphics/SystemFallbackFontCache.cpp
 platform/graphics/TextRun.cpp
 platform/graphics/TextTrackRepresentation.cpp
 platform/graphics/TrackBuffer.cpp
@@ -2473,6 +2478,7 @@ rendering/shapes/Shape.cpp
 rendering/shapes/ShapeOutsideInfo.cpp
 rendering/style/BasicShapes.cpp
 rendering/style/BorderData.cpp
+rendering/style/BorderValue.cpp
 rendering/style/ContentData.cpp
 rendering/style/FillLayer.cpp
 rendering/style/GapLength.cpp
@@ -2979,6 +2985,7 @@ JSCSSConditionRule.cpp
 JSCSSContainerRule.cpp
 JSCSSCounterStyleRule.cpp
 JSCSSFontFaceRule.cpp
+JSCSSFontFeatureValuesRule.cpp
 JSCSSFontPaletteValuesRule.cpp
 JSCSSGroupingRule.cpp
 JSCSSImportRule.cpp

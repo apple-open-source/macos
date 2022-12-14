@@ -580,6 +580,65 @@ S_get_if_list(mach_port_t server, int argc, char * argv[])
     return (ret);
 }
 
+static int
+S_get_dhcp_duid(mach_port_t server, int argc, char * argv[])
+{
+    kern_return_t	kret;
+    dataOut_t		duid;
+    mach_msg_type_number_t duid_cnt;
+    int			ret;
+    ipconfig_status_t	status;
+    CFMutableStringRef	str;
+
+    ret = 1;
+    kret = ipconfig_get_dhcp_duid(server, &duid, &duid_cnt, &status);
+    if (kret != KERN_SUCCESS) {
+	fprintf(stderr, "ipconfig_get_dhcp_duid failed, %s\n",
+		mach_error_string(kret));
+	goto done;
+    }
+    if (status != ipconfig_status_success_e || duid == NULL) {
+	goto done;
+    }
+    str = CFStringCreateMutable(NULL, 0);
+    DHCPDUIDPrintToString(str, (const DHCPDUIDRef)duid, duid_cnt);
+    SCPrint(TRUE, stdout, CFSTR("%@\n"), str);
+    CFRelease(str);
+    (void)vm_deallocate(mach_task_self(), (vm_address_t)duid, duid_cnt);
+    ret = 0;
+
+ done:
+    return (ret);
+}
+
+static int
+S_get_dhcp_ia_id(mach_port_t server, int argc, char * argv[])
+{
+    DHCPIAID		ia_id;
+    kern_return_t	kret;
+    InterfaceName	name;
+    ipconfig_status_t	status;
+
+    InterfaceNameInit(name, argv[0]);
+    kret = ipconfig_get_dhcp_ia_id(server, name, &ia_id, &status);
+    if (kret != KERN_SUCCESS) {
+	fprintf(stderr, "ipconfig_get_dhcp_ia_id(%s) failed, %s\n",
+		name, mach_error_string(kret));
+	goto done;
+    }
+    if (status != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_get_dhcp_ia_id(%s) failed: %s\n",
+		name, ipconfig_status_string(status));
+	goto done;
+    }
+    printf("%u\n", ia_id);
+    return (0);
+
+ done:
+    return (1);
+}
+
+
 #ifndef kSCValNetIPv6ConfigMethodLinkLocal
 static const CFStringRef kIPConfigurationIPv6ConfigMethodLinkLocal = CFSTR("LinkLocal");
 #define kSCValNetIPv6ConfigMethodLinkLocal kIPConfigurationIPv6ConfigMethodLinkLocal
@@ -1270,6 +1329,49 @@ S_get_awd_interfaces(mach_port_t server, int argc, char * argv[])
     return (0);
 }
 
+static int
+S_set_dhcp_duid_type(mach_port_t server, int argc, char * argv[])
+{
+    DHCPDUIDType	type;
+
+    if (argc == 0) {
+	type = kDHCPDUIDTypeNone;
+    }
+    else {
+	if (strcasecmp(argv[0], "ll") == 0) {
+	    type = kDHCPDUIDTypeLL;
+	}
+	else if (strcasecmp(argv[0], "llt") == 0) {
+	    type = kDHCPDUIDTypeLLT;
+	}
+	else if (strcasecmp(argv[0], "uuid") == 0) {
+	    type = kDHCPDUIDTypeUUID;
+	}
+	else {
+	    fprintf(stderr, "invalidate type '%s', must be ll, llt, or uuid\n",
+		    argv[0]);
+	    return (1);
+	}
+    }
+    if (!IPConfigurationControlPrefsSetDHCPDUIDType(type)) {
+	fprintf(stderr, "failed to set DHCP DUID type\n");
+	return (1);
+    }
+    return (0);
+}
+
+static int
+S_get_dhcp_duid_type(mach_port_t server, int argc, char * argv[])
+{
+    const char *	str;
+    DHCPDUIDType	type;
+
+    type = IPConfigurationControlPrefsGetDHCPDUIDType();
+    str = DHCPDUIDTypeToString(type);
+    printf("%s\n", str);
+    return (0);
+}
+
 #if TARGET_OS_OSX
 extern Boolean
 IPConfigurationForgetNetwork(CFStringRef ifname, CFStringRef ssid)
@@ -1320,6 +1422,8 @@ static const struct command_info {
     { "getpacket", S_get_packet, 1, " <interface name>", 1, 0 },
     { "getv6packet", S_get_v6_packet, 1, " <interface name>", 1, 0 },
     { "getra", S_get_ra, 1, "<interface name>", 1, 0},
+    { "getdhcpduid", S_get_dhcp_duid, 0, "", 1, 0},
+    { "getdhcpiaid", S_get_dhcp_ia_id, 1, " <interface name>", 1, 0},
     { "set", S_set, 2, 
       "<interface name> <method> <method args>\n"
       "<method> is one of " METHOD_LIST_WITH_NONE,
@@ -1357,6 +1461,8 @@ static const struct command_info {
       "<service ID> <interface name>", 0, 0 },
     { "setawdinterfaces", S_set_awd_interfaces, 0, "[ All | Cellular | None ]", 0, 1 },
     { "getawdinterfaces", S_get_awd_interfaces, 0, NULL, 0, 1 },
+    { "setdhcpduidtype", S_set_dhcp_duid_type, 0, "[ ll | llt | uuid ]", 0, 1 },
+    { "getdhcpduidtype", S_get_dhcp_duid_type, 0, NULL, 0, 1 },
     { "forgetNetwork", S_forget_network, 2, "<interface name> <ssid>", 0, 0},
     { NULL, NULL, 0, NULL, 0, 0 },
 };

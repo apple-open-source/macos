@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -648,6 +648,7 @@ DHCPv6OptionListGetOptionDataAndLength(DHCPv6OptionListRef options,
     return (NULL);
 }
 
+
 /**
  ** DHCPv6OptionsDictionary
  **/
@@ -958,7 +959,7 @@ DHCPv6OptionIAADDRFPrint(FILE * file, DHCPv6OptionIAADDRRef ia_addr,
  ** DHCPv6StatusCode
  **/
 PRIVATE_EXTERN const char * 
-DHCPv6StatusCodeGetName(int code)
+DHCPv6StatusCodeGetName(DHCPv6StatusCode code)
 {
     const char *	str;
 
@@ -980,6 +981,57 @@ DHCPv6StatusCodeGetName(int code)
 	break;
     case kDHCPv6StatusCodeUseMulticast:
 	str = "UseMulticast";
+	break;
+    case kDHCPv6StatusCodeNoPrefixAvail:
+	str = "NoPrefixAvail";
+	break;
+    case kDHCPv6StatusCodeUnknownQueryType:
+	str = "UnknownQueryType";
+	break;
+    case kDHCPv6StatusCodeMalformedQuery:
+	str = "MalformedQuery";
+	break;
+    case kDHCPv6StatusCodeNotConfigured:
+	str = "NotConfigured";
+	break;
+    case kDHCPv6StatusCodeNotAllowed:
+	str = "NotAllowed";
+	break;
+    case kDHCPv6StatusCodeQueryTerminated:
+	str = "QueryTerminated";
+	break;
+    case kDHCPv6StatusCodeDataMissing:
+	str = "DataMissing";
+	break;
+    case kDHCPv6StatusCodeCatchUpComplete:
+	str = "CatchUpComplete";
+	break;
+    case kDHCPv6StatusCodeNotSupported:
+	str = "NotSupported";
+	break;
+    case kDHCPv6StatusCodeTLSConnectionRefused:
+	str = "TLSConnectionRefused";
+	break;
+    case kDHCPv6StatusCodeAddressInUse:
+	str = "AddressInUse";
+	break;
+    case kDHCPv6StatusCodeConfigurationConflict:
+	str = "ConfigurationConflict";
+	break;
+    case kDHCPv6StatusCodeMissingBindingInformation:
+	str = "MissingBindingInformation";
+	break;
+    case kDHCPv6StatusCodeOutdatedBindingInformation:
+	str = "OutdatedBindingInformation";
+	break;
+    case kDHCPv6StatusCodeServerShuttingDown:
+	str = "ServerShuttingDown";
+	break;
+    case kDHCPv6StatusCodeDNSUpdateNotSupported:
+	str = "DNSUpdateNotSupported";
+	break;
+    case kDHCPv6StatusCodeExcessiveTimeSkew:
+	str = "ExcessiveTimeSkew";
 	break;
     default:
 	str = "<unknown>";
@@ -1013,6 +1065,34 @@ DHCPv6OptionSTATUS_CODEPrintToString(CFMutableStringRef str,
 		      DHCPv6StatusCodeGetName(code), code);
     }
     return;
+}
+
+PRIVATE_EXTERN bool
+DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
+			      DHCPv6StatusCode * ret_code)			 {
+    DHCPv6StatusCode		code = kDHCPv6StatusCodeSuccess;
+    int				option_len;
+    DHCPv6OptionSTATUS_CODERef	status_code;
+    bool			success = true;
+
+    status_code = (DHCPv6OptionSTATUS_CODERef)
+	DHCPv6OptionListGetOptionDataAndLength(options,
+					       kDHCPv6OPTION_STATUS_CODE,
+					       &option_len, NULL);
+    if (status_code != NULL) {
+	if (option_len >= DHCPv6OptionSTATUS_CODE_MIN_LENGTH) {
+	    code = DHCPv6OptionSTATUS_CODEGetCode(status_code);
+	}
+	else {
+	    my_log(LOG_NOTICE,
+		   "DHCPv6 StatusCode option too short %d < %d",
+		   option_len, DHCPv6OptionSTATUS_CODE_MIN_LENGTH);
+	    code = kDHCPv6StatusCodeFailure;
+	    success = false;
+	}
+    }
+    *ret_code = code;
+    return (success);
 }
 
 #if TEST_DHCPV6_OPTIONS

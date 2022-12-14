@@ -150,7 +150,7 @@ unsigned malloc_zero_on_free_sample_period = 0; // 0 means don't sample
 static const char zero_on_free_sample_period_boot_arg[] = "malloc_zero_on_free_sample_period";
 
 MALLOC_NOEXPORT
-bool malloc_zero_on_free = MALLOC_ZERO_ON_FREE_ENABLED_DEFAULT;
+malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 
 static const char zero_on_free_enabled_boot_arg[] = "malloc_zero_on_free_enabled";
 
@@ -278,7 +278,7 @@ __malloc_init_from_bootargs(const char *bootargs)
 		const char *endp;
 		long value = malloc_common_convert_to_long(flag, &endp);
 		if (!*endp && (value == 0 || value == 1)) {
-			malloc_zero_on_free = value;
+			malloc_zero_policy = value ? MALLOC_ZERO_ON_FREE : MALLOC_ZERO_NONE;
 		} else {
 			malloc_report(ASL_LEVEL_ERR,
 					"malloc_zero_on_free_enabled must be 0 or 1 - ignored.\n");
@@ -397,9 +397,11 @@ __malloc_init(const char *apple[])
 
 #if CONFIG_FEATUREFLAGS_SIMPLE
 	bool zero_on_free_feature_enabled = os_feature_enabled_simple(libmalloc,
-			ZeroOnFree, MALLOC_ZERO_ON_FREE_ENABLED_DEFAULT);
-	if (zero_on_free_feature_enabled != malloc_zero_on_free) {
-		malloc_zero_on_free = zero_on_free_feature_enabled;
+			ZeroOnFree, MALLOC_ZERO_POLICY_DEFAULT == MALLOC_ZERO_ON_FREE);
+	bool policy_is_zero_on_free = (malloc_zero_policy == MALLOC_ZERO_ON_FREE);
+	if (zero_on_free_feature_enabled != policy_is_zero_on_free) {
+		malloc_zero_policy = zero_on_free_feature_enabled ?
+				MALLOC_ZERO_ON_FREE : MALLOC_ZERO_NONE;
 	}
 #endif
 
@@ -1205,11 +1207,13 @@ set_flags_from_environment(void)
 #endif
 
 #if TARGET_OS_OSX
+	// rdar://99288027
 	if (!dyld_program_sdk_at_least(dyld_platform_version_macOS_13_0)) {
-		if (malloc_zero_on_free) {
-			malloc_zero_on_free = false;
+		if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
+			malloc_zero_policy = MALLOC_ZERO_ON_ALLOC;
 		}
 	}
+#else // TARGET_OS_OSX
 #endif // TARGET_OS_OSX
 
 	/*
@@ -1512,9 +1516,20 @@ set_flags_from_environment(void)
 		const char *endp;
 		long value = malloc_common_convert_to_long(flag, &endp);
 		if (!*endp && endp != flag && (value == 0 || value == 1)) {
-			malloc_zero_on_free = (value == 1);
+			malloc_zero_policy = value ? MALLOC_ZERO_ON_FREE : MALLOC_ZERO_NONE;
 		} else {
 			malloc_report(ASL_LEVEL_ERR, "MallocZeroOnFree must be 0 or 1.\n");
+		}
+	}
+
+	flag = getenv("MallocZeroOnAlloc");
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && endp != flag && (value == 0 || value == 1)) {
+			malloc_zero_policy = value ? MALLOC_ZERO_ON_ALLOC : MALLOC_ZERO_NONE;
+		} else {
+			malloc_report(ASL_LEVEL_ERR, "MallocZeroOnAlloc must be 0 or 1.\n");
 		}
 	}
 
@@ -1549,6 +1564,8 @@ set_flags_from_environment(void)
 				"  MallocCorruptionAbort is always set on 64-bit processes\n"
 				"- MallocErrorAbort to abort on any malloc error, including out of memory\n"\
 				"- MallocTracing to emit kdebug trace points on malloc entry points\n"\
+				"- MallocZeroOnFree to enable or disable zero-on-free behavior (for debugging only)\n"\
+				"- MallocCheckZeroOnFreeCorruption to enable zero-on-free corruption detection\n"\
 				"- MallocHelp - this help!\n");
 	}
 }
@@ -2866,7 +2883,7 @@ malloc_zone_enumerate_discharged_pointers(malloc_zone_t *zone, void (^report_dis
 void
 malloc_zero_on_free_disable(void)
 {
-	malloc_zero_on_free = false;
+	malloc_zero_policy = MALLOC_ZERO_NONE;
 }
 
 /*****************	OBSOLETE ENTRY POINTS	********************/

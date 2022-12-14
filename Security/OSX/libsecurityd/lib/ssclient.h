@@ -391,7 +391,7 @@ private:
 		Thread() : registered(false), notifySeq(0) { }
 		operator bool() const { return registered; }
 		
-		ReceivePort replyPort;	// dedicated reply port (send right held by SecurityServer)
+		ReplyPort replyPort;	// dedicated reply port (send right held by SecurityServer)
         bool registered;		// has been registered with SecurityServer
 		uint32 notifySeq; // notification sequence number
 	};

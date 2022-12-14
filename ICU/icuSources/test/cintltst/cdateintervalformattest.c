@@ -40,10 +40,13 @@ void addDateIntervalFormatTest(TestNode** root)
 
 static const char tzUSPacific[] = "US/Pacific";
 static const char tzAsiaTokyo[] = "Asia/Tokyo";
+static const char tzAmericaLosAngeles[] = "America/Los_Angeles";
 #define Date201103021030 1299090600000.0 /* 2011-Mar-02 Wed 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
 #define Date201009270800 1285599629000.0 /* 2010-Sep-27 Mon 0800 in US/Pacific */
 #define Date201712300900 1514653200000.0 /* 2017-Dec-30 Sat 0900 in US/Pacific */
 #define Date200101012200 1546322400000.0 /* 2001-Jan-01 2200 in US/Pacific */
+#define Date202208302200 1661922030000.0 /* 2022-Aug-30 2200 in America/Los_Angeles */
+#define Date202208312200 1662008430000.0 /* 2022-Aug-31 2200 in America/Los_Angeles */
 #define Date158210140000 -12219379142000.0
 #define Date158210160000 -12219206342000.0
 #define _MINUTE (60.0*1000.0)
@@ -169,6 +172,20 @@ static const DateIntervalFormatTestItem testItems[] = {
     // rdar://72744707
     { "hi@calendar=japanese", "yMMMEd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800,     Date201009270800 + 31.0*_DAY,  "\\u0938\\u094B\\u092E, 27 \\u0938\\u093F\\u0924\\u0970 \\u2013 \\u0917\\u0941\\u0930\\u0941, 28 \\u0905\\u0915\\u094D\\u0924\\u0942\\u0970 22 \\u0939\\u0947\\u0907\\u0938\\u0947\\u0907" }, // "सोम, 27 सित॰ \\u2013 गुरु, 28 अक्तू॰ 22 हेइसेइ"
     { "hi@calendar=japanese", "yMMMEd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800,     Date201009270800 + 410.0*_DAY, "\\u0938\\u094B\\u092E, 27 \\u0938\\u093F\\u0924\\u0970 22 \\u2013 \\u0936\\u0941\\u0915\\u094D\\u0930, 11 \\u0928\\u0935\\u0970 23 \\u0939\\u0947\\u0907\\u0938\\u0947\\u0907" }, // "सोम, 27 सित॰ 22 \\u2013 शुक्र, 11 नव॰ 23 हेइसेइ"
+
+    // rdar://99978866 tests for UDTITVFMT_MINIMIZE_ADJACENT_DAYS
+    // First demonstrate the old behavior, minimizing across a day boundary that is not also a month boundary.
+    // We only minimize if the interval is < 12 hours, so 3rd and 4th example should not minimize (in which case we have the date for both ends of interval).
+    // When we do minimize (1st and 2nd example), we only include the date if it is in the skeleton (as in the 2nd example). 
+    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 8.0*_HOUR,  "10:00 PM\\u2009\\u2013\\u20096:00 AM" },
+    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 8.0*_HOUR,  "8/30/2022, 10:00 PM\\u2009\\u2013\\u20096:00 AM" },
+    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 13.0*_HOUR, "8/30/2022, 10:00 PM\\u2009\\u2013\\u20098/31/2022, 11:00 AM" },
+    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 13.0*_HOUR, "8/30/2022, 10:00 PM\\u2009\\u2013\\u20098/31/2022, 11:00 AM" },
+    // Now test that the new behavior (minimizing across a day boundary that is also a month boundary) is parallel.
+    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 8.0*_HOUR,  "10:00 PM\\u2009\\u2013\\u20096:00 AM" },
+    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 8.0*_HOUR,  "8/31/2022, 10:00 PM\\u2009\\u2013\\u20096:00 AM" },
+    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 13.0*_HOUR, "8/31/2022, 10:00 PM\\u2009\\u2013\\u20099/1/2022, 11:00 AM" },
+    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 13.0*_HOUR, "8/31/2022, 10:00 PM\\u2009\\u2013\\u20099/1/2022, 11:00 AM" },
 
     { NULL,    NULL,        CAP_NONE,  MIN_NONE,   NULL,        0,                             0,                             NULL }
 };

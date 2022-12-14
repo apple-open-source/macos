@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,17 +41,20 @@
 #include <stdbool.h>
 #include <arpa/inet.h>
 #include <CoreFoundation/CFString.h>
+#include <uuid/uuid.h>
 #include "nbo.h"
 #include "symbol_scope.h"
 
-enum {
+typedef CF_ENUM (uint16_t, DHCPDUIDType) {
     kDHCPDUIDTypeNone = 0,
     kDHCPDUIDTypeLLT = 1,
     kDHCPDUIDTypeEN = 2,
-    kDHCPDUIDTypeLL = 3
+    kDHCPDUIDTypeLL = 3,
+    kDHCPDUIDTypeUUID = 4,
 };
 
-typedef int  	DHCPDUIDType;
+const char *
+DHCPDUIDTypeToString(DHCPDUIDType type);
 
 typedef struct {
     uint8_t		duid_type[2];	/* 1 */
@@ -72,10 +75,16 @@ typedef struct {
     uint8_t		linklayer_address[1]; /* variable length */
 } DHCPDUID_LL, * DHCPDUID_LLRef;
 
+typedef struct {
+    uint8_t		duid_type[2];	/* 4 */
+    uint8_t		uuid[16];
+} DHCPDUID_UUID, * DHCPDUID_UUIDRef;
+
 typedef union {
     DHCPDUID_LLT	llt;    
     DHCPDUID_EN		en;
     DHCPDUID_LL		ll;
+    DHCPDUID_UUID	uuid;
 } DHCPDUID, * DHCPDUIDRef;
 
 
@@ -160,5 +169,8 @@ DHCPDUID_LLDataCreate(const void * ll_addr, int ll_len, int ll_type);
 
 CFDataRef
 DHCPDUID_LLTDataCreate(const void * ll_addr, int ll_len, int ll_type);
+
+CFDataRef
+DHCPDUID_UUIDDataCreate(const uuid_t uuid);
 
 #endif /* _S_DHCPDUID_H */

@@ -28,6 +28,7 @@
 #include "DAInternal.h"
 #include "DAThread.h"
 #include "DALog.h"
+#include "DASupport.h"
 
 #include <fsproperties.h>
 #include <paths.h>
@@ -40,6 +41,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <os/variant_private.h>
+#include <sys/stat.h>
 
 #define __kDAFileSystemUUIDSpaceSHA1 CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,               \
                                                                      0xB3, 0xE2, 0x0F, 0x39,            \
@@ -71,6 +73,8 @@ struct __DAFileSystemProbeContext
     CFStringRef               volumeName;
     CFStringRef               volumeType;
     CFUUIDRef                 volumeUUID;
+    int                       devicefd;
+    int                       containerfd;
 };
 
 typedef struct __DAFileSystemProbeContext __DAFileSystemProbeContext;
@@ -218,11 +222,14 @@ static void __DAFileSystemProbeCallback( int status, void * parameter, CFDataRef
     CFRelease( context->devicePath   );
     CFRelease( context->probeCommand );
 
-    if ( context->repairCommand )  CFRelease( context->repairCommand );
-    if ( context->volumeName    )  CFRelease( context->volumeName    );
-    if ( context->volumeType    )  CFRelease( context->volumeType    );
-    if ( context->volumeUUID    )  CFRelease( context->volumeUUID    );
-
+    if ( context->repairCommand )      CFRelease( context->repairCommand );
+    if ( context->volumeName    )      CFRelease( context->volumeName    );
+    if ( context->volumeType    )      CFRelease( context->volumeType    );
+    if ( context->volumeUUID    )      CFRelease( context->volumeUUID    );
+#if TARGET_OS_IOS
+    if ( context->devicefd != -1 )     close( context->devicefd );
+    if ( context->containerfd != -1 )  close( context->containerfd );
+#endif
     free( context );
 }
 
@@ -231,9 +238,11 @@ static void __DAFileSystemProbeCallbackStage1( int status, CFDataRef output, voi
     /*
      * Process the probe command's completion.
      */
+    
 
     __DAFileSystemProbeContext * context = parameter;
-
+    CFStringRef                  fdPathStr     = NULL;
+    
     if ( status == FSUR_RECOGNIZED )
     {
         /*
@@ -266,20 +275,29 @@ static void __DAFileSystemProbeCallbackStage1( int status, CFDataRef output, voi
          * Execute the "get UUID" command.
          */
 
+        if ( context->devicefd >= 0)
+        {
+            fdPathStr = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/dev/fd/%d" ), context->devicefd );
+            if ( fdPathStr == NULL )  { status = ENOMEM; goto DAFileSystemProbeErr; }
+        }
+        
         DACommandExecute( context->probeCommand,
                           kDACommandExecuteOptionCaptureOutput,
                           ___UID_ROOT,
                           ___GID_WHEEL,
+                          context->devicefd,
                           __DAFileSystemProbeCallbackStage2,
                           context,
                           CFSTR( "-k" ),
-                          context->deviceName,
+                          (context->devicefd != -1)? fdPathStr: context->deviceName,
                           NULL );
+        
+        if ( fdPathStr )  { CFRelease( fdPathStr ); }
+        return;
     }
-    else
-    {
-        __DAFileSystemProbeCallback( status, context, NULL );
-    }
+    
+DAFileSystemProbeErr:
+    __DAFileSystemProbeCallback( status, context, NULL );
 }
 
 static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, void * parameter )
@@ -289,6 +307,8 @@ static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, voi
      */
 
     __DAFileSystemProbeContext * context = parameter;
+    int                          ret = 0;
+    CFStringRef                  fdPathStr = NULL;
 
     if ( status == FSUR_IO_SUCCESS )
     {
@@ -320,15 +340,40 @@ static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, voi
          * Execute the "is clean" command.
          */
 
-        DACommandExecute( context->repairCommand,
+        if ( context->devicefd >= 0 || context->containerfd >= 0 )
+        {
+            int fd = (context->containerfd >= 0)? context->containerfd:context->devicefd;
+            fdPathStr = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/dev/fd/%d" ), fd );
+            if ( fdPathStr == NULL )
+            {
+                ret = ENOMEM;
+                goto exit;
+            }
+            DACommandExecute( context->repairCommand,
+                             kDACommandExecuteOptionDefault,
+                              ___UID_ROOT,
+                              ___GID_WHEEL,
+                              fd,
+                              __DAFileSystemProbeCallbackStage3,
+                              context,
+                              CFSTR( "-q" ),
+                              fdPathStr,
+                              NULL );
+            
+        }
+        else
+        {
+            DACommandExecute( context->repairCommand,
                           kDACommandExecuteOptionDefault,
                           ___UID_ROOT,
                           ___GID_WHEEL,
+                          -1,
                           __DAFileSystemProbeCallbackStage3,
                           context,
                           CFSTR( "-q" ),
                           context->devicePath,
                           NULL );
+        }
     }
     else
     {
@@ -336,7 +381,15 @@ static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, voi
          * Skip the "is clean" command, as it is not applicable.
          */
 
-        __DAFileSystemProbeCallbackStage3( 0, NULL, context );
+        __DAFileSystemProbeCallbackStage3( ret, NULL, context );
+    }
+    
+exit:
+    if ( fdPathStr )    CFRelease( fdPathStr );
+    
+    if ( ret )
+    {
+        __DAFileSystemProbeCallbackStage3( ret, NULL, context );
     }
 }
 
@@ -349,6 +402,7 @@ static void __DAFileSystemProbeCallbackStage3( int status, CFDataRef output, voi
     __DAFileSystemProbeContext * context = parameter;
 
     context->cleanStatus = status;
+    DALogInfo( " fsck status %d %@", status, context->devicePath );
 
 #if TARGET_OS_OSX
     context->volumeType = _FSCopyNameForVolumeFormatAtNode( context->devicePath );
@@ -686,6 +740,7 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
                           kDACommandExecuteOptionDefault,
                           userUID,
                           userGID,
+                         -1,
                           __DAFileSystemCallback,
                           context,
                           CFSTR( "-t" ),
@@ -703,6 +758,7 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
                           kDACommandExecuteOptionDefault,
                           userUID,
                           userGID,
+                         -1,
                           __DAFileSystemCallback,
                           context,
                           CFSTR( "-t" ),
@@ -733,6 +789,8 @@ DAFileSystemMountErr:
 
 void DAFileSystemProbe( DAFileSystemRef           filesystem,
                         CFURLRef                  device,
+                        char *                    deviceBSDPath,
+                        char *                    containerBSDPath,
                         DAFileSystemProbeCallback callback,
                         void *                    callbackContext,
                         bool                      doFsck )
@@ -753,7 +811,8 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
     CFURLRef                     repairCommand     = NULL;
     CFStringRef                  repairCommandName = NULL;
     int                          status            = 0;
-
+    int                          fd;
+    CFStringRef                  fdPathStr     = NULL;
     /*
      * Prepare to probe.
      */
@@ -807,15 +866,41 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
     context->volumeName      = NULL;
     context->volumeType      = NULL;
     context->volumeUUID      = NULL;
+    context->devicefd     = -1;
+    context->containerfd     = -1;
+    
+#if TARGET_OS_IOS
+    if  ( ( os_variant_is_darwinos( "com.apple.diskarbitrationd" ) == FALSE )  && ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "apfs" ) ) == FALSE ) )
+    {
+        if ( containerBSDPath )
+        {
+            fd = DAUserFSOpen(containerBSDPath, O_RDONLY);
+            if ( fd == -1 )  { status = errno; goto DAFileSystemProbeErr; }
+            context->containerfd = dup (fd );
+            close (fd);
+        }
 
+        fd = DAUserFSOpen(deviceBSDPath, O_RDONLY);
+        if ( fd == -1 )  { status = errno; goto DAFileSystemProbeErr; }
+        context->devicefd = dup (fd );
+        close (fd);
+    }
+#endif
+    if ( context->devicefd >= 0)
+    {
+        fdPathStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR( "/dev/fd/%d" ), context->devicefd);
+        if ( fdPathStr == NULL )  { status = ENOMEM; goto DAFileSystemProbeErr; }
+    }
+    
     DACommandExecute( probeCommand,
                       kDACommandExecuteOptionCaptureOutput,
                       ___UID_ROOT,
                       ___GID_WHEEL,
+                      context->devicefd,
                       __DAFileSystemProbeCallbackStage1,
                       context,
                       CFSTR( "-p" ),
-                      deviceName,
+                      (context->devicefd != -1)?  fdPathStr: deviceName,
                       CFSTR( "removable" ),
                       CFSTR( "readonly"  ),
                       NULL );
@@ -828,6 +913,7 @@ DAFileSystemProbeErr:
         if ( devicePath    )  CFRelease( devicePath    );
         if ( probeCommand  )  CFRelease( probeCommand  );
         if ( repairCommand )  CFRelease( repairCommand );
+        if ( fdPathStr     )  CFRelease( fdPathStr );
 
         if ( context )  free( context );
 
@@ -896,6 +982,7 @@ DAFileSystemRenameErr:
 
 void DAFileSystemRepair( DAFileSystemRef      filesystem,
                          CFURLRef             device,
+                         int fd,
                          DAFileSystemCallback callback,
                          void *               callbackContext )
 {
@@ -910,6 +997,7 @@ void DAFileSystemRepair( DAFileSystemRef      filesystem,
     CFDictionaryRef         personality   = NULL;
     CFDictionaryRef         personalities = NULL;
     int                     status        = 0;
+    CFStringRef             fdPathStr     = NULL;
 
     /*
      * Prepare to repair.
@@ -939,21 +1027,28 @@ void DAFileSystemRepair( DAFileSystemRef      filesystem,
 
     context->callback        = callback;
     context->callbackContext = callbackContext;
-
+    if ( fd != -1 )
+    {
+        fdPathStr = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/dev/fd/%d" ), fd );
+        if ( fdPathStr == NULL )  { status = ENOMEM; goto DAFileSystemRepairErr; }
+    }
+    
     DACommandExecute( command,
                       kDACommandExecuteOptionDefault,
                       ___UID_ROOT,
                       ___GID_WHEEL,
+                     fd,
                       __DAFileSystemCallback,
                       context,
                       CFSTR( "-y" ),
-                      devicePath,
+                     (fd != -1)?  fdPathStr: devicePath,
                       NULL );
 
 DAFileSystemRepairErr:
 
     if ( command    )  CFRelease( command    );
     if ( devicePath )  CFRelease( devicePath );
+    if ( fdPathStr )   CFRelease( fdPathStr );
 
     if ( status )
     {
@@ -1005,6 +1100,7 @@ void DAFileSystemRepairQuotas( DAFileSystemRef      filesystem,
                       kDACommandExecuteOptionDefault,
                       ___UID_ROOT,
                       ___GID_WHEEL,
+                     -1,
                       __DAFileSystemCallback,
                       context,
                       CFSTR( "-g" ),
@@ -1061,7 +1157,7 @@ void DAFileSystemUnmountWithArguments( DAFileSystemRef      filesystem,
 
     command = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, CFSTR( "/sbin/umount" ), kCFURLPOSIXPathStyle, FALSE );
     if ( command == NULL )  { status = ENOTSUP; goto DAFileSystemUnmountErr; }
-
+     
     context = malloc( sizeof( __DAFileSystemContext ) );
     if ( context == NULL )  { status = ENOMEM; goto DAFileSystemUnmountErr; }
 
@@ -1097,6 +1193,7 @@ void DAFileSystemUnmountWithArguments( DAFileSystemRef      filesystem,
                           kDACommandExecuteOptionDefault,
                           ___UID_ROOT,
                           ___GID_WHEEL,
+                         -1,
                           __DAFileSystemCallback,
                           context,
                           CFSTR( "-f" ),
@@ -1109,6 +1206,7 @@ void DAFileSystemUnmountWithArguments( DAFileSystemRef      filesystem,
                           kDACommandExecuteOptionDefault,
                           ___UID_ROOT,
                           ___GID_WHEEL,
+                         -1,
                           __DAFileSystemCallback,
                           context,
                           mountpointPath,

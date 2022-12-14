@@ -15,7 +15,8 @@ PATCHFILES	= cve-2014-8140-test-compr-eb \
                   patch-quarantine \
                   PR-25537454.diff \
                   PR-4126223.diff \
-                  cve-2022-0530
+                  cve-2022-0530 \
+                  0001-Fix-null-pointer-dereference-and-use-of-uninitialized-data.patch
 
 SRCROOT		?= $(shell pwd)
 OBJROOT		?= $(SRCROOT)/obj

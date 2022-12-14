@@ -73,22 +73,22 @@ static const struct httpmap http_version[] = {
    */
 static const struct writeoutvar variables[] = {
   {"content_type", VAR_CONTENT_TYPE, CURLINFO_CONTENT_TYPE, writeString},
-  {"errormsg", VAR_ERRORMSG, 0, writeString},
-  {"exitcode", VAR_EXITCODE, 0, writeLong},
-  {"filename_effective", VAR_EFFECTIVE_FILENAME, 0, writeString},
+  {"errormsg", VAR_ERRORMSG, CURLINFO_NONE, writeString},
+  {"exitcode", VAR_EXITCODE, CURLINFO_NONE, writeLong},
+  {"filename_effective", VAR_EFFECTIVE_FILENAME, CURLINFO_NONE, writeString},
   {"ftp_entry_path", VAR_FTP_ENTRY_PATH, CURLINFO_FTP_ENTRY_PATH, writeString},
-  {"header_json", VAR_HEADER_JSON, 0, NULL},
+  {"header_json", VAR_HEADER_JSON, CURLINFO_NONE, NULL},
   {"http_code", VAR_HTTP_CODE, CURLINFO_RESPONSE_CODE, writeLong},
   {"http_connect", VAR_HTTP_CODE_PROXY, CURLINFO_HTTP_CONNECTCODE, writeLong},
   {"http_version", VAR_HTTP_VERSION, CURLINFO_HTTP_VERSION, writeString},
-  {"json", VAR_JSON, 0, NULL},
+  {"json", VAR_JSON, CURLINFO_NONE, NULL},
   {"local_ip", VAR_LOCAL_IP, CURLINFO_LOCAL_IP, writeString},
   {"local_port", VAR_LOCAL_PORT, CURLINFO_LOCAL_PORT, writeLong},
   {"method", VAR_EFFECTIVE_METHOD, CURLINFO_EFFECTIVE_METHOD, writeString},
   {"num_connects", VAR_NUM_CONNECTS, CURLINFO_NUM_CONNECTS, writeLong},
-  {"num_headers", VAR_NUM_HEADERS, 0, writeLong},
+  {"num_headers", VAR_NUM_HEADERS, CURLINFO_NONE, writeLong},
   {"num_redirects", VAR_REDIRECT_COUNT, CURLINFO_REDIRECT_COUNT, writeLong},
-  {"onerror", VAR_ONERROR, 0, NULL},
+  {"onerror", VAR_ONERROR, CURLINFO_NONE, NULL},
   {"proxy_ssl_verify_result", VAR_PROXY_SSL_VERIFY_RESULT,
    CURLINFO_PROXY_SSL_VERIFYRESULT, writeLong},
   {"redirect_url", VAR_REDIRECT_URL, CURLINFO_REDIRECT_URL, writeString},
@@ -106,8 +106,8 @@ static const struct writeoutvar variables[] = {
   {"speed_upload", VAR_SPEED_UPLOAD, CURLINFO_SPEED_UPLOAD_T, writeOffset},
   {"ssl_verify_result", VAR_SSL_VERIFY_RESULT, CURLINFO_SSL_VERIFYRESULT,
    writeLong},
-  {"stderr", VAR_STDERR, 0, NULL},
-  {"stdout", VAR_STDOUT, 0, NULL},
+  {"stderr", VAR_STDERR, CURLINFO_NONE, NULL},
+  {"stdout", VAR_STDOUT, CURLINFO_NONE, NULL},
   {"time_appconnect", VAR_APPCONNECT_TIME, CURLINFO_APPCONNECT_TIME_T,
    writeTime},
   {"time_connect", VAR_CONNECT_TIME, CURLINFO_CONNECT_TIME_T, writeTime},
@@ -119,10 +119,10 @@ static const struct writeoutvar variables[] = {
   {"time_starttransfer", VAR_STARTTRANSFER_TIME, CURLINFO_STARTTRANSFER_TIME_T,
    writeTime},
   {"time_total", VAR_TOTAL_TIME, CURLINFO_TOTAL_TIME_T, writeTime},
-  {"url", VAR_INPUT_URL, 0, writeString},
+  {"url", VAR_INPUT_URL, CURLINFO_NONE, writeString},
   {"url_effective", VAR_EFFECTIVE_URL, CURLINFO_EFFECTIVE_URL, writeString},
-  {"urlnum", VAR_URLNUM, 0, writeLong},
-  {NULL, VAR_NONE, 0, NULL}
+  {"urlnum", VAR_URLNUM, CURLINFO_NONE, writeLong},
+  {NULL, VAR_NONE, CURLINFO_NONE, NULL}
 };
 
 static int writeTime(FILE *stream, const struct writeoutvar *wovar,
@@ -338,8 +338,8 @@ void ourWriteOut(const char *writeinfo, struct per_transfer *per,
       else {
         /* this is meant as a variable to output */
         char *end;
+        size_t vlen;
         if('{' == ptr[1]) {
-          char keepit;
           int i;
           bool match = FALSE;
           end = strchr(ptr, '}');
@@ -348,10 +348,10 @@ void ourWriteOut(const char *writeinfo, struct per_transfer *per,
             fputs("%{", stream);
             continue;
           }
-          keepit = *end;
-          *end = 0; /* null-terminate */
+          vlen = end - ptr;
           for(i = 0; variables[i].name; i++) {
-            if(curl_strequal(ptr, variables[i].name)) {
+            if((strlen(variables[i].name) == vlen) &&
+               curl_strnequal(ptr, variables[i].name, vlen)) {
               match = TRUE;
               switch(variables[i].id) {
               case VAR_ONERROR:
@@ -380,21 +380,26 @@ void ourWriteOut(const char *writeinfo, struct per_transfer *per,
             }
           }
           if(!match) {
-            fprintf(stderr, "curl: unknown --write-out variable: '%s'\n", ptr);
+            fprintf(stderr, "curl: unknown --write-out variable: '%.*s'\n",
+                    (int)vlen, ptr);
           }
           ptr = end + 1; /* pass the end */
-          *end = keepit;
         }
         else if(!strncmp("header{", &ptr[1], 7)) {
           ptr += 8;
           end = strchr(ptr, '}');
           if(end) {
+            char hname[256]; /* holds the longest header field name */
             struct curl_header *header;
-            *end = 0;
-            if(CURLHE_OK == curl_easy_header(per->curl, ptr, 0, CURLH_HEADER,
-                                             -1, &header))
-              fputs(header->value, stream);
-            ptr = end + 1; /* pass the end */
+            vlen = end - ptr;
+            if(vlen < sizeof(hname)) {
+              memcpy(hname, ptr, vlen);
+              hname[vlen] = 0;
+              if(CURLHE_OK == curl_easy_header(per->curl, hname, 0,
+                                               CURLH_HEADER, -1, &header))
+                fputs(header->value, stream);
+            }
+            ptr = end + 1;
           }
           else
             fputs("%header{", stream);

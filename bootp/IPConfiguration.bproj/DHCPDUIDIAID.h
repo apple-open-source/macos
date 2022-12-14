@@ -42,13 +42,16 @@
 #include <CoreFoundation/CFData.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "DHCPDUID.h"
 #include "symbol_scope.h"
 #include "interfaces.h"
-
-typedef uint32_t	DHCPIAID;
+#include "ipconfig_types.h"
 
 PRIVATE_EXTERN CFDataRef
-DHCPDUIDGet(interface_list_t * interfaces);
+DHCPDUIDGet(void);
+
+PRIVATE_EXTERN CFDataRef
+DHCPDUIDEstablishAndGet(DHCPDUIDType type);
 
 PRIVATE_EXTERN DHCPIAID
 DHCPIAIDGet(const char * ifname);

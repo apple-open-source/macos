@@ -652,11 +652,11 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func fetchViableBottles(with user: TPSpecificUser?, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
+    func fetchViableBottles(with user: TPSpecificUser?, source: OTEscrowRecordFetchSource, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
         do {
-            logger.info("fetchViableBottles in \(String(describing: user), privacy: .public)")
+            logger.info("fetchViableBottles in \(String(describing: user), privacy: .public) from source (\(source.rawValue, privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.fetchViableBottles { sortedBottleIDs, partialBottleIDs, error in
+            container.fetchViableBottles(from: source) { sortedBottleIDs, partialBottleIDs, error in
                 reply(sortedBottleIDs, partialBottleIDs, error?.sanitizeForClientXPC())
             }
         } catch {
@@ -665,13 +665,11 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func fetchViableEscrowRecords(with user: TPSpecificUser?, forceFetch: Bool, reply: @escaping ([Data]?, Error?) -> Void) {
+    func fetchViableEscrowRecords(with user: TPSpecificUser?, source: OTEscrowRecordFetchSource, reply: @escaping ([Data]?, Error?) -> Void)  {
         do {
-            logger.info("fetchViableEscrowRecords in \(String(describing: user), privacy: .public)")
+            logger.info("fetchViableEscrowRecords in \(String(describing: user), privacy: .public) from source (\(source.rawValue, privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.fetchEscrowRecords(forceFetch: forceFetch) { recordDatas, error in
-                reply(recordDatas, error?.sanitizeForClientXPC())
-            }
+            container.fetchEscrowRecords(from: source) { reply($0, $1?.sanitizeForClientXPC()) }
         } catch {
             reply(nil, error.sanitizeForClientXPC())
         }

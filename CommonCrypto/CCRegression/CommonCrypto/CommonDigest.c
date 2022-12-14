@@ -152,9 +152,12 @@ static DigestVector dv[] = {
 
 static size_t dvLen = sizeof(dv) / sizeof(DigestVector);
 
-static char * testString(char *format, CCDigestAlgorithm alg) {
+static char * testString(const char *prefix, CCDigestAlgorithm alg) {
     static char thestring[80];
-    sprintf(thestring, format, digestName(alg));
+    size_t p_nbytes = strlen(prefix);
+    memcpy(thestring, prefix, p_nbytes);
+    assert(p_nbytes <= 80);
+    snprintf(thestring + p_nbytes, 80 - p_nbytes, "%s", digestName(alg));
     return thestring;
 }
 
@@ -182,7 +185,7 @@ static int testOriginalOneShotDigest(CCDigestAlgorithm alg, char *input, byteBuf
         } break;
     }
     is(p,computedMD->bytes, "Return value");
-    ok(status = expectedEqualsComputed(testString("Original OneShot Digest %s", alg), expected, computedMD), "Digest is as expected");
+    ok(status = expectedEqualsComputed(testString("Original OneShot Digest ", alg), expected, computedMD), "Digest is as expected");
     free(computedMD);
     return status;
 }
@@ -308,8 +311,8 @@ testOriginalDiscreteDigest(CCDigestAlgorithm alg, char *input, byteBuffer expect
             return 1;
         } break;
     }
-    ok(status = expectedEqualsComputed(testString("Original Discrete Digest %s", alg), expected, computedMD), "Digest is as expected");
-    ok(status = expectedEqualsComputed(testString("Original Discrete Digest Intermediate %s", alg), expectedIntermediate, comp_intr), "Intermediate State is as expected");
+    ok(status = expectedEqualsComputed(testString("Original Discrete Digest ", alg), expected, computedMD), "Digest is as expected");
+    ok(status = expectedEqualsComputed(testString("Original Discrete Digest Intermediate ", alg), expectedIntermediate, comp_intr), "Intermediate State is as expected");
     free(computedMD);
     free(comp_intr);
     return status;
@@ -323,7 +326,7 @@ static int testNewOneShotDigest(CCDigestAlgorithm alg, char *input, byteBuffer e
     is(CCDigest(alg, (const uint8_t *) NULL, inputLen,  computedMD->bytes),(inputLen==0)?0:kCCParamError, "NULL data return value");
     is(CCDigest(alg, (const uint8_t *) input, inputLen, NULL),kCCParamError, "NULL output return value");
     is(CCDigest(alg, (const uint8_t *) input, inputLen, computedMD->bytes),0, "Digest return value");
-    ok(status = expectedEqualsComputed(testString("New OneShot Digest %s", alg), expected, computedMD), "Digest is as expected");
+    ok(status = expectedEqualsComputed(testString("New OneShot Digest ", alg), expected, computedMD), "Digest is as expected");
     free(computedMD);
     return status;
 }
@@ -356,8 +359,8 @@ static int testNewDiscreteDigest(CCDigestAlgorithm alg, char *input, byteBuffer 
     if(retval) goto out;
     
     CCDigestDestroy(d);
-    ok(status = expectedEqualsComputed(testString("New OneShot Digest %s", alg), expected, computedMD), "Digest is as expected");
-    ok(status = expectedEqualsComputed(testString("New OneShot Digest %s", alg), expected, computedMD2), "Digest is as expected");
+    ok(status = expectedEqualsComputed(testString("New OneShot Digest ", alg), expected, computedMD), "Digest is as expected");
+    ok(status = expectedEqualsComputed(testString("New OneShot Digest ", alg), expected, computedMD2), "Digest is as expected");
 out:
     free(computedMD);
     free(computedMD2);

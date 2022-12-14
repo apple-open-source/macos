@@ -718,6 +718,7 @@ enum {NUM_RETRIES = 5};
 }
 
 - (void)fetchViableBottlesWithSpecificUser:(TPSpecificUser*)specificUser
+                                    source:(OTEscrowRecordFetchSource)source
                                      reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply
 {
     __block int i = 0;
@@ -733,7 +734,7 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] fetchViableBottlesWithSpecificUser:specificUser reply:reply];
+        }] fetchViableBottlesWithSpecificUser:specificUser source:source reply:reply];
     } while (retry);
 }
    
@@ -1008,16 +1009,16 @@ enum {NUM_RETRIES = 5};
 
 }
 
-- (void)fetchViableEscrowRecordsWithSpecificUser:(TPSpecificUser*)specificUser
-                                      forceFetch:(BOOL)forceFetch
-                                           reply:(nonnull void (^)(NSArray<NSData *> * _Nullable,
-                                                                   NSError * _Nullable))reply
+- (void)fetchViableEscrowRecordsWithSpecificUser:(TPSpecificUser *)specificUser
+                                          source:(OTEscrowRecordFetchSource)source
+                                           reply:(void (^)(NSArray<NSData*>* _Nullable,
+                                                           NSError* _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
     do {
         retry = false;
-        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError* _Nonnull error) {
             if (i < NUM_RETRIES && [self.class retryable:error]) {
                 secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
                 retry = true;
@@ -1026,7 +1027,7 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] fetchViableEscrowRecordsWithSpecificUser:specificUser forceFetch:forceFetch reply:reply];
+        }] fetchViableEscrowRecordsWithSpecificUser:specificUser source:source reply:reply];
     } while (retry);
 }
 

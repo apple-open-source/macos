@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,8 @@
  */
 #include <CoreFoundation/CFRunLoop.h>
 #include <SystemConfiguration/SCPreferences.h>
+
+#include "DHCPDUID.h"
 
 typedef void (*IPConfigurationControlPrefsCallBack)(SCPreferencesRef prefs);
 
@@ -85,5 +87,11 @@ IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires(void);
 
 Boolean
 IPConfigurationControlPrefsSetIPv6LinkLocalModifierExpires(Boolean expires);
+
+DHCPDUIDType
+IPConfigurationControlPrefsGetDHCPDUIDType(void);
+
+Boolean
+IPConfigurationControlPrefsSetDHCPDUIDType(DHCPDUIDType type);
 
 #endif /* _S_IPCONFIGURATIONCONTROLPREFS_H */

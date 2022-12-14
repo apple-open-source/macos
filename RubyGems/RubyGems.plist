@@ -24,7 +24,7 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2019-01-19</string>
+		<string>2022-10-05</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceLicenseFile</key>
@@ -34,17 +34,17 @@
 		<key>OpenSourceProject</key>
 		<string>mini_portile2</string>
 		<key>OpenSourceSHA256</key>
-		<string>7e178a397ad62bb8a96977986130dc81f1b13201c6dd95a48bd8cec1dda5f797</string>
+		<string>1e06b286ff19b73cfc9193cb3dd2bd80416f8262443564b25b23baea74a05765</string>
 		<key>OpenSourceURL</key>
-		<string>https://rubygems.org/downloads/mini_portile2-2.4.0.gem</string>
+		<string>https://rubygems.org/downloads/mini_portile2-2.8.0.gem</string>
 		<key>OpenSourceVersion</key>
-		<string>2.4.0</string>
+		<string>2.8.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://github.com/flavorjones/mini_portile</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2019-01-19</string>
+		<string>2022-10-05</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceLicenseFile</key>
@@ -54,11 +54,11 @@
 		<key>OpenSourceProject</key>
 		<string>nokogiri</string>
 		<key>OpenSourceSHA256</key>
-		<string>0405d84a87d7dbc057eb9a2d0fcef5795e23992db516b83d37b91f69d8a1f427</string>
+		<string>79c279298b2f22fd4e760f49990c7930436bac1b1cfeff7bacff192f30edea3c</string>
 		<key>OpenSourceURL</key>
-		<string>https://rubygems.org/downloads/nokogiri-1.10.1.gem</string>
+		<string>https://rubygems.org/downloads/nokogiri-1.13.8.gem</string>
 		<key>OpenSourceVersion</key>
-		<string>1.10.1</string>
+		<string>1.13.8</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://nokogiri.org</string>
 	</dict>

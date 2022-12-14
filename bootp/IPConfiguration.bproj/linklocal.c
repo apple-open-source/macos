@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -589,13 +589,15 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       }
       case IFEventID_wake_e:
       case IFEventID_link_status_changed_e: {
-	  link_status_t	   link_status;
+	  link_event_data_t	link_event;
+	  link_status_t *	link_status_p;
 
 	  if (linklocal == NULL) {
 	      return (ipconfig_status_internal_error_e);
 	  }
-	  link_status = service_link_status(service_p);
-	  if (link_status.valid == TRUE && link_status.active == FALSE) {
+	  link_event = (link_event_data_t)event_data;
+	  link_status_p = &link_event->link_status;
+	  if (link_status_is_inactive(link_status_p)) {
 	      linklocal_cancel_pending_events(service_p);
 	      linklocal->enable_arp_collision_detection = FALSE;
 	  }

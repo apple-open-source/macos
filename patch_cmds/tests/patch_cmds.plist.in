@@ -1014,6 +1014,31 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>patch_cmds.patch.apple_patch_test.bof_100350977</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch/apple_patch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch</string>
+				<string>-r</string>
+				<string>apple_patch_test.sh.bof_100350977.results.txt</string>
+				<string>bof_100350977</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>patch_cmds.patch.apple_patch_test.bof_patch</string>
 			<key>ShellEnv</key>
 			<dict>

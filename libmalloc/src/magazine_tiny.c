@@ -205,7 +205,7 @@ set_tiny_meta_header_middle(const void *ptr)
 static MALLOC_INLINE void
 zero_tiny_free_inline_meta(void *ptr, msize_t msize)
 {
-	if (malloc_zero_on_free) {
+	if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
 		*((tiny_free_list_t *)ptr) = (tiny_free_list_t){ 0 };
 		if (msize > 1) {
 			TINY_FREE_SIZE(ptr) = 0;
@@ -220,7 +220,7 @@ zero_tiny_free_inline_meta(void *ptr, msize_t msize)
 static MALLOC_INLINE void
 zero_tiny_free_inline_meta_following(void *ptr, msize_t msize)
 {
-	if (malloc_zero_on_free) {
+	if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
 		if (msize > 1) {
 			void *follower = FOLLOWING_TINY_PTR(ptr, msize);
 			TINY_PREVIOUS_MSIZE(follower) = 0;
@@ -283,17 +283,23 @@ tiny_zero_corruption_abort(void *ptr, msize_t msize)
 }
 
 static MALLOC_INLINE void
-tiny_check_zero_and_clear(void *ptr, msize_t msize, boolean_t clear)
+tiny_check_zero_or_clear(void *ptr, msize_t msize, boolean_t clear)
 {
-	if (malloc_zero_on_free) {
+	switch (malloc_zero_policy) {
+	case MALLOC_ZERO_ON_FREE:
 		if (zero_on_free_should_sample() &&
 				_malloc_memcmp_zero_aligned8(ptr, TINY_BYTES_FOR_MSIZE(msize))) {
 			tiny_zero_corruption_abort(ptr, msize);
 		}
-	} else {
-		if (clear) {
-			memset(ptr, '\0', TINY_BYTES_FOR_MSIZE(msize));
+		break;
+	case MALLOC_ZERO_NONE:
+		if (!clear) {
+			break;
 		}
+		// fall through
+	case MALLOC_ZERO_ON_ALLOC:
+		memset(ptr, '\0', TINY_BYTES_FOR_MSIZE(msize));
+		break;
 	}
 }
 
@@ -342,7 +348,7 @@ static MALLOC_ALWAYS_INLINE MALLOC_INLINE void
 tiny_check_and_zero_inline_meta_from_freelist(rack_t *rack, void *ptr,
 		msize_t msize)
 {
-	if (!malloc_zero_on_free) {
+	if (malloc_zero_policy != MALLOC_ZERO_ON_FREE) {
 		return;
 	}
 
@@ -1506,7 +1512,7 @@ tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
 		msize += next_msize;
 	}
 
-	if (!malloc_zero_on_free) {
+	if (malloc_zero_policy != MALLOC_ZERO_ON_FREE) {
 		// The tiny cache already scribbles free blocks as they go through the
 		// cache, so we do not need to do it here.
 		//
@@ -1781,7 +1787,7 @@ tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_s
 			trailer->objects_in_use--;
 		}
 		set_tiny_meta_header_middle(next_block);
-		tiny_check_zero_and_clear(last_free_ptr, coalesced_msize, false);
+		tiny_check_zero_or_clear(last_free_ptr, coalesced_msize, false);
 		coalesced_msize = 0; // No net change in memory use
 	} else {
 #endif // CONFIG_TINY_CACHE
@@ -1806,7 +1812,7 @@ tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_s
 				// Mark the first block of the remaining free area as a header and in-use.
 				set_tiny_meta_header_in_use_1(ptr + TINY_BYTES_FOR_MSIZE(new_msize));
 			}
-			tiny_check_zero_and_clear(unused_start, coalesced_msize, false);
+			tiny_check_zero_or_clear(unused_start, coalesced_msize, false);
 		} else {
 			/*
 			 * Look for a free block immediately afterwards.  If it's large
@@ -1830,7 +1836,7 @@ tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_s
 			set_tiny_meta_header_middle(next_block); // clear the meta_header to enable coalescing backwards
 
 			tiny_check_and_zero_inline_meta_from_freelist(rack, next_block, next_msize);
-			tiny_check_zero_and_clear(next_block, coalesced_msize, false);
+			tiny_check_zero_or_clear(next_block, coalesced_msize, false);
 
 			leftover_msize = next_msize - coalesced_msize;
 			if (leftover_msize) {
@@ -2439,7 +2445,7 @@ tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requeste
 		SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 		CHECK(szone, __PRETTY_FUNCTION__);
 
-		tiny_check_zero_and_clear(ptr, msize, cleared_requested);
+		tiny_check_zero_or_clear(ptr, msize, cleared_requested);
 
 #if DEBUG_MALLOC
 		if (LOG(szone, ptr)) {
@@ -2455,7 +2461,7 @@ tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requeste
 		if (ptr) {
 			SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 			CHECK(szone, __PRETTY_FUNCTION__);
-			tiny_check_zero_and_clear(ptr, msize, cleared_requested);
+			tiny_check_zero_or_clear(ptr, msize, cleared_requested);
 			return ptr;
 		}
 
@@ -2465,7 +2471,7 @@ tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requeste
 			if (ptr) {
 				SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 				CHECK(szone, __PRETTY_FUNCTION__);
-				tiny_check_zero_and_clear(ptr, msize, cleared_requested);
+				tiny_check_zero_or_clear(ptr, msize, cleared_requested);
 				return ptr;
 			}
 		}
@@ -2595,7 +2601,7 @@ free_tiny(rack_t *rack, void *ptr, region_t tiny_region, size_t known_size,
 	}
 #endif
 
-	if (malloc_zero_on_free) {
+	if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
 		memset(ptr, '\0', TINY_BYTES_FOR_MSIZE(msize));
 	}
 
@@ -2616,7 +2622,7 @@ free_tiny(rack_t *rack, void *ptr, region_t tiny_region, size_t known_size,
 				return;
 			}
 
-			if (!malloc_zero_on_free) {
+			if (malloc_zero_policy != MALLOC_ZERO_ON_FREE) {
 				if ((rack->debug_flags & MALLOC_DO_SCRIBBLE) && msize) {
 					memset(ptr, SCRABBLE_BYTE, TINY_BYTES_FOR_MSIZE(msize));
 				}
@@ -2746,7 +2752,7 @@ tiny_batch_free(szone_t *szone, void **to_be_freed, unsigned count)
 				if (is_free) {
 					break; // a double free; let the standard free deal with it
 				}
-				if (malloc_zero_on_free) {
+				if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
 					memset(ptr, '\0', TINY_BYTES_FOR_MSIZE(msize));
 				}
 				if (!tiny_free_no_lock(&szone->tiny_rack, tiny_mag_ptr, mag_index, tiny_region, ptr, msize, 0)) {

@@ -36,6 +36,7 @@ struct __DAProbeCallbackContext
     void *            callbackContext;
     CFMutableArrayRef candidates;
     DADiskRef         disk;
+    DADiskRef         containerDisk;
     DAFileSystemRef   filesystem;
 };
 
@@ -48,8 +49,9 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
      */
 
     __DAProbeCallbackContext * context = parameter;
-    bool doFsck = true;
-
+    bool doFsck                       = true;
+    char *containerBSDPath            = NULL;
+    
     if ( status )
     {
         /*
@@ -75,8 +77,9 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
         }
 
 #if !TARGET_OS_OSX
-        if ( ( DADiskGetDescription( context->disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue ) &&
-            ( DADiskGetDescription( context->disk, kDADiskDescriptionDeviceInternalKey ) == NULL ) )
+        if ( ( ( DADiskGetDescription( context->disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue ) &&
+            ( DADiskGetDescription( context->disk, kDADiskDescriptionDeviceInternalKey ) == NULL ) ) ||
+            ( DADiskGetDescription( context->disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue ) )
         {
             doFsck = false;
         }
@@ -133,7 +136,18 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
                             DALogInfo( "probed disk, id = %@, with %@, ongoing.", context->disk, kind );
 
-                            DAFileSystemProbe( filesystem, DADiskGetDevice( context->disk ), __DAProbeCallback, context, doFsck );
+#if TARGET_OS_IOS
+                            if ( context->containerDisk )
+                            {
+                                containerBSDPath = DADiskGetBSDPath( context->containerDisk, TRUE);
+                            }
+                            else
+                            {
+                                containerBSDPath = NULL;
+                            }
+#endif
+                        
+                            DAFileSystemProbe( filesystem, DADiskGetDevice( context->disk ), DADiskGetBSDPath( context->disk, TRUE ), containerBSDPath, __DAProbeCallback, context, doFsck );
 
                             return;
                         }
@@ -143,6 +157,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
             CFArrayRemoveValueAtIndex( context->candidates, 0 );
         }
+    
     }
     else
     {
@@ -164,13 +179,19 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
     CFRelease( context->candidates );
     CFRelease( context->disk       );
-
+#if TARGET_OS_IOS
+    if ( context->containerDisk )
+    {
+        DAUnitSetState( context->containerDisk, kDAUnitStateCommandActive, FALSE );
+        CFRelease( context->containerDisk       );
+    }
+#endif
     if ( context->filesystem )  CFRelease( context->filesystem );
 
     free( context );
 }
 
-void DAProbe( DADiskRef disk, DAProbeCallback callback, void * callbackContext )
+void DAProbe( DADiskRef disk, DADiskRef containerDisk, DAProbeCallback callback, void * callbackContext )
 {
     /*
      * Probe the specified volume.  A status of 0 indicates success.
@@ -226,11 +247,19 @@ void DAProbe( DADiskRef disk, DAProbeCallback callback, void * callbackContext )
      */
 
     CFRetain( disk );
-
+#if TARGET_OS_IOS
+    if ( containerDisk )
+    {
+        DAUnitSetState( containerDisk, kDAUnitStateCommandActive, TRUE );
+        CFRetain( containerDisk );
+    }
+#endif
+    
     context->callback        = callback;
     context->callbackContext = callbackContext;
     context->candidates      = candidates;
     context->disk            = disk;
+    context->containerDisk   = containerDisk;
     context->filesystem      = NULL;
 
     __DAProbeCallback( -1, NULL, NULL, NULL, NULL, context );
@@ -239,6 +268,7 @@ DAProbeErr:
 
     if ( status )
     {
+
         if ( candidates )
         {
             CFRelease( candidates );

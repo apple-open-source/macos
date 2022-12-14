@@ -24,6 +24,7 @@ atf_test_case noderef
 atf_test_case ignorecase
 #ifdef __APPLE__
 atf_test_case unified_timestamp
+atf_test_case crlfeol_body
 #endif
 
 simple_body()
@@ -361,6 +362,18 @@ unified_timestamp_body()
 	atf_check grep -q -f c1.match unified_p.out
 	atf_check grep -q -f c2.match unified_p.out
 }
+
+crlfeol_body()
+{
+	printf 'hello world\x0d\x0a' > a
+	printf 'hello world' > b
+
+	atf_check -s exit:0 \
+		diff -A stone -b a b
+
+	atf_check -s exit:0 \
+		diff -A myers -b a b
+}
 #endif
 
 atf_init_test_cases()
@@ -389,5 +402,6 @@ atf_init_test_cases()
 	atf_add_test_case ignorecase
 #ifdef __APPLE__
 	atf_add_test_case unified_timestamp
+	atf_add_test_case crlfeol
 #endif
 }

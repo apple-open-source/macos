@@ -87,8 +87,8 @@ struct l2tp_rfc {
     u_int32_t  		state;				/* state information */
     u_int32_t  		flags;				/* miscellaneous flags */
     u_int32_t		baudrate;				/* baudrate of the underlying transport */
-    struct sockaddr_storage*	peer_address;			/* ip address we are connected to */
-    struct sockaddr_storage*	our_address;			/* our side of the tunnel */
+    struct sockaddr*	peer_address;			/* ip address we are connected to */
+    struct sockaddr*	our_address;			/* our side of the tunnel */
     u_int16_t		our_tunnel_id;			/* our tunnel id */
     u_int16_t		peer_tunnel_id;			/* peer's tunnel id */
     u_int16_t		our_session_id;			/* our session id */
@@ -144,6 +144,31 @@ extern lck_mtx_t	*ppp_domain_mutex;
 #define L2TP_RFC_MAX_HASH 256
 static TAILQ_HEAD(, l2tp_rfc) l2tp_rfc_hash[L2TP_RFC_MAX_HASH];
 
+static void
+l2tp_rfc_set_socket(struct l2tp_rfc *rfc, socket_t socket, int thread, struct sockaddr *local_address)
+{
+	if (rfc->socket != NULL) {
+		l2tp_udp_detach(rfc->socket, rfc->thread);
+		rfc->socket = NULL;
+	}
+	rfc->socket = socket;
+	if (rfc->socket != NULL) {
+		l2tp_udp_retain(rfc->socket);
+	}
+
+    if (thread >= 0) {
+        rfc->thread = thread;
+    }
+
+    if (rfc->our_address != NULL) {
+        kfree_data_addr(rfc->our_address);
+        rfc->our_address = NULL;
+    }
+	if (local_address != NULL) {
+		rfc->our_address = kalloc_data(local_address->sa_len, Z_WAITOK);
+		memcpy(rfc->our_address, local_address, local_address->sa_len);
+	}
+}
 
 /* -----------------------------------------------------------------------------
 Forward declarations
@@ -267,36 +292,12 @@ void l2tp_rfc_free_now(struct l2tp_rfc *rfc)
 {
     struct l2tp_elem 	*send_elem;
     struct l2tp_elem	*recv_elem;
-    struct l2tp_rfc 	*rfc1 = NULL;
-	int					i;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     LOGIT(rfc, "L2TP free (%p)\n", rfc);
-    
-    if (rfc->socket) {
-        /* the control connection own socket */
-        if (rfc->flags & L2TP_FLAG_CONTROL){
-            // find an rfc with same socket
-			for (i = 0; i < L2TP_RFC_MAX_HASH; i++) {
-				TAILQ_FOREACH(rfc1, &l2tp_rfc_hash[i], next)
-					if (rfc1 != rfc
-						&& (rfc1->flags & L2TP_FLAG_CONTROL)
-						&& (rfc1->socket == rfc->socket))
-						break;
-				// check if found
-				if (rfc1)	
-					break;
-			}
-			// nothing other rfc found, detach socket
-            if (rfc1 == 0)
-                l2tp_udp_detach(rfc->socket, rfc->thread);
-        }
-        rfc->socket = 0;
-    }
 
-    if (rfc->peer_address)
-        kfree_data_addr(rfc->peer_address);
+    l2tp_rfc_set_socket(rfc, NULL, -1, NULL);
                             
     while((send_elem = TAILQ_FIRST(&rfc->send_queue))) {
         TAILQ_REMOVE(&rfc->send_queue, send_elem, next);
@@ -313,6 +314,30 @@ void l2tp_rfc_free_now(struct l2tp_rfc *rfc)
     kfree_type(struct l2tp_rfc, rfc);
 }
 
+static bool
+validate_sockaddr(struct sockaddr *sa)
+{
+    if (sa->sa_len > sizeof(struct sockaddr_in6)) {
+        return false;
+    }
+
+    switch (sa->sa_family) {
+        case AF_INET6:
+            if (sa->sa_len < sizeof(struct sockaddr_in6)) {
+                return false;
+            }
+            break;
+        case AF_INET:
+            if (sa->sa_len < sizeof(struct sockaddr_in)) {
+                return false;
+            }
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
@@ -322,6 +347,7 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
     int			len, i, had_peer_addr;
     u_char 		*p;
     u_int16_t   aligned_short;
+    struct sockaddr *sa = NULL;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
@@ -376,14 +402,14 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
 
             if (!(rfc->flags & L2TP_FLAG_CONTROL)) {
                 /* for data connection, join the existing socket of the associated control connection */
-                rfc->socket = 0;
-                TAILQ_FOREACH(rfc1, &l2tp_rfc_hash[rfc->our_tunnel_id % L2TP_RFC_MAX_HASH], next)
-                    if ((rfc1->flags & L2TP_FLAG_CONTROL)
-                        && (rfc->our_tunnel_id == rfc1->our_tunnel_id)) {
-                        rfc->socket = rfc1->socket;
-                        rfc->thread = rfc1->thread;
-                        break;
-                    }
+				l2tp_rfc_set_socket(rfc, NULL, -1, NULL);
+				TAILQ_FOREACH(rfc1, &l2tp_rfc_hash[rfc->our_tunnel_id % L2TP_RFC_MAX_HASH], next) {
+					if ((rfc1->flags & L2TP_FLAG_CONTROL)
+						&& (rfc->our_tunnel_id == rfc1->our_tunnel_id)) {
+						l2tp_rfc_set_socket(rfc, rfc1->socket, rfc1->thread, rfc1->our_address);
+						break;
+					}
+				}
             }
             break;
 
@@ -448,125 +474,113 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
         case L2TP_CMD_SETPEERADDR:	
 			had_peer_addr = rfc->peer_address != NULL;
             if (rfc->peer_address) {
-		kfree_data_addr(rfc->peer_address);
+                kfree_data_addr(rfc->peer_address);
                 rfc->peer_address = 0;
             }
-            p = (u_int8_t*)cmddata;
-            len = *((u_int8_t*)cmddata);
-            if (len == 0) {
+
+            sa = (struct sockaddr *)cmddata;
+            if (sa->sa_len == 0) {
                 LOGIT(rfc, "L2TP command (%p): set peer IP address = no address\n", rfc);
                 break;
             }
-            memcpy(&aligned_short, p+2, sizeof(u_int16_t));     // Wcast-align fix - use memcpy for unaligned access
-            LOGIT(rfc, "L2TP command (%p): set peer IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], aligned_short);
+
             /* copy the address - this can handle IPv6 addresses */
-            if (len > INET6_ADDRSTRLEN) {
+            if (!validate_sockaddr(sa)) {
                 error = EINVAL; 
                 break;
             }
-            rfc->peer_address = kalloc_data(len, Z_WAITOK);
-            if (rfc->peer_address == 0)
+
+            rfc->peer_address = kalloc_data(sa->sa_len, Z_WAITOK);
+            if (rfc->peer_address == 0) {
                 error = ENOMEM;
-            else {
-                bcopy((u_int8_t*)cmddata, rfc->peer_address, len);
-                if (rfc->flags & L2TP_FLAG_CONTROL) {
-                    /* for control connections, set the other end of the socket */
-                    error = l2tp_udp_setpeer(rfc->socket, (struct sockaddr *)rfc->peer_address);
-					if (had_peer_addr) {
-						// XXX clear the INP_INADDR_ANY flag
-						// Radar 5452036 & 5448998
-						l2tp_udp_clear_INP_INADDR_ANY(rfc->socket);
-					}
-                        
-                    if (error == EADDRINUSE) {
-                        // find the rfc with same src/dst pair
-						for (i = 0; i < L2TP_RFC_MAX_HASH; i++) {
-							TAILQ_FOREACH(rfc1, &l2tp_rfc_hash[i], next)
-								if (rfc1 != rfc
-									&& (rfc1->flags & L2TP_FLAG_CONTROL)
-									&& rfc1->our_address 
-									&& rfc1->peer_address
-									&& !l2tp_rfc_compare_address((struct sockaddr *)rfc1->our_address, (struct sockaddr *)rfc->our_address) 
-									&& !l2tp_rfc_compare_address((struct sockaddr *)rfc1->peer_address, (struct sockaddr *)rfc->peer_address)) {
-									// use socket from other rfc
-									l2tp_udp_detach(rfc->socket, rfc->thread);
-									rfc->socket = rfc1->socket;
-									rfc->thread = rfc1->thread;
-									error = 0;
-									break;
-								}
-							// check if found
-							if (rfc1)	
+                break;
+            }
+
+            memcpy(rfc->peer_address, sa, sa->sa_len);
+
+            if (rfc->flags & L2TP_FLAG_CONTROL) {
+				/* for control connections, set the other end of the socket */
+				error = l2tp_udp_setpeer(rfc->socket, rfc->peer_address);
+				if (had_peer_addr) {
+					// XXX clear the INP_INADDR_ANY flag
+					// Radar 5452036 & 5448998
+					l2tp_udp_clear_INP_INADDR_ANY(rfc->socket);
+				}
+
+				if (error == EADDRINUSE) {
+					// find the rfc with same src/dst pair
+					for (i = 0; i < L2TP_RFC_MAX_HASH; i++) {
+						TAILQ_FOREACH(rfc1, &l2tp_rfc_hash[i], next) {
+							if (rfc1 != rfc
+								&& (rfc1->flags & L2TP_FLAG_CONTROL)
+								&& rfc1->our_address
+								&& rfc1->peer_address
+								&& !l2tp_rfc_compare_address(rfc1->our_address, rfc->our_address)
+								&& !l2tp_rfc_compare_address(rfc1->peer_address, rfc->peer_address)) {
+								// use socket from other rfc
+								l2tp_rfc_set_socket(rfc, rfc1->socket, rfc1->thread, rfc1->our_address);
+								error = 0;
 								break;
+							}
 						}
+						// check if found
+						if (rfc1)
+							break;
 					}
-                }
+				}
             }
             break;
-        
+
         case L2TP_CMD_GETPEERADDR:
             p = (u_int8_t*)cmddata;
             len = *((u_int8_t*)cmddata);
             bzero(p, len);
             if (rfc->peer_address)
-                bcopy((u_int8_t*)rfc->peer_address, p, MIN(len, rfc->peer_address->ss_len));
+                bcopy((u_int8_t*)rfc->peer_address, p, MIN(len, rfc->peer_address->sa_len));
             memcpy(&aligned_short, p+2, sizeof(u_int16_t));     // Wcast-align fix - use memcpy for unaligned access
             LOGIT(rfc, "L2TP command (%p): get peer IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], aligned_short);
             break;
             
-        case L2TP_CMD_SETOURADDR:	
-            if (rfc->our_address) {
-                kfree_data_addr(rfc->our_address);
-                rfc->our_address = 0;
-            }
-            if (rfc->socket) {
-                if (rfc->flags & L2TP_FLAG_CONTROL) {
-                    // find an rfc with same socket
-					for (i = 0; i < L2TP_RFC_MAX_HASH; i++) {
-						TAILQ_FOREACH(rfc1, &l2tp_rfc_hash[i], next)
-							if (rfc1 != rfc
-								&& (rfc1->flags & L2TP_FLAG_CONTROL)
-								&& (rfc1->socket == rfc->socket))
-								break;
-						// check if found
-						if (rfc1)	
-							break;
-					}
-                    if (rfc1 == 0)
-                        l2tp_udp_detach(rfc->socket, rfc->thread);
+		case L2TP_CMD_SETOURADDR:
+            sa = (struct sockaddr *)cmddata;
+            if (sa->sa_len > 0) {
+                if (!validate_sockaddr(sa)) {
+                    error = EINVAL;
+                    break;
                 }
-                rfc->socket = 0;
-            }
-            p = (u_int8_t*)cmddata;
-            len = *((u_int8_t*)cmddata);
-            if (len == 0) {
+            } else {
+				sa = NULL;
                 LOGIT(rfc, "L2TP command (%p): set our IP address = no address\n", rfc);
-                break;
             }
-            memcpy(&aligned_short, p+2, sizeof(u_int16_t));     // Wcast-align fix - use memcpy for unaligned access
-            LOGIT(rfc, "L2TP command (%p): set our IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], aligned_short);
-            /* copy the address - this can handle IPv6 addresses */
-            if (len > INET6_ADDRSTRLEN) {
-                error = EINVAL; 
-                break;
-            }
-            rfc->our_address = kalloc_data(len, Z_WAITOK);
-            if (rfc->our_address == 0)
-                error = ENOMEM;
-            else {
-                bcopy((u_int8_t*)cmddata, rfc->our_address, len);
-                if (rfc->flags & L2TP_FLAG_CONTROL) 
-                    /* for control connections, create a socket and bind */
-                    error = l2tp_udp_attach(&rfc->socket, (struct sockaddr *)rfc->our_address, &rfc->thread, rfc->flags & L2TP_FLAG_IPSEC, rfc->delegate_pid);
-            }
-            break;
 
+            /* Release the current socket */
+            l2tp_rfc_set_socket(rfc, NULL, -1, NULL);
+
+            if (sa == NULL) {
+                break;
+            }
+
+			if (rfc->flags & L2TP_FLAG_CONTROL) {
+				socket_t new_socket = NULL;
+				int new_thread = -1;
+
+				/* for control connections, create a socket and bind */
+				error = l2tp_udp_attach(&new_socket, sa, &new_thread, rfc->flags & L2TP_FLAG_IPSEC, rfc->delegate_pid);
+				if (error == 0) {
+					l2tp_rfc_set_socket(rfc, new_socket, new_thread, sa);
+				}
+			} else {
+				/* Just set the new local address */
+				l2tp_rfc_set_socket(rfc, NULL, -1, sa);
+            }
+
+			break;
         case L2TP_CMD_GETOURADDR:
             p = (u_int8_t*)cmddata;
             len = *((u_int8_t*)cmddata);
             bzero(p, len);
             if (rfc->our_address)
-                bcopy((u_int8_t*)rfc->our_address, p, MIN(len, rfc->our_address->ss_len));
+                bcopy((u_int8_t*)rfc->our_address, p, MIN(len, rfc->our_address->sa_len));
             memcpy(&aligned_short, p+2, sizeof(u_int16_t));     // Wcast-align fix - use memcpy for unaligned access
             LOGIT(rfc, "L2TP command (%p): get our IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], aligned_short);
             break;
@@ -801,7 +815,7 @@ u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockadd
     if (to->sa_family)
         bcopy(to, elem->addr, to->sa_len);
     else
-        bcopy(rfc->peer_address, elem->addr, rfc->peer_address->ss_len);
+        bcopy(rfc->peer_address, elem->addr, rfc->peer_address->sa_len);
     	
     if (TAILQ_EMPTY(&rfc->send_queue)) {			/* first on queue ? */
         rfc->retry_count = 0;

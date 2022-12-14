@@ -559,6 +559,22 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     func forceFetch(context: OTCuttlefishContext) throws {
         let fetchExpectation = self.expectation(description: "fetch callback occurs")
 
+#if APPLE_FEATURE_WALRUS_UI
+        self.tphClient.update(with: try XCTUnwrap(context.activeAccount),
+                              forceRefetch: false,
+                              deviceName: nil,
+                              serialNumber: nil,
+                              osVersion: nil,
+                              policyVersion: nil,
+                              policySecrets: nil,
+                              syncUserControllableViews: nil,
+                              secureElementIdentity: nil,
+                              walrusSetting: nil,
+                              webAccess: nil) { _, _, error in
+            XCTAssertNil(error, "Should be no error")
+            fetchExpectation.fulfill()
+        }
+#else
         self.tphClient.update(with: try XCTUnwrap(context.activeAccount),
                               forceRefetch: false,
                               deviceName: nil,
@@ -571,6 +587,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
             XCTAssertNil(error, "Should be no error")
             fetchExpectation.fulfill()
         }
+#endif /* APPLE_FEATURE_WALRUS_UI */
 
         self.wait(for: [fetchExpectation], timeout: 10)
     }

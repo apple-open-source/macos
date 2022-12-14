@@ -28,6 +28,7 @@ struct __OpaqueSOSPeerInfo {
     bool                    verifiedResult;
 
     /* V2 and beyond are listed below */
+    bool                    v2DictionaryIsExpanded;
     CFMutableDictionaryRef  v2Dictionary;
 };
 

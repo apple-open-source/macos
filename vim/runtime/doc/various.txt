@@ -1,4 +1,4 @@
-*various.txt*   For Vim version 9.0.  Last change: 2022 Jun 25
+*various.txt*   For Vim version 9.0.  Last change: 2022 Sep 19
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -29,6 +29,8 @@ CTRL-L			Clear and redraw the screen.  The redraw may happen
 			Useful to update the status line(s) when 'statusline'
 			includes an item that doesn't cause automatic
 			updating.
+			If the command line is being edited the redraw is
+			postponed until later.
 
 						*:redrawt* *:redrawtabline*
 :redrawt[abline]	Redraw the tabline.  Useful to update the tabline when
@@ -342,8 +344,8 @@ m  *+balloon_eval*	|balloon-eval| support in the GUI. Included when
 H  *+balloon_eval_term*	|balloon-eval| support in the terminal,
 			'balloonevalterm'
 N  *+browse*		|:browse| command
-N  *+builtin_terms*	some terminals builtin |builtin-terms|
-B  *++builtin_terms*	maximal terminals builtin |builtin-terms|
+T  *++builtin_terms*	maximal terminals builtin |builtin-terms| Always
+			enabled since 9.0.0280
 N  *+byte_offset*	support for 'o' flag in 'statusline' option, "go"
 			and ":goto" commands.
 m  *+channel*		inter process communication |channel|
@@ -374,13 +376,14 @@ N  *+eval*		expression evaluation |eval.txt|
 T  *+ex_extra*		always on now, used to be for Vim's extra Ex commands
 N  *+extra_search*	|'hlsearch'| and |'incsearch'| options.
 -  *+farsi*		Removed: |farsi| language
-N  *+file_in_path*	|gf|, |CTRL-W_f| and |<cfile>|
+T  *+file_in_path*	|gf|, |CTRL-W_f| and |<cfile>|  Always enabled since
+			9.0.265
 N  *+find_in_path*	include file searches: |[I|, |:isearch|,
 			|CTRL-W_CTRL-I|, |:checkpath|, etc.
 N  *+folding*		|folding|
    *+footer*		|gui-footer|
    *+fork*		Unix only: |fork| shell commands
-   *+float*		Floating point support
+T  *+float*		Floating point support  Always enabled since 9.0.0491
 N  *+gettext*		message translations |multi-lang|
 -  *+GUI_Athena*	Unix only: Athena |GUI|
    *+GUI_neXtaw*	Unix only: neXtaw |GUI|
@@ -490,8 +493,8 @@ T  *+visual*		Visual mode |Visual-mode| Always enabled since 7.4.200.
 T  *+visualextra*	extra Visual mode commands |blockwise-operators|
 T  *+vreplace*		|gR| and |gr|
    *+vtp*		on MS-Windows console: support for 'termguicolors'
-N  *+wildignore*	|'wildignore'|
-N  *+wildmenu*		|'wildmenu'|
+T  *+wildignore*	|'wildignore'|  Always enabled since 9.0.0278
+T  *+wildmenu*		|'wildmenu'||  Always enabled since 9.0.0279
 T  *+windows*		more than one window; Always enabled since 8.0.1118.
 m  *+writebackup*	|'writebackup'| is default on
 m  *+xim*		X input method |xim|

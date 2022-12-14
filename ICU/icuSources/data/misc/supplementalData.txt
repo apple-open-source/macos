@@ -35770,7 +35770,7 @@ supplementalData:table(nofallback){
             86400000,
         }
         BR:intvector{
-            2,
+            1,
             1,
             7,
             0,
@@ -36635,7 +36635,7 @@ supplementalData:table(nofallback){
         }
         SI:intvector{
             2,
-            1,
+            4,
             7,
             0,
             1,

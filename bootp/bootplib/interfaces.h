@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,6 +58,18 @@ typedef struct {
     boolean_t			active;
     boolean_t			wake_on_same_network;
 } link_status_t;
+
+static inline boolean_t
+link_status_is_active(link_status_t * link_status_p)
+{
+    return (!link_status_p->valid || link_status_p->active);
+}
+
+static inline boolean_t
+link_status_is_inactive(link_status_t * link_status_p)
+{
+    return (!link_status_is_active(link_status_p));
+}
 
 /*
  * Type: interface_t

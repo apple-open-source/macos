@@ -1,0 +1,76 @@
+From 6328051fd4ea628f788bae2c34b6f2e876e8fe71 Mon Sep 17 00:00:00 2001
+From: Justin Vreeland <j_vreeland@apple.com>
+Date: Wed, 5 Oct 2022 08:35:18 -0700
+Subject: [PATCH] Patch nokogiri gem to build correctly
+
+There's 3 changes here.
+
+1. Remove the dependecy on racc which is included in ruby but has been
+turned into a gem upstream.
+
+2. Update extconf.rb to compile libgumbo.a as a FAT binary
+
+3. Force update the include path for gcc when building gumbo.c the
+problem is with the output of out compiler when mkmf checks the result
+of the test program. We've encountered this with other configure scripts.
+---
+ data/ext/nokogiri/extconf.rb | 10 ++++++++--
+ metadata                     | 14 --------------
+ 2 files changed, 8 insertions(+), 16 deletions(-)
+
+diff --git data/ext/nokogiri/extconf.rb data/ext/nokogiri/extconf.rb
+index 46593b9..46b6a54 100644
+--- data/ext/nokogiri/extconf.rb
++++ data/ext/nokogiri/extconf.rb
+@@ -945,7 +945,8 @@ libgumbo_recipe = process_recipe("libgumbo", "1.0.0-nokogiri", static_p, cross_b
+     end
+ 
+     def compile
+-      cflags = concat_flags(ENV["CFLAGS"], "-fPIC", "-g")
++      # fixes the architecture flags when building libgumbo.a
++      cflags = concat_flags(ENV["CFLAGS"], "-fPIC", "-g", ENV["RC_CFLAGS"])
+ 
+       env = { "CC" => gcc_cmd, "CFLAGS" => cflags }
+       if config_cross_build?
+@@ -962,7 +963,12 @@ libgumbo_recipe = process_recipe("libgumbo", "1.0.0-nokogiri", static_p, cross_b
+     end
+   end
+ end
+-append_cppflags("-I#{File.join(libgumbo_recipe.path, "include")}")
++
++# Our compiler produces output that causes mkmf to incorrectly
++# detect this flag as not supported. we've had this issue with
++# configure scripts as well
++# append_cppflags("-I#{File.join(libgumbo_recipe.path, "include")}")
++$CFLAGS = concat_flags($CFLAGS, "-I#{File.join(libgumbo_recipe.path, "include")}")
+ $libs = $libs + " " + File.join(libgumbo_recipe.path, "lib", "libgumbo.a")
+ $LIBPATH = $LIBPATH | [File.join(libgumbo_recipe.path, "lib")]
+ ensure_func("gumbo_parse_with_options", "gumbo.h")
+diff --git metadata metadata
+index efe7b01..def385e 100644
+--- metadata
++++ metadata
+@@ -36,20 +36,6 @@ dependencies:
+     - - "~>"
+       - !ruby/object:Gem::Version
+         version: 2.8.0
+-- !ruby/object:Gem::Dependency
+-  name: racc
+-  requirement: !ruby/object:Gem::Requirement
+-    requirements:
+-    - - "~>"
+-      - !ruby/object:Gem::Version
+-        version: '1.4'
+-  type: :runtime
+-  prerelease: false
+-  version_requirements: !ruby/object:Gem::Requirement
+-    requirements:
+-    - - "~>"
+-      - !ruby/object:Gem::Version
+-        version: '1.4'
+ - !ruby/object:Gem::Dependency
+   name: bundler
+   requirement: !ruby/object:Gem::Requirement
+-- 
+2.32.3 (Apple Git-135)
+

@@ -165,7 +165,6 @@ allocateUpdater(void)
 	DADiskRef		disk = NULL;
 	DMAPFS *		dmapfs = nil;
 	DMDiskErrorType		error;
-	BOOL			enabled = false;
 	DMManager *		manager = nil;
 	DASessionRef		session = NULL;
 	static PrebootUpdater * S_updater;
@@ -187,12 +186,6 @@ allocateUpdater(void)
 		goto failed;
 	}
 	dmapfs = [[DMAPFS alloc] initWithManager:manager];
-	[dmapfs isFileVaultEnabled:disk enabled:&enabled];
-	if (!enabled) {
-		SC_log(LOG_NOTICE, "%s: Filevault not enabled, skipping sync",
-		       _LOG_PREFIX);
-		goto failed;
-	}
 	DASessionScheduleWithRunLoop(session,
 				     CFRunLoopGetCurrent(),
 				     kCFRunLoopDefaultMode);

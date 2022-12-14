@@ -40,7 +40,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
+#include <System/sys/codesign.h>	/* csops() */
 #include <security/pam_appl.h>
 
 #include "openpam_impl.h"
@@ -69,7 +71,6 @@ static int openpam_load_chain(pam_handle_t *, const char *, pam_facility_t);
 static int
 match_word(const char *str, const char *word)
 {
-
 	while (*str && tolower(*str) == tolower(*word))
 		++str, ++word;
 	return (*str == ' ' && *word == '\0');
@@ -81,7 +82,6 @@ match_word(const char *str, const char *word)
 static const char *
 next_word(const char *str)
 {
-
 	/* skip current word */
 	while (*str && *str != ' ')
 		++str;
@@ -120,15 +120,15 @@ wordlen(const char *str)
 	return (i);
 }
 
-typedef enum { pam_conf_style, pam_d_style } openpam_style_t;
-
 /*
  * Extracts given chains from a policy file.
  */
-static int
-openpam_read_chain(pam_handle_t *pamh,
+
+int
+openpam_read_chain_from_filehandle(pam_handle_t *pamh,
 	const char *service,
 	pam_facility_t facility,
+	FILE *f,				/* consumes f as in: fclose(f); */
 	const char *filename,
 	openpam_style_t style)
 {
@@ -138,13 +138,7 @@ openpam_read_chain(pam_handle_t *pamh,
 	pam_facility_t fclt;
 	pam_control_t ctlf;
 	char *line, *name;
-	FILE *f;
 
-	if ((f = fopen(filename, "r")) == NULL) {
-		openpam_log(errno == ENOENT ? PAM_LOG_LIBDEBUG : PAM_LOG_NOTICE,
-		    "%s: %m", filename);
-		return (errno == EPERM ? -1 : 0);
-	}
 	this = NULL;
 	count = lineno = 0;
 	while ((line = openpam_readline(f, &lineno, NULL)) != NULL) {
@@ -263,6 +257,23 @@ openpam_read_chain(pam_handle_t *pamh,
 	return (-1);
 }
 
+static int
+openpam_read_chain_from_path(pam_handle_t *pamh,
+	const char *service,
+	pam_facility_t facility,
+	const char *filename,
+	openpam_style_t style)
+{
+	FILE *f = fopen(filename, "r");
+	if (f == NULL) {
+		openpam_log(errno == ENOENT ? PAM_LOG_LIBDEBUG : PAM_LOG_NOTICE,
+					"%s: %m", filename);
+		return (errno == EPERM ? -1 : 0);
+	}
+
+	return openpam_read_chain_from_filehandle(pamh, service, facility, f, filename, style);
+}
+
 static const char *openpam_policy_path[] = {
 	"/etc/pam.d/",
 	"/etc/pam.conf",
@@ -299,17 +310,55 @@ openpam_load_chain(pam_handle_t *pamh,
 				openpam_log(PAM_LOG_ERROR, "asprintf(): %m");
 				return (-PAM_BUF_ERR);
 			}
-			r = openpam_read_chain(pamh, service, facility,
+			r = openpam_read_chain_from_path(pamh, service, facility,
 			    filename, pam_d_style);
 			FREE(filename);
 		} else {
-			r = openpam_read_chain(pamh, service, facility,
+			r = openpam_read_chain_from_path(pamh, service, facility,
 			    *path, pam_conf_style);
 		}
 		if (r != 0)
 			return (r);
 	}
 	return (0);
+}
+
+/*
+ * <rdar://problem/27991863> Sandbox apps report all passwords as valid
+ * Default all empty facilities to "required pam_deny.so"
+ */
+int
+openpam_configure_default(pam_handle_t *pamh)
+{
+	pam_facility_t fclt;
+
+	for (fclt = 0; fclt < PAM_NUM_FACILITIES; ++fclt) {
+		if (pamh->chains[fclt] == NULL) {
+			pam_chain_t *this = calloc(1, sizeof(pam_chain_t));
+			if (this == NULL)
+				goto load_err;
+			this->flag   = PAM_REQUIRED;
+			this->module = openpam_load_module("pam_deny.so");
+		/*	this->optc   = 0;	*/
+			this->optv   = calloc(1, sizeof(char *));
+		/*	this->next	 = NULL;	*/
+			if (this->optv != NULL && this->module != NULL) {
+				pamh->chains[fclt] = this;
+			} else {
+				if (this->optv != NULL)
+					free(this->optv);
+				if (this->module != NULL)
+					openpam_release_module(this->module);
+				free(this);
+				goto load_err;
+			}
+		}
+	}
+	return (PAM_SUCCESS);
+
+load_err:
+	openpam_clear_chains(pamh->chains);
+	return (PAM_SYSTEM_ERR);
 }
 
 /*
@@ -333,31 +382,10 @@ openpam_configure(pam_handle_t *pamh,
 		if (openpam_load_chain(pamh, PAM_OTHER, fclt) < 0)
 			goto load_err;
 	}
-	// <rdar://problem/27991863> Sandbox apps report all passwords as valid
-	// Default all empty facilities to "required pam_deny.so"
-	for (fclt = 0; fclt < PAM_NUM_FACILITIES; ++fclt) {
-		if (pamh->chains[fclt] == NULL) {
-			pam_chain_t *this = calloc(1, sizeof(pam_chain_t));
-			if (this == NULL)
-				goto load_err;
-			this->flag   = PAM_REQUIRED;
-			this->module = openpam_load_module("pam_deny.so");
-		//	this->optc   = 0;
-			this->optv   = calloc(1, sizeof(char *));
-		//	this->next	 = NULL;
-			if (this->optv != NULL && this->module != NULL) {
-				pamh->chains[fclt] = this;
-			} else {
-				if (this->optv != NULL)
-					free(this->optv);
-				if (this->module != NULL)
-					openpam_release_module(this->module);
-				free(this);
-				goto load_err;
-			}
-		}
-	}
+	if (openpam_configure_default(pamh))
+		goto load_err;
 	return (PAM_SUCCESS);
+
  load_err:
 	openpam_clear_chains(pamh->chains);
 	return (PAM_SYSTEM_ERR);

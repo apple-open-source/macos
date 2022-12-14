@@ -117,7 +117,7 @@ start_pr(char *file1, char *file2)
 void
 stop_pr(struct pr *pr)
 {
-	int wstatus;
+	intptr_t wstatus;
 
 	if (pr == NULL)
 		return;
@@ -133,7 +133,7 @@ stop_pr(struct pr *pr)
 	wstatus = pr->e[0].data;
 #ifdef __APPLE__
 	/* Reap it. */
-	(void)waitpid(pr->e[0].ident, NULL, WNOHANG);
+	(void)waitpid((pid_t)pr->e[0].ident, NULL, WNOHANG);
 #endif
 	close(pr->kq);
 	free(pr);

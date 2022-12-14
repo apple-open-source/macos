@@ -336,6 +336,9 @@ static int is_pcap_pkthdr_valid(netdissect_options *, const struct pcap_pkthdr *
 
 char *svc2str(uint32_t);
 
+static bool need_verbose_stats_dump = false;
+static void do_verbose_stats_dump (void);
+
 #endif /* __APPLE__ */
 
 #ifdef HAVE_PCAP_FINDALLDEVS
@@ -1634,6 +1637,8 @@ main(int argc, char **argv)
     int on = 1;
     int no_loopkupnet_warning = 0;
     ndo->ndo_ext_fmt = 1;
+    ndo->ndo_tflag = 0;
+    ndo->ndo_t0flag = 0;
 #endif /* __APPLE__ */
 
 	cnt = -1;
@@ -2012,7 +2017,7 @@ main(int argc, char **argv)
 			unsigned long mode;
 			const char *ptr;
 			char *endptr;
-			
+
 			if (optind >= argc || argv[optind][0] == '-') {
 				++ndo->ndo_tflag;
 				break;
@@ -2023,31 +2028,24 @@ main(int argc, char **argv)
 				++ndo->ndo_tflag;
 				break;
 			}
-			ndo->ndo_tflag = 1;
 			switch (mode) {
 				case 0:
-					ndo->ndo_t0flag++;
+					ndo->ndo_t0flag = 1;
 					break;
 				case 1:
-					/* -t 1 means no timestamp */
-					ndo->ndo_t1flag++;
-					ndo->ndo_t0flag = 0;
-					ndo->ndo_t2flag = 0;
-					ndo->ndo_t3flag = 0;
-					ndo->ndo_t4flag = 0;
-					ndo->ndo_t5flag = 0;
+					ndo->ndo_t1flag = 1;
 					break;
 				case 2:
-					ndo->ndo_t2flag++;
+					ndo->ndo_t2flag = 1;
 					break;
 				case 3:
-					ndo->ndo_t3flag++;
+					ndo->ndo_t3flag = 1;
 					break;
 				case 4:
-					ndo->ndo_t4flag++;
+					ndo->ndo_t4flag = 1;
 					break;
 				case 5:
-					ndo->ndo_t5flag++;
+					ndo->ndo_t5flag = 1;
 					break;
 				default:
 					error("invalid timestamp mode %s", ptr);
@@ -2276,6 +2274,63 @@ main(int argc, char **argv)
 		    && yflag_dlt == -1)
 			yflag_dlt = DLT_LINUX_SLL2;
 #endif
+
+#ifdef __APPLE__
+	/*
+	 * First convert old style option to new flags
+	 */
+	switch (ndo->ndo_tflag) {
+        case 0:
+            /* default value */
+            break;
+		case 1:
+			ndo->ndo_t1flag = 1;
+			break;
+		case 2:
+			ndo->ndo_t2flag = 1;
+			break;
+		case 3:
+			ndo->ndo_t3flag = 1;
+			break;
+		case 4:
+			ndo->ndo_t4flag = 1;
+			break;
+		case 5:
+			ndo->ndo_t5flag = 1;
+			break;
+	}
+	/*
+	 * Now set the old style flag to the new style flag (any will work)
+	 */
+	if (ndo->ndo_t0flag != 0 || ndo->ndo_t2flag != 0 || ndo->ndo_t3flag != 0 ||
+        ndo->ndo_t3flag != 0 || ndo->ndo_t4flag != 0 || ndo->ndo_t5flag != 0) {
+        ndo->ndo_t1flag = 0;
+	}
+    if (ndo->ndo_t0flag) {
+        ndo->ndo_tflag = 0;
+    }
+    if (ndo->ndo_t1flag) {
+        ndo->ndo_tflag = 1;
+    }
+	if (ndo->ndo_t2flag) {
+		ndo->ndo_tflag = 2;
+	}
+	if (ndo->ndo_t3flag) {
+		ndo->ndo_tflag = 3;
+	}
+	if (ndo->ndo_t4flag) {
+		ndo->ndo_tflag = 4;
+	}
+	if (ndo->ndo_t5flag) {
+		ndo->ndo_tflag = 5;
+	}
+	/*
+	 * Finally handle the default value
+	 */
+	if (ndo->ndo_tflag == 0) {
+		ndo->ndo_t0flag = 1;
+	}
+#endif /* __APPLE__ */
 
 	switch (ndo->ndo_tflag) {
 
@@ -3405,6 +3460,11 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 
 #ifndef __APPLE__
 	++packets_captured;
+#else
+	if (need_verbose_stats_dump) {
+		do_verbose_stats_dump();
+		need_verbose_stats_dump = false;
+	}
 #endif /* __APPLE__ */
 
 	++infodelay;
@@ -3682,6 +3742,11 @@ dump_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 #ifndef __APPLE__
 	++packets_captured;
+#else
+	if (need_verbose_stats_dump) {
+		do_verbose_stats_dump();
+		need_verbose_stats_dump = false;
+	}
 #endif /* __APPLE__ */
 
 	++infodelay;
@@ -3783,6 +3848,7 @@ flushpcap(int signo _U_)
 }
 #endif
 
+
 static void
 print_packets_captured (void)
 {
@@ -3811,6 +3877,20 @@ static void CALLBACK verbose_stats_dump(PVOID param _U_,
     BOOLEAN timer_fired _U_)
 {
 	print_packets_captured();
+}
+#elif __APPLE__
+/*
+ * It is unsafe to call fprintf from a signal handler and can cause crashes -- see rdar://97787662
+ */
+void
+do_verbose_stats_dump()
+{
+	print_packets_captured();
+}
+
+static void verbose_stats_dump(int sig _U_)
+{
+	need_verbose_stats_dump = true;
 }
 #else /* _WIN32 */
 static void verbose_stats_dump(int sig _U_)

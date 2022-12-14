@@ -476,13 +476,25 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
                 field = UCAL_DATE;
             }
             fromCalendar.setTime(fromDate, status);
+        } else if (fMinimizeType == UDTITVFMT_MINIMIZE_ADJACENT_DAYS && // might need to minimize days across month boundary too
+                // check normalized skeleton for 'H', 'h', 'j'
+                (fSkeleton.indexOf(CAP_H) >= 0 || fSkeleton.indexOf(LOW_H) >= 0 || fSkeleton.indexOf(LOW_J) >= 0)) {
+            UDate fromDate = fromCalendar.getTime(status);
+            UDate toDate = toCalendar.getTime(status);
+            int32_t fromHour = fromCalendar.get(UCAL_HOUR, status);
+            int32_t toHour = toCalendar.get(UCAL_HOUR, status);
+            fromCalendar.add(UCAL_HOUR_OF_DAY, 12, status);
+            if ( fromDate < toDate && fromCalendar.getTime(status) > toDate && fromHour > toHour ) {
+                field = UCAL_AM_PM;
+            }
+            fromCalendar.setTime(fromDate, status);
         }
     } else if ( fromCalendar.get(UCAL_DATE, status) !=
                 toCalendar.get(UCAL_DATE, status) ) {
         field = UCAL_DATE;
         if (fMinimizeType == UDTITVFMT_MINIMIZE_ADJACENT_DAYS &&
                 // check normalized skeleton for 'H', 'h', 'j'
-                (fSkeleton.indexOf(0x0048) >= 0 || fSkeleton.indexOf(0x0068) >= 0 || fSkeleton.indexOf(0x006A) >= 0)) {
+                (fSkeleton.indexOf(CAP_H) >= 0 || fSkeleton.indexOf(LOW_H) >= 0 || fSkeleton.indexOf(LOW_J) >= 0)) {
             UDate fromDate = fromCalendar.getTime(status);
             UDate toDate = toCalendar.getTime(status);
             int32_t fromHour = fromCalendar.get(UCAL_HOUR, status);

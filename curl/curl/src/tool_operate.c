@@ -327,6 +327,22 @@ static CURLcode pre_transfer(struct GlobalConfig *global,
   return result;
 }
 
+#ifdef __AMIGA__
+static void AmigaSetComment(struct per_transfer *per,
+                            CURLcode result)
+{
+  struct OutStruct *outs = &per->outs;
+  if(!result && outs->s_isreg && outs->filename) {
+    /* Set the url (up to 80 chars) as comment for the file */
+    if(strlen(per->this_url) > 78)
+      per->this_url[79] = '\0';
+    SetComment(outs->filename, per->this_url);
+  }
+}
+#else
+#define AmigaSetComment(x,y) Curl_nop_stmt
+#endif
+
 /*
  * Call this after a transfer has completed.
  */
@@ -602,6 +618,8 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
       unlink(outs->filename);
     }
   }
+
+  AmigaSetComment(per, result);
 
   /* File time can only be set _after_ the file has been closed */
   if(!result && config->remote_time && outs->s_isreg && outs->filename) {
@@ -1127,7 +1145,7 @@ static CURLcode single_transfer(struct GlobalConfig *global,
 
           /*
            * If the user has also selected --anyauth or --proxy-anyauth
-           * we should warn him/her.
+           * we should warn them.
            */
           if(config->proxyanyauth || (authbits>1)) {
             warnf(global,
@@ -1755,15 +1773,20 @@ static CURLcode single_transfer(struct GlobalConfig *global,
           struct curl_slist *cl;
 
           /* The maximum size needs to match MAX_NAME in cookie.h */
-          curlx_dyn_init(&cookies, 4096);
+#define MAX_COOKIE_LINE 4096
+          curlx_dyn_init(&cookies, MAX_COOKIE_LINE);
           for(cl = config->cookies; cl; cl = cl->next) {
             if(cl == config->cookies)
               result = curlx_dyn_addf(&cookies, "%s", cl->data);
             else
               result = curlx_dyn_addf(&cookies, ";%s", cl->data);
 
-            if(result)
+            if(result) {
+              warnf(global,
+                    "skipped provided cookie, the cookie header "
+                    "would go over %u bytes\n", MAX_COOKIE_LINE);
               break;
+            }
           }
 
           my_setopt_str(curl, CURLOPT_COOKIE, curlx_dyn_ptr(&cookies));
@@ -1984,9 +2007,10 @@ static CURLcode single_transfer(struct GlobalConfig *global,
           my_setopt(curl, CURLOPT_NEW_FILE_PERMS, config->create_file_mode);
 
         if(config->proto_present)
-          my_setopt_flags(curl, CURLOPT_PROTOCOLS, config->proto);
+          my_setopt_str(curl, CURLOPT_PROTOCOLS_STR, config->proto_str);
         if(config->proto_redir_present)
-          my_setopt_flags(curl, CURLOPT_REDIR_PROTOCOLS, config->proto_redir);
+          my_setopt_str(curl, CURLOPT_REDIR_PROTOCOLS_STR,
+                        config->proto_redir_str);
 
         if(config->content_disposition
            && (urlnode->flags & GETOUT_USEREMOTE))
@@ -2465,8 +2489,10 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
      */
     result = curl_easy_getinfo(curltls, CURLINFO_TLS_SSL_PTR,
                                &tls_backend_info);
-    if(result)
+    if(result) {
+      curl_easy_cleanup(curltls);
       return result;
+    }
 
     /* Set the CA cert locations specified in the environment. For Windows if
      * no environment-specified filename is found then check for CA bundle
@@ -2483,6 +2509,7 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
         config->cacert = strdup(env);
         if(!config->cacert) {
           curl_free(env);
+          curl_easy_cleanup(curltls);
           errorf(global, "out of memory\n");
           return CURLE_OUT_OF_MEMORY;
         }
@@ -2493,6 +2520,7 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
           config->capath = strdup(env);
           if(!config->capath) {
             curl_free(env);
+            curl_easy_cleanup(curltls);
             helpf(global->errors, "out of memory\n");
             return CURLE_OUT_OF_MEMORY;
           }
@@ -2504,6 +2532,7 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
             config->cacert = strdup(env);
             if(!config->cacert) {
               curl_free(env);
+              curl_easy_cleanup(curltls);
               errorf(global, "out of memory\n");
               return CURLE_OUT_OF_MEMORY;
             }

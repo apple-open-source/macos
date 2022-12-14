@@ -47,6 +47,7 @@ extern const char* kSecTranslocateXPCFuncCheckIn;
 /* XPC message argument keys */
 extern const char* kSecTranslocateXPCMessageFunction;
 extern const char* kSecTranslocateXPCMessageOriginalPath;
+extern const char* kSecTranslocateXPCMessagePathInsideTranslocationPoint;
 extern const char* kSecTranslocateXPCMessageDestinationPath;
 extern const char* kSecTranslocateXPCMessageOptions;
 extern const char* kSecTranslocateXPCMessagePid;
@@ -95,6 +96,7 @@ public:
     string getTranslocatedPathToOriginalPath(const string &translocationPoint) const;
     inline TranslocationOptions getOptions() const { return mOptions; };
     int getFdForPathToTranslocate() const;
+    bool setPathInsideTranslocation(string& relativePath);
 private:
     TranslocationPath() = delete;
     void init();

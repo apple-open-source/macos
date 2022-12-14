@@ -135,6 +135,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)joinWithRecoveryKey:(OTControlArguments*)arguments
                 recoveryKey:(NSString*)recoveryKey
+                 sosSuccess:(BOOL)sosSuccess
                       reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)createCustodianRecoveryKey:(OTControlArguments*)arguments
@@ -206,7 +207,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                reply:(void (^)(OTCDPStatus status, NSError* _Nullable error))reply;
 
 - (void)fetchEscrowRecords:(OTControlArguments*)arguments
-                forceFetch:(BOOL)forceFetch
+                    source:(OTEscrowRecordFetchSource)source
                      reply:(void (^)(NSArray<NSData*>* _Nullable records,
                                      NSError* _Nullable error))reply;
 
@@ -242,6 +243,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
 - (void)tlkRecoverabilityForEscrowRecordData:(OTControlArguments*)arguments
                                   recordData:(NSData*)recordData
+                                      source:(OTEscrowRecordFetchSource)source
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 
 - (void)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary

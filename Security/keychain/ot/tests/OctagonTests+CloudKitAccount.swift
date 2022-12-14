@@ -479,7 +479,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // RPCs should fail, since CK is not present
         let fetchViableFailureExpectation = self.expectation(description: "fetchViableBottles callback occurs")
-        self.cuttlefishContext.rpcFetchAllViableBottles { _, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { _, _, error in
             XCTAssertNotNil(error, "should be an error fetching viable bottles before CK is ready")
 
             if let nserror = error as NSError? {
@@ -498,7 +498,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         // RPCs should cause Octagon to recheck the CK account status and wake up
         // In particular, fetching all viable bottles should succeed, instead of erroring with 'no CK account'
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
-        self.cuttlefishContext.rpcFetchAllViableBottles { _, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { _, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             fetchViableExpectation.fulfill()
         }
@@ -529,7 +529,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         // RPCs should cause Octagon to recheck the CK account status and wake up
         // In particular, fetching all viable bottles should succeed, instead of erroring with 'no CK account'
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
-        self.cuttlefishContext.rpcFetchAllViableBottles { _, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { _, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             fetchViableExpectation.fulfill()
         }

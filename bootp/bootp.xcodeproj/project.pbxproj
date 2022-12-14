@@ -130,7 +130,6 @@
 		1562E0BD0AC4FC1600CF228A /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E0BC0AC4FC1600CF228A /* libresolv.dylib */; };
 		1562E1610AC4FD8900CF228A /* arp_session.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E1490AC4FD8800CF228A /* arp_session.c */; };
 		1562E1620AC4FD8900CF228A /* arp_session.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E14A0AC4FD8800CF228A /* arp_session.h */; };
-		1562E1630AC4FD8900CF228A /* bootp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E14B0AC4FD8900CF228A /* bootp.c */; };
 		1562E1640AC4FD8900CF228A /* bootp_session.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E14C0AC4FD8900CF228A /* bootp_session.c */; };
 		1562E1650AC4FD8900CF228A /* bootp_session.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E14D0AC4FD8900CF228A /* bootp_session.h */; };
 		1562E1670AC4FD8900CF228A /* dhcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E14F0AC4FD8900CF228A /* dhcp.c */; };
@@ -488,7 +487,6 @@
 		F9C8ECCB0D3306F50047CE42 /* timer.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1600AC4FD8900CF228A /* timer.h */; };
 		F9C8ECCC0D3306F50047CE42 /* ipconfig_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCF0AC4F4F700CF228A /* ipconfig_types.h */; };
 		F9C8ECD20D3306F50047CE42 /* arp_session.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E1490AC4FD8800CF228A /* arp_session.c */; };
-		F9C8ECD30D3306F50047CE42 /* bootp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E14B0AC4FD8900CF228A /* bootp.c */; };
 		F9C8ECD40D3306F50047CE42 /* bootp_session.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E14C0AC4FD8900CF228A /* bootp_session.c */; };
 		F9C8ECD50D3306F50047CE42 /* dhcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E14F0AC4FD8900CF228A /* dhcp.c */; };
 		F9C8ECD60D3306F50047CE42 /* FDSet.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E1530AC4FD8900CF228A /* FDSet.c */; };
@@ -929,7 +927,6 @@
 		1562E1480AC4FD1F00CF228A /* IPConfiguration.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPConfiguration.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		1562E1490AC4FD8800CF228A /* arp_session.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = arp_session.c; path = IPConfiguration.bproj/arp_session.c; sourceTree = "<group>"; };
 		1562E14A0AC4FD8800CF228A /* arp_session.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = arp_session.h; path = IPConfiguration.bproj/arp_session.h; sourceTree = "<group>"; };
-		1562E14B0AC4FD8900CF228A /* bootp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bootp.c; path = IPConfiguration.bproj/bootp.c; sourceTree = "<group>"; };
 		1562E14C0AC4FD8900CF228A /* bootp_session.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bootp_session.c; path = IPConfiguration.bproj/bootp_session.c; sourceTree = "<group>"; };
 		1562E14D0AC4FD8900CF228A /* bootp_session.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = bootp_session.h; path = IPConfiguration.bproj/bootp_session.h; sourceTree = "<group>"; };
 		1562E14F0AC4FD8900CF228A /* dhcp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dhcp.c; path = IPConfiguration.bproj/dhcp.c; sourceTree = "<group>"; };
@@ -1576,7 +1573,6 @@
 				F990257B11BEA3F20066DA8F /* RTADVSocket.c */,
 				F973697C11AD7B350090BD4B /* DHCPDUIDIAID.c */,
 				1562E1490AC4FD8800CF228A /* arp_session.c */,
-				1562E14B0AC4FD8900CF228A /* bootp.c */,
 				1562E14C0AC4FD8900CF228A /* bootp_session.c */,
 				1562E14F0AC4FD8900CF228A /* dhcp.c */,
 				F95CF81B0FE1906B0009CF9D /* DHCPLease.c */,
@@ -2707,7 +2703,6 @@
 				F98EED0E1ED3A21D00F97D36 /* AWDIPConfigurationIPv6Report.m in Sources */,
 				F97EB4D61C80FC0400BB4592 /* report_symptoms.c in Sources */,
 				1562E1610AC4FD8900CF228A /* arp_session.c in Sources */,
-				1562E1630AC4FD8900CF228A /* bootp.c in Sources */,
 				1562E1640AC4FD8900CF228A /* bootp_session.c in Sources */,
 				1562E1670AC4FD8900CF228A /* dhcp.c in Sources */,
 				1562E1690AC4FD8900CF228A /* FDSet.c in Sources */,
@@ -2909,7 +2904,6 @@
 				F9C8ECD20D3306F50047CE42 /* arp_session.c in Sources */,
 				F98EED0F1ED3A21F00F97D36 /* AWDIPConfigurationIPv6Report.m in Sources */,
 				F97EB4D51C80FC0200BB4592 /* report_symptoms.c in Sources */,
-				F9C8ECD30D3306F50047CE42 /* bootp.c in Sources */,
 				F9C8ECD40D3306F50047CE42 /* bootp_session.c in Sources */,
 				F9C8ECD50D3306F50047CE42 /* dhcp.c in Sources */,
 				F9C8ECD60D3306F50047CE42 /* FDSet.c in Sources */,

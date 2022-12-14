@@ -1428,10 +1428,12 @@ f_isabsolutepath(typval_T *argvars, typval_T *rettv)
 /*
  * Create the directory in which "dir" is located, and higher levels when
  * needed.
+ * Set "created" to the full name of the first created directory.  It will be
+ * NULL until that happens.
  * Return OK or FAIL.
  */
     static int
-mkdir_recurse(char_u *dir, int prot)
+mkdir_recurse(char_u *dir, int prot, char_u **created)
 {
     char_u	*p;
     char_u	*updir;
@@ -1449,8 +1451,12 @@ mkdir_recurse(char_u *dir, int prot)
 	return FAIL;
     if (mch_isdir(updir))
 	r = OK;
-    else if (mkdir_recurse(updir, prot) == OK)
+    else if (mkdir_recurse(updir, prot, created) == OK)
+    {
 	r = vim_mkdir_emsg(updir, prot);
+	if (r == OK && created != NULL && *created == NULL)
+	    *created = FullName_save(updir, FALSE);
+    }
     vim_free(updir);
     return r;
 }
@@ -1464,6 +1470,9 @@ f_mkdir(typval_T *argvars, typval_T *rettv)
     char_u	*dir;
     char_u	buf[NUMBUFLEN];
     int		prot = 0755;
+    int		defer = FALSE;
+    int		defer_recurse = FALSE;
+    char_u	*created = NULL;
 
     rettv->vval.v_number = FAIL;
     if (check_restricted() || check_secure())
@@ -1486,13 +1495,21 @@ f_mkdir(typval_T *argvars, typval_T *rettv)
 
     if (argvars[1].v_type != VAR_UNKNOWN)
     {
+	char_u *arg2;
+
 	if (argvars[2].v_type != VAR_UNKNOWN)
 	{
 	    prot = (int)tv_get_number_chk(&argvars[2], NULL);
 	    if (prot == -1)
 		return;
 	}
-	if (STRCMP(tv_get_string(&argvars[1]), "p") == 0)
+	arg2 = tv_get_string(&argvars[1]);
+	defer = vim_strchr(arg2, 'D') != NULL;
+	defer_recurse = vim_strchr(arg2, 'R') != NULL;
+	if ((defer || defer_recurse) && !can_add_defer())
+	    return;
+
+	if (vim_strchr(arg2, 'p') != NULL)
 	{
 	    if (mch_isdir(dir))
 	    {
@@ -1500,10 +1517,33 @@ f_mkdir(typval_T *argvars, typval_T *rettv)
 		rettv->vval.v_number = OK;
 		return;
 	    }
-	    mkdir_recurse(dir, prot);
+	    mkdir_recurse(dir, prot, defer || defer_recurse ? &created : NULL);
 	}
     }
     rettv->vval.v_number = vim_mkdir_emsg(dir, prot);
+
+    // Handle "D" and "R": deferred deletion of the created directory.
+    if (rettv->vval.v_number == OK
+				&& created == NULL && (defer || defer_recurse))
+	created = FullName_save(dir, FALSE);
+    if (created != NULL)
+    {
+	typval_T tv[2];
+
+	tv[0].v_type = VAR_STRING;
+	tv[0].v_lock = 0;
+	tv[0].vval.v_string = created;
+	tv[1].v_type = VAR_STRING;
+	tv[1].v_lock = 0;
+	tv[1].vval.v_string = vim_strsave(
+				       (char_u *)(defer_recurse ? "rf" : "d"));
+	if (tv[0].vval.v_string == NULL || tv[1].vval.v_string == NULL
+		|| add_defer((char_u *)"delete", 2, tv) == FAIL)
+	{
+	    vim_free(tv[0].vval.v_string);
+	    vim_free(tv[1].vval.v_string);
+	}
+    }
 }
 
 /*
@@ -1569,7 +1609,7 @@ checkitem_common(void *context, char_u *name, dict_T *dict)
 	argv[0].vval.v_dict = dict;
     }
 
-    if (eval_expr_typval(expr, argv, 1, &rettv) == FAIL)
+    if (eval_expr_typval(expr, argv, 1, NULL, &rettv) == FAIL)
 	goto theend;
 
     // We want to use -1, but also true/false should be allowed.
@@ -1603,19 +1643,20 @@ readdir_checkitem(void *context, void *item)
     return checkitem_common(context, name, NULL);
 }
 
+/*
+ * Process the keys in the Dict argument to the readdir() and readdirex()
+ * functions.  Assumes the Dict argument is the 3rd argument.
+ */
     static int
-readdirex_dict_arg(typval_T *tv, int *cmp)
+readdirex_dict_arg(typval_T *argvars, int *cmp)
 {
     char_u     *compare;
 
-    if (tv->v_type != VAR_DICT)
-    {
-	emsg(_(e_dictionary_required));
+    if (check_for_nonnull_dict_arg(argvars, 2) == FAIL)
 	return FAIL;
-    }
 
-    if (dict_has_key(tv->vval.v_dict, "sort"))
-	compare = dict_get_string(tv->vval.v_dict, "sort", FALSE);
+    if (dict_has_key(argvars[2].vval.v_dict, "sort"))
+	compare = dict_get_string(argvars[2].vval.v_dict, "sort", FALSE);
     else
     {
 	semsg(_(e_dictionary_key_str_required), "sort");
@@ -1660,7 +1701,7 @@ f_readdir(typval_T *argvars, typval_T *rettv)
     expr = &argvars[1];
 
     if (argvars[1].v_type != VAR_UNKNOWN && argvars[2].v_type != VAR_UNKNOWN &&
-	    readdirex_dict_arg(&argvars[2], &sort) == FAIL)
+	    readdirex_dict_arg(argvars, &sort) == FAIL)
 	return;
 
     ret = readdir_core(&ga, path, FALSE, (void *)expr,
@@ -1713,7 +1754,7 @@ f_readdirex(typval_T *argvars, typval_T *rettv)
     expr = &argvars[1];
 
     if (argvars[1].v_type != VAR_UNKNOWN && argvars[2].v_type != VAR_UNKNOWN &&
-	    readdirex_dict_arg(&argvars[2], &sort) == FAIL)
+	    readdirex_dict_arg(argvars, &sort) == FAIL)
 	return;
 
     ret = readdir_core(&ga, path, TRUE, (void *)expr,
@@ -2231,6 +2272,7 @@ f_writefile(typval_T *argvars, typval_T *rettv)
 {
     int		binary = FALSE;
     int		append = FALSE;
+    int		defer = FALSE;
 #ifdef HAVE_FSYNC
     int		do_fsync = p_fs;
 #endif
@@ -2284,6 +2326,8 @@ f_writefile(typval_T *argvars, typval_T *rettv)
 	    binary = TRUE;
 	if (vim_strchr(arg2, 'a') != NULL)
 	    append = TRUE;
+	if (vim_strchr(arg2, 'D') != NULL)
+	    defer = TRUE;
 #ifdef HAVE_FSYNC
 	if (vim_strchr(arg2, 's') != NULL)
 	    do_fsync = TRUE;
@@ -2296,37 +2340,56 @@ f_writefile(typval_T *argvars, typval_T *rettv)
     if (fname == NULL)
 	return;
 
+    if (defer && !can_add_defer())
+	return;
+
     // Always open the file in binary mode, library functions have a mind of
     // their own about CR-LF conversion.
     if (*fname == NUL || (fd = mch_fopen((char *)fname,
 				      append ? APPENDBIN : WRITEBIN)) == NULL)
     {
-	semsg(_(e_cant_create_file_str), *fname == NUL ? (char_u *)_("<empty>") : fname);
+	semsg(_(e_cant_create_file_str),
+			       *fname == NUL ? (char_u *)_("<empty>") : fname);
 	ret = -1;
-    }
-    else if (blob)
-    {
-	if (write_blob(fd, blob) == FAIL)
-	    ret = -1;
-#ifdef HAVE_FSYNC
-	else if (do_fsync)
-	    // Ignore the error, the user wouldn't know what to do about it.
-	    // May happen for a device.
-	    vim_ignored = vim_fsync(fileno(fd));
-#endif
-	fclose(fd);
     }
     else
     {
-	if (write_list(fd, list, binary) == FAIL)
-	    ret = -1;
+	if (defer)
+	{
+	    typval_T tv;
+
+	    tv.v_type = VAR_STRING;
+	    tv.v_lock = 0;
+	    tv.vval.v_string = FullName_save(fname, FALSE);
+	    if (tv.vval.v_string == NULL
+		    || add_defer((char_u *)"delete", 1, &tv) == FAIL)
+	    {
+		ret = -1;
+		fclose(fd);
+		(void)mch_remove(fname);
+	    }
+	}
+
+	if (ret == 0)
+	{
+	    if (blob)
+	    {
+		if (write_blob(fd, blob) == FAIL)
+		    ret = -1;
+	    }
+	    else
+	    {
+		if (write_list(fd, list, binary) == FAIL)
+		    ret = -1;
+	    }
 #ifdef HAVE_FSYNC
-	else if (do_fsync)
-	    // Ignore the error, the user wouldn't know what to do about it.
-	    // May happen for a device.
-	    vim_ignored = vim_fsync(fileno(fd));
+	    if (ret == 0 && do_fsync)
+		// Ignore the error, the user wouldn't know what to do about
+		// it.  May happen for a device.
+		vim_ignored = vim_fsync(fileno(fd));
 #endif
-	fclose(fd);
+	    fclose(fd);
+	}
     }
 
     rettv->vval.v_number = ret;
@@ -3087,17 +3150,22 @@ expand_wildcards_eval(
     int		ret = FAIL;
     char_u	*eval_pat = NULL;
     char_u	*exp_pat = *pat;
-    char      *ignored_msg;
+    char	*ignored_msg;
     int		usedlen;
+    int		is_cur_alt_file = *exp_pat == '%' || *exp_pat == '#';
+    int		star_follows = FALSE;
 
-    if (*exp_pat == '%' || *exp_pat == '#' || *exp_pat == '<')
+    if (is_cur_alt_file || *exp_pat == '<')
     {
 	++emsg_off;
 	eval_pat = eval_vars(exp_pat, exp_pat, &usedlen,
 					       NULL, &ignored_msg, NULL, TRUE);
 	--emsg_off;
 	if (eval_pat != NULL)
+	{
+	    star_follows = STRCMP(exp_pat + usedlen, "*") == 0;
 	    exp_pat = concat_str(eval_pat, exp_pat + usedlen);
+	}
     }
 
     if (exp_pat != NULL)
@@ -3105,6 +3173,20 @@ expand_wildcards_eval(
 
     if (eval_pat != NULL)
     {
+	if (*num_file == 0 && is_cur_alt_file && star_follows)
+	{
+	    // Expanding "%" or "#" and the file does not exist: Add the
+	    // pattern anyway (without the star) so that this works for remote
+	    // files and non-file buffer names.
+	    *file = ALLOC_ONE(char_u *);
+	    if (*file != NULL)
+	    {
+		**file = eval_pat;
+		eval_pat = NULL;
+		*num_file = 1;
+		ret = OK;
+	    }
+	}
 	vim_free(exp_pat);
 	vim_free(eval_pat);
     }
@@ -3136,7 +3218,6 @@ expand_wildcards(
     if ((flags & EW_KEEPALL) || retval == FAIL)
 	return retval;
 
-#ifdef FEAT_WILDIGN
     /*
      * Remove names that match 'wildignore'.
      */
@@ -3172,7 +3253,6 @@ expand_wildcards(
 	    return FAIL;
 	}
     }
-#endif
 
     /*
      * Move the names where 'suffixes' match to the end.
@@ -3274,7 +3354,7 @@ expand_backtick(
 
 #ifdef FEAT_EVAL
     if (*cmd == '=')	    // `={expr}`: Expand expression
-	buffer = eval_to_string(cmd + 1, TRUE);
+	buffer = eval_to_string(cmd + 1, TRUE, FALSE);
     else
 #endif
 	buffer = get_cmd_output(cmd, NULL,
@@ -4073,10 +4153,8 @@ addfile(
     /*
      * Append a slash or backslash after directory names if none is present.
      */
-#ifndef DONT_ADD_PATHSEP_TO_DIR
     if (isdir && (flags & EW_ADDSLASH))
 	add_pathsep(p);
-#endif
     ((char_u **)gap->ga_data)[gap->ga_len++] = p;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -136,6 +136,11 @@ private:
         m_connection->send(Messages::UserMediaCaptureManager::SourceSettingsChanged(m_id, m_source->settings()), 0);
     }
 
+    void sourceConfigurationChanged() final
+    {
+        m_connection->send(Messages::UserMediaCaptureManager::SourceConfigurationChanged(m_id, m_source->persistentID(), m_source->settings(), m_source->capabilities()), 0);
+    }
+
     // May get called on a background thread.
     void audioSamplesAvailable(const MediaTime& time, const PlatformAudioData& audioData, const AudioStreamDescription& description, size_t numberOfFrames) final {
         if (m_description != description || m_shouldReset) {
@@ -222,14 +227,7 @@ private:
         SharedMemory::Handle handle;
         if (storage)
             storage->createHandle(handle, SharedMemory::Protection::ReadOnly);
-
-        // FIXME: Send the actual data size with IPCHandle.
-#if OS(DARWIN) || OS(WINDOWS)
-        uint64_t dataSize = handle.size();
-#else
-        uint64_t dataSize = 0;
-#endif
-        m_connection->send(Messages::RemoteCaptureSampleManager::AudioStorageChanged(m_id, SharedMemory::IPCHandle { WTFMove(handle),  dataSize }, format, frameCount, *m_captureSemaphore, m_startTime, m_frameChunkSize), 0);
+        m_connection->send(Messages::RemoteCaptureSampleManager::AudioStorageChanged(m_id, WTFMove(handle), format, frameCount, *m_captureSemaphore, m_startTime, m_frameChunkSize), 0);
     }
 
     bool preventSourceFromStopping()
@@ -269,9 +267,9 @@ UserMediaCaptureManagerProxy::~UserMediaCaptureManagerProxy()
     m_connectionProxy->removeMessageReceiver(Messages::UserMediaCaptureManagerProxy::messageReceiverName());
 }
 
-CaptureSourceOrError UserMediaCaptureManagerProxy::createMicrophoneSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* mediaConstraints, PageIdentifier pageIdentifier)
+CaptureSourceOrError UserMediaCaptureManagerProxy::createMicrophoneSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* mediaConstraints, PageIdentifier pageIdentifier)
 {
-    auto sourceOrError = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().createAudioCaptureSource(device, WTFMove(hashSalt), mediaConstraints, pageIdentifier);
+    auto sourceOrError = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().createAudioCaptureSource(device, WTFMove(hashSalts), mediaConstraints, pageIdentifier);
     if (!sourceOrError)
         return sourceOrError;
 
@@ -300,7 +298,7 @@ static bool canCaptureFromMultipleCameras()
 #endif
 }
 
-CaptureSourceOrError UserMediaCaptureManagerProxy::createCameraSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* mediaConstraints, PageIdentifier pageIdentifier)
+CaptureSourceOrError UserMediaCaptureManagerProxy::createCameraSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* mediaConstraints, PageIdentifier pageIdentifier)
 {
     auto& perPageSources = m_pageSources.ensure(pageIdentifier, [] { return PageSources { }; }).iterator->value;
     for (auto& cameraSource : perPageSources.cameraSources) {
@@ -318,7 +316,7 @@ CaptureSourceOrError UserMediaCaptureManagerProxy::createCameraSource(const Capt
         }
     }
 
-    auto sourceOrError = RealtimeMediaSourceCenter::singleton().videoCaptureFactory().createVideoCaptureSource(device, WTFMove(hashSalt), mediaConstraints, pageIdentifier);
+    auto sourceOrError = RealtimeMediaSourceCenter::singleton().videoCaptureFactory().createVideoCaptureSource(device, WTFMove(hashSalts), mediaConstraints, pageIdentifier);
     if (!sourceOrError)
         return sourceOrError;
 
@@ -336,7 +334,7 @@ CaptureSourceOrError UserMediaCaptureManagerProxy::createCameraSource(const Capt
     return source;
 }
 
-void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstraints(RealtimeMediaSourceIdentifier id, const CaptureDevice& device, String&& hashSalt, const MediaConstraints& mediaConstraints, bool shouldUseGPUProcessRemoteFrames, PageIdentifier pageIdentifier, CreateSourceCallback&& completionHandler)
+void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstraints(RealtimeMediaSourceIdentifier id, const CaptureDevice& device, WebCore::MediaDeviceHashSalts&& hashSalts, const MediaConstraints& mediaConstraints, bool shouldUseGPUProcessRemoteFrames, PageIdentifier pageIdentifier, CreateSourceCallback&& completionHandler)
 {
     if (!m_connectionProxy->willStartCapture(device.type()))
         return completionHandler(false, "Request is not allowed"_s, RealtimeMediaSourceSettings { }, { }, { }, { }, 0);
@@ -346,14 +344,14 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
     CaptureSourceOrError sourceOrError;
     switch (device.type()) {
     case WebCore::CaptureDevice::DeviceType::Microphone:
-        sourceOrError = createMicrophoneSource(device, WTFMove(hashSalt), constraints, pageIdentifier);
+        sourceOrError = createMicrophoneSource(device, WTFMove(hashSalts), constraints, pageIdentifier);
         break;
     case WebCore::CaptureDevice::DeviceType::Camera:
-        sourceOrError = createCameraSource(device, WTFMove(hashSalt), constraints, pageIdentifier);
+        sourceOrError = createCameraSource(device, WTFMove(hashSalts), constraints, pageIdentifier);
         break;
     case WebCore::CaptureDevice::DeviceType::Screen:
     case WebCore::CaptureDevice::DeviceType::Window:
-        sourceOrError = RealtimeMediaSourceCenter::singleton().displayCaptureFactory().createDisplayCaptureSource(device, WTFMove(hashSalt), constraints, pageIdentifier);
+        sourceOrError = RealtimeMediaSourceCenter::singleton().displayCaptureFactory().createDisplayCaptureSource(device, WTFMove(hashSalts), constraints, pageIdentifier);
         break;
     case WebCore::CaptureDevice::DeviceType::SystemAudio:
     case WebCore::CaptureDevice::DeviceType::Speaker:

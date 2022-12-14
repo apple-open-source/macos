@@ -22,7 +22,7 @@ SMTP, LDAP, etc.
 Sets the proxy server to use if no protocol-specific proxy is set.
 .IP "NO_PROXY <comma-separated list of hosts/domains>"
 list of host names that should not go through any proxy. If set to an asterisk
-\&'*' only, it matches all hosts. Each name in this list is matched as either
+'*' only, it matches all hosts. Each name in this list is matched as either
 a domain name which contains the hostname, or the hostname itself.
 
 This environment variable disables use of the proxy even when specified with
@@ -217,8 +217,6 @@ option to curl that was passed on to libcurl and rejected. Read up in the
 manual!
 .IP 49
 Malformed telnet option.
-.IP 51
-The peer's SSL certificate or SSH MD5 fingerprint was not OK.
 .IP 52
 The server did not reply anything, which here is considered an error.
 .IP 53
@@ -237,8 +235,6 @@ Could not use specified SSL cipher.
 Peer certificate cannot be authenticated with known CA certificates.
 .IP 61
 Unrecognized transfer encoding.
-.IP 62
-Invalid LDAP URL.
 .IP 63
 Maximum file size exceeded.
 .IP 64
@@ -263,10 +259,6 @@ Unknown TFTP transfer ID.
 File already exists (TFTP).
 .IP 74
 No such user (TFTP).
-.IP 75
-Character conversion failed.
-.IP 76
-Character conversion functions required.
 .IP 77
 Problem reading the SSL CA cert (path? access rights?).
 .IP 78

@@ -174,6 +174,7 @@ bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error) {
     if(!pi) return false;
     
     SOSPeerInfoSetVersionNumber(pi, PEERINFO_CURRENT_VERSION);
+    pi->v2DictionaryIsExpanded = false;
     CFMutableDictionaryRef v2Dictionary = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFMutableSetRef views = SOSViewCopyViewSet(kViewSetDefault);
     CFMutableSetRef secproperties = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
@@ -204,13 +205,24 @@ errOut:
 }
 
 bool SOSPeerInfoExpandV2Data(SOSPeerInfoRef pi, CFErrorRef *error) {
+    if(SOSPeerInfoV2IntegrityCheck(pi) == false) {
+        return false;
+    }
+    
     CFDataRef v2data = NULL;
     CFMutableDictionaryRef v2Dictionary = NULL;
-
+    if(pi->v2DictionaryIsExpanded) {
+        return true;
+    }
+    if(pi->v2Dictionary) {
+        pi->v2DictionaryIsExpanded = true;
+        return true;
+    }
     require_action_quiet((v2data = SOSPeerInfoGetV2Data(pi)), out, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("No V2 Data in description"), NULL, error));
     require_action_quiet((v2Dictionary = SOSCreateDictionaryFromDER(v2data, error)), out, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Can't expand V2 Dictionary"), NULL, error));
     CFReleaseNull(pi->v2Dictionary);
     pi->v2Dictionary = v2Dictionary;
+    pi->v2DictionaryIsExpanded = true;
     return true;
 
 out:
@@ -225,7 +237,6 @@ void SOSPeerInfoV2DictionarySetValue(SOSPeerInfoRef pi, const void *key, const v
         CFDictionaryRemoveValue(pi->v2Dictionary, key);
     else
         CFDictionarySetValue(pi->v2Dictionary, key, value);
-    SOSPeerInfoPackV2Data(pi);
 errOut:
     return;
 }
@@ -233,7 +244,6 @@ errOut:
 void SOSPeerInfoV2DictionaryRemoveValue(SOSPeerInfoRef pi, const void *key) {
     require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFDictionaryRemoveValue(pi->v2Dictionary, key);
-    SOSPeerInfoPackV2Data(pi);
 errOut:
     return;
 }

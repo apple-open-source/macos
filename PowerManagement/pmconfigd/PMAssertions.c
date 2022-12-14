@@ -735,7 +735,7 @@ void checkForAsyncAssertions(void *acknowledgementToken)
     CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
     for (long j = 0; (j < cnt) && (procs[j] != NULL); j++) {
         pinfo = procs[j];
-        if ((pinfo->remoteConnection == 0) || (pinfo->proc_exited == 1)) {
+        if ((pinfo->remoteConnection == 0) || (pinfo->proc_exited == 1) || pinfo->isSuspended) {
             continue;
         }
         processInfoRetain(pinfo->pid);
@@ -915,7 +915,7 @@ void checkForAssertionActivityUpdates(bool actives_only)
     CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
     for (long j = 0; (j < cnt) && (procs[j] != NULL); j++) {
         pinfo = procs[j];
-        if ((pinfo->remoteConnection == 0) || (pinfo->proc_exited == 1)) {
+        if ((pinfo->remoteConnection == 0) || (pinfo->proc_exited == 1) || pinfo->isSuspended) {
             DEBUG_LOG("checkForAsyncAssertionLogging: No remoteConnection for %d", pinfo->pid);
             continue;
         }

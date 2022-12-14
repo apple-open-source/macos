@@ -90,7 +90,7 @@ public:
     PropertyReference propertyAt(unsigned) const;
 
     WEBCORE_EXPORT RefPtr<CSSValue> getPropertyCSSValue(CSSPropertyID) const;
-    WEBCORE_EXPORT String getPropertyValue(CSSPropertyID, Document* = nullptr) const;
+    WEBCORE_EXPORT String getPropertyValue(CSSPropertyID) const;
 
     WEBCORE_EXPORT std::optional<Color> propertyAsColor(CSSPropertyID) const;
     WEBCORE_EXPORT CSSValueID propertyAsValueID(CSSPropertyID) const;
@@ -150,6 +150,8 @@ protected:
 
 private:
     String getGridShorthandValue(const StylePropertyShorthand&) const;
+    String getGridRowColumnShorthandValue(const StylePropertyShorthand&) const;
+    String getGridAreaShorthandValue() const;
     String getGridTemplateValue() const;
     String getGridValue() const;
     String getShorthandValue(const StylePropertyShorthand&, const char* separator = " ") const;

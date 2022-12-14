@@ -633,6 +633,14 @@ Ref<WebProcessProxy> WebProcessPool::createNewWebProcess(WebsiteDataStore* websi
     initializeNewWebProcess(processProxy, websiteDataStore, isPrewarmed);
     m_processes.append(processProxy.copyRef());
 
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    if (shouldCrashWhenCreatingWebProcess()) {
+        auto crashyProcessProxy = WebProcessProxy::createForWebContentCrashy(*this);
+        initializeNewWebProcess(crashyProcessProxy, nullptr);
+        m_processes.append(crashyProcessProxy.copyRef());
+    }
+#endif
+
     return processProxy;
 }
 
@@ -1966,6 +1974,18 @@ void WebProcessPool::removeMockMediaDevice(const String& persistentId)
     sendToAllProcesses(Messages::WebProcess::RemoveMockMediaDevice { persistentId });
 #if ENABLE(GPU_PROCESS)
     ensureGPUProcess().removeMockMediaDevice(persistentId);
+#endif
+#endif
+}
+
+
+void WebProcessPool::setMockMediaDeviceIsEphemeral(const String& persistentId, bool isEphemeral)
+{
+#if ENABLE(MEDIA_STREAM)
+    MockRealtimeMediaSourceCenter::setDeviceIsEphemeral(persistentId, isEphemeral);
+    sendToAllProcesses(Messages::WebProcess::SetMockMediaDeviceIsEphemeral { persistentId, isEphemeral });
+#if ENABLE(GPU_PROCESS)
+    ensureGPUProcess().setMockMediaDeviceIsEphemeral(persistentId, isEphemeral);
 #endif
 #endif
 }

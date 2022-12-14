@@ -447,6 +447,10 @@ public:
     void captivePortalModeStateChanged();
 #endif
 
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    bool shouldCrashWhenCreatingWebProcess() const { return m_shouldCrashWhenCreatingWebProcess; }
+#endif
+
     ForegroundWebProcessToken foregroundWebProcessToken() const { return ForegroundWebProcessToken(m_foregroundWebProcessCounter.count()); }
     BackgroundWebProcessToken backgroundWebProcessToken() const { return BackgroundWebProcessToken(m_backgroundWebProcessCounter.count()); }
     bool hasForegroundWebProcesses() const { return m_foregroundWebProcessCounter.value(); }
@@ -462,7 +466,8 @@ public:
 
     void addMockMediaDevice(const WebCore::MockMediaDevice&);
     void clearMockMediaDevices();
-    void removeMockMediaDevice(const String& persistentId);
+    void removeMockMediaDevice(const String&);
+    void setMockMediaDeviceIsEphemeral(const String&, bool);
     void resetMockMediaDevices();
 
     void sendDisplayConfigurationChangedMessageForTesting();
@@ -744,6 +749,10 @@ private:
     bool m_cookieStoragePartitioningEnabled { false };
 #endif
 
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    bool m_shouldCrashWhenCreatingWebProcess { false };
+#endif
+
     struct Paths {
         String injectedBundlePath;
         String uiProcessBundleResourcePath;
@@ -834,6 +843,10 @@ template<typename T>
 void WebProcessPool::sendToAllProcessesForSession(const T& message, PAL::SessionID sessionID)
 {
     for (auto& process : m_processes) {
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+        if (process->isCrashyProcess())
+            continue;
+#endif
         if (process->canSendMessage() && !process->isPrewarmed() && process->sessionID() == sessionID)
             process->send(T(message), 0);
     }

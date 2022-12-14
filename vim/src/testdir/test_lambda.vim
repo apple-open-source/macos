@@ -251,9 +251,7 @@ endfunc
 func Test_lambda_combination()
   call assert_equal(2, {x -> {x -> x}}(1)(2))
   call assert_equal(10, {y -> {x -> x(y)(10)}({y -> y})}({z -> z}))
-  if has('float')
-    call assert_equal(5.0, {x -> {y -> x / y}}(10)(2.0))
-  endif
+  call assert_equal(5.0, {x -> {y -> x / y}}(10)(2.0))
   call assert_equal(6, {x -> {y -> {z -> x + y + z}}}(1)(2)(3))
 
   call assert_equal(6, {x -> {f -> f(x)}}(3)({x -> x * 2}))
@@ -356,7 +354,7 @@ func Test_closure_error()
       return 1
     endfunc
   END
-  call writefile(l, 'Xscript')
+  call writefile(l, 'Xscript', 'D')
   let caught_932 = 0
   try
     source Xscript
@@ -364,7 +362,6 @@ func Test_closure_error()
     let caught_932 = 1
   endtry
   call assert_equal(1, caught_932)
-  call delete('Xscript')
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

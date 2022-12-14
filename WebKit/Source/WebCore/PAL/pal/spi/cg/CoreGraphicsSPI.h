@@ -307,6 +307,7 @@ CGImageRef CGIOSurfaceContextCreateImage(CGContextRef);
 CGImageRef CGIOSurfaceContextCreateImageReference(CGContextRef);
 CGColorSpaceRef CGIOSurfaceContextGetColorSpace(CGContextRef);
 void CGIOSurfaceContextSetDisplayMask(CGContextRef, uint32_t mask);
+IOSurfaceRef CGIOSurfaceContextGetSurface(CGContextRef);
 #endif // HAVE(IOSURFACE)
 
 #if PLATFORM(COCOA)
@@ -409,6 +410,7 @@ extern CGDataProviderRef CGDataProviderCreateMultiRangeDirectAccess(
 #if HAVE(LOCKDOWN_MODE_PDF_ADDITIONS)
 CG_EXTERN void CGEnterLockdownModeForPDF();
 CG_LOCAL bool CGIsInLockdownModeForPDF();
+CG_EXTERN void CGEnterLockdownModeForFonts();
 #endif
 
 WTF_EXTERN_C_END

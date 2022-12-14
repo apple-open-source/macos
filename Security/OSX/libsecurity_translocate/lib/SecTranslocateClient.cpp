@@ -86,6 +86,7 @@ TranslocatorClient::~TranslocatorClient()
 }
 
 string TranslocatorClient::requestTranslocation(const int fdToTranslocate,
+                                                const char * pathInsideTranslocationPoint,
                                                 const int destFd,
                                                 const TranslocationOptions flags)
 {
@@ -100,6 +101,9 @@ string TranslocatorClient::requestTranslocation(const int fdToTranslocate,
     }
 
     xpc_dictionary_set_string(msg, kSecTranslocateXPCMessageFunction, kSecTranslocateXPCFuncCreate);
+    if (pathInsideTranslocationPoint != NULL) {
+        xpc_dictionary_set_string(msg, kSecTranslocateXPCMessagePathInsideTranslocationPoint, pathInsideTranslocationPoint);
+    }
     xpc_dictionary_set_fd(msg, kSecTranslocateXPCMessageOriginalPath, fdToTranslocate);
     xpc_dictionary_set_int64(msg, kSecTranslocateXPCMessageOptions, static_cast<int64_t>(flags));
     if (destFd != -1) {
@@ -152,7 +156,7 @@ string TranslocatorClient::translocatePathForUser(const TranslocationPath &origi
         return originalPath.getOriginalRealPath();  //return original path if we shouldn't translocate
     }
     
-    return requestTranslocation(originalPath.getFdForPathToTranslocate(), destFd.fd(), TranslocationOptions::Default);
+    return requestTranslocation(originalPath.getFdForPathToTranslocate(), originalPath.getPathInsideTranslocation().c_str(), destFd.fd(), TranslocationOptions::Default);
 }
 
 string TranslocatorClient::translocatePathForUser(const GenericTranslocationPath &originalPath, ExtendedAutoFileDesc &destFd)
@@ -161,7 +165,7 @@ string TranslocatorClient::translocatePathForUser(const GenericTranslocationPath
         return originalPath.getOriginalRealPath();  //return original path if we shouldn't translocate
     }
     
-    return requestTranslocation(originalPath.getFdForPathToTranslocate(), destFd.fd(), TranslocationOptions::Generic);
+    return requestTranslocation(originalPath.getFdForPathToTranslocate(), NULL, destFd.fd(), TranslocationOptions::Generic);
 }
 
 void TranslocatorClient::appLaunchCheckin(pid_t pid)

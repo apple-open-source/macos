@@ -852,6 +852,13 @@ void Document::commonTeardown()
     m_timeline = nullptr;
     m_associatedFormControls.clear();
     m_didAssociateFormControlsTimer.stop();
+
+#if ENABLE(WEB_RTC)
+    if (m_rtcNetworkManager) {
+        m_rtcNetworkManager->close();
+        m_rtcNetworkManager = nullptr;
+    }
+#endif
 }
 
 Element* Document::elementForAccessKey(const String& key)
@@ -1710,6 +1717,11 @@ void Document::updateTitle(const StringWithDirection& title)
         });
         m_updateTitleTaskScheduled = true;
     }
+
+#if ENABLE(ACCESSIBILITY)
+    if (auto* cache = existingAXObjectCache())
+        cache->onTitleChange(*this);
+#endif
 }
 
 void Document::updateTitleFromTitleElement()

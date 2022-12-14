@@ -467,11 +467,12 @@
 
 - (void) joinWithRecoveryKey:(OTControlArguments*)arguments
                  recoveryKey:(NSString*)recoveryKey
+                  sosSuccess:(BOOL)sosSuccess
                        reply:(void (^)(NSError * _Nullable))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] joinWithRecoveryKey:arguments recoveryKey:recoveryKey reply:reply];
+    }] joinWithRecoveryKey:arguments recoveryKey:recoveryKey sosSuccess:sosSuccess reply:reply];
 }
 
 - (void) createCustodianRecoveryKey:(OTControlArguments*)arguments
@@ -627,13 +628,13 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 }
 
 - (void)fetchEscrowRecords:(OTControlArguments*)arguments
-                forceFetch:(BOOL)forceFetch
+                    source:(OTEscrowRecordFetchSource)source
                      reply:(void (^)(NSArray<NSData*>* _Nullable records,
                                      NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(nil, connectionError);
-    }] fetchEscrowRecords:arguments forceFetch:forceFetch reply:reply];
+    }] fetchEscrowRecords:arguments source:source reply:reply];
 }
 
 - (void)setUserControllableViewsSyncStatus:(OTControlArguments*)arguments
@@ -709,11 +710,12 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
 - (void)tlkRecoverabilityForEscrowRecordData:(OTControlArguments*)arguments
                                   recordData:(NSData*)recordData
+                                      source:(OTEscrowRecordFetchSource)source
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply
 {
     [[self getConnection:^(NSError *connectionError) {
         reply(nil, connectionError);
-    }] tlkRecoverabilityForEscrowRecordData:arguments recordData:recordData reply:reply];
+    }] tlkRecoverabilityForEscrowRecordData:arguments recordData:recordData source:source reply:reply];
 }
 
 - (void)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary

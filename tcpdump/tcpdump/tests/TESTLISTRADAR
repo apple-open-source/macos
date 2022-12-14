@@ -1,22 +1,28 @@
 
-radar-16628690		radar-16628690.pcapng	radar-16628690.out	-k -v
+radar-16628690		radar-16628690.pcapng		radar-16628690.out		-k -v
 
-radar-25205036		radar-25205036.pcap	radar-25205036.out	-w `mktemp /tmp/tcpdump-test-radar-25205036-XXXXXXXX`
+radar-25205036		radar-25205036.pcap		radar-25205036.out		-w `mktemp /tmp/tcpdump-test-radar-25205036-XXXXXXXX`
 
-radar-30878508		radar-30878508.pcap	radar-30878508.out	-w `mktemp /tmp/tcpdump-test-radar-30878508-XXXXXXXX`
+radar-30878508		radar-30878508.pcap		radar-30878508.out		-w `mktemp /tmp/tcpdump-test-radar-30878508-XXXXXXXX`
 
-radar-31053702		radar-31053702.pcapng	radar-31053702.out	-w `mktemp /tmp/tcpdump-test-radar-31053702-XXXXXXXX`
+radar-31053702		radar-31053702.pcapng		radar-31053702.out		-w `mktemp /tmp/tcpdump-test-radar-31053702-XXXXXXXX`
 
-radar-33413692		radar-33413692.pcap	radar-33413692.out	-vvv port 67 or 68
+radar-33413692		radar-33413692.pcap		radar-33413692.out		-vvv port 67 or 68
 
-radar-61850230		radar-61850230.pcapng	radar-61850230.out	-v -K -g tcp
+radar-61850230		radar-61850230.pcapng		radar-61850230.out		-v -K -g tcp
 
-radar-63494669		radar-63494669.pcapng	radar-63494669.out	-k
+radar-63494669		radar-63494669.pcapng		radar-63494669.out		-k
 
-radar-74957353		radar-74957353.pcapng	radar-74957353.out	tcp
+radar-74957353		radar-74957353.pcapng		radar-74957353.out		tcp
 
-radar-79792659		radar-79792659.pcapng	radar-79792659.out	-k
+radar-79792659		radar-79792659.pcapng		radar-79792659.out		-k
 
-radar-81131821		radar-81131821.pcapng	radar-81131821.out
+radar-81131821		radar-81131821.pcapng		radar-81131821.out
 
-radar-88502733		radar-88502733.pcapng	radar-88502733.out	--apple-ext-fmt 1
+radar-101007576-iperf3	radar-101007576-iperf3.pcap	radar-101007576-iperf3.out	-T iperf3
+
+radar-101007576-iperf	radar-101007576-iperf.pcapng	radar-101007576-iperf.out	-t -T iperf
+
+radar-101007576-iperf3-64	radar-101007576-iperf3-64.pcap	radar-101007576-iperf3-64.out	-T iperf3-64 -t -tt -t 2
+
+radar-101007576-suttp	radar-101007576-suttp.pcapng	radar-101007576-suttp.out	-T suttp -t 0 -t 1 -t 2 -t 3 -t 4 -t 5

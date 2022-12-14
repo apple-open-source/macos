@@ -31,6 +31,7 @@
 #include "CSSStyleValue.h"
 #include <variant>
 #include <wtf/FixedVector.h>
+#include <wtf/HashMap.h>
 
 namespace WebCore {
 

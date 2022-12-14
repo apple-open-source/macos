@@ -167,8 +167,6 @@ main(int argc, char **argv) {
     }
 
     if ((json == 1) || (list_tests_with_mdata == 1)) {
-        printf("\nWriting JSON data to <%s> \n",
-               output_file_path == NULL ? "stdout" : output_file_path);
         // Dont CFRelease the dictionary after JSON printing
         json_print_cf_object(json_dict, output_file_path);
         printf("\n");

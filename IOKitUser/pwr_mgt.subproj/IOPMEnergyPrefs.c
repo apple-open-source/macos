@@ -1164,7 +1164,7 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
                 os_log(OS_LOG_DEFAULT, "kIOPMHighPowerModeKey: Could not find machine model\n");
                 ret = false;
             } else if ((!strncmp(model, "MacBookPro", 10) && majorRev == 18 && minorRev == 2) ||
-                       (strlen(model) == 3 && !strncmp(model, "Mac", 3) && majorRev == 14 && minorRev == 6)) { 
+                       (strlen(model) == 3 && !strncmp(model, "Mac", 3) && majorRev == 14 && minorRev == 6)) {
                 ret = true;
             } else {
                 ret = false;

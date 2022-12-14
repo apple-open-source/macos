@@ -48,7 +48,7 @@ uint8_t* SOSPeerInfoEncodeToDER(SOSPeerInfoRef peer, CFErrorRef* error, const ui
         SOSCreateError(kSOSErrorParam, CFSTR("No PeerInfo to encode"), NULL, error);
         return NULL;
     }
-    if(peer->version >= 2) SOSPeerInfoPackV2Data(peer);
+    if(SOSPeerInfoVersionHasV2Data(peer)) SOSPeerInfoPackV2Data(peer);
     return ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
                                        der_encode_plist(peer->description, error, der,
                                        der_encode_data(peer->signature, error, der, der_end)));

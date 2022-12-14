@@ -25,9 +25,11 @@
 #pragma once
 
 #include "FloatRect.h"
+#include "InlineIteratorInlineBox.h"
 #include "InlineIteratorTextBox.h"
 #include "RenderObject.h"
 #include "TextBoxSelectableRange.h"
+#include "TextDecorationPainter.h"
 #include "TextRun.h"
 
 namespace WebCore {
@@ -39,7 +41,6 @@ class RenderCombineText;
 class RenderStyle;
 class RenderText;
 class ShadowData;
-class TextDecorationPainter;
 struct CompositionUnderline;
 struct MarkedText;
 struct PaintInfo;
@@ -67,9 +68,9 @@ protected:
     void paintBackground(unsigned startOffset, unsigned endOffset, const Color&, BackgroundStyle = BackgroundStyle::Normal);
     void paintBackground(const StyledMarkedText&);
     void paintForeground(const StyledMarkedText&);
-    TextDecorationPainter createDecorationPainter(const StyledMarkedText&, const FloatRect&, const FloatRect&);
+    TextDecorationPainter createDecorationPainter(const StyledMarkedText&, const FloatRect&);
     void paintBackgroundDecorations(TextDecorationPainter&, const StyledMarkedText&, const FloatRect&);
-    void paintForegroundDecorations(TextDecorationPainter&, const FloatRect&);
+    void paintForegroundDecorations(TextDecorationPainter&, const StyledMarkedText&, const FloatRect&);
     void paintCompositionUnderline(const CompositionUnderline&);
     void paintPlatformDocumentMarker(const MarkedText&);
 
@@ -79,6 +80,15 @@ protected:
     MarkedText createMarkedTextFromSelectionInBox();
     const FontCascade& fontCascade() const;
     FloatPoint textOriginFromPaintRect(const FloatRect&) const;
+
+    struct DecoratingBox {
+        InlineIterator::InlineBoxIterator inlineBox;
+        const RenderStyle& style;
+        TextDecorationPainter::Styles textDecorationStyles;
+        FloatPoint location;
+    };
+    using DecoratingBoxList = Vector<DecoratingBox>;
+    void collectDecoratingBoxesForTextBox(DecoratingBoxList&, const InlineIterator::TextBoxIterator&, FloatPoint textBoxLocation, const TextDecorationPainter::Styles&);
 
     const ShadowData* debugTextShadow() const;
 
@@ -90,6 +100,7 @@ protected:
     const TextRun m_paintTextRun;
     PaintInfo& m_paintInfo;
     const TextBoxSelectableRange m_selectableRange;
+    const LayoutPoint m_paintOffset;
     const FloatRect m_paintRect;
     const bool m_isFirstLine;
     const bool m_isCombinedText;

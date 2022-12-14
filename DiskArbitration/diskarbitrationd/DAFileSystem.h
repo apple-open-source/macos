@@ -91,6 +91,8 @@ extern void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
 
 extern void DAFileSystemProbe( DAFileSystemRef           filesystem,
                                CFURLRef                  device,
+                               char *                    deviceBSDPath,
+                               char *                    containerBSDPath,
                                DAFileSystemProbeCallback callback,
                                void *                    callbackContext,
                                bool                      doFsck );
@@ -103,6 +105,7 @@ extern void DAFileSystemRename( DAFileSystemRef      filesystem,
 
 extern void DAFileSystemRepair( DAFileSystemRef      filesystem,
                                 CFURLRef             device,
+                                int                  fd,
                                 DAFileSystemCallback callback,
                                 void *               callbackContext );
 
@@ -125,6 +128,7 @@ extern void DAFileSystemUnmountWithArguments( DAFileSystemRef      filesystem,
 #if TARGET_OS_OSX || TARGET_OS_IOS
 extern int __DAMountUserFSVolume( void * parameter );
 extern void __DAMountUserFSVolumeCallback( int status, void * parameter );
+extern int DAUserFSOpen( char *path, int flags );
 #endif
 
 struct __DAFileSystemContext

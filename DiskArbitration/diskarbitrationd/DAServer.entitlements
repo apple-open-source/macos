@@ -14,5 +14,7 @@
 	<true/>
 	<key>com.apple.private.vfs.revoke-mounted-device</key>
 	<true/>
+	<key>com.apple.private.allow-external-storage</key>
+	<true/>
 </dict>
 </plist>

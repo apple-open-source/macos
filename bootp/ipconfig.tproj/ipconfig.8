@@ -1,7 +1,7 @@
 .\"
 .\"     @(#)ipconfig.8
 .\"
-.Dd May 29, 2020
+.Dd August 1, 2022
 .Dt IPCONFIG 8
 .Os "Mac OS X"
 .Sh NAME
@@ -27,6 +27,17 @@
 .Ar interface-name
 .Nm
 .Cm getra
+.Ar interface-name
+.Nm
+.Cm getsummary
+.Ar interface-name
+.Nm
+.Cm getsummary
+.Ar interface-name
+.Nm
+.Cm getdhcpduid
+.Nm
+.Cm getdhcpiaid
 .Ar interface-name
 .Nm
 .Cm setverbose
@@ -140,6 +151,17 @@ This command outputs nothing if DHCPv6 is not active on the interface.
 Prints to standard output the latest IPv6 Router Advertisement packet that the
 client accepted from an advertising router. This command outputs nothing if
 no router is present.
+.Pp
+.It Cm getsummary Ar interface-name
+Prints to standard output a summary of the current IPConfiguration state
+over the specific interface.
+.Pp
+.It Cm getdhcpduid
+Prints to standard output the DHCP DUID, if one has been established.
+.Pp
+.It Cm getdhcpiaid Ar interface-name
+Prints to standard output the DHCP IA_ID for the specific interface, if the
+interface is configured for IPv6 and the DHCP DUID has been established.
 .Pp
 .It Cm set Ar interface-name Cm NONE
 .It Cm set Ar interface-name Cm ( DHCP | BOOTP )

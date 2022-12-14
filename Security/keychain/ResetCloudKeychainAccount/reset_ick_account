@@ -115,6 +115,18 @@ def get_otctl_status():
         print("Exception follows:")
         raise
 
+def get_otctl_account_settings():
+    p = subprocess.run(["otctl", "fetch-account-wide-state", "--json"], text=True, capture_output=True)
+    if p.returncode != 0:
+        print("getting otctl state failed: {}".format(p.returncode))
+        raise OSError(-1)
+    try:
+        return json.loads(p.stdout)
+    except:
+        print("Couldn't decode otctl status json:")
+        print(p.stdout)
+        print("Exception follows:")
+        raise
 
 def get_escrow_requests():
     return get_otctl_status()["escrowRequest"]
@@ -158,6 +170,13 @@ except:
 
 if not args.noprompt:
     input("Are you sure you want to reset your account? Press enter to continue (or Ctrl-C to cancel)...")
+
+    try:
+        account_settings = get_otctl_account_settings()
+        if account_settings["walrus"] != False:
+            input("WARNING: this might delete significant amounts of data from your account. Please confirm again that you intend to reset all account data. Press enter to continue (or Ctrl-C to cancel)...")
+    except OSError as e:
+        print("Unable to fetch account settings. Proceeding...")
 
 
 # log a "com.apple.securityd:mark" message to see when this (version of this) script was run

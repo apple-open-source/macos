@@ -42,6 +42,7 @@ typedef void ( *DAProbeCallback )( int             status,
                                    void *          context );
 
 extern void DAProbe( DADiskRef       disk,
+                     DADiskRef containerDisk,
                      DAProbeCallback callback,
                      void *          callbackContext );
 

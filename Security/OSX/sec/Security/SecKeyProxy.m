@@ -47,7 +47,7 @@
 - (void)getDescriptionWithReply:(void (^)(NSString *description))reply;
 - (void)getAlgorithmIDWithReply:(void (^)(NSInteger algorithmID))reply;
 - (void)getPublicKey:(void (^)(NSXPCListenerEndpoint *endpoint))reply;
-- (void)performOperation:(SecKeyOperationType)operation algorithm:(NSString *)algorithm parameters:(NSArray *)parameters reply:(void (^)(NSArray *result, NSError *error))reply;
+- (void)performOperation:(SecKeyOperationType)operation mode:(SecKeyOperationMode)mode algorithm:(NSString *)algorithm parameters:(NSArray *)parameters reply:(void (^)(NSArray *result, NSError *error))reply;
 @end
 
 // MARK: XPC target object for SecKeyProxy side
@@ -120,12 +120,12 @@
     return reply(_publicKeyProxy.endpoint);
 }
 
-- (void)performOperation:(SecKeyOperationType)operation algorithm:(NSString *)algorithm parameters:(NSArray *)parameters reply:(void (^)(NSArray *, NSError *))reply {
+- (void)performOperation:(SecKeyOperationType)operation mode:(SecKeyOperationMode)mode algorithm:(NSString *)algorithm parameters:(NSArray *)parameters reply:(void (^)(NSArray *, NSError *))reply {
     NSMutableArray *algorithms = @[algorithm].mutableCopy;
     CFTypeRef in1 = (__bridge CFTypeRef)(parameters.count > 0 ? parameters[0] : nil);
     CFTypeRef in2 = (__bridge CFTypeRef)(parameters.count > 1 ? parameters[1] : nil);
     NSError *error;
-    SecKeyOperationContext context = { self.key, operation, (__bridge CFMutableArrayRef)algorithms };
+    SecKeyOperationContext context = { self.key, operation, (__bridge CFMutableArrayRef)algorithms, mode };
     id result = CFBridgingRelease(SecKeyRunAlgorithmAndCopyResult(&context, in1, in2, (void *)&error));
     return reply(result ? @[result] : @[], error);
 }
@@ -301,7 +301,7 @@ static CFTypeRef SecRemoteKeyCopyOperationResult(SecKeyRef key, SecKeyOperationT
         }
     }
     __block id localResult;
-    [[SecKeyProxy targetForKey:key error:error] performOperation:operation algorithm:(__bridge NSString *)algorithm parameters:parameters reply:^(NSArray *result, NSError *_error) {
+    [[SecKeyProxy targetForKey:key error:error] performOperation:operation mode:mode algorithm:(__bridge NSString *)algorithm parameters:parameters reply:^(NSArray *result, NSError *_error) {
         if (result.count > 0) {
             localResult = result[0];
         }

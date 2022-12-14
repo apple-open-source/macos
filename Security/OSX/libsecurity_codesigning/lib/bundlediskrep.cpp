@@ -552,14 +552,26 @@ CFDictionaryRef BundleDiskRep::copyDiskRepInformation()
 //
 string BundleDiskRep::recommendedIdentifier(const SigningContext &)
 {
-	if (CFStringRef identifier = CFBundleGetIdentifier(mBundle))
-		return cfString(identifier);
-	if (CFDictionaryRef infoDict = CFBundleGetInfoDictionary(mBundle))
-		if (CFStringRef identifier = CFStringRef(CFDictionaryGetValue(infoDict, kCFBundleNameKey)))
-			return cfString(identifier);
-	
+	std::string identifier = explicitIdentifier();
+	if (!identifier.empty()) {
+		return identifier;
+	}
+
 	// fall back to using the canonical path
 	return canonicalIdentifier(cfStringRelease(this->copyCanonicalPath()));
+}
+
+string BundleDiskRep::explicitIdentifier()
+{
+	if (CFStringRef identifier = CFBundleGetIdentifier(mBundle)) {
+		return cfString(identifier);
+	}
+	if (CFDictionaryRef infoDict = CFBundleGetInfoDictionary(mBundle)) {
+		if (CFStringRef identifier = CFStringRef(CFDictionaryGetValue(infoDict, kCFBundleNameKey))) {
+			return cfString(identifier);
+		}
+	}
+	return "";
 }
 
 string BundleDiskRep::resourcesRelativePath()

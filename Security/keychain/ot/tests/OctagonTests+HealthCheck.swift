@@ -835,7 +835,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         // Before you call joinWithBottle, you need to call fetchViableBottles.
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
-        self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
             fetchViableExpectation.fulfill()

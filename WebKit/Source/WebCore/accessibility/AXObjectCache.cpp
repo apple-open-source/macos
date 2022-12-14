@@ -302,10 +302,52 @@ bool AXObjectCache::modalElementHasAccessibleContent(Element& element)
     return false;
 }
 
-void AXObjectCache::updateCurrentModalNode()
+void AXObjectCache::updateCurrentModalNode(WillRecomputeFocus willRecomputeFocus)
 {
+    auto recomputeModalElement = [&] () -> Element* {
+        // There might be multiple modal dialog nodes.
+        // We use this function to pick the one we want.
+        if (m_modalElements.isEmpty())
+            return nullptr;
+
+        // Pick the document active modal <dialog> element if it exists.
+        if (Element* activeModalDialog = document().activeModalDialog()) {
+            ASSERT(m_modalElements.contains(activeModalDialog));
+            return activeModalDialog;
+        }
+
+        SetForScope retrievingCurrentModalNode(m_isRetrievingCurrentModalNode, true);
+        // If any of the modal nodes contains the keyboard focus, we want to pick that one.
+        // If not, we want to pick the last visible dialog in the DOM.
+        RefPtr<Element> focusedElement = document().focusedElement();
+        bool focusedElementIsOutsideModals = focusedElement;
+        RefPtr<Element> lastVisible;
+        for (auto& element : m_modalElements) {
+            // Elements in m_modalElementsSet may have become un-modal since we added them, but not yet removed
+            // as part of the asynchronous m_deferredModalChangedList handling. Skip these.
+            if (!element || !isModalElement(*element))
+                continue;
+
+            // To avoid trapping users in an empty modal, skip any non-visible element, or any element without accessible content.
+            if (!isNodeVisible(element.get()) || !modalElementHasAccessibleContent(*element))
+                continue;
+
+            lastVisible = element.get();
+            if (focusedElement && focusedElement->isDescendantOf(*element)) {
+                focusedElementIsOutsideModals = false;
+                break;
+            }
+        }
+
+        // If there is a focused element, and it's not inside any of the modals, we should
+        // consider all modals inactive to allow the user to freely navigate.
+        if (focusedElementIsOutsideModals && willRecomputeFocus == WillRecomputeFocus::No)
+            return nullptr;
+        return lastVisible.get();
+    };
+
     auto* previousModal = m_currentModalElement.get();
-    m_currentModalElement = updateCurrentModalNodeInternal();
+    m_currentModalElement = recomputeModalElement();
     if (previousModal != m_currentModalElement.get()) {
         childrenChanged(rootWebArea());
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
@@ -314,41 +356,6 @@ void AXObjectCache::updateCurrentModalNode()
         m_deferredRegenerateIsolatedTree = true;
 #endif
     }
-}
-
-Element* AXObjectCache::updateCurrentModalNodeInternal()
-{
-    // There might be multiple modal dialog nodes.
-    // We use this function to pick the one we want.
-    if (m_modalElements.isEmpty())
-        return nullptr;
-
-    // Pick the document active modal <dialog> element if it exists.
-    if (Element* activeModalDialog = document().activeModalDialog()) {
-        ASSERT(m_modalElements.contains(activeModalDialog));
-        return activeModalDialog;
-    }
-
-    SetForScope retrievingCurrentModalNode(m_isRetrievingCurrentModalNode, true);
-    // If any of the modal nodes contains the keyboard focus, we want to pick that one.
-    // If not, we want to pick the last visible dialog in the DOM.
-    RefPtr<Element> focusedElement = document().focusedElement();
-    RefPtr<Element> lastVisible;
-    for (auto& element : m_modalElements) {
-        // Elements in m_modalElementsSet may have become un-modal since we added them, but not yet removed
-        // as part of the asynchronous m_deferredModalChangedList handling. Skip these.
-        if (!element || !isModalElement(*element))
-            continue;
-
-        // To avoid trapping users in an empty modal, skip any non-visible element, or any element without accessible content.
-        if (!isNodeVisible(element.get()) || !modalElementHasAccessibleContent(*element))
-            continue;
-
-        lastVisible = element.get();
-        if (focusedElement && focusedElement->isDescendantOf(*element))
-            break;
-    }
-    return lastVisible.get();
 }
 
 bool AXObjectCache::isNodeVisible(Node* node) const
@@ -569,7 +576,7 @@ static bool isSimpleImage(const RenderObject& renderer)
     return true;
 }
 
-static Ref<AccessibilityObject> createFromRenderer(RenderObject* renderer)
+Ref<AccessibilityObject> AXObjectCache::createObjectFromRenderer(RenderObject* renderer)
 {
     // FIXME: How could renderer->node() ever not be an Element?
     Node* node = renderer->node();
@@ -603,10 +610,10 @@ static Ref<AccessibilityObject> createFromRenderer(RenderObject* renderer)
 #endif
 
     if (renderer->isSVGRootOrLegacySVGRoot())
-        return AccessibilitySVGRoot::create(renderer);
-    
+        return AccessibilitySVGRoot::create(renderer, this);
+
     if (is<SVGElement>(node))
-        return AccessibilitySVGElement::create(renderer);
+        return AccessibilitySVGElement::create(renderer, this);
 
     if (isSimpleImage(*renderer))
         return AXImage::create(downcast<RenderImage>(renderer));
@@ -770,26 +777,27 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject* renderer)
     if (!renderer)
         return nullptr;
 
-    if (AccessibilityObject* obj = get(renderer))
-        return obj;
+    if (auto* object = get(renderer))
+        return object;
 
     // Don't create an object for this renderer if it's being destroyed.
     if (renderer->beingDestroyed())
         return nullptr;
-    RefPtr<AccessibilityObject> newObj = createFromRenderer(renderer);
+
+    RefPtr object = createObjectFromRenderer(renderer);
 
     // Will crash later if we have two objects for the same renderer.
     ASSERT(!get(renderer));
 
-    cacheAndInitializeWrapper(newObj.get(), renderer);
+    cacheAndInitializeWrapper(object.get(), renderer);
     // Compute the object's initial ignored status.
-    newObj->recomputeIsIgnored();
+    object->recomputeIsIgnored();
     // Sometimes asking accessibilityIsIgnored() will cause the newObject to be deallocated, and then
     // it will disappear when this function is finished, leading to a use-after-free.
-    if (newObj->isDetached())
+    if (object->isDetached())
         return nullptr;
-    
-    return newObj.get();
+
+    return object.get();
 }
 
 AXCoreObject* AXObjectCache::rootObject()
@@ -1403,32 +1411,39 @@ void AXObjectCache::handleFocusedUIElementChanged(Node* oldNode, Node* newNode, 
     
 void AXObjectCache::selectedChildrenChanged(Node* node)
 {
-    handleMenuItemSelected(node);
-    
-    // postTarget is ObservableParent so that you can pass in any child of an element and it will go up the parent tree
-    // to find the container which should send out the notification.
-    postNotification(node, AXSelectedChildrenChanged, PostTarget::ObservableParent);
+    postNotification(node, AXSelectedChildrenChanged);
 }
 
 void AXObjectCache::selectedChildrenChanged(RenderObject* renderer)
 {
     if (renderer)
-        handleMenuItemSelected(renderer->node());
-
-    // postTarget is ObservableParent so that you can pass in any child of an element and it will go up the parent tree
-    // to find the container which should send out the notification.
-    postNotification(renderer, AXSelectedChildrenChanged, PostTarget::ObservableParent);
+        selectedChildrenChanged(renderer->node());
 }
 
-void AXObjectCache::selectedStateChanged(Node* node)
+static bool isARIATableCell(Node* node)
 {
-    // For a table cell, post AXSelectedStateChanged on the cell itself.
-    // For any other element, post AXSelectedChildrenChanged on the parent.
-    if (nodeHasRole(node, "gridcell"_s) || nodeHasRole(node, "cell"_s)
-        || nodeHasRole(node, "columnheader"_s) || nodeHasRole(node, "rowheader"_s))
+    return node && (nodeHasRole(node, "gridcell"_s) || nodeHasRole(node, "cell"_s) || nodeHasRole(node, "columnheader"_s) || nodeHasRole(node, "rowheader"_s));
+}
+
+void AXObjectCache::onSelectedChanged(Node* node)
+{
+    if (isARIATableCell(node))
+        postNotification(node, AXSelectedCellChanged);
+    else if (is<HTMLOptionElement>(node))
         postNotification(node, AXSelectedStateChanged);
-    else
-        selectedChildrenChanged(node);
+    else if (auto* axObject = getOrCreate(node)) {
+        if (auto* ancestor = Accessibility::findAncestor<AccessibilityObject>(*axObject, false, [] (const auto& object) {
+            return object.canHaveSelectedChildren();
+        }))
+            selectedChildrenChanged(ancestor->node());
+    }
+
+    handleMenuItemSelected(node);
+}
+
+void AXObjectCache::onTitleChange(Document& document)
+{
+    postNotification(get(&document), nullptr, AXTextChanged);
 }
 
 #ifndef NDEBUG
@@ -1963,7 +1978,8 @@ bool AXObjectCache::shouldProcessAttributeChange(Element* element, const Qualifi
 void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName& attrName, const AtomString& oldValue, const AtomString& newValue)
 {
     AXTRACE(makeString("AXObjectCache::handleAttributeChange 0x"_s, hex(reinterpret_cast<uintptr_t>(this))));
-    AXLOG(makeString("attribute ", attrName.localName().string(), " for element ", element ? element->debugDescription() : String("nullptr"_s)));
+    AXLOG(makeString("attribute ", attrName.localName(), " for element ", element ? element->debugDescription() : String("nullptr"_s)));
+    AXLOG(makeString("old value: ", oldValue, " new value: ", newValue));
 
     if (!shouldProcessAttributeChange(element, attrName))
         return;
@@ -2076,7 +2092,7 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
     else if (attrName == aria_relevantAttr)
         postNotification(element, AXLiveRegionRelevantChanged);
     else if (attrName == aria_selectedAttr)
-        selectedStateChanged(element);
+        onSelectedChanged(element);
     else if (attrName == aria_setsizeAttr)
         postNotification(element, AXSetSizeChanged);
     else if (attrName == aria_expandedAttr)
@@ -3542,7 +3558,7 @@ void AXObjectCache::performDeferredCacheUpdate()
     m_deferredModalChangedList.clear();
 
     if (shouldRecomputeModal) {
-        updateCurrentModalNode();
+        updateCurrentModalNode(updatedFocusedElement ? WillRecomputeFocus::No : WillRecomputeFocus::Yes);
         // "When a modal element is displayed, assistive technologies SHOULD navigate to the element unless focus has explicitly been set elsewhere."
         // `updatedFocusedElement` indicates focus was explicitly set elsewhere, so don't autofocus into the modal.
         // https://w3c.github.io/aria/#aria-modal
@@ -3637,7 +3653,7 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsChecked);
             break;
         case AXCurrentStateChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::CurrentValue);
+            tree->updateNodeProperty(*notification.first, AXPropertyName::CurrentState);
             break;
         case AXColumnCountChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::AXColumnCount);
@@ -3683,6 +3699,7 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
         case AXRowIndexChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::AXRowIndex);
             break;
+        case AXSelectedCellChanged:
         case AXSelectedStateChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsSelected);
             break;
@@ -4007,12 +4024,9 @@ void AXObjectCache::addRelation(AccessibilityObject* origin, AccessibilityObject
 
 void AXObjectCache::updateRelationsIfNeeded()
 {
-    AXTRACE(makeString("AXObjectCache::updateRelationsIfNeeded 0x"_s, hex(reinterpret_cast<uintptr_t>(this))));
-
     if (!m_relationsNeedUpdate)
         return;
     relationsNeedUpdate(false);
-    AXLOG("Updating relations.");
     m_relations.clear();
     m_relationTargets.clear();
 

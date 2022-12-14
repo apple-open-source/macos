@@ -16380,6 +16380,7 @@ IGNORE_CLANG_WARNINGS_END
             }
             restore();
             jit.moveValue(baselineCodeBlock->globalObject(), JSValueRegs { GPRInfo::returnValueGPR });
+            jit.loadPtr(CCallHelpers::Address(GPRInfo::returnValueGPR, JSGlobalObject::offsetOfGlobalThis()), GPRInfo::returnValueGPR);
             params.code().emitEpilogue(jit); 
 
             skipEarlyReturn.link(&jit);
@@ -20284,18 +20285,18 @@ IGNORE_CLANG_WARNINGS_END
         LValue value = lowJSValue(edge, ManualOperandSpeculation);
         LValue doubleValue = unboxDouble(value);
         
-        LBasicBlock intCase = m_out.newBlock();
+        LBasicBlock intOrNaNCase = m_out.newBlock();
         LBasicBlock continuation = m_out.newBlock();
         
         m_out.branch(
             m_out.doubleEqual(doubleValue, doubleValue),
-            usually(continuation), rarely(intCase));
+            usually(continuation), rarely(intOrNaNCase));
         
-        LBasicBlock lastNext = m_out.appendTo(intCase, continuation);
+        LBasicBlock lastNext = m_out.appendTo(intOrNaNCase, continuation);
         
         typeCheck(
             jsValueValue(value), m_node->child1(), SpecBytecodeRealNumber,
-            isNotInt32(value, provenType(m_node->child1()) & ~SpecFullDouble));
+            isNotInt32(value, provenType(m_node->child1()) & ~SpecDoubleReal));
         m_out.jump(continuation);
 
         m_out.appendTo(continuation, lastNext);

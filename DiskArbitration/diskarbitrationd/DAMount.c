@@ -47,6 +47,8 @@ struct __DAMountCallbackContext
     CFURLRef        mountpoint;
     CFStringRef     options;
     CFURLRef        devicePath;
+    DADiskRef       contDisk;
+    int             fd;
 };
 
 typedef struct __DAMountCallbackContext __DAMountCallbackContext;
@@ -102,7 +104,18 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 
         context->assertionID = kIOPMNullAssertionID;
     }
-
+#if TARGET_OS_IOS
+    if ( context->contDisk )
+    {
+        DAUnitSetState( context->contDisk, kDAUnitStateCommandActive, FALSE );
+        CFRelease( context->contDisk );
+        context->contDisk = NULL;
+    }
+    if ( context->fd != -1)
+    {
+        close( context->fd );
+    }
+#endif
     if ( status )
     {
         /*
@@ -1345,10 +1358,44 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     context->mountpoint      = mountpoint;
     context->options         = options;
     context->devicePath      = devicePath;
-
+    context->contDisk        = NULL;
+    context->fd              = -1;
     
     if ( check == kCFBooleanTrue )
     {
+#if TARGET_OS_IOS
+        context->contDisk = DADiskGetContainerDisk( disk );
+        if ( context->contDisk )
+        {
+            int fd = DAUserFSOpen( DADiskGetBSDPath( context->contDisk, TRUE ), O_RDWR );
+            if ( fd == -1 )
+            {
+                status = errno;
+                
+                goto DAMountWithArgumentsErr;
+                
+            }
+            DAUnitSetState( context->contDisk, kDAUnitStateCommandActive, TRUE );
+            CFRetain( context->contDisk );
+            int newfd = dup (fd );
+            close (fd);
+            context->fd = newfd;
+        }
+        else
+        {
+            int fd = DAUserFSOpen(DADiskGetBSDPath( disk, TRUE), O_RDWR);
+            if ( fd == -1 )
+            {
+                status = errno;
+                
+                goto DAMountWithArgumentsErr;
+                
+            }
+            int newfd = dup (fd );
+            close (fd);
+            context->fd = newfd;
+        }
+#endif
         DALogInfo( "repaired disk, id = %@, ongoing.", disk );
 
         IOPMAssertionCreateWithDescription( kIOPMAssertionTypePreventUserIdleSystemSleep,
@@ -1361,7 +1408,8 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
                                             &context->assertionID );
 
         DAFileSystemRepair( DADiskGetFileSystem( disk ),
-                            DADiskGetDevice( disk ),
+                           (context->contDisk)? DADiskGetDevice( context->contDisk ):DADiskGetDevice( disk ),
+                            context->fd,
                             __DAMountWithArgumentsCallbackStage1,
                             context );
     }

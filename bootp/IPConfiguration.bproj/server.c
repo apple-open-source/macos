@@ -133,7 +133,7 @@ method_info_from_xml_data(xmlData_t xml_data,
 
 PRIVATE_EXTERN kern_return_t
 _ipconfig_if_addr(mach_port_t p, InterfaceName name,
-		  u_int32_t * addr, ipconfig_status_t * status)
+		  ip_address_t * addr, ipconfig_status_t * status)
 {
     *status = get_if_addr(InterfaceNameNulTerminate(name), addr);
     return (KERN_SUCCESS);
@@ -471,7 +471,7 @@ _ipconfig_get_summary(mach_port_t server,
 
     *xml_data = NULL;
     *xml_data_len = 0;
-    status = copy_if_summary(name, &summary);
+    status = copy_if_summary(InterfaceNameNulTerminate(name), &summary);
     if (summary != NULL) {
         *xml_data = (xmlDataOut_t)
         my_CFPropertyListCreateVMData(summary, xml_data_len);
@@ -507,6 +507,26 @@ _ipconfig_get_interface_list(mach_port_t server,
     }
     my_CFRelease(&interface_list);
     *ret_status = status;
+    return (KERN_SUCCESS);
+}
+
+PRIVATE_EXTERN kern_return_t
+_ipconfig_get_dhcp_duid(mach_port_t p,
+			dataOut_t * dhcp_duid,
+			mach_msg_type_number_t * dhcp_duid_cnt,
+			ipconfig_status_t * status)
+{
+    *status = get_dhcp_duid(dhcp_duid, dhcp_duid_cnt);
+    return (KERN_SUCCESS);
+}
+
+PRIVATE_EXTERN kern_return_t
+_ipconfig_get_dhcp_ia_id(mach_port_t p,
+			 InterfaceName name,
+			 DHCPIAID * ia_id,
+			 ipconfig_status_t * status)
+{
+    *status = get_dhcp_ia_id(InterfaceNameNulTerminate(name), ia_id);
     return (KERN_SUCCESS);
 }
 

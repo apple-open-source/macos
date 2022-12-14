@@ -215,6 +215,8 @@ extern const CFStringRef kSecPolicyAppleOrderBundleSigner
     API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
 extern const CFStringRef kSecPolicyAppleQiSigning
     API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
+extern const CFStringRef kSecPolicyApplePPMAggregatorConfigSigning
+    API_AVAILABLE(macos(13.1), ios(16.2), watchos(9.2), tvos(16.2));
 
 
 /*!
@@ -1889,7 +1891,8 @@ SecPolicyRef SecPolicyCreateAppleAccessoryUpdateSigning(void)
  */
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAggregateMetricTransparency(bool facilitator)
-    API_AVAILABLE(macos(10.15.6), ios(13.6), watchos(6.2), tvos(13.4));
+    API_DEPRECATED_WITH_REPLACEMENT("SecPolicyCreateAggregateMetricEncryption",
+     macos(10.15.6, 11.1), ios(13.6, 14.3), watchos(6.2, 7.2), tvos(13.4, 14.3));
 
 /*!
  @function SecPolicyCreateAggregateMetricEncryption
@@ -2107,6 +2110,28 @@ SecPolicyRef SecPolicyCreateOrderBundleSigner(CFStringRef orderTypeId)
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateQiSigning(void)
     API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
+
+/*!
+ @function SecPolicyCreatePPMAggregatorConfigSigning
+ @abstract Returns a policy object for verifying Privacy Preserving Metrics Aggregator
+ Configuration Signing certificates
+ @param isApple A boolean to indicate whether the aggregator is Apple or a third-party
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.26.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.12.44 if isApple is true or
+       1.2.840.113635.100.14.3 if false.
+     * Revocation is checked via any available method.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+     * Require a positive CT verification result using the non-TLS CT log list
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef  SecPolicyCreatePPMAggregatorConfigSigning(bool isApple)
+    API_AVAILABLE(macos(13.1), ios(16.2), watchos(9.2), tvos(16.2));
 
 /*
  *  Legacy functions (OS X only)

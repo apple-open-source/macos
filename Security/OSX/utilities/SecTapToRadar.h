@@ -21,16 +21,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
+#if __OBJC__
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface SecTapToRadar : NSObject
 
-@property NSString* componentID;
-@property NSString* componentName;
-@property NSString* componentVersion;
+@property (nonatomic, retain) NSString* componentID;
+@property (nonatomic, retain) NSString* componentName;
+@property (nonatomic, retain) NSString* componentVersion;
 
 - (instancetype)init NS_UNAVAILABLE;
 
@@ -54,3 +54,5 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif

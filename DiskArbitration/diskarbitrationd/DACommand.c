@@ -40,6 +40,7 @@
 #include <dispatch/dispatch.h>
 #include "DALog.h"
 #include <os/log.h>
+#include <sys/stat.h>
 
 enum
 {
@@ -77,7 +78,8 @@ static void __DACommandExecute( char * const *           argv,
                                 uid_t                    userUID,
                                 gid_t                    userGID,
                                 DACommandExecuteCallback callback,
-                                void *                   callbackContext )
+                                void *                   callbackContext,
+                                int                      filefd )
 {
     /*
      * Execute a command as the specified user.  The argument list must be NULL terminated.
@@ -147,7 +149,7 @@ static void __DACommandExecute( char * const *           argv,
         status = posix_spawn_file_actions_init(&file_actions);
         if ( status )  { goto spawn_destroy; }
         file_actionsp = &file_actions;
-        status = posix_spawnattr_setflags(&attr, POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETEXEC);
+        status = posix_spawnattr_setflags(&attr, POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETEXEC );
         if ( status )  { goto spawn_destroy; }
         status = posix_spawn_file_actions_addinherit_np(&file_actions, STDOUT_FILENO);
         if ( status )  { goto spawn_destroy; }
@@ -155,11 +157,16 @@ static void __DACommandExecute( char * const *           argv,
         if ( status )  { goto spawn_destroy; }
         status = posix_spawn_file_actions_addinherit_np(&file_actions, STDIN_FILENO);
         if ( status )  { goto spawn_destroy; }
-
+        if ( filefd >= 0 )
+        {
+            status = posix_spawn_file_actions_addinherit_np(&file_actions, filefd);
+            if ( status )  { goto spawn_destroy; }
+        }
+        
         /*
          * Run the executable.
          */
-        posix_spawn(NULL, argv[0], &file_actions, &attr, argv, *_NSGetEnviron());
+        status = posix_spawn(NULL, argv[0], &file_actions, &attr, argv, *_NSGetEnviron());
 
 spawn_destroy:
 
@@ -458,6 +465,7 @@ void DACommandExecute( CFURLRef                 executable,
                        DACommandExecuteOptions  options,
                        uid_t                    userUID,
                        gid_t                    userGID,
+                       int                      fd,
                        DACommandExecuteCallback callback,
                        void *                   callbackContext,
                        ... )
@@ -530,7 +538,7 @@ void DACommandExecute( CFURLRef                 executable,
      * Run the executable.
      */
 
-    __DACommandExecute( argv, options, userUID, userGID, callback, callbackContext );
+    __DACommandExecute( argv, options, userUID, userGID, callback, callbackContext , fd);
 
     /*
      * Release our resources.

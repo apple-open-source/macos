@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_PROXY_TLS13_CIPHERS 3 "May 17, 2022" "libcurl 7.84.0" "curl_easy_setopt options"
+.TH CURLOPT_PROXY_TLS13_CIPHERS 3 "July 22, 2022" "libcurl 7.85.0" "curl_easy_setopt options"
 
 .SH NAME
 CURLOPT_PROXY_TLS13_CIPHERS \- ciphers suites for proxy TLS 1.3
@@ -59,7 +59,7 @@ CURL *curl = curl_easy_init();
 if(curl) {
   curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/");
   curl_easy_setopt(curl, CURLOPT_PROXY_TLS13_CIPHERS,
-                   "TLS13-CHACHA20-POLY1305-SHA256");
+                   "TLS_CHACHA20_POLY1305_SHA256");
   ret = curl_easy_perform(curl);
   curl_easy_cleanup(curl);
 }

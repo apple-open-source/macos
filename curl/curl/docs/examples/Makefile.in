@@ -174,8 +174,7 @@ check_PROGRAMS = 10-at-a-time$(EXEEXT) altsvc$(EXEEXT) \
 	urlapi$(EXEEXT)
 subdir = docs/examples
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_compile_check_sizeof.m4 \
-	$(top_srcdir)/m4/curl-amissl.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/m4/curl-amissl.m4 \
 	$(top_srcdir)/m4/curl-bearssl.m4 \
 	$(top_srcdir)/m4/curl-compilers.m4 \
 	$(top_srcdir)/m4/curl-confopts.m4 \
@@ -1159,6 +1158,7 @@ USE_NGHTTP3 = @USE_NGHTTP3@
 USE_NGTCP2 = @USE_NGTCP2@
 USE_NGTCP2_CRYPTO_GNUTLS = @USE_NGTCP2_CRYPTO_GNUTLS@
 USE_NGTCP2_CRYPTO_OPENSSL = @USE_NGTCP2_CRYPTO_OPENSSL@
+USE_NGTCP2_CRYPTO_WOLFSSL = @USE_NGTCP2_CRYPTO_WOLFSSL@
 USE_NSS = @USE_NSS@
 USE_OPENLDAP = @USE_OPENLDAP@
 USE_QUICHE = @USE_QUICHE@
@@ -1256,7 +1256,6 @@ COMPLICATED_EXAMPLES = \
   cacertinmem.c \
   crawler.c \
   curlgtk.c \
-  curlx.c \
   ephiperfifo.c \
   evhiperfifo.c \
   ghiper.c \

@@ -65,6 +65,7 @@
 #include "Settings.h"
 #include "TextBoxPainter.h"
 #include "TextDecorationPainter.h"
+#include <wtf/Assertions.h>
 
 namespace WebCore {
 namespace LayoutIntegration {
@@ -82,12 +83,17 @@ LineLayout::~LineLayout()
     clearInlineContent();
 }
 
-RenderBlockFlow* LineLayout::blockContainer(RenderObject& renderer)
+static inline bool isContentRenderer(const RenderObject& renderer)
 {
     // FIXME: These fake renderers have their parent set but are not actually in the tree.
-    if (renderer.isReplica() || renderer.isRenderScrollbarPart())
+    return !renderer.isReplica() && !renderer.isRenderScrollbarPart();
+}
+
+RenderBlockFlow* LineLayout::blockContainer(RenderObject& renderer)
+{
+    if (!isContentRenderer(renderer))
         return nullptr;
-    
+
     for (auto* parent = renderer.parent(); parent; parent = parent->parent()) {
         if (!parent->childrenInline())
             return nullptr;
@@ -100,6 +106,9 @@ RenderBlockFlow* LineLayout::blockContainer(RenderObject& renderer)
 
 LineLayout* LineLayout::containing(RenderObject& renderer)
 {
+    if (!isContentRenderer(renderer))
+        return nullptr;
+
     if (!renderer.isInline())
         return nullptr;
 
@@ -505,13 +514,29 @@ LayoutUnit LineLayout::firstLinePhysicalBaseline() const
     }
 
     auto& firstLine = m_inlineContent->lines.first();
+    return physicalBaselineForLine(firstLine); 
+}
+
+LayoutUnit LineLayout::lastLinePhysicalBaseline() const
+{
+    if (!m_inlineContent || m_inlineContent->lines.isEmpty()) {
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+
+    auto lastLine = m_inlineContent->lines.last();
+    return physicalBaselineForLine(lastLine);
+}
+
+LayoutUnit LineLayout::physicalBaselineForLine(LayoutIntegration::Line& line) const
+{
     switch (rootLayoutBox().style().writingMode()) {
     case WritingMode::TopToBottom:
-        return LayoutUnit { firstLine.lineBoxTop() + firstLine.baseline() };
+        return LayoutUnit { line.lineBoxTop() + line.baseline() };
     case WritingMode::LeftToRight:
-        return LayoutUnit { firstLine.lineBoxLeft() + (firstLine.lineBoxWidth() - firstLine.baseline()) };
+        return LayoutUnit { line.lineBoxLeft() + (line.lineBoxWidth() - line.baseline()) };
     case WritingMode::RightToLeft:
-        return LayoutUnit { firstLine.lineBoxLeft() + firstLine.baseline() };
+        return LayoutUnit { line.lineBoxLeft() + line.baseline() };
     default:
         ASSERT_NOT_REACHED();
         return { };

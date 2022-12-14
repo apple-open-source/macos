@@ -24,9 +24,10 @@
 #include "CSSSelectorList.h"
 #include "CompiledSelector.h"
 #include "ContainerQuery.h"
+#include "FontFeatureValues.h"
 #include "FontPaletteValues.h"
-#include "StyleProperties.h"
 #include "StyleRuleType.h"
+#include <map>
 #include <variant>
 #include <wtf/RefPtr.h>
 #include <wtf/TypeCasts.h>
@@ -35,18 +36,17 @@
 namespace WebCore {
 
 class CSSRule;
-class CSSStyleRule;
+class CSSGroupingRule;
 class CSSStyleSheet;
 class MediaQuerySet;
 class MutableStyleProperties;
 class StyleRuleKeyframe;
 class StyleProperties;
-class StyleRuleKeyframes;
 
 using CascadeLayerName = Vector<AtomString>;
     
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRuleBase);
-class StyleRuleBase : public WTF::RefCountedBase {
+class StyleRuleBase : public RefCounted<StyleRuleBase> {
     WTF_MAKE_STRUCT_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRuleBase);
 public:
     StyleRuleType type() const { return static_cast<StyleRuleType>(m_type); }
@@ -55,6 +55,8 @@ public:
     bool isCounterStyleRule() const { return type() == StyleRuleType::CounterStyle; }
     bool isFontFaceRule() const { return type() == StyleRuleType::FontFace; }
     bool isFontPaletteValuesRule() const { return type() == StyleRuleType::FontPaletteValues; }
+    bool isFontFeatureValuesRule() const { return type() == StyleRuleType::FontFeatureValues; }
+    bool isFontFeatureValuesBlockRule() const { return type() == StyleRuleType::FontFeatureValuesBlock; }
     bool isKeyframesRule() const { return type() == StyleRuleType::Keyframes; }
     bool isKeyframeRule() const { return type() == StyleRuleType::Keyframe; }
     bool isNamespaceRule() const { return type() == StyleRuleType::Namespace; }
@@ -69,25 +71,28 @@ public:
 
     Ref<StyleRuleBase> copy() const;
 
-    void deref() const;
+    Ref<CSSRule> createCSSOMWrapper(CSSStyleSheet& parentSheet) const;
+    Ref<CSSRule> createCSSOMWrapper(CSSGroupingRule& parentRule) const;
 
-    // FIXME: There shouldn't be any need for the null parent version.
-    Ref<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet = nullptr) const;
-    Ref<CSSRule> createCSSOMWrapper(CSSRule* parentRule) const;
+    // This is only needed to support getMatchedCSSRules.
+    Ref<CSSRule> createCSSOMWrapper() const;
+
+    WEBCORE_EXPORT void operator delete(StyleRuleBase*, std::destroying_delete_t);
 
 protected:
     explicit StyleRuleBase(StyleRuleType, bool hasDocumentSecurityOrigin = false);
     StyleRuleBase(const StyleRuleBase&);
-    ~StyleRuleBase() = default;
 
     bool hasDocumentSecurityOrigin() const { return m_hasDocumentSecurityOrigin; }
 
 private:
-    WEBCORE_EXPORT void destroy();
-    
-    Ref<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRule* parentRule) const;
+    template<typename Visitor> constexpr decltype(auto) visitDerived(Visitor&&);
+    template<typename Visitor> constexpr decltype(auto) visitDerived(Visitor&&) const;
+
+    Ref<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSGroupingRule* parentRule) const;
 
     unsigned m_type : 5; // StyleRuleType
+
     // This is only needed to support getMatchedCSSRules.
     unsigned m_hasDocumentSecurityOrigin : 1;
 };
@@ -143,7 +148,6 @@ private:
 class StyleRuleFontFace final : public StyleRuleBase {
 public:
     static Ref<StyleRuleFontFace> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleFontFace(WTFMove(properties))); }
-    
     ~StyleRuleFontFace();
 
     const StyleProperties& properties() const { return m_properties; }
@@ -160,47 +164,65 @@ private:
 
 class StyleRuleFontPaletteValues final : public StyleRuleBase {
 public:
-    static Ref<StyleRuleFontPaletteValues> create(const AtomString& name, const AtomString& fontFamily, std::optional<FontPaletteIndex> basePalette, Vector<FontPaletteValues::OverriddenColor>&& overrideColors)
-    {
-        return adoptRef(*new StyleRuleFontPaletteValues(name, fontFamily, basePalette, WTFMove(overrideColors)));
-    }
-    
-    ~StyleRuleFontPaletteValues();
+    static Ref<StyleRuleFontPaletteValues> create(const AtomString& name, const AtomString& fontFamily, std::optional<FontPaletteIndex> basePalette, Vector<FontPaletteValues::OverriddenColor>&&);
 
-    const AtomString& name() const
-    {
-        return m_name;
-    }
-
-    const AtomString& fontFamily() const
-    {
-        return m_fontFamily;
-    }
-
-    const FontPaletteValues& fontPaletteValues() const
-    {
-        return m_fontPaletteValues;
-    }
-
-    std::optional<FontPaletteIndex> basePalette() const
-    {
-        return m_fontPaletteValues.basePalette();
-    }
-
-    const Vector<FontPaletteValues::OverriddenColor>& overrideColors() const
-    {
-        return m_fontPaletteValues.overrideColors();
-    }
+    const AtomString& name() const { return m_name; }
+    const AtomString& fontFamily() const { return m_fontFamily; }
+    const FontPaletteValues& fontPaletteValues() const { return m_fontPaletteValues; }
+    std::optional<FontPaletteIndex> basePalette() const { return m_fontPaletteValues.basePalette(); }
+    const Vector<FontPaletteValues::OverriddenColor>& overrideColors() const { return m_fontPaletteValues.overrideColors(); }
 
     Ref<StyleRuleFontPaletteValues> copy() const { return adoptRef(*new StyleRuleFontPaletteValues(*this)); }
 
 private:
     StyleRuleFontPaletteValues(const AtomString& name, const AtomString& fontFamily, std::optional<FontPaletteIndex> basePalette, Vector<FontPaletteValues::OverriddenColor>&& overrideColors);
-    StyleRuleFontPaletteValues(const StyleRuleFontPaletteValues&);
+    StyleRuleFontPaletteValues(const StyleRuleFontPaletteValues&) = default;
 
     AtomString m_name;
     AtomString m_fontFamily;
     FontPaletteValues m_fontPaletteValues;
+};
+
+class StyleRuleFontFeatureValuesBlock final : public StyleRuleBase {
+public:
+    static Ref<StyleRuleFontFeatureValuesBlock> create(FontFeatureValuesType type, const Vector<FontFeatureValuesTag>& tags)
+    {
+        return adoptRef(*new StyleRuleFontFeatureValuesBlock(type, tags));
+    }
+    
+    ~StyleRuleFontFeatureValuesBlock() = default;
+
+    FontFeatureValuesType fontFeatureValuesType() const { return m_type; }
+
+    const Vector<FontFeatureValuesTag>& tags() const { return m_tags; }
+
+    Ref<StyleRuleFontFeatureValuesBlock> copy() const { return adoptRef(*new StyleRuleFontFeatureValuesBlock(*this)); }
+private:
+    StyleRuleFontFeatureValuesBlock(FontFeatureValuesType, const Vector<FontFeatureValuesTag>&);
+    StyleRuleFontFeatureValuesBlock(const StyleRuleFontFeatureValuesBlock&) = default;
+
+    FontFeatureValuesType m_type;
+    Vector<FontFeatureValuesTag> m_tags;
+};
+
+class StyleRuleFontFeatureValues final : public StyleRuleBase {
+public:
+    static Ref<StyleRuleFontFeatureValues> create(const Vector<AtomString>& fontFamilies, Ref<FontFeatureValues>&&);
+    
+    ~StyleRuleFontFeatureValues() = default;
+
+    const Vector<AtomString>& fontFamilies() const { return m_fontFamilies; }
+
+    Ref<FontFeatureValues> value() const { return m_value; }
+
+    Ref<StyleRuleFontFeatureValues> copy() const { return adoptRef(*new StyleRuleFontFeatureValues(*this)); }
+
+private:
+    StyleRuleFontFeatureValues(const Vector<AtomString>&, Ref<FontFeatureValues>&&);
+    StyleRuleFontFeatureValues(const StyleRuleFontFeatureValues&) = default;
+
+    Vector<AtomString> m_fontFamilies;
+    Ref<FontFeatureValues> m_value;
 };
 
 class StyleRulePage final : public StyleRuleBase {
@@ -264,7 +286,7 @@ public:
 
 private:
     StyleRuleSupports(const String& conditionText, bool conditionIsSupported, Vector<RefPtr<StyleRuleBase>>&&);
-    StyleRuleSupports(const StyleRuleSupports&);
+    StyleRuleSupports(const StyleRuleSupports&) = default;
 
     String m_conditionText;
     bool m_conditionIsSupported;
@@ -284,7 +306,7 @@ public:
 private:
     StyleRuleLayer(Vector<CascadeLayerName>&&);
     StyleRuleLayer(CascadeLayerName&&, Vector<RefPtr<StyleRuleBase>>&&);
-    StyleRuleLayer(const StyleRuleLayer&);
+    StyleRuleLayer(const StyleRuleLayer&) = default;
 
     std::variant<CascadeLayerName, Vector<CascadeLayerName>> m_nameVariant;
 };
@@ -298,7 +320,7 @@ public:
 
 private:
     StyleRuleContainer(CQ::ContainerQuery&&, Vector<RefPtr<StyleRuleBase>>&&);
-    StyleRuleContainer(const StyleRuleContainer&);
+    StyleRuleContainer(const StyleRuleContainer&) = default;
 
     CQ::ContainerQuery m_containerQuery;
 };
@@ -311,23 +333,21 @@ public:
 
 private:
     StyleRuleCharset();
-    StyleRuleCharset(const StyleRuleCharset&);
+    StyleRuleCharset(const StyleRuleCharset&) = default;
 };
 
 class StyleRuleNamespace final : public StyleRuleBase {
 public:
     static Ref<StyleRuleNamespace> create(const AtomString& prefix, const AtomString& uri);
-    
-    ~StyleRuleNamespace();
 
     Ref<StyleRuleNamespace> copy() const { return adoptRef(*new StyleRuleNamespace(*this)); }
-    
+
     AtomString prefix() const { return m_prefix; }
     AtomString uri() const { return m_uri; }
 
 private:
     StyleRuleNamespace(const AtomString& prefix, const AtomString& uri);
-    StyleRuleNamespace(const StyleRuleNamespace&);
+    StyleRuleNamespace(const StyleRuleNamespace&) = default;
 
     AtomString m_prefix;
     AtomString m_uri;
@@ -340,16 +360,10 @@ inline StyleRuleBase::StyleRuleBase(StyleRuleType type, bool hasDocumentSecurity
 }
 
 inline StyleRuleBase::StyleRuleBase(const StyleRuleBase& o)
-    : WTF::RefCountedBase()
+    : RefCounted()
     , m_type(o.m_type)
     , m_hasDocumentSecurityOrigin(o.m_hasDocumentSecurityOrigin)
 {
-}
-
-inline void StyleRuleBase::deref() const
-{
-    if (derefBase())
-        const_cast<StyleRuleBase&>(*this).destroy();
 }
 
 inline void StyleRule::wrapperAdoptSelectorList(CSSSelectorList&& selectors)
@@ -383,6 +397,14 @@ SPECIALIZE_TYPE_TRAITS_END()
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleFontFace)
     static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isFontFaceRule(); }
+SPECIALIZE_TYPE_TRAITS_END()
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleFontFeatureValues)
+    static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isFontFeatureValuesRule(); }
+SPECIALIZE_TYPE_TRAITS_END()
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleFontFeatureValuesBlock)
+    static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isFontFeatureValuesBlockRule(); }
 SPECIALIZE_TYPE_TRAITS_END()
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleFontPaletteValues)

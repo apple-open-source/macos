@@ -137,6 +137,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)joinWithRecoveryKey:(OTControlArguments*)arguments
                 recoveryKey:(NSString*)recoveryKey
+                 sosSuccess:(BOOL)sosSuccess
+                      reply:(void (^)(NSError * _Nullable))reply;
+
+- (void)joinWithRecoveryKey:(OTControlArguments*)arguments
+                recoveryKey:(NSString*)recoveryKey
                       reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)createCustodianRecoveryKey:(OTControlArguments*)arguments
@@ -181,6 +186,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)tlkRecoverabilityForEscrowRecordData:(OTControlArguments*)arguments
                                   recordData:(NSData*)recordData
+                                      source:(OTEscrowRecordFetchSource)source
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 
 - (void)setMachineIDOverride:(OTControlArguments*)arguments

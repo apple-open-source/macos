@@ -56,6 +56,7 @@ namespace SecurityServer {
 
 using MachPlusPlus::Port;
 using MachPlusPlus::ReceivePort;
+using MachPlusPlus::ReplyPort;
 
 #endif //__cplusplus
 

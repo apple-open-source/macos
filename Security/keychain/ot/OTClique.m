@@ -134,6 +134,20 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
 @implementation OTConfigurationContext
 
+- (BOOL)overrideEscrowCache
+{
+    return (self.escrowFetchSource == OTEscrowRecordFetchSourceCuttlefish);
+}
+
+- (void)setOverrideEscrowCache:(BOOL)overrideEscrowCache
+{
+    if (overrideEscrowCache) {
+        self.escrowFetchSource = OTEscrowRecordFetchSourceCuttlefish;
+    } else {
+        self.escrowFetchSource = OTEscrowRecordFetchSourceDefault;
+    }
+}
+
 - (OTControl* _Nullable)makeOTControl:(NSError**)error
 {
 #if OCTAGON
@@ -226,7 +240,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         _ctx.altDSID = [ctx.altDSID copy];
         _ctx.otControl = ctx.otControl;
         _ctx.ckksControl = ctx.ckksControl;
-        _ctx.overrideEscrowCache = ctx.overrideEscrowCache;
+        _ctx.escrowFetchSource = ctx.escrowFetchSource;
         _ctx.overrideForSetupAccountScript = ctx.overrideForSetupAccountScript;
     }
     return self;
@@ -1538,10 +1552,10 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         return nil;
     }
     [control fetchEscrowRecords:[[OTControlArguments alloc] initWithConfiguration:configurationContext]
-                     forceFetch:configurationContext.overrideEscrowCache
-                          reply:^(NSArray<NSData *> * _Nullable records,
-                                  NSError * _Nullable fetchError) {
-        if(fetchError) {
+                         source:configurationContext.escrowFetchSource
+                          reply:^(NSArray<NSData*>* _Nullable records,
+                                  NSError* _Nullable fetchError) {
+        if (fetchError) {
             secnotice("clique-fetchrecords", "fetchEscrowRecords errored: %@", fetchError);
         } else {
             secnotice("clique-fetchrecords", "fetchEscrowRecords succeeded: %@", records);
@@ -1752,6 +1766,14 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
                     recoveryKey:(NSString*)recoveryKey
                           reply:(void(^)(NSError* _Nullable error))reply
 {
+    [self recoverOctagonUsingData:ctx recoveryKey:recoveryKey sosSuccess:YES reply:reply];
+}
+
++ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
+                    recoveryKey:(NSString*)recoveryKey
+                     sosSuccess:(BOOL)sosSuccess
+                          reply:(void(^)(NSError* _Nullable error))reply
+{
 #if OCTAGON
     OctagonSignpost signpost = OctagonSignpostBegin(OctagonSignpostNameRecoverOctagonUsingData);
     __block bool subTaskSuccess = false;
@@ -1767,7 +1789,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(controlError);
         return;
     }
-    [control joinWithRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] recoveryKey:recoveryKey reply:^(NSError *joinError) {
+    [control joinWithRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] recoveryKey:recoveryKey sosSuccess:sosSuccess reply:^(NSError *joinError) {
         if(joinError){
             secnotice("clique-recoverykey", "failed to join using recovery key: %@", joinError);
             OctagonSignpostEnd(signpost, OctagonSignpostNameRecoverOctagonUsingData, OctagonSignpostNumber1(OctagonSignpostNameRecoverOctagonUsingData), (int)subTaskSuccess);

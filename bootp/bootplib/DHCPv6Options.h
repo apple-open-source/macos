@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -164,6 +164,35 @@ DHCPv6OptionAreaAddOptionRequestOption(DHCPv6OptionAreaRef oa_p,
 				       const DHCPv6OptionCode * requested_opts,
 				       int count,
 				       DHCPv6OptionErrorStringRef err_p);
+typedef CF_ENUM(uint16_t, DHCPv6StatusCode) {
+    kDHCPv6StatusCodeSuccess			= 0,
+    kDHCPv6StatusCodeFailure			= 1,
+    kDHCPv6StatusCodeNoAddrsAvail		= 2,
+    kDHCPv6StatusCodeNoBinding			= 3,
+    kDHCPv6StatusCodeNotOnLink			= 4,
+    kDHCPv6StatusCodeUseMulticast		= 5,
+    kDHCPv6StatusCodeNoPrefixAvail		= 6,
+    kDHCPv6StatusCodeUnknownQueryType		= 7,
+    kDHCPv6StatusCodeMalformedQuery		= 8,
+    kDHCPv6StatusCodeNotConfigured		= 9,
+    kDHCPv6StatusCodeNotAllowed			= 10,
+    kDHCPv6StatusCodeQueryTerminated		= 11,
+    kDHCPv6StatusCodeDataMissing 		= 12,
+    kDHCPv6StatusCodeCatchUpComplete		= 13,
+    kDHCPv6StatusCodeNotSupported		= 14,
+    kDHCPv6StatusCodeTLSConnectionRefused 	= 15,
+    kDHCPv6StatusCodeAddressInUse 		= 16,
+    kDHCPv6StatusCodeConfigurationConflict 	= 17,
+    kDHCPv6StatusCodeMissingBindingInformation	= 18,
+    kDHCPv6StatusCodeOutdatedBindingInformation	= 19,
+    kDHCPv6StatusCodeServerShuttingDown		= 20,
+    kDHCPv6StatusCodeDNSUpdateNotSupported	= 21,
+    kDHCPv6StatusCodeExcessiveTimeSkew		= 22,
+};
+
+const char *
+DHCPv6StatusCodeGetName(DHCPv6StatusCode status_code);
+
 /**
  ** DHCPv6OptionList
  **/
@@ -197,6 +226,10 @@ DHCPv6OptionListGetCount(DHCPv6OptionListRef options);
 
 DHCPv6OptionRef
 DHCPv6OptionListGetOptionAtIndex(DHCPv6OptionListRef options, int i);
+
+bool
+DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
+			      DHCPv6StatusCode * ret_code);
 
 /**
  ** DHCPv6OptionsDictionary
@@ -328,18 +361,6 @@ typedef struct {
 
 #define DHCPv6OptionSTATUS_CODE_MIN_LENGTH	((int)offsetof(DHCPv6OptionSTATUS_CODE, message))
 
-typedef CF_ENUM(int, DHCPv6StatusCode) {
-    kDHCPv6StatusCodeSuccess		= 0,
-    kDHCPv6StatusCodeFailure		= 1,
-    kDHCPv6StatusCodeNoAddrsAvail	= 2,
-    kDHCPv6StatusCodeNoBinding		= 3,
-    kDHCPv6StatusCodeNotOnLink		= 4,
-    kDHCPv6StatusCodeUseMulticast	= 5
-};
-
-const char * 
-DHCPv6StatusCodeGetName(int status_code);
-
 INLINE DHCPv6OptionCode
 DHCPv6OptionSTATUS_CODEGetCode(DHCPv6OptionSTATUS_CODERef status_p)
 {
@@ -357,6 +378,7 @@ DHCPv6OptionSTATUS_CODESetCode(DHCPv6OptionSTATUS_CODERef status_p,
 void 
 DHCPv6OptionSTATUS_CODEFPrint(FILE * f, DHCPv6OptionSTATUS_CODERef status_p,
 			      int status_len);
+
 
 /**
  ** PREFERENCE option

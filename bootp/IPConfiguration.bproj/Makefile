@@ -52,8 +52,8 @@ IFUTIL_FILES = ifutil.c CGA.c ../bootplib/util.c ../bootplib/cfutil.c ../bootpli
 inet6_addrs: $(IFUTIL_FILES) rtutil.c ../bootplib/arp.c
 	cc -DTEST_INET6_ADDRLIST -DCONFIGURE_IPV6 $(IBLIB) $(SYSTEM_PRIVATE) -framework SystemConfiguration -framework CoreFoundation -g -o $@ $^
 
-dhcpv6: DHCPv6Client.c ifutil.c cga.c rsakey.c FDSet.c timer.c HostUUID.c IPv6Socket.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ../bootplib/interfaces.c ../bootplib/DHCPv6.c ../bootplib/DHCPv6Options.c ../bootplib/DHCPDUID.c DHCPv6Socket.c DHCPDUIDIAID.c ../bootplib/DNSNameList.c ../bootplib/cfutil.c ../bootplib/util.c
-	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -DSC_LOG_HANDLE=IPConfigLogGetHandle -D__APPLE_USE_RFC_3542 -DTEST_DHCPV6_CLIENT -g -Wall $(IBLIB) -framework CoreFoundation -framework SystemConfiguration $(SYSTEM_PRIVATE) -o $@ $^
+dhcpv6: DHCPv6Client.c ifutil.c cga.c rsakey.c FDSet.c timer.c HostUUID.c ../bootplib/IPv6Socket.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ../bootplib/interfaces.c ../bootplib/DHCPv6.c ../bootplib/DHCPv6Options.c ../bootplib/DHCPDUID.c DHCPv6Socket.c DHCPDUIDIAID.c ../bootplib/DNSNameList.c ../bootplib/cfutil.c ../bootplib/util.c wireless.c
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -DSC_LOG_HANDLE=IPConfigLogGetHandle -D__APPLE_USE_RFC_3542 -DTEST_DHCPV6_CLIENT $(PF_INC) -g -Wall $(IBLIB) -framework CoreFoundation -framework SystemConfiguration -framework Apple80211 $(SYSTEM_PRIVATE) -o $@ $^
 
 dhcpduid: DHCPDUIDIAID.c ../bootplib/util.c ../bootplib/DHCPDUID.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/cfutil.c HostUUID.c ../bootplib/IPConfigurationLog.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -DTEST_DHCPDUIDIAID $(IBLIB) -g -Wall -framework CoreFoundation -framework SystemConfiguration $(SYSTEM_PRIVATE) -o $@ $^

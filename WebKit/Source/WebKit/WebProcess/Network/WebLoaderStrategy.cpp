@@ -299,13 +299,25 @@ bool WebLoaderStrategy::tryLoadingUsingPDFJSHandler(ResourceLoader& resourceLoad
 }
 #endif
 
-static void addParametersShared(const Frame* frame, NetworkResourceLoadParameters& parameters)
+static void addParametersShared(const Frame* frame, NetworkResourceLoadParameters& parameters, bool isMainFrameNavigation = false)
 {
     parameters.crossOriginAccessControlCheckEnabled = CrossOriginAccessControlCheckDisabler::singleton().crossOriginAccessControlCheckEnabled();
     parameters.hadMainFrameMainResourcePrivateRelayed = WebProcess::singleton().hadMainFrameMainResourcePrivateRelayed();
 
     if (!frame)
         return;
+
+    // When loading the main frame, we need to get allowPrivacyProxy from the same DocumentLoader that
+    // WebFrameLoaderClient::applyToDocumentLoader stored the value on. Otherwise, we need to get the
+    // value from the main frame's current DocumentLoader.
+    auto& mainFrame = frame->mainFrame();
+    auto* mainFrameDocumentLoader = mainFrame.loader().policyDocumentLoader();
+    if (!mainFrameDocumentLoader)
+        mainFrameDocumentLoader = mainFrame.loader().provisionalDocumentLoader();
+    if (!mainFrameDocumentLoader || !isMainFrameNavigation)
+        mainFrameDocumentLoader = mainFrame.loader().documentLoader();
+
+    parameters.allowPrivacyProxy = mainFrameDocumentLoader ? mainFrameDocumentLoader->allowPrivacyProxy() : true;
 
     if (auto* document = frame->document())
         parameters.crossOriginEmbedderPolicy = document->crossOriginEmbedderPolicy();
@@ -370,7 +382,8 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
     loadParameters.maximumBufferingTime = maximumBufferingTime;
     loadParameters.options = resourceLoader.options();
     loadParameters.preflightPolicy = resourceLoader.options().preflightPolicy;
-    addParametersShared(frame, loadParameters);
+    bool isMainFrameNavigation = resourceLoader.frame() && resourceLoader.frame()->isMainFrame() && resourceLoader.options().mode == FetchOptions::Mode::Navigate;
+    addParametersShared(frame, loadParameters, isMainFrameNavigation);
 
 #if ENABLE(SERVICE_WORKER)
     loadParameters.serviceWorkersMode = resourceLoader.options().loadedFromOpaqueSource == LoadedFromOpaqueSource::No ? resourceLoader.options().serviceWorkersMode : ServiceWorkersMode::None;
@@ -444,7 +457,7 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
 
     loadParameters.shouldRestrictHTTPResponseAccess = shouldPerformSecurityChecks();
 
-    loadParameters.isMainFrameNavigation = resourceLoader.frame() && resourceLoader.frame()->isMainFrame() && resourceLoader.options().mode == FetchOptions::Mode::Navigate;
+    loadParameters.isMainFrameNavigation = isMainFrameNavigation;
     if (loadParameters.isMainFrameNavigation && document)
         loadParameters.sourceCrossOriginOpenerPolicy = document->crossOriginOpenerPolicy();
 

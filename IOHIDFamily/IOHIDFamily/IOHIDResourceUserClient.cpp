@@ -382,9 +382,11 @@ IOMemoryDescriptor * IOHIDResourceDeviceUserClient::createMemoryDescriptorFromIn
         
         report = IOBufferMemoryDescriptor::withCapacity(length, kIODirectionOut);
         
-        arguments->structureInputDescriptor->prepare();
-        arguments->structureInputDescriptor->readBytes(0, report->getBytesNoCopy(), length);
-        arguments->structureInputDescriptor->complete();
+        if(report) {
+            arguments->structureInputDescriptor->prepare();
+            arguments->structureInputDescriptor->readBytes(0, report->getBytesNoCopy(), length);
+            arguments->structureInputDescriptor->complete();
+        }
     } else {
         report = IOBufferMemoryDescriptor::withBytes(arguments->structureInput, arguments->structureInputSize, kIODirectionOut);
     }

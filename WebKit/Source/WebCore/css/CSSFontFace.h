@@ -27,8 +27,8 @@
 
 #include "FontSelectionValueInlines.h"
 #include "FontTaggedSettings.h"
+#include "RenderStyleConstants.h"
 #include "Settings.h"
-#include "StyleRule.h"
 #include "TextFlags.h"
 #include <memory>
 #include <wtf/Forward.h>
@@ -46,11 +46,16 @@ class CSSFontSelector;
 class CSSSegmentedFontFace;
 class CSSValue;
 class CSSValueList;
+class Document;
+class Font;
 class FontCreationContext;
 class FontDescription;
-class Font;
 class FontFace;
+class FontFeatureValues;
+class FontPaletteValues;
 class ScriptExecutionContext;
+class StyleRuleFontFace;
+
 enum class ExternalResourceDownloadPolicy;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSFontFace);
@@ -116,7 +121,7 @@ public:
 
     void load();
 
-    RefPtr<Font> font(const FontDescription&, bool syntheticBold, bool syntheticItalic, ExternalResourceDownloadPolicy, const FontPaletteValues&);
+    RefPtr<Font> font(const FontDescription&, bool syntheticBold, bool syntheticItalic, ExternalResourceDownloadPolicy, const FontPaletteValues&, RefPtr<FontFeatureValues>);
 
     static void appendSources(CSSFontFace&, CSSValueList&, ScriptExecutionContext*, bool isInitiatingElementInUserAgentShadowTree);
 

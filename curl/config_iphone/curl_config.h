@@ -626,6 +626,9 @@
 /* Define to 1 if you have the <ssl.h> header file. */
 /* #undef HAVE_SSL_H */
 
+/* Define to 1 if you have the <stdatomic.h> header file. */
+#define HAVE_STDATOMIC_H 1
+
 /* Define to 1 if you have the <stdbool.h> header file. */
 #define HAVE_STDBOOL_H 1
 
@@ -911,36 +914,33 @@
 /* Define to the function return type for send. */
 #define SEND_TYPE_RETV ssize_t
 
-/* The number of bytes in type curl_off_t */
+/* Size of curl_off_t in number of bytes */
 #define SIZEOF_CURL_OFF_T 8
 
-/* The number of bytes in type int */
+/* Size of int in number of bytes */
 #define SIZEOF_INT 4
 
-/* The number of bytes in type long */
+/* Size of long in number of bytes */
 #ifdef __LP64__
 #define SIZEOF_LONG 8
 #else
 #define SIZEOF_LONG 4
 #endif
 
-/* The number of bytes in type long long */
+/* Size of long long in number of bytes */
 /* #undef SIZEOF_LONG_LONG */
 
-/* The number of bytes in type off_t */
+/* Size of off_t in number of bytes */
 #define SIZEOF_OFF_T 8
 
-/* The number of bytes in type short */
-#define SIZEOF_SHORT 2
-
-/* The number of bytes in type size_t */
+/* Size of size_t in number of bytes */
 #ifdef __LP64__
 #define SIZEOF_SIZE_T 8
 #else
 #define SIZEOF_SIZE_T 4
 #endif
 
-/* The number of bytes in type time_t */
+/* Size of time_t in number of bytes */
 #ifdef __LP64__
 #define SIZEOF_TIME_T 8
 #else
@@ -1011,6 +1011,9 @@
 
 /* if ngtcp2_crypto_openssl is in use */
 /* #undef USE_NGTCP2_CRYPTO_OPENSSL */
+
+/* if ngtcp2_crypto_wolfssl is in use */
+/* #undef USE_NGTCP2_CRYPTO_WOLFSSL */
 
 /* if NSS is enabled */
 /* #undef USE_NSS */

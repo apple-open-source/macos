@@ -262,6 +262,7 @@
             "codegen-properties": {
                 "visited-link-color-support": true,
                 "color-property": true,
+                "custom": "Value",
                 "high-priority": true,
                 "fast-path-inherited": true
             },
@@ -596,12 +597,9 @@
         },
         "font-variant-alternates": {
             "inherited": true,
-            "values": [
-                "normal",
-                "historical-forms"
-            ],
             "codegen-properties": {
                 "name-for-methods": "VariantAlternates",
+                "custom": "All",
                 "font-property": true,
                 "high-priority": true
             },
@@ -1266,7 +1264,6 @@
         },
         "background-size": {
             "codegen-properties": {
-                "related-property": "-webkit-background-size",
                 "name-for-methods": "Size",
                 "fill-layer-property": true
             },
@@ -5413,9 +5410,9 @@
         },
         "-webkit-background-size": {
             "codegen-properties": {
-                "related-property": "background-size",
-                "name-for-methods": "Size",
-                "fill-layer-property": true
+                "longhands": [
+                    "background-size"
+                ]
             },
             "status": {
                 "comment": "Differs from background-size only in the interpretation of a single value: '-webkit-background-size: l;' is equivalent to 'background-size: l l;' whereas 'background-size: l;' is equivalent to 'background-size: l auto;'"
@@ -6985,7 +6982,6 @@
             }
         },
         "text-decoration-thickness": {
-            "inherited": true,
             "codegen-properties": {
                 "converter": "TextDecorationThickness"
             },

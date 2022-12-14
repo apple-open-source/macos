@@ -201,6 +201,7 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
 
 - (void)joinWithRecoveryKey:(OTControlArguments*)arguments
                 recoveryKey:(NSString*)recoveryKey
+                 sosSuccess:(BOOL)sosSuccess
                       reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)createCustodianRecoveryKey:(OTControlArguments*)arguments
@@ -270,9 +271,8 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 - (void)refetchCKKSPolicy:(OTControlArguments*)arguments
                     reply:(void (^)(NSError* _Nullable error))reply;
 
-
 - (void)fetchEscrowRecords:(OTControlArguments*)arguments
-                forceFetch:(BOOL)forceFetch
+                    source:(OTEscrowRecordFetchSource)source
                      reply:(void (^)(NSArray<NSData*>* _Nullable records,
                                      NSError* _Nullable error))reply;
 
@@ -309,6 +309,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
 - (void)tlkRecoverabilityForEscrowRecordData:(OTControlArguments*)arguments
                                   recordData:(NSData*)recordData
+                                      source:(OTEscrowRecordFetchSource)source
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 
 // Note the lack of arguments: these are global notifications, and don't come in for any particular context/account

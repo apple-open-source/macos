@@ -371,7 +371,7 @@ extension Container {
         var retescrowRecordIDs: [String]?
         var retpartialEscrowRecordIDs: [String]?
         var reterror: Error?
-        self.fetchViableBottles { escrowRecordIDs, partialEscrowRecordIDs, error in
+        self.fetchViableBottles(from: .default) { escrowRecordIDs, partialEscrowRecordIDs, error in
             retescrowRecordIDs = escrowRecordIDs
             retpartialEscrowRecordIDs = partialEscrowRecordIDs
             reterror = error

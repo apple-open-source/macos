@@ -296,6 +296,107 @@ trunc:
 	return ep;
 }
 
+#ifdef __APPLE__
+
+#include <string.h>
+
+static const u_char *
+iperf_print(netdissect_options *ndo, const u_char *hdr, const u_char *ep)
+{
+    struct iperf_udp_hdr {
+        uint32_t id;
+        uint32_t tv_sec;
+        uint32_t tv_usec;
+    } *ptr = (struct iperf_udp_hdr *)hdr;
+
+    ndo->ndo_protocol = "iperf";
+
+    ND_TCHECK_SIZE(ptr);
+
+    ND_PRINT("id %u", GET_BE_U_4(&ptr->id));
+    ND_PRINT(" ts %u:%06u", GET_BE_U_4(&ptr->tv_sec), GET_BE_U_4(&ptr->tv_usec));
+
+    return (u_char *)(ptr + 1);
+
+trunc:
+    nd_print_trunc(ndo);
+    return ep;
+}
+
+static const u_char *
+iperf3_print(netdissect_options *ndo, const u_char *hdr, const u_char *ep)
+{
+    struct iperf_udp_hdr {
+        uint32_t tv_sec;
+        uint32_t tv_usec;
+        uint32_t id;
+    } *ptr = (struct iperf_udp_hdr *)hdr;
+
+    ndo->ndo_protocol = "iperf3";
+
+    ND_TCHECK_SIZE(ptr);
+
+    ND_PRINT("id %u", GET_BE_U_4(&ptr->id));
+    ND_PRINT(" ts %u:%06u", GET_BE_U_4(&ptr->tv_sec), GET_BE_U_4(&ptr->tv_usec));
+
+    return (u_char *)(ptr + 1);
+
+trunc:
+    nd_print_trunc(ndo);
+    return ep;
+}
+
+static const u_char *
+iperf3_64_print(netdissect_options *ndo, const u_char *hdr, const u_char *ep)
+{
+    struct iperf_udp_hdr {
+        uint32_t tv_sec;
+        uint32_t tv_usec;
+        uint64_t id;
+    } *ptr = (struct iperf_udp_hdr *)hdr;
+
+    ndo->ndo_protocol = "iperf3-64";
+
+    ND_TCHECK_SIZE(ptr);
+
+    ND_PRINT("id %llu", GET_BE_U_8(&ptr->id));
+    ND_PRINT(" ts %u:%06u", GET_BE_U_4(&ptr->tv_sec), GET_BE_U_4(&ptr->tv_usec));
+
+    return (u_char *)(ptr + 1);
+
+trunc:
+    nd_print_trunc(ndo);
+    return ep;
+}
+
+/*
+ * Simple UDP Throughput Test Protocol
+ */
+static const u_char *
+suttp_print(netdissect_options *ndo, const u_char *hdr, const u_char *ep)
+{
+    char str[36];
+    unsigned long seq;
+    int size;
+
+    ndo->ndo_protocol = "suttp";
+
+    ND_TCHECK_LEN(hdr, sizeof(str));
+
+    strlcpy(str, (const char *)hdr, sizeof(str));
+    if (sscanf(str, "---PacketSeqNum   %lu   ---%n", &seq, &size) == 0) {
+        goto trunc;
+    }
+    ND_PRINT("seq %lu", seq);
+    return (hdr + size);
+
+trunc:
+    nd_print_trunc(ndo);
+    return ep;
+}
+
+#endif /* __APPLE__ */
+
 static uint16_t udp_cksum(netdissect_options *ndo, const struct ip *ip,
 		     const struct udphdr *up,
 		     u_int len)
@@ -515,6 +616,24 @@ udp_print(netdissect_options *ndo, const u_char *bp, u_int length,
 			/* over_tcp: FALSE, is_mdns: FALSE */
 			domain_print(ndo, cp, length, FALSE, FALSE);
 			break;
+#ifdef __APPLE__
+        case PT_IPERF:
+            udpipaddr_print(ndo, ip, sport, dport);
+            iperf_print(ndo, cp, ep);
+            break;
+        case PT_IPERF3:
+            udpipaddr_print(ndo, ip, sport, dport);
+            iperf3_print(ndo, cp, ep);
+            break;
+        case PT_IPERF3_64:
+            udpipaddr_print(ndo, ip, sport, dport);
+            iperf3_64_print(ndo, cp, ep);
+            break;
+        case PT_SUTTP:
+            udpipaddr_print(ndo, ip, sport, dport);
+            suttp_print(ndo, cp, ep);
+            break;
+#endif /* __APPLE__ */
 		}
 		return;
 	}

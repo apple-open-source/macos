@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,8 +24,9 @@
 
 /*
  * DHCPDUIDIAID.c
- * - routines to set/access the DHCP client DUID and the IAIDs for particular
+ * - routines to set/access the DHCP client DUID and the IAIDs for specific
  *   interfaces
+ * - the IA_ID of an interface is its index in the S_IAIDList array
  */
 
 /* 
@@ -36,6 +37,7 @@
  */
 
 #include "ipconfigd_globals.h"
+#include "ipconfigd_threads.h"
 #include <CoreFoundation/CFString.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -44,7 +46,6 @@
 #include "globals.h"
 #include "cfutil.h"
 #include "HostUUID.h"
-#include "DHCPDUID.h"
 #include "DHCPDUIDIAID.h"
 
 #define DUID_IA_FILE		IPCONFIGURATION_PRIVATE_DIR "/DUID_IA.plist"
@@ -91,23 +92,67 @@ save_DUID_info(void)
     return;
 }
 
+STATIC DHCPDUIDType
+DUID_data_get_type(CFDataRef duid_data)
+{
+    DHCPDUIDRef		duid = (DHCPDUIDRef)CFDataGetBytePtr(duid_data);
+    int			duid_len = (int)CFDataGetLength(duid_data);
+    DHCPDUIDType	duid_type;
+
+    if (!DHCPDUIDIsValid(duid, duid_len)) {
+	my_log(LOG_NOTICE, "DUID is invalid");
+	duid_type = kDHCPDUIDTypeNone;	
+    }
+    else {
+	duid_type = DHCPDUIDGetType(duid);
+    }
+    return (duid_type);
+}
+
 STATIC bool
-load_DUID_info(void)
+load_DUID_info(DHCPDUIDType type)
 {
     CFDataRef		duid;
-    CFDictionaryRef	duid_ia;
+    CFDictionaryRef	duid_ia_dict;
+    DHCPDUIDType	existing_type;
     CFDataRef		host_uuid;
     CFArrayRef		ia_list;
 
-    duid_ia = my_CFPropertyListCreateFromFile(DUID_IA_FILE);
-    if (isA_CFDictionary(duid_ia) == NULL) {
+    duid_ia_dict = my_CFPropertyListCreateFromFile(DUID_IA_FILE);
+    if (isA_CFDictionary(duid_ia_dict) == NULL) {
 	goto done;
     }
-    duid = CFDictionaryGetValue(duid_ia, kDUIDKey);
+
+    /* verify that the stored UUID matches this system */
+    host_uuid = CFDictionaryGetValue(duid_ia_dict, kHostUUIDKey);
+    if (isA_CFData(host_uuid) != NULL
+	&& CFDataGetLength(host_uuid) == sizeof(uuid_t)) {
+	CFDataRef	our_UUID;
+
+	our_UUID = HostUUIDGet();
+	if (our_UUID != NULL && CFEqual(host_uuid, our_UUID) == FALSE) {
+	    syslog(LOG_NOTICE,
+		   "DHCPDUID: ignoring DUID - host UUID doesn't match");
+	    goto done;
+	}
+    }
+
+    /* verify that the stored DUID has the expected type */
+    duid = CFDictionaryGetValue(duid_ia_dict, kDUIDKey);
     if (isA_CFData(duid) == NULL) {
 	goto done;
     }
-    ia_list = CFDictionaryGetValue(duid_ia, kIAIDListKey);
+    existing_type = DUID_data_get_type(duid);
+    if (existing_type != type) {
+	my_log(LOG_NOTICE,
+	       "Discarding existing DUID with type %s (%d), need type %s (%d)",
+	       DHCPDUIDTypeToString(existing_type), existing_type,
+	       DHCPDUIDTypeToString(type), type);
+	goto done;
+    }
+
+    /* load the ordered interface name list */
+    ia_list = CFDictionaryGetValue(duid_ia_dict, kIAIDListKey);
     ia_list = isA_CFArray(ia_list);
     if (ia_list != NULL) {
 	CFIndex		count;
@@ -123,25 +168,13 @@ load_DUID_info(void)
 	    }
 	}
     }
-    host_uuid = CFDictionaryGetValue(duid_ia, kHostUUIDKey);
-    if (isA_CFData(host_uuid) != NULL 
-	&& CFDataGetLength(host_uuid) == sizeof(uuid_t)) {
-	CFDataRef	our_UUID;
-
-	our_UUID = HostUUIDGet();
-	if (our_UUID != NULL && CFEqual(host_uuid, our_UUID) == FALSE) {
-	    syslog(LOG_NOTICE,
-		   "DHCPDUID: ignoring DUID - host UUID doesn't match");
-	    goto done;
-	}
-    }
     S_DUID = CFRetain(duid);
     if (ia_list != NULL) {
 	S_IAIDList = CFArrayCreateMutableCopy(NULL, 0, ia_list);
     }
 
  done:
-    my_CFRelease(&duid_ia);
+    my_CFRelease(&duid_ia_dict);
     return (S_DUID != NULL);
 }
 
@@ -161,33 +194,90 @@ make_DUID_LLT_data(interface_t * if_p)
 				   if_link_arptype(if_p)));
 }
 
-PRIVATE_EXTERN CFDataRef
-DHCPDUIDGet(interface_list_t * interfaces)
+STATIC CF_RETURNS_RETAINED CFDataRef
+make_DUID_UUID_data(void)
 {
-    interface_t *		if_p;
+    uuid_t		uuid;
+    struct timespec	ts = { 0, 0 };
 
-    if (S_DUID != NULL) {
-	goto done;
+    if (gethostuuid(uuid, &ts) != 0) {
+	return (FALSE);
     }
-    /* try to load the DUID from filesystem */
-    if (G_is_netboot == FALSE && load_DUID_info()) {
-	goto done;
-    }
+    return (DHCPDUID_UUIDDataCreate(uuid));
+}
+
+STATIC CF_RETURNS_RETAINED CFDataRef
+make_DUID_data(DHCPDUIDType type)
+{
+    CFDataRef		data = NULL;
+    interface_t *	if_p;
+    interface_list_t * 	interfaces;
+
+    interfaces = get_interface_list();
     if (interfaces == NULL) {
 	goto done;
     }
     if_p = ifl_find_stable_interface(interfaces);
     if (if_p == NULL) {
+	my_log(LOG_NOTICE, "%s: can't find suitable interface",
+	       __func__);
 	goto done;
     }
-    my_log(LOG_INFO, "DHCPDUID: chose %s for DUID", if_name(if_p));
-    if (G_dhcp_duid_type == kDHCPDUIDTypeLL || G_is_netboot) {
-	S_DUID = make_DUID_LL_data(if_p);
+    my_log(LOG_NOTICE, "DHCPDUID: chose %s for DUID", if_name(if_p));
+    if (type == kDHCPDUIDTypeLL) {
+	data = make_DUID_LL_data(if_p);
     }
     else {
-	S_DUID = make_DUID_LLT_data(if_p);
+	data = make_DUID_LLT_data(if_p);
     }
-    save_DUID_info();
+
+ done:
+    return (data);
+}
+
+STATIC void
+log_DUID_data(const char * msg, CFDataRef duid)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    DHCPDUIDPrintToString(str, (DHCPDUIDRef)CFDataGetBytePtr(duid),
+			  CFDataGetLength(duid));
+    my_log(LOG_NOTICE, "%s %@", msg, str);
+    CFRelease(str);
+}
+
+PRIVATE_EXTERN CFDataRef
+DHCPDUIDGet(void)
+{
+    return (S_DUID);
+}
+
+PRIVATE_EXTERN CFDataRef
+DHCPDUIDEstablishAndGet(DHCPDUIDType type)
+{
+    if (S_DUID != NULL) {
+	goto done;
+    }
+
+    /* try to load the DUID from filesystem */
+    if (load_DUID_info(type)) {
+	goto done;
+    }
+    if (type == kDHCPDUIDTypeUUID) {
+	S_DUID = make_DUID_UUID_data();
+    }
+    else {
+	S_DUID = make_DUID_data(type);
+    }
+    if (S_DUID == NULL) {
+	my_log(LOG_ERR, "%s: failed to establish DUID\n",
+	       __func__);
+    }
+    else {
+	log_DUID_data("Established", S_DUID);
+	save_DUID_info();
+    }
 
  done:
     return (S_DUID);
@@ -234,22 +324,28 @@ DHCPIAIDGet(const char * ifname)
 #ifdef TEST_DHCPDUIDIAID
 
 Boolean		G_IPConfiguration_verbose = 1;
-int		G_dhcp_duid_type;
-boolean_t	G_is_netboot;
+
+interface_list_t *
+get_interface_list(void)
+{
+    STATIC interface_list_t *	S_interfaces;
+
+    if (S_interfaces == NULL) {
+	S_interfaces = ifl_init();
+    }
+    return (S_interfaces);
+}
 
 int
 main(int argc, char * argv[])
 {
     CFDataRef		duid;
     int			i;
-    interface_list_t *	interfaces;
     CFMutableStringRef 	str;
 
     (void) openlog("DHCPDUIDIAID", LOG_PERROR | LOG_PID, LOG_DAEMON);
-    interfaces = ifl_init();
-
     ipconfigd_create_paths();
-    duid = DHCPDUIDGet(interfaces);
+    duid = DHCPDUIDEstablishAndGet(kDHCPDUIDTypeLLT);
     if (duid == NULL) {
 	fprintf(stderr, "Couldn't determine DUID\n");
 	exit(1);

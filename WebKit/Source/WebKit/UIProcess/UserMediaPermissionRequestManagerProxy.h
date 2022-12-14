@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 Igalia S.L.
- * Copyright (C) 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2022 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -78,12 +78,13 @@ public:
     void requestUserMediaPermissionForFrame(WebCore::UserMediaRequestIdentifier, WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&&  userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, WebCore::MediaStreamRequest&&);
 
     void resetAccess(std::optional<WebCore::FrameIdentifier> mainFrameID = { });
+    void didCommitLoadForFrame(WebCore::FrameIdentifier);
     void viewIsBecomingVisible();
 
     void grantRequest(UserMediaPermissionRequestProxy&);
     void denyRequest(UserMediaPermissionRequestProxy&, UserMediaPermissionRequestProxy::UserMediaAccessDenialReason, const String& invalidConstraint = { });
 
-    void enumerateMediaDevicesForFrame(WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, CompletionHandler<void(const Vector<WebCore::CaptureDevice>&, const String&)>&&);
+    void enumerateMediaDevicesForFrame(WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, CompletionHandler<void(const Vector<WebCore::CaptureDevice>&, WebCore::MediaDeviceHashSalts&&)>&&);
 
     void stopCapture();
     void scheduleNextRejection();
@@ -144,19 +145,19 @@ private:
 
     RequestAction getRequestAction(const UserMediaPermissionRequestProxy&);
 
-    bool wasGrantedVideoOrAudioAccess(WebCore::FrameIdentifier, const WebCore::SecurityOrigin& userMediaDocumentOrigin, const WebCore::SecurityOrigin& topLevelDocumentOrigin);
+    bool wasGrantedVideoOrAudioAccess(WebCore::FrameIdentifier);
 
     void computeFilteredDeviceList(bool revealIdsAndLabels, CompletionHandler<void(Vector<WebCore::CaptureDevice>&&)>&&);
     void platformGetMediaStreamDevices(CompletionHandler<void(Vector<WebCore::CaptureDevice>&&)>&&);
 
     void processUserMediaPermissionRequest();
     void processUserMediaPermissionInvalidRequest(const String& invalidConstraint);
-    void processUserMediaPermissionValidRequest(Vector<WebCore::CaptureDevice>&& audioDevices, Vector<WebCore::CaptureDevice>&& videoDevices, String&& deviceIdentifierHashSalt);
+    void processUserMediaPermissionValidRequest(Vector<WebCore::CaptureDevice>&& audioDevices, Vector<WebCore::CaptureDevice>&& videoDevices, WebCore::MediaDeviceHashSalts&&);
     void startProcessingUserMediaPermissionRequest(Ref<UserMediaPermissionRequestProxy>&&);
 
     static void requestSystemValidation(const WebPageProxy&, UserMediaPermissionRequestProxy&, CompletionHandler<void(bool)>&&);
 
-    void platformValidateUserMediaRequestConstraints(WebCore::RealtimeMediaSourceCenter::ValidConstraintsHandler&& validHandler, WebCore::RealtimeMediaSourceCenter::InvalidConstraintsHandler&& invalidHandler, String&& deviceIDHashSalt);
+    void platformValidateUserMediaRequestConstraints(WebCore::RealtimeMediaSourceCenter::ValidConstraintsHandler&& validHandler, WebCore::RealtimeMediaSourceCenter::InvalidConstraintsHandler&& invalidHandler, WebCore::MediaDeviceHashSalts&&);
 #endif
 
     bool mockCaptureDevicesEnabled() const;
@@ -166,6 +167,8 @@ private:
     void processNextUserMediaRequestIfNeeded();
     void decidePolicyForUserMediaPermissionRequest();
     void updateStoredRequests(UserMediaPermissionRequestProxy&);
+
+    String ephemeralDeviceHashSaltForFrame(WebCore::FrameIdentifier);
 
     RefPtr<UserMediaPermissionRequestProxy> m_currentUserMediaRequest;
     Deque<Ref<UserMediaPermissionRequestProxy>> m_pendingUserMediaRequests;
@@ -178,6 +181,7 @@ private:
 
     Vector<Ref<UserMediaPermissionRequestProxy>> m_pregrantedRequests;
     Vector<Ref<UserMediaPermissionRequestProxy>> m_grantedRequests;
+    HashMap<WebCore::FrameIdentifier, String> m_frameEphemeralHashSalts;
 
     Vector<DeniedRequest> m_deniedRequests;
 
@@ -194,6 +198,7 @@ private:
 #endif
     uint64_t m_hasPendingCapture { 0 };
     std::optional<bool> m_mockDevicesEnabledOverride;
+    HashSet<WebCore::FrameIdentifier> m_grantedFrames;
 };
 
 String convertEnumerationToString(UserMediaPermissionRequestManagerProxy::RequestAction);

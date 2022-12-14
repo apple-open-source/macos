@@ -221,6 +221,11 @@
     zoneModifyOperation.name = @"zone-creation-operation";
     zoneModifyOperation.group = [CKOperationGroup CKKSGroupWithName:@"zone-creation"];
 
+#if TARGET_OS_TV
+    // This operation is needed during CKKS bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
+    zoneModifyOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+#endif
+
     // We will use the zoneCreationOperation operation in ops to signal completion
     WEAKIFY(self);
 
@@ -272,6 +277,11 @@
     zoneSubscriptionOperation.configuration.isCloudKitSupportOperation = YES;
     zoneSubscriptionOperation.database = self.database;
     zoneSubscriptionOperation.name = @"zone-subscription-operation";
+
+#if TARGET_OS_TV
+    // This operation is needed during CKKS bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
+    zoneSubscriptionOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+#endif
 
     WEAKIFY(self);
     zoneSubscriptionOperation.modifySubscriptionsCompletionBlock = ^(NSArray<CKSubscription *> * _Nullable savedSubscriptions,

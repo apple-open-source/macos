@@ -385,48 +385,6 @@ AC_DEFUN([CURL_CHECK_HEADER_WINLDAP], [
 ])
 
 
-dnl CURL_CHECK_HEADER_WINBER
-dnl -------------------------------------------------
-dnl Check for compilable and valid winber.h header
-
-AC_DEFUN([CURL_CHECK_HEADER_WINBER], [
-  AC_REQUIRE([CURL_CHECK_HEADER_WINLDAP])dnl
-  AC_CACHE_CHECK([for winber.h], [curl_cv_header_winber_h], [
-    AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([[
-#undef inline
-#ifdef HAVE_WINDOWS_H
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#endif
-#include <winldap.h>
-#include <winber.h>
-      ]],[[
-#if defined(__CYGWIN__) || defined(__CEGCC__)
-        HAVE_WINBER_H shall not be defined.
-#else
-        BERVAL *bvp = NULL;
-        BerElement *bep = ber_init(bvp);
-        ber_free(bep, 1);
-#endif
-      ]])
-    ],[
-      curl_cv_header_winber_h="yes"
-    ],[
-      curl_cv_header_winber_h="no"
-    ])
-  ])
-  case "$curl_cv_header_winber_h" in
-    yes)
-      AC_DEFINE_UNQUOTED(HAVE_WINBER_H, 1,
-        [Define to 1 if you have the winber.h header file.])
-      ;;
-  esac
-])
-
-
 dnl CURL_CHECK_HEADER_LBER
 dnl -------------------------------------------------
 dnl Check for compilable and valid lber.h header,
@@ -597,58 +555,6 @@ AC_DEFUN([CURL_CHECK_HEADER_LDAP_SSL], [
     yes)
       AC_DEFINE_UNQUOTED(HAVE_LDAP_SSL_H, 1,
         [Define to 1 if you have the ldap_ssl.h header file.])
-      ;;
-  esac
-])
-
-
-dnl CURL_CHECK_HEADER_LDAPSSL
-dnl -------------------------------------------------
-dnl Check for compilable and valid ldapssl.h header
-
-AC_DEFUN([CURL_CHECK_HEADER_LDAPSSL], [
-  AC_REQUIRE([CURL_CHECK_HEADER_LDAP])dnl
-  AC_CACHE_CHECK([for ldapssl.h], [curl_cv_header_ldapssl_h], [
-    AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([[
-#undef inline
-#ifdef HAVE_WINDOWS_H
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#else
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#endif
-#ifndef NULL
-#define NULL (void *)0
-#endif
-#ifndef LDAP_DEPRECATED
-#define LDAP_DEPRECATED 1
-#endif
-#ifdef NEED_LBER_H
-#include <lber.h>
-#endif
-#ifdef HAVE_LDAP_H
-#include <ldap.h>
-#endif
-#include <ldapssl.h>
-      ]],[[
-        char *cert_label = NULL;
-        LDAP *ldp = ldap_ssl_init("dummy", LDAPS_PORT, cert_label);
-      ]])
-    ],[
-      curl_cv_header_ldapssl_h="yes"
-    ],[
-      curl_cv_header_ldapssl_h="no"
-    ])
-  ])
-  case "$curl_cv_header_ldapssl_h" in
-    yes)
-      AC_DEFINE_UNQUOTED(HAVE_LDAPSSL_H, 1,
-        [Define to 1 if you have the ldapssl.h header file.])
       ;;
   esac
 ])
@@ -858,108 +764,6 @@ AC_DEFUN([CURL_CHECK_LIBS_LDAP], [
 ])
 
 
-dnl CURL_CHECK_HEADER_MALLOC
-dnl -------------------------------------------------
-dnl Check for compilable and valid malloc.h header,
-dnl and check if it is needed even with stdlib.h
-
-AC_DEFUN([CURL_CHECK_HEADER_MALLOC], [
-  AC_CACHE_CHECK([for malloc.h], [curl_cv_header_malloc_h], [
-    AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([[
-#include <malloc.h>
-      ]],[[
-        void *p = malloc(10);
-        void *q = calloc(10,10);
-        free(p);
-        free(q);
-      ]])
-    ],[
-      curl_cv_header_malloc_h="yes"
-    ],[
-      curl_cv_header_malloc_h="no"
-    ])
-  ])
-  if test "$curl_cv_header_malloc_h" = "yes"; then
-    AC_DEFINE_UNQUOTED(HAVE_MALLOC_H, 1,
-      [Define to 1 if you have the malloc.h header file.])
-    #
-    AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([[
-#include <stdlib.h>
-      ]],[[
-        void *p = malloc(10);
-        void *q = calloc(10,10);
-        free(p);
-        free(q);
-      ]])
-    ],[
-      curl_cv_need_header_malloc_h="no"
-    ],[
-      curl_cv_need_header_malloc_h="yes"
-    ])
-    #
-    case "$curl_cv_need_header_malloc_h" in
-      yes)
-        AC_DEFINE_UNQUOTED(NEED_MALLOC_H, 1,
-          [Define to 1 if you need the malloc.h header file even with stdlib.h])
-        ;;
-    esac
-  fi
-])
-
-
-dnl CURL_CHECK_HEADER_MEMORY
-dnl -------------------------------------------------
-dnl Check for compilable and valid memory.h header,
-dnl and check if it is needed even with stdlib.h for
-dnl memory related functions.
-
-AC_DEFUN([CURL_CHECK_HEADER_MEMORY], [
-  AC_CACHE_CHECK([for memory.h], [curl_cv_header_memory_h], [
-    AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([[
-#include <memory.h>
-      ]],[[
-        void *p = malloc(10);
-        void *q = calloc(10,10);
-        free(p);
-        free(q);
-      ]])
-    ],[
-      curl_cv_header_memory_h="yes"
-    ],[
-      curl_cv_header_memory_h="no"
-    ])
-  ])
-  if test "$curl_cv_header_memory_h" = "yes"; then
-    AC_DEFINE_UNQUOTED(HAVE_MEMORY_H, 1,
-      [Define to 1 if you have the memory.h header file.])
-    #
-    AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([[
-#include <stdlib.h>
-      ]],[[
-        void *p = malloc(10);
-        void *q = calloc(10,10);
-        free(p);
-        free(q);
-      ]])
-    ],[
-      curl_cv_need_header_memory_h="no"
-    ],[
-      curl_cv_need_header_memory_h="yes"
-    ])
-    #
-    case "$curl_cv_need_header_memory_h" in
-      yes)
-        AC_DEFINE_UNQUOTED(NEED_MEMORY_H, 1,
-          [Define to 1 if you need the memory.h header file even with stdlib.h])
-        ;;
-    esac
-  fi
-])
-
 dnl TYPE_SOCKADDR_STORAGE
 dnl -------------------------------------------------
 dnl Check for struct sockaddr_storage. Most IPv6-enabled
@@ -1009,6 +813,7 @@ dnl return value in RECV_TYPE_RETV.
 
 AC_DEFUN([CURL_CHECK_FUNC_RECV], [
   AC_REQUIRE([CURL_CHECK_HEADER_WINSOCK2])dnl
+  AC_REQUIRE([CURL_INCLUDES_BSDSOCKET])dnl
   AC_CHECK_HEADERS(sys/types.h sys/socket.h)
   #
   AC_MSG_CHECKING([for recv])
@@ -1024,10 +829,7 @@ AC_DEFUN([CURL_CHECK_FUNC_RECV], [
 #include <winsock2.h>
 #endif
 #else
-#ifdef HAVE_PROTO_BSDSOCKET_H
-#include <proto/bsdsocket.h>
-struct Library *SocketBase = NULL;
-#endif
+$curl_includes_bsdsocket
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -1069,10 +871,7 @@ struct Library *SocketBase = NULL;
 #endif
 #define RECVCALLCONV PASCAL
 #else
-#ifdef HAVE_PROTO_BSDSOCKET_H
-#include <proto/bsdsocket.h>
-struct Library *SocketBase = NULL;
-#endif
+$curl_includes_bsdsocket
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -1144,6 +943,7 @@ dnl type qualifier of second argument in SEND_QUAL_ARG2.
 
 AC_DEFUN([CURL_CHECK_FUNC_SEND], [
   AC_REQUIRE([CURL_CHECK_HEADER_WINSOCK2])dnl
+  AC_REQUIRE([CURL_INCLUDES_BSDSOCKET])dnl
   AC_CHECK_HEADERS(sys/types.h sys/socket.h)
   #
   AC_MSG_CHECKING([for send])
@@ -1159,10 +959,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SEND], [
 #include <winsock2.h>
 #endif
 #else
-#ifdef HAVE_PROTO_BSDSOCKET_H
-#include <proto/bsdsocket.h>
-struct Library *SocketBase = NULL;
-#endif
+$curl_includes_bsdsocket
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -1204,10 +1001,7 @@ struct Library *SocketBase = NULL;
 #endif
 #define SENDCALLCONV PASCAL
 #else
-#ifdef HAVE_PROTO_BSDSOCKET_H
-#include <proto/bsdsocket.h>
-struct Library *SocketBase = NULL;
-#endif
+$curl_includes_bsdsocket
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -1317,10 +1111,6 @@ AC_DEFUN([CURL_CHECK_MSG_NOSIGNAL], [
 #include <winsock2.h>
 #endif
 #else
-#ifdef HAVE_PROTO_BSDSOCKET_H
-#include <proto/bsdsocket.h>
-struct Library *SocketBase = NULL;
-#endif
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -1740,6 +1530,7 @@ dnl in SELECT_QUAL_ARG5.
 
 AC_DEFUN([CURL_CHECK_FUNC_SELECT], [
   AC_REQUIRE([CURL_CHECK_STRUCT_TIMEVAL])dnl
+  AC_REQUIRE([CURL_INCLUDES_BSDSOCKET])dnl
   AC_CHECK_HEADERS(sys/select.h sys/socket.h)
   #
   AC_MSG_CHECKING([for select])
@@ -1771,11 +1562,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SELECT], [
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-#ifdef HAVE_PROTO_BSDSOCKET_H
-#include <proto/bsdsocket.h>
-struct Library *SocketBase = NULL;
-#define select(a,b,c,d,e) WaitSelect(a,b,c,d,e,0)
-#endif
+$curl_includes_bsdsocket
 #endif
     ]],[[
       select(0, 0, 0, 0, 0);
@@ -1826,11 +1613,7 @@ struct Library *SocketBase = NULL;
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-#ifdef HAVE_PROTO_BSDSOCKET_H
-#include <proto/bsdsocket.h>
-struct Library *SocketBase = NULL;
-#define select(a,b,c,d,e) WaitSelect(a,b,c,d,e,0)
-#endif
+$curl_includes_bsdsocket
 #define SELECTCALLCONV
 #endif
 #ifndef HAVE_STRUCT_TIMEVAL

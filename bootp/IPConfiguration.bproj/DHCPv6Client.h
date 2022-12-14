@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,7 +70,7 @@ bool
 DHCPv6ClientOptionIsOK(int option);
 
 DHCPv6ClientRef
-DHCPv6ClientCreate(interface_t * if_p);
+DHCPv6ClientCreate(ServiceRef service_p);
 
 DHCPv6ClientMode
 DHCPv6ClientGetMode(DHCPv6ClientRef client);
@@ -93,8 +93,8 @@ DHCPv6ClientCopyAddresses(DHCPv6ClientRef client,
 			  inet6_addrlist_t * addr_list_p);
 
 void
-DHCPv6ClientAddressChanged(DHCPv6ClientRef client, 
-			   inet6_addrlist_t * addr_list_p);
+DHCPv6ClientHandleEvent(DHCPv6ClientRef client, IFEventID_t event_ID,
+			void * event_data);
 
 void
 DHCPv6ClientSetNotificationCallBack(DHCPv6ClientRef client, 

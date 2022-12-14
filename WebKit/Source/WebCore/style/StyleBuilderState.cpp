@@ -281,7 +281,7 @@ bool BuilderState::createFilterOperations(const CSSValue& inValue, FilterOperati
 bool BuilderState::isColorFromPrimitiveValueDerivedFromElement(const CSSPrimitiveValue& value)
 {
     switch (value.valueID()) {
-    case CSSValueWebkitText:
+    case CSSValueInternalDocumentTextColor:
     case CSSValueWebkitLink:
     case CSSValueWebkitActivelink:
     case CSSValueCurrentcolor:
@@ -291,39 +291,39 @@ bool BuilderState::isColorFromPrimitiveValueDerivedFromElement(const CSSPrimitiv
     }
 }
 
-Color BuilderState::colorFromPrimitiveValue(const CSSPrimitiveValue& value, ForVisitedLink forVisitedLink) const
+StyleColor BuilderState::colorFromPrimitiveValue(const CSSPrimitiveValue& value, ForVisitedLink forVisitedLink) const
 {
     if (value.isRGBColor())
         return value.color();
 
     auto identifier = value.valueID();
     switch (identifier) {
-    case CSSValueWebkitText:
-        return document().textColor();
+    case CSSValueInternalDocumentTextColor:
+        return { document().textColor() };
     case CSSValueWebkitLink:
-        return (element() && element()->isLink() && forVisitedLink == ForVisitedLink::Yes) ? document().visitedLinkColor() : document().linkColor();
+        return { (element() && element()->isLink() && forVisitedLink == ForVisitedLink::Yes) ? document().visitedLinkColor() : document().linkColor() };
     case CSSValueWebkitActivelink:
-        return document().activeLinkColor();
+        return { document().activeLinkColor() };
     case CSSValueWebkitFocusRingColor:
-        return RenderTheme::singleton().focusRingColor(document().styleColorOptions(&m_style));
+        return { RenderTheme::singleton().focusRingColor(document().styleColorOptions(&m_style)) };
     case CSSValueCurrentcolor:
-        return RenderStyle::currentColor();
+        return StyleColor::currentColor();
     default:
-        return StyleColor::colorFromKeyword(identifier, document().styleColorOptions(&m_style));
+        return { StyleColor::colorFromKeyword(identifier, document().styleColorOptions(&m_style)) };
     }
 }
 
 Color BuilderState::colorFromPrimitiveValueWithResolvedCurrentColor(const CSSPrimitiveValue& value) const
 {
     // FIXME: 'currentcolor' should be resolved at use time to make it inherit correctly. https://bugs.webkit.org/show_bug.cgi?id=210005
-    if (value.valueID() == CSSValueCurrentcolor) {
+    if (StyleColor::isCurrentColor(value)) {
         // Color is an inherited property so depending on it effectively makes the property inherited.
         m_style.setHasExplicitlyInheritedProperties();
         m_style.setDisallowsFastPathInheritance();
         return m_style.color();
     }
 
-    return colorFromPrimitiveValue(value);
+    return colorFromPrimitiveValue(value).absoluteColor();
 }
 
 void BuilderState::registerContentAttribute(const AtomString& attributeLocalName)

@@ -1585,32 +1585,37 @@ IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dat
 {
     IOReturn ret = kIOReturnError;
     uint32_t   cookies_[kMaxLocalCookieArrayLength];
+    uint32_t   dataLengths_[kMaxLocalCookieArrayLength];
+    uint32_t   *dataLengths = dataLengths_;
     uint32_t   *cookies = cookies_;
     uint32_t   cookieCount = 0;
     uint32_t   cookieSize = 0;
     uint32_t   dataOffset = 0;
+    size_t     index = 0;
     uint8_t    *data = (uint8_t*)elementData;
     IOMemoryDescriptor *elementDesc = getMemoryWithCurrentElementValues();
     require(_elementArray && elementDesc, fail);
 
     WORKLOOP_LOCK;
 
-    // Find the number of cookies in the data. Check that all cookies are valid elements.
+    // Find the number of cookies in the data. The data from elementData is shared with user space and may change at any time.
     while (dataOffset < dataSize) {
-        const IOHIDElementValueHeader *headerPtr = (const IOHIDElementValueHeader *)(data + dataOffset);
+        volatile IOHIDElementValueHeader *headerPtr = (volatile IOHIDElementValueHeader *)(data + dataOffset);
+        uint32_t dataLength = headerPtr->length;
         IOHIDElementPrivate *element = GetElement(headerPtr->cookie);
         if (!element) {
             HIDDeviceLogError("Could not find element for cookie: %d", headerPtr->cookie);
             ret = kIOReturnAborted;
             goto fail;
         }
-        cookieCount++;
 
-        require_noerr_action(os_add3_overflow(dataOffset, headerPtr->length, sizeof(IOHIDElementValueHeader), &dataOffset), fail, HIDDeviceLogError("Overflow iterating cookie data buffer %u %u", dataOffset, headerPtr->length));
+        require_noerr_action(os_add3_overflow(dataOffset, dataLength, sizeof(IOHIDElementValueHeader), &dataOffset), fail, HIDDeviceLogError("Overflow iterating cookie data buffer %u %u", dataOffset, dataLength));
+        cookieCount++;
     }
+
     // Data isn't as large as expected, don't overrun, just abort
     if (dataOffset != dataSize) {
-        HIDDeviceLogError("Cookie data buffer is smaller than expected. %u vs. %u",
+        HIDDeviceLogError("Cookie data buffer is smaller than expected. %u expected %u",
                           (unsigned int)dataSize, (unsigned int)dataOffset);
         ret = kIOReturnAborted;
         goto fail;
@@ -1622,38 +1627,83 @@ IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dat
                          HIDDeviceLogError("Overflow calculating cookieSize"));
 
     cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies : (uint32_t*)IOMallocData(cookieSize);
+    dataLengths = (cookieCount <= kMaxLocalCookieArrayLength) ? dataLengths : (uint32_t*)IOMallocData(cookieSize);
 
-    if (cookies == NULL) {
+    if (cookies == NULL || dataLengths == NULL) {
         ret = kIOReturnNoMemory;
         goto fail;
     }
 
+    // Validate the data sizes.
+    for (index = 0; index < cookieCount; ++index) {
+        volatile IOHIDElementValueHeader *headerPtr;
+        IOHIDElementPrivate *element;
+
+        uint32_t dataLength;
+        uint32_t cookie;
+
+        headerPtr = (volatile IOHIDElementValueHeader *)(data + dataOffset);
+        cookie = headerPtr->cookie;
+        dataLength = headerPtr->length;
+
+        require_noerr_action(os_add3_overflow(dataOffset, dataLength, sizeof(IOHIDElementValueHeader), &dataOffset), fail, HIDDeviceLogError("Overflow verifying cookie data buffer %u %u", dataOffset, dataLength));
+
+        element = GetElement(cookie);
+
+        if (!element) {
+            HIDDeviceLogError("Could not find element for cookie during validation: %d", cookie);
+            break;
+        }
+
+        if (dataOffset > dataSize) {
+            break;
+        }
+
+        cookies[index] = cookie;
+        dataLengths[index] = dataLength;
+    }
+
+    if (index != cookieCount) {
+        HIDDeviceLogError("Failed to validate all the cookies and data. Expected count changed, validated %zu of %u cookies", index, cookieCount);
+        goto fail;
+    } else if (dataOffset != dataSize) {
+        HIDDeviceLogError("Cookie data buffer is smaller than expected after revalidation. %u expected %u",
+                          (unsigned int)dataSize, (unsigned int)dataOffset);
+        goto fail;
+    }
+
+    dataOffset = 0;
+
     // Update the elements, this replaced the shared kernel-user shared memory.
-    for (size_t index = 0; dataOffset < dataSize; ++index) {
-        const IOHIDElementValueHeader *headerPtr;
+    for (index = 0; index < cookieCount; ++index) {
+        void *elementValuePtr;
         IOHIDElementPrivate *element;
         OSData *elementVal;
 
-        headerPtr = (const IOHIDElementValueHeader *)(data + dataOffset);
-        element = GetElement(headerPtr->cookie);
-        dataOffset += headerPtr->length + sizeof(IOHIDElementValueHeader);
+        elementValuePtr = (void*)((const IOHIDElementValueHeader *)(data + dataOffset))->value;
+        element = GetElement(cookies[index]);
+        dataOffset += dataLengths[index] + sizeof(IOHIDElementValueHeader);
 
-        elementVal = OSData::withBytesNoCopy((void*)headerPtr->value,
-                                             headerPtr->length);
+        elementVal = OSData::withBytesNoCopy(elementValuePtr,
+                                             dataLengths[index]);
         require_action(elementVal, fail, ret = kIOReturnNoMemory);
         element->setDataBits(elementVal);
         elementVal->release();
-
-        cookies[index] = headerPtr->cookie;
     }
 
     // Actually post elements
     ret = postElementValues((IOHIDElementCookie *)cookies, (UInt32)cookieCount, 0, completionTimeout, completion);
+    if (ret != kIOReturnSuccess) {
+        HIDDeviceLogError("postElementValues:%#x", ret);
+    }
 
 fail:
     WORKLOOP_UNLOCK;
     if (cookies != &cookies_[0]) {
         IOFreeData(cookies, cookieSize);
+    }
+    if (dataLengths != &dataLengths_[0]) {
+        IOFreeData(dataLengths, cookieSize);
     }
 
     return ret;

@@ -14,9 +14,7 @@
 #include "vim.h"
 #include "version.h"
 
-#ifdef FEAT_FLOAT
-# include <float.h>
-#endif
+#include <float.h>
 
 static int linelen(int *has_tab);
 static void do_filter(linenr_T line1, linenr_T line2, exarg_T *eap, char_u *cmd, int do_in, int do_out);
@@ -275,9 +273,7 @@ static int	sort_lc;	// sort using locale
 static int	sort_ic;	// ignore case
 static int	sort_nr;	// sort on number
 static int	sort_rx;	// sort on regex instead of skipping it
-#ifdef FEAT_FLOAT
 static int	sort_flt;	// sort on floating number
-#endif
 
 static int	sort_abort;	// flag to indicate if sorting has been interrupted
 
@@ -296,9 +292,7 @@ typedef struct
 	    varnumber_T	value;		// value if sorting by integer
 	    int is_number;		// TRUE when line contains a number
 	} num;
-#ifdef FEAT_FLOAT
 	float_T value_flt;		// value if sorting by float
-#endif
     } st_u;
 } sorti_T;
 
@@ -334,11 +328,9 @@ sort_compare(const void *s1, const void *s2)
 	    result = l1.st_u.num.value == l2.st_u.num.value ? 0
 			     : l1.st_u.num.value > l2.st_u.num.value ? 1 : -1;
     }
-#ifdef FEAT_FLOAT
     else if (sort_flt)
 	result = l1.st_u.value_flt == l2.st_u.value_flt ? 0
 			     : l1.st_u.value_flt > l2.st_u.value_flt ? 1 : -1;
-#endif
     else
     {
 	// We need to copy one line into "sortbuf1", because there is no
@@ -399,9 +391,7 @@ ex_sort(exarg_T *eap)
 	goto sortend;
 
     sort_abort = sort_ic = sort_lc = sort_rx = sort_nr = 0;
-#ifdef FEAT_FLOAT
     sort_flt = 0;
-#endif
 
     for (p = eap->arg; *p != NUL; ++p)
     {
@@ -418,13 +408,11 @@ ex_sort(exarg_T *eap)
 	    sort_nr = 1;
 	    ++format_found;
 	}
-#ifdef FEAT_FLOAT
 	else if (*p == 'f')
 	{
 	    sort_flt = 1;
 	    ++format_found;
 	}
-#endif
 	else if (*p == 'b')
 	{
 	    sort_what = STR2NR_BIN + STR2NR_FORCE;
@@ -521,11 +509,7 @@ ex_sort(exarg_T *eap)
 	    if (regmatch.regprog != NULL)
 		end_col = 0;
 
-	if (sort_nr
-#ifdef FEAT_FLOAT
-		|| sort_flt
-#endif
-		)
+	if (sort_nr || sort_flt)
 	{
 	    // Make sure vim_str2nr doesn't read any digits past the end
 	    // of the match, by temporarily terminating the string there
@@ -558,7 +542,6 @@ ex_sort(exarg_T *eap)
 			NULL, 0, FALSE);
 		}
 	    }
-#ifdef FEAT_FLOAT
 	    else
 	    {
 		s = skipwhite(p);
@@ -572,7 +555,6 @@ ex_sort(exarg_T *eap)
 		    nrs[lnum - eap->line1].st_u.value_flt =
 						      strtod((char *)s, NULL);
 	    }
-#endif
 	    *s2 = c;
 	}
 	else
@@ -1150,7 +1132,8 @@ do_filter(
 #if defined(FEAT_EVAL)
 	if (!aborting())
 #endif
-	    (void)semsg(_(e_cant_create_file_str), itmp);	// will call wait_return
+	    // will call wait_return()
+	    (void)semsg(_(e_cant_create_file_str), itmp);
 	goto filterend;
     }
     if (curbuf != old_curbuf)
@@ -2092,12 +2075,17 @@ check_overwrite(
     /*
      * Write to another file or b_flags set or not writing the whole file:
      * overwriting only allowed with '!'.
+     * If "other" is FALSE and bt_nofilename(buf) is TRUE, this must be
+     * writing an "acwrite" buffer to the same file as its b_ffname, and
+     * buf_write() will only allow writing with BufWriteCmd autocommands,
+     * so there is no need for an overwrite check.
      */
     if (       (other
-		|| (buf->b_flags & BF_NOTEDITED)
-		|| ((buf->b_flags & BF_NEW)
-		    && vim_strchr(p_cpo, CPO_OVERNEW) == NULL)
-		|| (buf->b_flags & BF_READERR))
+		|| (!bt_nofilename(buf)
+		    && ((buf->b_flags & BF_NOTEDITED)
+			|| ((buf->b_flags & BF_NEW)
+			    && vim_strchr(p_cpo, CPO_OVERNEW) == NULL)
+			|| (buf->b_flags & BF_READERR))))
 	    && !p_wa
 	    && vim_fexists(ffname))
     {
@@ -2663,8 +2651,13 @@ do_ecmd(
 		// with the current window.
 		newbuf = buflist_new(ffname, sfname, tlnum,
 						    BLN_LISTED | BLN_NOCURWIN);
-		if (newbuf != NULL && (flags & ECMD_ALTBUF))
-		    curwin->w_alt_fnum = newbuf->b_fnum;
+		if (newbuf != NULL)
+		{
+		    if (flags & ECMD_ALTBUF)
+			curwin->w_alt_fnum = newbuf->b_fnum;
+		    if (tlnum > 0)
+			newbuf->b_last_cursor.lnum = tlnum;
+		}
 		goto theend;
 	    }
 	    buf = buflist_new(ffname, sfname, 0L,
@@ -3695,7 +3688,6 @@ ex_substitute(exarg_T *eap)
     int		endcolumn = FALSE;	// cursor in last column when done
     pos_T	old_cursor = curwin->w_cursor;
     int		start_nsubs;
-    int		cmdheight0 = p_ch == 0;
 #ifdef FEAT_EVAL
     int		save_ma = 0;
     int		save_sandbox = 0;
@@ -4005,14 +3997,6 @@ ex_substitute(exarg_T *eap)
 	}
     }
 
-    if (cmdheight0)
-    {
-	// If cmdheight is 0, cmdheight must be set to 1 when we enter command
-	// line.
-	set_option_value((char_u *)"ch", 1L, NULL, 0);
-	redraw_statuslines();
-    }
-
     /*
      * Check for a match on each line.
      */
@@ -4311,6 +4295,10 @@ ex_substitute(exarg_T *eap)
 						  - regmatch.startpos[0].lnum;
 			    search_match_endcol = regmatch.endpos[0].col
 								 + len_change;
+			    if (search_match_lines == 0
+						   && search_match_endcol == 0)
+				// highlight at least one character for /^/
+				search_match_endcol = 1;
 			    highlight_match = TRUE;
 
 			    update_topline();
@@ -4330,7 +4318,7 @@ ex_substitute(exarg_T *eap)
 							// needed
 			    msg_no_more = TRUE;
 			    // write message same highlighting as for
-			    // wait_return
+			    // wait_return()
 			    smsg_attr(HL_ATTR(HLF_R),
 				_("replace with %s (y/n/a/q/l/^E/^Y)?"), sub);
 			    msg_no_more = FALSE;
@@ -4683,7 +4671,8 @@ ex_substitute(exarg_T *eap)
 				last_line = lnum + 1;
 			    }
 #ifdef FEAT_PROP_POPUP
-			    adjust_props_for_split(lnum + 1, lnum, plen, 1);
+			    adjust_props_for_split(lnum + 1, lnum,
+							       plen, 1, FALSE);
 #endif
 			    // all line numbers increase
 			    ++sub_firstlnum;
@@ -4896,10 +4885,6 @@ outofmem:
 	// Cursor position may require updating
 	changed_window_setting();
 #endif
-
-    // Restore cmdheight
-    if (cmdheight0)
-	set_option_value((char_u *)"ch", 0L, NULL, 0);
 
     vim_regfree(regmatch.regprog);
     vim_free(sub_copy);

@@ -241,7 +241,7 @@ int32_t _xar_signature_read_from_heap(xar_t x ,off_t offset,size_t length,uint8_
 /* This method retrieves the signed data for this segment as well as the data the signed data is signing */
 uint8_t xar_signature_copy_signed_data(xar_signature_t sig, uint8_t **data, uint32_t *length, uint8_t **signed_data, uint32_t *signed_length, off_t *signed_offset)
 {
-	uint32_t offset = 0;
+	uint64_t offset = 0;
 	xar_t x = NULL;
 	const char	*value;
 	

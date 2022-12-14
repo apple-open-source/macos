@@ -121,6 +121,7 @@
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/cocoa/NSTouchBarSPI.h>
+#import <pal/spi/cocoa/VisionKitCoreSPI.h>
 #import <pal/spi/mac/LookupSPI.h>
 #import <pal/spi/mac/NSAppearanceSPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
@@ -345,14 +346,7 @@ void WebViewImpl::computeHasVisualSearchResults(const URL& imageURL, ShareableBi
 
 @end
 
-@interface WKWindowVisibilityObserver : NSObject {
-    NSView *_view;
-    WebKit::WebViewImpl *_impl;
-
-    BOOL _didRegisterForLookupPopoverCloseNotifications;
-    BOOL _shouldObserveFontPanel;
-}
-
+@interface WKWindowVisibilityObserver : NSObject
 - (instancetype)initWithView:(NSView *)view impl:(WebKit::WebViewImpl&)impl;
 - (void)startObserving:(NSWindow *)window;
 - (void)stopObserving:(NSWindow *)window;
@@ -360,7 +354,13 @@ void WebViewImpl::computeHasVisualSearchResults(const URL& imageURL, ShareableBi
 - (void)startObservingLookupDismissalIfNeeded;
 @end
 
-@implementation WKWindowVisibilityObserver
+@implementation WKWindowVisibilityObserver {
+    NSView *_view;
+    WebKit::WebViewImpl *_impl;
+
+    BOOL _didRegisterForLookupPopoverCloseNotifications;
+    BOOL _shouldObserveFontPanel;
+}
 
 - (instancetype)initWithView:(NSView *)view impl:(WebKit::WebViewImpl&)impl
 {
@@ -448,6 +448,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
     if (_shouldObserveFontPanel)
         [[NSFontPanel sharedFontPanel] removeObserver:self forKeyPath:@"visible" context:keyValueObservingContext];
+
     [window removeObserver:self forKeyPath:@"contentLayoutRect" context:keyValueObservingContext];
     [window removeObserver:self forKeyPath:@"titlebarAppearsTransparent" context:keyValueObservingContext];
 }
@@ -2595,9 +2596,11 @@ void WebViewImpl::viewWillMoveToWindowImpl(NSWindow *window)
 
     clearAllEditCommands();
 
-    NSWindow *stopObservingWindow = m_targetWindowForMovePreparation ? m_targetWindowForMovePreparation.get() : [m_view window];
-    [m_windowVisibilityObserver stopObserving:stopObservingWindow];
-    [m_windowVisibilityObserver startObserving:window];
+    if (!m_isPreparingToUnparentView) {
+        NSWindow *stopObservingWindow = m_targetWindowForMovePreparation.get() ?: [m_view window];
+        [m_windowVisibilityObserver stopObserving:stopObservingWindow];
+        [m_windowVisibilityObserver startObserving:window];
+    }
 
 #if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)
     if (m_isRegisteredScrollViewSeparatorTrackingAdapter) {
@@ -2610,6 +2613,7 @@ void WebViewImpl::viewWillMoveToWindowImpl(NSWindow *window)
 void WebViewImpl::viewWillMoveToWindow(NSWindow *window)
 {
     viewWillMoveToWindowImpl(window);
+    m_isPreparingToUnparentView = false;
     m_targetWindowForMovePreparation = nil;
 }
 
@@ -2867,6 +2871,7 @@ void WebViewImpl::prepareForMoveToWindow(NSWindow *targetWindow, WTF::Function<v
 {
     m_shouldDeferViewInWindowChanges = true;
     viewWillMoveToWindowImpl(targetWindow);
+    m_isPreparingToUnparentView = !targetWindow;
     m_targetWindowForMovePreparation = targetWindow;
     viewDidMoveToWindow();
 

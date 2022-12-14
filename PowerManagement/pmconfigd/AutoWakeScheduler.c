@@ -1390,6 +1390,7 @@ __private_extern__ bool checkPendingWakeReqs(int options)
     CFAbsoluteTime      now_ts;
     CFAbsoluteTime      upperbound_ts = 0, lowerbound_ts = 0;
     CFAbsoluteTime      wakeup_abs = 0;
+    CFAbsoluteTime      assertion_duration;
 
     now_ts = CFAbsoluteTimeGetCurrent();
     if (options & PREVENT_PURGING) {
@@ -1455,8 +1456,13 @@ __private_extern__ bool checkPendingWakeReqs(int options)
 
         name = CFStringCreateWithFormat(NULL, NULL, CFSTR("Delay sleep for wake request \"%@\" at \"%@\""),
                                                     appName, date_str);
-        InternalCreateAssertionWithTimeout(kIOPMAssertPreventUserIdleSystemSleep, name, 
-                                           (wakeup_abs-now_ts > 1) ? (wakeup_abs-now_ts) : 1, &id);
+        
+        assertion_duration = 1.0; // Minimum duration for the assertion
+        if (wakeup_abs - now_ts > 1.0) {
+            assertion_duration = ceil(wakeup_abs - now_ts);
+        }
+        InternalCreateAssertionWithTimeout(kIOPMAssertPreventUserIdleSystemSleep, name, assertion_duration, &id);
+
         if (format) CFRelease(format);
         if (date_str) CFRelease(date_str);
         if (name) CFRelease(name);

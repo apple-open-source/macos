@@ -35,8 +35,11 @@
  * $Id: pam_start.c 408 2007-12-21 11:36:24Z des $
  */
 
+#include <errno.h>
 #include <stdlib.h>
+#include <unistd.h>		/* getpid() */
 
+#include <System/sys/codesign.h>	/* csops() */
 #include <security/pam_appl.h>
 
 #include "openpam_impl.h"
@@ -68,6 +71,16 @@ pam_start(const char *service,
 		goto fail;
 
 	r = openpam_configure(ph, service);
+	if (r == PAM_SYSTEM_ERR && errno == ENOTRECOVERABLE) {
+		/* rdar://99495325 (pam_start should not fail because CS_OPS_CLEAR_LV is rejected) */
+		int   csflags = 0;
+		pid_t pid     = getpid();
+		csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+		if ((csflags & CS_INSTALLER) != 0) {
+			/* Attempt to load a hard-coded Apple-only (stock) macOS chain. */
+			r = openpam_configure_apple(ph, service);
+		}
+	}
 	if (r != PAM_SUCCESS)
 		goto fail;
 

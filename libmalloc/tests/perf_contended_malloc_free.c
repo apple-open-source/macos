@@ -10,6 +10,8 @@
 #include <malloc/malloc.h>
 #include <darwintest.h>
 
+#include <../src/internal.h> // for platform.h
+
 // number of times malloc & free are called per dt_stat batch
 #define ITERATIONS_PER_DT_STAT_BATCH 10000ull
 // number of times large malloc is called per dt_stat  batch
@@ -323,3 +325,25 @@ T_DECL(perf_contended_large_bench, "Contended large malloc",
 	iterations_per_dt_stat_batch = ITERATIONS_PER_DT_STAT_BATCH_LARGE_MALLOC;
 	malloc_bench(false, 16 * 1024, 256 * 1024, 16 * 1024);
 }
+
+// rdar://100479142
+#if 0
+#if CONFIG_DEFERRED_RECLAIM
+
+// If deferred reclaim is available but not enabled by default, test it too
+T_DECL(perf_contended_large_deferred_reclaim_bench,
+		"Contended large malloc (deferred reclaim)",
+		T_META_ALL_VALID_ARCHS(NO),
+		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
+		T_META_ENABLED(!DEFAULT_LARGE_CACHE_ENABLED),
+		T_META_ENVVAR("MallocLargeCache=1"),
+		T_META_TAG_PERF)
+{
+	// Add more iterations to also serve as a stress test for deferred reclaim
+	iterations_per_dt_stat_batch =
+			ITERATIONS_PER_DT_STAT_BATCH_LARGE_MALLOC * 10;
+	malloc_bench(false, 16 * 1024, 256 * 1024, 16 * 1024);
+}
+
+#endif // CONFIG_DEFERRED_RECLAIM
+#endif // 0

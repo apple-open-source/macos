@@ -75,6 +75,7 @@ NSString* const SFAnalyticsMetricsBase = @"metricsBase";
 NSString* const SFAnalyticsDeviceID = @"ckdeviceID";
 NSString* const SFAnalyticsAccountID = @"sfaAccountID";
 NSString* const SFAnalyticsAltDSID = @"altDSID";
+NSString* const SFAnalyticsIsAppleUser = @"isAppleUser";
 
 NSString* const SFAnalyticsEventCorrelationID = @"eventLinkID";
 
@@ -1135,13 +1136,18 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
     NSMutableArray<NSArray*> *softFailures = [[NSMutableArray alloc] init];
     NSString *ckdeviceID = nil;
     NSString *accountID = nil;
+    NSString *appleUser = nil;
+    NSDictionary *carryStatus = nil;
 
     if (os_variant_has_internal_diagnostics("com.apple.security") &&
         ([_internalTopicName isEqualToString:SFAnalyticsTopicKeySync] ||
          [_internalTopicName isEqual:SFAnalyticsTopicCloudServices] ||
-         [_internalTopicName isEqualToString:SFAnalyticsTopicTransparency])) {
+         [_internalTopicName isEqualToString:SFAnalyticsTopicTransparency]))
+    {
         ckdeviceID = [self askSecurityForCKDeviceID];
         accountID = accountAltDSID();
+        appleUser = [self appleUser];
+        carryStatus = [self carryStatus];
     }
     for (SFAnalyticsClient* client in self->_topicClients) {
         [client withStore:^(SFAnalyticsSQLiteStore *store) {
@@ -1180,9 +1186,11 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
                 if (accountID) {
                     healthSummary[SFAnalyticsAltDSID] = accountID;
                 }
-                NSDictionary *carryStatus = [self carryStatus];
                 if (carryStatus) {
                     [healthSummary addEntriesFromDictionary:carryStatus];
+                }
+                if (appleUser) {
+                    healthSummary[SFAnalyticsIsAppleUser] = @(appleUser != nil);
                 }
                 [localHealthSummaries addObject:healthSummary];
             }
@@ -1321,6 +1329,30 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
     }
 
     return localCKDeviceID;
+}
+
+- (NSString * _Nullable)appleUser {
+    ACAccountStore *store = [[ACAccountStore alloc] init];
+    ACAccountType *accountType = [store accountTypeWithAccountTypeIdentifier:ACAccountTypeIdentifierIMAP];
+    NSArray *accounts = [store accountsWithAccountType:accountType];
+
+    for (ACAccount *curAccount in accounts) {
+        id addresses = curAccount[ACEmailAliasKeyEmailAddresses];
+        NSArray *emails = nil;
+        if ([addresses isKindOfClass:[NSDictionary class]]) {
+            emails = [addresses allKeys];
+        } else if ([addresses isKindOfClass:[NSArray class]]) {
+            emails = addresses;
+        } else if ([addresses isKindOfClass:[NSString class]]) {
+            emails = [addresses componentsSeparatedByString:@","];
+        }
+        for (NSString *email in emails) {
+            if ([email hasSuffix:@"@apple.com"]) {
+                return email;
+            }
+        }
+    }
+    return nil;
 }
 
 // this method is kind of evil for the fact that it has side-effects in pulling other things besides the metricsURL from the server, and as such should NOT be memoized.

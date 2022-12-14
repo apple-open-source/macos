@@ -196,6 +196,7 @@ struct context_vec {
 enum readhash { RH_BINARY, RH_OK, RH_EOF };
 
 #define MIN_PAD		1
+static int	 diffreg_stone(char *, char *, int, int);
 static FILE	*opentemp(const char *);
 static void	 output(char *, FILE *, char *, FILE *, int);
 static void	 check(FILE *, FILE *, int);
@@ -273,6 +274,35 @@ static char lastbuf[FUNCTION_CONTEXT_SIZE];
 static int lastline;
 static int lastmatchline;
 
+int
+diffreg(char *file1, char *file2, int flags, int capsicum)
+{
+#ifdef __APPLE__
+	if (unix2003_compat)
+		return diffreg_stone(file1, file2, flags, capsicum);
+#endif	/* __APPLE__ */
+	/* First check if have picked the stone algorithm. */
+	if (diff_algorithm == D_DIFFSTONE)
+		return diffreg_stone(file1, file2, flags, capsicum);
+
+	/* We can't use fifos with libdiff yet */
+	if (S_ISFIFO(stb1.st_mode) || S_ISFIFO(stb2.st_mode))
+		return diffreg_stone(file1, file2, flags, capsicum);
+
+	/* Is this one of the supported input/output modes for diffreg_new? */
+	if ((flags == 0 || !(flags & ~D_NEWALGO_FLAGS)) && (
+		diff_format == D_NORMAL ||
+#if 0
+		diff_format == D_EDIT ||
+#endif
+		diff_format == D_UNIFIED) &&
+		(diff_algorithm == D_DIFFMYERS || diff_algorithm == D_DIFFPATIENCE)) {
+		return diffreg_new(file1, file2, flags, capsicum);
+	}
+	/* Fallback to using stone. */
+	return diffreg_stone(file1, file2, flags, capsicum);
+}
+
 static int
 clow2low(int c)
 {
@@ -288,7 +318,7 @@ cup2low(int c)
 }
 
 int
-diffreg(char *file1, char *file2, int flags, int capsicum)
+diffreg_stone(char *file1, char *file2, int flags, int capsicum)
 {
 	FILE *f1, *f2;
 	int i, rval;
@@ -781,10 +811,10 @@ check(FILE *f1, FILE *f2, int flags)
 				 * in one file for -b or -w.
 				 */
 				if (flags & (D_FOLDBLANKS | D_IGNOREBLANKS)) {
-					if (c == EOF && d == '\n') {
+					if (c == EOF && isspace(d)) {
 						ctnew++;
 						break;
-					} else if (c == '\n' && d == EOF) {
+					} else if (isspace(c) && d == EOF) {
 						ctold++;
 						break;
 					}
@@ -1279,6 +1309,7 @@ fetch(long *f, int a, int b, FILE *lb, int ch, int oldfile, int flags)
 
 	edoffset = 0;
 	nc = 0;
+	col = 0;
 	/*
 	 * When doing #ifdef's, copy down to current line
 	 * if this is the first file, so that stuff makes it to output.

@@ -81,8 +81,9 @@ void SecCodeSigner::Signer::considerTeamID(const PreSigningContext& context)
 	if (state.mPreserveMetadata & kSecCodeSignerPreserveTeamIdentifier) {
 		/* If preserving the team identifier, teamID is set previously when the
 		 code object is still available */
-		if (!teamIDFromCert.empty() && teamID != teamIDFromCert)
+		if (!teamIDFromCert.empty() && teamID != teamIDFromCert) {
 			MacOSError::throwMe(errSecCSInvalidFlags);
+		}
 	} else {
 		if (teamIDFromCert.empty()) {
 			/* state.mTeamID is an explicitly passed teamID */
@@ -106,13 +107,15 @@ void SecCodeSigner::Signer::considerTeamID(const PreSigningContext& context)
 void SecCodeSigner::Signer::remove(SecCSFlags flags)
 {
 	// can't remove a detached signature
-	if (state.mDetached)
+	if (state.mDetached) {
 		MacOSError::throwMe(errSecCSNotSupported);
+	}
 
 	rep = code->diskRep();
 
-	if (state.mPreserveAFSC)
+	if (state.mPreserveAFSC) {
 		rep->writer()->setPreserveAFSC(state.mPreserveAFSC);
+	}
 
 	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
 		// architecture-sensitive removal
@@ -134,16 +137,18 @@ void SecCodeSigner::Signer::remove(SecCSFlags flags)
 void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 {
 	// make sure the rep passes strict validation
-	if (strict)
+	if (strict) {
 		rep->strictValidate(NULL, MacOSErrorSet(), flags | (kSecCSQuickCheck|kSecCSRestrictSidebandData));
+	}
 	
 	// initialize progress/cancellation state
 	code->prepareProgress(0);			// totally fake workload - we don't know how many files we'll encounter
 
 	// get the Info.plist out of the rep for some creative defaulting
 	CFRef<CFDictionaryRef> infoDict;
-	if (CFRef<CFDataRef> infoData = rep->component(cdInfoSlot))
+	if (CFRef<CFDataRef> infoData = rep->component(cdInfoSlot)) {
 		infoDict.take(makeCFDictionaryFrom(infoData));
+	}
 	
 	uint32_t inherit = 0;
 
@@ -158,29 +163,37 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	}
 	if (identifier.empty()) {
 		identifier = rep->recommendedIdentifier(*this);
-		if (identifier.find('.') == string::npos)
+		if (identifier.find('.') == string::npos) {
 			identifier = state.mIdentifierPrefix + identifier;
-		if (identifier.find('.') == string::npos && isAdhoc())
+		}
+		if (identifier.find('.') == string::npos && isAdhoc() && rep->explicitIdentifier().empty()) {
+			// Only add a unique name to the end of the identifier if its adhoc AND did not have an explicit
+			// identifier provided by the diskrep, like from a bundle ID in an Info.plist.
 			identifier = identifier + "-" + uniqueName();
+		}
 		secinfo("signer", "using default identifier=%s", identifier.c_str());
-	} else
+	} else {
 		secinfo("signer", "using explicit identifier=%s", identifier.c_str());
+	}
 
 	teamID = state.mTeamID;
 	if (teamID.empty() && (inherit & kSecCodeSignerPreserveTeamIdentifier)) {
 		const char *c_id = code->teamID();
-		if (c_id)
+		if (c_id) {
 			teamID = c_id;
+		}
 	}
 	
 	// Digest algorithms: explicit or preserved. Subject to diskRep defaults or final default later.
 	hashAlgorithms = state.mDigestAlgorithms;
-	if (hashAlgorithms.empty() && (inherit & kSecCodeSignerPreserveDigestAlgorithm))
+	if (hashAlgorithms.empty() && (inherit & kSecCodeSignerPreserveDigestAlgorithm)) {
 		hashAlgorithms = code->hashAlgorithms();
+	}
 	
 	entitlements = state.mEntitlementData;
-	if (!entitlements && (inherit & kSecCodeSignerPreserveEntitlements))
+	if (!entitlements && (inherit & kSecCodeSignerPreserveEntitlements)) {
 		entitlements = code->component(cdEntitlementSlot);
+	}
 	
 	// So long and thanks for all the fish
 	launchConstraints = std::move(state.mLaunchConstraints);
@@ -194,7 +207,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	}
 	if (!haveCdFlags) {
 		cdFlags = 0;
-		if (infoDict)
+		if (infoDict) {
 			if (CFTypeRef csflags = CFDictionaryGetValue(infoDict, CFSTR("CSFlags"))) {
 				if (CFGetTypeID(csflags) == CFNumberGetTypeID()) {
 					cdFlags = cfNumber<uint32_t>(CFNumberRef(csflags));
@@ -206,24 +219,28 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 					MacOSError::throwMe(errSecCSBadDictionaryFormat);
 				haveCdFlags = true;
 			}
+		}
 	}
 	if (!haveCdFlags && (inherit & kSecCodeSignerPreserveFlags)) {
 		cdFlags = code->codeDirectory(false)->flags & ~kSecCodeSignatureAdhoc;
 		secinfo("signer", "using inherited cdFlags=0x%x", cdFlags);
 		haveCdFlags = true;
 	}
-	if (!haveCdFlags)
+	if (!haveCdFlags) {
 		cdFlags = 0;
+	}
 	if ((state.mSigner == SecIdentityRef(kCFNull)) &&
-		!state.mOmitAdhocFlag)	// ad-hoc signing requested...
+		!state.mOmitAdhocFlag) { // ad-hoc signing requested...
 		cdFlags |= kSecCodeSignatureAdhoc;	// ... so note that
+	}
 
 	// prepare the internal requirements input
 	if (state.mRequirements) {
 		if (CFGetTypeID(state.mRequirements) == CFDataGetTypeID()) {		// binary form
 			const Requirements *rp = (const Requirements *)CFDataGetBytePtr(state.mRequirements.as<CFDataRef>());
-			if (!rp->validateBlob())
+			if (!rp->validateBlob()) {
 				MacOSError::throwMe(errSecCSReqInvalid);
+			}
 			requirements = rp->clone();
 		} else if (CFGetTypeID(state.mRequirements) == CFStringGetTypeID()) { // text form
 			CFRef<CFMutableStringRef> reqText = CFStringCreateMutableCopy(NULL, 0, state.mRequirements.as<CFStringRef>());
@@ -231,11 +248,14 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 			CFRange range = { 0, CFStringGetLength(reqText) };
 			CFStringFindAndReplace(reqText, CFSTR("$self.identifier"), CFTempString(identifier), range, 0);
 			requirements = parseRequirements(cfString(reqText));
-		} else
+		} else {
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
-	} else if (inherit & kSecCodeSignerPreserveRequirements)
-		if (const Requirements *rp = code->internalRequirements())
+		}
+	} else if (inherit & kSecCodeSignerPreserveRequirements) {
+		if (const Requirements *rp = code->internalRequirements()) {
 			requirements = rp->clone();
+		}
+	}
 	
 	// prepare the resource directory, if any
 	string rpath = rep->resourcesRootPath();
@@ -246,37 +266,47 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		resourceRules = state.mResourceRules;
 		
 		// inherited rules come next (overriding embedded ones!)
-		if (!resourceRules && (inherit & kSecCodeSignerPreserveResourceRules))
-			if (CFDictionaryRef oldRules = code->resourceDictionary(false))
+		if (!resourceRules && (inherit & kSecCodeSignerPreserveResourceRules)) {
+			if (CFDictionaryRef oldRules = code->resourceDictionary(false)) {
 				resourceRules = oldRules;
+			}
+		}
 		
 		// embedded resource rules come next
-		if (!resourceRules && infoDict)
+		if (!resourceRules && infoDict) {
 			if (CFTypeRef spec = CFDictionaryGetValue(infoDict, _kCFBundleResourceSpecificationKey)) {
-				if (CFGetTypeID(spec) == CFStringGetTypeID())
-					if (CFRef<CFDataRef> data = cfLoadFile(rpath + "/" + cfString(CFStringRef(spec))))
-						if (CFDictionaryRef dict = makeCFDictionaryFrom(data))
+				if (CFGetTypeID(spec) == CFStringGetTypeID()) {
+					if (CFRef<CFDataRef> data = cfLoadFile(rpath + "/" + cfString(CFStringRef(spec)))) {
+						if (CFDictionaryRef dict = makeCFDictionaryFrom(data)) {
 							resourceRules.take(dict);
-				if (!resourceRules)	// embedded rules present but unacceptable
+						}
+					}
+				}
+				if (!resourceRules)	{ // embedded rules present but unacceptable
 					MacOSError::throwMe(errSecCSResourceRulesInvalid);
+				}
 			}
+		}
 		
 		// if we got one from anywhere (but the defaults), check it
 		if (resourceRules) {
 			CFTypeRef rules = CFDictionaryGetValue(resourceRules, CFSTR("rules"));
-			if (!rules || CFGetTypeID(rules) != CFDictionaryGetTypeID())
+			if (!rules || CFGetTypeID(rules) != CFDictionaryGetTypeID()) {
 				MacOSError::throwMe(errSecCSResourceRulesInvalid);
+			}
 		}
 
 		// finally, ask the DiskRep for its default
-		if (!resourceRules)
+		if (!resourceRules) {
 			resourceRules.take(rep->defaultResourceRules(*this));
+		}
 
 		// resource root can optionally be the canonical bundle path,
 		// but sealed resource paths are always relative to rpath
 		rrpath = rpath;
-		if (signingFlags() & kSecCSSignBundleRoot)
+		if (signingFlags() & kSecCSSignBundleRoot) {
 			rrpath = cfStringRelease(rep->copyCanonicalPath());
+		}
 	}
 	
 	// screen and set the signing time
@@ -309,8 +339,6 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		buildResources(rrpath, rpath, resourceRules);
 	}
 
-	
-	
 	if (inherit & kSecCodeSignerPreservePEH) {
 		/* We need at least one architecture in all cases because we index our
 		 * PreEncryptionMaps by architecture. However, only machOs have any

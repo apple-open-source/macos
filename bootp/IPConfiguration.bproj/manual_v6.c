@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -245,11 +245,13 @@ manual_v6_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     case IFEventID_wake_e:
     case IFEventID_renew_e:
     case IFEventID_link_status_changed_e: {
-	link_status_t	link_status;
+	link_event_data_t	link_event;
+	link_status_t *	link_status_p;
 
-	link_status = service_link_status(service_p);
-	if (link_status.valid == TRUE) {
-	    if (link_status.active == TRUE
+	link_event = (link_event_data_t)event_data;
+	link_status_p = &link_event->link_status;
+	if (link_status_p->valid == TRUE) {
+	    if (link_status_p->active == TRUE
 		&& (evid != IFEventID_wake_e
 		    || ServiceIsPublished(service_p) == FALSE)) {
 		manual_v6_start(service_p);

@@ -166,6 +166,21 @@
 		9201A3941ED2C95A00572A78 /* libapple_nghttp2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 9201A3931ED2C95A00572A78 /* libapple_nghttp2.tbd */; };
 		D0A62E8A288F297000D3789A /* fopen.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A62E89288F297000D3789A /* fopen.c */; };
 		D0A62E8C288F299600D3789A /* fopen.h in Headers */ = {isa = PBXBuildFile; fileRef = D0A62E8B288F299600D3789A /* fopen.h */; };
+		D0B05C1728E7A4FE008C5347 /* CURLINFO_CAINFO.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C0E28E7A4F7008C5347 /* CURLINFO_CAINFO.3 */; };
+		D0B05C1828E7A4FE008C5347 /* CURLINFO_CAPATH.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C1128E7A4F7008C5347 /* CURLINFO_CAPATH.3 */; };
+		D0B05C1928E7A4FE008C5347 /* CURLOPT_CAINFO_BLOB.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C1228E7A4F7008C5347 /* CURLOPT_CAINFO_BLOB.3 */; };
+		D0B05C1A28E7A4FE008C5347 /* CURLOPT_MAXLIFETIME_CONN.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C1628E7A4F8008C5347 /* CURLOPT_MAXLIFETIME_CONN.3 */; };
+		D0B05C1B28E7A4FE008C5347 /* CURLOPT_MIME_OPTIONS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C0B28E7A4F7008C5347 /* CURLOPT_MIME_OPTIONS.3 */; };
+		D0B05C1C28E7A4FE008C5347 /* CURLOPT_PREREQDATA.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C0A28E7A4F7008C5347 /* CURLOPT_PREREQDATA.3 */; };
+		D0B05C1D28E7A4FE008C5347 /* CURLOPT_PREREQFUNCTION.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C0D28E7A4F7008C5347 /* CURLOPT_PREREQFUNCTION.3 */; };
+		D0B05C1E28E7A4FE008C5347 /* CURLOPT_PROTOCOLS_STR.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C1028E7A4F7008C5347 /* CURLOPT_PROTOCOLS_STR.3 */; };
+		D0B05C1F28E7A4FE008C5347 /* CURLOPT_PROXY_CAINFO_BLOB.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C0C28E7A4F7008C5347 /* CURLOPT_PROXY_CAINFO_BLOB.3 */; };
+		D0B05C2028E7A4FE008C5347 /* CURLOPT_REDIR_PROTOCOLS_STR.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C1328E7A4F7008C5347 /* CURLOPT_REDIR_PROTOCOLS_STR.3 */; };
+		D0B05C2128E7A4FE008C5347 /* CURLOPT_SERVER_RESPONSE_TIMEOUT.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C0F28E7A4F7008C5347 /* CURLOPT_SERVER_RESPONSE_TIMEOUT.3 */; };
+		D0B05C2228E7A4FE008C5347 /* CURLOPT_SSH_HOST_PUBLIC_KEY_SHA256.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C0928E7A4F7008C5347 /* CURLOPT_SSH_HOST_PUBLIC_KEY_SHA256.3 */; };
+		D0B05C2328E7A4FE008C5347 /* CURLOPT_SSH_HOSTKEYDATA.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C1428E7A4F7008C5347 /* CURLOPT_SSH_HOSTKEYDATA.3 */; };
+		D0B05C2428E7A4FE008C5347 /* CURLOPT_SSH_HOSTKEYFUNCTION.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C1528E7A4F8008C5347 /* CURLOPT_SSH_HOSTKEYFUNCTION.3 */; };
+		D0B05C2628E7A534008C5347 /* curl_easy_header.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = D0B05C2528E7A513008C5347 /* curl_easy_header.3 */; };
 		D3469A502857C329006E340F /* timediff.h in Headers */ = {isa = PBXBuildFile; fileRef = D3469A4A2857C329006E340F /* timediff.h */; };
 		D3469A512857C329006E340F /* h2h3.c in Sources */ = {isa = PBXBuildFile; fileRef = D3469A4B2857C329006E340F /* h2h3.c */; };
 		D3469A522857C329006E340F /* timediff.c in Sources */ = {isa = PBXBuildFile; fileRef = D3469A4C2857C329006E340F /* timediff.c */; };
@@ -673,7 +688,6 @@
 		FDDC12971981DE3F002F032D /* CURLOPT_FTP_ALTERNATIVE_TO_USER.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11C31981DDED002F032D /* CURLOPT_FTP_ALTERNATIVE_TO_USER.3 */; };
 		FDDC12981981DE3F002F032D /* CURLOPT_FTP_CREATE_MISSING_DIRS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11C41981DDED002F032D /* CURLOPT_FTP_CREATE_MISSING_DIRS.3 */; };
 		FDDC12991981DE3F002F032D /* CURLOPT_FTP_FILEMETHOD.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11C51981DDED002F032D /* CURLOPT_FTP_FILEMETHOD.3 */; };
-		FDDC129A1981DE3F002F032D /* CURLOPT_FTP_RESPONSE_TIMEOUT.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11C61981DDED002F032D /* CURLOPT_FTP_RESPONSE_TIMEOUT.3 */; };
 		FDDC129B1981DE3F002F032D /* CURLOPT_FTP_SKIP_PASV_IP.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11C71981DDED002F032D /* CURLOPT_FTP_SKIP_PASV_IP.3 */; };
 		FDDC129C1981DE3F002F032D /* CURLOPT_FTP_SSL_CCC.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11C81981DDED002F032D /* CURLOPT_FTP_SSL_CCC.3 */; };
 		FDDC129D1981DE3F002F032D /* CURLOPT_FTP_USE_EPRT.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = FDDC11C91981DDED002F032D /* CURLOPT_FTP_USE_EPRT.3 */; };
@@ -925,6 +939,21 @@
 			dstPath = "$(CURL_PREFIX)/share/man/man3";
 			dstSubfolderSpec = 0;
 			files = (
+				D0B05C2628E7A534008C5347 /* curl_easy_header.3 in Install man3 */,
+				D0B05C1728E7A4FE008C5347 /* CURLINFO_CAINFO.3 in Install man3 */,
+				D0B05C1828E7A4FE008C5347 /* CURLINFO_CAPATH.3 in Install man3 */,
+				D0B05C1928E7A4FE008C5347 /* CURLOPT_CAINFO_BLOB.3 in Install man3 */,
+				D0B05C1A28E7A4FE008C5347 /* CURLOPT_MAXLIFETIME_CONN.3 in Install man3 */,
+				D0B05C1B28E7A4FE008C5347 /* CURLOPT_MIME_OPTIONS.3 in Install man3 */,
+				D0B05C1C28E7A4FE008C5347 /* CURLOPT_PREREQDATA.3 in Install man3 */,
+				D0B05C1D28E7A4FE008C5347 /* CURLOPT_PREREQFUNCTION.3 in Install man3 */,
+				D0B05C1E28E7A4FE008C5347 /* CURLOPT_PROTOCOLS_STR.3 in Install man3 */,
+				D0B05C1F28E7A4FE008C5347 /* CURLOPT_PROXY_CAINFO_BLOB.3 in Install man3 */,
+				D0B05C2028E7A4FE008C5347 /* CURLOPT_REDIR_PROTOCOLS_STR.3 in Install man3 */,
+				D0B05C2128E7A4FE008C5347 /* CURLOPT_SERVER_RESPONSE_TIMEOUT.3 in Install man3 */,
+				D0B05C2228E7A4FE008C5347 /* CURLOPT_SSH_HOST_PUBLIC_KEY_SHA256.3 in Install man3 */,
+				D0B05C2328E7A4FE008C5347 /* CURLOPT_SSH_HOSTKEYDATA.3 in Install man3 */,
+				D0B05C2428E7A4FE008C5347 /* CURLOPT_SSH_HOSTKEYFUNCTION.3 in Install man3 */,
 				D3B5ABD92620BC3600B8570A /* CURLINFO_APPCONNECT_TIME_T.3 in Install man3 */,
 				D3B5ABDA2620BC3600B8570A /* CURLINFO_CONNECT_TIME_T.3 in Install man3 */,
 				D3B5ABDB2620BC3600B8570A /* CURLINFO_CONTENT_LENGTH_DOWNLOAD_T.3 in Install man3 */,
@@ -1160,7 +1189,6 @@
 				FDDC12971981DE3F002F032D /* CURLOPT_FTP_ALTERNATIVE_TO_USER.3 in Install man3 */,
 				FDDC12981981DE3F002F032D /* CURLOPT_FTP_CREATE_MISSING_DIRS.3 in Install man3 */,
 				FDDC12991981DE3F002F032D /* CURLOPT_FTP_FILEMETHOD.3 in Install man3 */,
-				FDDC129A1981DE3F002F032D /* CURLOPT_FTP_RESPONSE_TIMEOUT.3 in Install man3 */,
 				FDDC129B1981DE3F002F032D /* CURLOPT_FTP_SKIP_PASV_IP.3 in Install man3 */,
 				FDDC129C1981DE3F002F032D /* CURLOPT_FTP_SSL_CCC.3 in Install man3 */,
 				FDDC129D1981DE3F002F032D /* CURLOPT_FTP_USE_EPRT.3 in Install man3 */,
@@ -1518,6 +1546,23 @@
 		9201A3931ED2C95A00572A78 /* libapple_nghttp2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libapple_nghttp2.tbd; path = usr/lib/libapple_nghttp2.tbd; sourceTree = SDKROOT; };
 		D0A62E89288F297000D3789A /* fopen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = fopen.c; path = curl/lib/fopen.c; sourceTree = "<group>"; };
 		D0A62E8B288F299600D3789A /* fopen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = fopen.h; path = curl/lib/fopen.h; sourceTree = "<group>"; };
+		D0B05C0328E7A356008C5347 /* curl_url_strerror.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = curl_url_strerror.3; path = curl/docs/libcurl/curl_url_strerror.3; sourceTree = "<group>"; };
+		D0B05C0428E7A356008C5347 /* curl_easy_nextheader.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = curl_easy_nextheader.3; path = curl/docs/libcurl/curl_easy_nextheader.3; sourceTree = "<group>"; };
+		D0B05C0928E7A4F7008C5347 /* CURLOPT_SSH_HOST_PUBLIC_KEY_SHA256.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_SSH_HOST_PUBLIC_KEY_SHA256.3; path = opts/CURLOPT_SSH_HOST_PUBLIC_KEY_SHA256.3; sourceTree = "<group>"; };
+		D0B05C0A28E7A4F7008C5347 /* CURLOPT_PREREQDATA.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_PREREQDATA.3; path = opts/CURLOPT_PREREQDATA.3; sourceTree = "<group>"; };
+		D0B05C0B28E7A4F7008C5347 /* CURLOPT_MIME_OPTIONS.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_MIME_OPTIONS.3; path = opts/CURLOPT_MIME_OPTIONS.3; sourceTree = "<group>"; };
+		D0B05C0C28E7A4F7008C5347 /* CURLOPT_PROXY_CAINFO_BLOB.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_PROXY_CAINFO_BLOB.3; path = opts/CURLOPT_PROXY_CAINFO_BLOB.3; sourceTree = "<group>"; };
+		D0B05C0D28E7A4F7008C5347 /* CURLOPT_PREREQFUNCTION.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_PREREQFUNCTION.3; path = opts/CURLOPT_PREREQFUNCTION.3; sourceTree = "<group>"; };
+		D0B05C0E28E7A4F7008C5347 /* CURLINFO_CAINFO.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLINFO_CAINFO.3; path = opts/CURLINFO_CAINFO.3; sourceTree = "<group>"; };
+		D0B05C0F28E7A4F7008C5347 /* CURLOPT_SERVER_RESPONSE_TIMEOUT.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_SERVER_RESPONSE_TIMEOUT.3; path = opts/CURLOPT_SERVER_RESPONSE_TIMEOUT.3; sourceTree = "<group>"; };
+		D0B05C1028E7A4F7008C5347 /* CURLOPT_PROTOCOLS_STR.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_PROTOCOLS_STR.3; path = opts/CURLOPT_PROTOCOLS_STR.3; sourceTree = "<group>"; };
+		D0B05C1128E7A4F7008C5347 /* CURLINFO_CAPATH.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLINFO_CAPATH.3; path = opts/CURLINFO_CAPATH.3; sourceTree = "<group>"; };
+		D0B05C1228E7A4F7008C5347 /* CURLOPT_CAINFO_BLOB.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_CAINFO_BLOB.3; path = opts/CURLOPT_CAINFO_BLOB.3; sourceTree = "<group>"; };
+		D0B05C1328E7A4F7008C5347 /* CURLOPT_REDIR_PROTOCOLS_STR.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_REDIR_PROTOCOLS_STR.3; path = opts/CURLOPT_REDIR_PROTOCOLS_STR.3; sourceTree = "<group>"; };
+		D0B05C1428E7A4F7008C5347 /* CURLOPT_SSH_HOSTKEYDATA.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_SSH_HOSTKEYDATA.3; path = opts/CURLOPT_SSH_HOSTKEYDATA.3; sourceTree = "<group>"; };
+		D0B05C1528E7A4F8008C5347 /* CURLOPT_SSH_HOSTKEYFUNCTION.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_SSH_HOSTKEYFUNCTION.3; path = opts/CURLOPT_SSH_HOSTKEYFUNCTION.3; sourceTree = "<group>"; };
+		D0B05C1628E7A4F8008C5347 /* CURLOPT_MAXLIFETIME_CONN.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CURLOPT_MAXLIFETIME_CONN.3; path = opts/CURLOPT_MAXLIFETIME_CONN.3; sourceTree = "<group>"; };
+		D0B05C2528E7A513008C5347 /* curl_easy_header.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = curl_easy_header.3; sourceTree = "<group>"; };
 		D3469A4A2857C329006E340F /* timediff.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = timediff.h; sourceTree = "<group>"; };
 		D3469A4B2857C329006E340F /* h2h3.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = h2h3.c; sourceTree = "<group>"; };
 		D3469A4C2857C329006E340F /* timediff.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = timediff.c; sourceTree = "<group>"; };
@@ -2105,7 +2150,6 @@
 		FDDC11C31981DDED002F032D /* CURLOPT_FTP_ALTERNATIVE_TO_USER.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_FTP_ALTERNATIVE_TO_USER.3; sourceTree = "<group>"; };
 		FDDC11C41981DDED002F032D /* CURLOPT_FTP_CREATE_MISSING_DIRS.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_FTP_CREATE_MISSING_DIRS.3; sourceTree = "<group>"; };
 		FDDC11C51981DDED002F032D /* CURLOPT_FTP_FILEMETHOD.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_FTP_FILEMETHOD.3; sourceTree = "<group>"; };
-		FDDC11C61981DDED002F032D /* CURLOPT_FTP_RESPONSE_TIMEOUT.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_FTP_RESPONSE_TIMEOUT.3; sourceTree = "<group>"; };
 		FDDC11C71981DDED002F032D /* CURLOPT_FTP_SKIP_PASV_IP.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_FTP_SKIP_PASV_IP.3; sourceTree = "<group>"; };
 		FDDC11C81981DDED002F032D /* CURLOPT_FTP_SSL_CCC.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_FTP_SSL_CCC.3; sourceTree = "<group>"; };
 		FDDC11C91981DDED002F032D /* CURLOPT_FTP_USE_EPRT.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_FTP_USE_EPRT.3; sourceTree = "<group>"; };
@@ -2399,6 +2443,8 @@
 		FC0A9E99124554EE00173580 = {
 			isa = PBXGroup;
 			children = (
+				D0B05C0428E7A356008C5347 /* curl_easy_nextheader.3 */,
+				D0B05C0328E7A356008C5347 /* curl_url_strerror.3 */,
 				D0A62E8B288F299600D3789A /* fopen.h */,
 				D0A62E89288F297000D3789A /* fopen.c */,
 				FD07CC40149AAED0004DE255 /* curl */,
@@ -2822,6 +2868,21 @@
 		FD07CCB0149AC5BF004DE255 /* libcurl */ = {
 			isa = PBXGroup;
 			children = (
+				D0B05C2528E7A513008C5347 /* curl_easy_header.3 */,
+				D0B05C0E28E7A4F7008C5347 /* CURLINFO_CAINFO.3 */,
+				D0B05C1128E7A4F7008C5347 /* CURLINFO_CAPATH.3 */,
+				D0B05C1228E7A4F7008C5347 /* CURLOPT_CAINFO_BLOB.3 */,
+				D0B05C1628E7A4F8008C5347 /* CURLOPT_MAXLIFETIME_CONN.3 */,
+				D0B05C0B28E7A4F7008C5347 /* CURLOPT_MIME_OPTIONS.3 */,
+				D0B05C0A28E7A4F7008C5347 /* CURLOPT_PREREQDATA.3 */,
+				D0B05C0D28E7A4F7008C5347 /* CURLOPT_PREREQFUNCTION.3 */,
+				D0B05C1028E7A4F7008C5347 /* CURLOPT_PROTOCOLS_STR.3 */,
+				D0B05C0C28E7A4F7008C5347 /* CURLOPT_PROXY_CAINFO_BLOB.3 */,
+				D0B05C1328E7A4F7008C5347 /* CURLOPT_REDIR_PROTOCOLS_STR.3 */,
+				D0B05C0F28E7A4F7008C5347 /* CURLOPT_SERVER_RESPONSE_TIMEOUT.3 */,
+				D0B05C0928E7A4F7008C5347 /* CURLOPT_SSH_HOST_PUBLIC_KEY_SHA256.3 */,
+				D0B05C1428E7A4F7008C5347 /* CURLOPT_SSH_HOSTKEYDATA.3 */,
+				D0B05C1528E7A4F8008C5347 /* CURLOPT_SSH_HOSTKEYFUNCTION.3 */,
 				FD07CCB2149AC5BF004DE255 /* curl_easy_cleanup.3 */,
 				FD07CCB5149AC5BF004DE255 /* curl_easy_duphandle.3 */,
 				FD07CCB8149AC5BF004DE255 /* curl_easy_escape.3 */,
@@ -3125,7 +3186,6 @@
 				FDDC11C31981DDED002F032D /* CURLOPT_FTP_ALTERNATIVE_TO_USER.3 */,
 				FDDC11C41981DDED002F032D /* CURLOPT_FTP_CREATE_MISSING_DIRS.3 */,
 				FDDC11C51981DDED002F032D /* CURLOPT_FTP_FILEMETHOD.3 */,
-				FDDC11C61981DDED002F032D /* CURLOPT_FTP_RESPONSE_TIMEOUT.3 */,
 				FDDC11C71981DDED002F032D /* CURLOPT_FTP_SKIP_PASV_IP.3 */,
 				FDDC11C81981DDED002F032D /* CURLOPT_FTP_SSL_CCC.3 */,
 				FDDC11C91981DDED002F032D /* CURLOPT_FTP_USE_EPRT.3 */,

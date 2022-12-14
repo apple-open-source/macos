@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,14 +30,15 @@ serverprefix _;
 import "ipconfig_types.h";
 
 type ip_address = MACH_MSG_TYPE_INTEGER_32
-	ctype : uint32_t;
+	ctype : ip_address_t;
 type ipconfig_status = MACH_MSG_TYPE_INTEGER_32
 	ctype : ipconfig_status_t;
-
 type if_name = array[16] of char
 	ctype : InterfaceName;
 type service_id = array[128] of char
 	ctype : ServiceID;
+type dhcp_ia_id = MACH_MSG_TYPE_INTEGER_32
+	ctype : DHCPIAID;
 
 /*
  * serialized XML data (client->server)
@@ -167,5 +168,14 @@ routine ipconfig_get_summary(	server : mach_port_t;
 			out	status : ipconfig_status);
 
 routine ipconfig_get_interface_list(	server : mach_port_t;
-			out	state : xmlDataOut, dealloc;
+			out	if_array : xmlDataOut, dealloc;
+			out	status : ipconfig_status);
+
+routine ipconfig_get_dhcp_duid(	server : mach_port_t;
+			out	dhcp_duid : dataOut, dealloc;
+			out	status : ipconfig_status);
+
+routine ipconfig_get_dhcp_ia_id( server : mach_port_t;
+				name : if_name;
+			out	ia_id : dhcp_ia_id;
 			out	status : ipconfig_status);

@@ -4,4 +4,4 @@ FS_BUNDLE_PATH = /System/Library/Filesystems/msdos.fs
 FS_BUNDLE_BIN_DIR = $()
 FS_BUNDLE_BIN_DIR[sdk=macosx*] = Contents/Resources
 FS_BUNDLE_BIN_PATH = $FS_BUNDLE_PATH/$FS_BUNDLE_BIN_DIR
-SUPPORTED_PLATFORMS = macosx iphonesimulator iphoneos
+SUPPORTED_PLATFORMS = macosx

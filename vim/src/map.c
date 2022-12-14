@@ -1711,7 +1711,7 @@ eval_map_expr(
     }
 
     // Note: the evaluation may make "mp" invalid.
-    p = eval_to_string(expr, FALSE);
+    p = eval_to_string(expr, FALSE, FALSE);
 
     --textlock;
     --ex_normal_lock;
@@ -2317,7 +2317,7 @@ mapblock2dict(
 	int	    buffer_local,   // false if not buffer local mapping
 	int	    abbr)	    // true if abbreviation
 {
-    char_u	    *lhs = str2special_save(mp->m_keys, TRUE);
+    char_u	    *lhs = str2special_save(mp->m_keys, TRUE, FALSE);
     char_u	    *mapmode = map_mode_to_chars(mp->m_mode);
 
     dict_add_string(dict, "lhs", lhs);
@@ -2409,7 +2409,7 @@ get_maparg(typval_T *argvars, typval_T *rettv, int exact)
 	    if (*rhs == NUL)
 		rettv->vval.v_string = vim_strsave((char_u *)"<Nop>");
 	    else
-		rettv->vval.v_string = str2special_save(rhs, FALSE);
+		rettv->vval.v_string = str2special_save(rhs, FALSE, FALSE);
 	}
 
     }
@@ -2478,7 +2478,7 @@ f_maplist(typval_T *argvars UNUSED, typval_T *rettv)
 		keys_buf = NULL;
 		did_simplify = FALSE;
 
-		lhs = str2special_save(mp->m_keys, TRUE);
+		lhs = str2special_save(mp->m_keys, TRUE, FALSE);
 		(void)replace_termcodes(lhs, &keys_buf, flags, &did_simplify);
 		vim_free(lhs);
 
@@ -2635,11 +2635,8 @@ f_mapset(typval_T *argvars, typval_T *rettv UNUSED)
 	    return;
 	is_abbr = (int)tv_get_bool(&argvars[1]);
 
-	if (argvars[2].v_type != VAR_DICT)
-	{
-	    emsg(_(e_dictionary_required));
+	if (check_for_dict_arg(argvars, 2) == FAIL)
 	    return;
-	}
 	d = argvars[2].vval.v_dict;
     }
     mode = get_map_mode_string(which, is_abbr);
@@ -2661,7 +2658,10 @@ f_mapset(typval_T *argvars, typval_T *rettv UNUSED)
 	return;
     }
     orig_rhs = rhs;
-    rhs = replace_termcodes(rhs, &arg_buf,
+    if (STRICMP(rhs, "<nop>") == 0)	// "<Nop>" means nothing
+	rhs = (char_u *)"";
+    else
+	rhs = replace_termcodes(rhs, &arg_buf,
 					REPTERM_DO_LT | REPTERM_SPECIAL, NULL);
 
     noremap = dict_get_number(d, "noremap") ? REMAP_NONE: 0;

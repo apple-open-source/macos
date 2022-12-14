@@ -74,7 +74,8 @@ extern NSString* kSecEntitlementPrivateOctagonSecureElement;
 @property (nonatomic, copy, nullable) NSString* altDSID;
 @property (nonatomic, copy, nullable) NSString* authenticationAppleID;
 @property (nonatomic, copy, nullable) NSString* passwordEquivalentToken;
-@property (nonatomic) BOOL overrideEscrowCache;
+@property (nonatomic) BOOL overrideEscrowCache; // SPI_DEPRECATED("use 'escrowFetchSource' instead", ios(14.0, 16.2));
+@property (nonatomic) OTEscrowRecordFetchSource escrowFetchSource;
 @property (nonatomic) BOOL overrideForSetupAccountScript; // this should only be used for the account setup script
 
 // Use this to inject your own OTControl object. It must be configured as synchronous.
@@ -350,6 +351,11 @@ API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15
                     recoveryKey:(NSString*)recoveryKey
                           reply:(void(^)(NSError* _Nullable error))reply;
 
+// used by sbd to recover octagon data by providing a
++ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
+                    recoveryKey:(NSString*)recoveryKey
+                     sosSuccess:(BOOL)sosSuccess
+                          reply:(void(^)(NSError* _Nullable error))reply;
 
 // Create a new custodian recovery key.
 + (void)createCustodianRecoveryKey:(OTConfigurationContext*)ctx

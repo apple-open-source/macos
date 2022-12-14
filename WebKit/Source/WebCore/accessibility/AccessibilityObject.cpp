@@ -962,7 +962,7 @@ Vector<SimpleRange> AccessibilityObject::findTextRanges(const AccessibilitySearc
     return result;
 }
 
-Vector<String> AccessibilityObject::performTextOperation(AccessibilityTextOperation const& operation)
+Vector<String> AccessibilityObject::performTextOperation(const AccessibilityTextOperation& operation)
 {
     Vector<String> result;
 
@@ -1824,14 +1824,6 @@ const AccessibilityScrollView* AccessibilityObject::ancestorAccessibilityScrollV
     }));
 }
 
-ScrollView* AccessibilityObject::scrollViewAncestor() const
-{
-    if (auto parentScrollView = ancestorAccessibilityScrollView(true/* includeSelf */))
-        return parentScrollView->scrollView();
-    
-    return nullptr;
-}
-
 #if PLATFORM(COCOA)
 RemoteAXObjectRef AccessibilityObject::remoteParentObject() const
 {
@@ -2185,27 +2177,6 @@ AccessibilityCurrentState AccessibilityObject::currentState() const
     return AccessibilityCurrentState::True;
 }
 
-String AccessibilityObject::currentValue() const
-{
-    switch (currentState()) {
-    case AccessibilityCurrentState::False:
-        return "false"_s;
-    case AccessibilityCurrentState::Page:
-        return "page"_s;
-    case AccessibilityCurrentState::Step:
-        return "step"_s;
-    case AccessibilityCurrentState::Location:
-        return "location"_s;
-    case AccessibilityCurrentState::Time:
-        return "time"_s;
-    case AccessibilityCurrentState::Date:
-        return "date"_s;
-    default:
-    case AccessibilityCurrentState::True:
-        return "true"_s;
-    }
-}
-
 bool AccessibilityObject::isModalDescendant(Node* modalNode) const
 {
     Node* node = this->node();
@@ -2350,15 +2321,6 @@ AccessibilityOrientation AccessibilityObject::orientation() const
 
     return AccessibilityOrientation::Undefined;
 }    
-
-AccessibilityObject* AccessibilityObject::firstAnonymousBlockChild() const
-{
-    for (AccessibilityObject* child = firstChild(); child; child = child->nextSibling()) {
-        if (child->renderer() && child->renderer()->isAnonymousBlock())
-            return child;
-    }
-    return nullptr;
-}
 
 using ARIARoleMap = HashMap<String, AccessibilityRole, ASCIICaseInsensitiveHash>;
 using ARIAReverseRoleMap = HashMap<AccessibilityRole, String, DefaultHash<int>, WTF::UnsignedWithZeroKeyHashTraits<int>>;
@@ -3976,7 +3938,7 @@ static bool isRadioButtonInDifferentAdhocGroup(RefPtr<AXCoreObject> axObject, AX
     return axObject->attributeValue("name"_s) != referenceObject->attributeValue("name"_s);
 }
 
-static bool isAccessibilityObjectSearchMatchAtIndex(RefPtr<AXCoreObject> axObject, AccessibilitySearchCriteria const& criteria, size_t index)
+static bool isAccessibilityObjectSearchMatchAtIndex(RefPtr<AXCoreObject> axObject, const AccessibilitySearchCriteria& criteria, size_t index)
 {
     switch (criteria.searchKeys[index]) {
     case AccessibilitySearchKey::AnyType:
@@ -4084,7 +4046,7 @@ static bool isAccessibilityObjectSearchMatchAtIndex(RefPtr<AXCoreObject> axObjec
     }
 }
 
-static bool isAccessibilityObjectSearchMatch(RefPtr<AXCoreObject> axObject, AccessibilitySearchCriteria const& criteria)
+static bool isAccessibilityObjectSearchMatch(RefPtr<AXCoreObject> axObject, const AccessibilitySearchCriteria& criteria)
 {
     if (!axObject)
         return false;
@@ -4100,7 +4062,7 @@ static bool isAccessibilityObjectSearchMatch(RefPtr<AXCoreObject> axObject, Acce
     return false;
 }
 
-static bool isAccessibilityTextSearchMatch(RefPtr<AXCoreObject> axObject, AccessibilitySearchCriteria const& criteria)
+static bool isAccessibilityTextSearchMatch(RefPtr<AXCoreObject> axObject, const AccessibilitySearchCriteria& criteria)
 {
     if (!axObject)
         return false;
@@ -4114,7 +4076,7 @@ static bool isAccessibilityTextSearchMatch(RefPtr<AXCoreObject> axObject, Access
         || containsPlainText(axObject->stringValue(), criteria.searchText, CaseInsensitive);
 }
 
-static bool objectMatchesSearchCriteriaWithResultLimit(RefPtr<AXCoreObject> object, AccessibilitySearchCriteria const& criteria, AXCoreObject::AccessibilityChildrenVector& results)
+static bool objectMatchesSearchCriteriaWithResultLimit(RefPtr<AXCoreObject> object, const AccessibilitySearchCriteria& criteria, AXCoreObject::AccessibilityChildrenVector& results)
 {
     if (isAccessibilityObjectSearchMatch(object, criteria) && isAccessibilityTextSearchMatch(object, criteria)) {
         results.append(object);
@@ -4178,7 +4140,7 @@ static void appendChildrenToArray(RefPtr<AXCoreObject> object, bool isForward, R
     }
 }
 
-void findMatchingObjects(AccessibilitySearchCriteria const& criteria, AXCoreObject::AccessibilityChildrenVector& results)
+void findMatchingObjects(const AccessibilitySearchCriteria& criteria, AXCoreObject::AccessibilityChildrenVector& results)
 {
     AXTRACE("Accessibility::findMatchingObjects"_s);
     AXLOG(criteria);

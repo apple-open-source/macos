@@ -655,8 +655,8 @@ void FrameView::applyOverflowToViewport(const RenderElement& renderer, Scrollbar
 
     bool overrideHidden = frame().isMainFrame() && ((frame().frameScaleFactor() > 1) || headerHeight() || footerHeight());
 
-    Overflow overflowX = renderer.effectiveOverflowX();
-    Overflow overflowY = renderer.effectiveOverflowY();
+    Overflow overflowX = renderer.style().overflowX();
+    Overflow overflowY = renderer.style().overflowY();
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGRoot>(renderer)) {
@@ -971,7 +971,7 @@ void FrameView::updateSnapOffsets()
     LayoutRect viewport = LayoutRect(IntPoint(), baseLayoutViewportSize());
     viewport.move(-rootRenderer->marginLeft(), -rootRenderer->marginTop());
 
-    updateSnapOffsetsForScrollableArea(*this, *rootRenderer, *styleToUse, viewport, rootRenderer->style().writingMode(), rootRenderer->style().direction());
+    updateSnapOffsetsForScrollableArea(*this, *rootRenderer, *styleToUse, viewport, rootRenderer->style().writingMode(), rootRenderer->style().direction(), frame().document()->focusedElement());
 }
 
 bool FrameView::isScrollSnapInProgress() const
@@ -2366,8 +2366,6 @@ void FrameView::maintainScrollPositionAtAnchor(ContainerNode* anchorNode)
 
 void FrameView::maintainScrollPositionAtScrollToTextFragmentRange(SimpleRange& range)
 {
-    LOG(Scrolling, "FrameView::maintainScrollPositionAtScrollToTextFragmentRange at %p", range);
-
     m_pendingTextFragmentIndicatorRange = range;
     m_pendingTextFragmentIndicatorText = plainText(range);
     if (!m_pendingTextFragmentIndicatorRange)
@@ -2491,14 +2489,20 @@ void FrameView::scrollToFocusedElementInternal()
     auto updateTarget = focusedElement->focusAppearanceUpdateTarget();
     if (!updateTarget)
         return;
+    
+    // Get the scroll-margin of the shadow host when we're inside a user agent shadow root.
+    if (updateTarget->containingShadowRoot() && updateTarget->containingShadowRoot()->mode() == ShadowRootMode::UserAgent)
+        updateTarget = updateTarget->shadowHost();
 
     auto* renderer = updateTarget->renderer();
     if (!renderer || renderer->isWidget())
         return;
 
     bool insideFixed;
-    LayoutRect absoluteBounds = renderer->absoluteAnchorRectWithScrollMargin(&insideFixed);
-    FrameView::scrollRectToVisible(absoluteBounds, *renderer, insideFixed, { m_selectionRevealModeForFocusedElement, ScrollAlignment::alignCenterIfNeeded, ScrollAlignment::alignCenterIfNeeded, ShouldAllowCrossOriginScrolling::No });
+    auto absoluteBounds = renderer->absoluteAnchorRectWithScrollMargin(&insideFixed);
+    auto anchorRectWithScrollMargin = absoluteBounds.marginRect;
+    auto anchorRect = absoluteBounds.anchorRect;
+    FrameView::scrollRectToVisible(anchorRectWithScrollMargin, *renderer, insideFixed, { m_selectionRevealModeForFocusedElement, ScrollAlignment::alignCenterIfNeeded, ScrollAlignment::alignCenterIfNeeded, ShouldAllowCrossOriginScrolling::No, ScrollBehavior::Auto, anchorRect });
 }
 
 void FrameView::textFragmentIndicatorTimerFired()
@@ -3541,7 +3545,7 @@ void FrameView::scrollToAnchor()
     LayoutRect rect;
     bool insideFixed = false;
     if (anchorNode != frame().document() && anchorNode->renderer())
-        rect = anchorNode->renderer()->absoluteAnchorRectWithScrollMargin(&insideFixed);
+        rect = anchorNode->renderer()->absoluteAnchorRectWithScrollMargin(&insideFixed).marginRect;
 
     LOG_WITH_STREAM(Scrolling, stream << " anchor node rect " << rect);
 
@@ -3568,11 +3572,13 @@ void FrameView::scrollToTextFragmentRange()
     if (!m_pendingTextFragmentIndicatorRange)
         return;
 
-    auto rangeText = plainText(m_pendingTextFragmentIndicatorRange.value());
-    if (m_pendingTextFragmentIndicatorText != plainText(m_pendingTextFragmentIndicatorRange.value()))
+    if (needsLayout())
         return;
 
-    auto range = m_pendingTextFragmentIndicatorRange.value();
+    auto range = *m_pendingTextFragmentIndicatorRange;
+    auto rangeText = plainText(range);
+    if (m_pendingTextFragmentIndicatorText != plainText(range))
+        return;
 
     LOG_WITH_STREAM(Scrolling, stream << *this << " scrollToTextFragmentRange() " << range);
 
@@ -3675,7 +3681,12 @@ void FrameView::performPostLayoutTasks()
     // FIXME: We should not run any JavaScript code in this function.
     LOG(Layout, "FrameView %p performPostLayoutTasks", this);
     updateHasReachedSignificantRenderedTextThreshold();
-    frame().selection().updateAppearanceAfterLayout();
+
+    if (auto& selection = frame().selection(); selection.isFocusedAndActive()) {
+        // FIXME (247041): We should be able to remove this appearance update altogether,
+        // and instead defer updates until the next rendering update.
+        selection.updateAppearanceAfterLayout();
+    }
 
     flushPostLayoutTasksQueue();
 

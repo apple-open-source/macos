@@ -265,10 +265,16 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                         if ((addr = kalloc_data(sopt->sopt_valsize, Z_WAITOK)) == 0)
                             error = ENOMEM;
                         else {
-                            if ((error = sooptcopyin(sopt, addr, sopt->sopt_valsize, sopt->sopt_valsize)) == 0)
-                                error = l2tp_rfc_command(so->so_pcb, 
-                                    sopt->sopt_name == L2TP_OPT_OURADDRESS ? L2TP_CMD_SETOURADDR : L2TP_CMD_SETPEERADDR,
-                                    addr);
+                            if ((error = sooptcopyin(sopt, addr, sopt->sopt_valsize, sopt->sopt_valsize)) == 0) {
+                                struct sockaddr *sa = (struct sockaddr *)addr;
+                                if (sa->sa_len <= sopt->sopt_valsize) {
+                                    error = l2tp_rfc_command(so->so_pcb,
+                                                             sopt->sopt_name == L2TP_OPT_OURADDRESS ? L2TP_CMD_SETOURADDR : L2TP_CMD_SETPEERADDR,
+                                                             addr);
+                                } else {
+                                    error = EINVAL;
+                                }
+                            }
                             kfree_data(addr, sopt->sopt_valsize);
                         }
                     }

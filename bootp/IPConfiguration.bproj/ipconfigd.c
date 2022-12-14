@@ -183,6 +183,7 @@
 #include <TargetConditionals.h>
 #include <Availability.h>
 #include <os/state_private.h>
+#include <os/variant_private.h>
 #if TARGET_OS_OSX
 #include <CoreFoundation/CFUserNotification.h>
 #include <CoreFoundation/CFUserNotificationPriv.h>
@@ -217,9 +218,12 @@
 #include "IPConfigurationControlPrefs.h"
 #include "CGA.h"
 #include "ICMPv6Socket.h"
+#include "DHCPDUIDIAID.h"
 #include "report_symptoms.h"
 #include "bootp_transmit.h"
 #include "wireless.h"
+
+#define IPCONFIGURATION_SUBSYSTEM	"com.apple.SystemConfiguration.IPConfiguration"
 
 #define RIFLAGS_IADDR_VALID		((uint32_t)0x1)
 #define RIFLAGS_HWADDR_VALID		((uint32_t)0x2)
@@ -596,7 +600,7 @@ boolean_t			G_discover_and_publish_router_mac_address = TRUE;
 
 boolean_t			G_dhcpv6_enabled = DHCPv6_ENABLED;
 boolean_t			G_dhcpv6_stateful_enabled = DHCPv6_STATEFUL_ENABLED;
-int				G_dhcp_duid_type = kDHCPDUIDTypeLLT;
+DHCPDUIDType			G_dhcp_duid_type;
 
 const unsigned char		G_rfc_magic[4] = RFC_OPTIONS_MAGIC;
 const struct in_addr		G_ip_broadcast = { INADDR_BROADCAST };
@@ -5455,7 +5459,7 @@ get_if_count()
 }
 
 PRIVATE_EXTERN ipconfig_status_t
-get_if_addr(const char * name, u_int32_t * addr)
+get_if_addr(const char * name, ip_address_t * addr)
 {
     IFStateRef 	ifstate;
     int			j;
@@ -5648,19 +5652,22 @@ get_if_ra(const char * name, xmlDataOut_t * ra_data,
 PRIVATE_EXTERN ipconfig_status_t
 copy_if_summary(const char * ifname, CFDictionaryRef * ret_summary)
 {
-    int 		i;
+    IFStateRef 		ifstate;
+    ipconfig_status_t	status = ipconfig_status_not_found_e;
     CFDictionaryRef	summary = NULL;
 
-    for (i = 0; i < dynarray_count(&S_ifstate_list); i++) {
-        IFStateRef	ifstate = dynarray_element(&S_ifstate_list, i);
-
-        if (strcmp(if_name(ifstate->if_p), ifname) == 0) {
-            summary = IFStateCopySummary(ifstate);
-            break;
-        }
+    ifstate = IFStateList_ifstate_with_name(&S_ifstate_list, ifname, NULL);
+    if (ifstate == NULL) {
+	status = ipconfig_status_interface_does_not_exist_e;
+    }
+    else {
+	summary = IFStateCopySummary(ifstate);
+	if (summary != NULL) {
+	    status = ipconfig_status_success_e;
+	}
     }
     *ret_summary = summary;
-    return (ipconfig_status_success_e);
+    return (status);
 }
 
 PRIVATE_EXTERN ipconfig_status_t
@@ -5684,6 +5691,50 @@ copy_interface_list(CFArrayRef * ret_list)
     return (ipconfig_status_success_e);
 }
 
+PRIVATE_EXTERN ipconfig_status_t
+get_dhcp_duid(dataOut_t * ret_duid, mach_msg_type_number_t * ret_duid_cnt)
+{
+    CFDataRef		duid = DHCPDUIDGet();
+    ipconfig_status_t	status = ipconfig_status_not_found_e;
+
+    if (duid != NULL) {
+	*ret_duid = copy_vm_data(CFDataGetBytePtr(duid), CFDataGetLength(duid),
+				 ret_duid_cnt);
+	status = (*ret_duid != NULL) ? ipconfig_status_success_e
+	    : ipconfig_status_allocation_failed_e;
+    }
+    else {
+	status = ipconfig_status_not_found_e;
+    }
+    return (status);
+}
+
+PRIVATE_EXTERN ipconfig_status_t
+get_dhcp_ia_id(const char * name, DHCPIAID * ia_id_p)
+{
+    IFStateRef 		ifstate;
+    ipconfig_status_t	status;
+
+    ifstate = IFStateList_ifstate_with_name(&S_ifstate_list, name, NULL);
+    if (ifstate == NULL) {
+	status = ipconfig_status_interface_does_not_exist_e;
+	goto done;
+    }
+    /*
+     * Return the DHCP IA_ID for the interface if IPv6 is configured and
+     * we've established the DUID.
+     */
+    if (dynarray_count(&ifstate->services_v6) > 0 && DHCPDUIDGet() != NULL) {
+	*ia_id_p = DHCPIAIDGet(name);
+	status = ipconfig_status_success_e;
+    }
+    else {
+	status = ipconfig_status_not_found_e;
+    }
+ done:
+    return (status);
+}
+
 static IPConfigFuncRef
 lookup_func(ipconfig_method_t method)
 {
@@ -5700,10 +5751,8 @@ lookup_func(ipconfig_method_t method)
 	func =  manual_thread;
 	break;
     case ipconfig_method_dhcp_e:
-	func =  dhcp_thread;
-	break;
     case ipconfig_method_bootp_e:
-	func =  bootp_thread;
+	func = dhcp_thread;
 	break;
     case ipconfig_method_failover_e:
 	func =  failover_thread;
@@ -6376,6 +6425,7 @@ refresh_service(const char * ifname, ServiceID service_id)
 	link_event_data		link_event;
 
 	bzero(&link_event, sizeof(link_event));
+	link_event.link_status = service_link_status(service_p);
 	my_log(LOG_INFO, "%s %s: refresh",
 	       if_name(ifstate->if_p),
 	       ServiceGetMethodString(service_p));
@@ -7869,14 +7919,15 @@ runloop_observer(CFRunLoopObserverRef observer,
 }
 
 STATIC void
-IFState_update_link_event_data(IFStateRef ifstate, link_event_data_t link_event)
+IFState_update_link_event_data(IFStateRef ifstate, link_event_data_t link_event,
+			       link_status_t * link_status_p)
 {
     interface_t *	if_p = ifstate->if_p;
 
     bzero(link_event, sizeof(*link_event));
+    link_event->link_status = *link_status_p;
     if (if_is_wireless(if_p)) {
 	WiFiInfoRef		info_p;
-	link_status_t		link_status = if_get_link_status(if_p);
 
 	info_p = S_copy_wifi_info(ifstate->ifname);
 	if (info_p != NULL) {
@@ -7907,7 +7958,7 @@ IFState_update_link_event_data(IFStateRef ifstate, link_event_data_t link_event)
 	 * link status is inactive (27755476)
 	 */
 	if (info_p != NULL
-	    || (link_status.valid && !link_status.active)) {
+	    || link_status_is_inactive(link_status_p)) {
 	    IFState_set_wifi_info(ifstate, info_p);
 	}
 	my_CFRelease(&info_p);
@@ -7942,7 +7993,8 @@ S_ifstate_process_wake(IFStateRef ifstate)
     my_log(LOG_INFO, "%s: Wake", if_name(if_p));
 
     /* check for link changes */
-    IFState_update_link_event_data(ifstate, &link_event);
+    IFState_update_link_event_data(ifstate, &link_event,
+				   &link_status);
 
     /* if the interface is marked as disabled, ignore the wake */
     if (ifstate->disable_until_needed.interface_disabled) {
@@ -8226,6 +8278,7 @@ link_refresh(SCDynamicStoreRef session, CFStringRef cache_key)
 	goto done;
     }
     bzero(&link_event, sizeof(link_event));
+    link_event.link_status = if_get_link_status(ifstate->if_p);
     for (j = 0; j < dynarray_count(&ifstate->services); j++) {
 	ServiceRef	service_p = dynarray_element(&ifstate->services, j);
 
@@ -8637,7 +8690,7 @@ link_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
     }
 
     /* process link changes */
-    IFState_update_link_event_data(ifstate, &link_event);
+    IFState_update_link_event_data(ifstate, &link_event, &link_status);
     link_active = (!link_status.valid || link_status.active);
     if (link_active) {
 	IFStateFlagsClear(ifstate,  kIFStateFlagsLinkTimerSuppressed);
@@ -8756,7 +8809,6 @@ dhcp_preferences_changed(SCPreferencesRef prefs,
 			 void * info)
 {
     int 		i;
-    link_event_data	link_event;
 
     if ((type & kSCPreferencesNotificationApply) == 0) {
 	return;
@@ -8765,10 +8817,13 @@ dhcp_preferences_changed(SCPreferencesRef prefs,
     /* merge in the new requested parameters */
     S_add_dhcp_parameters(prefs);
     SCPreferencesSynchronize(prefs);
-    bzero(&link_event, sizeof(link_event));
     for (i = 0; i < dynarray_count(&S_ifstate_list); i++) {
 	IFStateRef	ifstate = dynarray_element(&S_ifstate_list, i);
 	int		j;
+	link_event_data	link_event;
+
+	bzero(&link_event, sizeof(link_event));
+	link_event.link_status = if_get_link_status(ifstate->if_p);
 
 	/* ask each service to renew immediately to pick up new options */
 	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
@@ -9489,19 +9544,6 @@ S_set_globals(void)
 	G_dhcpv6_stateful_enabled = S_get_plist_boolean(plist,
 							CFSTR("DHCPv6StatefulEnabled"),
 							DHCPv6_STATEFUL_ENABLED);
-	G_dhcp_duid_type = S_get_plist_int(plist, 
-					   CFSTR("DHCPDUIDType"),
-					   kDHCPDUIDTypeLLT);
-	switch (G_dhcp_duid_type) {
-	case kDHCPDUIDTypeLLT:
-	case kDHCPDUIDTypeLL:
-	    /* supported */
-	    break;
-	default:
-	    /* unsupported, use default (LLT) */
-	    G_dhcp_duid_type = kDHCPDUIDTypeLLT;
-	    break;
-	}
     }
     S_disable_unneeded_interfaces
 	= S_get_plist_boolean(plist,
@@ -9571,6 +9613,36 @@ check_prefs(SCPreferencesRef prefs)
 	       "IPConfiguration: IPv6 linklocal modifier %s",
 	       ipv6_linklocal_modifier_expires ? "expires" : "does not expire");
 	S_ipv6_linklocal_modifier_expires = ipv6_linklocal_modifier_expires;
+    }
+
+    /* DHCP DUID type */
+    if (G_is_netboot) {
+	G_dhcp_duid_type = kDHCPDUIDTypeLL;
+    }
+    else {
+	DHCPDUIDType		duid_type;
+
+	if (os_variant_is_darwinos(IPCONFIGURATION_SUBSYSTEM)) {
+	    G_dhcp_duid_type = kDHCPDUIDTypeUUID;
+	}
+	else {
+	    G_dhcp_duid_type = kDHCPDUIDTypeLLT;
+	}
+	duid_type = IPConfigurationControlPrefsGetDHCPDUIDType();
+	switch (duid_type) {
+	case kDHCPDUIDTypeNone:
+	    break;
+	case kDHCPDUIDTypeLLT:
+	case kDHCPDUIDTypeLL:
+	case kDHCPDUIDTypeUUID:
+	    G_dhcp_duid_type = duid_type;
+	    break;
+	default:
+	    my_log(LOG_NOTICE,
+		   "%s: unsupported DHCP DUID type %d specified",
+		   __func__, duid_type);
+	    break;
+	}
     }
     IPConfigurationControlPrefsSynchronize();
     return;

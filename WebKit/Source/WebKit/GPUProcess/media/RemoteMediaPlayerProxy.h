@@ -131,7 +131,7 @@ public:
 
     void getConfiguration(RemoteMediaPlayerConfiguration&);
 
-    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, bool prepareForRendering, float videoContentScale, WebCore::DynamicRangeMode, CompletionHandler<void(std::optional<LayerHostingContextID>&& inlineLayerHostingContextId)>&&);
+    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode, CompletionHandler<void(std::optional<LayerHostingContextID>&& inlineLayerHostingContextId)>&&);
     void prepareForRendering();
 
     void load(URL&&, std::optional<SandboxExtension::Handle>&&, const WebCore::ContentType&, const String&, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);
@@ -165,6 +165,8 @@ public:
     void setShouldDisableSleep(bool);
     void setRate(double);
     void didLoadingProgress(CompletionHandler<void(bool)>&&);
+
+    void setPresentationSize(const WebCore::IntSize&);
 
 #if PLATFORM(COCOA)
     void setVideoInlineSizeFenced(const WebCore::FloatSize&, const WTF::MachSendRight&);

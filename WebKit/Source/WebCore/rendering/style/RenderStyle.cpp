@@ -64,7 +64,7 @@
 namespace WebCore {
 
 struct SameSizeAsBorderValue {
-    Color m_color;
+    StyleColor m_color;
     float m_width;
     int m_restBits;
 };
@@ -677,7 +677,7 @@ inline bool RenderStyle::changeAffectsVisualOverflow(const RenderStyle& other) c
 
     if (m_inheritedFlags.textDecorationLines != other.m_inheritedFlags.textDecorationLines
         || m_rareNonInheritedData->textDecorationStyle != other.m_rareNonInheritedData->textDecorationStyle
-        || m_rareInheritedData->textDecorationThickness != other.m_rareInheritedData->textDecorationThickness
+        || m_rareNonInheritedData->textDecorationThickness != other.m_rareNonInheritedData->textDecorationThickness
         || m_rareInheritedData->textUnderlineOffset != other.m_rareInheritedData->textUnderlineOffset
         || m_rareInheritedData->textUnderlinePosition != other.m_rareInheritedData->textUnderlinePosition) {
         // Underlines are always drawn outside of their textbox bounds when text-underline-position: under;
@@ -1494,7 +1494,7 @@ FloatPoint RenderStyle::computePerspectiveOrigin(const FloatRect& boundingBox) c
     return boundingBox.location() + floatPointForLengthPoint(perspectiveOrigin(), boundingBox.size());
 }
 
-void RenderStyle::applyPerspective(TransformationMatrix& transform, const RenderObject& renderer, const FloatPoint& originTranslate) const
+void RenderStyle::applyPerspective(TransformationMatrix& transform, const FloatPoint& originTranslate) const
 {
     // https://www.w3.org/TR/css-transforms-2/#perspective
     // The perspective matrix is computed as follows:
@@ -1504,7 +1504,7 @@ void RenderStyle::applyPerspective(TransformationMatrix& transform, const Render
     transform.translate(originTranslate.x(), originTranslate.y());
 
     // 3. Multiply by the matrix that would be obtained from the perspective() transform function, where the length is provided by the value of the perspective property
-    transform.applyPerspective(usedPerspective(renderer));
+    transform.applyPerspective(usedPerspective());
 
     // 4. Translate by the negated computed X and Y values of perspective-origin
     transform.translate(-originTranslate.x(), -originTranslate.y());
@@ -1932,11 +1932,6 @@ AnimationList& RenderStyle::ensureTransitions()
     return *m_rareNonInheritedData->transitions;
 }
 
-float RenderStyle::usedPerspective(const RenderObject& object) const
-{
-    return object.document().settings().css3DTransformInteroperabilityEnabled() ? std::max(1.0f, perspective()) : perspective();
-}
-
 const FontCascade& RenderStyle::fontCascade() const
 {
     return m_inheritedData->fontCascade;
@@ -2214,7 +2209,7 @@ void RenderStyle::getShadowVerticalExtent(const ShadowData* shadow, LayoutUnit &
     }
 }
 
-Color RenderStyle::unresolvedColorForProperty(CSSPropertyID colorProperty, bool visitedLink) const
+StyleColor RenderStyle::unresolvedColorForProperty(CSSPropertyID colorProperty, bool visitedLink) const
 {
     switch (colorProperty) {
     case CSSPropertyAccentColor:
@@ -2272,21 +2267,6 @@ Color RenderStyle::unresolvedColorForProperty(CSSPropertyID colorProperty, bool 
 
 Color RenderStyle::colorResolvingCurrentColor(CSSPropertyID colorProperty, bool visitedLink) const
 {
-    auto computeBorderStyle = [&] {
-        switch (colorProperty) {
-        case CSSPropertyBorderLeftColor:
-            return borderLeftStyle();
-        case CSSPropertyBorderRightColor:
-            return borderRightStyle();
-        case CSSPropertyBorderTopColor:
-            return borderTopStyle();
-        case CSSPropertyBorderBottomColor:
-            return borderBottomStyle();
-        default:
-            return BorderStyle::None;
-        }
-    };
-
     auto result = unresolvedColorForProperty(colorProperty, visitedLink);
 
     if (isCurrentColor(result)) {
@@ -2301,22 +2281,34 @@ Color RenderStyle::colorResolvingCurrentColor(CSSPropertyID colorProperty, bool 
             return colorResolvingCurrentColor(CSSPropertyWebkitTextFillColor, visitedLink);
         }
 
-        auto borderStyle = computeBorderStyle();
+        auto borderStyle = [&] {
+            switch (colorProperty) {
+            case CSSPropertyBorderLeftColor:
+                return borderLeftStyle();
+            case CSSPropertyBorderRightColor:
+                return borderRightStyle();
+            case CSSPropertyBorderTopColor:
+                return borderTopStyle();
+            case CSSPropertyBorderBottomColor:
+                return borderBottomStyle();
+            default:
+                return BorderStyle::None;
+            }
+        }();
+
         if (!visitedLink && (borderStyle == BorderStyle::Inset || borderStyle == BorderStyle::Outset || borderStyle == BorderStyle::Ridge || borderStyle == BorderStyle::Groove))
-            return SRGBA<uint8_t> { 238, 238, 238 };
+            return { SRGBA<uint8_t> { 238, 238, 238 } };
 
         return visitedLink ? visitedLinkColor() : color();
     }
 
-    return result;
+    return colorResolvingCurrentColor(result);
+    
 }
 
-Color RenderStyle::colorResolvingCurrentColor(const Color& color) const
+Color RenderStyle::colorResolvingCurrentColor(const StyleColor& color) const
 {
-    if (isCurrentColor(color))
-        return this->color();
-
-    return color;
+    return color.resolveColor(this->color());
 }
 
 Color RenderStyle::visitedDependentColor(CSSPropertyID colorProperty) const
@@ -2357,6 +2349,11 @@ Color RenderStyle::colorByApplyingColorFilter(const Color& color) const
     Color transformedColor = color;
     appleColorFilter().transformColor(transformedColor);
     return transformedColor;
+}
+
+Color RenderStyle::colorWithColorFilter(const StyleColor& color) const
+{
+    return colorByApplyingColorFilter(colorResolvingCurrentColor(color));
 }
 
 Color RenderStyle::effectiveAccentColor() const
@@ -2504,7 +2501,7 @@ TextEmphasisMark RenderStyle::textEmphasisMark() const
 
 #if ENABLE(TOUCH_EVENTS)
 
-Color RenderStyle::initialTapHighlightColor()
+StyleColor RenderStyle::initialTapHighlightColor()
 {
     return RenderTheme::tapHighlightColor();
 }

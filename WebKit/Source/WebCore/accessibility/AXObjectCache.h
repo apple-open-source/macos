@@ -143,7 +143,7 @@ enum AXTextChange { AXTextInserted, AXTextDeleted, AXTextAttributesChanged };
 
 enum class PostTarget { Element, ObservableParent };
 
-class AXObjectCache {
+class AXObjectCache : public CanMakeWeakPtr<AXObjectCache> {
     WTF_MAKE_NONCOPYABLE(AXObjectCache); WTF_MAKE_FAST_ALLOCATED;
     friend class AXIsolatedTree;
     friend WTF::TextStream& operator<<(WTF::TextStream&, AXObjectCache&);
@@ -186,6 +186,8 @@ public:
     void childrenChanged(Node*, Node* newChild = nullptr);
     void childrenChanged(RenderObject*, RenderObject* newChild = nullptr);
     void childrenChanged(AccessibilityObject*);
+    void onSelectedChanged(Node*);
+    void onTitleChange(Document&);
     void valueChanged(Element*);
     void checkedStateChanged(Node*);
     void autofillTypeChanged(Node*);
@@ -308,6 +310,7 @@ public:
         AXRowIndexChanged,
         AXRowSpanChanged,
         AXSelectedChildrenChanged,
+        AXSelectedCellChanged,
         AXSelectedStateChanged,
         AXSelectedTextChanged,
         AXSetSizeChanged,
@@ -496,7 +499,6 @@ private:
     bool shouldProcessAttributeChange(Element*, const QualifiedName&);
     void selectedChildrenChanged(Node*);
     void selectedChildrenChanged(RenderObject*);
-    void selectedStateChanged(Node*);
 
     void handleActiveDescendantChanged(Element&);
 
@@ -509,8 +511,8 @@ private:
     // aria-modal or modal <dialog> related
     bool isModalElement(Element&) const;
     void findModalNodes();
-    void updateCurrentModalNode();
-    Element* updateCurrentModalNodeInternal();
+    enum class WillRecomputeFocus : bool { No, Yes };
+    void updateCurrentModalNode(WillRecomputeFocus = WillRecomputeFocus::No);
     bool isNodeVisible(Node*) const;
     bool modalElementHasAccessibleContent(Element&);
 
@@ -525,6 +527,9 @@ private:
     void relationsNeedUpdate(bool);
     HashMap<AXID, AXRelations> relations();
     const HashSet<AXID>& relationTargetIDs();
+
+    // Object creation.
+    Ref<AccessibilityObject> createObjectFromRenderer(RenderObject*);
 
     Document& m_document;
     const std::optional<PageIdentifier> m_pageID; // constant for object's lifetime.
@@ -648,6 +653,7 @@ inline void AXObjectCache::autofillTypeChanged(Node*) { }
 inline void AXObjectCache::childrenChanged(Node*, Node*) { }
 inline void AXObjectCache::childrenChanged(RenderObject*, RenderObject*) { }
 inline void AXObjectCache::childrenChanged(AccessibilityObject*) { }
+inline void AXObjectCache::onTitleChange(Document&) { }
 inline void AXObjectCache::valueChanged(Element*) { }
 inline void AXObjectCache::deferFocusedUIElementChangeIfNeeded(Node*, Node*) { }
 inline void AXObjectCache::deferRecomputeIsIgnoredIfNeeded(Element*) { }

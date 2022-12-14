@@ -377,10 +377,8 @@ int l2tp_udp_output(socket_t so, int thread, mbuf_t m, struct sockaddr* to)
 
 	return 0;
 	
-no_thread:	
-	lck_mtx_unlock(ppp_domain_mutex);
+no_thread:
 	err = sock_sendmbuf(so, 0, m, MSG_DONTWAIT, 0);
-	lck_mtx_lock(ppp_domain_mutex);
 	return err;
 }
 
@@ -388,16 +386,10 @@ no_thread:
 ----------------------------------------------------------------------------- */
 int l2tp_udp_setpeer(socket_t so, struct sockaddr *addr)
 {
-	int result;
-	
     if (so == 0)
         return EINVAL;
-    
-	lck_mtx_unlock(ppp_domain_mutex);
-    result = sock_connect(so, addr, 0);
-	lck_mtx_lock(ppp_domain_mutex);
-	
-	return result;
+
+    return sock_connect(so, addr, 0);
 }
 
 /* -----------------------------------------------------------------------------
@@ -445,8 +437,6 @@ int l2tp_udp_attach(socket_t *socket, struct sockaddr *addr, int *thread, int no
 	errno_t			err;
     socket_t		so = 0;
 	u_int32_t		i, min;
-	
-	lck_mtx_unlock(ppp_domain_mutex);
 
 	/* open a UDP socket for use by the L2TP client */
 	if ((err = sock_socket(addr->sa_family, SOCK_DGRAM, 0, l2tp_udp_input, 0, &so)))
@@ -474,8 +464,7 @@ int l2tp_udp_attach(socket_t *socket, struct sockaddr *addr, int *thread, int no
     /* fill in the incomplete part of the address assigned by UDP */ 
     if ((err = sock_getsockname(so, addr, addr->sa_len)))
         goto fail;
-    
-	lck_mtx_lock(ppp_domain_mutex);
+
     *socket = so;
 
 	if (l2tp_udp_nb_threads) {		
@@ -495,28 +484,34 @@ int l2tp_udp_attach(socket_t *socket, struct sockaddr *addr, int *thread, int no
 fail:
     if (so) 
         sock_close(so);
-	lck_mtx_lock(ppp_domain_mutex);
     return err;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int l2tp_udp_detach(socket_t so, int thread)
+void l2tp_udp_detach(socket_t socket, int thread)
 {
-
-    if (so) {
-		if (thread >= 0 && thread < l2tp_udp_nb_threads) {
-			if (l2tp_udp_threads[thread].nbclient > 0)
-				l2tp_udp_threads[thread].nbclient -= 1;
-			//IOLog("l2tp_udp_detach: worker thread #%d (total client for thread is now %d)\n", thread, l2tp_udp_threads[thread].nbclient);
-		}
-			
-		lck_mtx_unlock(ppp_domain_mutex);
-        sock_close(so); 		/* close the UDP socket */
-		lck_mtx_lock(ppp_domain_mutex);
+	if (thread >= 0 && thread < l2tp_udp_nb_threads) {
+		if (l2tp_udp_threads[thread].nbclient > 0)
+			l2tp_udp_threads[thread].nbclient -= 1;
+		//IOLog("l2tp_udp_detach: worker thread #%d (total client for thread is now %d)\n", thread, l2tp_udp_threads[thread].nbclient);
 	}
-	
-    return 0;
+
+    if (socket == NULL) {
+        return;
+    }
+
+    sock_release(socket); /* release the socket */
+}
+
+void
+l2tp_udp_retain(socket_t socket)
+{
+	if (socket == NULL) {
+		return;
+	}
+
+	sock_retain(socket);
 }
 
 /* -----------------------------------------------------------------------------
@@ -524,10 +519,7 @@ int l2tp_udp_detach(socket_t so, int thread)
 void l2tp_udp_clear_INP_INADDR_ANY(socket_t so)
 {	
 	if (so) {
-
-		lck_mtx_unlock(ppp_domain_mutex);
 		inp_clear_INP_INADDR_ANY((struct socket *)so);
-		lck_mtx_lock(ppp_domain_mutex);
     }
 	
 }

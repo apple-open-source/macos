@@ -208,6 +208,22 @@ public:
 };
 
 
+class ReplyPort : public Port {
+public:
+    ReplyPort() {
+        mach_port_options_t opts = {
+            .flags = MPO_PROVISIONAL_REPLY_PORT,
+        };
+        check(mach_port_construct(self(), &opts, 0, &mPort));
+    }
+
+    ~ReplyPort() {
+        check(mach_port_destruct(self(), mPort, 0, 0));
+        mPort = MACH_PORT_NULL;
+    }
+};
+
+
 //
 // A Mach-level memory guard.
 // This will vm_deallocate its argument when it gets destroyed.
