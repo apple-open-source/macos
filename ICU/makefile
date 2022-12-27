@@ -958,7 +958,7 @@ ifeq ($(RC_ENABLE_THREAD_SANITIZATION),1)
 endif
 LDFLAGS += $(LDFLAGS_SANITIZER)
 
-APPLE_HARDENING_OPTS := -DFORTIFY_SOURCE=2 -fstack-protector-strong
+APPLE_HARDENING_OPTS := -D_FORTIFY_SOURCE=2 -fstack-protector-strong
 APPLE_STACK_INIT_OPTS := -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang -ftrivial-auto-var-init=zero
 
 # For normal Windows builds set the ENV= options here; for debug Windows builds set the ENV_DEBUG=
