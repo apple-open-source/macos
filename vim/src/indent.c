@@ -1952,7 +1952,7 @@ lisp_match(char_u *p)
     {
 	(void)copy_option_part(&word, buf, LSIZE, ",");
 	len = (int)STRLEN(buf);
-	if (STRNCMP(buf, p, len) == 0 && p[len] == ' ')
+	if (STRNCMP(buf, p, len) == 0 && IS_WHITE_OR_NUL(p[len]))
 	    return TRUE;
     }
     return FALSE;
@@ -2197,18 +2197,38 @@ fixthisline(int (*get_the_indent)(void))
 }
 
 /*
+ * Return TRUE if 'indentexpr' should be used for Lisp indenting.
+ * Caller may want to check 'autoindent'.
+ */
+    int
+use_indentexpr_for_lisp(void)
+{
+#ifdef FEAT_EVAL
+    return curbuf->b_p_lisp
+		&& *curbuf->b_p_inde != NUL
+		&& STRCMP(curbuf->b_p_lop, "expr:1") == 0;
+#else
+    return FALSE;
+#endif
+}
+
+/*
  * Fix indent for 'lisp' and 'cindent'.
  */
     void
 fix_indent(void)
 {
     if (p_paste)
-	return;
+	return;  // no auto-indenting when 'paste' is set
     if (curbuf->b_p_lisp && curbuf->b_p_ai)
-	fixthisline(get_lisp_indent);
-    else
-	if (cindent_on())
+    {
+	if (use_indentexpr_for_lisp())
 	    do_c_expr_indent();
+	else
+	    fixthisline(get_lisp_indent);
+    }
+    else if (cindent_on())
+	do_c_expr_indent();
 }
 
 #if defined(FEAT_EVAL) || defined(PROTO)

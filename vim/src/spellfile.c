@@ -2643,7 +2643,7 @@ spell_read_aff(spellinfo_T *spin, char_u *fname)
 			smsg(_("Affix also used for BAD/RARE/KEEPCASE/NEEDAFFIX/NEEDCOMPOUND/NOSUGGEST in %s line %d: %s"),
 						       fname, lnum, items[1]);
 		    STRCPY(cur_aff->ah_key, items[1]);
-		    hash_add(tp, cur_aff->ah_key);
+		    hash_add(tp, cur_aff->ah_key, "spelling");
 
 		    cur_aff->ah_combine = (*items[2] == 'Y');
 		}
@@ -2994,7 +2994,7 @@ spell_read_aff(spellinfo_T *spin, char_u *fname)
 			p = vim_strsave(items[i]);
 			if (p == NULL)
 			    break;
-			hash_add(&spin->si_commonwords, p);
+			hash_add(&spin->si_commonwords, p, "spelling");
 		    }
 		}
 	    }
@@ -3312,7 +3312,7 @@ process_compflags(
 			id = spin->si_newcompID--;
 		    } while (vim_strchr((char_u *)"/?*+[]\\-^", id) != NULL);
 		    ci->ci_newID = id;
-		    hash_add(&aff->af_comp, ci->ci_key);
+		    hash_add(&aff->af_comp, ci->ci_key, "spelling");
 		}
 		*tp++ = id;
 	    }
@@ -4588,7 +4588,7 @@ tree_add_word(
      *    (si_compress_cnt == 1) and the number of free nodes drops below the
      *    maximum word length.
      */
-#ifndef SPELL_COMPRESS_ALLWAYS
+#ifndef SPELL_COMPRESS_ALWAYS
     if (spin->si_compress_cnt == 1
 	    ? spin->si_free_count < MAXWLEN
 	    : spin->si_blocks_cnt >= compress_start)

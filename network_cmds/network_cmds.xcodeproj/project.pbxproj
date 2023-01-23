@@ -98,16 +98,6 @@
 			name = "All-EmbeddedOther";
 			productName = "All-EmbeddedOther";
 		};
-		72C77D3A1484199C002D2577 /* network_cmds_libs */ = {
-			isa = PBXAggregateTarget;
-			buildConfigurationList = 72C77D671484199C002D2577 /* Build configuration list for PBXAggregateTarget "network_cmds_libs" */;
-			buildPhases = (
-			);
-			dependencies = (
-			);
-			name = network_cmds_libs;
-			productName = "network_cmds (Aggregate)";
-		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -178,6 +168,9 @@
 		724DABBC0EE8908A008900D0 /* com.apple.kdumpd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261206E0EE86F2D00AFED1B /* com.apple.kdumpd.plist */; };
 		724DAC120EE89423008900D0 /* ndp.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120870EE86F4000AFED1B /* ndp.c */; };
 		724DAC3B0EE89555008900D0 /* ndp.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120860EE86F4000AFED1B /* ndp.8 */; };
+		72540549291C2C7F00BC8412 /* network_cmds_lib.h in Headers */ = {isa = PBXBuildFile; fileRef = 72540547291C2C7F00BC8412 /* network_cmds_lib.h */; };
+		7254054A291C2C7F00BC8412 /* network_cmds_lib.c in Sources */ = {isa = PBXBuildFile; fileRef = 72540548291C2C7F00BC8412 /* network_cmds_lib.c */; };
+		7254054D291C2CBB00BC8412 /* network_cmds_lib_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 7254054C291C2CAD00BC8412 /* network_cmds_lib_test.c */; };
 		726121310EE8711E00AFED1B /* arp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261204E0EE86EF900AFED1B /* arp.c */; };
 		726121350EE8713800AFED1B /* arp.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261204D0EE86EF900AFED1B /* arp.8 */; };
 		7261215A0EE8883900AFED1B /* ifbond.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120550EE86F0900AFED1B /* ifbond.c */; };
@@ -211,6 +204,14 @@
 		72B894EC0EEDB17C00C218D6 /* libipsec.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CD1DB50EE8C619005F825D /* libipsec.dylib */; };
 		72D000C4142BB11100151981 /* dnctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D000C3142BB11100151981 /* dnctl.c */; };
 		72D33F572271319400EF5B5E /* rtadvd_logging.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D33F562271220100EF5B5E /* rtadvd_logging.c */; };
+		72E0B550291C183A00E573A7 /* libnetwork_cmds_lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */; };
+		72E0B551291C1F1400E573A7 /* libnetwork_cmds_lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */; };
+		72E0B552291C20A600E573A7 /* libnetwork_cmds_lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */; };
+		72E0B559291C233800E573A7 /* libnetwork_cmds_lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */; };
+		72E0B55C291C242400E573A7 /* libnetwork_cmds_lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */; };
+		72E0B55F291C243A00E573A7 /* libnetwork_cmds_lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */; };
+		72E0B562291C245F00E573A7 /* libnetwork_cmds_lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */; };
+		72E0B567291C27D600E573A7 /* libnetwork_cmds_lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */; };
 		72E42BA314B7CF3D003AAE28 /* network_cmds.plist in Install OSS Plist */ = {isa = PBXBuildFile; fileRef = 72E42BA214B7CF37003AAE28 /* network_cmds.plist */; };
 		72E650A7107BF2F000AAF325 /* af_inet.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A2107BF2F000AAF325 /* af_inet.c */; };
 		72E650A8107BF2F000AAF325 /* af_inet6.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A3107BF2F000AAF325 /* af_inet6.c */; };
@@ -669,6 +670,62 @@
 			remoteGlobalIDString = 7294F1290EE8BD280052EC88;
 			remoteInfo = traceroute6;
 		};
+		72E0B553291C20AF00E573A7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72E0B534291C0CB000E573A7;
+			remoteInfo = network_cmds_lib;
+		};
+		72E0B555291C20B600E573A7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72E0B534291C0CB000E573A7;
+			remoteInfo = network_cmds_lib;
+		};
+		72E0B557291C233200E573A7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72E0B534291C0CB000E573A7;
+			remoteInfo = network_cmds_lib;
+		};
+		72E0B55A291C241C00E573A7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72E0B534291C0CB000E573A7;
+			remoteInfo = network_cmds_lib;
+		};
+		72E0B55D291C243300E573A7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72E0B534291C0CB000E573A7;
+			remoteInfo = network_cmds_lib;
+		};
+		72E0B560291C245B00E573A7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72E0B534291C0CB000E573A7;
+			remoteInfo = network_cmds_lib;
+		};
+		72E0B563291C25DB00E573A7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72E0B534291C0CB000E573A7;
+			remoteInfo = network_cmds_lib;
+		};
+		72E0B565291C27C800E573A7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72E0B534291C0CB000E573A7;
+			remoteInfo = network_cmds_lib;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -977,6 +1034,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		72E0B542291C116000E573A7 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -1024,6 +1090,9 @@
 		7247B83B16165F0100873B3C /* pktapctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pktapctl.c; sourceTree = "<group>"; };
 		724DABA20EE88FE3008900D0 /* kdumpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kdumpd; sourceTree = BUILT_PRODUCTS_DIR; };
 		724DAC0D0EE8940D008900D0 /* ndp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ndp; sourceTree = BUILT_PRODUCTS_DIR; };
+		72540547291C2C7F00BC8412 /* network_cmds_lib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = network_cmds_lib.h; sourceTree = "<group>"; };
+		72540548291C2C7F00BC8412 /* network_cmds_lib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = network_cmds_lib.c; sourceTree = "<group>"; };
+		7254054C291C2CAD00BC8412 /* network_cmds_lib_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = network_cmds_lib_test.c; sourceTree = "<group>"; };
 		7255D4301E44036D008F4A32 /* libcrypto.35.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.35.dylib; path = usr/lib/libcrypto.35.dylib; sourceTree = SDKROOT; };
 		7255D4321E44037F008F4A32 /* libssl.35.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libssl.35.dylib; path = usr/lib/libssl.35.dylib; sourceTree = SDKROOT; };
 		7261204D0EE86EF900AFED1B /* arp.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = arp.8; sourceTree = "<group>"; };
@@ -1150,6 +1219,8 @@
 		72D000C3142BB11100151981 /* dnctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dnctl.c; sourceTree = "<group>"; };
 		72D33F552271220100EF5B5E /* rtadvd_logging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rtadvd_logging.h; sourceTree = "<group>"; };
 		72D33F562271220100EF5B5E /* rtadvd_logging.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rtadvd_logging.c; sourceTree = "<group>"; };
+		72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libnetwork_cmds_lib.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		72E0B544291C116000E573A7 /* network_cmds_lib_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = network_cmds_lib_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		72E42BA214B7CF37003AAE28 /* network_cmds.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = network_cmds.plist; sourceTree = "<group>"; };
 		72E650A2107BF2F000AAF325 /* af_inet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = af_inet.c; sourceTree = "<group>"; };
 		72E650A3107BF2F000AAF325 /* af_inet6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = af_inet6.c; sourceTree = "<group>"; };
@@ -1195,6 +1266,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72E0B562291C245F00E573A7 /* libnetwork_cmds_lib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1202,6 +1274,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72E0B55F291C243A00E573A7 /* libnetwork_cmds_lib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1224,6 +1297,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72E0B559291C233800E573A7 /* libnetwork_cmds_lib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1274,6 +1348,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72E0B552291C20A600E573A7 /* libnetwork_cmds_lib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1288,6 +1363,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72E0B551291C1F1400E573A7 /* libnetwork_cmds_lib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1302,6 +1378,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72E0B567291C27D600E573A7 /* libnetwork_cmds_lib.a in Frameworks */,
 				7282BA551AFBCA66005DE836 /* libpcap.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1317,6 +1394,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72E0B55C291C242400E573A7 /* libnetwork_cmds_lib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1332,6 +1410,21 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72E0B533291C0CB000E573A7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72E0B541291C116000E573A7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72E0B550291C183A00E573A7 /* libnetwork_cmds_lib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1429,6 +1522,7 @@
 				690D973F12DE5A21004323A7 /* mtest.tproj */,
 				726120830EE86F4000AFED1B /* ndp.tproj */,
 				7261208A0EE86F4800AFED1B /* netstat.tproj */,
+				72E0B53A291C0CEA00E573A7 /* network_cmds_lib */,
 				7247B83216165EDC00873B3C /* pktapctl */,
 				7200F2FB1958A34D0033E22C /* pktmnglr */,
 				7261209E0EE86F5000AFED1B /* ping.tproj */,
@@ -1685,6 +1779,8 @@
 				713297681A93C743002359CF /* unbound */,
 				7282BA0C1AFAD4C9005DE836 /* ecnprobe */,
 				72946F431BBF055700087E35 /* frame_delay */,
+				72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */,
+				72E0B544291C116000E573A7 /* network_cmds_lib_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1732,7 +1828,28 @@
 			path = cfilutil;
 			sourceTree = "<group>";
 		};
+		72E0B53A291C0CEA00E573A7 /* network_cmds_lib */ = {
+			isa = PBXGroup;
+			children = (
+				72540548291C2C7F00BC8412 /* network_cmds_lib.c */,
+				72540547291C2C7F00BC8412 /* network_cmds_lib.h */,
+				7254054C291C2CAD00BC8412 /* network_cmds_lib_test.c */,
+			);
+			path = network_cmds_lib;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		72E0B531291C0CB000E573A7 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72540549291C2C7F00BC8412 /* network_cmds_lib.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
 		4D2B04F21208C2040004A3F3 /* ip6addrctl */ = {
@@ -1837,6 +1954,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				72E0B561291C245B00E573A7 /* PBXTargetDependency */,
 			);
 			name = netstat;
 			productName = netstat;
@@ -1855,6 +1973,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				72E0B55E291C243300E573A7 /* PBXTargetDependency */,
 			);
 			name = ping;
 			productName = ping;
@@ -1909,6 +2028,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				72E0B558291C233200E573A7 /* PBXTargetDependency */,
 			);
 			name = route;
 			productName = route;
@@ -2036,6 +2156,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				72E0B554291C20AF00E573A7 /* PBXTargetDependency */,
 			);
 			name = kdumpd;
 			productName = kdumpd;
@@ -2072,6 +2193,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				72E0B556291C20B600E573A7 /* PBXTargetDependency */,
 			);
 			name = arp;
 			productName = arp;
@@ -2107,6 +2229,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				72E0B566291C27C800E573A7 /* PBXTargetDependency */,
 			);
 			name = ecnprobe;
 			productName = ecnprobe;
@@ -2142,6 +2265,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				72E0B55B291C241C00E573A7 /* PBXTargetDependency */,
 			);
 			name = traceroute;
 			productName = traceroute;
@@ -2183,6 +2307,41 @@
 			productReference = 72B732DA1899B0380060E6D4 /* cfilutil */;
 			productType = "com.apple.product-type.tool";
 		};
+		72E0B534291C0CB000E573A7 /* network_cmds_lib */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72E0B539291C0CB000E573A7 /* Build configuration list for PBXNativeTarget "network_cmds_lib" */;
+			buildPhases = (
+				72E0B531291C0CB000E573A7 /* Headers */,
+				72E0B532291C0CB000E573A7 /* Sources */,
+				72E0B533291C0CB000E573A7 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = network_cmds_lib;
+			productName = network_cmds_lib;
+			productReference = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		72E0B543291C116000E573A7 /* network_cmds_lib_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72E0B548291C116000E573A7 /* Build configuration list for PBXNativeTarget "network_cmds_lib_test" */;
+			buildPhases = (
+				72E0B540291C116000E573A7 /* Sources */,
+				72E0B541291C116000E573A7 /* Frameworks */,
+				72E0B542291C116000E573A7 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				72E0B564291C25DB00E573A7 /* PBXTargetDependency */,
+			);
+			name = network_cmds_lib_test;
+			productName = network_cmds_lib_test;
+			productReference = 72E0B544291C116000E573A7 /* network_cmds_lib_test */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -2206,6 +2365,12 @@
 					72946F421BBF055700087E35 = {
 						CreatedOnToolsVersion = 6.3;
 					};
+					72E0B534291C0CB000E573A7 = {
+						CreatedOnToolsVersion = 14.0;
+					};
+					72E0B543291C116000E573A7 = {
+						CreatedOnToolsVersion = 14.0;
+					};
 				};
 			};
 			buildConfigurationList = 724862340EE86EB7001D0DE9 /* Build configuration list for PBXProject "network_cmds" */;
@@ -2226,7 +2391,6 @@
 				726121430EE8717500AFED1B /* All */,
 				72570DA20EE8EBF3000F4CFB /* All-Embedded */,
 				72ABD0811083D742008C721C /* All-EmbeddedOther */,
-				72C77D3A1484199C002D2577 /* network_cmds_libs */,
 				7261212C0EE8710B00AFED1B /* arp */,
 				72B732D91899B0380060E6D4 /* cfilutil */,
 				723C7067142BAFEA007C87E9 /* dnctl */,
@@ -2240,6 +2404,8 @@
 				690D978012DE6034004323A7 /* mtest */,
 				724DAC0C0EE8940D008900D0 /* ndp */,
 				7216D2450EE896C000AE70E4 /* netstat */,
+				72E0B534291C0CB000E573A7 /* network_cmds_lib */,
+				72E0B543291C116000E573A7 /* network_cmds_lib_test */,
 				7247B83016165EDC00873B3C /* pktapctl */,
 				7200F2F91958A34D0033E22C /* pktmnglr */,
 				7216D27B0EE8980A00AE70E4 /* ping */,
@@ -2740,6 +2906,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		72E0B532291C0CB000E573A7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7254054A291C2C7F00BC8412 /* network_cmds_lib.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72E0B540291C116000E573A7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7254054D291C2CBB00BC8412 /* network_cmds_lib_test.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -3048,6 +3230,46 @@
 			target = 7294F1290EE8BD280052EC88 /* traceroute6 */;
 			targetProxy = 72CD1D9B0EE8C47C005F825D /* PBXContainerItemProxy */;
 		};
+		72E0B554291C20AF00E573A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72E0B534291C0CB000E573A7 /* network_cmds_lib */;
+			targetProxy = 72E0B553291C20AF00E573A7 /* PBXContainerItemProxy */;
+		};
+		72E0B556291C20B600E573A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72E0B534291C0CB000E573A7 /* network_cmds_lib */;
+			targetProxy = 72E0B555291C20B600E573A7 /* PBXContainerItemProxy */;
+		};
+		72E0B558291C233200E573A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72E0B534291C0CB000E573A7 /* network_cmds_lib */;
+			targetProxy = 72E0B557291C233200E573A7 /* PBXContainerItemProxy */;
+		};
+		72E0B55B291C241C00E573A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72E0B534291C0CB000E573A7 /* network_cmds_lib */;
+			targetProxy = 72E0B55A291C241C00E573A7 /* PBXContainerItemProxy */;
+		};
+		72E0B55E291C243300E573A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72E0B534291C0CB000E573A7 /* network_cmds_lib */;
+			targetProxy = 72E0B55D291C243300E573A7 /* PBXContainerItemProxy */;
+		};
+		72E0B561291C245B00E573A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72E0B534291C0CB000E573A7 /* network_cmds_lib */;
+			targetProxy = 72E0B560291C245B00E573A7 /* PBXContainerItemProxy */;
+		};
+		72E0B564291C25DB00E573A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72E0B534291C0CB000E573A7 /* network_cmds_lib */;
+			targetProxy = 72E0B563291C25DB00E573A7 /* PBXContainerItemProxy */;
+		};
+		72E0B566291C27C800E573A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72E0B534291C0CB000E573A7 /* network_cmds_lib */;
+			targetProxy = 72E0B565291C27C800E573A7 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -3069,6 +3291,7 @@
 				);
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				HEADER_SEARCH_PATHS = network_cmds_lib;
 				PREBINDING = NO;
 				SDKROOT = macosx.internal;
 				"STRIPFLAGS[sdk=iphoneos*]" = "-S";
@@ -3104,7 +3327,10 @@
 		03B2DBE6100BE71D005349BC /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = arp;
@@ -3125,7 +3351,10 @@
 					USE_VLANS,
 					USE_BONDS,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ifconfig;
@@ -3153,7 +3382,10 @@
 					IPSEC_DEBUG,
 					KAME_SCOPEID,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ndp;
@@ -3168,11 +3400,13 @@
 					INET6,
 					IPSEC,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
-				USE_HEADERMAP = NO;
 			};
 			name = "Ignore Me";
 		};
@@ -3181,7 +3415,10 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping;
@@ -3193,7 +3430,10 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping6;
@@ -3223,7 +3463,10 @@
 					INET6,
 					IPSEC,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
@@ -3240,7 +3483,10 @@
 					INET6,
 					HAVE_GETIFADDRS,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
@@ -3264,7 +3510,10 @@
 					INET6,
 					HAVE_GETIFADDRS,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = rtsol;
@@ -3294,7 +3543,10 @@
 					"$(inherited)",
 					HAVE_SOCKADDR_SA_LEN,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute;
@@ -3311,7 +3563,10 @@
 					INET6,
 					IPSEC,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute6;
@@ -3590,8 +3845,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				METAL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3622,8 +3879,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				METAL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3654,8 +3913,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				METAL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3669,11 +3930,13 @@
 					INET6,
 					IPSEC,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
-				USE_HEADERMAP = NO;
 			};
 			name = Debug;
 		};
@@ -3685,11 +3948,13 @@
 					INET6,
 					IPSEC,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
-				USE_HEADERMAP = NO;
 			};
 			name = Release;
 		};
@@ -3704,7 +3969,10 @@
 					"__APPLE_API_OBSOLETE=1",
 					"DEBUG=1",
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping;
@@ -3716,7 +3984,10 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping;
@@ -3728,7 +3999,10 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping6;
@@ -3740,7 +4014,10 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping6;
@@ -3785,7 +4062,10 @@
 					INET6,
 					IPSEC,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
@@ -3800,7 +4080,10 @@
 					INET6,
 					IPSEC,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
@@ -3817,7 +4100,10 @@
 					INET6,
 					HAVE_GETIFADDRS,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
@@ -3840,7 +4126,10 @@
 					INET6,
 					HAVE_GETIFADDRS,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
@@ -3864,7 +4153,10 @@
 					INET6,
 					HAVE_GETIFADDRS,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = rtsol;
@@ -3886,7 +4178,10 @@
 					INET6,
 					HAVE_GETIFADDRS,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = rtsol;
@@ -3946,8 +4241,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				METAL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3980,8 +4277,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				METAL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4014,8 +4313,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				METAL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4032,7 +4333,10 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4046,7 +4350,10 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4060,7 +4367,10 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4070,7 +4380,10 @@
 		7247B83716165EDC00873B3C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4079,7 +4392,10 @@
 		7247B83816165EDC00873B3C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4088,7 +4404,10 @@
 		7247B83916165EDC00873B3C /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4114,6 +4433,7 @@
 				);
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				HEADER_SEARCH_PATHS = network_cmds_lib;
 				PREBINDING = NO;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos";
@@ -4143,6 +4463,7 @@
 				);
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				HEADER_SEARCH_PATHS = network_cmds_lib;
 				PREBINDING = NO;
 				SDKROOT = macosx.internal;
 				"STRIPFLAGS[sdk=iphoneos*]" = "-S";
@@ -4186,7 +4507,10 @@
 					IPSEC_DEBUG,
 					KAME_SCOPEID,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ndp;
@@ -4202,7 +4526,10 @@
 					IPSEC_DEBUG,
 					KAME_SCOPEID,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ndp;
@@ -4232,7 +4559,10 @@
 		7261212F0EE8710B00AFED1B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = arp;
@@ -4242,7 +4572,10 @@
 		726121300EE8710B00AFED1B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = arp;
@@ -4282,7 +4615,10 @@
 					USE_VLANS,
 					USE_BONDS,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ifconfig;
@@ -4303,7 +4639,10 @@
 					USE_VLANS,
 					USE_BONDS,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ifconfig;
@@ -4343,7 +4682,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4376,7 +4714,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4409,7 +4746,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4446,7 +4782,6 @@
 					/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.11.xctoolchain/usr/include,
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4479,7 +4814,6 @@
 					/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.11.xctoolchain/usr/include,
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4512,7 +4846,6 @@
 					/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.11.xctoolchain/usr/include,
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4528,7 +4861,10 @@
 					"$(inherited)",
 					HAVE_SOCKADDR_SA_LEN,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute;
@@ -4545,7 +4881,10 @@
 					"$(inherited)",
 					HAVE_SOCKADDR_SA_LEN,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute;
@@ -4562,7 +4901,10 @@
 					INET6,
 					IPSEC,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute6;
@@ -4579,7 +4921,10 @@
 					INET6,
 					IPSEC,
 				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute6;
@@ -4648,7 +4993,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4678,7 +5026,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4708,39 +5059,325 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/Frameworks/System.framework/PrivateHeaders,
+				);
 				INSTALL_MODE_FLAG = 0555;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = "Ignore Me";
 		};
-		72C77D681484199C002D2577 /* Debug */ = {
+		72E0B536291C0CB000E573A7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				PRODUCT_NAME = network_cmds_libs;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 			};
 			name = Debug;
 		};
-		72C77D691484199C002D2577 /* Release */ = {
+		72E0B537291C0CB000E573A7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				PRODUCT_NAME = network_cmds_libs;
-				ZERO_LINK = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 			};
 			name = Release;
 		};
-		72C77D6A1484199C002D2577 /* Ignore Me */ = {
+		72E0B538291C0CB000E573A7 /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				PRODUCT_NAME = network_cmds_libs;
-				ZERO_LINK = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = "Ignore Me";
+		};
+		72E0B549291C116000E573A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		72E0B54A291C116000E573A7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		72E0B54B291C116000E573A7 /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 			};
 			name = "Ignore Me";
 		};
@@ -5037,12 +5674,22 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		72C77D671484199C002D2577 /* Build configuration list for PBXAggregateTarget "network_cmds_libs" */ = {
+		72E0B539291C0CB000E573A7 /* Build configuration list for PBXNativeTarget "network_cmds_lib" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				72C77D681484199C002D2577 /* Debug */,
-				72C77D691484199C002D2577 /* Release */,
-				72C77D6A1484199C002D2577 /* Ignore Me */,
+				72E0B536291C0CB000E573A7 /* Debug */,
+				72E0B537291C0CB000E573A7 /* Release */,
+				72E0B538291C0CB000E573A7 /* Ignore Me */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72E0B548291C116000E573A7 /* Build configuration list for PBXNativeTarget "network_cmds_lib_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72E0B549291C116000E573A7 /* Debug */,
+				72E0B54A291C116000E573A7 /* Release */,
+				72E0B54B291C116000E573A7 /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

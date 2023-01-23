@@ -120,6 +120,7 @@ static const struct option longopts[] = {
 	{ DISABLE_PRIVATE_RELAY, no_argument,		NULL,	0	},
 	{ ENABLE_LOW_DATA_MODE, no_argument,		NULL,	0	},
 	{ OVERRIDE_EXPENSIVE,	no_argument,		NULL,	0	},
+	{ DISABLE_SERVICE_COUPLING, no_argument,	NULL,	0	},
 	{ NULL,			0,			NULL,	0	}
 };
 
@@ -425,20 +426,23 @@ usage(const char *command)
 
 	if (_sc_debug) {
 		SCPrint(TRUE, stderr, CFSTR("\n"));
-		SCPrint(TRUE, stderr, CFSTR("   or: %s --log IPMonitor [off|on]\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --log IPMonitor [on|off]\n"), command);
 		SCPrint(TRUE, stderr, CFSTR("\tmanage logging.\n"));
 
 		SCPrint(TRUE, stderr, CFSTR("\n"));
-		SCPrint(TRUE, stderr, CFSTR("   or: %s --disable-until-needed <interfaceName> [on|off ]\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --" DISABLE_UNTIL_NEEDED" <interfaceName> [on|off]\n"), command);
 		SCPrint(TRUE, stderr, CFSTR("\tmanage secondary interface demand.\n"));
 
 		SCPrint(TRUE, stderr, CFSTR("\n"));
-		SCPrint(TRUE, stderr, CFSTR("   or: %s --disable-private-relay <interfaceName> [on|off ]\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --" DISABLE_PRIVATE_RELAY " <interfaceName> [on|off]\n"), command);
 		SCPrint(TRUE, stderr, CFSTR("\tmanage Private Relay preferences.\n"));
 
 		SCPrint(TRUE, stderr, CFSTR("\n"));
-		SCPrint(TRUE, stderr, CFSTR("   or: %s --enable-private-relay <interfaceName> [on|off ]\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --" ENABLE_LOW_DATA_MODE " <interfaceName> [on|off]\n"), command);
 		SCPrint(TRUE, stderr, CFSTR("\tmanage Low Data Mode preferences.\n"));
+		SCPrint(TRUE, stderr, CFSTR("\n"));
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --" DISABLE_SERVICE_COUPLING " [on|off]\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("\tmanage service coupling.\n"));
 	}
 
 #if	!TARGET_OS_IPHONE
@@ -481,6 +485,7 @@ main(int argc, char * const argv[])
 	Boolean			allowNewInterfaces	= FALSE;
 #endif	// !TARGET_OS_IPHONE
 	Boolean			configuration		= FALSE;
+	Boolean			disableServiceCoupling	= FALSE;
 	Boolean			disableUntilNeeded	= FALSE;
 	Boolean			disablePrivateRelay	= FALSE;
 	Boolean			doAdvisory		= FALSE;
@@ -579,6 +584,9 @@ main(int argc, char * const argv[])
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "snapshot") == 0) {
 				doSnap = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, DISABLE_SERVICE_COUPLING) == 0) {
+				disableServiceCoupling = TRUE;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "log") == 0) {
 				log = optarg;
@@ -750,6 +758,12 @@ main(int argc, char * const argv[])
 			usage(prog);
 		}
 		do_log(log, argc, argv);
+		exit(0);
+	}
+
+	/* disable service coupling */
+	if (disableServiceCoupling) {
+		do_disable_service_coupling(argc, argv);
 		exit(0);
 	}
 

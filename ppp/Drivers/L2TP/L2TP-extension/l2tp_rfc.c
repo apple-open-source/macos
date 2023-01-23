@@ -297,6 +297,9 @@ void l2tp_rfc_free_now(struct l2tp_rfc *rfc)
     
     LOGIT(rfc, "L2TP free (%p)\n", rfc);
 
+    if (rfc->peer_address)
+        kfree_data_addr(rfc->peer_address);
+
     l2tp_rfc_set_socket(rfc, NULL, -1, NULL);
                             
     while((send_elem = TAILQ_FIRST(&rfc->send_queue))) {

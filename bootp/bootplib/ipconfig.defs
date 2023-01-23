@@ -179,3 +179,8 @@ routine ipconfig_get_dhcp_ia_id( server : mach_port_t;
 				name : if_name;
 			out	ia_id : dhcp_ia_id;
 			out	status : ipconfig_status);
+
+routine ipconfig_is_service_valid( server : mach_port_t;
+				name : if_name;
+				serviceID : service_id;
+			out	status : ipconfig_status);

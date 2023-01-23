@@ -201,8 +201,6 @@ grep ${keytabfile} ${testdir}/test_context.log > /dev/null || \
 echo "checking non existant keytabfile (spengo)" ; > ${testdir}/messages.log
 ${test_context} --mech-type=spnego host@lucid.test.h5l.se > ${testdir}/test_context.log 2>&1 && \
 	{ eval "$testfailed"; }
-grep ${keytabfile} ${testdir}/test_context.log > /dev/null || \
-	{ echo "string missing failed"; cat ${testdir}/test_context.log ; eval "$testfailed"; }
 
 mv ${keytabfile}.no ${keytabfile}
 

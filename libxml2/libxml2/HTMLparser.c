@@ -2351,7 +2351,7 @@ htmlEncodeEntities(unsigned char* out, int *outlen,
 	    else
 		cp = ent->name;
 	    len = strlen(cp);
-	    if (out + 2 + len > outend)
+	    if (outend - out < len + 2)
 		break;
 	    *out++ = '&';
 	    memcpy(out, cp, len);
@@ -6829,6 +6829,7 @@ htmlCtxtReset(htmlParserCtxtPtr ctxt)
     ctxt->disableSAX = 0;
     ctxt->valid = 1;
     ctxt->vctxt.userData = ctxt;
+    ctxt->vctxt.finishDtd = XML_CTXT_FINISH_DTD_0;
     ctxt->vctxt.error = xmlParserValidityError;
     ctxt->vctxt.warning = xmlParserValidityWarning;
     ctxt->record_info = 0;

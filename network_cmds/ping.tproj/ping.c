@@ -116,6 +116,8 @@ __unused static const char copyright[] =
 #include <ifaddrs.h>
 #include <getopt.h>
 
+#include "network_cmds_lib.h"
+
 #define	INADDR_LEN	((int)sizeof(in_addr_t))
 #define	TIMEVAL_LEN	((int)sizeof(struct tv32))
 #define	MASK_LEN	(ICMP_MASKLEN - ICMP_MINLEN)
@@ -651,6 +653,7 @@ main(int argc, char *const *argv)
 			    sizeof(sock_in.sin_addr));
 			(void)strlcpy(snamebuf, hp->h_name,
 			    sizeof(snamebuf));
+			clean_non_printable(snamebuf, strlen(snamebuf));
 			shostname = snamebuf;
 		}
 		if (bind(s, (struct sockaddr *)&sock_in, sizeof sock_in) == -1)
@@ -677,6 +680,7 @@ main(int argc, char *const *argv)
 			errx(1, "gethostbyname2 returned an illegal address");
 		memcpy(&to->sin_addr, hp->h_addr_list[0], sizeof to->sin_addr);
 		(void)strlcpy(hnamebuf, hp->h_name, sizeof(hnamebuf));
+		clean_non_printable(hnamebuf, strlen(hnamebuf));
 		hostname = hnamebuf;
 	}
 
@@ -1853,7 +1857,7 @@ pr_addr(struct in_addr ina)
 	    !(hp = gethostbyaddr((char *)&ina, 4, AF_INET)))
 		return inet_ntoa(ina);
 	else
-		(void)snprintf(buf, sizeof(buf), "%s (%s)", hp->h_name,
+		(void)snprintf(buf, sizeof(buf), "%s (%s)", clean_non_printable(hp->h_name, strlen(hp->h_name)),
 		    inet_ntoa(ina));
 	return(buf);
 }

@@ -297,6 +297,33 @@ def Test_const()
     constdict->assert_equal({one: 1, two: {five: 55, six: 66}, three: 3})
   END
   v9.CheckDefAndScriptSuccess(lines)
+
+  # "any" type with const flag is recognized as "any"
+  lines =<< trim END
+      const dict: dict<any> = {foo: {bar: 42}}
+      const foo = dict.foo
+      assert_equal(v:t_number, type(foo.bar))
+  END
+  v9.CheckDefAndScriptSuccess(lines)
+
+  # also when used as a builtin function argument
+  lines =<< trim END
+      vim9script
+
+      def SorterFunc(lhs: dict<string>, rhs: dict<string>): number
+        return lhs.name <# rhs.name ? -1 : 1
+      enddef
+
+      def Run(): void
+        var list =  [{name: "3"}, {name: "2"}]
+        const Sorter = get({}, "unknown", SorterFunc)
+        sort(list, Sorter)
+        assert_equal([{name: "2"}, {name: "3"}], list)
+      enddef
+
+      Run()
+  END
+  v9.CheckScriptSuccess(lines)
 enddef
 
 def Test_const_bang()
@@ -2005,6 +2032,10 @@ enddef
 def Test_echowindow_cmd()
   var local = 'local'
   echowindow 'something' local # comment
+
+  # with modifier
+  unsilent echowin 'loud'
+
   # output goes in message window
   popup_clear()
 enddef
@@ -2109,15 +2140,66 @@ enddef
 
 def Test_skipped_redir()
   var lines =<< trim END
-      def T()
+      def Tredir()
         if 0
-          redir =>l[0]
+          redir => l[0]
           redir END
         endif
       enddef
       defcompile
   END
   v9.CheckScriptSuccess(lines)
+  delfunc g:Tredir
+
+  lines =<< trim END
+      def Tredir()
+        if 0
+          redir => l[0]
+        endif
+        echo 'executed'
+        if 0
+          redir END
+        endif
+      enddef
+      defcompile
+  END
+  v9.CheckScriptSuccess(lines)
+  delfunc g:Tredir
+
+  lines =<< trim END
+      def Tredir()
+        var l = ['']
+        if 1
+          redir => l[0]
+        endif
+        echo 'executed'
+        if 0
+          redir END
+        else
+          redir END
+        endif
+      enddef
+      defcompile
+  END
+  v9.CheckScriptSuccess(lines)
+  delfunc g:Tredir
+
+  lines =<< trim END
+      let doit = 1
+      def Tredir()
+        var l = ['']
+        if g:doit
+          redir => l[0]
+        endif
+        echo 'executed'
+        if g:doit
+          redir END
+        endif
+      enddef
+      defcompile
+  END
+  v9.CheckScriptSuccess(lines)
+  delfunc g:Tredir
 enddef
 
 def Test_for_loop()
@@ -2248,6 +2330,20 @@ def Test_for_loop()
   v9.CheckDefAndScriptSuccess(lines)
 enddef
 
+def Test_for_loop_list_of_lists()
+  # loop variable is final, not const
+  var lines =<< trim END
+      # Filter out all odd numbers in each sublist
+      var list: list<list<number>> = [[1], [1, 2], [1, 2, 3], [1, 2, 3, 4]]
+      for i in list
+          filter(i, (_, n: number): bool => n % 2 == 0)
+      endfor
+
+      assert_equal([[], [2], [2], [2, 4]], list)
+  END
+  v9.CheckDefAndScriptSuccess(lines)
+enddef
+
 def Test_for_loop_with_closure()
   # using the loop variable in a closure results in the last used value
   var lines =<< trim END
@@ -2280,6 +2376,36 @@ def Test_for_loop_with_closure()
       for i in range(5)
         var inloop = i
         flist[i] = () => inloop
+      endfor
+      for i in range(5)
+        assert_equal(i, flist[i]())
+      endfor
+  END
+  v9.CheckDefAndScriptSuccess(lines)
+
+  # also with an extra block level
+  lines =<< trim END
+      var flist: list<func>
+      for i in range(5)
+        {
+          var inloop = i
+          flist[i] = () => inloop
+        }
+      endfor
+      for i in range(5)
+        assert_equal(i, flist[i]())
+      endfor
+  END
+  v9.CheckDefAndScriptSuccess(lines)
+
+  # and declaration in higher block
+  lines =<< trim END
+      var flist: list<func>
+      for i in range(5)
+        var inloop = i
+        {
+          flist[i] = () => inloop
+        }
       endfor
       for i in range(5)
         assert_equal(i, flist[i]())
@@ -3961,7 +4087,8 @@ def Test_no_unknown_error_after_error()
       endfor
   END
   writefile(lines, 'Xdef', 'D')
-  assert_fails('so Xdef', ['E684:', 'E1012:'])
+  # Either the exit or out callback is called first, accept them in any order
+  assert_fails('so Xdef', ['E684:\|E1012:', 'E1012:\|E684:'])
 enddef
 
 def InvokeNormal()
@@ -4240,7 +4367,7 @@ def Run_Test_debug_running_out_of_lines()
   g:StopVimInTerminal(buf)
 enddef
 
-def Test_ambigous_command_error()
+def Test_ambiguous_command_error()
   var lines =<< trim END
       vim9script
       command CmdA echomsg 'CmdA'

@@ -39,11 +39,11 @@ enum {
     kSOSFullPeerVersion = 1,
 };
 
-SOSFullPeerInfoRef SOSFullPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backupKey, SecKeyRef signingKey, SecKeyRef octagonSigningKey, SecKeyRef octagonEncryptionKey, CFErrorRef *error);
+SOSFullPeerInfoRef SOSFullPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFStringRef circleName, CFDataRef backupKey, SecKeyRef signingKey, SecKeyRef octagonSigningKey, SecKeyRef octagonEncryptionKey, CFErrorRef *error);
 
 bool SOSFullPeerInfoUpdateToThisPeer(SOSFullPeerInfoRef peer, SOSPeerInfoRef pi, CFErrorRef *error);
 
-SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
+SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator, CFStringRef circleName,
                                                   CFDictionaryRef gestalt, CFDataRef backupKey, CFSetRef enabledViews,
                                                   SecKeyRef signingKey, SecKeyRef octagonSigningKey, SecKeyRef octagonEncryptionKey, CFErrorRef *error);
 

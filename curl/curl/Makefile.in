@@ -455,6 +455,7 @@ PKGADD_VENDOR = @PKGADD_VENDOR@
 PKGCONFIG = @PKGCONFIG@
 RANDOM_FILE = @RANDOM_FILE@
 RANLIB = @RANLIB@
+RC = @RC@
 REQUIRE_LIB_DEPS = @REQUIRE_LIB_DEPS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -769,7 +770,6 @@ LIB_CFILES = \
   content_encoding.c \
   cookie.c           \
   curl_addrinfo.c    \
-  curl_ctype.c       \
   curl_des.c         \
   curl_endian.c      \
   curl_fnmatch.c     \
@@ -788,7 +788,6 @@ LIB_CFILES = \
   curl_threads.c     \
   dict.c             \
   doh.c              \
-  dotdot.c           \
   dynbuf.c           \
   easy.c             \
   easygetopt.c       \
@@ -838,6 +837,7 @@ LIB_CFILES = \
   multi.c            \
   netrc.c            \
   nonblock.c         \
+  noproxy.c          \
   openldap.c         \
   parsedate.c        \
   pingpong.c         \
@@ -877,7 +877,8 @@ LIB_CFILES = \
   version.c          \
   version_win32.c    \
   warnless.c         \
-  wildcard.c
+  wildcard.c         \
+  ws.c
 
 LIB_HFILES = \
   altsvc.h           \
@@ -922,7 +923,6 @@ LIB_HFILES = \
   curlx.h            \
   dict.h             \
   doh.h              \
-  dotdot.h           \
   dynbuf.h           \
   easy_lock.h        \
   easyif.h           \
@@ -932,6 +932,7 @@ LIB_HFILES = \
   fileinfo.h         \
   fopen.h            \
   formdata.h         \
+  functypes.h        \
   ftp.h              \
   ftplistparser.h    \
   getinfo.h          \
@@ -961,6 +962,7 @@ LIB_HFILES = \
   multiif.h          \
   netrc.h            \
   nonblock.h         \
+  noproxy.h          \
   parsedate.h        \
   pingpong.h         \
   pop3.h             \
@@ -1000,7 +1002,8 @@ LIB_HFILES = \
   urldata.h          \
   version_win32.h    \
   warnless.h         \
-  wildcard.h
+  wildcard.h         \
+  ws.h
 
 LIB_RCFILES = libcurl.rc
 CSOURCES = $(LIB_CFILES) $(LIB_VAUTH_CFILES) $(LIB_VTLS_CFILES) \
@@ -1017,7 +1020,6 @@ CURLX_CFILES = \
   ../lib/timediff.c \
   ../lib/nonblock.c \
   ../lib/warnless.c \
-  ../lib/curl_ctype.c \
   ../lib/curl_multibyte.c \
   ../lib/version_win32.c \
   ../lib/dynbuf.c

@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_UPLOAD_BUFFERSIZE 3 "May 17, 2022" "libcurl 7.85.0" "curl_easy_setopt options"
+.TH CURLOPT_UPLOAD_BUFFERSIZE 3 "September 20, 2022" "libcurl 7.86.0" "curl_easy_setopt options"
 
 .SH NAME
 CURLOPT_UPLOAD_BUFFERSIZE \- upload buffer size
@@ -52,7 +52,7 @@ is not used for upload, this buffer will not be allocated at all.
 DO NOT set this option on a handle that is currently used for an active
 transfer as that may lead to unintended consequences.
 .SH DEFAULT
-64 kB
+65536 bytes
 .SH PROTOCOLS
 All
 .SH EXAMPLE

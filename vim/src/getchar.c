@@ -968,18 +968,18 @@ noremap_keys(void)
  * Insert a string in position 'offset' in the typeahead buffer (for "@r"
  * and ":normal" command, vgetorpeek() and check_termcode()).
  *
- * If noremap is REMAP_YES, new string can be mapped again.
- * If noremap is REMAP_NONE, new string cannot be mapped again.
- * If noremap is REMAP_SKIP, first char of new string cannot be mapped again,
+ * If "noremap" is REMAP_YES, new string can be mapped again.
+ * If "noremap" is REMAP_NONE, new string cannot be mapped again.
+ * If "noremap" is REMAP_SKIP, first char of new string cannot be mapped again,
  * but abbreviations are allowed.
- * If noremap is REMAP_SCRIPT, new string cannot be mapped again, except for
+ * If "noremap" is REMAP_SCRIPT, new string cannot be mapped again, except for
  *			script-local mappings.
- * If noremap is > 0, that many characters of the new string cannot be mapped.
+ * If "noremap" is > 0, that many characters of the new string cannot be mapped.
  *
- * If nottyped is TRUE, the string does not return KeyTyped (don't use when
- * offset is non-zero!).
+ * If "nottyped" is TRUE, the string does not return KeyTyped (don't use when
+ * "offset" is non-zero!).
  *
- * If silent is TRUE, cmd_silent is set when the characters are obtained.
+ * If "silent" is TRUE, cmd_silent is set when the characters are obtained.
  *
  * return FAIL for failure, OK otherwise
  */
@@ -1601,8 +1601,8 @@ before_blocking(void)
 }
 
 /*
- * updatescript() is called when a character can be written into the script file
- * or when we have waited some time for a character (c == 0)
+ * updatescript() is called when a character can be written into the script
+ * file or when we have waited some time for a character (c == 0)
  *
  * All the changed memfiles are synced if c == 0 or when the number of typed
  * characters reaches 'updatecount' and 'updatecount' is non-zero.
@@ -1743,10 +1743,10 @@ vgetc(void)
 		--allow_keys;
 	    }
 
-	    // Get two extra bytes for special keys
+	    // Get two extra bytes for special keys, handle modifiers.
 	    if (c == K_SPECIAL
 #ifdef FEAT_GUI
-		    || (c == CSI)
+		    || c == CSI
 #endif
 	       )
 	    {
@@ -1764,6 +1764,12 @@ vgetc(void)
 		    continue;
 		}
 		c = TO_SPECIAL(c2, c);
+
+		// K_ESC is used to avoid ambiguity with the single Esc
+		// character that might be the start of an escape sequence.
+		// Convert it back to a single Esc here.
+		if (c == K_ESC)
+		    c = ESC;
 
 #if defined(FEAT_GUI_MSWIN) && defined(FEAT_MENU) && defined(FEAT_TEAROFF)
 		// Handle K_TEAROFF here, the caller of vgetc() doesn't need to
@@ -2326,6 +2332,10 @@ parse_queued_messages(void)
 # ifdef FEAT_TERMINAL
 	free_unused_terminals();
 # endif
+
+# ifdef FEAT_SOUND_MACOSX
+	process_cfrunloop();
+# endif
 # ifdef FEAT_SOUND_CANBERRA
 	if (has_sound_callback_in_queue())
 	    invoke_sound_callback();
@@ -2452,6 +2462,21 @@ check_simplify_modifier(int max_offset)
 }
 
 /*
+ * Return TRUE if the terminal sends modifiers with various keys.  This is when
+ * modifyOtherKeys level 2 is enabled or the kitty keyboard protocol is
+ * enabled.
+ */
+    static int
+key_protocol_enabled(void)
+{
+    // If xterm has responded to XTQMODKEYS it overrules seenModifyOtherKeys.
+    int using_mok = modify_otherkeys_state != MOKS_INITIAL
+			? modify_otherkeys_state == MOKS_ENABLED
+			: seenModifyOtherKeys;
+    return using_mok || kitty_protocol_state == KKPS_ENABLED;
+}
+
+/*
  * Handle mappings in the typeahead buffer.
  * - When something was mapped, return map_result_retry for recursive mappings.
  * - When nothing mapped and typeahead has a character: return map_result_get.
@@ -2560,30 +2585,42 @@ handle_mapping(
 	    // Skip ":lmap" mappings if keys were mapped.
 	    if (mp->m_keys[0] == tb_c1
 		    && (mp->m_mode & local_State)
-		    && !(mp->m_simplified && seenModifyOtherKeys
+		    && !(mp->m_simplified && key_protocol_enabled()
 						     && typebuf.tb_maplen == 0)
-		    && ((mp->m_mode & MODE_LANGMAP) == 0 || typebuf.tb_maplen == 0))
+		    && ((mp->m_mode & MODE_LANGMAP) == 0
+						    || typebuf.tb_maplen == 0))
 	    {
 #ifdef FEAT_LANGMAP
 		int	nomap = nolmaplen;
-		int	c2;
+		int	modifiers = 0;
 #endif
 		// find the match length of this mapping
 		for (mlen = 1; mlen < typebuf.tb_len; ++mlen)
 		{
+		    int	c2 = typebuf.tb_buf[typebuf.tb_off + mlen];
 #ifdef FEAT_LANGMAP
-		    c2 = typebuf.tb_buf[typebuf.tb_off + mlen];
 		    if (nomap > 0)
+		    {
+			if (nomap == 2 && c2 == KS_MODIFIER)
+			    modifiers = 1;
+			else if (nomap == 1 && modifiers == 1)
+			    modifiers = c2;
 			--nomap;
-		    else if (c2 == K_SPECIAL)
-			nomap = 2;
+		    }
 		    else
-			LANGMAP_ADJUST(c2, TRUE);
-		    if (mp->m_keys[mlen] != c2)
-#else
-		    if (mp->m_keys[mlen] !=
-					 typebuf.tb_buf[typebuf.tb_off + mlen])
+		    {
+			if (c2 == K_SPECIAL)
+			    nomap = 2;
+			else if (merge_modifyOtherKeys(c2, &modifiers) == c2)
+			    // Only apply 'langmap' if merging modifiers into
+			    // the key will not result in another character,
+			    // so that 'langmap' behaves consistently in
+			    // different terminals and GUIs.
+			    LANGMAP_ADJUST(c2, TRUE);
+			modifiers = 0;
+		    }
 #endif
+		    if (mp->m_keys[mlen] != c2)
 			break;
 		}
 
@@ -2740,6 +2777,9 @@ handle_mapping(
 
 	    // If no termcode matched, try to include the modifier into the
 	    // key.  This is for when modifyOtherKeys is working.
+#ifdef FEAT_TERMINAL
+	    check_no_reduce_keys();  // may update the no_reduce_keys flag
+#endif
 	    if (keylen == 0 && !no_reduce_keys)
 	    {
 		keylen = check_simplify_modifier(max_mlen + 1);
@@ -3073,9 +3113,7 @@ vgetorpeek(int advance)
 					// 'ttimeoutlen' for complete key code
     int		mapdepth = 0;		// check for recursive mapping
     int		mode_deleted = FALSE;   // set when mode has been deleted
-#ifdef FEAT_CMDL_INFO
     int		new_wcol, new_wrow;
-#endif
 #ifdef FEAT_GUI
     int		shape_changed = FALSE;  // adjusted cursor shape
 #endif
@@ -3145,9 +3183,7 @@ vgetorpeek(int advance)
 	    {
 		long	wait_time;
 		int	keylen = 0;
-#ifdef FEAT_CMDL_INFO
 		int	showcmd_idx;
-#endif
 		check_end_reg_executing(advance);
 		/*
 		 * ui_breakcheck() is slow, don't use it too often when
@@ -3237,22 +3273,23 @@ vgetorpeek(int advance)
  * get a character: 3. from the user - handle <Esc> in Insert mode
  */
 		/*
-		 * Special case: if we get an <ESC> in insert mode and there
+		 * Special case: if we get an <ESC> in Insert mode and there
 		 * are no more characters at once, we pretend to go out of
-		 * insert mode.  This prevents the one second delay after
+		 * Insert mode.  This prevents the one second delay after
 		 * typing an <ESC>.  If we get something after all, we may
 		 * have to redisplay the mode. That the cursor is in the wrong
 		 * place does not matter.
+		 * Do not do this if the kitty keyboard protocol is used, every
+		 * <ESC> is the start of an escape sequence then.
 		 */
 		c = 0;
-#ifdef FEAT_CMDL_INFO
 		new_wcol = curwin->w_wcol;
 		new_wrow = curwin->w_wrow;
-#endif
 		if (	   advance
 			&& typebuf.tb_len == 1
 			&& typebuf.tb_buf[typebuf.tb_off] == ESC
 			&& !no_mapping
+			&& kitty_protocol_state != KKPS_ENABLED
 			&& ex_normal_busy == 0
 			&& typebuf.tb_maplen == 0
 			&& (State & MODE_INSERT)
@@ -3347,10 +3384,8 @@ vgetorpeek(int advance)
 		    }
 		    setcursor();
 		    out_flush();
-#ifdef FEAT_CMDL_INFO
 		    new_wcol = curwin->w_wcol;
 		    new_wrow = curwin->w_wrow;
-#endif
 		    curwin->w_wcol = old_wcol;
 		    curwin->w_wrow = old_wrow;
 		}
@@ -3372,9 +3407,7 @@ vgetorpeek(int advance)
 
 		if (ex_normal_busy > 0)
 		{
-#ifdef FEAT_CMDWIN
 		    static int tc = 0;
-#endif
 
 		    // No typeahead left and inside ":normal".  Must return
 		    // something to avoid getting stuck.  When an incomplete
@@ -3398,16 +3431,11 @@ vgetorpeek(int advance)
 			c = K_CANCEL;
 #endif
 		    else if ((State & MODE_CMDLINE)
-#ifdef FEAT_CMDWIN
-			    || (cmdwin_type > 0 && tc == ESC)
-#endif
-			    )
+					     || (cmdwin_type > 0 && tc == ESC))
 			c = Ctrl_C;
 		    else
 			c = ESC;
-#ifdef FEAT_CMDWIN
 		    tc = c;
-#endif
 		    // set a flag to indicate this wasn't a normal char
 		    if (advance)
 			typebuf_was_empty = TRUE;
@@ -3445,9 +3473,7 @@ vgetorpeek(int advance)
 		 * input from the user), show the partially matched characters
 		 * to the user with showcmd.
 		 */
-#ifdef FEAT_CMDL_INFO
 		showcmd_idx = 0;
-#endif
 		c1 = 0;
 		if (typebuf.tb_len > 0 && advance && !exmode_active)
 		{
@@ -3465,7 +3491,6 @@ vgetorpeek(int advance)
 			    setcursor(); // put cursor back where it belongs
 			    c1 = 1;
 			}
-#ifdef FEAT_CMDL_INFO
 			// need to use the col and row from above here
 			old_wcol = curwin->w_wcol;
 			old_wrow = curwin->w_wrow;
@@ -3479,7 +3504,6 @@ vgetorpeek(int advance)
 			       typebuf.tb_buf[typebuf.tb_off + showcmd_idx++]);
 			curwin->w_wcol = old_wcol;
 			curwin->w_wrow = old_wrow;
-#endif
 		    }
 
 		    // this looks nice when typing a dead character map
@@ -3524,10 +3548,8 @@ vgetorpeek(int advance)
 			typebuf.tb_buflen - typebuf.tb_off - typebuf.tb_len - 1,
 			wait_time);
 
-#ifdef FEAT_CMDL_INFO
 		if (showcmd_idx != 0)
 		    pop_showcmd();
-#endif
 		if (c1 == 1)
 		{
 		    if (State & MODE_INSERT)
@@ -3897,14 +3919,20 @@ getcmdkeycmd(
 		continue;
 	    }
 	    c1 = TO_SPECIAL(c1, c2);
+
+	    // K_ESC is used to avoid ambiguity with the single Esc character
+	    // that might be the start of an escape sequence.  Convert it back
+	    // to a single Esc here.
+	    if (c1 == K_ESC)
+		c1 = ESC;
 	}
 	if (c1 == Ctrl_V)
 	{
 	    // CTRL-V is followed by octal, hex or other characters, reverses
 	    // what AppendToRedobuffLit() does.
-	    no_reduce_keys = TRUE;  //  don't merge modifyOtherKeys
+	    ++no_reduce_keys;  //  don't merge modifyOtherKeys
 	    c1 = get_literal(TRUE);
-	    no_reduce_keys = FALSE;
+	    --no_reduce_keys;
 	}
 
 	if (got_int)
@@ -3925,7 +3953,7 @@ getcmdkeycmd(
 		ga_concat(&line_ga, (char_u *)"<SNR>");
 	    else
 	    {
-		semsg(e_cmd_maping_must_not_include_str_key,
+		semsg(e_cmd_mapping_must_not_include_str_key,
 					       get_special_key_name(c1, cmod));
 		aborted = TRUE;
 	    }

@@ -81,6 +81,8 @@ __unused static const char copyright[] =
 
 #include "kdumpsubs.h"
 
+#include "network_cmds_lib.h"
+
 #define DEFAULT_KDUMPD_PORTNO (1069)
 #define	TIMEOUT		2
 
@@ -720,7 +722,7 @@ verifyhost(fromp)
 	hp = gethostbyaddr((char *)&fromp->sin_addr, sizeof(fromp->sin_addr),
 		fromp->sin_family);
 	if(hp)
-		return hp->h_name;
+		return clean_non_printable(hp->h_name, strlen(hp->h_name));
 	else
 		return inet_ntoa(fromp->sin_addr);
 }

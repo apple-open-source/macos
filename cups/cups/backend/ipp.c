@@ -2435,6 +2435,82 @@ debug_attributes(ipp_t *ipp)		/* I - Request or response message */
   fprintf(stderr, "DEBUG: ---- %s ----\n", ippTagString(IPP_TAG_END));
 }
 
+static void
+update_monitor_job_state_from_get_job_attributes(
+			 _cups_monitor_t* monitor,
+			 ipp_t* response)
+{
+  ipp_attribute_t* attr;
+
+  if ((attr = ippFindAttribute(response, "job-state-reasons",
+			       IPP_TAG_KEYWORD)) != NULL)
+  {
+    int	i, new_reasons = 0;	/* Looping var, new reasons */
+
+    for (i = 0; i < attr->num_values; i ++)
+    {
+      if (!strcmp(attr->values[i].string.text, "account-authorization-failed"))
+	new_reasons |= _CUPS_JSR_ACCOUNT_AUTHORIZATION_FAILED;
+      else if (!strcmp(attr->values[i].string.text, "account-closed"))
+	new_reasons |= _CUPS_JSR_ACCOUNT_CLOSED;
+      else if (!strcmp(attr->values[i].string.text, "account-info-needed"))
+	new_reasons |= _CUPS_JSR_ACCOUNT_INFO_NEEDED;
+      else if (!strcmp(attr->values[i].string.text, "account-limit-reached"))
+	new_reasons |= _CUPS_JSR_ACCOUNT_LIMIT_REACHED;
+      else if (!strcmp(attr->values[i].string.text, "job-password-wait"))
+	new_reasons |= _CUPS_JSR_JOB_PASSWORD_WAIT;
+      else if (!strcmp(attr->values[i].string.text, "job-release-wait"))
+	new_reasons |= _CUPS_JSR_JOB_RELEASE_WAIT;
+      else if (!strcmp(attr->values[i].string.text, "document-format-error"))
+	new_reasons |= _CUPS_JSR_DOCUMENT_FORMAT_ERROR;
+      else if (!strcmp(attr->values[i].string.text, "document-unprintable"))
+	new_reasons |= _CUPS_JSR_DOCUMENT_UNPRINTABLE;
+
+      if (!job_canceled && (!strncmp(attr->values[i].string.text, "job-canceled-", 13) || !strcmp(attr->values[i].string.text, "aborted-by-system")))
+	job_canceled = 1;
+    }
+
+    if (new_reasons != monitor->job_reasons)
+    {
+      if (new_reasons & _CUPS_JSR_ACCOUNT_AUTHORIZATION_FAILED)
+	fputs("JOBSTATE: account-authorization-failed\n", stderr);
+      else if (new_reasons & _CUPS_JSR_ACCOUNT_CLOSED)
+	fputs("JOBSTATE: account-closed\n", stderr);
+      else if (new_reasons & _CUPS_JSR_ACCOUNT_INFO_NEEDED)
+	fputs("JOBSTATE: account-info-needed\n", stderr);
+      else if (new_reasons & _CUPS_JSR_ACCOUNT_LIMIT_REACHED)
+	fputs("JOBSTATE: account-limit-reached\n", stderr);
+      else if (new_reasons & _CUPS_JSR_JOB_PASSWORD_WAIT)
+	fputs("JOBSTATE: job-password-wait\n", stderr);
+      else if (new_reasons & _CUPS_JSR_JOB_RELEASE_WAIT)
+	fputs("JOBSTATE: job-release-wait\n", stderr);
+      else if (new_reasons & (_CUPS_JSR_DOCUMENT_FORMAT_ERROR | _CUPS_JSR_DOCUMENT_UNPRINTABLE))
+      {
+	if (monitor->retryable)
+	{
+	  /*
+	   * Can't print this, so retry as raster...
+	   */
+
+	  job_canceled = 1;
+	  fputs("JOBSTATE: cups-retry-as-raster\n", stderr);
+	}
+	else if (new_reasons & _CUPS_JSR_DOCUMENT_FORMAT_ERROR)
+	{
+	  fputs("JOBSTATE: document-format-error\n", stderr);
+	}
+	else
+	{
+	  fputs("JOBSTATE: document-unprintable\n", stderr);
+	}
+      }
+      else
+	fputs("JOBSTATE: job-printing\n", stderr);
+
+      monitor->job_reasons = new_reasons;
+    }
+  }
+}
 
 /*
  * 'monitor_printer()' - Monitor the printer state.
@@ -2551,6 +2627,9 @@ monitor_printer(
 	  monitor->job_state = (ipp_jstate_t)attr->values[0].integer;
 	else
 	  monitor->job_state = IPP_JSTATE_COMPLETED;
+
+	if (job_canceled == 0)
+	  update_monitor_job_state_from_get_job_attributes(monitor, response);
       }
       else if (response)
       {
@@ -2608,75 +2687,6 @@ monitor_printer(
       {
 	job_canceled = -1;
 	fprintf(stderr, "DEBUG: (monitor) job_canceled = -1\n");
-      }
-
-      if ((attr = ippFindAttribute(response, "job-state-reasons",
-                                   IPP_TAG_KEYWORD)) != NULL)
-      {
-        int	i, new_reasons = 0;	/* Looping var, new reasons */
-
-        for (i = 0; i < attr->num_values; i ++)
-        {
-          if (!strcmp(attr->values[i].string.text, "account-authorization-failed"))
-            new_reasons |= _CUPS_JSR_ACCOUNT_AUTHORIZATION_FAILED;
-          else if (!strcmp(attr->values[i].string.text, "account-closed"))
-            new_reasons |= _CUPS_JSR_ACCOUNT_CLOSED;
-          else if (!strcmp(attr->values[i].string.text, "account-info-needed"))
-            new_reasons |= _CUPS_JSR_ACCOUNT_INFO_NEEDED;
-          else if (!strcmp(attr->values[i].string.text, "account-limit-reached"))
-            new_reasons |= _CUPS_JSR_ACCOUNT_LIMIT_REACHED;
-          else if (!strcmp(attr->values[i].string.text, "job-password-wait"))
-            new_reasons |= _CUPS_JSR_JOB_PASSWORD_WAIT;
-          else if (!strcmp(attr->values[i].string.text, "job-release-wait"))
-            new_reasons |= _CUPS_JSR_JOB_RELEASE_WAIT;
-          else if (!strcmp(attr->values[i].string.text, "document-format-error"))
-            new_reasons |= _CUPS_JSR_DOCUMENT_FORMAT_ERROR;
-          else if (!strcmp(attr->values[i].string.text, "document-unprintable"))
-            new_reasons |= _CUPS_JSR_DOCUMENT_UNPRINTABLE;
-
-	  if (!job_canceled && (!strncmp(attr->values[i].string.text, "job-canceled-", 13) || !strcmp(attr->values[i].string.text, "aborted-by-system")))
-            job_canceled = 1;
-        }
-
-        if (new_reasons != monitor->job_reasons)
-        {
-	  if (new_reasons & _CUPS_JSR_ACCOUNT_AUTHORIZATION_FAILED)
-	    fputs("JOBSTATE: account-authorization-failed\n", stderr);
-	  else if (new_reasons & _CUPS_JSR_ACCOUNT_CLOSED)
-	    fputs("JOBSTATE: account-closed\n", stderr);
-	  else if (new_reasons & _CUPS_JSR_ACCOUNT_INFO_NEEDED)
-	    fputs("JOBSTATE: account-info-needed\n", stderr);
-	  else if (new_reasons & _CUPS_JSR_ACCOUNT_LIMIT_REACHED)
-	    fputs("JOBSTATE: account-limit-reached\n", stderr);
-	  else if (new_reasons & _CUPS_JSR_JOB_PASSWORD_WAIT)
-	    fputs("JOBSTATE: job-password-wait\n", stderr);
-	  else if (new_reasons & _CUPS_JSR_JOB_RELEASE_WAIT)
-	    fputs("JOBSTATE: job-release-wait\n", stderr);
-          else if (new_reasons & (_CUPS_JSR_DOCUMENT_FORMAT_ERROR | _CUPS_JSR_DOCUMENT_UNPRINTABLE))
-          {
-            if (monitor->retryable)
-            {
-             /*
-              * Can't print this, so retry as raster...
-              */
-
-              job_canceled = 1;
-              fputs("JOBSTATE: cups-retry-as-raster\n", stderr);
-	    }
-	    else if (new_reasons & _CUPS_JSR_DOCUMENT_FORMAT_ERROR)
-	    {
-	      fputs("JOBSTATE: document-format-error\n", stderr);
-	    }
-	    else
-	    {
-	      fputs("JOBSTATE: document-unprintable\n", stderr);
-	    }
-          }
-	  else
-	    fputs("JOBSTATE: job-printing\n", stderr);
-
-	  monitor->job_reasons = new_reasons;
-        }
       }
 
       ippDelete(response);

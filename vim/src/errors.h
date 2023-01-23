@@ -15,10 +15,8 @@ EXTERN char e_interrupted[]
 
 EXTERN char e_backslash_should_be_followed_by[]
 	INIT(= N_("E10: \\ should be followed by /, ? or &"));
-#ifdef FEAT_CMDWIN
 EXTERN char e_invalid_in_cmdline_window[]
 	INIT(= N_("E11: Invalid in command-line window; :q<CR> closes the window"));
-#endif
 EXTERN char e_command_not_allowed_from_vimrc_in_current_dir_or_tag_search[]
 	INIT(= N_("E12: Command not allowed from exrc/vimrc in current dir or tag search"));
 EXTERN char e_file_exists[]
@@ -461,10 +459,8 @@ EXTERN char e_no_digraphs_version[]
 EXTERN char e_cannot_set_language_to_str[]
 	INIT(= N_("E197: Cannot set language to \"%s\""));
 // E198 unused
-#ifdef FEAT_CMDWIN
 EXTERN char e_active_window_or_buffer_deleted[]
 	INIT(= N_("E199: Active window or buffer deleted"));
-#endif
 EXTERN char e_readpre_autocommands_made_file_unreadable[]
 	INIT(= N_("E200: *ReadPre autocommands made the file unreadable"));
 EXTERN char e_readpre_autocommands_must_not_change_current_buffer[]
@@ -1060,7 +1056,7 @@ EXTERN char e_tags_file_not_sorted_str[]
 	INIT(= N_("E432: Tags file not sorted: %s"));
 EXTERN char e_no_tags_file[]
 	INIT(= N_("E433: No tags file"));
-EXTERN char e_canot_find_tag_pattern[]
+EXTERN char e_cannot_find_tag_pattern[]
 	INIT(= N_("E434: Can't find tag pattern"));
 EXTERN char e_couldnt_find_tag_just_guessing[]
 	INIT(= N_("E435: Couldn't find tag, just guessing!"));
@@ -1265,7 +1261,7 @@ EXTERN char e_is_read_only_add_bang_to_override[]
 	INIT(= N_("is read-only (add ! to override)"));
 EXTERN char e_str_is_read_only_add_bang_to_override[]
 	INIT(= N_("E505: \"%s\" is read-only (add ! to override)"));
-EXTERN char e_canot_write_to_backup_file_add_bang_to_override[]
+EXTERN char e_cant_write_to_backup_file_add_bang_to_override[]
 	INIT(= N_("E506: Can't write to backup file (add ! to override)"));
 EXTERN char e_close_error_for_backup_file_add_bang_to_write_anyway[]
 	INIT(= N_("E507: Close error for backup file (add ! to write anyway)"));
@@ -1812,7 +1808,7 @@ EXTERN char e_cannot_slice_dictionary[]
 	INIT(= N_("E719: Cannot slice a Dictionary"));
 EXTERN char e_missing_colon_in_dictionary[]
 	INIT(= N_("E720: Missing colon in Dictionary: %s"));
-EXTERN char e_duplicate_key_in_dicitonary[]
+EXTERN char e_duplicate_key_in_dictionary[]
 	INIT(= N_("E721: Duplicate key in Dictionary: \"%s\""));
 EXTERN char e_missing_comma_in_dictionary[]
 	INIT(= N_("E722: Missing comma in Dictionary: %s"));
@@ -1911,7 +1907,7 @@ EXTERN char e_character_in_fol_low_or_upp_is_out_of_range[]
 EXTERN char e_word_characters_differ_between_spell_files[]
 	INIT(= N_("E763: Word characters differ between spell files"));
 #endif
-#if defined(FEAT_SYN_HL) || defined(FEAT_COMPL_FUNC)
+#if defined(FEAT_SYN_HL) || defined(FEAT_COMPL_FUNC) || defined(FEAT_SPELL)
 EXTERN char e_option_str_is_not_set[]
 	INIT(= N_("E764: Option '%s' is not set"));
 #endif
@@ -2894,7 +2890,7 @@ EXTERN char e_using_string_as_bool_str[]
 #endif
 EXTERN char e_cmd_mapping_must_end_with_cr_before_second_cmd[]
 	INIT(= N_("E1136: <Cmd> mapping must end with <CR> before second <Cmd>"));
-EXTERN char e_cmd_maping_must_not_include_str_key[]
+EXTERN char e_cmd_mapping_must_not_include_str_key[]
 	INIT(= N_("E1137: <Cmd> mapping must not include %s key"));
 #ifdef FEAT_EVAL
 EXTERN char e_using_bool_as_number[]
@@ -3012,7 +3008,7 @@ EXTERN char e_expression_does_not_result_in_value_str[]
 #endif
 EXTERN char e_failed_to_source_defaults[]
 	INIT(= N_("E1187: Failed to source defaults.vim"));
-#if defined(FEAT_TERMINAL) && defined(FEAT_CMDWIN)
+#if defined(FEAT_TERMINAL)
 EXTERN char e_cannot_open_terminal_from_command_line_window[]
 	INIT(= N_("E1188: Cannot open a terminal from the command line window"));
 #endif
@@ -3086,7 +3082,7 @@ EXTERN char e_bool_required_for_argument_nr[]
 EXTERN char e_redefining_imported_item_str[]
 	INIT(= N_("E1213: Redefining imported item \"%s\""));
 #endif
-#if defined(FEAT_DIGRAPHS) && defined(FEAT_EVAL)
+#if defined(FEAT_DIGRAPHS)
 EXTERN char e_digraph_must_be_just_two_characters_str[]
 	INIT(= N_("E1214: Digraph must be just two characters: %s"));
 EXTERN char e_digraph_argument_must_be_one_character_str[]
@@ -3266,7 +3262,7 @@ EXTERN char e_atom_engine_must_be_at_start_of_pattern[]
 #ifdef FEAT_EVAL
 EXTERN char e_bitshift_ops_must_be_number[]
 	INIT(= N_("E1282: Bitshift operands must be numbers"));
-EXTERN char e_bitshift_ops_must_be_postive[]
+EXTERN char e_bitshift_ops_must_be_positive[]
 	INIT(= N_("E1283: Bitshift amount must be a positive number"));
 #endif
 #if defined(FEAT_PROP_POPUP)
@@ -3291,10 +3287,8 @@ EXTERN char e_substitute_nesting_too_deep[]
 EXTERN char e_invalid_argument_nr[]
 	INIT(= N_("E1291: Invalid argument: %ld"));
 #endif
-#ifdef FEAT_CMDWIN
 EXTERN char e_cmdline_window_already_open[]
 	INIT(= N_("E1292: Command-line window is already open"));
-#endif
 #ifdef FEAT_PROP_POPUP
 EXTERN char e_cannot_use_negative_id_after_adding_textprop_with_text[]
 	INIT(= N_("E1293: Cannot use a negative id after adding a textprop with text"));
@@ -3336,4 +3330,18 @@ EXTERN char e_loop_nesting_too_deep[]
 	INIT(= N_("E1306: Loop nesting too deep"));
 EXTERN char e_argument_nr_trying_to_modify_const_str[]
 	INIT(= N_("E1307: Argument %d: Trying to modify a const %s"));
+EXTERN char e_cannot_resize_window_in_another_tab_page[]
+	INIT(= N_("E1308: Cannot resize a window in another tab page"));
 #endif
+EXTERN char e_cannot_change_mappings_while_listing[]
+	INIT(= N_("E1309: Cannot change mappings while listing"));
+#if defined(FEAT_MENU)
+EXTERN char e_cannot_change_menus_while_listing[]
+	INIT(= N_("E1310: Cannot change menus while listing"));
+#endif
+EXTERN char e_cannot_change_user_commands_while_listing[]
+	INIT(= N_("E1311: Cannot change user commands while listing"));
+EXTERN char e_not_allowed_to_change_window_layout_in_this_autocmd[]
+	INIT(= N_("E1312: Not allowed to change the window layout in this autocmd"));
+EXTERN char e_not_allowed_to_add_or_remove_entries_str[]
+	INIT(= N_("E1313: Not allowed to add or remove entries (%s)"));

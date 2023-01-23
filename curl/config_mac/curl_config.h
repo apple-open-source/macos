@@ -408,12 +408,6 @@
 /* Define to 1 if you have the `ssh2' library (-lssh2). */
 /* #undef HAVE_LIBSSH2 */
 
-/* Define to 1 if you have the <libssh2.h> header file. */
-/* #undef HAVE_LIBSSH2_H */
-
-/* Define to 1 if you have the <libssh/libssh.h> header file. */
-/* #undef HAVE_LIBSSH_LIBSSH_H */
-
 /* Define to 1 if you have the `ssl' library (-lssl). */
 #define HAVE_LIBSSL 1
 
@@ -527,9 +521,6 @@
 /* if you have the PK11_CreateManagedGenericObject function */
 /* #undef HAVE_PK11_CREATEMANAGEDGENERICOBJECT */
 
-/* Define to 1 if you have a working poll function. */
-/* #undef HAVE_POLL */
-
 /* If you have a fine poll */
 /* #undef HAVE_POLL_FINE */
 
@@ -607,6 +598,9 @@
 
 /* Define to 1 if you have the sigsetjmp function or macro. */
 #define HAVE_SIGSETJMP 1
+
+/* Define to 1 if you have the `snprintf' function. */
+#define HAVE_SNPRINTF 1
 
 /* Define to 1 if struct sockaddr_in6 has the sin6_scope_id member */
 #define HAVE_SOCKADDR_IN6_SIN6_SCOPE_ID 1
@@ -820,12 +814,6 @@
 
 /* Define to 1 if you need the lber.h header file even with ldap.h */
 /* #undef NEED_LBER_H */
-
-/* Define to 1 if you need the malloc.h header file even with stdlib.h */
-/* #undef NEED_MALLOC_H */
-
-/* Define to 1 if you need the memory.h header file even with stdlib.h */
-/* #undef NEED_MEMORY_H */
 
 /* Define to 1 if _REENTRANT preprocessor symbol must be defined. */
 /* #undef NEED_REENTRANT */
@@ -1053,6 +1041,9 @@
 
 /* Use Unix domain sockets */
 #define USE_UNIX_SOCKETS 1
+
+/* enable websockets support */
+/* #undef USE_WEBSOCKETS */
 
 /* Define to 1 if you are building a Windows target with crypto API support.
    */

@@ -353,6 +353,7 @@ f_prop_add_list(typval_T *argvars, typval_T *rettv UNUSED)
     linenr_T	end_lnum;
     colnr_T	end_col;
     int		error = FALSE;
+    int		prev_did_emsg = did_emsg;
 
     if (check_for_dict_arg(argvars, 0) == FAIL
 	    || check_for_list_arg(argvars, 1) == FAIL)
@@ -389,17 +390,24 @@ f_prop_add_list(typval_T *argvars, typval_T *rettv UNUSED)
 
 	pos_list = li->li_tv.vval.v_list;
 	start_lnum = list_find_nr(pos_list, 0L, &error);
-	start_col = list_find_nr(pos_list, 1L, &error);
-	end_lnum = list_find_nr(pos_list, 2L, &error);
-	end_col = list_find_nr(pos_list, 3L, &error);
+	if (!error)
+	    start_col = list_find_nr(pos_list, 1L, &error);
+	if (!error)
+	    end_lnum = list_find_nr(pos_list, 2L, &error);
+	if (!error)
+	    end_col = list_find_nr(pos_list, 3L, &error);
+	int this_id = id;
+	if (!error && pos_list->lv_len > 4)
+	    this_id = list_find_nr(pos_list, 4L, &error);
 	if (error || start_lnum <= 0 || start_col <= 0
-		|| end_lnum <= 0 || end_col <= 0)
+		  || end_lnum <= 0 || end_col <= 0)
 	{
-	    emsg(_(e_invalid_argument));
+	    if (prev_did_emsg == did_emsg)
+		emsg(_(e_invalid_argument));
 	    return;
 	}
-	if (prop_add_one(buf, type_name, id, NULL, 0, 0, start_lnum, end_lnum,
-						start_col, end_col) == FAIL)
+	if (prop_add_one(buf, type_name, this_id, NULL, 0, 0,
+			     start_lnum, end_lnum, start_col, end_col) == FAIL)
 	    return;
     }
 
@@ -892,7 +900,7 @@ find_type_by_id(hashtab_T *ht, proptype_T ***array, int id)
     if (ht == NULL || ht->ht_used == 0)
 	return NULL;
 
-    // Make the loopup faster by creating an array with pointers to
+    // Make the lookup faster by creating an array with pointers to
     // hashtable entries, sorted on pt_id.
     if (*array == NULL)
     {
@@ -1781,7 +1789,7 @@ prop_type_set(typval_T *argvars, int add)
 	    }
 	    hash_init(*htp);
 	}
-	hash_add(*htp, PT2HIKEY(prop));
+	hash_add(*htp, PT2HIKEY(prop), "prop type");
     }
     else
     {
@@ -1916,7 +1924,7 @@ f_prop_type_delete(typval_T *argvars, typval_T *rettv UNUSED)
 	    ht = buf->b_proptypes;
 	    VIM_CLEAR(buf->b_proparray);
 	}
-	hash_remove(ht, hi);
+	hash_remove(ht, hi, "prop type delete");
 	vim_free(prop);
     }
 }

@@ -24,6 +24,10 @@ static mapblock_T	*first_abbr = NULL; // first entry in abbrlist
 static mapblock_T	*(maphash[256]);
 static int		maphash_valid = FALSE;
 
+// When non-zero then no mappings can be added or removed.  Prevents mappings
+// to change while listing them.
+static int		map_locked = 0;
+
 /*
  * Make a hash value for a mapping.
  * "mode" is the lower 4 bits of the State for the mapping.
@@ -136,6 +140,9 @@ map_mode_to_chars(int mode)
     return (char_u *)mapmode.ga_data;
 }
 
+/*
+ * Output a line for one mapping.
+ */
     static void
 showmap(
     mapblock_T	*mp,
@@ -147,11 +154,15 @@ showmap(
     if (message_filtered(mp->m_keys) && message_filtered(mp->m_str))
 	return;
 
+    // Prevent mappings to be cleared while at the more prompt.
+    // Must jump to "theend" instead of returning.
+    ++map_locked;
+
     if (msg_didout || msg_silent != 0)
     {
 	msg_putchar('\n');
 	if (got_int)	    // 'q' typed at MORE prompt
-	    return;
+	    goto theend;
     }
 
     mapchars = map_mode_to_chars(mp->m_mode);
@@ -197,6 +208,9 @@ showmap(
 #endif
     msg_clr_eos();
     out_flush();			// show one line at a time
+
+theend:
+    --map_locked;
 }
 
     static int
@@ -279,6 +293,105 @@ map_add(
 	map_table[n] = mp;
     }
     return OK;
+}
+
+/*
+ * List mappings.  When "haskey" is FALSE all mappings, otherwise mappings that
+ * match "keys[keys_len]".
+ */
+    static void
+list_mappings(
+	int	keyround,
+	int	abbrev,
+	int	haskey,
+	char_u	*keys,
+	int	keys_len,
+	int	mode,
+	int	*did_local)
+{
+    // Prevent mappings to be cleared while at the more prompt.
+    ++map_locked;
+
+    if (p_verbose > 0 && keyround == 1)
+    {
+	if (seenModifyOtherKeys)
+	    msg_puts(_("Seen modifyOtherKeys: true\n"));
+
+	if (modify_otherkeys_state != MOKS_INITIAL)
+	{
+	    char *name = _("Unknown");
+	    switch (modify_otherkeys_state)
+	    {
+		case MOKS_INITIAL: break;
+		case MOKS_OFF: name = _("Off"); break;
+		case MOKS_ENABLED: name = _("On"); break;
+		case MOKS_DISABLED: name = _("Disabled"); break;
+		case MOKS_AFTER_T_KE: name = _("Cleared"); break;
+	    }
+
+	    char buf[200];
+	    vim_snprintf(buf, sizeof(buf),
+				    _("modifyOtherKeys detected: %s\n"), name);
+	    msg_puts(buf);
+	}
+
+	if (kitty_protocol_state != KKPS_INITIAL)
+	{
+	    char *name = _("Unknown");
+	    switch (kitty_protocol_state)
+	    {
+		case KKPS_INITIAL: break;
+		case KKPS_OFF: name = _("Off"); break;
+		case KKPS_ENABLED: name = _("On"); break;
+		case KKPS_DISABLED: name = _("Disabled"); break;
+		case KKPS_AFTER_T_KE: name = _("Cleared"); break;
+	    }
+
+	    char buf[200];
+	    vim_snprintf(buf, sizeof(buf),
+				     _("Kitty keyboard protocol: %s\n"), name);
+	    msg_puts(buf);
+	}
+    }
+
+    // need to loop over all global hash lists
+    for (int hash = 0; hash < 256 && !got_int; ++hash)
+    {
+	mapblock_T	*mp;
+
+	if (abbrev)
+	{
+	    if (hash != 0)	// there is only one abbreviation list
+		break;
+	    mp = curbuf->b_first_abbr;
+	}
+	else
+	    mp = curbuf->b_maphash[hash];
+	for ( ; mp != NULL && !got_int; mp = mp->m_next)
+	{
+	    // check entries with the same mode
+	    if (!mp->m_simplified && (mp->m_mode & mode) != 0)
+	    {
+		if (!haskey)		    // show all entries
+		{
+		    showmap(mp, TRUE);
+		    *did_local = TRUE;
+		}
+		else
+		{
+		    int n = mp->m_keylen;
+		    if (STRNCMP(mp->m_keys, keys,
+				   (size_t)(n < keys_len ? n : keys_len)) == 0)
+		    {
+			showmap(mp, TRUE);
+			*did_local = TRUE;
+		    }
+		}
+	    }
+	}
+    }
+
+    --map_locked;
 }
 
 /*
@@ -503,8 +616,6 @@ do_map(
 	int	did_local = FALSE;
 	int	keyround1_simplified = keyround == 1 && did_simplify;
 	int	round;
-	int	hash;
-	int	new_hash;
 
 	if (keyround == 2)
 	{
@@ -585,7 +696,7 @@ do_map(
 			       && haskey && hasarg && maptype != MAPTYPE_UNMAP)
 	{
 	    // need to loop over all global hash lists
-	    for (hash = 0; hash < 256 && !got_int; ++hash)
+	    for (int hash = 0; hash < 256 && !got_int; ++hash)
 	    {
 		if (abbrev)
 		{
@@ -619,42 +730,8 @@ do_map(
 	// When listing global mappings, also list buffer-local ones here.
 	if (map_table != curbuf->b_maphash && !hasarg
 						   && maptype != MAPTYPE_UNMAP)
-	{
-	    // need to loop over all global hash lists
-	    for (hash = 0; hash < 256 && !got_int; ++hash)
-	    {
-		if (abbrev)
-		{
-		    if (hash != 0)	// there is only one abbreviation list
-			break;
-		    mp = curbuf->b_first_abbr;
-		}
-		else
-		    mp = curbuf->b_maphash[hash];
-		for ( ; mp != NULL && !got_int; mp = mp->m_next)
-		{
-		    // check entries with the same mode
-		    if (!mp->m_simplified && (mp->m_mode & mode) != 0)
-		    {
-			if (!haskey)		    // show all entries
-			{
-			    showmap(mp, TRUE);
-			    did_local = TRUE;
-			}
-			else
-			{
-			    n = mp->m_keylen;
-			    if (STRNCMP(mp->m_keys, keys,
-					     (size_t)(n < len ? n : len)) == 0)
-			    {
-				showmap(mp, TRUE);
-				did_local = TRUE;
-			    }
-			}
-		    }
-		}
-	    }
-	}
+	    list_mappings(keyround, abbrev, haskey, keys, len,
+							     mode, &did_local);
 
 	// Find an entry in the maphash[] list that matches.
 	// For :unmap we may loop two times: once to try to unmap an entry with
@@ -666,7 +743,7 @@ do_map(
 					       && !did_it && !got_int; ++round)
 	{
 	    // need to loop over all hash lists
-	    for (hash = 0; hash < 256 && !got_int; ++hash)
+	    for (int hash = 0; hash < 256 && !got_int; ++hash)
 	    {
 		if (abbrev)
 		{
@@ -792,7 +869,7 @@ do_map(
 
 			    // May need to put this entry into another hash
 			    // list.
-			    new_hash = MAP_HASH(mp->m_mode, mp->m_keys[0]);
+			    int new_hash = MAP_HASH(mp->m_mode, mp->m_keys[0]);
 			    if (!abbrev && new_hash != hash)
 			    {
 				*mpp = mp->m_next;
@@ -933,6 +1010,21 @@ map_clear(
 }
 
 /*
+ * If "map_locked" is set then give an error and return TRUE.
+ * Otherwise return FALSE.
+ */
+    static int
+is_map_locked(void)
+{
+    if (map_locked > 0)
+    {
+	emsg(_(e_cannot_change_mappings_while_listing));
+	return TRUE;
+    }
+    return FALSE;
+}
+
+/*
  * Clear all mappings in "mode".
  */
     void
@@ -945,6 +1037,9 @@ map_clear_mode(
     mapblock_T	*mp, **mpp;
     int		hash;
     int		new_hash;
+
+    if (is_map_locked())
+	return;
 
     validate_maphash();
 
@@ -1753,7 +1848,11 @@ vim_strsave_escape_csi(char_u *p)
 	d = res;
 	for (s = p; *s != NUL; )
 	{
-	    if (s[0] == K_SPECIAL && s[1] != NUL && s[2] != NUL)
+	    if ((s[0] == K_SPECIAL
+#ifdef FEAT_GUI
+		    || (gui.in_use && s[0] == CSI)
+#endif
+		) && s[1] != NUL && s[2] != NUL)
 	    {
 		// Copy special key unmodified.
 		*d++ = *s++;
@@ -2811,8 +2910,6 @@ init_mappings(void)
 #endif
 }
 
-#if defined(MSWIN) || defined(FEAT_CMDWIN) || defined(MACOS_X) \
-							     || defined(PROTO)
 /*
  * Add a mapping "map" for mode "mode".
  * When "nore" is TRUE use MAPTYPE_NOREMAP.
@@ -2833,7 +2930,6 @@ add_map(char_u *map, int mode, int nore)
     }
     p_cpo = cpo_save;
 }
-#endif
 
 #if defined(FEAT_LANGMAP) || defined(PROTO)
 /*

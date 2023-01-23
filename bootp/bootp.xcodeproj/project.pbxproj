@@ -205,6 +205,10 @@
 		F9096F2C1ED7502F00CCA89C /* AWDMetricIds_IPConfiguration.h in Headers */ = {isa = PBXBuildFile; fileRef = F98EED091ED3A16F00F97D36 /* AWDMetricIds_IPConfiguration.h */; };
 		F9096F311EE0E19D00CCA89C /* IPv6AWDReport.m in Sources */ = {isa = PBXBuildFile; fileRef = F9096F2D1EE0E16E00CCA89C /* IPv6AWDReport.m */; };
 		F9096F321EE0E19F00CCA89C /* IPv6AWDReport.m in Sources */ = {isa = PBXBuildFile; fileRef = F9096F2D1EE0E16E00CCA89C /* IPv6AWDReport.m */; };
+		F90A065928EBAF1B00E88A44 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F90A065828EBAF1A00E88A44 /* IOKit.framework */; };
+		F90A065A28EBAF5500E88A44 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F90A065828EBAF1A00E88A44 /* IOKit.framework */; };
+		F90A065C28EBB41A00E88A44 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F90A065B28EBB41A00E88A44 /* IOKit.framework */; };
+		F90A065D28EBB42600E88A44 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F90A065B28EBB41A00E88A44 /* IOKit.framework */; };
 		F90F835813689C4B008E95DC /* ipconfig.defs in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFCD0AC4F4F700CF228A /* ipconfig.defs */; };
 		F913A2941CCAEF25006BAD8F /* com.apple.IPConfiguration.plist in Copy Files */ = {isa = PBXBuildFile; fileRef = F913A2921CCAEEEE006BAD8F /* com.apple.IPConfiguration.plist */; };
 		F913A2951CCAEF64006BAD8F /* com.apple.IPConfiguration.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = F913A2921CCAEEEE006BAD8F /* com.apple.IPConfiguration.plist */; };
@@ -257,6 +261,10 @@
 		F947F5C60FF525FF00D18E84 /* sysconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = F947F5C40FF525FF00D18E84 /* sysconfig.h */; };
 		F948626F1EF2E62100BF7EA8 /* IPv6AWDReport.h in Headers */ = {isa = PBXBuildFile; fileRef = F9096F2F1EE0E18200CCA89C /* IPv6AWDReport.h */; };
 		F94862701EF2E62300BF7EA8 /* IPv6AWDReport.h in Headers */ = {isa = PBXBuildFile; fileRef = F9096F2F1EE0E18200CCA89C /* IPv6AWDReport.h */; };
+		F951600E28F794B000BDE4E1 /* DHCPv6PDService.c in Sources */ = {isa = PBXBuildFile; fileRef = F951600D28F794B000BDE4E1 /* DHCPv6PDService.c */; };
+		F951600F28F794B000BDE4E1 /* DHCPv6PDService.c in Sources */ = {isa = PBXBuildFile; fileRef = F951600D28F794B000BDE4E1 /* DHCPv6PDService.c */; };
+		F951601128F79E9400BDE4E1 /* DHCPv6PDService.h in Headers */ = {isa = PBXBuildFile; fileRef = F951601028F79E9400BDE4E1 /* DHCPv6PDService.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F951601228F79E9400BDE4E1 /* DHCPv6PDService.h in Headers */ = {isa = PBXBuildFile; fileRef = F951601028F79E9400BDE4E1 /* DHCPv6PDService.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F95272D01EB29E9200C99E70 /* nbo.h in Headers */ = {isa = PBXBuildFile; fileRef = E4015EEF138DDD170077DE59 /* nbo.h */; };
 		F95272D21EB29E9200C99E70 /* bootpd.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E0530AC4F90C00CF228A /* bootpd.c */; };
 		F95272D31EB29E9200C99E70 /* bootpdfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E0550AC4F90C00CF228A /* bootpdfile.c */; };
@@ -968,6 +976,8 @@
 		F907DEDF17286C8700E86E6C /* HostUUID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = HostUUID.h; path = IPConfiguration.bproj/HostUUID.h; sourceTree = "<group>"; };
 		F9096F2D1EE0E16E00CCA89C /* IPv6AWDReport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = IPv6AWDReport.m; path = IPConfiguration.bproj/IPv6AWDReport.m; sourceTree = "<group>"; };
 		F9096F2F1EE0E18200CCA89C /* IPv6AWDReport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IPv6AWDReport.h; path = IPConfiguration.bproj/IPv6AWDReport.h; sourceTree = "<group>"; };
+		F90A065828EBAF1A00E88A44 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		F90A065B28EBB41A00E88A44 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		F913A2921CCAEEEE006BAD8F /* com.apple.IPConfiguration.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.IPConfiguration.plist; path = IPConfiguration.bproj/com.apple.IPConfiguration.plist; sourceTree = "<group>"; };
 		F913AB76104C95FB00334C02 /* stf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = stf.c; path = IPConfiguration.bproj/stf.c; sourceTree = "<group>"; };
 		F918987B17010F0D005DD2A7 /* IPConfigurationLog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IPConfigurationLog.c; path = bootplib/IPConfigurationLog.c; sourceTree = "<group>"; };
@@ -990,6 +1000,8 @@
 		F9465CEF1C80FBC700AF5739 /* report_symptoms.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = report_symptoms.h; path = IPConfiguration.bproj/report_symptoms.h; sourceTree = "<group>"; };
 		F947F5C10FF525E300D18E84 /* sysconfig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sysconfig.c; path = IPConfiguration.bproj/sysconfig.c; sourceTree = "<group>"; };
 		F947F5C40FF525FF00D18E84 /* sysconfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sysconfig.h; path = IPConfiguration.bproj/sysconfig.h; sourceTree = "<group>"; };
+		F951600D28F794B000BDE4E1 /* DHCPv6PDService.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DHCPv6PDService.c; sourceTree = "<group>"; };
+		F951601028F79E9400BDE4E1 /* DHCPv6PDService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DHCPv6PDService.h; sourceTree = "<group>"; };
 		F95272DF1EB29E9200C99E70 /* bootpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bootpd; sourceTree = BUILT_PRODUCTS_DIR; };
 		F95273501EB2C17300C99E70 /* libbootplib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libbootplib.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		F956283E1EF43C970042389C /* netbootdisk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = netbootdisk.c; sourceTree = "<group>"; };
@@ -1085,6 +1097,7 @@
 				15FF29A10ACA138A00AD2676 /* OpenDirectory.framework in Frameworks */,
 				1562E0910AC4FBD400CF228A /* libbootplib.a in Frameworks */,
 				1562E0BD0AC4FC1600CF228A /* libresolv.dylib in Frameworks */,
+				F90A065928EBAF1B00E88A44 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1155,6 +1168,7 @@
 				E0D59B750EEDDD8E00916211 /* SystemConfiguration.framework in Frameworks */,
 				E0D59B770EEDDD8E00916211 /* libbootplib.a in Frameworks */,
 				E0D59B780EEDDD8E00916211 /* libresolv.dylib in Frameworks */,
+				F90A065A28EBAF5500E88A44 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1228,6 +1242,7 @@
 				F9B822FE214341450034F1A6 /* CoreFoundation.framework in Frameworks */,
 				F9B822FF214341450034F1A6 /* SystemConfiguration.framework in Frameworks */,
 				F9B822FB2143412A0034F1A6 /* libbootplib.a in Frameworks */,
+				F90A065C28EBB41A00E88A44 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1255,6 +1270,7 @@
 				F9D27B8E21E3F7100014528D /* CoreFoundation.framework in Frameworks */,
 				F9D27B8F21E3F7100014528D /* SystemConfiguration.framework in Frameworks */,
 				F9D27B9021E3F7100014528D /* libbootplib.a in Frameworks */,
+				F90A065D28EBB42600E88A44 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1743,6 +1759,7 @@
 		F9657D2C1368933F0000ED6B /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				F951601028F79E9400BDE4E1 /* DHCPv6PDService.h */,
 				F93B0C4A207BD64A0070AD9B /* IPConfigurationUtilPrivate.h */,
 				F93B0C42207BD5FE0070AD9B /* IPConfigurationUtil.h */,
 				F9BD5235136A370600548F93 /* IPConfigurationService.h */,
@@ -1754,6 +1771,7 @@
 		F9657D2D136893510000ED6B /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				F951600D28F794B000BDE4E1 /* DHCPv6PDService.c */,
 				F93B0C44207BD6080070AD9B /* IPConfigurationUtil.c */,
 				F9657D2E1368939A0000ED6B /* IPConfigurationService.c */,
 			);
@@ -1809,6 +1827,8 @@
 		F9AE55C61ED3A6BD00746927 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F90A065828EBAF1A00E88A44 /* IOKit.framework */,
+				F90A065B28EBB41A00E88A44 /* IOKit.framework */,
 				F9BC1B9927E16B5C003F78CE /* IO80211.framework */,
 				F9BC1B9B27E16B91003F78CE /* IO80211.framework */,
 				F9B822FC214341450034F1A6 /* CoreFoundation.framework */,
@@ -1962,6 +1982,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F93B0C4C207BD6560070AD9B /* IPConfigurationUtilPrivate.h in Headers */,
+				F951601228F79E9400BDE4E1 /* DHCPv6PDService.h in Headers */,
 				F92660111ABCBD01001F39AE /* IPConfigurationService.h in Headers */,
 				F92660121ABCBD01001F39AE /* IPConfigurationServiceInternal.h in Headers */,
 				F93B0C48207BD6290070AD9B /* IPConfigurationUtil.h in Headers */,
@@ -2073,6 +2094,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F93B0C4B207BD64A0070AD9B /* IPConfigurationUtilPrivate.h in Headers */,
+				F951601128F79E9400BDE4E1 /* DHCPv6PDService.h in Headers */,
 				F9B0DC1A136F15FA00D7DF6C /* IPConfigurationService.h in Headers */,
 				F9B0DC1C136F161300D7DF6C /* IPConfigurationServiceInternal.h in Headers */,
 				F93B0C43207BD5FE0070AD9B /* IPConfigurationUtil.h in Headers */,
@@ -2782,6 +2804,7 @@
 			files = (
 				F92660141ABCBD01001F39AE /* ipconfig.defs in Sources */,
 				F92660151ABCBD01001F39AE /* IPConfigurationService.c in Sources */,
+				F951600F28F794B000BDE4E1 /* DHCPv6PDService.c in Sources */,
 				F93B0C49207BD6340070AD9B /* IPConfigurationUtil.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2884,6 +2907,7 @@
 			files = (
 				F9548423136F17990010997A /* ipconfig.defs in Sources */,
 				F9B0DC19136F15E600D7DF6C /* IPConfigurationService.c in Sources */,
+				F951600E28F794B000BDE4E1 /* DHCPv6PDService.c in Sources */,
 				F93B0C45207BD6080070AD9B /* IPConfigurationUtil.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

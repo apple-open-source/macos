@@ -1,0 +1,102 @@
+#
+# FEE library Makefile, generic UNIX version.
+#
+FEE_LIB=libFEE.a
+#
+CFILES=CipherFileDES.c CipherFileFEED.c ckDES.c ckMD5.c elliptic.c giantIntegers.c ckSHA1.c ckSHA1_priv.c byteRep.c curveParams.c enc64.c falloc.c feeCipherFile.c feeCipherFileAtom.c feeDES.c feeDigitalSignature.c feeECDSA.c feeFEED.c feeFEEDExp.c feeHash.c feePublicKey.c feeRandom.c platform.c ckutilities.c ellipticProj.c
+#
+SFILES=giantPort_PPC_Gnu.s
+OFILES= $(CFILES:%.c=%.o) $(SFILES:%.s=%.o)
+#
+CFLAGS=-g -O -Wall -c -I..
+#
+# set to platform-specific compiler (gcc, /bin/cc, etc.)
+CC=cc
+#
+first all: $(FEE_LIB)
+#
+clean:
+	rm -f *.o *.a
+#
+$(FEE_LIB): $(OFILES)
+	rm -f $(FEE_LIB)
+	ar r ${FEE_LIB} $(OFILES)
+	ranlib ${FEE_LIB}
+#
+CipherFileDES.o: CipherFileDES.c
+	$(CC) $(CFLAGS) -o $@ CipherFileDES.c
+
+CipherFileFEED.o: CipherFileFEED.c
+	$(CC) $(CFLAGS) -o $@ CipherFileFEED.c
+
+DES.o: DES.c
+	$(CC) $(CFLAGS) -o $@ DES.c
+
+MD5.o: MD5.c
+	$(CC) $(CFLAGS) -o $@ MD5.c
+
+elliptic.o: elliptic.c
+	$(CC) $(CFLAGS) -o $@ elliptic.c
+
+giantIntegers.o: giantIntegers.c
+	$(CC) $(CFLAGS) -o $@ giantIntegers.c
+
+ckSHA1.o: ckSHA1.c
+	$(CC) $(CFLAGS) -o $@ ckSHA1.c
+
+ckSHA1_priv.o: ckSHA1_priv.c
+	$(CC) $(CFLAGS) -o $@ ckSHA1_priv.c
+
+byteRep.o: byteRep.c
+	$(CC) $(CFLAGS) -o $@ byteRep.c
+
+curveParams.o: curveParams.c
+	$(CC) $(CFLAGS) -o $@ curveParams.c
+
+enc64.o: enc64.c
+	$(CC) $(CFLAGS) -o $@ enc64.c
+
+falloc.o: falloc.c
+	$(CC) $(CFLAGS) -o $@ falloc.c
+
+feeCipherFile.o: feeCipherFile.c
+	$(CC) $(CFLAGS) -o $@ feeCipherFile.c
+
+feeCipherFileAtom.o: feeCipherFileAtom.c
+	$(CC) $(CFLAGS) -o $@ feeCipherFileAtom.c
+
+feeDES.o: feeDES.c
+	$(CC) $(CFLAGS) -o $@ feeDES.c
+
+feeDigitalSignature.o: feeDigitalSignature.c
+	$(CC) $(CFLAGS) -o $@ feeDigitalSignature.c
+
+feeECDSA.o: feeECDSA.c
+	$(CC) $(CFLAGS) -o $@ feeECDSA.c
+
+feeFEED.o: feeFEED.c
+	$(CC) $(CFLAGS) -o $@ feeFEED.c
+
+feeFEEDExp.o: feeFEEDExp.c
+	$(CC) $(CFLAGS) -o $@ feeFEEDExp.c
+
+feeHash.o: feeHash.c
+	$(CC) $(CFLAGS) -o $@ feeHash.c
+
+feePublicKey.o: feePublicKey.c
+	$(CC) $(CFLAGS) -o $@ feePublicKey.c
+
+feeRandom.o: feeRandom.c
+	$(CC) $(CFLAGS) -o $@ feeRandom.c
+
+platform.o: platform.c
+	$(CC) $(CFLAGS) -o $@ platform.c
+
+utilities.o: utilities.c
+	$(CC) $(CFLAGS) -o $@ utilities.c
+
+giantPort_PPC_Gnu.o: giantPort_PPC_Gnu.s
+	$(CC) $(CFLAGS) -o $@ giantPort_PPC_Gnu.s
+
+ellipticProj.o: ellipticProj.c
+	$(CC) $(CFLAGS) -o $@ ellipticProj.c

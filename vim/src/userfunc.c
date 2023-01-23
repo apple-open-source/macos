@@ -585,7 +585,7 @@ register_cfunc(cfunc_T cb, cfunc_free_T cb_free, void *state)
     fp->uf_cb_state = state;
 
     set_ufunc_name(fp, name);
-    hash_add(&func_hashtab, UF2HIKEY(fp));
+    hash_add(&func_hashtab, UF2HIKEY(fp), "add C function");
 
     return name;
 }
@@ -1278,7 +1278,7 @@ lambda_function_body(
     if (ufunc == NULL)
 	goto erret;
     set_ufunc_name(ufunc, name);
-    if (hash_add(&func_hashtab, UF2HIKEY(ufunc)) == FAIL)
+    if (hash_add(&func_hashtab, UF2HIKEY(ufunc), "add function") == FAIL)
 	goto erret;
     ufunc->uf_flags = FC_LAMBDA;
     ufunc->uf_refcount = 1;
@@ -1572,7 +1572,7 @@ get_lambda_tv(
 	rettv->vval.v_partial = pt;
 	rettv->v_type = VAR_PARTIAL;
 
-	hash_add(&func_hashtab, UF2HIKEY(fp));
+	hash_add(&func_hashtab, UF2HIKEY(fp), "add lambda");
     }
 
 theend:
@@ -2128,7 +2128,7 @@ add_nr_var(
 {
     STRCPY(v->di_key, name);
     v->di_flags = DI_FLAGS_RO | DI_FLAGS_FIX;
-    hash_add(&dp->dv_hashtab, DI2HIKEY(v));
+    hash_add(&dp->dv_hashtab, DI2HIKEY(v), "add variable");
     v->di_tv.v_type = VAR_NUMBER;
     v->di_tv.v_lock = VAR_FIXED;
     v->di_tv.vval.v_number = nr;
@@ -2348,7 +2348,7 @@ func_remove(ufunc_T *fp)
 	    fp->uf_flags |= FC_DEAD;
 	    return FALSE;
 	}
-	hash_remove(&func_hashtab, hi);
+	hash_remove(&func_hashtab, hi, "remove function");
 	fp->uf_flags |= FC_DELETED;
 	return TRUE;
     }
@@ -2510,7 +2510,7 @@ copy_lambda_to_global_func(
 
     fp->uf_refcount = 1;
     STRCPY(fp->uf_name, global);
-    hash_add(&func_hashtab, UF2HIKEY(fp));
+    hash_add(&func_hashtab, UF2HIKEY(fp), "copy lambda");
 
     // the referenced dfunc_T is now used one more time
     link_def_function(fp);
@@ -2718,7 +2718,7 @@ call_user_func(
 	name = v->di_key;
 	STRCPY(name, "self");
 	v->di_flags = DI_FLAGS_RO | DI_FLAGS_FIX;
-	hash_add(&fc->fc_l_vars.dv_hashtab, DI2HIKEY(v));
+	hash_add(&fc->fc_l_vars.dv_hashtab, DI2HIKEY(v), "set self dictionary");
 	v->di_tv.v_type = VAR_DICT;
 	v->di_tv.v_lock = 0;
 	v->di_tv.vval.v_dict = selfdict;
@@ -2744,7 +2744,7 @@ call_user_func(
 	name = v->di_key;
 	STRCPY(name, "000");
 	v->di_flags = DI_FLAGS_RO | DI_FLAGS_FIX;
-	hash_add(&fc->fc_l_avars.dv_hashtab, DI2HIKEY(v));
+	hash_add(&fc->fc_l_avars.dv_hashtab, DI2HIKEY(v), "function argument");
 	v->di_tv.v_type = VAR_LIST;
 	v->di_tv.v_lock = VAR_FIXED;
 	v->di_tv.vval.v_list = &fc->fc_l_varlist;
@@ -2838,10 +2838,10 @@ call_user_func(
 	    // Named arguments should be accessed without the "a:" prefix in
 	    // lambda expressions.  Add to the l: dict.
 	    copy_tv(&v->di_tv, &v->di_tv);
-	    hash_add(&fc->fc_l_vars.dv_hashtab, DI2HIKEY(v));
+	    hash_add(&fc->fc_l_vars.dv_hashtab, DI2HIKEY(v), "local variable");
 	}
 	else
-	    hash_add(&fc->fc_l_avars.dv_hashtab, DI2HIKEY(v));
+	    hash_add(&fc->fc_l_avars.dv_hashtab, DI2HIKEY(v), "add variable");
 
 	if (ai >= 0 && ai < MAX_FUNC_ARGS)
 	{
@@ -2921,7 +2921,7 @@ call_user_func(
     // If called from a compiled :def function the execution context must be
     // hidden, any deferred functions need to be added to the function being
     // executed here.
-    save_current_ectx = clear_currrent_ectx();
+    save_current_ectx = clear_current_ectx();
 
     save_current_sctx = current_sctx;
     current_sctx = fp->uf_script_ctx;
@@ -3793,14 +3793,35 @@ printable_func_name(ufunc_T *fp)
 }
 
 /*
+ * When "prev_ht_changed" does not equal "ht_changed" give an error and return
+ * TRUE.  Otherwise return FALSE.
+ */
+    static int
+function_list_modified(int prev_ht_changed)
+{
+    if (prev_ht_changed != func_hashtab.ht_changed)
+    {
+	emsg(_(e_function_list_was_modified));
+	return TRUE;
+    }
+    return FALSE;
+}
+
+/*
  * List the head of the function: "function name(arg1, arg2)".
  */
-    static void
+    static int
 list_func_head(ufunc_T *fp, int indent)
 {
+    int		prev_ht_changed = func_hashtab.ht_changed;
     int		j;
 
     msg_start();
+
+    // a timer at the more prompt may have deleted the function
+    if (function_list_modified(prev_ht_changed))
+	return FAIL;
+
     if (indent)
 	msg_puts("   ");
     if (fp->uf_def_status != UF_NOT_COMPILED)
@@ -3877,6 +3898,8 @@ list_func_head(ufunc_T *fp, int indent)
     msg_clr_eos();
     if (p_verbose > 0)
 	last_set_msg(fp->uf_script_ctx);
+
+    return OK;
 }
 
 /*
@@ -4315,7 +4338,7 @@ save_function_name(
     void
 list_functions(regmatch_T *regmatch)
 {
-    int		changed = func_hashtab.ht_changed;
+    int		prev_ht_changed = func_hashtab.ht_changed;
     long_u	todo = func_hashtab.ht_used;
     hashitem_T	*hi;
 
@@ -4333,12 +4356,10 @@ list_functions(regmatch_T *regmatch)
 			: !isdigit(*fp->uf_name)
 			    && vim_regexec(regmatch, fp->uf_name, 0)))
 	    {
-		list_func_head(fp, FALSE);
-		if (changed != func_hashtab.ht_changed)
-		{
-		    emsg(_(e_function_list_was_modified));
+		if (list_func_head(fp, FALSE) == FAIL)
 		    return;
-		}
+		if (function_list_modified(prev_ht_changed))
+		    return;
 	    }
 	}
     }
@@ -4542,28 +4563,39 @@ define_function(exarg_T *eap, char_u *name_arg, garray_T *lines_to_free)
 
 	    if (fp != NULL)
 	    {
-		list_func_head(fp, TRUE);
-		for (j = 0; j < fp->uf_lines.ga_len && !got_int; ++j)
+		// Check no function was added or removed from a timer, e.g. at
+		// the more prompt.  "fp" may then be invalid.
+		int prev_ht_changed = func_hashtab.ht_changed;
+
+		if (list_func_head(fp, TRUE) == OK)
 		{
-		    if (FUNCLINE(fp, j) == NULL)
-			continue;
-		    msg_putchar('\n');
-		    msg_outnum((long)(j + 1));
-		    if (j < 9)
-			msg_putchar(' ');
-		    if (j < 99)
-			msg_putchar(' ');
-		    msg_prt_line(FUNCLINE(fp, j), FALSE);
-		    out_flush();	// show a line at a time
-		    ui_breakcheck();
-		}
-		if (!got_int)
-		{
-		    msg_putchar('\n');
-		    if (fp->uf_def_status != UF_NOT_COMPILED)
-			msg_puts("   enddef");
-		    else
-			msg_puts("   endfunction");
+		    for (j = 0; j < fp->uf_lines.ga_len && !got_int; ++j)
+		    {
+			if (FUNCLINE(fp, j) == NULL)
+			    continue;
+			msg_putchar('\n');
+			msg_outnum((long)(j + 1));
+			if (j < 9)
+			    msg_putchar(' ');
+			if (j < 99)
+			    msg_putchar(' ');
+			if (function_list_modified(prev_ht_changed))
+			    break;
+			msg_prt_line(FUNCLINE(fp, j), FALSE);
+			out_flush();	// show a line at a time
+			ui_breakcheck();
+		    }
+		    if (!got_int)
+		    {
+			msg_putchar('\n');
+			if (!function_list_modified(prev_ht_changed))
+			{
+			    if (fp->uf_def_status != UF_NOT_COMPILED)
+				msg_puts("   enddef");
+			    else
+				msg_puts("   endfunction");
+			}
+		    }
 		}
 	    }
 	    else
@@ -5028,7 +5060,7 @@ define_function(exarg_T *eap, char_u *name_arg, garray_T *lines_to_free)
 	    hi = hash_find(&func_hashtab, name);
 	    hi->hi_key = UF2HIKEY(fp);
 	}
-	else if (hash_add(&func_hashtab, UF2HIKEY(fp)) == FAIL)
+	else if (hash_add(&func_hashtab, UF2HIKEY(fp), "add function") == FAIL)
 	{
 	    free_fp = TRUE;
 	    goto erret;
@@ -5064,7 +5096,7 @@ define_function(exarg_T *eap, char_u *name_arg, garray_T *lines_to_free)
     if (is_export)
     {
 	fp->uf_flags |= FC_EXPORT;
-	// let ex_export() know the export worked.
+	// let do_one_cmd() know the export worked.
 	is_export = FALSE;
     }
 
@@ -5430,7 +5462,7 @@ ex_delfunction(exarg_T *eap)
 	{
 	    // Delete the dict item that refers to the function, it will
 	    // invoke func_unref() and possibly delete the function.
-	    dictitem_remove(fudi.fd_dict, fudi.fd_di);
+	    dictitem_remove(fudi.fd_dict, fudi.fd_di, "delfunction");
 	}
 	else
 	{

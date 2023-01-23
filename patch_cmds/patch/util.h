@@ -48,6 +48,9 @@ void		pfatal(const char *, ...)
 void		ask(const char *, ...)
 		    __attribute__((__format__(__printf__, 1, 2)));
 char		*savestr(const char *);
+#ifdef __APPLE__
+char		*saveline(const char *, size_t, size_t *);
+#endif
 char		*xstrdup(const char *);
 void		set_signals(int);
 void		ignore_signals(void);

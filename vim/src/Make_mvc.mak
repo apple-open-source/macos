@@ -16,7 +16,7 @@
 #
 #	!!!!  After changing any features do "nmake clean" first  !!!!
 #
-#	Feature Set: FEATURES=[TINY, SMALL, NORMAL, BIG, HUGE] (default is HUGE)
+#	Feature Set: FEATURES=[TINY, NORMAL, HUGE] (default is HUGE)
 #
 #   	Name to add to the version: MODIFIED_BY=[name of modifier]
 #
@@ -222,8 +222,12 @@ CPU = i386
 !  endif
 ! else  # !CPU
 CPU = i386
-!  if !defined(PLATFORM) && defined(TARGET_CPU)
+!  ifndef PLATFORM
+!   ifdef TARGET_CPU
 PLATFORM = $(TARGET_CPU)
+!   elseif defined(VSCMD_ARG_TGT_ARCH)
+PLATFORM = $(VSCMD_ARG_TGT_ARCH)
+!   endif
 !  endif
 !  ifdef PLATFORM
 !   if ("$(PLATFORM)" == "x64") || ("$(PLATFORM)" == "X64")
@@ -354,7 +358,7 @@ TERM_DEPS = \
 !endif
 
 !ifndef SOUND
-! if "$(FEATURES)"=="HUGE" || "$(FEATURES)"=="BIG"
+! if "$(FEATURES)"=="HUGE"
 SOUND = yes
 ! else
 SOUND = no
@@ -681,6 +685,7 @@ OBJ = \
 	$(OUTDIR)\json.obj \
 	$(OUTDIR)\list.obj \
 	$(OUTDIR)\locale.obj \
+	$(OUTDIR)\logfile.obj \
 	$(OUTDIR)\main.obj \
 	$(OUTDIR)\map.obj \
 	$(OUTDIR)\mark.obj \
@@ -1124,7 +1129,7 @@ CFLAGS = $(CFLAGS) -DMSWINPS
 !endif # POSTSCRIPT
 
 #
-# FEATURES: TINY, SMALL, NORMAL, BIG or HUGE
+# FEATURES: TINY, NORMAL, or HUGE
 #
 CFLAGS = $(CFLAGS) -DFEAT_$(FEATURES)
 
@@ -1582,6 +1587,8 @@ $(OUTDIR)/list.obj:	$(OUTDIR) list.c  $(INCL)
 
 $(OUTDIR)/locale.obj:	$(OUTDIR) locale.c  $(INCL)
 
+$(OUTDIR)/logfile.obj:	$(OUTDIR) logfile.c  $(INCL)
+
 $(OUTDIR)/main.obj:	$(OUTDIR) main.c  $(INCL) $(CUI_INCL)
 
 $(OUTDIR)/map.obj:	$(OUTDIR) map.c  $(INCL)
@@ -1858,6 +1865,7 @@ proto.h: \
 	proto/json.pro \
 	proto/list.pro \
 	proto/locale.pro \
+	proto/logfile.pro \
 	proto/main.pro \
 	proto/map.pro \
 	proto/mark.pro \

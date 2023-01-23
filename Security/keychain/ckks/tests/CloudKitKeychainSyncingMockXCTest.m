@@ -593,7 +593,7 @@ static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name,
 
     gestalt = SOSCreatePeerGestaltFromName(name);
     
-    result = SOSFullPeerInfoCreate(NULL, gestalt, NULL, *outSigningKey,
+    result = SOSFullPeerInfoCreate(NULL, gestalt, name, NULL, *outSigningKey,
                                    *outOctagonSigningKey, *outOctagonEncryptionKey,
                                    error);
     

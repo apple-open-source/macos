@@ -619,6 +619,16 @@ check_for_opt_job_arg(typval_T *args, int idx)
     return (args[idx].v_type == VAR_UNKNOWN
 	    || check_for_job_arg(args, idx) != FAIL) ? OK : FAIL;
 }
+#else
+/*
+ * Give an error and return FAIL unless "args[idx]" is an optional channel or a
+ * job.  Used without the +channel feature, thus only VAR_UNKNOWN is accepted.
+ */
+    int
+check_for_opt_chan_or_job_arg(typval_T *args, int idx)
+{
+    return args[idx].v_type == VAR_UNKNOWN ? OK : FAIL;
+}
 #endif
 
 /*
@@ -1407,7 +1417,7 @@ typval_compare(
 }
 
 /*
- * Compare "tv1" to "tv2" as lists acording to "type" and "ic".
+ * Compare "tv1" to "tv2" as lists according to "type" and "ic".
  * Put the result, false or true, in "res".
  * Return FAIL and give an error message when the comparison can't be done.
  */
@@ -1489,7 +1499,7 @@ typval_compare_null(typval_T *tv1, typval_T *tv2)
 }
 
 /*
- * Compare "tv1" to "tv2" as blobs acording to "type".
+ * Compare "tv1" to "tv2" as blobs according to "type".
  * Put the result, false or true, in "res".
  * Return FAIL and give an error message when the comparison can't be done.
  */
@@ -1529,7 +1539,7 @@ typval_compare_blob(
 }
 
 /*
- * Compare "tv1" to "tv2" as dictionaries acording to "type" and "ic".
+ * Compare "tv1" to "tv2" as dictionaries according to "type" and "ic".
  * Put the result, false or true, in "res".
  * Return FAIL and give an error message when the comparison can't be done.
  */
@@ -1570,7 +1580,7 @@ typval_compare_dict(
 }
 
 /*
- * Compare "tv1" to "tv2" as funcrefs acording to "type" and "ic".
+ * Compare "tv1" to "tv2" as funcrefs according to "type" and "ic".
  * Put the result, false or true, in "res".
  * Return FAIL and give an error message when the comparison can't be done.
  */
@@ -2509,10 +2519,12 @@ eval_env_var(char_u **arg, typval_T *rettv, int evaluate)
 tv_get_lnum(typval_T *argvars)
 {
     linenr_T	lnum = -1;
+    int		did_emsg_before = did_emsg;
 
     if (argvars[0].v_type != VAR_STRING || !in_vim9script())
 	lnum = (linenr_T)tv_get_number_chk(&argvars[0], NULL);
-    if (lnum <= 0 && argvars[0].v_type != VAR_NUMBER)
+    if (lnum <= 0 && did_emsg_before == did_emsg
+					    && argvars[0].v_type != VAR_NUMBER)
     {
 	int	fnum;
 	pos_T	*fp;

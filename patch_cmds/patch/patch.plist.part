@@ -19,6 +19,7 @@
 			<string>Add -g, --get (92360820)</string>
 			<string>Add -T (--set-time), -Z (--set-utc) (92707375)</string>
 			<string>patch.c, pch.c: track leading/trailing context to avoid fuzzing away BOF/EOF (94845782, 100350977)</string>
+			<string>patch.c, pch.c, util.c, util.h: handle internal NULs in patch file contents (101531623)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

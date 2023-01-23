@@ -91,6 +91,8 @@ __unused static const char copyright[] =
 #include <unistd.h>
 #include <ifaddrs.h>
 
+#include "network_cmds_lib.h"
+
 struct keytab {
 	char	*kt_cp;
 	int	kt_i;
@@ -349,6 +351,7 @@ routename(sa)
 				    !strcmp(cp + 1, domain))
 					*cp = 0;
 				cp = hp->h_name;
+				cp = clean_non_printable(cp, strlen(cp));
 			}
 		}
 		if (cp) {

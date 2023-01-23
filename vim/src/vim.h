@@ -159,13 +159,19 @@
 
 /*
  * #defines for optionals and features
- * Also defines FEAT_TINY, FEAT_SMALL, etc. when FEAT_HUGE is defined.
+ * Also defines FEAT_TINY, FEAT_NORMAL, etc. when FEAT_HUGE is defined.
  */
 #include "feature.h"
 
 #if defined(MACOS_X_DARWIN)
-# if defined(FEAT_SMALL) && !defined(FEAT_CLIPBOARD)
+# if defined(FEAT_NORMAL) && !defined(FEAT_CLIPBOARD)
 #  define FEAT_CLIPBOARD
+# endif
+# if defined(FEAT_HUGE) && !defined(FEAT_SOUND)
+#  define FEAT_SOUND
+# endif
+# if defined(FEAT_SOUND)
+#  define FEAT_SOUND_MACOSX
 # endif
 #endif
 
@@ -1388,6 +1394,7 @@ enum auto_event
     EVENT_TEXTCHANGED,		// text was modified not in Insert mode
     EVENT_TEXTCHANGEDI,		// text was modified in Insert mode
     EVENT_TEXTCHANGEDP,		// TextChangedI with popup menu visible
+    EVENT_TEXTCHANGEDT,		// text was modified in Terminal mode
     EVENT_TEXTYANKPOST,		// after some text was yanked
     EVENT_USER,			// user defined autocommand
     EVENT_VIMENTER,		// after starting Vim
@@ -1400,7 +1407,8 @@ enum auto_event
     EVENT_WINCLOSED,		// after closing a window
     EVENT_VIMSUSPEND,		// before Vim is suspended
     EVENT_VIMRESUME,		// after Vim is resumed
-    EVENT_WINSCROLLED,		// after Vim window was scrolled
+    EVENT_WINRESIZED,		// after a window was resized
+    EVENT_WINSCROLLED,		// after a window was scrolled or resized
 
     NUM_EVENTS			// MUST be the last one
 };
@@ -1956,8 +1964,8 @@ typedef int sock_T;
 #define MOUSE_COLOFF 10000
 
 /*
- * jump_to_mouse() returns one of first four these values, possibly with
- * some of the other three added.
+ * jump_to_mouse() returns one of first five these values, possibly with
+ * some of the other four added.
  */
 #define IN_UNKNOWN		0
 #define IN_BUFFER		1
@@ -2248,6 +2256,14 @@ typedef enum {
     ESTACK_STACK,
     ESTACK_SCRIPT,
 } estack_arg_T;
+
+// Return value of match_keyprotocol()
+typedef enum {
+    KEYPROTOCOL_NONE,
+    KEYPROTOCOL_MOK2,
+    KEYPROTOCOL_KITTY,
+    KEYPROTOCOL_FAIL
+} keyprot_T;
 
 // Flags for assignment functions.
 #define ASSIGN_VAR	0     // ":var" (nothing special)

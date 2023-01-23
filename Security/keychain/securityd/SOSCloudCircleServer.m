@@ -2298,6 +2298,7 @@ static NSError* saveKeysToKeychain(SOSAccount* account, NSData* octagonSigningFu
 void SOSCCPerformUpdateOfAllOctagonKeys(CFDataRef octagonSigningFullKey, CFDataRef octagonEncryptionFullKey,
                                         CFDataRef signingPublicKey, CFDataRef encryptionPublicKey,
                                         SecKeyRef octagonSigningPublicKeyRef, SecKeyRef octagonEncryptionPublicKeyRef,
+                                        SecKeyRef octagonSigningFullKeyRef, SecKeyRef octagonEncryptionFullKeyRef,
                                         void (^action)(CFErrorRef error))
 {
     CFErrorRef localError = NULL;
@@ -2332,7 +2333,10 @@ void SOSCCPerformUpdateOfAllOctagonKeys(CFDataRef octagonSigningFullKey, CFDataR
                 return false;
             }
 
-            secnotice("octagon", "Success! Upated Octagon keys in SOS!");
+            txn.account.octagonSigningFullKeyRef = CFRetainSafe(octagonSigningFullKeyRef);
+            txn.account.octagonEncryptionFullKeyRef = CFRetainSafe(octagonEncryptionFullKeyRef);
+            
+            secnotice("octagon", "Success! Updated Octagon keys in SOS!");
 
             action(nil);
             return true;

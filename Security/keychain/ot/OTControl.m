@@ -735,6 +735,15 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }] setMachineIDOverride:arguments machineID:machineID reply:reply];
 }
 
+- (void)preflightRecoverOctagonUsingRecoveryKey:(OTControlArguments*)arguments
+                                    recoveryKey:(NSString*)recoveryKey
+                                          reply:(void (^)(BOOL correct, NSError* _Nullable replyError))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(NO, connectionError);
+    }] preflightRecoverOctagonUsingRecoveryKey:arguments recoveryKey:recoveryKey reply:reply];
+}
+
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {
     return [OTControl controlObject:false error:error];
 }

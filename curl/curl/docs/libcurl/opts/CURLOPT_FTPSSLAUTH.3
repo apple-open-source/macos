@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_FTPSSLAUTH 3 "May 17, 2022" "libcurl 7.85.0" "curl_easy_setopt options"
+.TH CURLOPT_FTPSSLAUTH 3 "October 22, 2022" "libcurl 7.86.0" "curl_easy_setopt options"
 
 .SH NAME
 CURLOPT_FTPSSLAUTH \- order in which to attempt TLS vs SSL
@@ -55,7 +55,7 @@ if(curl) {
   curl_easy_setopt(curl, CURLOPT_URL, "ftp://example.com/file.txt");
   curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_TRY);
   /* funny server, ask for SSL before TLS */
-  curl_easy_setopt(curl, CURLOPT_FTPSSLAUTH, CURLFTPAUTH_SSL);
+  curl_easy_setopt(curl, CURLOPT_FTPSSLAUTH, (long)CURLFTPAUTH_SSL);
   ret = curl_easy_perform(curl);
   curl_easy_cleanup(curl);
 }

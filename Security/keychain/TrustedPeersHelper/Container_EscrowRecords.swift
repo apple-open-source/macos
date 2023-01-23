@@ -196,7 +196,7 @@ extension Container {
         self.semaphore.wait()
         self.fetchEscrowRecordsWithSemaphore(from: source) { result in
             self.semaphore.signal()
-            
+
             switch result {
             case let .success(data):
                 logger.info("fetchEscrowRecords succeeded with \(data.count, privacy: .public) records")

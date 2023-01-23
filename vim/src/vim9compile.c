@@ -47,7 +47,8 @@ lookup_local(char_u *name, size_t len, lvar_T *lvar, cctx_T *cctx)
     for (idx = 0; idx < cctx->ctx_locals.ga_len; ++idx)
     {
 	lvp = ((lvar_T *)cctx->ctx_locals.ga_data) + idx;
-	if (STRNCMP(name, lvp->lv_name, len) == 0
+	if (lvp->lv_name != NULL
+		&& STRNCMP(name, lvp->lv_name, len) == 0
 					       && STRLEN(lvp->lv_name) == len)
 	{
 	    if (lvar != NULL)
@@ -655,12 +656,14 @@ find_imported_in_script(char_u *name, size_t len, int sid)
     imported_T *
 find_imported(char_u *name, size_t len, int load)
 {
-    imported_T	    *ret;
-
     if (!SCRIPT_ID_VALID(current_sctx.sc_sid))
 	return NULL;
 
-    ret = find_imported_in_script(name, len, current_sctx.sc_sid);
+    // Skip over "s:" before "s:something" to find the import name.
+    int off = name[0] == 's' && name[1] == ':' ? 2 : 0;
+
+    imported_T *ret = find_imported_in_script(name + off, len - off,
+							  current_sctx.sc_sid);
     if (ret != NULL && load && (ret->imp_flags & IMP_FLAGS_AUTOLOAD))
     {
 	scid_T	actual_sid = 0;
@@ -1283,6 +1286,19 @@ vim9_declare_error(char_u *name)
 }
 
 /*
+ * Return TRUE if "name" is a valid register to use.
+ * Return FALSE and give an error message if not.
+ */
+    static int
+valid_dest_reg(int name)
+{
+    if ((name == '@' || valid_yank_reg(name, FALSE)) && name != '.')
+	return TRUE;
+    emsg_invreg(name);
+    return FAIL;
+}
+
+/*
  * For one assignment figure out the type of destination.  Return it in "dest".
  * When not recognized "dest" is not set.
  * For an option "option_scope" is set.
@@ -1363,12 +1379,8 @@ get_var_dest(
     }
     else if (*name == '@')
     {
-	if (name[1] != '@'
-			&& (!valid_yank_reg(name[1], FALSE) || name[1] == '.'))
-	{
-	    emsg_invreg(name[1]);
+	if (!valid_dest_reg(name[1]))
 	    return FAIL;
-	}
 	*dest = dest_reg;
 	*type = name[1] == '#' ? &t_number_or_string : &t_string;
     }
@@ -1444,7 +1456,11 @@ compile_lhs(
     // "var_end" is the end of the variable/option/etc. name.
     lhs->lhs_dest_end = skip_var_one(var_start, FALSE);
     if (*var_start == '@')
+    {
+	if (!valid_dest_reg(var_start[1]))
+	    return FAIL;
 	var_end = var_start + 2;
+    }
     else
     {
 	// skip over the leading "&", "&l:", "&g:" and "$"
@@ -2682,6 +2698,35 @@ check_args_shadowing(ufunc_T *ufunc, cctx_T *cctx)
     return r;
 }
 
+#ifdef HAS_MESSAGE_WINDOW
+/*
+ * Get a count before a command.  Can only be a number.
+ * Returns zero if there is no count.
+ * Returns -1 if there is something wrong.
+ */
+    static long
+get_cmd_count(char_u *line, exarg_T *eap)
+{
+    char_u *p;
+
+    // skip over colons and white space
+    for (p = line; *p == ':' || VIM_ISWHITE(*p); ++p)
+	;
+    if (!isdigit(*p))
+    {
+	// The command or modifiers must be following.  Assume a lower case
+	// character means there is a modifier.
+	if (p < eap->cmd && !vim_islower(*p))
+	{
+	    emsg(_(e_invalid_range));
+	    return -1;
+	}
+	return 0;
+    }
+    return atol((char *)p);
+}
+#endif
+
 /*
  * Get the compilation type that should be used for "ufunc".
  * Keep in sync with INSTRUCTIONS().
@@ -3309,16 +3354,25 @@ compile_def_function(
 		    line = compile_defer(p, &cctx);
 		    break;
 
+#ifdef HAS_MESSAGE_WINDOW
+	    case CMD_echowindow:
+		    {
+			long cmd_count = get_cmd_count(line, &ea);
+			if (cmd_count < 0)
+			    line = NULL;
+			else
+			    line = compile_mult_expr(p, ea.cmdidx,
+							     cmd_count, &cctx);
+		    }
+		    break;
+#endif
 	    case CMD_echo:
 	    case CMD_echon:
 	    case CMD_echoconsole:
 	    case CMD_echoerr:
 	    case CMD_echomsg:
-#ifdef HAS_MESSAGE_WINDOW
-	    case CMD_echowindow:
-#endif
 	    case CMD_execute:
-		    line = compile_mult_expr(p, ea.cmdidx, &cctx);
+		    line = compile_mult_expr(p, ea.cmdidx, 0, &cctx);
 		    break;
 
 	    case CMD_put:

@@ -1618,7 +1618,7 @@ do_set_string(
 
 #if defined(FEAT_EVAL)
     if (*errmsg == NULL)
-	trigger_optionsset_string(opt_idx, opt_flags, saved_origval,
+	trigger_optionset_string(opt_idx, opt_flags, saved_origval,
 			       saved_origval_l, saved_origval_g, saved_newval);
     vim_free(saved_origval);
     vim_free(saved_origval_l);
@@ -2404,10 +2404,8 @@ didset_options(void)
     (void)compile_cap_prog(curwin->w_s);
     (void)did_set_spell_option(TRUE);
 #endif
-#ifdef FEAT_CMDWIN
     // set cedit_key
     (void)check_cedit();
-#endif
 #ifdef FEAT_LINEBREAK
     // initialize the table for 'breakat'.
     fill_breakat_flags();
@@ -2835,18 +2833,12 @@ set_bool_option(
 # endif
 	redraw_titles();
     }
-    // when 'endofline' is changed, redraw the window title
-    else if ((int *)varp == &curbuf->b_p_eol)
-    {
-	redraw_titles();
-    }
-    // when 'fixeol' is changed, redraw the window title
-    else if ((int *)varp == &curbuf->b_p_fixeol)
-    {
-	redraw_titles();
-    }
-    // when 'bomb' is changed, redraw the window title and tab page text
-    else if ((int *)varp == &curbuf->b_p_bomb)
+    // redraw the window title and tab page text when 'endoffile', 'endofline',
+    // 'fixeol' or 'bomb' is changed
+    else if ((int *)varp == &curbuf->b_p_eof
+	    || (int *)varp == &curbuf->b_p_eol
+	    || (int *)varp == &curbuf->b_p_fixeol
+	    || (int *)varp == &curbuf->b_p_bomb)
     {
 	redraw_titles();
     }
@@ -2963,6 +2955,15 @@ set_bool_option(
 	}
     }
 #endif
+
+    else if ((int *)varp == &curwin->w_p_sms)
+    {
+	if (!curwin->w_p_sms)
+	{
+	    curwin->w_skipcol = 0;
+	    changed_line_abv_curs();
+	}
+    }
 
     // when 'textmode' is set or reset also change 'fileformat'
     else if ((int *)varp == &curbuf->b_p_tx)
@@ -3570,11 +3571,13 @@ set_num_option(
 
 	// Only compute the new window layout when startup has been
 	// completed. Otherwise the frame sizes may be wrong.
-	if (p_ch != old_value && full_screen
+	if ((p_ch != old_value
+		      || tabline_height() + topframe->fr_height != Rows - p_ch)
+		&& full_screen
 #ifdef FEAT_GUI
 		&& !gui.starting
 #endif
-	   )
+		       )
 	    command_height();
     }
 
@@ -3795,13 +3798,11 @@ set_num_option(
 	errmsg = e_argument_must_be_positive;
 	p_siso = 0;
     }
-#ifdef FEAT_CMDWIN
     if (p_cwh < 1)
     {
 	errmsg = e_argument_must_be_positive;
 	p_cwh = 1;
     }
-#endif
     if (p_ut < 0)
     {
 	errmsg = e_argument_must_be_positive;
@@ -3924,7 +3925,8 @@ findoption(char_u *arg)
     return opt_idx;
 }
 
-#if defined(FEAT_EVAL) || defined(FEAT_TCL) || defined(FEAT_MZSCHEME)
+#if defined(FEAT_EVAL) || defined(FEAT_TCL) || defined(FEAT_MZSCHEME) \
+	|| defined(FEAT_SPELL) || defined(PROTO)
 /*
  * Get the value for an option.
  *
@@ -4126,14 +4128,14 @@ get_option_value_strict(
 		*numval = bufIsChanged((buf_T *)from);
 		varp = NULL;
 	    }
-#ifdef FEAT_CRYPT
+# ifdef FEAT_CRYPT
 	    else if (p->indir == PV_KEY)
 	    {
 		// never return the value of the crypt key
 		*stringval = NULL;
 		varp = NULL;
 	    }
-#endif
+# endif
 	    else
 	    {
 		buf_T *save_curbuf = curbuf;
@@ -5150,29 +5152,29 @@ unset_global_local_option(char_u *name, void *from)
 	case PV_SO:
 	    curwin->w_p_so = -1;
 	    break;
-#ifdef FEAT_FIND_ID
+# ifdef FEAT_FIND_ID
 	case PV_DEF:
 	    clear_string_option(&buf->b_p_def);
 	    break;
 	case PV_INC:
 	    clear_string_option(&buf->b_p_inc);
 	    break;
-#endif
+# endif
 	case PV_DICT:
 	    clear_string_option(&buf->b_p_dict);
 	    break;
 	case PV_TSR:
 	    clear_string_option(&buf->b_p_tsr);
 	    break;
-#ifdef FEAT_COMPL_FUNC
+# ifdef FEAT_COMPL_FUNC
 	case PV_TSRFU:
 	    clear_string_option(&buf->b_p_tsrfu);
 	    break;
-#endif
+# endif
 	case PV_FP:
 	    clear_string_option(&buf->b_p_fp);
 	    break;
-#ifdef FEAT_QUICKFIX
+# ifdef FEAT_QUICKFIX
 	case PV_EFM:
 	    clear_string_option(&buf->b_p_efm);
 	    break;
@@ -5182,27 +5184,27 @@ unset_global_local_option(char_u *name, void *from)
 	case PV_MP:
 	    clear_string_option(&buf->b_p_mp);
 	    break;
-#endif
-#if defined(FEAT_BEVAL) && defined(FEAT_EVAL)
+# endif
+# if defined(FEAT_BEVAL) && defined(FEAT_EVAL)
 	case PV_BEXPR:
 	    clear_string_option(&buf->b_p_bexpr);
 	    break;
-#endif
-#if defined(FEAT_CRYPT)
+# endif
+# if defined(FEAT_CRYPT)
 	case PV_CM:
 	    clear_string_option(&buf->b_p_cm);
 	    break;
-#endif
-#ifdef FEAT_LINEBREAK
+# endif
+# ifdef FEAT_LINEBREAK
 	case PV_SBR:
 	    clear_string_option(&((win_T *)from)->w_p_sbr);
 	    break;
-#endif
-#ifdef FEAT_STL_OPT
+# endif
+# ifdef FEAT_STL_OPT
 	case PV_STL:
 	    clear_string_option(&((win_T *)from)->w_p_stl);
 	    break;
-#endif
+# endif
 	case PV_UL:
 	    buf->b_p_ul = NO_LOCAL_UNDOLEVEL;
 	    break;
@@ -5436,6 +5438,7 @@ get_varp(struct vimoption *p)
 	case PV_RLC:	return (char_u *)&(curwin->w_p_rlc);
 #endif
 	case PV_SCROLL:	return (char_u *)&(curwin->w_p_scr);
+	case PV_SMS:	return (char_u *)&(curwin->w_p_sms);
 	case PV_WRAP:	return (char_u *)&(curwin->w_p_wrap);
 #ifdef FEAT_LINEBREAK
 	case PV_LBR:	return (char_u *)&(curwin->w_p_lbr);
@@ -5482,6 +5485,7 @@ get_varp(struct vimoption *p)
 #ifdef FEAT_EVAL
 	case PV_TFU:	return (char_u *)&(curbuf->b_p_tfu);
 #endif
+	case PV_EOF:	return (char_u *)&(curbuf->b_p_eof);
 	case PV_EOL:	return (char_u *)&(curbuf->b_p_eol);
 	case PV_FIXEOL:	return (char_u *)&(curbuf->b_p_fixeol);
 	case PV_ET:	return (char_u *)&(curbuf->b_p_et);
@@ -5510,6 +5514,7 @@ get_varp(struct vimoption *p)
 	case PV_KEY:	return (char_u *)&(curbuf->b_p_key);
 #endif
 	case PV_LISP:	return (char_u *)&(curbuf->b_p_lisp);
+	case PV_LOP:	return (char_u *)&(curbuf->b_p_lop);
 	case PV_ML:	return (char_u *)&(curbuf->b_p_ml);
 	case PV_MPS:	return (char_u *)&(curbuf->b_p_mps);
 	case PV_MA:	return (char_u *)&(curbuf->b_p_ma);
@@ -5669,6 +5674,7 @@ copy_winopt(winopt_T *from, winopt_T *to)
     to->wo_wcr = copy_option_val(from->wo_wcr);
     to->wo_scb = from->wo_scb;
     to->wo_scb_save = from->wo_scb_save;
+    to->wo_sms = from->wo_sms;
     to->wo_crb = from->wo_crb;
     to->wo_crb_save = from->wo_crb_save;
 #ifdef FEAT_SPELL
@@ -6038,6 +6044,8 @@ buf_copy_options(buf_T *buf, int flags)
 	    COPY_OPT_SCTX(buf, BV_CINO);
 	    buf->b_p_cinsd = vim_strsave(p_cinsd);
 	    COPY_OPT_SCTX(buf, BV_CINSD);
+	    buf->b_p_lop = vim_strsave(p_lop);
+	    COPY_OPT_SCTX(buf, BV_LOP);
 
 	    // Don't copy 'filetype', it must be detected
 	    buf->b_p_ft = empty_option;
@@ -6842,9 +6850,7 @@ paste_option_changed(void)
     static int	old_p_paste = FALSE;
     static int	save_sm = 0;
     static int	save_sta = 0;
-#ifdef FEAT_CMDL_INFO
     static int	save_ru = 0;
-#endif
 #ifdef FEAT_RIGHTLEFT
     static int	save_ri = 0;
     static int	save_hkmap = 0;
@@ -6870,17 +6876,16 @@ paste_option_changed(void)
 #ifdef FEAT_VARTABS
 		if (buf->b_p_vsts_nopaste)
 		    vim_free(buf->b_p_vsts_nopaste);
-		buf->b_p_vsts_nopaste = buf->b_p_vsts && buf->b_p_vsts != empty_option
-				     ? vim_strsave(buf->b_p_vsts) : NULL;
+		buf->b_p_vsts_nopaste =
+			buf->b_p_vsts && buf->b_p_vsts != empty_option
+					   ? vim_strsave(buf->b_p_vsts) : NULL;
 #endif
 	    }
 
 	    // save global options
 	    save_sm = p_sm;
 	    save_sta = p_sta;
-#ifdef FEAT_CMDL_INFO
 	    save_ru = p_ru;
-#endif
 #ifdef FEAT_RIGHTLEFT
 	    save_ri = p_ri;
 	    save_hkmap = p_hkmap;
@@ -6894,7 +6899,8 @@ paste_option_changed(void)
 #ifdef FEAT_VARTABS
 	    if (p_vsts_nopaste)
 		vim_free(p_vsts_nopaste);
-	    p_vsts_nopaste = p_vsts && p_vsts != empty_option ? vim_strsave(p_vsts) : NULL;
+	    p_vsts_nopaste = p_vsts && p_vsts != empty_option
+						  ? vim_strsave(p_vsts) : NULL;
 #endif
 	}
 
@@ -6921,11 +6927,9 @@ paste_option_changed(void)
 	// set global options
 	p_sm = 0;		    // no showmatch
 	p_sta = 0;		    // no smarttab
-#ifdef FEAT_CMDL_INFO
 	if (p_ru)
 	    status_redraw_all();    // redraw to remove the ruler
 	p_ru = 0;		    // no ruler
-#endif
 #ifdef FEAT_RIGHTLEFT
 	p_ri = 0;		    // no reverse insert
 	p_hkmap = 0;		    // no Hebrew keyboard
@@ -6971,11 +6975,9 @@ paste_option_changed(void)
 	// restore global options
 	p_sm = save_sm;
 	p_sta = save_sta;
-#ifdef FEAT_CMDL_INFO
 	if (p_ru != save_ru)
 	    status_redraw_all();    // redraw to draw the ruler
 	p_ru = save_ru;
-#endif
 #ifdef FEAT_RIGHTLEFT
 	p_ri = save_ri;
 	p_hkmap = save_hkmap;

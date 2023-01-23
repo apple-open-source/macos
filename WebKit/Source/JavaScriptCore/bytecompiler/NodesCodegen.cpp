@@ -1201,8 +1201,6 @@ RegisterID* EvalFunctionCallNode::emitBytecode(BytecodeGenerator& generator, Reg
     }
 
     RefPtr<RegisterID> returnValue = generator.finalDestination(dst, func.get());
-    if (isOptionalChainBase())
-        generator.emitOptionalCheck(func.get());
 
     return generator.emitCallEval(returnValue.get(), func.get(), callArguments, divot(), divotStart(), divotEnd(), DebuggableCall::No);
 }
@@ -1253,7 +1251,7 @@ RegisterID* FunctionCallValueNode::emitBytecode(BytecodeGenerator& generator, Re
         func = generator.newTemporary();
     func = generator.emitNode(func.get(), m_expr);
     RefPtr<RegisterID> returnValue = generator.finalDestination(dst, func.get());
-    if (isOptionalChainBase())
+    if (isOptionalCall())
         generator.emitOptionalCheck(func.get());
 
     CallArguments callArguments(generator, m_args);
@@ -1300,7 +1298,7 @@ RegisterID* FunctionCallResolveNode::emitBytecode(BytecodeGenerator& generator, 
     }
 
     RefPtr<RegisterID> returnValue = generator.finalDestination(dst, func.get());
-    if (isOptionalChainBase())
+    if (isOptionalCall())
         generator.emitOptionalCheck(func.get());
 
     RegisterID* ret = generator.emitCallInTailPosition(returnValue.get(), func.get(), expectedFunction, callArguments, divot(), divotStart(), divotEnd(), DebuggableCall::Yes);
@@ -2007,7 +2005,7 @@ RegisterID* FunctionCallBracketNode::emitBytecode(BytecodeGenerator& generator, 
         else
             generator.emitGetByVal(function.get(), base.get(), property.get());
     }
-    if (isOptionalChainBase())
+    if (isOptionalCall())
         generator.emitOptionalCheck(function.get());
 
     CallArguments callArguments(generator, m_args);
@@ -2041,7 +2039,7 @@ RegisterID* FunctionCallDotNode::emitBytecode(BytecodeGenerator& generator, Regi
     RefPtr<RegisterID> base = baseIsSuper ? emitSuperBaseForCallee(generator) : callArguments.thisRegister();
     emitGetPropertyValue(generator, function.get(), base.get());
 
-    if (isOptionalChainBase())
+    if (isOptionalCall())
         generator.emitOptionalCheck(function.get());
 
     RegisterID* ret = generator.emitCallInTailPosition(returnValue.get(), function.get(), NoExpectedFunction, callArguments, divot(), divotStart(), divotEnd(), DebuggableCall::Yes);
@@ -2069,7 +2067,7 @@ RegisterID* CallFunctionCallDotNode::emitBytecode(BytecodeGenerator& generator, 
         } else
             function = generator.emitGetById(generator.tempDestination(dst), base.get(), generator.propertyNames().builtinNames().callPublicName());
 
-        if (isOptionalChainBase())
+        if (isOptionalCall())
             generator.emitOptionalCheck(function.get());
     };
 
@@ -2140,7 +2138,7 @@ RegisterID* HasOwnPropertyFunctionCallDotNode::emitBytecode(BytecodeGenerator& g
     generator.emitExpressionInfo(subexpressionDivot(), subexpressionStart(), subexpressionEnd());
 
     RefPtr<RegisterID> function = generator.emitGetById(generator.newTemporary(), base.get(), generator.propertyNames().hasOwnProperty);
-    if (isOptionalChainBase())
+    if (isOptionalCall())
         generator.emitOptionalCheck(function.get());
 
     RELEASE_ASSERT(m_args->m_listNode && m_args->m_listNode->m_expr && !m_args->m_listNode->m_next);  
@@ -2225,7 +2223,7 @@ RegisterID* ApplyFunctionCallDotNode::emitBytecode(BytecodeGenerator& generator,
         } else
             function = generator.emitGetById(generator.tempDestination(dst), base.get(), generator.propertyNames().builtinNames().applyPublicName());
 
-        if (isOptionalChainBase())
+        if (isOptionalCall())
             generator.emitOptionalCheck(function.get());
     };
 
@@ -3590,16 +3588,22 @@ RegisterID* AssignResolveNode::emitBytecode(BytecodeGenerator& generator, Regist
     bool isReadOnly = var.isReadOnly() && m_assignmentContext != AssignmentContext::ConstDeclarationStatement;
     if (RegisterID* local = var.local()) {
         RegisterID* result = nullptr;
-        if (m_assignmentContext == AssignmentContext::AssignmentExpression)
-            generator.emitTDZCheckIfNecessary(var, local, nullptr);
 
         if (isReadOnly) {
             result = generator.emitNode(dst, m_right); // Execute side effects first.
+
+            if (m_assignmentContext == AssignmentContext::AssignmentExpression)
+                generator.emitTDZCheckIfNecessary(var, local, nullptr);
+
             generator.emitReadOnlyExceptionIfNeeded(var);
             generator.emitProfileType(result, var, divotStart(), divotEnd());
-        } else if (var.isSpecial()) {
+        } else if ((m_assignmentContext == AssignmentContext::AssignmentExpression && generator.needsTDZCheck(var)) || var.isSpecial()) {
             RefPtr<RegisterID> tempDst = generator.tempDestination(dst);
-            generator.emitNode(tempDst.get(), m_right);
+            generator.emitNode(tempDst.get(), m_right); // Execute side effects first.
+
+            if (m_assignmentContext == AssignmentContext::AssignmentExpression)
+                generator.emitTDZCheckIfNecessary(var, local, nullptr);
+
             generator.move(local, tempDst.get());
             generator.emitProfileType(local, var, divotStart(), divotEnd());
             result = generator.move(dst, tempDst.get());

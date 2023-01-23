@@ -743,13 +743,13 @@ win_chartabsize(win_T *wp, char_u *p, colnr_T col)
  * Does not handle text properties, since "s" is not a buffer line.
  */
     int
-linetabsize(char_u *s)
+linetabsize_str(char_u *s)
 {
     return linetabsize_col(0, s);
 }
 
 /*
- * Like linetabsize(), but "s" starts at column "startcol".
+ * Like linetabsize_str(), but "s" starts at column "startcol".
  */
     int
 linetabsize_col(int startcol, char_u *s)
@@ -772,7 +772,7 @@ linetabsize_col(int startcol, char_u *s)
 }
 
 /*
- * Like linetabsize(), but for a given window instead of the current one.
+ * Like linetabsize_str(), but for a given window instead of the current one.
  */
     int
 win_linetabsize(win_T *wp, linenr_T lnum, char_u *line, colnr_T len)
@@ -783,6 +783,17 @@ win_linetabsize(win_T *wp, linenr_T lnum, char_u *line, colnr_T len)
     win_linetabsize_cts(&cts, len);
     clear_chartabsize_arg(&cts);
     return (int)cts.cts_vcol;
+}
+
+/*
+ * Return the number of cells line "lnum" of window "wp" will take on the
+ * screen, taking into account the size of a tab and text properties.
+ */
+  int
+linetabsize(win_T *wp, linenr_T lnum)
+{
+    return win_linetabsize(wp, lnum,
+		       ml_get_buf(wp->w_buffer, lnum, FALSE), (colnr_T)MAXCOL);
 }
 
     void
@@ -1085,7 +1096,7 @@ win_lbr_chartabsize(
 	int		*headp UNUSED)
 {
     win_T	*wp = cts->cts_win;
-#ifdef FEAT_PROP_POPUP
+#if defined(FEAT_PROP_POPUP) || defined(FEAT_LINEBREAK)
     char_u	*line = cts->cts_line; // start of the line
 #endif
     char_u	*s = cts->cts_ptr;
@@ -1178,7 +1189,7 @@ win_lbr_chartabsize(
 		    {
 			int n_extra = (int)STRLEN(p);
 
-			cells = text_prop_position(wp, tp,
+			cells = text_prop_position(wp, tp, vcol,
 			     (vcol + size) % (wp->w_width - col_off) + col_off,
 						     &n_extra, &p, NULL, NULL);
 #ifdef FEAT_LINEBREAK
@@ -2280,7 +2291,7 @@ vim_str2nr(
 	}
 	else
 	{
-	    // prevent a larg unsigned number to become negative
+	    // prevent a large unsigned number to become negative
 	    if (un > VARNUM_MAX)
 		un = VARNUM_MAX;
 	    *nptr = (varnumber_T)un;

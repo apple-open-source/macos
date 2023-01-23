@@ -426,4 +426,9 @@ static int invocationCount = 0;
     return [self.clique waitForPriorityViewKeychainDataRecovery:error];
 }
 
+- (bool)preflightRecoveryKey:(OTConfigurationContext*)context recoveryKey:(NSString*)recoveryKey error:(NSError**)error
+{
+    return [OTClique preflightRecoverOctagonUsingRecoveryKey:context recoveryKey:recoveryKey error:error] ? true : false;
+}
+
 @end

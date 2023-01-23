@@ -227,7 +227,7 @@ INTERNAL rpc_cn_pres_result_list_p_t unpack_port_any
     unsigned32              *st
 )
 {
-    unsigned8 * string_end;
+    unsigned8 * string_end, *base_ptr;
     union
     {                                  /* a "proper" union to shut up lint */
         unsigned8 *string;             /* a string pointer */
@@ -249,7 +249,18 @@ INTERNAL rpc_cn_pres_result_list_p_t unpack_port_any
             return (NULL);
         }
     }
-
+    
+    /*
+     * Boundary check, prot_any_p->length is controlled by the caller.
+     */
+    base_ptr = (unsigned8 *)port_any_p;
+    if (((base_ptr + port_any_p->length) >= end_of_pkt) ||
+        ((base_ptr + port_any_p->length) < base_ptr) )
+    {
+        *st = rpc_s_bad_pkt;
+        return (NULL);
+    }
+    
     /*
      * only do the inplace string conversion if the two drep's are different
      */

@@ -54,6 +54,7 @@ typedef NS_ENUM(NSInteger, TrustedPeersHelperErrorCode) {
     TrustedPeersHelperErrorCodeNotEnrolled   = 34,
     TrustedPeersHelperErrorUnknownCloudKitError   = 36,
     TrustedPeersHelperErrorNoPeersPreapprovedBySelf = 47,
+    TrustedPeersHelperErrorRecoveryKeyIsNotCorrect = 52,
 };
 
 // See cuttlefish/CuttlefishService/Sources/CuttlefishService/CuttlefishError.swift

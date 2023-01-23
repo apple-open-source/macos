@@ -289,6 +289,8 @@
     __block CFDataRef encryptionPublicKey = CFBridgingRetain(currentSelfPeer.publicEncryptionKey.keyData);
     __block SecKeyRef octagonSigningPubSecKey = CFRetainSafe(currentSelfPeer.publicSigningKey.secKey);
     __block SecKeyRef octagonEncryptionPubSecKey = CFRetainSafe(currentSelfPeer.publicEncryptionKey.secKey);
+    __block SecKeyRef octagonSigningFullSecKey = CFRetainSafe(currentSelfPeer.signingKey.secKey);
+    __block SecKeyRef octagonEncryptionFullSecKey = CFRetainSafe(currentSelfPeer.encryptionKey.secKey);
 
     SFAnalyticsActivityTracker *tracker = [[[CKKSAnalytics class] logger] startLogSystemMetricsForActivityNamed:OctagonSOSAdapterUpdateKeys];
 
@@ -299,6 +301,7 @@
     SOSCCPerformUpdateOfAllOctagonKeys(signingFullKey, encryptionFullKey,
                                        signingPublicKey, encryptionPublicKey,
                                        octagonSigningPubSecKey, octagonEncryptionPubSecKey,
+                                       octagonSigningFullSecKey, octagonEncryptionFullSecKey,
                                        ^(CFErrorRef cferror) {
                                            [tracker stopWithEvent: OctagonSOSAdapterUpdateKeys result:(__bridge NSError * _Nullable)(cferror)];
                                            if(cferror) {
@@ -315,7 +318,9 @@
                                            CFRelease(encryptionPublicKey);
                                            CFRelease(octagonSigningPubSecKey);
                                            CFRelease(octagonEncryptionPubSecKey);
-                                       });
+                                       	   CFRelease(octagonSigningFullSecKey);
+                                           CFRelease(octagonEncryptionFullSecKey);
+					});
     if (error) {
         *error = localError;
     }

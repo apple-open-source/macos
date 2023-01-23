@@ -87,6 +87,7 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errorClasses forSelector:@selector(tlkRecoverabilityForEscrowRecordData:recordData:source:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(deliverAKDeviceListDelta:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(setMachineIDOverride:machineID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(preflightRecoverOctagonUsingRecoveryKey:recoveryKey:reply:) argumentIndex:1 ofReply:YES];
     }
     @catch(NSException* e) {
         secerror("OTSetupControlProtocol failed, continuing, but you might crash later: %@", e);

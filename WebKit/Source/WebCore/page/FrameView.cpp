@@ -971,7 +971,7 @@ void FrameView::updateSnapOffsets()
     LayoutRect viewport = LayoutRect(IntPoint(), baseLayoutViewportSize());
     viewport.move(-rootRenderer->marginLeft(), -rootRenderer->marginTop());
 
-    updateSnapOffsetsForScrollableArea(*this, *rootRenderer, *styleToUse, viewport, rootRenderer->style().writingMode(), rootRenderer->style().direction(), frame().document()->focusedElement());
+    updateSnapOffsetsForScrollableArea(*this, *rootRenderer, *styleToUse, viewport, rootRenderer->style().writingMode(), rootRenderer->style().direction());
 }
 
 bool FrameView::isScrollSnapInProgress() const
@@ -5474,6 +5474,20 @@ String FrameView::trackedRepaintRectsAsText() const
         ts << ")\n";
     }
     return ts.release();
+}
+
+void FrameView::addScrollableAreaForAnimatedScroll(ScrollableArea* scrollableArea)
+{
+    if (!m_scrollableAreasForAnimatedScroll)
+        m_scrollableAreasForAnimatedScroll = makeUnique<ScrollableAreaSet>();
+    
+    m_scrollableAreasForAnimatedScroll->add(scrollableArea);
+}
+
+void FrameView::removeScrollableAreaForAnimatedScroll(ScrollableArea* scrollableArea)
+{
+    if (m_scrollableAreasForAnimatedScroll)
+        m_scrollableAreasForAnimatedScroll->remove(scrollableArea);
 }
 
 bool FrameView::addScrollableArea(ScrollableArea* scrollableArea)

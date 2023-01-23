@@ -344,6 +344,7 @@ PKGADD_VENDOR = @PKGADD_VENDOR@
 PKGCONFIG = @PKGCONFIG@
 RANDOM_FILE = @RANDOM_FILE@
 RANLIB = @RANLIB@
+RC = @RC@
 REQUIRE_LIB_DEPS = @REQUIRE_LIB_DEPS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -822,6 +823,7 @@ man_MANS = \
   CURLOPT_WILDCARDMATCH.3                       \
   CURLOPT_WRITEDATA.3                           \
   CURLOPT_WRITEFUNCTION.3                       \
+  CURLOPT_WS_OPTIONS.3                          \
   CURLOPT_XFERINFODATA.3                        \
   CURLOPT_XFERINFOFUNCTION.3                    \
   CURLOPT_XOAUTH2_BEARER.3                      \

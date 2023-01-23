@@ -295,7 +295,7 @@ get_arglist(garray_T *gap, char_u *str, int escaped)
     return OK;
 }
 
-#if defined(FEAT_QUICKFIX) || defined(FEAT_SYN_HL) || defined(PROTO)
+#if defined(FEAT_QUICKFIX) || defined(FEAT_SYN_HL) || defined(FEAT_SPELL) || defined(PROTO)
 /*
  * Parse a list of arguments (file names), expand them and return in
  * "fnames[fcountp]".  When "wig" is TRUE, removes files matching 'wildignore'.
@@ -413,8 +413,7 @@ arglist_del_files(garray_T *alist_ga)
 
 	didone = FALSE;
 	for (match = 0; match < ARGCOUNT; ++match)
-	    if (vim_regexec(&regmatch, alist_name(&ARGLIST[match]),
-			(colnr_T)0))
+	    if (vim_regexec(&regmatch, alist_name(&ARGLIST[match]), (colnr_T)0))
 	    {
 		didone = TRUE;
 		vim_free(ARGLIST[match].ae_fname);
@@ -784,9 +783,25 @@ ex_argdedupe(exarg_T *eap UNUSED)
     int j;
 
     for (i = 0; i < ARGCOUNT; ++i)
+    {
+	// Expand each argument to a full path to catch different paths leading
+	// to the same file.
+	char_u *firstFullname = FullName_save(ARGLIST[i].ae_fname, FALSE);
+	if (firstFullname == NULL)
+	    return;  // out of memory
+
 	for (j = i + 1; j < ARGCOUNT; ++j)
-	    if (fnamecmp(ARGLIST[i].ae_fname, ARGLIST[j].ae_fname) == 0)
+	{
+	    char_u *secondFullname = FullName_save(ARGLIST[j].ae_fname, FALSE);
+	    if (secondFullname == NULL)
+		break;  // out of memory
+	    int areNamesDuplicate =
+				  fnamecmp(firstFullname, secondFullname) == 0;
+	    vim_free(secondFullname);
+
+	    if (areNamesDuplicate)
 	    {
+		// remove one duplicate argument
 		vim_free(ARGLIST[j].ae_fname);
 		mch_memmove(ARGLIST + j, ARGLIST + j + 1,
 					(ARGCOUNT - j - 1) * sizeof(aentry_T));
@@ -799,6 +814,10 @@ ex_argdedupe(exarg_T *eap UNUSED)
 
 		--j;
 	    }
+	}
+
+	vim_free(firstFullname);
+    }
 }
 
 /*
@@ -1186,13 +1205,11 @@ do_arg_all(
     tabpage_T		*last_curtab;
     int			prev_arglist_locked = arglist_locked;
 
-#ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
     {
 	emsg(_(e_invalid_in_cmdline_window));
 	return;
     }
-#endif
     if (ARGCOUNT <= 0)
     {
 	// Don't give an error message.  We don't want it when the ":all"

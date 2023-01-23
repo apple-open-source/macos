@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,6 +81,9 @@ remove_service(const char * name,
 ipconfig_status_t
 refresh_service(const char * name,
 		ServiceID service_id);
+
+ipconfig_status_t
+is_service_valid(const char * name, ServiceID service_id);
 
 ipconfig_status_t
 forget_network(const char * name, CFStringRef ssid);

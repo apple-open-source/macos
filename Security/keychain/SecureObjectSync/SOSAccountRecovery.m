@@ -130,17 +130,24 @@ bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef
         if(rkbg) {
             if (SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, rkbg, error)) {
                 result = true;
+            } else {
+                secerror("SetRecoveryKey failed at SOSRingSetRecoveryKeyBag #1: %@", error ? *error : nil);
             }
         } else {
             SOSRecoveryKeyBagRef ringrkbg = SOSRecoveryKeyBagCreateForAccount(kCFAllocatorDefault, (__bridge CFTypeRef)account, SOSRKNullKey(), error);
             if (ringrkbg != NULL) {
                 if (SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, ringrkbg, error)) {
                     result = true;
+                } else {
+                    secerror("SetRecoveryKey failed at SOSRingSetRecoveryKeyBag #2: %@", error ? *error : nil);
                 }
+            } else {
+                secerror("SetRecoveryKey failed at SOSRecoveryKeyBagCreateForAccount: %@", error ? *error : nil);
             }
             CFReleaseNull(ringrkbg);
         }
         if (result && !SOSRingGenerationSign(existing, NULL, account.trust.fullPeerInfo, error)) {
+            secerror("SetRecoveryKey failed at SOSRingGenerationSign: %@", error ? *error : nil);
             result = false;
         }
         newRing = CFRetainSafe(existing);

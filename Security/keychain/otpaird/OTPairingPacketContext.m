@@ -8,16 +8,18 @@
 #import "OTPairingConstants.h"
 
 @interface OTPairingPacketContext ()
-@property (readwrite) NSDictionary *message;
-@property (readwrite) NSString *fromID;
-@property (readwrite) IDSMessageContext *context;
+@property (readwrite, atomic) NSDictionary *message;
+@property (readwrite, atomic) NSString *fromID;
+@property (readwrite, atomic) NSString *incomingResponseIdentifier;
+@property (readwrite, atomic) NSString *outgoingResponseIdentifier;
 @end
 
 @implementation OTPairingPacketContext
 
 @synthesize message = _message;
 @synthesize fromID = _fromID;
-@synthesize context = _context;
+@synthesize incomingResponseIdentifier = _incomingResponseIdentifier;
+@synthesize outgoingResponseIdentifier = _outgoingResponseIdentifier;
 @synthesize error = _error;
 
 - (instancetype)initWithMessage:(NSDictionary *)message fromID:(NSString *)fromID context:(IDSMessageContext *)context
@@ -25,7 +27,8 @@
     if ((self = [super init])) {
         self.message = message;
         self.fromID = fromID;
-        self.context = context;
+        self.incomingResponseIdentifier = context.incomingResponseIdentifier;
+        self.outgoingResponseIdentifier = context.outgoingResponseIdentifier;
     }
     return self;
 }
@@ -72,16 +75,6 @@
     }
 
     return self->_error;
-}
-
-- (NSString *)incomingResponseIdentifier
-{
-    return self.context.incomingResponseIdentifier;
-}
-
-- (NSString *)outgoingResponseIdentifier
-{
-    return self.context.outgoingResponseIdentifier;
 }
 
 @end

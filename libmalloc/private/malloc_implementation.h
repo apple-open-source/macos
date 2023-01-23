@@ -32,6 +32,16 @@
 #include <mach/boolean.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <ptrauth.h>
+
+#if  __PTRAUTH_INTRINSICS__ && __has_builtin(__builtin_ptrauth_string_discriminator)
+#define LIBMALLOC_FUNCTION_PTRAUTH(f) \
+   __ptrauth(ptrauth_key_function_pointer, 1, \
+           __builtin_ptrauth_string_discriminator("libmalloc_functions_" # f) \
+   ) f
+#else
+#define LIBMALLOC_FUNCTION_PTRAUTH(f) f
+#endif
 
 
 /*********	Libsystem initializers ************/
@@ -60,8 +70,8 @@ struct _malloc_msl_symbols {
 struct _malloc_late_init {
 	unsigned long version;
 	/* The following functions are included in version 1 of this structure */
-	void * (*dlopen) (const char *path, int mode);
-	void * (*dlsym) (void *handle, const char *symbol);
+	void * (*LIBMALLOC_FUNCTION_PTRAUTH(dlopen)) (const char *path, int mode);
+	void * (*LIBMALLOC_FUNCTION_PTRAUTH(dlsym)) (void *handle, const char *symbol);
 	bool internal_diagnostics;  /* os_variant_has_internal_diagnostics() */
 	/* The following are included in version 2 of this structure */
 	const struct _malloc_msl_symbols *msl;

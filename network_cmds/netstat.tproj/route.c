@@ -85,6 +85,8 @@
 #include <time.h>
 #include "netstat.h"
 
+#include "network_cmds_lib.h"
+
 /* alignment constraint for routing socket */
 #define ROUNDUP(a) \
        ((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint32_t) - 1))) : sizeof(uint32_t))
@@ -523,7 +525,7 @@ routename(uint32_t in)
 			AF_INET);
 		if (hp) {
 			cp = hp->h_name;
-			 //### trimdomain(cp, strlen(cp));
+			cp = clean_non_printable(hp->h_name, strlen(hp->h_name));
 		}
 	}
 	if (cp) {

@@ -52,16 +52,12 @@ static void	restore_cmdline(cmdline_info_T *ccp);
 static int	cmdline_paste(int regname, int literally, int remcr);
 static void	redrawcmdprompt(void);
 static int	ccheck_abbr(int);
+static int	open_cmdwin(void);
 #ifdef FEAT_SEARCH_EXTRA
 static int	empty_pattern_magic(char_u *pat, size_t len, magic_T magic_val);
 #endif
 
-#ifdef FEAT_CMDWIN
-static int	open_cmdwin(void);
-
 static int	cedit_key = -1;	// key value of 'cedit' option
-#endif
-
 
     static void
 trigger_cmd_autocmd(int typechar, int evt)
@@ -397,6 +393,7 @@ finish_incsearch_highlighting(
 	magic_overruled = is_state->magic_overruled_save;
 
 	validate_cursor();	// needed for TAB
+	status_redraw_all();
 	redraw_all_later(UPD_SOME_VALID);
 	if (call_update_screen)
 	    update_screen(UPD_SOME_VALID);
@@ -563,6 +560,7 @@ may_do_incsearch_highlighting(
     }
 
     validate_cursor();
+
     // May redraw the status line to show the cursor position.
     if (p_ru && curwin->w_status_height > 0)
 	curwin->w_redr_status = TRUE;
@@ -1922,7 +1920,6 @@ getcmdline_int(
 					// cmdline_handle_backslash_key()
 	}
 
-#ifdef FEAT_CMDWIN
 	if (c == cedit_key || c == K_CMDWIN)
 	{
 	    // TODO: why is ex_normal_busy checked here?
@@ -1935,11 +1932,8 @@ getcmdline_int(
 		some_key_typed = TRUE;
 	    }
 	}
-# ifdef FEAT_DIGRAPHS
-	else
-# endif
-#endif
 #ifdef FEAT_DIGRAPHS
+	else
 	    c = do_digraph(c);
 #endif
 
@@ -2229,7 +2223,7 @@ getcmdline_int(
 	case K_HOR_SCROLLBAR:
 		if (msg_scrolled == 0)
 		{
-		    gui_do_horiz_scroll(scrollbar_value, FALSE);
+		    do_mousescroll_horiz(scrollbar_value);
 		    redrawcmd();
 		}
 		goto cmdline_not_changed;
@@ -2687,10 +2681,8 @@ check_opt_wim(void)
     int
 text_locked(void)
 {
-#ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
 	return TRUE;
-#endif
     return textlock != 0;
 }
 
@@ -2707,10 +2699,8 @@ text_locked_msg(void)
     char *
 get_text_locked_msg(void)
 {
-#ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
 	return e_invalid_in_cmdline_window;
-#endif
     return e_not_allowed_to_change_text_or_change_window;
 }
 
@@ -2917,6 +2907,9 @@ getexmodeline(
     {
 	long    sw;
 	char_u *s;
+
+	// May request the keyboard protocol state now.
+	may_send_t_RK();
 
 	if (ga_grow(&line_ga, 40) == FAIL)
 	    break;
@@ -4080,7 +4073,6 @@ get_cmdline_info(void)
     return &ccline;
 }
 
-#if defined(FEAT_EVAL) || defined(FEAT_CMDWIN) || defined(PROTO)
 /*
  * Get pointer to the command line info to use. save_cmdline() may clear
  * ccline and put the previous value in prev_ccline.
@@ -4096,9 +4088,7 @@ get_ccline_ptr(void)
 	return &prev_ccline;
     return NULL;
 }
-#endif
 
-#if defined(FEAT_EVAL) || defined(FEAT_CMDWIN)
 /*
  * Get the current command-line type.
  * Returns ':' or '/' or '?' or '@' or '>' or '-'
@@ -4120,7 +4110,6 @@ get_cmdline_type(void)
 	    '-';
     return p->cmdfirstc;
 }
-#endif
 
 #if defined(FEAT_EVAL) || defined(PROTO)
 /*
@@ -4365,7 +4354,6 @@ get_list_range(char_u **str, int *num1, int *num2)
     return OK;
 }
 
-#if defined(FEAT_CMDWIN) || defined(PROTO)
 /*
  * Check value of 'cedit' and set cedit_key.
  * Returns NULL if value is OK, error message otherwise.
@@ -4694,7 +4682,6 @@ is_in_cmdwin(void)
 {
     return cmdwin_type != 0 && get_cmdline_type() == NUL;
 }
-#endif // FEAT_CMDWIN
 
 /*
  * Used for commands that either take a simple command string argument, or:

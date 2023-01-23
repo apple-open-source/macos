@@ -2378,6 +2378,7 @@ mch_restore_title(int which)
 
 /*
  * Return TRUE if "name" looks like some xterm name.
+ * This matches "xterm.*", thus "xterm-256color", "xterm-kitty", etc.
  * Seiichi Sato mentioned that "mlterm" works like xterm.
  */
     int
@@ -2435,6 +2436,9 @@ use_xterm_mouse(void)
     return 0;
 }
 
+/*
+ * Return TRUE if "name" is an iris-ansi terminal name.
+ */
     int
 vim_is_iris(char_u *name)
 {
@@ -2444,33 +2448,19 @@ vim_is_iris(char_u *name)
 	    || STRCMP(name, "builtin_iris-ansi") == 0);
 }
 
+/*
+ * Return TRUE if "name" is a vt300-like terminal name.
+ */
     int
 vim_is_vt300(char_u *name)
 {
     if (name == NULL)
-	return FALSE;	       // actually all ANSI comp. terminals should be here
-    // catch VT100 - VT5xx
-    return ((STRNICMP(name, "vt", 2) == 0
-		&& vim_strchr((char_u *)"12345", name[2]) != NULL)
-	    || STRCMP(name, "builtin_vt320") == 0);
-}
-
-/*
- * Return TRUE if "name" is a terminal for which 'ttyfast' should be set.
- * This should include all windowed terminal emulators.
- */
-    int
-vim_is_fastterm(char_u *name)
-{
-    if (name == NULL)
 	return FALSE;
-    if (vim_is_xterm(name) || vim_is_vt300(name) || vim_is_iris(name))
-	return TRUE;
-    return (   STRNICMP(name, "hpterm", 6) == 0
-	    || STRNICMP(name, "sun-cmd", 7) == 0
-	    || STRNICMP(name, "screen", 6) == 0
-	    || STRNICMP(name, "tmux", 4) == 0
-	    || STRNICMP(name, "dtterm", 6) == 0);
+    // Actually all ANSI compatible terminals should be here.
+    // Catch at least VT1xx - VT5xx
+    return ((STRNICMP(name, "vt", 2) == 0
+			     && vim_strchr((char_u *)"12345", name[2]) != NULL)
+	    || STRCMP(name, "builtin_vt320") == 0);
 }
 
 /*
@@ -4530,27 +4520,30 @@ mch_call_shell_terminal(
 
     // Find a window to make "buf" curbuf.
     aucmd_prepbuf(&aco, buf);
-
-    clear_oparg(&oa);
-    while (term_use_loop())
+    if (curbuf == buf)
     {
-	if (oa.op_type == OP_NOP && oa.regname == NUL && !VIsual_active)
+	// Only when managed to find a window for "buf",
+	clear_oparg(&oa);
+	while (term_use_loop())
 	{
-	    // If terminal_loop() returns OK we got a key that is handled
-	    // in Normal model. We don't do redrawing anyway.
-	    if (terminal_loop(TRUE) == OK)
+	    if (oa.op_type == OP_NOP && oa.regname == NUL && !VIsual_active)
+	    {
+		// If terminal_loop() returns OK we got a key that is handled
+		// in Normal model. We don't do redrawing anyway.
+		if (terminal_loop(TRUE) == OK)
+		    normal_cmd(&oa, TRUE);
+	    }
+	    else
 		normal_cmd(&oa, TRUE);
 	}
-	else
-	    normal_cmd(&oa, TRUE);
+	retval = job->jv_exitval;
+	ch_log(NULL, "system command finished");
+
+	job_unref(job);
+
+	// restore curwin/curbuf and a few other things
+	aucmd_restbuf(&aco);
     }
-    retval = job->jv_exitval;
-    ch_log(NULL, "system command finished");
-
-    job_unref(job);
-
-    // restore curwin/curbuf and a few other things
-    aucmd_restbuf(&aco);
 
     // Only require pressing Enter when redrawing, to avoid that system() gets
     // the hit-enter prompt even though it didn't output anything.
@@ -4784,7 +4777,7 @@ mch_call_shell_fork(
 	    reset_signals();		// handle signals normally
 	    UNBLOCK_SIGNALS(&curset);
 
-# ifdef FEAT_JOB_CHANNEL
+# ifdef FEAT_EVAL
 	    if (ch_log_active())
 	    {
 		ch_log(NULL, "closing channel log in the child process");
@@ -5041,8 +5034,7 @@ mch_call_shell_fork(
 					|| (!curbuf->b_p_bin
 					    && curbuf->b_p_fixeol)
 					|| (lnum != curbuf->b_no_eol_lnum
-					    && (lnum !=
-						    curbuf->b_ml.ml_line_count
+					    && (lnum != curbuf->b_ml.ml_line_count
 						    || curbuf->b_p_eol)))
 				    vim_ignored = write(toshell_fd, "\n",
 								   (size_t)1);
@@ -5136,7 +5128,8 @@ mch_call_shell_fork(
 			    }
 			}
 
-			term_replace_bs_del_keycode(ta_buf, ta_len, len);
+			// Remove Vim-specific codes from the input.
+			len = term_replace_keycodes(ta_buf, ta_len, len);
 
 			/*
 			 * For pipes: echo the typed characters.
@@ -5370,9 +5363,9 @@ finished:
 		long delay_msec = 1;
 
 		if (tmode == TMODE_RAW)
-		    // possibly disables modifyOtherKeys, so that the system
-		    // can recognize CTRL-C
-		    out_str(T_CTE);
+		    // Possibly disables modifyOtherKeys, so that the system
+		    // can recognize CTRL-C.
+		    out_str_t_TE();
 
 		/*
 		 * Similar to the loop above, but only handle X events, no
@@ -5416,7 +5409,7 @@ finished:
 
 		if (tmode == TMODE_RAW)
 		    // possibly enables modifyOtherKeys again
-		    out_str(T_CTI);
+		    out_str_t_TI();
 	    }
 # endif
 
@@ -5502,7 +5495,7 @@ mch_call_shell(
     char_u	*cmd,
     int		options)	// SHELL_*, see vim.h
 {
-#ifdef FEAT_JOB_CHANNEL
+#ifdef FEAT_EVAL
     ch_log(NULL, "executing shell command: %s", cmd);
 #endif
 #if defined(FEAT_GUI) && defined(FEAT_TERMINAL)
@@ -5634,7 +5627,7 @@ mch_job_start(char **argv, job_T *job, jobopt_T *options, int is_terminal)
 	reset_signals();		// handle signals normally
 	UNBLOCK_SIGNALS(&curset);
 
-# ifdef FEAT_JOB_CHANNEL
+# ifdef FEAT_EVAL
 	if (ch_log_active())
 	    // close the log file in the child
 	    ch_logfile((char_u *)"", (char_u *)"");
@@ -6153,6 +6146,10 @@ WaitForCharOrMouse(long msec, int *interrupted, int ignore_input)
 	    if (rest >= 0)
 		rest -= msec;
 	}
+# endif
+# ifdef FEAT_SOUND_MACOSX
+	// Invoke any pending sound callbacks.
+	process_cfrunloop();
 # endif
 # ifdef FEAT_SOUND_CANBERRA
 	// Invoke any pending sound callbacks.
@@ -8334,8 +8331,8 @@ stop_timeout(void)
 start_timeout(long msec)
 {
     struct itimerspec interval = {
-	    {0, 0},                                   // Do not repeat.
-	    {msec / 1000, (msec % 1000) * 1000000}};  // Timeout interval
+	    {0, 0},					// Do not repeat.
+	    {msec / 1000, (msec % 1000) * 1000000}};	// Timeout interval
     int ret;
 
     // This is really the caller's responsibility, but let's make sure the
@@ -8348,8 +8345,8 @@ start_timeout(long msec)
 
 	action.sigev_notify = SIGEV_THREAD;
 	action.sigev_notify_function = set_flag;
-        ret = timer_create(CLOCK_MONOTONIC, &action, &timer_id);
-        if (ret < 0)
+	ret = timer_create(CLOCK_MONOTONIC, &action, &timer_id);
+	if (ret < 0)
 	{
 	    semsg(_(e_could_not_set_timeout_str), strerror(errno));
 	    return &timeout_flag;
@@ -8357,7 +8354,7 @@ start_timeout(long msec)
 	timer_created = TRUE;
     }
 
-# ifdef FEAT_JOB_CHANNEL
+# ifdef FEAT_EVAL
     ch_log(NULL, "setting timeout timer to %d sec %ld nsec",
 	       (int)interval.it_value.tv_sec, (long)interval.it_value.tv_nsec);
 # endif
@@ -8387,10 +8384,10 @@ delete_timer(void)
  * Implement timeout with setitimer()
  */
 static struct sigaction		prev_sigaction;
-static volatile sig_atomic_t	timeout_flag         = FALSE;
-static int			timer_active         = FALSE;
+static volatile sig_atomic_t	timeout_flag	     = FALSE;
+static int			timer_active	     = FALSE;
 static int			timer_handler_active = FALSE;
-static volatile sig_atomic_t	alarm_pending        = FALSE;
+static volatile sig_atomic_t	alarm_pending	     = FALSE;
 
 /*
  * Handle SIGALRM for a timeout.
@@ -8449,8 +8446,8 @@ stop_timeout(void)
 start_timeout(long msec)
 {
     struct itimerval	interval = {
-	    {0, 0},                                // Do not repeat.
-	    {msec / 1000, (msec % 1000) * 1000}};  // Timeout interval
+	    {0, 0},				    // Do not repeat.
+	    {msec / 1000, (msec % 1000) * 1000}};   // Timeout interval
     struct sigaction	handle_alarm;
     int			ret;
     sigset_t		sigs;

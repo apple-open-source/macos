@@ -742,19 +742,22 @@ rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		DHCPv6ClientMode	mode;
 
 		expected_mode = (flags & ND_RA_FLAG_MANAGED) != 0
-		    ? kDHCPv6ClientModeStateful : kDHCPv6ClientModeStateless;
+		    ? kDHCPv6ClientModeStatefulAddress
+		    : kDHCPv6ClientModeStateless;
 		mode = DHCPv6ClientGetMode(rtadv->dhcp_client);
 		if (mode != expected_mode) {
-		    bool stateful;
+		    bool	privacy_required;
 
-		    stateful = (expected_mode == kDHCPv6ClientModeStateful);
-		    DHCPv6ClientStart(rtadv->dhcp_client,
-				      (G_dhcpv6_stateful_enabled && stateful),
-				      ServiceIsPrivacyRequired(service_p));
+		    privacy_required = ServiceIsPrivacyRequired(service_p);
+		    DHCPv6ClientStop(rtadv->dhcp_client);
+		    DHCPv6ClientSetUsePrivateAddress(rtadv->dhcp_client,
+						     privacy_required);
+		    DHCPv6ClientSetMode(rtadv->dhcp_client, expected_mode);
+		    DHCPv6ClientStart(rtadv->dhcp_client);
 		}
 	    }
 	    else if (DHCPv6ClientIsActive(rtadv->dhcp_client)) {
-		DHCPv6ClientStop(rtadv->dhcp_client, FALSE);
+		DHCPv6ClientStop(rtadv->dhcp_client);
 	    }
 	}
 	if (rtadv->ra != NULL) {
@@ -934,7 +937,8 @@ rtadv_flush(ServiceRef service_p)
     inet6_flush_routes(if_name(if_p));
     inet6_rtadv_disable(if_name(if_p));
     if (rtadv->dhcp_client != NULL) {
-	DHCPv6ClientStop(rtadv->dhcp_client, TRUE);
+	DHCPv6ClientStop(rtadv->dhcp_client);
+	DHCPv6ClientDiscardInformation(rtadv->dhcp_client);
     }
     rtadv_failed(service_p, ipconfig_status_network_changed_e);
     return;
@@ -1503,7 +1507,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     case IFEventID_link_timer_expired_e:
 	rtadv_inactive(service_p);
 	if (rtadv->dhcp_client != NULL) {
-	    DHCPv6ClientStop(rtadv->dhcp_client, FALSE);
+	    DHCPv6ClientStop(rtadv->dhcp_client);
 	}
 	break;
 

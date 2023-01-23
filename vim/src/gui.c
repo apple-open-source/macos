@@ -64,7 +64,9 @@ static int disable_flush = 0;	// If > 0, gui_mch_flush() is disabled.
 gui_start(char_u *arg UNUSED)
 {
     char_u	*old_term;
+#ifdef GUI_MAY_FORK
     static int	recursive = 0;
+#endif
 #if defined(GUI_MAY_SPAWN) && defined(EXPERIMENTAL_GUI_CMD)
     char	*msg = NULL;
 #endif
@@ -76,9 +78,8 @@ gui_start(char_u *arg UNUSED)
 	cursor_on();			// needed for ":gui" in .vimrc
     full_screen = FALSE;
 
-    ++recursive;
-
 #ifdef GUI_MAY_FORK
+    ++recursive;
     /*
      * Quit the current process and continue in the child.
      * Makes "gvim file" disconnect from the shell it was started in.
@@ -153,7 +154,9 @@ gui_start(char_u *arg UNUSED)
     gui_mch_update();
     apply_autocmds(gui.in_use ? EVENT_GUIENTER : EVENT_GUIFAILED,
 						   NULL, NULL, FALSE, curbuf);
+#ifdef GUI_MAY_FORK
     --recursive;
+#endif
 }
 
 /*
@@ -227,10 +230,10 @@ gui_do_fork(void)
     int		exit_status;
     pid_t	pid = -1;
 
-#if defined(FEAT_RELTIME) && defined(HAVE_TIMER_CREATE)
+# if defined(FEAT_RELTIME) && defined(HAVE_TIMER_CREATE)
     // a timer is not carried forward
     delete_timer();
-#endif
+# endif
 
     // Setup a pipe between the child and the parent, so that the parent
     // knows when the child has done the setsid() call and is allowed to
@@ -3760,8 +3763,6 @@ get_tabline_label(
     opt = (tooltip ? &p_gtt : &p_gtl);
     if (**opt != NUL)
     {
-	int	use_sandbox = FALSE;
-	int	called_emsg_before = called_emsg;
 	char_u	res[MAXPATHL];
 	tabpage_T *save_curtab;
 	char_u	*opt_name = (char_u *)(tooltip ? "guitabtooltip"
@@ -3770,7 +3771,6 @@ get_tabline_label(
 	printer_page_num = tabpage_index(tp);
 # ifdef FEAT_EVAL
 	set_vim_var_nr(VV_LNUM, printer_page_num);
-	use_sandbox = was_set_insecurely(opt_name, 0);
 # endif
 	// It's almost as going to the tabpage, but without autocommands.
 	curtab->tp_firstwin = firstwin;
@@ -3785,7 +3785,7 @@ get_tabline_label(
 	curbuf = curwin->w_buffer;
 
 	// Can't use NameBuff directly, build_stl_str_hl() uses it.
-	build_stl_str_hl(curwin, res, MAXPATHL, *opt, use_sandbox,
+	build_stl_str_hl(curwin, res, MAXPATHL, *opt, opt_name, 0,
 						 0, (int)Columns, NULL, NULL);
 	STRCPY(NameBuff, res);
 
@@ -3796,10 +3796,6 @@ get_tabline_label(
 	lastwin = curtab->tp_lastwin;
 	curwin = curtab->tp_curwin;
 	curbuf = curwin->w_buffer;
-
-	if (called_emsg > called_emsg_before)
-	    set_string_option_direct(opt_name, -1,
-					   (char_u *)"", OPT_FREE, SID_ERROR);
     }
 
     // If 'guitablabel'/'guitabtooltip' is not set or the result is empty then
@@ -3844,11 +3840,7 @@ send_tabline_event(int nr)
 	return FALSE;
 
     // Don't put events in the input queue now.
-    if (hold_gui_events
-# ifdef FEAT_CMDWIN
-	    || cmdwin_type != 0
-# endif
-	    )
+    if (hold_gui_events || cmdwin_type != 0)
     {
 	// Set it back to the current tab page.
 	gui_mch_set_curtab(tabpage_index(curtab));
@@ -3993,10 +3985,8 @@ gui_drag_scrollbar(scrollbar_T *sb, long value, int still_dragging)
     if (hold_gui_events)
 	return;
 
-#ifdef FEAT_CMDWIN
     if (cmdwin_type != 0 && sb->wp != curwin)
 	return;
-#endif
 
     if (still_dragging)
     {
@@ -4115,14 +4105,14 @@ gui_drag_scrollbar(scrollbar_T *sb, long value, int still_dragging)
 	scrollbar_value = value;
 
 	if (State & MODE_NORMAL)
-	    gui_do_horiz_scroll(scrollbar_value, FALSE);
+	    do_mousescroll_horiz(scrollbar_value);
 	else if (State & MODE_INSERT)
 	    ins_horscroll();
 	else if (State & MODE_CMDLINE)
 	{
 	    if (msg_scrolled == 0)
 	    {
-		gui_do_horiz_scroll(scrollbar_value, FALSE);
+		do_mousescroll_horiz(scrollbar_value);
 		redrawcmdline();
 	    }
 	}
@@ -4514,88 +4504,13 @@ gui_do_scroll(void)
     return (wp == curwin && !EQUAL_POS(curwin->w_cursor, old_cursor));
 }
 
-
 /*
  * Horizontal scrollbar stuff:
  */
-
-/*
- * Return length of line "lnum" for horizontal scrolling.
- */
-    static colnr_T
-scroll_line_len(linenr_T lnum)
-{
-    char_u	*p;
-    colnr_T	col;
-    int		w;
-
-    p = ml_get(lnum);
-    col = 0;
-    if (*p != NUL)
-	for (;;)
-	{
-	    w = chartabsize(p, col);
-	    MB_PTR_ADV(p);
-	    if (*p == NUL)		// don't count the last character
-		break;
-	    col += w;
-	}
-    return col;
-}
-
-// Remember which line is currently the longest, so that we don't have to
-// search for it when scrolling horizontally.
-static linenr_T longest_lnum = 0;
-
-/*
- * Find longest visible line number.  If this is not possible (or not desired,
- * by setting 'h' in "guioptions") then the current line number is returned.
- */
-    static linenr_T
-gui_find_longest_lnum(void)
-{
-    linenr_T ret = 0;
-
-    // Calculate maximum for horizontal scrollbar.  Check for reasonable
-    // line numbers, topline and botline can be invalid when displaying is
-    // postponed.
-    if (vim_strchr(p_go, GO_HORSCROLL) == NULL
-	    && curwin->w_topline <= curwin->w_cursor.lnum
-	    && curwin->w_botline > curwin->w_cursor.lnum
-	    && curwin->w_botline <= curbuf->b_ml.ml_line_count + 1)
-    {
-	linenr_T    lnum;
-	colnr_T	    n;
-	long	    max = 0;
-
-	// Use maximum of all visible lines.  Remember the lnum of the
-	// longest line, closest to the cursor line.  Used when scrolling
-	// below.
-	for (lnum = curwin->w_topline; lnum < curwin->w_botline; ++lnum)
-	{
-	    n = scroll_line_len(lnum);
-	    if (n > (colnr_T)max)
-	    {
-		max = n;
-		ret = lnum;
-	    }
-	    else if (n == (colnr_T)max
-		    && abs((int)(lnum - curwin->w_cursor.lnum))
-		       < abs((int)(ret - curwin->w_cursor.lnum)))
-		ret = lnum;
-	}
-    }
-    else
-	// Use cursor line only.
-	ret = curwin->w_cursor.lnum;
-
-    return ret;
-}
-
     static void
 gui_update_horiz_scrollbar(int force)
 {
-    long	value, size, max;	// need 32 bit ints here
+    long	value, size, max;
 
     if (!gui.which_scrollbars[SBAR_BOTTOM])
 	return;
@@ -4629,9 +4544,7 @@ gui_update_horiz_scrollbar(int force)
     else
     {
 	value = curwin->w_leftcol;
-
-	longest_lnum = gui_find_longest_lnum();
-	max = scroll_line_len(longest_lnum);
+	max = scroll_line_len(ui_find_longest_lnum());
 
 	if (virtual_active())
 	{
@@ -4677,44 +4590,6 @@ gui_update_horiz_scrollbar(int force)
     gui.prev_wrap = curwin->w_p_wrap;
 
     gui_mch_set_scrollbar_thumb(&gui.bottom_sbar, value, size, max);
-}
-
-/*
- * Do a horizontal scroll.  Return TRUE if the cursor moved, FALSE otherwise.
- */
-    int
-gui_do_horiz_scroll(long_u leftcol, int compute_longest_lnum)
-{
-    // no wrapping, no scrolling
-    if (curwin->w_p_wrap)
-	return FALSE;
-
-    if (curwin->w_leftcol == (colnr_T)leftcol)
-	return FALSE;
-
-    curwin->w_leftcol = (colnr_T)leftcol;
-
-    // When the line of the cursor is too short, move the cursor to the
-    // longest visible line.
-    if (vim_strchr(p_go, GO_HORSCROLL) == NULL
-	    && !virtual_active()
-	    && (colnr_T)leftcol > scroll_line_len(curwin->w_cursor.lnum))
-    {
-	if (compute_longest_lnum)
-	{
-	    curwin->w_cursor.lnum = gui_find_longest_lnum();
-	    curwin->w_cursor.col = 0;
-	}
-	// Do a sanity check on "longest_lnum", just in case.
-	else if (longest_lnum >= curwin->w_topline
-		&& longest_lnum < curwin->w_botline)
-	{
-	    curwin->w_cursor.lnum = longest_lnum;
-	    curwin->w_cursor.col = 0;
-	}
-    }
-
-    return leftcol_changed();
 }
 
 /*
@@ -5222,7 +5097,7 @@ gui_update_screen(void)
     }
 
     if (!finish_op)
-	may_trigger_winscrolled();
+	may_trigger_win_scrolled_resized();
 
 # ifdef FEAT_CONCEAL
     if (conceal_update_lines

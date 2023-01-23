@@ -3053,6 +3053,44 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     [self.stateMachine doSimpleStateMachineRPC:@"preflight-inheritance-recovery-key" op:op sourceStates:sourceStates reply:reply];
 }
 
+- (void)preflightRecoverOctagonUsingRecoveryKey:(NSString *)recoveryKey
+                                          reply:(void (^)(BOOL, NSError * _Nullable))reply
+
+{
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon-preflight-rk", "No cloudkit account present: %@", accountError);
+        reply(NO, accountError);
+        return;
+    }
+    
+    
+    NSString* altDSID = self.activeAccount.altDSID;
+    if(altDSID == nil) {
+        secnotice("octagon-preflight-rk", "No configured altDSID: %@", self.activeAccount);
+        reply(NO, [NSError errorWithDomain:OctagonErrorDomain
+                                      code:OctagonErrorNoAppleAccount
+                               description:@"No altDSID configured"]);
+        return;
+    }
+    
+    NSString* salt = altDSID;
+    
+    [self.cuttlefishXPCWrapper preflightRecoverOctagonUsingRecoveryKey:self.activeAccount
+                                                           recoveryKey:recoveryKey
+                                                                  salt:salt
+                                                                 reply:^(BOOL correct,
+                                                                         NSError * _Nullable preflightError) {
+        if(preflightError) {
+            secerror("octagon-preflight-rk: error checking recovery key correctness: %@", preflightError);
+            reply(NO, preflightError);
+        } else {
+            secnotice("octagon-preflight-rk", "recovery key is %@", correct ? @"correct" : @"incorrect");
+            reply(correct, nil);
+        }
+    }];
+}
+
 - (NSDictionary*)joinStatePathDictionary
 {
     return @{
@@ -3601,8 +3639,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcFetchAllViableBottlesFromSource:(OTEscrowRecordFetchSource)source reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialEscrowRecordIDs, NSError* _Nullable error))reply
 {
-    NSError* accountError = [self errorIfNoCKAccount:nil];
-    if (accountError != nil) {
+    NSError* accountError = nil;
+    if (source != OTEscrowRecordFetchSourceCache && (accountError = [self errorIfNoCKAccount:nil]) != nil) {
         secnotice("octagon", "No cloudkit account present: %@", accountError);
         reply(nil, nil, accountError);
         return;

@@ -1860,7 +1860,7 @@ do_put(
 
 	    shortline = (vcol < col) || (vcol == col && !*ptr) ;
 
-	    if (vcol < col) // line too short, padd with spaces
+	    if (vcol < col) // line too short, pad with spaces
 		bd.startspaces = col - vcol;
 	    else if (vcol > col)
 	    {
@@ -1963,6 +1963,8 @@ do_put(
 	// adjust '] mark
 	curbuf->b_op_end.lnum = curwin->w_cursor.lnum - 1;
 	curbuf->b_op_end.col = bd.textcol + totlen - 1;
+	if (curbuf->b_op_end.col < 0)
+	    curbuf->b_op_end.col = 0;
 	curbuf->b_op_end.coladd = 0;
 	if (flags & PUT_CURSEND)
 	{

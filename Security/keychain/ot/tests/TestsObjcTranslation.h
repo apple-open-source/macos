@@ -74,6 +74,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error;
 
+- (bool)preflightRecoveryKey:(OTConfigurationContext*)context recoveryKey:(NSString*)recoveryKey error:(NSError**)error;
 @end
 
 NS_ASSUME_NONNULL_END

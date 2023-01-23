@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLINFO_CONDITION_UNMET 3 "May 17, 2022" "libcurl 7.85.0" "curl_easy_getinfo options"
+.TH CURLINFO_CONDITION_UNMET 3 "October 22, 2022" "libcurl 7.86.0" "curl_easy_getinfo options"
 
 .SH NAME
 CURLINFO_CONDITION_UNMET \- get info on unmet time conditional or 304 HTTP response.
@@ -53,7 +53,8 @@ if(curl) {
   curl_easy_setopt(curl, CURLOPT_TIMEVALUE, 1577833200L);
 
   /* If-Modified-Since the above time stamp */
-  curl_easy_setopt(curl, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
+  curl_easy_setopt(curl, CURLOPT_TIMECONDITION,
+                   (long)CURL_TIMECOND_IFMODSINCE);
 
   /* Perform the request */
   res = curl_easy_perform(curl);

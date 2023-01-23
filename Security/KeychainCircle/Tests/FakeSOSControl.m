@@ -67,7 +67,7 @@
                                                               @"ComputerName" : @"name",
                                                               };
 
-        _fullPeerInfo = SOSFullPeerInfoCreate(NULL, gestalt, NULL, _deviceKey, _octagonSigningKey, _octagonEncryptionKey, &error);
+        _fullPeerInfo = SOSFullPeerInfoCreate(NULL, gestalt, SOSCircleGetName(circle), NULL, _deviceKey, _octagonSigningKey, _octagonEncryptionKey, &error);
         CFReleaseNull(error);
 
         if (randomAccountKey) {

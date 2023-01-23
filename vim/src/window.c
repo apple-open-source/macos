@@ -84,6 +84,50 @@ static char *m_onlyone = N_("Already only one window");
 // autocommands mess up the window structure.
 static int split_disallowed = 0;
 
+// When non-zero closing a window is forbidden.  Used to avoid that nasty
+// autocommands mess up the window structure.
+static int close_disallowed = 0;
+
+/*
+ * Disallow changing the window layout (split window, close window, move
+ * window).  Resizing is still allowed.
+ * Used for autocommands that temporarily use another window and need to
+ * make sure the previously selected window is still there.
+ * Must be matched with exactly one call to window_layout_unlock()!
+ */
+    static void
+window_layout_lock(void)
+{
+    ++split_disallowed;
+    ++close_disallowed;
+}
+
+    static void
+window_layout_unlock(void)
+{
+    --split_disallowed;
+    --close_disallowed;
+}
+
+/*
+ * When the window layout cannot be changed give an error and return TRUE.
+ * "cmd" indicates the action being performed and is used to pick the relevant
+ * error message.
+ */
+    int
+window_layout_locked(enum CMD_index cmd)
+{
+    if (split_disallowed > 0 || close_disallowed > 0)
+    {
+	if (close_disallowed == 0 && cmd == CMD_tabnew)
+	    emsg(_(e_cannot_split_window_when_closing_buffer));
+	else
+	    emsg(_(e_not_allowed_to_change_window_layout_in_this_autocmd));
+	return TRUE;
+    }
+    return FALSE;
+}
+
 // #define WIN_DEBUG
 #ifdef WIN_DEBUG
 /*
@@ -119,12 +163,8 @@ log_frame_layout(frame_T *frame)
     win_T *
 prevwin_curwin(void)
 {
-    return
-#ifdef FEAT_CMDWIN
-	// In cmdwin, the alternative buffer should be used.
-	is_in_cmdwin() && prevwin != NULL ? prevwin :
-#endif
-	curwin;
+    // In cmdwin, the alternative buffer should be used.
+    return is_in_cmdwin() && prevwin != NULL ? prevwin : curwin;
 }
 
 /*
@@ -149,8 +189,7 @@ do_window(
     if (ERROR_IF_ANY_POPUP_WINDOW)
 	return;
 
-#ifdef FEAT_CMDWIN
-# define CHECK_CMDWIN \
+#define CHECK_CMDWIN \
     do { \
 	if (cmdwin_type != 0) \
 	{ \
@@ -158,9 +197,6 @@ do_window(
 	    return; \
 	} \
     } while (0)
-#else
-# define CHECK_CMDWIN do { /**/ } while (0)
-#endif
 
     Prenum1 = Prenum == 0 ? 1 : Prenum;
 
@@ -531,6 +567,8 @@ newwindow:
     case Ctrl_F:
 wingotofile:
 		CHECK_CMDWIN;
+		if (check_text_or_curbuf_locked(NULL))
+		    break;
 
 		ptr = grab_file_name(Prenum1, &lnum);
 		if (ptr != NULL)
@@ -612,9 +650,8 @@ wingotofile:
 		LANGMAP_ADJUST(xchar, TRUE);
 		--no_mapping;
 		--allow_keys;
-#ifdef FEAT_CMDL_INFO
 		(void)add_to_showcmd(xchar);
-#endif
+
 		switch (xchar)
 		{
 #if defined(FEAT_QUICKFIX)
@@ -850,7 +887,7 @@ win_split(int size, int flags)
  * When "new_wp" is NULL: split the current window in two.
  * When "new_wp" is not NULL: insert this window at the far
  * top/left/right/bottom.
- * return FAIL for failure, OK otherwise
+ * Return FAIL for failure, OK otherwise.
  */
     int
 win_split_ins(
@@ -1325,7 +1362,7 @@ win_split_ins(
 	win_equal(wp, TRUE,
 		(flags & WSP_VERT) ? (dir == 'v' ? 'b' : 'h')
 		: dir == 'h' ? 'b' : 'v');
-    else if (!p_spsc && wp != aucmd_win)
+    else if (*p_spk != 'c' && !is_aucmd_win(wp))
 	win_fix_scroll(FALSE);
 
     // Don't change the window height/width to 'winheight' / 'winwidth' if a
@@ -1411,7 +1448,7 @@ win_init(win_T *newp, win_T *oldp, int flags UNUSED)
     newp->w_prevdir = (oldp->w_prevdir == NULL)
 				    ? NULL : vim_strsave(oldp->w_prevdir);
 
-    if (!p_spsc)
+    if (*p_spk != 'c')
     {
 	newp->w_botline = oldp->w_botline;
 	newp->w_prev_height = oldp->w_height - WINBAR_HEIGHT(oldp);
@@ -1925,7 +1962,7 @@ win_equal(
     win_equal_rec(next_curwin == NULL ? curwin : next_curwin, current,
 		      topframe, dir, 0, tabline_height(),
 					   (int)Columns, topframe->fr_height);
-    if (!p_spsc && next_curwin != aucmd_win)
+    if (*p_spk != 'c' && !is_aucmd_win(next_curwin))
 	win_fix_scroll(TRUE);
 }
 
@@ -2389,7 +2426,7 @@ close_windows(
 
 /*
  * Return TRUE if the current window is the only window that exists (ignoring
- * "aucmd_win").
+ * "aucmd_win[]").
  * Returns FALSE if there is a window, possibly in another tab page.
  */
     static int
@@ -2399,7 +2436,7 @@ last_window(void)
 }
 
 /*
- * Return TRUE if there is only one window other than "aucmd_win" in the
+ * Return TRUE if there is only one window other than "aucmd_win[]" in the
  * current tab page.
  */
     int
@@ -2410,7 +2447,7 @@ one_window(void)
 
     FOR_ALL_WINDOWS(wp)
     {
-	if (wp != aucmd_win)
+	if (!is_aucmd_win(wp))
 	{
 	    if (seen_one)
 		return FALSE;
@@ -2540,6 +2577,8 @@ win_close(win_T *win, int free_buf)
 	emsg(_(e_cannot_close_last_window));
 	return FAIL;
     }
+    if (window_layout_locked(CMD_close))
+	return FAIL;
 
     if (win->w_closing || (win->w_buffer != NULL
 					       && win->w_buffer->b_locked > 0))
@@ -2549,7 +2588,7 @@ win_close(win_T *win, int free_buf)
 	emsg(_(e_cannot_close_autocmd_or_popup_window));
 	return FAIL;
     }
-    if ((firstwin == aucmd_win || lastwin == aucmd_win) && one_window())
+    if ((is_aucmd_win(firstwin) || is_aucmd_win(lastwin)) && one_window())
     {
 	emsg(_(e_cannot_close_window_only_autocmd_window_would_remain));
 	return FAIL;
@@ -2733,7 +2772,7 @@ win_close(win_T *win, int free_buf)
     else
     {
 	win_comp_pos();
-	if (!p_spsc)
+	if (*p_spk != 'c')
 	    win_fix_scroll(FALSE);
     }
     if (close_curwin)
@@ -2806,40 +2845,324 @@ trigger_winclosed(win_T *win)
 }
 
 /*
- * Trigger WinScrolled for "curwin" if needed.
+ * Make a snapshot of all the window scroll positions and sizes of the current
+ * tab page.
  */
     void
-may_trigger_winscrolled(void)
+snapshot_windows_scroll_size(void)
 {
-    win_T	    *wp = curwin;
-    static int	    recursive = FALSE;
-    char_u	    winid[NUMBUFLEN];
-
-    if (recursive || !has_winscrolled())
-	return;
-
-    if (wp->w_last_topline != wp->w_topline
-	    || wp->w_last_leftcol != wp->w_leftcol
-	    || wp->w_last_skipcol != wp->w_skipcol
-	    || wp->w_last_width != wp->w_width
-	    || wp->w_last_height != wp->w_height)
+    win_T *wp;
+    FOR_ALL_WINDOWS(wp)
     {
-	vim_snprintf((char *)winid, sizeof(winid), "%d", wp->w_id);
+	wp->w_last_topline = wp->w_topline;
+	wp->w_last_leftcol = wp->w_leftcol;
+	wp->w_last_skipcol = wp->w_skipcol;
+	wp->w_last_width = wp->w_width;
+	wp->w_last_height = wp->w_height;
+    }
+}
 
-	recursive = TRUE;
-	apply_autocmds(EVENT_WINSCROLLED, winid, winid, FALSE, wp->w_buffer);
-	recursive = FALSE;
+static int did_initial_scroll_size_snapshot = FALSE;
 
-	// an autocmd may close the window, "wp" may be invalid now
-	if (win_valid_any_tab(wp))
+    void
+may_make_initial_scroll_size_snapshot(void)
+{
+    if (!did_initial_scroll_size_snapshot)
+    {
+	did_initial_scroll_size_snapshot = TRUE;
+	snapshot_windows_scroll_size();
+    }
+}
+
+#ifdef FEAT_EVAL
+/*
+ * Create a dictionary with information about size and scroll changes in a
+ * window.
+ * Returns the dictionary with refcount set to one.
+ * Returns NULL when out of memory.
+ */
+    static dict_T *
+make_win_info_dict(
+	int width,
+	int height,
+	int topline,
+	int leftcol,
+	int skipcol)
+{
+    dict_T *d = dict_alloc();
+    if (d == NULL)
+	return NULL;
+    d->dv_refcount = 1;
+
+    // not actually looping, for breaking out on error
+    while (1)
+    {
+	typval_T tv;
+	tv.v_lock = 0;
+	tv.v_type = VAR_NUMBER;
+
+	tv.vval.v_number = width;
+	if (dict_add_tv(d, "width", &tv) == FAIL)
+	    break;
+	tv.vval.v_number = height;
+	if (dict_add_tv(d, "height", &tv) == FAIL)
+	    break;
+	tv.vval.v_number = topline;
+	if (dict_add_tv(d, "topline", &tv) == FAIL)
+	    break;
+	tv.vval.v_number = leftcol;
+	if (dict_add_tv(d, "leftcol", &tv) == FAIL)
+	    break;
+	tv.vval.v_number = skipcol;
+	if (dict_add_tv(d, "skipcol", &tv) == FAIL)
+	    break;
+	return d;
+    }
+    dict_unref(d);
+    return NULL;
+}
+#endif
+
+// Return values of check_window_scroll_resize():
+#define CWSR_SCROLLED	1  // at least one window scrolled
+#define CWSR_RESIZED	2  // at least one window size changed
+
+/*
+ * This function is used for three purposes:
+ * 1. Goes over all windows in the current tab page and returns:
+ *	0				no scrolling and no size changes found
+ *	CWSR_SCROLLED			at least one window scrolled
+ *	CWSR_RESIZED			at least one window changed size
+ *	CWSR_SCROLLED + CWSR_RESIZED	both
+ *    "size_count" is set to the nr of windows with size changes.
+ *    "first_scroll_win" is set to the first window with any relevant changes.
+ *    "first_size_win" is set to the first window with size changes.
+ *
+ * 2. When the first three arguments are NULL and "winlist" is not NULL,
+ *    "winlist" is set to the list of window IDs with size changes.
+ *
+ * 3. When the first three arguments are NULL and "v_event" is not NULL,
+ *    information about changed windows is added to "v_event".
+ */
+    static int
+check_window_scroll_resize(
+	int	*size_count,
+	win_T	**first_scroll_win,
+	win_T	**first_size_win,
+	list_T	*winlist UNUSED,
+	dict_T	*v_event UNUSED)
+{
+    int result = 0;
+#ifdef FEAT_EVAL
+    int listidx = 0;
+    int tot_width = 0;
+    int tot_height = 0;
+    int tot_topline = 0;
+    int tot_leftcol = 0;
+    int tot_skipcol = 0;
+#endif
+
+    win_T *wp;
+    FOR_ALL_WINDOWS(wp)
+    {
+	int size_changed = wp->w_last_width != wp->w_width
+					  || wp->w_last_height != wp->w_height;
+	if (size_changed)
 	{
-	    wp->w_last_topline = wp->w_topline;
-	    wp->w_last_leftcol = wp->w_leftcol;
-	    wp->w_last_skipcol = wp->w_skipcol;
-	    wp->w_last_width = wp->w_width;
-	    wp->w_last_height = wp->w_height;
+	    result |= CWSR_RESIZED;
+#ifdef FEAT_EVAL
+	    if (winlist != NULL)
+	    {
+		// Add this window to the list of changed windows.
+		typval_T tv;
+		tv.v_lock = 0;
+		tv.v_type = VAR_NUMBER;
+		tv.vval.v_number = wp->w_id;
+		list_set_item(winlist, listidx++, &tv);
+	    }
+	    else
+#endif
+		if (size_count != NULL)
+	    {
+		++*size_count;
+		if (*first_size_win == NULL)
+		    *first_size_win = wp;
+		// For WinScrolled the first window with a size change is used
+		// even when it didn't scroll.
+		if (*first_scroll_win == NULL)
+		    *first_scroll_win = wp;
+	    }
+	}
+
+	int scroll_changed = wp->w_last_topline != wp->w_topline
+				|| wp->w_last_leftcol != wp->w_leftcol
+				|| wp->w_last_skipcol != wp->w_skipcol;
+	if (scroll_changed)
+	{
+	    result |= CWSR_SCROLLED;
+	    if (first_scroll_win != NULL && *first_scroll_win == NULL)
+		*first_scroll_win = wp;
+	}
+
+#ifdef FEAT_EVAL
+	if ((size_changed || scroll_changed) && v_event != NULL)
+	{
+	    // Add info about this window to the v:event dictionary.
+	    int width = wp->w_width - wp->w_last_width;
+	    int height = wp->w_height - wp->w_last_height;
+	    int topline = wp->w_topline - wp->w_last_topline;
+	    int leftcol = wp->w_leftcol - wp->w_last_leftcol;
+	    int skipcol = wp->w_skipcol - wp->w_last_skipcol;
+	    dict_T *d = make_win_info_dict(width, height,
+						    topline, leftcol, skipcol);
+	    if (d == NULL)
+		break;
+	    char winid[NUMBUFLEN];
+	    vim_snprintf(winid, sizeof(winid), "%d", wp->w_id);
+	    if (dict_add_dict(v_event, winid, d) == FAIL)
+	    {
+		dict_unref(d);
+		break;
+	    }
+	    --d->dv_refcount;
+
+	    tot_width += abs(width);
+	    tot_height += abs(height);
+	    tot_topline += abs(topline);
+	    tot_leftcol += abs(leftcol);
+	    tot_skipcol += abs(skipcol);
+	}
+#endif
+    }
+
+#ifdef FEAT_EVAL
+    if (v_event != NULL)
+    {
+	dict_T *alldict = make_win_info_dict(tot_width, tot_height,
+					tot_topline, tot_leftcol, tot_skipcol);
+	if (alldict != NULL)
+	{
+	    if (dict_add_dict(v_event, "all", alldict) == FAIL)
+		dict_unref(alldict);
+	    else
+		--alldict->dv_refcount;
 	}
     }
+#endif
+
+    return result;
+}
+
+/*
+ * Trigger WinScrolled and/or WinResized if any window in the current tab page
+ * scrolled or changed size.
+ */
+    void
+may_trigger_win_scrolled_resized(void)
+{
+    static int	    recursive = FALSE;
+    int		    do_resize = has_winresized();
+    int		    do_scroll = has_winscrolled();
+
+    // Do not trigger WinScrolled or WinResized recursively.  Do not trigger
+    // before the initial snapshot of the w_last_ values was made.
+    if (recursive
+	    || !(do_scroll || do_resize)
+	    || !did_initial_scroll_size_snapshot)
+	return;
+
+    int size_count = 0;
+    win_T *first_scroll_win = NULL, *first_size_win = NULL;
+    int cwsr = check_window_scroll_resize(&size_count,
+					   &first_scroll_win, &first_size_win,
+					   NULL, NULL);
+    int trigger_resize = do_resize && size_count > 0;
+    int trigger_scroll = do_scroll && cwsr != 0;
+    if (!trigger_resize && !trigger_scroll)
+	return;  // no relevant changes
+#ifdef FEAT_EVAL
+    list_T *windows_list = NULL;
+    if (trigger_resize)
+    {
+	// Create the list for v:event.windows before making the snapshot.
+	windows_list = list_alloc_with_items(size_count);
+	(void)check_window_scroll_resize(NULL, NULL, NULL, windows_list, NULL);
+    }
+
+    dict_T *scroll_dict = NULL;
+    if (trigger_scroll)
+    {
+	// Create the dict with entries for v:event before making the snapshot.
+	scroll_dict = dict_alloc();
+	if (scroll_dict != NULL)
+	{
+	    scroll_dict->dv_refcount = 1;
+	    (void)check_window_scroll_resize(NULL, NULL, NULL, NULL,
+								  scroll_dict);
+	}
+    }
+#endif
+
+    // WinScrolled/WinResized are triggered only once, even when multiple
+    // windows scrolled or changed size.  Store the current values before
+    // triggering the event, if a scroll or resize happens as a side effect
+    // then WinScrolled/WinResized is triggered for that later.
+    snapshot_windows_scroll_size();
+
+    // "curwin" may be different from the actual current window, make
+    // sure it can be restored.
+    window_layout_lock();
+    recursive = TRUE;
+
+    // If both are to be triggered do WinResized first.
+    if (trigger_resize)
+    {
+#ifdef FEAT_EVAL
+	save_v_event_T  save_v_event;
+	dict_T		*v_event = get_v_event(&save_v_event);
+
+	if (dict_add_list(v_event, "windows", windows_list) == OK)
+	{
+	    dict_set_items_ro(v_event);
+#endif
+	    char_u winid[NUMBUFLEN];
+	    vim_snprintf((char *)winid, sizeof(winid), "%d",
+							 first_size_win->w_id);
+	    apply_autocmds(EVENT_WINRESIZED, winid, winid, FALSE,
+						     first_size_win->w_buffer);
+#ifdef FEAT_EVAL
+	}
+	restore_v_event(v_event, &save_v_event);
+#endif
+    }
+
+    if (trigger_scroll
+#ifdef FEAT_EVAL
+	    && scroll_dict != NULL
+#endif
+	    )
+    {
+#ifdef FEAT_EVAL
+	save_v_event_T  save_v_event;
+	dict_T		*v_event = get_v_event(&save_v_event);
+
+	// Move the entries from scroll_dict to v_event.
+	dict_extend(v_event, scroll_dict, (char_u *)"move", NULL);
+	dict_set_items_ro(v_event);
+	dict_unref(scroll_dict);
+#endif
+	char_u winid[NUMBUFLEN];
+	vim_snprintf((char *)winid, sizeof(winid), "%d",
+						       first_scroll_win->w_id);
+	apply_autocmds(EVENT_WINSCROLLED, winid, winid, FALSE,
+						   first_scroll_win->w_buffer);
+#ifdef FEAT_EVAL
+	restore_v_event(v_event, &save_v_event);
+#endif
+    }
+
+    recursive = FALSE;
+    window_layout_unlock();
 }
 
 /*
@@ -2963,18 +3286,18 @@ win_free_all(void)
 {
     int		dummy;
 
-#ifdef FEAT_CMDWIN
     // avoid an error for switching tabpage with the cmdline window open
     cmdwin_type = 0;
-#endif
+
     while (first_tabpage->tp_next != NULL)
 	tabpage_close(TRUE);
 
-    if (aucmd_win != NULL)
-    {
-	(void)win_free_mem(aucmd_win, &dummy, NULL);
-	aucmd_win = NULL;
-    }
+    for (int i = 0; i < AUCMD_WIN_COUNT; ++i)
+	if (aucmd_win[i].auc_win != NULL)
+	{
+	    (void)win_free_mem(aucmd_win[i].auc_win, &dummy, NULL);
+	    aucmd_win[i].auc_win = NULL;
+	}
 
     while (firstwin != NULL)
 	(void)win_free_mem(firstwin, &dummy, NULL);
@@ -3792,6 +4115,33 @@ close_others(
 }
 
 /*
+ * Store the relevant window pointers for tab page "tp".  To be used before
+ * use_tabpage().
+ */
+    void
+unuse_tabpage(tabpage_T *tp)
+{
+    tp->tp_topframe = topframe;
+    tp->tp_firstwin = firstwin;
+    tp->tp_lastwin = lastwin;
+    tp->tp_curwin = curwin;
+}
+
+/*
+ * Set the relevant pointers to use tab page "tp".  May want to call
+ * unuse_tabpage() first.
+ */
+    void
+use_tabpage(tabpage_T *tp)
+{
+    curtab = tp;
+    topframe = curtab->tp_topframe;
+    firstwin = curtab->tp_firstwin;
+    lastwin = curtab->tp_lastwin;
+    curwin = curtab->tp_curwin;
+}
+
+/*
  * Allocate the first window and put an empty buffer in it.
  * Called from main().
  * Return FAIL when something goes wrong (out of memory).
@@ -3805,11 +4155,8 @@ win_alloc_first(void)
     first_tabpage = alloc_tabpage();
     if (first_tabpage == NULL)
 	return FAIL;
-    first_tabpage->tp_topframe = topframe;
     curtab = first_tabpage;
-    curtab->tp_firstwin = firstwin;
-    curtab->tp_lastwin = lastwin;
-    curtab->tp_curwin = curwin;
+    unuse_tabpage(first_tabpage);
 
     return OK;
 }
@@ -4019,13 +4366,13 @@ win_new_tabpage(int after)
     tabpage_T	*newtp;
     int		n;
 
-#ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
     {
 	emsg(_(e_invalid_in_cmdline_window));
 	return FAIL;
     }
-#endif
+    if (window_layout_locked(CMD_tabnew))
+	return FAIL;
 
     newtp = alloc_tabpage();
     if (newtp == NULL)
@@ -4280,6 +4627,8 @@ leave_tabpage(
 	if (curtab != tp)
 	    return FAIL;
     }
+
+    reset_dragwin();
 #if defined(FEAT_GUI)
     // Remove the scrollbars.  They may be added back later.
     if (gui.in_use)
@@ -4315,10 +4664,7 @@ enter_tabpage(
     win_T	*next_prevwin = tp->tp_prevwin;
     tabpage_T	*last_tab = curtab;
 
-    curtab = tp;
-    firstwin = tp->tp_firstwin;
-    lastwin = tp->tp_lastwin;
-    topframe = tp->tp_topframe;
+    use_tabpage(tp);
 
     // We would like doing the TabEnter event first, but we don't have a
     // valid current window yet, which may break some commands.
@@ -4343,8 +4689,12 @@ enter_tabpage(
     // When cmdheight is changed in a tab page with '<C-w>-', cmdline_row is
     // changed but p_ch and tp_ch_used are not changed. Thus we also need to
     // check cmdline_row.
-    if ((row < cmdline_row) && (cmdline_row <= Rows - p_ch))
+    if (row < cmdline_row && cmdline_row <= Rows - p_ch)
 	clear_cmdline = TRUE;
+
+    // If there was a click in a window, it won't be usable for a following
+    // drag.
+    reset_dragwin();
 
     // The tabpage line may have appeared or disappeared, may need to resize
     // the frames for that.  When the Vim window was resized need to update
@@ -4931,7 +5281,7 @@ win_enter_ext(win_T *wp, int flags)
 
     // Might need to scroll the old window before switching, e.g., when the
     // cursor was moved.
-    if (p_spsc)
+    if (*p_spk == 'c')
 	update_topline();
 
     // may have to copy the buffer options when 'cpo' contains 'S'
@@ -4947,7 +5297,7 @@ win_enter_ext(win_T *wp, int flags)
     check_cursor();
     if (!virtual_active())
 	curwin->w_cursor.coladd = 0;
-    if (p_spsc) // assume cursor position needs updating.
+    if (*p_spk == 'c')		// assume cursor position needs updating
 	changed_line_abv_curs();
     else
 	win_fix_cursor(TRUE);
@@ -5068,7 +5418,7 @@ static int last_win_id = LOWEST_WIN_ID - 1;
  * FALSE.
  */
     static win_T *
-win_alloc(win_T *after UNUSED, int hidden UNUSED)
+win_alloc(win_T *after, int hidden)
 {
     win_T	*new_wp;
 
@@ -5314,7 +5664,7 @@ win_free(
     int
 win_unlisted(win_T *wp)
 {
-    return wp == aucmd_win || WIN_IS_POPUP(wp);
+    return is_aucmd_win(wp) || WIN_IS_POPUP(wp);
 }
 
 #if defined(FEAT_PROP_POPUP) || defined(PROTO)
@@ -5333,7 +5683,8 @@ win_free_popup(win_T *win)
 	    close_buffer(win, win->w_buffer, 0, FALSE, FALSE);
     }
 # if defined(FEAT_TIMERS)
-    if (win->w_popup_timer != NULL)
+    // the timer may have been cleared, making the pointer invalid
+    if (timer_valid(win->w_popup_timer))
 	stop_timer(win->w_popup_timer);
 # endif
     vim_free(win->w_frame);
@@ -5480,7 +5831,7 @@ shell_new_rows(void)
     compute_cmdrow();
     curtab->tp_ch_used = p_ch;
 
-    if (!p_spsc && !skip_win_fix_scroll)
+    if (*p_spk != 'c' && !skip_win_fix_scroll)
 	win_fix_scroll(TRUE);
 
 #if 0
@@ -5513,7 +5864,6 @@ shell_new_columns(void)
 #endif
 }
 
-#if defined(FEAT_CMDWIN) || defined(PROTO)
 /*
  * Save the size of all windows in "gap".
  */
@@ -5567,7 +5917,6 @@ win_size_restore(garray_T *gap)
 	(void)win_comp_pos();
     }
 }
-#endif // FEAT_CMDWIN
 
 /*
  * Update the position for all windows, using the width and height of the
@@ -5687,7 +6036,7 @@ win_setheight_win(int height, win_T *win)
     msg_row = row;
     msg_col = 0;
 
-    if (!p_spsc)
+    if (*p_spk != 'c')
 	win_fix_scroll(TRUE);
 
     redraw_all_later(UPD_NOT_VALID);
@@ -6218,7 +6567,7 @@ win_drag_status_line(win_T *dragwin, int offset)
     p_ch = MAX(Rows - cmdline_row, 1);
     curtab->tp_ch_used = p_ch;
 
-    if (!p_spsc)
+    if (*p_spk != 'c')
 	win_fix_scroll(TRUE);
 
     redraw_all_later(UPD_SOME_VALID);
@@ -6297,7 +6646,7 @@ win_drag_vsep_line(win_T *dragwin, int offset)
     if (fr == NULL)
 	// This can happen when calling win_move_separator() on the rightmost
 	// window.  Just don't do anything.
-	return;			
+	return;
 
     // grow frame fr by offset lines
     frame_new_width(fr, fr->fr_width + offset, left, FALSE);
@@ -6348,7 +6697,7 @@ set_fraction(win_T *wp)
 }
 
 /*
- * Handle scroll position for 'nosplitscroll'.  Replaces scroll_to_fraction()
+ * Handle scroll position for 'splitkeep'.  Replaces scroll_to_fraction()
  * call from win_new_height().  Instead we iterate over all windows in a
  * tabpage and calculate the new scroll position.
  * TODO: Ensure this also works with wrapped lines.
@@ -6362,14 +6711,15 @@ win_fix_scroll(int resize)
     win_T	*wp;
     linenr_T	lnum;
 
-    skip_update_topline = TRUE;  // avoid scrolling in curs_columns()
+    skip_update_topline = TRUE;
     FOR_ALL_WINDOWS(wp)
     {
 	// Skip when window height has not changed.
 	if (wp->w_height != wp->w_prev_height)
 	{
 	    // If window has moved update botline to keep the same screenlines.
-	    if (wp->w_winrow != wp->w_prev_winrow)
+	    if (*p_spk == 's' && wp->w_winrow != wp->w_prev_winrow
+		      && wp->w_botline - 1 <= wp->w_buffer->b_ml.ml_line_count)
 	    {
 		lnum = wp->w_cursor.lnum;
 		diff = (wp->w_winrow - wp->w_prev_winrow)
@@ -6390,7 +6740,6 @@ win_fix_scroll(int resize)
 	    invalidate_botline_win(wp);
 	    validate_botline_win(wp);
 	}
-	win_comp_scroll(wp);
 	wp->w_prev_height = wp->w_height;
 	wp->w_prev_winrow = wp->w_winrow;
     }
@@ -6403,7 +6752,7 @@ win_fix_scroll(int resize)
 }
 
 /*
- * Make sure the cursor position is valid for 'nosplitscroll'.
+ * Make sure the cursor position is valid for 'splitkeep'.
  * If it is not, put the cursor position in the jumplist and move it.
  * If we are not in normal mode, scroll to make valid instead.
  */
@@ -6413,29 +6762,27 @@ win_fix_cursor(int normal)
     long	so = get_scrolloff_value();
     win_T	*wp = curwin;
     linenr_T	nlnum = 0;
-    linenr_T    lnum = wp->w_cursor.lnum;
-    linenr_T    bot;
-    linenr_T    top;
+    linenr_T	lnum = wp->w_cursor.lnum;
+    linenr_T	bot;
+    linenr_T	top;
 
     if (wp->w_buffer->b_ml.ml_line_count < wp->w_height)
 	return;
-#ifdef FEAT_CMDWIN
     if (skip_win_fix_cursor)
 	return;
-#endif
+
     // Determine valid cursor range.
     so = MIN(wp->w_height / 2, so);
     wp->w_cursor.lnum = wp->w_topline;
     top = cursor_down_inner(wp, so);
     wp->w_cursor.lnum = wp->w_botline - 1;
     bot = cursor_up_inner(wp, so);
+    wp->w_cursor.lnum = lnum;
     // Check if cursor position is above or below valid cursor range.
     if (lnum > bot && (wp->w_botline - wp->w_buffer->b_ml.ml_line_count) != 1)
 	nlnum = bot;
     else if (lnum < top && wp->w_topline != 1)
 	nlnum = (so == wp->w_height / 2) ? bot : top;
-
-    wp->w_cursor.lnum = lnum;
 
     if (nlnum)  // Cursor is invalid for current scroll position.
     {
@@ -6443,11 +6790,10 @@ win_fix_cursor(int normal)
 	{
 	    setmark('\'');
 	    wp->w_cursor.lnum = nlnum;
-	    curs_columns(TRUE);		// validate w_wrow
 	}
 	else  // Scroll instead when not in normal mode.
 	{
-	    wp->w_fraction = 0.5 * FRACTION_MULT;
+	    wp->w_fraction = (nlnum == bot) ? FRACTION_MULT : 0;
 	    scroll_to_fraction(wp, wp->w_prev_height);
 	    validate_botline_win(curwin);
 	}
@@ -6474,7 +6820,7 @@ win_new_height(win_T *wp, int height)
 
     if (wp->w_height > 0)
     {
-	if (wp == curwin && p_spsc)
+	if (wp == curwin && *p_spk == 'c')
 	    // w_wrow needs to be valid. When setting 'laststatus' this may
 	    // call win_new_height() recursively.
 	    validate_cursor();
@@ -6487,10 +6833,12 @@ win_new_height(win_T *wp, int height)
 
     wp->w_height = height;
     wp->w_skipcol = 0;
+    wp->w_redr_status = TRUE;
+    win_comp_scroll(wp);
 
     // There is no point in adjusting the scroll position when exiting.  Some
     // values might be invalid.
-    if (!exiting && p_spsc)
+    if (!exiting && *p_spk == 'c')
 	scroll_to_fraction(wp, prev_height);
 }
 
@@ -6604,16 +6952,14 @@ scroll_to_fraction(win_T *wp, int prev_height)
 
     if (wp == curwin)
     {
-	if (p_spsc && get_scrolloff_value())
+	if (get_scrolloff_value())
 	    update_topline();
 	curs_columns(FALSE);	// validate w_wrow
     }
     if (prev_height > 0)
 	wp->w_prev_fraction_row = wp->w_wrow;
 
-    win_comp_scroll(wp);
     redraw_win_later(wp, UPD_SOME_VALID);
-    wp->w_redr_status = TRUE;
     invalidate_botline_win(wp);
 }
 
@@ -6627,15 +6973,13 @@ win_new_width(win_T *wp, int width)
     wp->w_width = width < 0 ? 0 : width;
     wp->w_lines_valid = 0;
     changed_line_abv_curs_win(wp);
-    // Handled in win_fix_scroll()
-    if (p_spsc)
+    invalidate_botline_win(wp);
+    if (wp == curwin)
     {
-	invalidate_botline_win(wp);
-	if (wp == curwin)
-	{
-	    update_topline();
-	    curs_columns(TRUE);	// validate w_wrow
-	}
+	skip_update_topline = (*p_spk != 'c');
+	update_topline();
+	curs_columns(TRUE);	// validate w_wrow
+	skip_update_topline = FALSE;
     }
     redraw_win_later(wp, UPD_NOT_VALID);
     wp->w_redr_status = TRUE;
@@ -6662,7 +7006,7 @@ win_comp_scroll(win_T *wp)
 }
 
 /*
- * command_height: called whenever p_ch has been changed
+ * Command_height: called whenever p_ch has been changed.
  */
     void
 command_height(void)
@@ -6680,6 +7024,9 @@ command_height(void)
     // is nothing to do (window size must have decreased).
     if (p_ch > old_p_ch && cmdline_row <= Rows - p_ch)
 	return;
+
+    // Update cmdline_row to what it should be: just below the last window.
+    cmdline_row = topframe->fr_height + tabline_height();
 
     // If cmdline_row is smaller than what it is supposed to be for 'cmdheight'
     // then set old_p_ch to what it would be, so that the windows get resized
@@ -6911,7 +7258,7 @@ only_one_window(void)
 # ifdef FEAT_QUICKFIX
 		    || wp->w_p_pvw
 # endif
-	     ) || wp == curwin) && wp != aucmd_win)
+	     ) || wp == curwin) && !is_aucmd_win(wp))
 	    ++count;
     return (count <= 1);
 }

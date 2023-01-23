@@ -21,7 +21,7 @@
 .\" * SPDX-License-Identifier: curl
 .\" *
 .\" **************************************************************************
-.TH CURLSHOPT_UNLOCKFUNC 3 "May 17, 2022" "libcurl 7.85.0" "libcurl Manual"
+.TH CURLSHOPT_UNLOCKFUNC 3 "September 28, 2022" "libcurl 7.86.0" "libcurl Manual"
 
 .SH NAME
 CURLSHOPT_UNLOCKFUNC - mutex unlock callback
@@ -45,8 +45,6 @@ is released.
 
 The \fIdata\fP argument tells what kind of data libcurl wants to unlock. Make
 sure that the callback uses a different lock for each kind of data.
-
-\fIaccess\fP defines what access type libcurl wants, shared or single.
 
 \fIuserptr\fP is the private pointer you set with \fICURLSHOPT_USERDATA\fP.
 This pointer is not used by libcurl itself.

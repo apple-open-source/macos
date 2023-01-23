@@ -52,6 +52,7 @@ struct global_s
 	dispatch_source_t sig_usr2_src;
 	dispatch_source_t sig_winch_src;
 	dispatch_source_t stat_reset_src;
+	dispatch_source_t memory_pressure_src;
 	time_t last_reset_time;
 	uint32_t nslots;
 	uint32_t slot_id;

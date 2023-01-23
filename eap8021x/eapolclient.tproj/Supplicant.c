@@ -2339,7 +2339,7 @@ is_in_box_auth_auth_requested(void)
 {
 #if TARGET_OS_IOS
     return MIBConfigurationAccessIsInBoxUpdateMode();
-#else /* #if TARGET_OS_IOS */
+#else /* TARGET_OS_IOS */
     return false;
 #endif /* TARGET_OS_IOS */
 }

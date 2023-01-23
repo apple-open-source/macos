@@ -66,6 +66,12 @@ num_divide(varnumber_T n1, varnumber_T n2, int *failed)
 	else
 	    result = VARNUM_MAX;
     }
+    else if (n1 == VARNUM_MIN && n2 == -1)
+    {
+	// specific case: trying to do VARNUM_MIN / -1 results in a positive
+	// number that doesn't fit in varnumber_T and causes an FPE
+	result = VARNUM_MAX;
+    }
     else
 	result = n1 / n2;
 
@@ -1360,7 +1366,6 @@ get_lval(
 	    if (rettv != NULL && lp->ll_dict->dv_scope != 0)
 	    {
 		int prevval;
-		int wrong;
 
 		if (len != -1)
 		{
@@ -1369,8 +1374,9 @@ get_lval(
 		}
 		else
 		    prevval = 0; // avoid compiler warning
-		wrong = (lp->ll_dict->dv_scope == VAR_DEF_SCOPE
-			       && rettv->v_type == VAR_FUNC
+		int wrong = (lp->ll_dict->dv_scope == VAR_DEF_SCOPE
+			       && (rettv->v_type == VAR_FUNC
+					    || rettv->v_type == VAR_PARTIAL)
 			       && var_wrong_func_name(key, lp->ll_di == NULL))
 			|| !valid_varname(key, -1, TRUE);
 		if (len != -1)
@@ -3263,7 +3269,7 @@ eval5(char_u **arg, typval_T *rettv, evalarg_T *evalarg)
 	    if (var2.v_type != VAR_NUMBER)
 		emsg(_(e_bitshift_ops_must_be_number));
 	    else
-		emsg(_(e_bitshift_ops_must_be_postive));
+		emsg(_(e_bitshift_ops_must_be_positive));
 	    clear_tv(rettv);
 	    clear_tv(&var2);
 	    return FAIL;
@@ -5078,9 +5084,11 @@ garbage_collect(int testing)
     FOR_ALL_TAB_WINDOWS(tp, wp)
 	abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
 								  NULL, NULL);
-    if (aucmd_win != NULL)
-	abort = abort || set_ref_in_item(&aucmd_win->w_winvar.di_tv, copyID,
-								  NULL, NULL);
+    // window-local variables in autocmd windows
+    for (int i = 0; i < AUCMD_WIN_COUNT; ++i)
+	if (aucmd_win[i].auc_win != NULL)
+	    abort = abort || set_ref_in_item(
+		    &aucmd_win[i].auc_win->w_winvar.di_tv, copyID, NULL, NULL);
 #ifdef FEAT_PROP_POPUP
     FOR_ALL_POPUPWINS(wp)
 	abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
@@ -6023,10 +6031,12 @@ var2fpos(
 }
 
 /*
- * Convert list in "arg" into a position and optional file number.
- * When "fnump" is NULL there is no file number, only 3 items.
+ * Convert list in "arg" into position "posp" and optional file number "fnump".
+ * When "fnump" is NULL there is no file number, only 3 items: [lnum, col, off]
  * Note that the column is passed on as-is, the caller may want to decrement
  * it to use 1 for the first column.
+ * If "charcol" is TRUE use the column as the character index instead of the
+ * byte index.
  * Return FAIL when conversion is not possible, doesn't check the position for
  * validity.
  */
@@ -6069,6 +6079,7 @@ list2fpos(
     if (n < 0)
 	return FAIL;
     // If character position is specified, then convert to byte position
+    // If the line number is zero use the cursor line.
     if (charcol)
     {
 	buf_T	*buf;
@@ -6078,7 +6089,8 @@ list2fpos(
 	if (buf == NULL || buf->b_ml.ml_mfp == NULL)
 	    return FAIL;
 
-	n = buf_charidx_to_byteidx(buf, posp->lnum, n) + 1;
+	n = buf_charidx_to_byteidx(buf,
+		  posp->lnum == 0 ? curwin->w_cursor.lnum : posp->lnum, n) + 1;
     }
     posp->col = n;
 
@@ -6916,7 +6928,7 @@ ex_execute(exarg_T *eap)
 	else if (eap->cmdidx == CMD_echowindow)
 	{
 #ifdef HAS_MESSAGE_WINDOW
-	    start_echowindow();
+	    start_echowindow(eap->addr_count > 0 ? eap->line2 : 0);
 #endif
 	    msg_attr(ga.ga_data, echo_attr);
 #ifdef HAS_MESSAGE_WINDOW

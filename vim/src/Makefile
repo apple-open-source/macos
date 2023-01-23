@@ -386,7 +386,7 @@ CClink = $(CC)
 # "liblua5.4-dev".
 # Use --with-luajit if you want to use LuaJIT instead of Lua.
 # Set PATH environment variable to find lua or luajit executable.
-# This requires at least "normal" features, "tiny" and "small" don't work.
+# This requires at least "normal" features, "tiny" doesn't work.
 #CONF_OPT_LUA = --enable-luainterp
 #CONF_OPT_LUA = --enable-luainterp=dynamic
 #CONF_OPT_LUA = --enable-luainterp --with-luajit
@@ -396,7 +396,9 @@ CClink = $(CC)
 
 # MZSCHEME
 # Uncomment this when you want to include the MzScheme interface.
-# You may have to build racket from source to make this work.
+# You may have to build racket from source to make this work.  Version 7.9 has
+# been reported to work, version 8.0 probably doesn't work, version 8.5 has
+# been reported to work.
 # NOTE: does not work well together with valgrind.
 #CONF_OPT_MZSCHEME = --enable-mzschemeinterp
 # PLT/mrscheme/drscheme Home dir; the PLTHOME environment variable also works
@@ -415,14 +417,14 @@ CClink = $(CC)
 # the next line.
 # When you get an error for a missing "perl.exp" file, try creating an empty
 # one: "touch perl.exp".
-# This requires at least "normal" features, "tiny" and "small" don't work.
+# This requires at least "normal" features, "tiny" doesn't work.
 #CONF_OPT_PERL = --enable-perlinterp
 #CONF_OPT_PERL = --enable-perlinterp=dynamic
 
 # PYTHON
 # Uncomment lines here when you want to include the Python interface.
 # Debian package is "libpython3-dev".
-# This requires at least "normal" features, "tiny" and "small" don't work.
+# This requires at least "normal" features, "tiny" doesn't work.
 # Python 3 is preferred, Python 2 (often referred to as "Python") has been
 # deprecated for a long time.
 # NOTE: This may cause threading to be enabled, which has side effects (such
@@ -444,7 +446,7 @@ CClink = $(CC)
 # Uncomment this when you want to include the Ruby interface.
 # First one for static linking, second one for loading when used.
 # Debian package is "ruby-dev".
-# This requires at least "normal" features, "tiny" and "small" don't work.
+# This requires at least "normal" features, "tiny" doesn't work.
 #CONF_OPT_RUBY = --enable-rubyinterp
 #CONF_OPT_RUBY = --enable-rubyinterp=dynamic
 #CONF_OPT_RUBY = --enable-rubyinterp --with-ruby-command=ruby1.9.1
@@ -481,7 +483,7 @@ CClink = $(CC)
 # MULTIBYTE - To edit multi-byte characters.
 # This is now always enabled.
 
-# When building with at least "big" features, right-left and Arabic
+# When building with "huge" features, right-left and Arabic
 # features are enabled.  Use this to disable them.
 #CONF_OPT_MULTIBYTE = --disable-rightleft --disable-arabic
 
@@ -517,7 +519,7 @@ CClink = $(CC)
 # though you have /dev/sysmouse and includes.
 #CONF_OPT_SYSMOUSE = --disable-sysmouse
 
-# libcanberra - For sound support.  Default is on for big features.
+# libcanberra - For sound support.  Default is on for huge features.
 # Uncomment one of the two to chose otherwise.
 # CONF_OPT_CANBERRA = --enable-canberra
 # CONF_OPT_CANBERRA = --disable-canberra
@@ -530,9 +532,7 @@ CClink = $(CC)
 # Uncomment one of these lines when you want to include few to many features.
 # The default is "huge" for most systems.
 #CONF_OPT_FEAT = --with-features=tiny
-#CONF_OPT_FEAT = --with-features=small
 #CONF_OPT_FEAT = --with-features=normal
-#CONF_OPT_FEAT = --with-features=big
 #CONF_OPT_FEAT = --with-features=huge
 
 # COMPILED BY - For including a specific e-mail address for ":version".
@@ -1531,6 +1531,7 @@ BASIC_SRC = \
 	json.c \
 	list.c \
 	locale.c \
+	logfile.c \
 	main.c \
 	map.c \
 	mark.c \
@@ -1690,6 +1691,7 @@ OBJ_COMMON = \
 	objects/insexpand.o \
 	objects/list.o \
 	objects/locale.o \
+	objects/logfile.o \
 	objects/map.o \
 	objects/mark.o \
 	objects/match.o \
@@ -1874,6 +1876,7 @@ PRO_AUTO = \
 	json.pro \
 	list.pro \
 	locale.pro \
+	logfile.pro \
 	main.pro \
 	map.pro \
 	mark.pro \
@@ -3306,6 +3309,9 @@ objects/list.o: list.c
 objects/locale.o: locale.c
 	$(CCC) -o $@ locale.c
 
+objects/logfile.o: logfile.c
+	$(CCC) -o $@ logfile.c
+
 objects/main.o: main.c
 	$(CCC) -o $@ main.c
 
@@ -3893,6 +3899,11 @@ objects/list.o: list.c vim.h protodef.h auto/config.h feature.h os_unix.h \
  libvterm/include/vterm_keycodes.h alloc.h ex_cmds.h spell.h proto.h \
  globals.h errors.h
 objects/locale.o: locale.c vim.h protodef.h auto/config.h feature.h os_unix.h \
+ auto/osdef.h ascii.h keymap.h termdefs.h macros.h option.h beval.h \
+ proto/gui_beval.pro structs.h regexp.h gui.h libvterm/include/vterm.h \
+ libvterm/include/vterm_keycodes.h alloc.h ex_cmds.h spell.h proto.h \
+ globals.h errors.h
+objects/logfile.o: logfile.c vim.h protodef.h auto/config.h feature.h os_unix.h \
  auto/osdef.h ascii.h keymap.h termdefs.h macros.h option.h beval.h \
  proto/gui_beval.pro structs.h regexp.h gui.h libvterm/include/vterm.h \
  libvterm/include/vterm_keycodes.h alloc.h ex_cmds.h spell.h proto.h \

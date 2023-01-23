@@ -445,13 +445,11 @@ term_start(
 
     if (check_restricted() || check_secure())
 	return NULL;
-#ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
     {
 	emsg(_(e_cannot_open_terminal_from_command_line_window));
 	return NULL;
     }
-#endif
 
     if ((opt->jo_set & (JO_IN_IO + JO_OUT_IO + JO_ERR_IO))
 					 == (JO_IN_IO + JO_OUT_IO + JO_ERR_IO)
@@ -1022,7 +1020,7 @@ term_write_session(FILE *fd, win_T *wp, hashtab_T *terminal_bufs)
 	char *hash_key = alloc(NUMBUFLEN);
 
 	vim_snprintf(hash_key, NUMBUFLEN, "%d", bufnr);
-	hash_add(terminal_bufs, (char_u *)hash_key);
+	hash_add(terminal_bufs, (char_u *)hash_key, "terminal session");
     }
 
     return put_eol(fd);
@@ -1224,6 +1222,8 @@ update_cursor(term_T *term, int redraw)
 	setcursor();
     if (redraw)
     {
+	aco_save_T	aco;
+
 	if (term->tl_buffer == curbuf && term->tl_cursor_visible)
 	    cursor_on();
 	out_flush();
@@ -1234,6 +1234,16 @@ update_cursor(term_T *term, int redraw)
 	    gui_mch_flush();
 	}
 #endif
+	// Make sure an invoked autocmd doesn't delete the buffer (and the
+	// terminal) under our fingers.
+	++term->tl_buffer->b_locked;
+
+	// save and restore curwin and curbuf, in case the autocmd changes them
+	aucmd_prepbuf(&aco, curbuf);
+	apply_autocmds(EVENT_TEXTCHANGEDT, NULL, NULL, FALSE, term->tl_buffer);
+	aucmd_restbuf(&aco);
+
+	--term->tl_buffer->b_locked;
     }
 }
 
@@ -1577,6 +1587,13 @@ term_convert_key(term_T *term, int c, int modmask, char *buf)
     if (modmask & (MOD_MASK_ALT | MOD_MASK_META))
 	mod |= VTERM_MOD_ALT;
 
+    // Ctrl-Shift-i may have the key "I" instead of "i", but for the kitty
+    // keyboard protocol should use "i".  Applies to all ascii letters.
+    if (ASCII_ISUPPER(c)
+	    && vterm_is_kitty_keyboard(vterm)
+	    && mod == (VTERM_MOD_CTRL | VTERM_MOD_SHIFT))
+	c = TOLOWER_ASC(c);
+
     /*
      * Convert special keys to vterm keys:
      * - Write keys to vterm: vterm_keyboard_key()
@@ -1653,6 +1670,25 @@ term_none_open(term_T *term)
 	&& term->tl_job->jv_channel->ch_keep_open;
 }
 
+//
+// Used to confirm whether we would like to kill a terminal.
+// Return OK when the user confirms to kill it.
+// Return FAIL if the user selects otherwise.
+//
+    int
+term_confirm_stop(buf_T *buf)
+{
+    char_u	buff[DIALOG_MSG_SIZE];
+    int	ret;
+
+    dialog_msg(buff, _("Kill job in \"%s\"?"), buf_get_fname(buf));
+    ret = vim_dialog_yesno(VIM_QUESTION, NULL, buff, 1);
+    if (ret == VIM_YES)
+	return OK;
+    else
+	return FAIL;
+}
+
 /*
  * Used when exiting: kill the job in "buf" if so desired.
  * Return OK when the job finished.
@@ -1668,14 +1704,9 @@ term_try_stop_job(buf_T *buf)
     if ((how == NULL || *how == NUL)
 			  && (p_confirm || (cmdmod.cmod_flags & CMOD_CONFIRM)))
     {
-	char_u	buff[DIALOG_MSG_SIZE];
-	int	ret;
-
-	dialog_msg(buff, _("Kill job in \"%s\"?"), buf_get_fname(buf));
-	ret = vim_dialog_yesnocancel(VIM_QUESTION, NULL, buff, 1);
-	if (ret == VIM_YES)
+	if (term_confirm_stop(buf) == OK)
 	    how = "kill";
-	else if (ret == VIM_CANCEL)
+	else
 	    return FAIL;
     }
 #endif
@@ -2144,6 +2175,52 @@ term_enter_job_mode()
 }
 
 /*
+ * When "modify_other_keys" is set then vgetc() should not reduce a key with
+ * modifiers into a basic key.  However, we may only find out after calling
+ * vgetc().  Therefore vgetorpeek() will call check_no_reduce_keys() to update
+ * "no_reduce_keys" before using it.
+ */
+typedef enum {
+    NRKS_NONE,	    // initial value
+    NRKS_CHECK,	    // modify_other_keys was off before calling vgetc()
+    NRKS_SET,	    // no_reduce_keys was incremented in term_vgetc() or
+		    // check_no_reduce_keys(), must be decremented.
+} reduce_key_state_T;
+
+static reduce_key_state_T  no_reduce_key_state = NRKS_NONE;
+
+/*
+ * Return TRUE if the term is using modifyOtherKeys level 2 or the kitty
+ * keyboard protocol.
+ */
+    static int
+vterm_using_key_protocol(void)
+{
+    return curbuf->b_term != NULL
+	&& curbuf->b_term->tl_vterm != NULL
+	&& (vterm_is_modify_other_keys(curbuf->b_term->tl_vterm)
+		|| vterm_is_kitty_keyboard(curbuf->b_term->tl_vterm));
+}
+
+    void
+check_no_reduce_keys(void)
+{
+    if (no_reduce_key_state != NRKS_CHECK
+	    || no_reduce_keys >= 1
+	    || curbuf->b_term == NULL
+	    || curbuf->b_term->tl_vterm == NULL)
+	return;
+
+    if (vterm_using_key_protocol())
+    {
+	// "modify_other_keys" or kitty keyboard protocol was enabled while
+	// waiting.
+	no_reduce_key_state = NRKS_SET;
+	++no_reduce_keys;
+    }
+}
+
+/*
  * Get a key from the user with terminal mode mappings.
  * Note: while waiting a terminal may be closed and freed if the channel is
  * closed and ++close was used.  This may even happen before we get here.
@@ -2153,21 +2230,31 @@ term_vgetc()
 {
     int c;
     int save_State = State;
-    int modify_other_keys = curbuf->b_term->tl_vterm == NULL ? FALSE
-			: vterm_is_modify_other_keys(curbuf->b_term->tl_vterm);
 
     State = MODE_TERMINAL;
     got_int = FALSE;
 #ifdef MSWIN
     ctrl_break_was_pressed = FALSE;
 #endif
-    if (modify_other_keys)
+
+    if (vterm_using_key_protocol())
+    {
 	++no_reduce_keys;
+	no_reduce_key_state = NRKS_SET;
+    }
+    else
+    {
+	no_reduce_key_state = NRKS_CHECK;
+    }
+
     c = vgetc();
     got_int = FALSE;
     State = save_State;
-    if (modify_other_keys)
+
+    if (no_reduce_key_state == NRKS_SET)
 	--no_reduce_keys;
+    no_reduce_key_state = NRKS_NONE;
+
     return c;
 }
 
@@ -2303,15 +2390,13 @@ term_paste_register(int prev_c UNUSED)
     long	reglen = 0;
     int		type;
 
-#ifdef FEAT_CMDL_INFO
     if (add_to_showcmd(prev_c))
     if (add_to_showcmd('"'))
 	out_flush();
-#endif
+
     c = term_vgetc();
-#ifdef FEAT_CMDL_INFO
     clear_showcmd();
-#endif
+
     if (!term_use_loop())
 	// job finished while waiting for a character
 	return;
@@ -2374,7 +2459,7 @@ terminal_is_active()
 }
 
 /*
- * Return the highight group ID for the terminal and the window.
+ * Return the highlight group ID for the terminal and the window.
  */
     static int
 term_get_highlight_id(term_T *term, win_T *wp)
@@ -2576,12 +2661,13 @@ raw_c_to_ctrl(int c)
 
 /*
  * When modify_other_keys is set then do the reverse of raw_c_to_ctrl().
+ * Also when the Kitty keyboard protocol is used.
  * May set "mod_mask".
  */
     static int
 ctrl_to_raw_c(int c)
 {
-    if (c < 0x20 && vterm_is_modify_other_keys(curbuf->b_term->tl_vterm))
+    if (c < 0x20 && vterm_using_key_protocol())
     {
 	mod_mask |= MOD_MASK_CTRL;
 	return c + '@';
@@ -2690,16 +2776,14 @@ terminal_loop(int blocking)
 	    int	    prev_raw_c = raw_c;
 	    int	    prev_mod_mask = mod_mask;
 
-#ifdef FEAT_CMDL_INFO
 	    if (add_to_showcmd(c))
 		out_flush();
-#endif
+
 	    raw_c = term_vgetc();
 	    c = raw_c_to_ctrl(raw_c);
 
-#ifdef FEAT_CMDL_INFO
 	    clear_showcmd();
-#endif
+
 	    if (!term_use_loop_check(TRUE)
 					 || in_terminal_loop != curbuf->b_term)
 		// job finished while waiting for a character
@@ -3427,7 +3511,8 @@ static VTermScreenCallbacks screen_callbacks = {
   handle_bell,		// bell
   handle_resize,	// resize
   handle_pushline,	// sb_pushline
-  NULL			// sb_popline
+  NULL,			// sb_popline
+  NULL			// sb_clear
 };
 
 /*
@@ -3475,15 +3560,18 @@ term_after_channel_closed(term_T *term)
 	    // ++close or term_finish == "close"
 	    ch_log(NULL, "terminal job finished, closing window");
 	    aucmd_prepbuf(&aco, term->tl_buffer);
-	    // Avoid closing the window if we temporarily use it.
-	    if (curwin == aucmd_win)
-		do_set_w_closing = TRUE;
-	    if (do_set_w_closing)
-		curwin->w_closing = TRUE;
-	    do_bufdel(DOBUF_WIPE, (char_u *)"", 1, fnum, fnum, FALSE);
-	    if (do_set_w_closing)
-		curwin->w_closing = FALSE;
-	    aucmd_restbuf(&aco);
+	    if (curbuf == term->tl_buffer)
+	    {
+		// Avoid closing the window if we temporarily use it.
+		if (is_aucmd_win(curwin))
+		    do_set_w_closing = TRUE;
+		if (do_set_w_closing)
+		    curwin->w_closing = TRUE;
+		do_bufdel(DOBUF_WIPE, (char_u *)"", 1, fnum, fnum, FALSE);
+		if (do_set_w_closing)
+		    curwin->w_closing = FALSE;
+		aucmd_restbuf(&aco);
+	    }
 #ifdef FEAT_PROP_POPUP
 	    if (pwin != NULL)
 		popup_close_with_retval(pwin, 0);

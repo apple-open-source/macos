@@ -349,6 +349,10 @@ xar_signature_t xar_signature_unserialize(xar_t x, xmlTextReaderPtr reader)
 			return NULL;
 		}
 		
+		if (!ret) { /* archive corruption */
+			return NULL;
+		}
+		
 		if( type == XML_READER_TYPE_ELEMENT ) {
 			if(strcmp((const char*)name, "size") == 0) {
 				while( xmlTextReaderRead(reader) == 1 ) {

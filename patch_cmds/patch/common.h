@@ -49,6 +49,10 @@
 
 #define	strEQ(s1,s2) (strcmp(s1, s2) == 0)
 #define	strnNE(s1,s2,l) (strncmp(s1, s2, l) != 0)
+#ifdef __APPLE__
+/* Binary-safe strnNE (UTF-16, internal NUL safe)*/
+#define	bstrnNE(s1,s2,l) (memcmp(s1, s2, l) != 0)
+#endif
 #define	strnEQ(s1,s2,l) (strncmp(s1, s2, l) == 0)
 
 /* typedefs */

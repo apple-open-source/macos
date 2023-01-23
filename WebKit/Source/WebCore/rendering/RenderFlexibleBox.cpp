@@ -32,6 +32,7 @@
 #include "RenderFlexibleBox.h"
 
 #include "FlexibleBoxAlgorithm.h"
+#include "FontBaseline.h"
 #include "HitTestResult.h"
 #include "InspectorInstrumentation.h"
 #include "LayoutIntegrationCoverage.h"
@@ -53,7 +54,7 @@
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/MathExtras.h>
 #include <wtf/SetForScope.h>
-
+#include <wtf/TypeCasts.h>
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFlexibleBox);
@@ -254,7 +255,7 @@ LayoutUnit RenderFlexibleBox::baselinePosition(FontBaseline, bool, LineDirection
 {
     auto baseline = firstLineBaseline();
     if (!baseline)
-        return synthesizedBaselineFromBorderBox(*this, direction) + marginLogicalHeight();
+        return synthesizedBaseline(*this, *parentStyle(), direction, BorderBox) + marginLogicalHeight();
 
     return baseline.value() + (direction == HorizontalLine ? marginTop() : marginRight()).toInt();
 }
@@ -278,7 +279,7 @@ std::optional<LayoutUnit> RenderFlexibleBox::firstLineBaseline() const
         // FIXME: We should pass |direction| into firstLineBoxBaseline and stop bailing out if we're a writing mode root.
         // This would also fix some cases where the flexbox is orthogonal to its container.
         LineDirectionMode direction = isHorizontalWritingMode() ? HorizontalLine : VerticalLine;
-        return synthesizedBaselineFromBorderBox(*baselineChild, direction) + baselineChild->logicalTop();
+        return synthesizedBaseline(*baselineChild, style(), direction, BorderBox) + baselineChild->logicalTop();
     }
 
     return LayoutUnit { (baseline.value() + baselineChild->logicalTop()).toInt() };
@@ -303,7 +304,7 @@ std::optional <LayoutUnit> RenderFlexibleBox::lastLineBaseline() const
         // FIXME: We should pass |direction| into firstLineBoxBaseline and stop bailing out if we're a writing mode root.
         // This would also fix some cases where the flexbox is orthogonal to its container.
         LineDirectionMode direction = isHorizontalWritingMode() ? HorizontalLine : VerticalLine;
-        return synthesizedBaselineFromBorderBox(*baselineChild, direction) + baselineChild->logicalTop();
+        return synthesizedBaseline(*baselineChild, style(), direction, BorderBox) + baselineChild->logicalTop();
     }
 
     return LayoutUnit { (baseline.value() + baselineChild->logicalTop()).toInt() }; 
@@ -956,9 +957,7 @@ LayoutUnit RenderFlexibleBox::computeMainSizeFromAspectRatioUsing(const RenderBo
 {
     ASSERT(childHasAspectRatio(child));
 
-    auto adjustForBoxSizing = [this] (const RenderBox& box, Length length) -> LayoutUnit {
-        ASSERT(length.isFixed());
-        auto value = LayoutUnit(length.value());
+    auto adjustForBoxSizing = [this] (const RenderBox& box, LayoutUnit value) -> LayoutUnit {
         // We need to substract the border and padding extent from the cross axis.
         // Furthermore, the sizing calculations that floor the content box size at zero when applying box-sizing are also ignored.
         // https://drafts.csswg.org/css-flexbox/#algo-main-item.
@@ -967,34 +966,46 @@ LayoutUnit RenderFlexibleBox::computeMainSizeFromAspectRatioUsing(const RenderBo
         return value;
     };
 
-    std::optional<LayoutUnit> crossSize;
+    LayoutUnit crossSize;
+    // crossSize is border-box size if box-sizing is border-box, and content-box otherwise.
     if (crossSizeLength.isFixed())
-        crossSize = adjustForBoxSizing(child, crossSizeLength);
+        crossSize = LayoutUnit(crossSizeLength.value());
     else if (crossSizeLength.isAuto()) {
         ASSERT(childCrossSizeShouldUseContainerCrossSize(child));
         crossSize = computeCrossSizeForChildUsingContainerCrossSize(child);
     } else {
         ASSERT(crossSizeLength.isPercentOrCalculated());
-        crossSize = mainAxisIsChildInlineAxis(child) ? child.computePercentageLogicalHeight(crossSizeLength) : adjustBorderBoxLogicalWidthForBoxSizing(valueForLength(crossSizeLength, contentWidth()), crossSizeLength.type());
-        if (!crossSize)
+        auto childSize = mainAxisIsChildInlineAxis(child) ? child.computePercentageLogicalHeight(crossSizeLength) : adjustBorderBoxLogicalWidthForBoxSizing(valueForLength(crossSizeLength, contentWidth()), crossSizeLength.type());
+        if (!childSize)
             return 0_lu;
+        crossSize = childSize.value();
     }
 
     double ratio;
+    LayoutUnit borderAndPadding;
     if (child.isSVGRootOrLegacySVGRoot())
         ratio = downcast<RenderReplaced>(child).computeIntrinsicAspectRatio();
     else {
         auto childIntrinsicSize = child.intrinsicSize();
-        if (child.style().aspectRatioType() == AspectRatioType::Ratio || (child.style().aspectRatioType() == AspectRatioType::AutoAndRatio && childIntrinsicSize.isEmpty()))
+        if (child.style().aspectRatioType() == AspectRatioType::Ratio || (child.style().aspectRatioType() == AspectRatioType::AutoAndRatio && childIntrinsicSize.isEmpty())) {
             ratio = child.style().aspectRatioWidth() / child.style().aspectRatioHeight();
-        else {
-            ASSERT(childIntrinsicSize.height());
-            ratio = childIntrinsicSize.width().toFloat() / childIntrinsicSize.height().toFloat();
+            if (child.style().boxSizingForAspectRatio() == BoxSizing::ContentBox)
+                crossSize -= isHorizontalFlow() ? child.verticalBorderAndPaddingExtent() : child.horizontalBorderAndPaddingExtent();
+            else
+                borderAndPadding = isHorizontalFlow() ? child.horizontalBorderAndPaddingExtent() : child.verticalBorderAndPaddingExtent();
+        } else {
+            if (auto* replacedElement = dynamicDowncast<RenderReplaced>(child))
+                ratio = replacedElement->computeIntrinsicAspectRatio();
+            else {
+                ASSERT(childIntrinsicSize.height());
+                ratio = childIntrinsicSize.width().toFloat() / childIntrinsicSize.height().toFloat();
+            }
+            crossSize = adjustForBoxSizing(child, crossSize);
         }
     }
     if (isHorizontalFlow())
-        return LayoutUnit(crossSize.value() * ratio);
-    return LayoutUnit(crossSize.value() / ratio);
+        return std::max(0_lu, LayoutUnit(crossSize * ratio) - borderAndPadding);
+    return std::max(0_lu, LayoutUnit(crossSize / ratio) - borderAndPadding);
 }
 
 void RenderFlexibleBox::setFlowAwareLocationForChild(RenderBox& child, const LayoutPoint& location)
@@ -1377,8 +1388,11 @@ bool RenderFlexibleBox::updateAutoMarginsInCrossAxis(RenderBox& child, LayoutUni
 
 LayoutUnit RenderFlexibleBox::marginBoxAscentForChild(const RenderBox& child)
 {
-    LayoutUnit ascent = alignmentForChild(child) == ItemPosition::LastBaseline ? child.lastLineBaseline().value_or(crossAxisExtentForChild(child)) : child.firstLineBaseline().value_or(crossAxisExtentForChild(child));
-    return ascent + flowAwareMarginBeforeForChild(child);
+    auto ascent = alignmentForChild(child) == ItemPosition::LastBaseline ? child.lastLineBaseline() : child.firstLineBaseline();
+    auto direction = isHorizontalFlow() ? HorizontalLine : VerticalLine;
+    if (!ascent) 
+        return synthesizedBaseline(child, style(), direction, BorderBox) + flowAwareMarginBeforeForChild(child);
+    return *ascent + flowAwareMarginBeforeForChild(child);
 }
 
 LayoutUnit RenderFlexibleBox::computeChildMarginValue(Length margin)
@@ -1439,7 +1453,7 @@ std::pair<LayoutUnit, LayoutUnit> RenderFlexibleBox::computeFlexItemMinMaxSizes(
         else
             contentSize = computeMainAxisExtentForChild(child, MinSize, Length(LengthType::MinContent)).value_or(0_lu);
 
-        if (childHasComputableAspectRatio(child) && (!crossSizeLengthForChild(MinSize, child).isAuto() || !crossSizeLengthForChild(MaxSize, child).isAuto()))
+        if (childHasAspectRatio(child) && (!crossSizeLengthForChild(MinSize, child).isAuto() || !crossSizeLengthForChild(MaxSize, child).isAuto()))
             contentSize = adjustChildSizeForAspectRatioCrossAxisMinAndMax(child, contentSize);
         ASSERT(contentSize >= 0);
         contentSize = std::min(contentSize, maxExtent.value_or(contentSize));

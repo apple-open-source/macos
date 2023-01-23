@@ -94,6 +94,8 @@
 #define __unused
 #endif
 
+#include "network_cmds_lib.h"
+
 char	*inet6name (struct in6_addr *);
 void	inet6print (struct in6_addr *, int, char *, int);
 
@@ -1238,6 +1240,7 @@ inet6name(struct in6_addr *in6p)
 			    !strcmp(cp + 1, domain))
 				*cp = 0;
 			cp = hp->h_name;
+			cp = clean_non_printable(cp, strlen(cp));
 		}
 	}
 	if (IN6_IS_ADDR_UNSPECIFIED(in6p))

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015-2019, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -51,6 +51,13 @@
  */
 #define kVerbose			CFSTR("Verbose")
 
+/*
+ * kDisableServiceCoupling
+ * - indicates whether services should be coupled or not, by default
+ *   DisableServiceCoupling is FALSE
+ */
+#define kDisableServiceCoupling		CFSTR("DisableServiceCoupling")
+
 static _SCControlPrefsRef		S_control;
 
 __private_extern__
@@ -64,9 +71,9 @@ IPMonitorControlPrefsInit(CFRunLoopRef			runloop,
 	return control;
 }
 
-/**
- ** Get
- **/
+/*
+ * Verbose
+ */
 __private_extern__ Boolean
 IPMonitorControlPrefsIsVerbose(void)
 {
@@ -81,9 +88,6 @@ IPMonitorControlPrefsIsVerbose(void)
 	return verbose;
 }
 
-/**
- ** Set
- **/
 __private_extern__ Boolean
 IPMonitorControlPrefsSetVerbose(Boolean verbose)
 {
@@ -98,35 +102,130 @@ IPMonitorControlPrefsSetVerbose(Boolean verbose)
 	return ok;
 }
 
+/*
+ * DisableServiceCoupling
+ */
+__private_extern__ Boolean
+IPMonitorControlPrefsGetDisableServiceCoupling(void)
+{
+	Boolean	disable_coupling = FALSE;
+
+	if (S_control == NULL) {
+		S_control = IPMonitorControlPrefsInit(NULL, NULL);
+	}
+	if (S_control != NULL) {
+		disable_coupling = _SCControlPrefsGetBoolean(S_control,
+						     kDisableServiceCoupling);
+	}
+	return disable_coupling;
+}
+__private_extern__ Boolean
+IPMonitorControlPrefsSetDisableServiceCoupling(Boolean disable_coupling)
+{
+	Boolean	ok	= FALSE;
+
+	if (S_control == NULL) {
+		S_control = IPMonitorControlPrefsInit(NULL, NULL);
+	}
+	if (S_control != NULL) {
+		ok = _SCControlPrefsSetBoolean(S_control,
+					       kDisableServiceCoupling,
+					       disable_coupling);
+	}
+	return ok;
+}
+
 #ifdef TEST_IPMONITORCONTROLPREFS
+
+static void
+usage(const char * progname)
+{
+	fprintf(stderr,
+		"usage:\n"
+		"\t%s set (verbose | disable-service-coupling) ( on | off )\n"
+		"\t%s get (verbose | disable-service-coupling)\n",
+		progname, progname);
+	exit(1);
+}
+
 int
 main(int argc, char * argv[])
 {
-    Boolean	need_usage = FALSE;
-    Boolean	success = FALSE;
+	const char *	command;
+	Boolean		do_set = FALSE;
+	Boolean		do_verbose = FALSE;
+	const char *	progname;
+	const char *	type;
 
-    if (argc < 2) {
-	need_usage = TRUE;
-    }
-    else if (strcasecmp(argv[1], "on") == 0) {
-	success = IPMonitorControlPrefsSetVerbose(TRUE);
-    }
-    else if (strcasecmp(argv[1], "off") == 0) {
-	success = IPMonitorControlPrefsSetVerbose(FALSE);
-    }
-    else {
-	need_usage = TRUE;
-    }
-    if (need_usage) {
-	fprintf(stderr, "usage: %s ( on | off )\n", argv[0]);
-	exit(1);
-    }
-    if (!success) {
-	fprintf(stderr, "failed to save prefs\n");
-	exit(2);
-    }
-    exit(0);
-    return (0);
+	progname = argv[0];
+	if (argc < 3) {
+		usage(progname);
+	}
+	command = argv[1];
+	if (strcasecmp(command, "set") == 0) {
+		do_set = TRUE;
+	}
+	else if (strcasecmp(command, "get") == 0) {
+		do_set = FALSE;
+	}
+	else {
+		usage(progname);
+	}
+	type = argv[2];
+	if (strcasecmp(type, "verbose") == 0) {
+		do_verbose = TRUE;
+	}
+	else if (strcasecmp(type, "disable-service-coupling") == 0) {
+		do_verbose = FALSE;
+	}
+	else {
+		usage(progname);
+	}
+	if (do_set) {
+		const char *	on_off;
+		Boolean		val = FALSE;
+		Boolean		success;
+
+		if (argc < 4) {
+			usage(progname);
+		}
+		on_off = argv[3];
+		if (strcasecmp(on_off, "on") == 0) {
+			val = TRUE;
+		}
+		else if (strcasecmp(on_off, "off") == 0) {
+			val = FALSE;
+		}
+		else {
+			usage(progname);
+		}
+		if (do_verbose) {
+			success = IPMonitorControlPrefsSetVerbose(val);
+		}
+		else {
+			success = IPMonitorControlPrefsSetDisableServiceCoupling(val);
+		}
+		if (!success) {
+			fprintf(stderr, "failed to save prefs\n");
+			exit(2);
+		}
+	}
+	else {
+		Boolean	val;
+
+		if (do_verbose) {
+			val = IPMonitorControlPrefsIsVerbose();
+			printf("Verbose is %s\n",
+			       val ? "true" : "false");
+		}
+		else {
+			val = IPMonitorControlPrefsGetDisableServiceCoupling();
+			printf("disable-service-coupling is %s\n",
+			       val ? "true" : "false");
+		}
+	}
+	exit(0);
+	return (0);
 }
 
 #endif /* TEST_IPMONITORCONTROLPREFS */

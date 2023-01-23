@@ -157,6 +157,7 @@ IPConfigFunc rtadv_thread;
 IPConfigFunc stf_thread;
 IPConfigFunc manual_v6_thread;
 IPConfigFunc linklocal_v6_thread;
+IPConfigFunc dhcpv6_pd_thread;
 
 /*
  * more globals

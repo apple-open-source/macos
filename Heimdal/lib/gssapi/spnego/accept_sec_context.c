@@ -613,10 +613,12 @@ acceptor_start
 	    if (ret == 0)
 		break;
 	}
-	if (ctx->preferred_mech_type == GSS_C_NO_OID) {
-	    heim_assert(ret != 0, "no oid and no error code?");
-	    goto out;
-	}
+    }
+
+    if (ctx->preferred_mech_type == GSS_C_NO_OID) {
+	heim_assert(ret != 0, "no oid and no error code?");
+	send_reject(minor_status, output_token);
+	goto out;
     }
 
     /*

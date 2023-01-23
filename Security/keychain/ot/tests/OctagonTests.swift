@@ -1445,6 +1445,12 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         self.wait(for: [statusExpectation], timeout: 2)
     }
+
+    func skipOnRecoveryKeyNotSupported() throws {
+#if os(tvOS)
+        throw XCTSkip("do not run tests on tvOS platforms (appleTV, homepod)")
+#endif
+    }
 }
 
 class OctagonTests: OctagonTestsBase {

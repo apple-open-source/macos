@@ -798,6 +798,15 @@ static CFErrorRef errorForRowID(CFNumberRef rowID) {
     return matching;
 }
 
+static CFDataRef UUIDDataCreate(void)
+{
+    CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
+    CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(uuid);
+    CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
+    CFReleaseNull(uuid);
+    return uuidData;
+}
+
 // Goes through all items for each table and assigns a persistent ref UUID
 bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *error) {
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
@@ -915,10 +924,7 @@ bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *e
                     secnotice("upgr-phase3", "upgrading item persistentref at row id %lld", itemRowID);
 
                     //update item to have a UUID
-                    CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
-                    CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(uuid);
-                    CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
-                    CFReleaseNull(uuid);
+                    CFDataRef uuidData = UUIDDataCreate();
 
                     //set the UUID on the item's persistent ref attribute
                     bool setResult = SecDbItemSetValueWithName(item, kSecAttrPersistentReference, uuidData, &localError);
@@ -2391,12 +2397,9 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
             }
 #endif
             if (SecKeychainIsStaticPersistentRefsEnabled()) {
-                CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
-                CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(uuid);
-                CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
+                CFDataRef uuidData = UUIDDataCreate();
                 query_add_attribute(v10itempersistentref.name, uuidData, q);
                 CFRetainAssign(q->q_uuid_pref, uuidData);
-                CFReleaseNull(uuid);
                 CFReleaseNull(uuidData);
             }
             if (client->isAppClip && !appClipHasAcceptableAccessGroups(client)) {

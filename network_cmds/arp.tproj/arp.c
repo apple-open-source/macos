@@ -104,6 +104,8 @@ static char const copyright[] =
 #include <strings.h>
 #include <unistd.h>
 
+#include "network_cmds_lib.h"
+
 typedef void (action_fn)(struct sockaddr_dl *sdl,
 	struct sockaddr_inarp *s_in, struct rt_msghdr *rtm);
 typedef void (action_ext_fn)(struct sockaddr_dl *sdl,
@@ -660,7 +662,7 @@ print_entry(struct sockaddr_dl *sdl,
 	else
 		hp = 0;
 	if (hp)
-		host = hp->h_name;
+		host = clean_non_printable(hp->h_name, strlen(hp->h_name));
 	else {
 		host = "?";
 		if (h_errno == TRY_AGAIN)
@@ -1073,7 +1075,7 @@ print_entry_ext(struct sockaddr_dl *sdl, struct sockaddr_inarp *addr,
 		hp = 0;
 
 	if (hp)
-		host = hp->h_name;
+		host = clean_non_printable(hp->h_name, strlen(hp->h_name));
 	else
 		host = inet_ntoa(addr->sin_addr);
 

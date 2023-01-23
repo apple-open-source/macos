@@ -78,7 +78,7 @@ S_interface_is_tethered(const char * ifname)
     SCNetworkInterfaceRef	netif;
 
     ifname_cf = CFStringCreateWithCString(NULL, ifname,
-					  kCFStringEncodingASCII);
+					  kCFStringEncodingUTF8);
     netif = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf, 0);
     if (netif != NULL) {
 	is_tethered = _SCNetworkInterfaceIsTethered(netif);
@@ -145,6 +145,72 @@ count_ifaddrs(const struct ifaddrs * ifap)
     }
     return (count);
 }
+
+#if NO_SYSTEMCONFIGURATION || NO_WIRELESS
+
+static bool
+is_infra_wifi(const char * if_name)
+{
+    return (false);
+}
+
+#else /* NO_SYSTEMCONFIGURATION || NO_WIRELESS */
+
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOMessage.h>
+#include <Apple80211/Apple80211API.h>
+#include <Kernel/IOKit/apple80211/apple80211_ioctl.h>
+
+static boolean_t
+is_infra_wifi(const char * if_name)
+{
+    CFStringRef		if_name_cf;
+    boolean_t 		is_infra = FALSE;
+    CFStringRef 	key = CFSTR(APPLE80211_REGKEY_INTERFACE_NAME);
+    CFDictionaryRef	match_dict;
+    CFDictionaryRef 	name_dict;
+    CFStringRef		role;
+    io_service_t 	service = MACH_PORT_NULL;
+
+    if_name_cf = CFStringCreateWithCString(NULL, if_name,
+					   kCFStringEncodingUTF8);
+    name_dict = CFDictionaryCreate(NULL,
+				   (const void * *)&key,
+				   (const void * *)&if_name_cf,
+				   1,
+				   &kCFTypeDictionaryKeyCallBacks,
+				   &kCFTypeDictionaryValueCallBacks);
+    CFRelease(if_name_cf);
+    key = CFSTR(kIOPropertyMatchKey);
+    match_dict = CFDictionaryCreate(NULL,
+				    (const void * *)&key,
+				    (const void * *)&name_dict,
+				    1,
+				    &kCFTypeDictionaryKeyCallBacks,
+				    &kCFTypeDictionaryValueCallBacks);
+    CFRelease(name_dict);
+
+    /* match_dict is released by IOServiceGetMatchingService :-( */
+    service = IOServiceGetMatchingService(kIOMainPortDefault, match_dict);
+    if (service == 0) {
+	goto done;
+    }
+    role = IORegistryEntryCreateCFProperty(service,
+					   CFSTR(APPLE80211_REGKEY_IF_ROLE),
+					   kCFAllocatorDefault, 0);
+    if (role != NULL) {
+	is_infra = (isA_CFString(role) != NULL)
+	    && CFEqual(role, CFSTR(APPLE80211_IF_ROLE_STR_INFRA));
+	CFRelease(role);
+    }
+    IOObjectRelease(service);
+
+ done:
+    return (is_infra);
+}
+
+
+#endif /* NO_SYSTEMCONFIGURATION || NO_WIRELESS */
 
 #ifdef TEST_INTERFACE_CHANGES
 #include <sys/queue.h>
@@ -372,6 +438,9 @@ S_build_interface_list(interface_list_t * interfaces)
 			  entry->type_flags |= kInterfaceTypeFlagIsWireless;
 			  if ((eflags & IFEF_AWDL) != 0) {
 			      entry->type_flags |= kInterfaceTypeFlagIsAWDL;
+			  }
+			  else if (is_infra_wifi(name)) {
+			      entry->type_flags |= kInterfaceTypeFlagIsWiFiInfra;
 			  }
 		      }
 		      else if (ifmr.ifm_count == 1
@@ -810,6 +879,12 @@ PRIVATE_EXTERN boolean_t
 if_is_wireless(interface_t * if_p)
 {
     return ((if_p->type_flags & kInterfaceTypeFlagIsWireless) != 0);
+}
+
+PRIVATE_EXTERN boolean_t
+if_is_wifi_infra(interface_t * if_p)
+{
+    return ((if_p->type_flags & kInterfaceTypeFlagIsWiFiInfra) != 0);
 }
 
 PRIVATE_EXTERN boolean_t
@@ -1273,8 +1348,18 @@ ifl_print(interface_list_t * list_p)
 		       ? " [wake on same network]" : "");
 	    }
 	    if (if_is_wireless(if_p)) {
-		printf(" [wireless]%s",
-		       if_is_awdl(if_p) ? " [awdl]" : "");
+		const char *	label;
+
+		if (if_is_wifi_infra(if_p)) {
+		    label = " [infra]";
+		}
+		else if (if_is_awdl(if_p)) {
+		    label = " [awdl]";
+		}
+		else {
+		    label = "";
+		}
+		printf(" [wireless]%s", label);
 	    }
 	    if (if_is_tethered(if_p)) {
 		printf(" [tethered]");

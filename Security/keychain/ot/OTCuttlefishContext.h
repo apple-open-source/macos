@@ -183,6 +183,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)preflightJoinWithInheritanceKey:(OTInheritanceKey*)ik
                                   reply:(void (^)(NSError * _Nullable error))reply;
 
+- (void)preflightRecoverOctagonUsingRecoveryKey:(NSString *)recoveryKey
+                                          reply:(void (^)(BOOL, NSError * _Nullable))reply;
+
 - (void)rpcRemoveFriendsInClique:(NSArray<NSString*>*)peerIDs
                            reply:(void (^)(NSError * _Nullable))reply;
 

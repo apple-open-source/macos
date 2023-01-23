@@ -363,6 +363,7 @@ public:
     void setBeingDragged(bool);
     void setHasFocusVisible(bool);
     void setHasFocusWithin(bool);
+    void setHasTentativeFocus(bool);
 
     std::optional<int> tabIndexSetExplicitly() const;
     bool shouldBeIgnoredInSequentialFocusNavigation() const { return defaultTabIndex() < 0 && !supportsFocus(); }
@@ -388,10 +389,10 @@ public:
     WEBCORE_EXPORT ExceptionOr<void> insertAdjacentText(const String& where, String&& text);
 
     const RenderStyle* computedStyle(PseudoId = PseudoId::None) override;
+    const RenderStyle* computedStyleForEditability();
 
     bool needsStyleInvalidation() const;
 
-    bool hasValidStyle() const;
     bool isFocusableWithoutResolvingFullStyle() const;
 
     // Methods for indicating the style is affected by dynamic updates (e.g., children changing, our position changing in our sibling list, etc.)

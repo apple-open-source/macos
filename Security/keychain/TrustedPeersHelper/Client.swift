@@ -665,7 +665,7 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func fetchViableEscrowRecords(with user: TPSpecificUser?, source: OTEscrowRecordFetchSource, reply: @escaping ([Data]?, Error?) -> Void)  {
+    func fetchViableEscrowRecords(with user: TPSpecificUser?, source: OTEscrowRecordFetchSource, reply: @escaping ([Data]?, Error?) -> Void) {
         do {
             logger.info("fetchViableEscrowRecords in \(String(describing: user), privacy: .public) from source (\(source.rawValue, privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
@@ -894,6 +894,19 @@ class Client: TrustedPeersHelperProtocol {
         } catch {
             logger.info("fetchAccountSettings failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func preflightRecoverOctagon(usingRecoveryKey specificUser: TPSpecificUser?, recoveryKey: String, salt: String, reply: @escaping (Bool, Error?) -> Void) {
+        do {
+            logger.info("preflightRecoverOctagon for \(String(describing: specificUser), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: specificUser)
+            container.preflightRecoverOctagonWithRecoveryKey(recoveryKey: recoveryKey, salt: salt) { correct, preflightError in
+                reply(correct, preflightError?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.info("preflightRecoverOctagon failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(false, error.sanitizeForClientXPC())
         }
     }
 }

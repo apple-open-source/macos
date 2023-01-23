@@ -321,6 +321,7 @@ PKGADD_VENDOR = @PKGADD_VENDOR@
 PKGCONFIG = @PKGCONFIG@
 RANDOM_FILE = @RANDOM_FILE@
 RANLIB = @RANLIB@
+RC = @RC@
 REQUIRE_LIB_DEPS = @REQUIRE_LIB_DEPS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -476,9 +477,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu packages/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign packages/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu packages/Makefile
+	  $(AUTOMAKE) --foreign packages/Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \

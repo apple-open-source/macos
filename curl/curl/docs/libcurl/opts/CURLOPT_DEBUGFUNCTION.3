@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_DEBUGFUNCTION 3 "May 17, 2022" "libcurl 7.85.0" "curl_easy_setopt options"
+.TH CURLOPT_DEBUGFUNCTION 3 "September 20, 2022" "libcurl 7.86.0" "curl_easy_setopt options"
 
 .SH NAME
 CURLOPT_DEBUGFUNCTION \- debug callback
@@ -62,7 +62,7 @@ NOT be null-terminated, but will be exactly of the \fIsize\fP as told by the
 
 The \fIuserptr\fP argument is the pointer set with \fICURLOPT_DEBUGDATA(3)\fP.
 
-Available curl_infotype values:
+Available \fBcurl_infotype\fP values:
 .IP CURLINFO_TEXT
 The data is informational text.
 .IP CURLINFO_HEADER_IN

@@ -395,7 +395,7 @@ bool RealtimeMediaSource::supportsSizeAndFrameRate(std::optional<IntConstraint> 
     }
 
     // Each of the non-null values is supported individually, see if they all can be applied at the same time.
-    if (!supportsSizeAndFrameRate(WTFMove(width), WTFMove(height), WTFMove(frameRate))) {
+    if (!supportsSizeAndFrameRate(width, height, WTFMove(frameRate))) {
         // Let's try without frame rate constraint if not mandatory.
         if (frameRateConstraint && !frameRateConstraint->isMandatory() && supportsSizeAndFrameRate(WTFMove(width), WTFMove(height), { }))
             return true;
@@ -1004,6 +1004,9 @@ const IntSize RealtimeMediaSource::size() const
             size.setHeight(size.width() * (m_intrinsicSize.height() / static_cast<double>(m_intrinsicSize.width())));
         else if (size.height())
             size.setWidth(size.height() * (m_intrinsicSize.width() / static_cast<double>(m_intrinsicSize.height())));
+
+        if (m_aspectRatio)
+            size.setHeight(static_cast<int>(static_cast<float>(size.width()) / m_aspectRatio));
     }
 
     return size;
@@ -1052,8 +1055,14 @@ void RealtimeMediaSource::setAspectRatio(double ratio)
     ALWAYS_LOG_IF(m_logger, LOGIDENTIFIER, ratio);
     
     m_aspectRatio = ratio;
-    m_size.setHeight(m_size.width() / ratio);
-    notifySettingsDidChangeObservers({ RealtimeMediaSourceSettings::Flag::AspectRatio, RealtimeMediaSourceSettings::Flag::Height });
+
+    auto size = m_size;
+    if (!size.isEmpty()) {
+        size.setHeight(static_cast<int>(static_cast<float>(size.width()) / ratio));
+        setSize(size);
+    }
+
+    notifySettingsDidChangeObservers({ RealtimeMediaSourceSettings::Flag::AspectRatio });
 }
 
 void RealtimeMediaSource::setFacingMode(RealtimeMediaSourceSettings::VideoFacingMode mode)

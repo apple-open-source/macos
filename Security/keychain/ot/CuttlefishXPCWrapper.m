@@ -1188,4 +1188,26 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
+- (void)preflightRecoverOctagonUsingRecoveryKey:(TPSpecificUser * _Nullable)specificUser
+                                    recoveryKey:(nonnull NSString *)recoveryKey
+                                           salt:(NSString*)salt
+                                          reply:(nonnull void (^)(BOOL, NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                reply(NO, error);
+            }
+            ++i;
+        }] preflightRecoverOctagonUsingRecoveryKey:specificUser recoveryKey:recoveryKey salt:salt reply:reply];
+    } while (retry);
+}
+
+
 @end

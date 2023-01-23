@@ -274,7 +274,7 @@ func Test_set_completion()
   call feedkeys(":setglobal di\<C-A>\<C-B>\"\<CR>", 'tx')
   call assert_equal('"setglobal dictionary diff diffexpr diffopt digraph directory display', @:)
 
-  " Expand boolan options. When doing :set no<Tab>
+  " Expand boolean options. When doing :set no<Tab>
   " vim displays the options names without "no" but completion uses "no...".
   call feedkeys(":set nodi\<C-A>\<C-B>\"\<CR>", 'tx')
   call assert_equal('"set nodiff digraph', @:)
@@ -721,7 +721,7 @@ func Test_backupskip()
   let &backupskip = backupskip
 endfunc
 
-func Test_copy_winopt()
+func Test_buf_copy_winopt()
   set hidden
 
   " Test copy option from current buffer in window
@@ -774,6 +774,108 @@ func Test_copy_winopt()
 
   set hidden&
 endfunc
+
+def Test_split_copy_options()
+  var values = [
+    ['cursorbind', true, false],
+    ['fillchars', '"vert:-"', '"' .. &fillchars .. '"'],
+    ['list', true, 0],
+    ['listchars', '"space:-"', '"' .. &listchars .. '"'],
+    ['number', true, 0],
+    ['relativenumber', true, false],
+    ['scrollbind', true, false],
+    ['smoothscroll', true, false],
+    ['virtualedit', '"block"', '"' .. &virtualedit .. '"'],
+    ['wincolor', '"Search"', '"' .. &wincolor .. '"'],
+    ['wrap', false, true],
+  ]
+  if has('linebreak')
+    values += [
+      ['breakindent', true, false],
+      ['breakindentopt', '"min:5"', '"' .. &breakindentopt .. '"'],
+      ['linebreak', true, false],
+      ['numberwidth', 7, 4],
+      ['showbreak', '"++"', '"' .. &showbreak .. '"'],
+    ]
+  endif
+  if has('rightleft')
+    values += [
+      ['rightleft', true, false],
+      ['rightleftcmd', '"search"', '"' .. &rightleftcmd .. '"'],
+    ]
+  endif
+  if has('statusline')
+    values += [
+      ['statusline', '"---%f---"', '"' .. &statusline .. '"'],
+    ]
+  endif
+  if has('spell')
+    values += [
+      ['spell', true, false],
+    ]
+  endif
+  if has('syntax')
+    values += [
+      ['cursorcolumn', true, false],
+      ['cursorline', true, false],
+      ['cursorlineopt', '"screenline"', '"' .. &cursorlineopt .. '"'],
+      ['colorcolumn', '"+1"', '"' .. &colorcolumn .. '"'],
+    ]
+  endif
+  if has('diff')
+    values += [
+      ['diff', true, false],
+    ]
+  endif
+  if has('conceal')
+    values += [
+      ['concealcursor', '"nv"', '"' .. &concealcursor .. '"'],
+      ['conceallevel', '3', &conceallevel],
+    ]
+  endif
+  if has('terminal')
+    values += [
+      ['termwinkey', '"<C-X>"', '"' .. &termwinkey .. '"'],
+      ['termwinsize', '"10x20"', '"' .. &termwinsize .. '"'],
+    ]
+  endif
+  if has('folding')
+    values += [
+      ['foldcolumn', 5,  &foldcolumn],
+      ['foldenable', false, true],
+      ['foldexpr', '"2 + 3"', '"' .. &foldexpr .. '"'],
+      ['foldignore', '"+="', '"' .. &foldignore .. '"'],
+      ['foldlevel', 4,  &foldlevel],
+      ['foldmarker', '">>,<<"', '"' .. &foldmarker .. '"'],
+      ['foldmethod', '"marker"', '"' .. &foldmethod .. '"'],
+      ['foldminlines', 3,  &foldminlines],
+      ['foldnestmax', 17,  &foldnestmax],
+      ['foldtext', '"closed"', '"' .. &foldtext .. '"'],
+    ]
+  endif
+  if has('signs')
+    values += [
+      ['signcolumn', '"number"', '"' .. &signcolumn .. '"'],
+    ]
+  endif
+
+  # set options to non-default value
+  for item in values
+    exe $'&l:{item[0]} = {item[1]}'
+  endfor
+
+  # check values are set in new window
+  split
+  for item in values
+    exe $'assert_equal({item[1]}, &{item[0]}, "{item[0]}")'
+  endfor
+
+  # restore
+  close
+  for item in values
+    exe $'&l:{item[0]} = {item[2]}'
+  endfor
+enddef
 
 func Test_shortmess_F()
   new
@@ -1349,6 +1451,18 @@ func Test_keywordprg_empty()
   call assert_equal('man', &keywordprg)
   call assert_equal("\n  keywordprg=:help", execute('set kp= kp?'))
   let &keywordprg = k
+endfunc
+
+" check that the very first buffer created does not have 'endoffile' set
+func Test_endoffile_default()
+  let after =<< trim [CODE]
+    call writefile([execute('set eof?')], 'Xtestout')
+    qall!
+  [CODE]
+  if RunVim([], after, '')
+    call assert_equal(["\nnoendoffile"], readfile('Xtestout'))
+  endif
+  call delete('Xtestout')
 endfunc
 
 

@@ -3,6 +3,9 @@
 #     make -f Makefile.fuzz fuzz-xslt DYLD_LIBRARY_PATH=/path/to/build/products
 # To merge a corpus:
 #     make -f Makefile.fuzz merge-corpus DYLD_LIBRARY_PATH=/path/to/build/products
+#
+# To build dylib with fuzzing enabled (for use with libxslt fuzzers):
+#     make -f Makefile.fuzz dylib
 
 fuzz_dir = ./libxslt/tests/fuzz
 top_srcdir = ./..
@@ -63,3 +66,5 @@ fuzz-xslt: $(fuzz_dir)/xslt
 	    -dict=xslt.dict \
 	    corpus/xslt seed/xslt
 
+dylib:
+	xcodebuild -target All -configuration Debug LIBXSLT_FUZZER=YES

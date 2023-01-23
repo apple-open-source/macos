@@ -49,7 +49,8 @@ public:
     bool isEmbeddedThroughSVGImage() const;
     bool isEmbeddedThroughFrameContainingSVGDocument() const;
 
-    void computeIntrinsicRatioInformation(FloatSize& intrinsicSize, double& intrinsicRatio) const override;
+    void computeIntrinsicRatioInformation(FloatSize& intrinsicSize, FloatSize& intrinsicRatio) const override;
+    bool hasIntrinsicAspectRatio() const final;
 
     bool isLayoutSizeChanged() const { return m_isLayoutSizeChanged; }
     bool didTransformToRootUpdate() const { return m_didTransformToRootUpdate; }

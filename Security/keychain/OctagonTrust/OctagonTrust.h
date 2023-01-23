@@ -169,6 +169,16 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
   */
 - (BOOL)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
                            error:(NSError**)error;
+
+/* *
+ * @abstract                        Preflight (dry-run) recover using a recovery key.
+ * @param ctx                       Containing parameters to setup OTClique
+ * @param error                     An error parameter: filled in if the call times out or if recovery key is invalid
+ * @return BOOL                     Returns YES if the recovery key is correct and NO if it's incorrect
+ */
++ (BOOL)preflightRecoverOctagonUsingRecoveryKey:(OTConfigurationContext*)ctx
+                                    recoveryKey:(NSString*)recoveryKey
+                                          error:(NSError**)error;
 @end
 
 NS_ASSUME_NONNULL_END

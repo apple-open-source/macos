@@ -41,7 +41,6 @@
 
 #include "DHCPDUID.h"
 #include "interfaces.h"
-#include "ipconfigd_threads.h"
 
 typedef struct DHCPv6Client * DHCPv6ClientRef;
 
@@ -52,16 +51,18 @@ typedef enum {
 
 typedef
 enum {
-      kDHCPv6ClientModeIdle = 0,
+      kDHCPv6ClientModeNone = 0,
       kDHCPv6ClientModeStateless = 1,
-      kDHCPv6ClientModeStateful = 2,
+      kDHCPv6ClientModeStatefulAddress = 2,
+      kDHCPv6ClientModeStatefulPrefix = 3,
 } DHCPv6ClientMode;
+
+#include "ipconfigd_threads.h"
 
 typedef void
 (*DHCPv6ClientNotificationCallBack)(DHCPv6ClientRef client,
 				    void * callback_arg,
 				    DHCPv6ClientNotificationType type);
-
 
 void
 DHCPv6ClientSetRequestedOptions(uint16_t * requested_options,
@@ -76,11 +77,20 @@ DHCPv6ClientMode
 DHCPv6ClientGetMode(DHCPv6ClientRef client);
 
 void
-DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address,
-		  bool privacy_required);
+DHCPv6ClientSetMode(DHCPv6ClientRef client, DHCPv6ClientMode mode);
 
 void
-DHCPv6ClientStop(DHCPv6ClientRef client, bool discard_information);
+DHCPv6ClientSetUsePrivateAddress(DHCPv6ClientRef client,
+				 bool use_private_address);
+
+void
+DHCPv6ClientStart(DHCPv6ClientRef client);
+
+void
+DHCPv6ClientStop(DHCPv6ClientRef client);
+
+void
+DHCPv6ClientDiscardInformation(DHCPv6ClientRef client);
 
 void
 DHCPv6ClientRelease(DHCPv6ClientRef * client_p);

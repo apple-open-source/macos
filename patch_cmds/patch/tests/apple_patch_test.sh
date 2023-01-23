@@ -427,6 +427,81 @@ bof_100350977_body()
 	atf_check cmp -s "$outf" file.out
 }
 
+atf_test_case utf16
+utf16_body()
+{
+	# rdar://problem/101531623 - UTF-16LE breaks patch(1)
+	printf "A\nHello\nB\n" > file1.ascii
+	printf "A\nHello, world\nB\n" > file2.ascii
+
+	# Further testing revealed that UTF-16 broke patch(1) differently.  With
+	# UTF-16LE, patch(1) succeeds but the result is wrong.  With UTF-16, the
+	# patch(1) fails entirely.
+	for difftype in ctx dflt uni; do
+		dflag=""
+		case ${difftype} in
+			ctx)
+				dflag="-c"
+				;;
+			dflt)
+				dflag=""
+				;;
+			uni)
+				dflag="-u"
+				;;
+			*)
+				atf_fail "Unhandled type ${difftype}"
+				;;
+		esac
+
+		for encoding in "" "LE"; do
+			FLAVOR="${difftype}${Encoding}"
+			atf_check -o save:file1${encoding} \
+			    iconv -f ASCII -t UTF-16${encoding} file1.ascii
+			atf_check -o save:file2${encoding} \
+			    iconv -f ASCII -t UTF-16${encoding} file2.ascii
+
+			atf_check -o save:file${FLAVOR}.diff -s exit:1 \
+			    diff -a ${dflag} file1${encoding} file2${encoding}
+
+			# Sanity check, diff should have a comma in it...
+			atf_check -o not-empty grep ',' file${FLAVOR}.diff
+
+			atf_check -o not-empty \
+			    patch file1${encoding} file${FLAVOR}.diff
+			atf_check -o file:file2${encoding} cat file1${encoding}
+		done
+	done
+}
+
+atf_test_case noeol
+noeol_body()
+{
+
+	atf_check -o not-empty patch -o out \
+	    $(atf_get_srcdir)/noeol.in $(atf_get_srcdir)/noeol.patch
+	atf_check cmp -s out $(atf_get_srcdir)/noeol.out
+}
+
+atf_test_case rejfile
+rejfile_body()
+{
+	atf_check -o save:expected_uni.rej \
+	    tail -n +3 "$(atf_get_srcdir)/rejfile_foo_uni.diff"
+	atf_check -o save:expected_ctx.rej \
+	    tail -n +3 "$(atf_get_srcdir)/rejfile_foo_ctx.diff"
+
+	atf_check cp "$(atf_get_srcdir)/rejfile_foo.in" foo.in
+
+	atf_check -o not-empty -s exit:1 \
+	    patch foo.in "$(atf_get_srcdir)/rejfile_foo_uni.diff"
+	atf_check -o file:expected_uni.rej cat foo.in.rej
+
+	atf_check -o not-empty -s exit:1 \
+	    patch foo.in "$(atf_get_srcdir)/rejfile_foo_ctx.diff"
+	atf_check -o file:expected_ctx.rej cat foo.in.rej
+}
+
 atf_init_test_cases()
 {
 	atf_add_test_case backup_policy
@@ -443,4 +518,7 @@ atf_init_test_cases()
 	atf_add_test_case bof_patch
 	atf_add_test_case quiet
 	atf_add_test_case bof_100350977
+	atf_add_test_case utf16
+	atf_add_test_case noeol
+	atf_add_test_case rejfile
 }

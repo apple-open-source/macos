@@ -2627,7 +2627,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\..\lib\curl_ctype.c" />
     <ClCompile Include="..\..\..\..\lib\curl_multibyte.c" />
     <ClCompile Include="..\..\..\..\lib\dynbuf.c" />
     <ClCompile Include="..\..\..\..\lib\nonblock.c" />

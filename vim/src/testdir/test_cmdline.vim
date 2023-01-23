@@ -248,6 +248,13 @@ func Test_changing_cmdheight()
 
   let lines =<< trim END
       set cmdheight=1 laststatus=2
+      func EchoTwo()
+        set laststatus=2
+        set cmdheight=5
+        echo 'foo'
+        echo 'bar'
+        set cmdheight=1
+      endfunc
   END
   call writefile(lines, 'XTest_cmdheight', 'D')
 
@@ -271,6 +278,20 @@ func Test_changing_cmdheight()
   call term_sendkeys(buf, ":resize -1\<CR>")
   call term_sendkeys(buf, ":set cmdheight=1\<CR>")
   call VerifyScreenDump(buf, 'Test_changing_cmdheight_5', {})
+
+  " setting 'cmdheight' works after outputting two messages
+  call term_sendkeys(buf, ":call EchoTwo()\<CR>")
+  call VerifyScreenDump(buf, 'Test_changing_cmdheight_6', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_cmdheight_tabline()
+  CheckScreendump
+
+  let buf = RunVimInTerminal('-c "set ls=2" -c "set stal=2" -c "set cmdheight=1"', {'rows': 6})
+  call VerifyScreenDump(buf, 'Test_cmdheight_tabline_1', {})
 
   " clean up
   call StopVimInTerminal(buf)
@@ -1629,6 +1650,53 @@ func Test_cmd_bang_E135()
   augroup test_cmd_filter_E135
     au!
   augroup END
+  %bwipe!
+endfunc
+
+func Test_cmd_bang_args()
+  new
+  :.!
+  call assert_equal(0, v:shell_error)
+
+  " Note that below there is one space char after the '!'.  This caused a
+  " shell error in the past, see https://github.com/vim/vim/issues/11495.
+  :.! 
+  call assert_equal(0, v:shell_error)
+  bwipe!
+
+  CheckUnix
+  :.!pwd
+  call assert_equal(0, v:shell_error)
+  :.! pwd
+  call assert_equal(0, v:shell_error)
+
+  " Note there is one space after 'pwd'.
+  :.! pwd 
+  call assert_equal(0, v:shell_error)
+
+  " Note there are two spaces after 'pwd'.
+  :.!  pwd  
+  call assert_equal(0, v:shell_error)
+  :.!ls ~
+  call assert_equal(0, v:shell_error)
+
+  " Note there is one space char after '~'.
+  :.!ls  ~ 
+  call assert_equal(0, v:shell_error)
+
+  " Note there are two spaces after '~'.
+  :.!ls  ~  
+  call assert_equal(0, v:shell_error)
+
+  :.!echo "foo"
+  call assert_equal(getline('.'), "foo")
+  :.!echo "foo  "
+  call assert_equal(getline('.'), "foo  ")
+  :.!echo " foo  "
+  call assert_equal(getline('.'), " foo  ")
+  :.!echo  " foo  "
+  call assert_equal(getline('.'), " foo  ")
+
   %bwipe!
 endfunc
 

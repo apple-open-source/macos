@@ -69,6 +69,8 @@ typedef CF_ENUM(uint16_t, DHCPv6OptionCode) {
     kDHCPv6OPTION_SIP_SERVER_A		= 22,
     kDHCPv6OPTION_DNS_SERVERS		= 23,
     kDHCPv6OPTION_DOMAIN_LIST		= 24,
+    kDHCPv6OPTION_IA_PD			= 25,
+    kDHCPv6OPTION_IAPREFIX		= 26,
     kDHCPv6OPTION_CAPTIVE_PORTAL_URL	= 103,
 };
 
@@ -129,6 +131,8 @@ typedef CF_ENUM(uint32_t, DHCPv6OptionType) {
     kDHCPv6OptionTypeIAADDR = 8,
     kDHCPv6OptionTypeStatusCode = 9,
     kDHCPv6OptionTypeString = 10,
+    kDHCPv6OptionTypeIA_PD = 11,
+    kDHCPv6OptionTypeIAPREFIX = 12,
 };
 
 DHCPv6OptionType
@@ -229,7 +233,9 @@ DHCPv6OptionListGetOptionAtIndex(DHCPv6OptionListRef options, int i);
 
 bool
 DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
-			      DHCPv6StatusCode * ret_code);
+			      DHCPv6StatusCode * ret_code,
+			      const char * * ret_msg,
+			      unsigned int * ret_msg_length);
 
 /**
  ** DHCPv6OptionsDictionary
@@ -293,6 +299,57 @@ DHCPv6OptionIA_NASetT2(DHCPv6OptionIA_NARef ia_na, uint32_t t2)
 }
 
 /**
+ ** IA_PD option
+ **/
+typedef struct {
+    uint8_t		iaid[4];
+    uint8_t		t1[4];
+    uint8_t		t2[4];
+    uint8_t		options[1]; /* variable length */
+} DHCPv6OptionIA_PD, * DHCPv6OptionIA_PDRef;
+
+#define DHCPv6OptionIA_PD_MIN_LENGTH	((int)offsetof(DHCPv6OptionIA_PD, options))
+
+INLINE uint32_t
+DHCPv6OptionIA_PDGetIAID(DHCPv6OptionIA_PDRef ia_pd)
+{
+    return (net_uint32_get(ia_pd->iaid));
+}
+
+INLINE void
+DHCPv6OptionIA_PDSetIAID(DHCPv6OptionIA_PDRef ia_pd, uint32_t iaid)
+{
+    net_uint32_set(ia_pd->iaid, iaid);
+    return;
+}
+
+INLINE uint32_t
+DHCPv6OptionIA_PDGetT1(DHCPv6OptionIA_PDRef ia_pd)
+{
+    return (net_uint32_get(ia_pd->t1));
+}
+
+INLINE void
+DHCPv6OptionIA_PDSetT1(DHCPv6OptionIA_PDRef ia_pd, uint32_t t1)
+{
+    net_uint32_set(ia_pd->t1, t1);
+    return;
+}
+
+INLINE uint32_t
+DHCPv6OptionIA_PDGetT2(DHCPv6OptionIA_PDRef ia_pd)
+{
+    return (net_uint32_get(ia_pd->t2));
+}
+
+INLINE void
+DHCPv6OptionIA_PDSetT2(DHCPv6OptionIA_PDRef ia_pd, uint32_t t2)
+{
+    net_uint32_set(ia_pd->t2, t2);
+    return;
+}
+
+/**
  ** IAADDR option
  **/
 typedef struct {
@@ -352,6 +409,80 @@ DHCPv6OptionIAADDRPrintToString(CFMutableStringRef str,
 				int ia_addr_len);
 
 /**
+ ** IAPREFIX option
+ **/
+typedef struct {
+    uint8_t		preferred_lifetime[4];
+    uint8_t		valid_lifetime[4];
+    uint8_t		prefix_length;
+    uint8_t		prefix[16];
+    uint8_t		options[1]; /* variable length */
+} DHCPv6OptionIAPREFIX, * DHCPv6OptionIAPREFIXRef;
+
+#define DHCPv6OptionIAPREFIX_MIN_LENGTH	((int)offsetof(DHCPv6OptionIAPREFIX, options))
+
+INLINE const uint8_t *
+DHCPv6OptionIAPREFIXGetPrefix(DHCPv6OptionIAPREFIXRef ia_prefix)
+{
+    return ((const uint8_t *)ia_prefix->prefix);
+}
+
+INLINE void
+DHCPv6OptionIAPREFIXSetPrefix(DHCPv6OptionIAPREFIXRef ia_prefix,
+			      const void * prefix_p)
+{
+    bcopy(prefix_p, ia_prefix->prefix, sizeof(struct in6_addr));
+    return;
+}
+
+INLINE uint8_t
+DHCPv6OptionIAPREFIXGetPrefixLength(DHCPv6OptionIAPREFIXRef ia_prefix)
+{
+    return (ia_prefix->prefix_length);
+}
+
+INLINE void
+DHCPv6OptionIAPREFIXSetPrefixLength(DHCPv6OptionIAPREFIXRef ia_prefix,
+				    uint8_t prefix_length)
+{
+    ia_prefix->prefix_length = prefix_length;
+    return;
+}
+
+INLINE uint32_t
+DHCPv6OptionIAPREFIXGetPreferredLifetime(DHCPv6OptionIAPREFIXRef ia_prefix)
+{
+    return (net_uint32_get(ia_prefix->preferred_lifetime));
+}
+
+INLINE void
+DHCPv6OptionIAPREFIXSetPreferredLifetime(DHCPv6OptionIAPREFIXRef ia_prefix,
+					 uint32_t preferred_lifetime)
+{
+    net_uint32_set(ia_prefix->preferred_lifetime, preferred_lifetime);
+    return;
+}
+
+INLINE uint32_t
+DHCPv6OptionIAPREFIXGetValidLifetime(DHCPv6OptionIAPREFIXRef ia_prefix)
+{
+    return (net_uint32_get(ia_prefix->valid_lifetime));
+}
+
+INLINE void
+DHCPv6OptionIAPREFIXSetValidLifetime(DHCPv6OptionIAPREFIXRef ia_prefix,
+				     uint32_t valid_lifetime)
+{
+    net_uint32_set(ia_prefix->valid_lifetime, valid_lifetime);
+    return;
+}
+
+void
+DHCPv6OptionIAPREFIXPrintToString(CFMutableStringRef str,
+				  DHCPv6OptionIAPREFIXRef ia_prefix,
+				  int ia_prefix_len);
+
+/**
  ** Status Code option
  **/
 typedef struct {
@@ -375,9 +506,11 @@ DHCPv6OptionSTATUS_CODESetCode(DHCPv6OptionSTATUS_CODERef status_p,
     return;
 }
 
-void 
-DHCPv6OptionSTATUS_CODEFPrint(FILE * f, DHCPv6OptionSTATUS_CODERef status_p,
-			      int status_len);
+INLINE uint8_t *
+DHCPv6OptionSTATUS_CODEGetMessage(DHCPv6OptionSTATUS_CODERef status_p)
+{
+    return (status_p->message);
+}
 
 
 /**

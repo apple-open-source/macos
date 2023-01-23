@@ -33,6 +33,8 @@
 #include "symbol_scope.h"
 #include "RouterAdvertisement.h"
 
+#define kLeaseIsInfinite		CFSTR("LeaseIsInfinite")
+
 #define IPV4_METHOD_BIT		0x100
 #define IPV6_METHOD_BIT		0x200
 
@@ -55,6 +57,7 @@ typedef enum {
     ipconfig_method_rtadv_e 	= 0x203,
     ipconfig_method_stf_e 	= 0x204,
     ipconfig_method_linklocal_v6_e = 0x205,
+    ipconfig_method_dhcpv6_pd_e	= 0x206,
 } ipconfig_method_t;
 
 const char *
@@ -134,6 +137,11 @@ typedef struct {
     } relay_addr;
 } ipconfig_method_data_stf, *ipconfig_method_data_stf_t;
 
+typedef struct {
+    struct in6_addr	requested_prefix;
+    uint8_t		requested_prefix_length;
+} ipconfig_method_data_dhcpv6_pd, *ipconfig_method_data_dhcpv6_pd_t;
+
 /*
  * Type: ipconfig_method_data
  * Purpose:
@@ -146,6 +154,7 @@ typedef union {
     ipconfig_method_data_linklocal	linklocal;
     ipconfig_method_data_manual_v6	manual_v6;
     ipconfig_method_data_stf		stf;
+    ipconfig_method_data_dhcpv6_pd	dhcpv6_pd;
 } ipconfig_method_data, * ipconfig_method_data_t;
 
 typedef struct {
@@ -198,10 +207,17 @@ typedef struct {
     DHCPv6PacketRef		pkt;
     int				pkt_len;
     DHCPv6OptionListRef		options;
+    absolute_time_t		lease_start;
+    absolute_time_t		lease_expiration;
     RouterAdvertisementRef	ra;
     boolean_t			perform_plat_discovery;
     CFDictionaryRef		ipv4_dict;
     CFStringRef			nat64_prefix;
+    boolean_t			is_stateful;
+    struct in6_addr		prefix;
+    uint8_t			prefix_length;
+    uint32_t			prefix_valid_lifetime;
+    uint32_t			prefix_preferred_lifetime;
 } ipv6_info_t;
 
 typedef struct {

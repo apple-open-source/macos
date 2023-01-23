@@ -857,3 +857,33 @@ b: 2}]
 silent! argdel *
 edit file
 " END_INDENT
+
+" START_INDENT
+def Foo()
+Bar(1,
+[]->filter((_, v) => {
+return true
+}),
+() => {
+echo
+})
+enddef
+" END_INDENT
+
+" START_INDENT
+echo {
+k: () => {
+if true
+echo
+popup_setoptions(id,
+{title: 'title'})
+endif
+}
+}
+" END_INDENT
+
+" START_INDENT
+if true
+elseif
+endif
+" END_INDENT

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@
 
 #include <CoreFoundation/CFString.h>
 #include "symbol_scope.h"
+#include "IPConfigurationService.h"
 
 #define kIPConfigurationServiceOptions	CFSTR("__IPConfigurationServiceOptions") /* dictionary */
 
@@ -75,4 +76,58 @@ IPConfigurationServiceKey(CFStringRef serviceID)
 				     serviceID));
 }
 
+IPConfigurationServiceRef
+IPConfigurationServiceCreateInternal(CFStringRef interface_name,
+				     CFDictionaryRef options);
+Boolean
+IPConfigurationServiceIsValid(IPConfigurationServiceRef service);
+
+Boolean
+IPConfigurationServiceStart(IPConfigurationServiceRef service);
+
+/*
+ * Type: ObjectWrapperRef
+ *
+ * Purpose:
+ *  Provides a level of indirection between an object
+ *  (e.g. IPConfigurationServiceRef) and any other object(s) that might need
+ *  to reference it (e.g. SCDynamicStoreRef).
+ *
+ *  For an object that is invalidated by calling CFRelease
+ *  (e.g. IPConfigurationServiceRef), that means there is normally only
+ *  a single reference to that object. If there's an outstanding block that
+ *  was scheduled (but not run) while calling CFRelease() on that object,
+ *  when the block does eventually run, it can't validly reference that
+ *  that object anymore, it's been deallocated.
+ *
+ *  The ObjectWrapperRef is a simple, reference-counted structure that just
+ *  stores an object pointer. In the *Deallocate function of the object,
+ *  it synchronously calls ObjectWrapperClearObject(). When the block
+ *  referencing the wrapper runs, it calls ObjectWrapperGetObject(), and if
+ *  it is NULL, does not continue.
+ */
+typedef struct ObjectWrapper * ObjectWrapperRef;
+
+ObjectWrapperRef
+ObjectWrapperAlloc(const void * obj);
+
+const void *
+ObjectWrapperRetain(const void * info);
+
+void
+ObjectWrapperRelease(const void * info);
+
+const void *
+ObjectWrapperGetObject(ObjectWrapperRef wrapper);
+
+void
+ObjectWrapperClearObject(ObjectWrapperRef wrapper);
+
+SCDynamicStoreRef
+store_create(const void * object,
+	     CFStringRef label,
+	     dispatch_queue_t queue,
+	     SCDynamicStoreCallBack change_callback,
+	     SCDynamicStoreDisconnectCallBack disconnect_callback,
+	     ObjectWrapperRef * ret_wrapper);
 #endif /* _IPCONFIGURATIONSERVICEINTERNAL_H */

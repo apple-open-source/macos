@@ -246,7 +246,7 @@ const ContentSecurityPolicyDirective* ContentSecurityPolicyDirectiveList::violat
     if (checkHashes(operativeDirective, hashes)
         || checkNonParserInsertedScripts(operativeDirective, parserInserted)
         || checkNonce(operativeDirective, nonce)
-        || checkSource(operativeDirective, url)
+        || (checkSource(operativeDirective, url) && !strictDynamicIncluded())
         || (url.isEmpty() && checkInline(operativeDirective)))
         return nullptr;
     return operativeDirective;
@@ -361,6 +361,14 @@ const ContentSecurityPolicyDirective* ContentSecurityPolicyDirectiveList::violat
     return operativeDirective;
 }
 
+const ContentSecurityPolicyDirective* ContentSecurityPolicyDirectiveList::violatedDirectiveForPrefetch(const URL& url, bool didReceiveRedirectResponse) const
+{
+    auto* operativeDirective = this->operativeDirective(m_prefetchSrc.get(), ContentSecurityPolicyDirectiveNames::prefetchSrc);
+    if (checkSource(operativeDirective, url, didReceiveRedirectResponse))
+        return nullptr;
+    return operativeDirective;
+}
+
 #if ENABLE(APPLICATION_MANIFEST)
 const ContentSecurityPolicyDirective* ContentSecurityPolicyDirectiveList::violatedDirectiveForManifest(const URL& url, bool didReceiveRedirectResponse) const
 {
@@ -413,7 +421,7 @@ const ContentSecurityPolicyDirective* ContentSecurityPolicyDirectiveList::violat
     if (!operativeDirective
         || operativeDirective->containsAllHashes(subResourceIntegrityDigests)
         || checkNonce(operativeDirective, nonce)
-        || checkSource(operativeDirective, url, didReceiveRedirectResponse))
+        || (checkSource(operativeDirective, url, didReceiveRedirectResponse) && !strictDynamicIncluded()))
         return nullptr;
 
     return operativeDirective;
@@ -651,6 +659,8 @@ void ContentSecurityPolicyDirectiveList::addDirective(ParsedDirective&& directiv
         setCSPDirective<ContentSecurityPolicySourceListDirective>(WTFMove(directive), m_frameAncestors);
     } else if (equalIgnoringASCIICase(directive.name, ContentSecurityPolicyDirectiveNames::pluginTypes))
         setCSPDirective<ContentSecurityPolicyMediaListDirective>(WTFMove(directive), m_pluginTypes);
+    else if (equalIgnoringASCIICase(directive.name, ContentSecurityPolicyDirectiveNames::prefetchSrc))
+        setCSPDirective<ContentSecurityPolicySourceListDirective>(WTFMove(directive), m_prefetchSrc);
     else if (equalIgnoringASCIICase(directive.name, ContentSecurityPolicyDirectiveNames::sandbox))
         applySandboxPolicy(WTFMove(directive));
     else if (equalIgnoringASCIICase(directive.name, ContentSecurityPolicyDirectiveNames::reportURI))
@@ -663,7 +673,7 @@ void ContentSecurityPolicyDirectiveList::addDirective(ParsedDirective&& directiv
         m_policy.reportUnsupportedDirective(WTFMove(directive.name));
 }
 
-bool ContentSecurityPolicyDirectiveList::strictDynamicIncluded()
+bool ContentSecurityPolicyDirectiveList::strictDynamicIncluded() const
 {
     ContentSecurityPolicySourceListDirective* directive = this->operativeDirectiveScript(m_scriptSrcElem.get(), ContentSecurityPolicyDirectiveNames::scriptSrc);
     return directive && directive->allowNonParserInsertedScripts();

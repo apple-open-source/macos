@@ -1089,6 +1089,56 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>patch_cmds.patch.apple_patch_test.noeol</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch/apple_patch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch</string>
+				<string>-r</string>
+				<string>apple_patch_test.sh.noeol.results.txt</string>
+				<string>noeol</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.patch.apple_patch_test.rejfile</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch/apple_patch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch</string>
+				<string>-r</string>
+				<string>apple_patch_test.sh.rejfile.results.txt</string>
+				<string>rejfile</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>patch_cmds.patch.apple_patch_test.tz_support_basic_context</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -1181,6 +1231,31 @@
 				<string>-r</string>
 				<string>apple_patch_test.sh.tz_support_force.results.txt</string>
 				<string>tz_support_force</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.patch.apple_patch_test.utf16</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch/apple_patch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch</string>
+				<string>-r</string>
+				<string>apple_patch_test.sh.utf16.results.txt</string>
+				<string>utf16</string>
 			</array>
 			<key>MayRunConcurrently</key>
 			<true/>

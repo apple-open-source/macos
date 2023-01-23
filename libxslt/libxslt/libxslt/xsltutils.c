@@ -2367,6 +2367,7 @@ xmlXPathCompExprPtr
 xsltXPathCompileFlags(xsltStylesheetPtr style, const xmlChar *str, int flags) {
     xmlXPathContextPtr xpathCtxt;
     xmlXPathCompExprPtr ret;
+    int createdNewXPathContext = 0;
 
     if (style != NULL) {
 #ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
@@ -2376,6 +2377,7 @@ xsltXPathCompileFlags(xsltStylesheetPtr style, const xmlChar *str, int flags) {
 #endif /* LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16 */
         {
             xpathCtxt = xmlXPathNewContext(style->doc);
+            createdNewXPathContext = 1;
         }
 	if (xpathCtxt == NULL)
 	    return NULL;
@@ -2392,7 +2394,7 @@ xsltXPathCompileFlags(xsltStylesheetPtr style, const xmlChar *str, int flags) {
     */
     ret = xmlXPathCtxtCompile(xpathCtxt, str);
 
-    if (style == NULL) {
+    if (style == NULL || createdNewXPathContext) {
 	xmlXPathFreeContext(xpathCtxt);
     }
     /*

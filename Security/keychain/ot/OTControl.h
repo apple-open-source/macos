@@ -320,6 +320,9 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                    machineID:(NSString*)machineID
                        reply:(void (^)(NSError* _Nullable replyError))reply;
 
+- (void)preflightRecoverOctagonUsingRecoveryKey:(OTControlArguments*)arguments
+                                    recoveryKey:(NSString*)recoveryKey
+                                          reply:(void (^)(BOOL correct, NSError* _Nullable replyError))reply;
 @end
 
 NS_ASSUME_NONNULL_END

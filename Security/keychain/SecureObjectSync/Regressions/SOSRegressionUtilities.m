@@ -356,14 +356,14 @@ SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name,
         require(outOctagonEncryptionKey, exit);
         *outOctagonEncryptionKey = GeneratePermanentFullECKey(384, name, error);
         require(*outOctagonEncryptionKey, exit);
-        result = SOSFullPeerInfoCreate(NULL, gestalt,
+        result = SOSFullPeerInfoCreate(NULL, gestalt, name,
                                        NULL,
                                        *outSigningKey,
                                        *outOctagonSigningKey,
                                        *outOctagonEncryptionKey,
                                        error);
     } else {
-        result = SOSFullPeerInfoCreate(NULL, gestalt,
+        result = SOSFullPeerInfoCreate(NULL, gestalt, name,
                                    NULL,
                                    *outSigningKey,
                                    NULL,

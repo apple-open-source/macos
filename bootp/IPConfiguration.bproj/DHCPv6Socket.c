@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,6 +71,26 @@
 #include "timer.h"
 #include "IPv6Sock_Compat.h"
 
+#if TEST_DHCPV6_CLIENT
+#include <SystemConfiguration/SCPrivate.h>
+#undef my_log
+#define my_log(pri, format, ...)	do {		\
+	struct timeval	tv;				\
+	struct tm       tm;				\
+	time_t		t;				\
+							\
+	(void)gettimeofday(&tv, NULL);					\
+	t = tv.tv_sec;							\
+	(void)localtime_r(&t, &tm);					\
+									\
+	SCPrint(TRUE, stdout,						\
+		CFSTR("%04d/%02d/%02d %2d:%02d:%02d.%06d " format "\n"), \
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,		\
+		tm.tm_hour, tm.tm_min, tm.tm_sec, tv.tv_usec,		\
+		## __VA_ARGS__ );					\
+    } while (0)
+#endif
+
 typedef struct DHCPv6SocketGlobals {
     dynarray_t			sockets;
     FDCalloutRef		read_fd;
@@ -81,6 +101,7 @@ typedef struct DHCPv6SocketGlobals {
 struct DHCPv6Socket {
     interface_t *		if_p;
     boolean_t			fd_open;
+    DHCPv6TransactionID		transaction_id;
     DHCPv6SocketReceiveFuncPtr	receive_func;
     void *			receive_arg1;
     void *			receive_arg2;
@@ -272,6 +293,9 @@ DHCPv6SocketDemux(int if_index, const struct in6_addr * server_p,
 	if (if_index != if_link_index(DHCPv6SocketGetInterface(client))) {
 	    continue;
 	}
+	if (client->transaction_id != DHCPv6PacketGetTransactionID(pkt)) {
+	    continue;
+	}
 	if (S_verbose) {
 	    CFMutableStringRef	str;
 	    
@@ -287,9 +311,11 @@ DHCPv6SocketDemux(int if_index, const struct in6_addr * server_p,
 	    CFRelease(str);
 	}
 	else {
-	    my_log(LOG_INFO,"[%s] Receive %s (%d) [%d bytes] from %s",
+	    my_log(LOG_INFO,
+		   "[%s] Receive %s (%d) [%d bytes] [xid=0x%x] from %s",
 		   if_name(DHCPv6SocketGetInterface(client)),
-		   DHCPv6MessageName(pkt->msg_type), pkt->msg_type, pkt_len,
+		   DHCPv6MessageTypeName(pkt->msg_type), pkt->msg_type, pkt_len,
+		   DHCPv6PacketGetTransactionID(pkt),
 		   inet_ntop(AF_INET6, server_p, ntopbuf, sizeof(ntopbuf)));
 	}
 	if (client->receive_func != NULL) {
@@ -527,12 +553,14 @@ DHCPv6SocketOpenSocket(DHCPv6SocketRef sock)
 
 PRIVATE_EXTERN void
 DHCPv6SocketEnableReceive(DHCPv6SocketRef sock,
+			  DHCPv6TransactionID transaction_id,
 			  DHCPv6SocketReceiveFuncPtr func, 
 			  void * arg1, void * arg2)
 {
     sock->receive_func = func;
     sock->receive_arg1 = arg1;
     sock->receive_arg2 = arg2;
+    sock->transaction_id = transaction_id;
     if (DHCPv6SocketOpenSocket(sock) == FALSE) {
 	my_log(LOG_NOTICE, "DHCPv6SocketEnableReceive(%s): failed",
 	       if_name(sock->if_p));
@@ -603,7 +631,7 @@ DHCPv6SocketTransmit(DHCPv6SocketRef sock,
     else {
 	my_log(LOG_INFO, "[%s] Transmit %s (%d) [%d bytes]",
 	       if_name(sock->if_p),
-	       DHCPv6MessageName(pkt->msg_type),
+	       DHCPv6MessageTypeName(pkt->msg_type),
 	       pkt->msg_type,
 	       pkt_len);
     }

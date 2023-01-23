@@ -1,4 +1,4 @@
-*usr_41.txt*	For Vim version 9.0.  Last change: 2022 Jun 23
+*usr_41.txt*	For Vim version 9.0.  Last change: 2022 Nov 22
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -139,7 +139,7 @@ FOUR KINDS OF NUMBERS
 Numbers can be decimal, hexadecimal, octal and binary.
 
 A hexadecimal number starts with "0x" or "0X".  For example "0x1f" is decimal
-31 and 0x1234 is decimal 4660.
+31 and "0x1234" is decimal 4660.
 
 An octal number starts with "0o", "0O".  "0o17" is decimal 15.
 
@@ -442,7 +442,7 @@ If you don't like the concatenation you can use the $"string" form, which
 accepts an expression in curly braces: >
 	echo $"Name: {name}"
 
-See |interp-string| for more information.
+See |interpolated-string| for more information.
 
 Borrowed from the C language is the conditional expression: >
 
@@ -687,7 +687,7 @@ search() function uses its first argument as a search pattern and the second
 one as flags.  The "W" flag means the search doesn't wrap around the end of
 the file.
 
-Using the  `call` command is optional in |Vim9| script.  It is required in
+Using the `call` command is optional in |Vim9| script.  It is required in
 legacy script and on the command line: >
 
 	call search("Date: ", "W")
@@ -803,7 +803,7 @@ List manipulation:					*list-functions*
 	call()			call a function with List as arguments
 	index()			index of a value in a List or Blob
 	indexof()		index in a List or Blob where an expression
-				evaluates to true 
+				evaluates to true
 	max()			maximum value in a List
 	min()			minimum value in a List
 	count()			count number of times a value appears in a List
@@ -935,6 +935,7 @@ Working with text in the current buffer:		*text-functions*
 
 Working with text in another buffer:
 	getbufline()		get a list of lines from the specified buffer
+	getbufoneline()		get a one line from the specified buffer
 	setbufline()		replace a line in the specified buffer
 	appendbufline()		append a list of lines in the specified buffer
 	deletebufline()		delete lines from a specified buffer
@@ -1110,6 +1111,7 @@ Interactive:					*interactive-functions*
 	getcharstr()		get a character from the user as a string
 	getcharmod()		get modifiers for the last typed character
 	getmousepos()		get last known mouse position
+	getmouseshape()		get name of the current mouse shape
 	echoraw()		output characters as-is
 	feedkeys()		put characters in the typeahead queue
 	input()			get a line from the user
@@ -1289,6 +1291,7 @@ Popup window:					*popup-window-functions*
 	popup_filter_yesno()	block until 'y' or 'n' is pressed
 	popup_getoptions()	get current options for a popup
 	popup_getpos()		get actual position and size of a popup
+	popup_findecho()	get window ID for popup used for `:echowindow`
 	popup_findinfo()	get window ID for popup info window
 	popup_findpreview()	get window ID for popup preview window
 	popup_list()		get list of all popup window IDs

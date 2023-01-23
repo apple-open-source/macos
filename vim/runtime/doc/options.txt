@@ -1,4 +1,4 @@
-*options.txt*	For Vim version 9.0.  Last change: 2022 Sep 27
+*options.txt*	For Vim version 9.0.  Last change: 2022 Nov 23
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -2921,7 +2921,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 'display' 'dy'		string	(default "", set to "truncate" in
 							       |defaults.vim|)
 			global
-	Change the way text is displayed.  This is comma-separated list of
+	Change the way text is displayed.  This is a comma-separated list of
 	flags:
 	lastline	When included, as much as possible of the last line
 			in a window will be displayed.  "@@@" is put in the
@@ -2934,6 +2934,9 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 	When neither "lastline" nor "truncate" is included, a last line that
 	doesn't fit is replaced with "@" lines.
+
+	The "@" character can be changed by setting the "lastline" item in
+	'fillchars'.  The character is highlighted with |hl-NonText|.
 
 						*'eadirection'* *'ead'*
 'eadirection' 'ead'	string	(default "both")
@@ -3024,6 +3027,16 @@ A jump table for the options with a short description can be found at |Q_op|.
 	When 'encoding' is set to a Unicode encoding, and 'fileencodings' was
 	not set yet, the default for 'fileencodings' is changed.
 
+			*'endoffile'* *'eof'* *'noendoffile'* *'noeof'*
+'endoffile' 'eof'	boolean	(default off)
+			local to buffer
+	Indicates that a CTRL-Z character was found at the end of the file
+	when reading it.  Normally only happens when 'fileformat' is "dos".
+	When writing a file and this option is off and the 'binary' option
+	is on, or 'fixeol' option is off, no CTRL-Z will be written at the
+	end of the file.
+	See |eol-and-eof| for example settings.
+
 			*'endofline'* *'eol'* *'noendofline'* *'noeol'*
 'endofline' 'eol'	boolean	(default on)
 			local to buffer
@@ -3038,6 +3051,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 	to remember the presence of a <EOL> for the last line in the file, so
 	that when you write the file the situation from the original file can
 	be kept.  But you can change it if you want to.
+	See |eol-and-eof| for example settings.
 
 			     *'equalalways'* *'ea'* *'noequalalways'* *'noea'*
 'equalalways' 'ea'	boolean	(default on)
@@ -3399,6 +3413,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 	  foldsep	'|'		open fold middle character
 	  diff		'-'		deleted lines of the 'diff' option
 	  eob		'~'		empty lines below the end of a buffer
+	  lastline	'@'		'display' contains lastline/truncate
 
 	Any one that is omitted will fall back to the default.  For "stl" and
 	"stlnc" the space will be used when there is highlighting, '^' or '='
@@ -3421,16 +3436,18 @@ A jump table for the options with a short description can be found at |Q_op|.
 	  fold		Folded			|hl-Folded|
 	  diff		DiffDelete		|hl-DiffDelete|
 	  eob		EndOfBuffer		|hl-EndOfBuffer|
+	  lastline	NonText			|hl-NonText|
 
 		*'fixendofline'* *'fixeol'* *'nofixendofline'* *'nofixeol'*
 'fixendofline' 'fixeol'	boolean	(default on)
 			local to buffer
 	When writing a file and this option is on, <EOL> at the end of file
-	will be restored if missing. Turn this option off if you want to
+	will be restored if missing.  Turn this option off if you want to
 	preserve the situation from the original file.
 	When the 'binary' option is set the value of this option doesn't
 	matter.
 	See the 'endofline' option.
+	See |eol-and-eof| for example settings.
 
 					*'fkmap'* *'fk'* *'nofkmap'* *'nofk'*
 'fkmap' 'fk'		boolean (default off)
@@ -4510,17 +4527,21 @@ A jump table for the options with a short description can be found at |Q_op|.
 			|+find_in_path| or |+eval| features}
 	Expression to be used to transform the string found with the 'include'
 	option to a file name.  Mostly useful to change "." to "/" for Java: >
-		:set includeexpr=substitute(v:fname,'\\.','/','g')
+		:setlocal includeexpr=substitute(v:fname,'\\.','/','g')
 <	The "v:fname" variable will be set to the file name that was detected.
-
+	Note the double backslash: the `:set` command first halves them, then
+	one remains it the value, where "\." matches a dot literally.  For
+	simple character replacements `tr()` avoids the need for escaping: >
+		:setlocal includeexpr=tr(v:fname,'.','/')
+<
 	Also used for the |gf| command if an unmodified file name can't be
 	found.  Allows doing "gf" on the name after an 'include' statement.
 	Also used for |<cfile>|.
 
 	If the expression starts with s: or |<SID>|, then it is replaced with
 	the script ID (|local-function|). Example: >
-		set includeexpr=s:MyIncludeExpr()
-		set includeexpr=<SID>SomeIncludeExpr()
+		setlocal includeexpr=s:MyIncludeExpr()
+		setlocal includeexpr=<SID>SomeIncludeExpr()
 <	Otherwise, the expression is evaluated in the context of the script
 	where the option was set, thus script-local items are available.
 
@@ -4595,7 +4616,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 	in Insert mode as specified with the 'indentkeys' option.
 	When this option is not empty, it overrules the 'cindent' and
 	'smartindent' indenting.  When 'lisp' is set, this option is
-	overridden by the Lisp indentation algorithm.
+	is only used when 'lispoptions' contains "expr:1".
 	When 'paste' is set this option is not used for indenting.
 	The expression is evaluated with |v:lnum| set to the line number for
 	which the indent is to be computed.  The cursor is also in this line
@@ -4850,6 +4871,51 @@ A jump table for the options with a short description can be found at |Q_op|.
 	<PageUp> and <PageDown>.
 	The 'keymodel' option is set by the |:behave| command.
 
+						*'keyprotocol'* *'kpc'*
+'keyprotocol' 'kpc'	string	(default: see below)
+			global
+	Specifies what keyboard protocol to use depending on the value of
+	'term'.  The supported keyboard protocols names are:
+		none	whatever the terminal uses
+		mok2	modifyOtherKeys level 2, as supported by xterm
+		kitty	Kitty keyboard protocol, as supported by Kitty
+
+	The option value is a list of comma separated items.  Each item has
+	a pattern that is matched against the 'term' option, a colon and the
+	protocol name to be used.  To illustrate this, the default value would
+	be set with: >
+	   set keyprotocol=kitty:kitty,foot:kitty,wezterm:kitty,xterm:mok2
+
+<	This means that when 'term' contains "kitty, "foot" or "wezterm"
+	somewhere then the "kitty" protocol is used.  When 'term' contains
+	"xterm" somewhere, then the "mok2" protocol is used. 
+
+	The first match is used, thus if you want to have "kitty" use the
+	kitty protocol, but "badkitty" not, then you should match "badkitty"
+	first and use the "none" value: >
+	   set keyprotocol=badkitty:none,kitty:kitty
+<
+	The option is used after 'term' has been changed.  First the termcap
+	entries are set, possibly using the builtin list, see |builtin-terms|.
+	Then this option is inspected and if there is a match and a protocol
+	is specified the following happens:
+		none	Nothing, the regular t_TE and t_TI values remain
+
+		mok2	The t_TE value is changed to:
+			    CSI >4;m	disables modifyOtherKeys
+			The t_TI value is changed to:
+			    CSI >4;2m	enables modifyOtherKeys
+			    CSI ?4m	request the modifyOtherKeys state
+
+		kitty	The t_TE value is changed to:
+			    CSI >4;m	disables modifyOtherKeys
+			    CSI =0;1u	disables the kitty keyboard protocol
+			The t_TI value is changed to:
+			    CSI =1;1u	enables the kitty keyboard protocol
+			    CSI ?u	request kitty keyboard protocol state
+			    CSI >c	request the termresponse
+
+
 					*'keywordprg'* *'kp'*
 'keywordprg' 'kp'	string	(default "man" or "man -s",  DOS: ":help",
 								  VMS: "help")
@@ -5036,6 +5102,17 @@ A jump table for the options with a short description can be found at |Q_op|.
 	"=" operator to use this same indentation algorithm rather than
 	calling an external program if 'equalprg' is empty.
 	This option is not used when 'paste' is set.
+
+						*'lispoptions'* *'lop'*
+'lispoptions' 'lop'	string	(default "")
+			local to buffer
+	Comma-separated list of items that influence the Lisp indenting when
+	enabled with the |'lisp'| option.  Currently only one item is
+	supported:
+		expr:1	use 'indentexpr' for Lisp indenting when it is set
+		expr:0	do not use 'indentexpr' for Lisp indenting (default)
+	Note that when using 'indentexpr' the `=` operator indents all the
+	lines, otherwise the first line is not indented (Vi-compatible).
 
 						*'lispwords'* *'lw'*
 'lispwords' 'lw'	string	(default is very long)
@@ -6450,8 +6527,6 @@ A jump table for the options with a short description can be found at |Q_op|.
 					 *'ruler'* *'ru'* *'noruler'* *'noru'*
 'ruler' 'ru'		boolean	(default off, set in |defaults.vim|)
 			global
-			{not available when compiled without the
-			|+cmdline_info| feature}
 	Show the line and column number of the cursor position, separated by a
 	comma.  When there is room, the relative position of the displayed
 	text in the file is shown on the far right:
@@ -7053,6 +7128,8 @@ A jump table for the options with a short description can be found at |Q_op|.
 	  c	don't give |ins-completion-menu| messages.  For example,
 		"-- XXX completion (YYY)", "match 1 of 2", "The only match",
 		"Pattern not found", "Back at original", etc.
+	  C	don't give messages while scanning for ins-completion items,
+		for instance "scanning tags"
 	  q	use "recording" instead of "recording @a"
 	  F	don't give the file info when editing a file, like `:silent`
 		was used for the command; note that this also affects messages
@@ -7109,8 +7186,6 @@ A jump table for the options with a short description can be found at |Q_op|.
 'showcmd' 'sc'		boolean	(Vim default: on, off for Unix,
 				       Vi default: off, set in |defaults.vim|)
 			global
-			{not available when compiled without the
-			|+cmdline_info| feature}
 	Show (partial) command in the last line of the screen.  Set this
 	option off if your terminal is slow.
 	In Visual mode the size of the selected area is shown:
@@ -7280,6 +7355,16 @@ A jump table for the options with a short description can be found at |Q_op|.
 	This option is reset when 'paste' is set and restored when 'paste' is
 	reset.
 	NOTE: This option is reset when 'compatible' is set.
+
+			*'smoothscroll'* *'sms'* *'nosmoothscroll'* *'nosms'*
+'smoothscroll' 'sms'	boolean  (default off)
+			local to window
+	Scrolling works with screen lines.  When 'wrap' is set and the first
+	line in the window wraps part of it may not be visible, as if it is
+	above the window. "<<<" is displayed at the start of the first line,
+	highlighted with |hl-NonText|.
+	NOTE: only partly implemented, currently works with CTRL-E, CTRL-Y
+	and scrolling with the mouse.
 
 					*'softtabstop'* *'sts'*
 'softtabstop' 'sts'	number	(default 0)
@@ -7489,23 +7574,27 @@ A jump table for the options with a short description can be found at |Q_op|.
 	When on, splitting a window will put the new window below the current
 	one. |:split|
 
+			*'splitkeep'* *'spk'*
+'splitkeep' 'spk'	string	(default "cursor")
+			global
+	The value of this option determines the scroll behavior when opening,
+	closing or resizing horizontal splits.
+
+	Possible values are:
+	  cursor	Keep the same relative cursor position.
+	  screen	Keep the text on the same screen line.
+	  topline	Keep the topline the same.
+
+	For the "screen" and "topline" values, the cursor position will be
+	changed when necessary. In this case, the jumplist will be populated
+	with the previous cursor position. For "screen", the text cannot always
+	be kept on the same screen line when 'wrap' is enabled.
+
 			*'splitright'* *'spr'* *'nosplitright'* *'nospr'*
 'splitright' 'spr'	boolean	(default off)
 			global
 	When on, splitting a window will put the new window right of the
 	current one. |:vsplit|
-
-			*'splitscroll'* *'spsc'* *'nosplitscroll'* *'nospsc'*
-'splitscroll' 'spsc'	boolean	(default on)
-			global
-	The value of this option determines the scroll behavior when opening,
-	closing or resizing horizontal splits. When "on", splitting a window
-	horizontally will keep the same relative cursor position in the old and
-	new window, as well windows that are resized. When "off", scrolling
-	will be avoided to stabilize the window content. Instead, the cursor
-	position will be changed when necessary. In this case, the jumplist
-	will be populated with the previous cursor position. Scrolling cannot
-	be guaranteed to be avoided when 'wrap' is enabled.
 
 			   *'startofline'* *'sol'* *'nostartofline'* *'nosol'*
 'startofline' 'sol'	boolean	(default on)
@@ -8460,10 +8549,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 	xterm entries...).
 
 				     *'ttyfast'* *'tf'* *'nottyfast'* *'notf'*
-'ttyfast' 'tf'		boolean	(default off, on when 'term' is xterm, hpterm,
-					sun-cmd, screen, rxvt, dtterm or
-					iris-ansi; also on when running Vim in
-					a DOS console)
+'ttyfast' 'tf'		boolean	(default on)
 			global
 	Indicates a fast terminal connection.  More characters will be sent to
 	the screen for redrawing, instead of using insert/delete line
@@ -8473,6 +8559,14 @@ A jump table for the options with a short description can be found at |Q_op|.
 	line for lines that wrap.  This helps when using copy/paste with the
 	mouse in an xterm and other terminals.
 
+	The default used to be set only for some terminal names, but these
+	days nearly all terminals are fast, therefore the default is now "on".
+	If you have a slow connection you may want to set this option off,
+	e.g. depending on the host name: >
+		if hostname() =~ 'faraway'
+		   set nottyfast
+		endif
+<
 						*'ttymouse'* *'ttym'*
 'ttymouse' 'ttym'	string	(default depends on 'term')
 			global

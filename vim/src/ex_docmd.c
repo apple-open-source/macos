@@ -1859,6 +1859,15 @@ do_one_cmd(
     if (may_have_range)
 	ea.cmd = skip_range(ea.cmd, TRUE, NULL);
 
+#ifdef FEAT_EVAL
+    // Handle ":export" - it functions almost like a command modifier.
+    // ":export var Name: type"
+    // ":export def Name(..."
+    // etc.
+    if (vim9script && checkforcmd_noparen(&ea.cmd, "export", 6))
+	is_export = TRUE;
+#endif
+
     if (vim9script && !may_have_range)
     {
 	if (ea.cmd == cmd + 1 && *cmd == '$')
@@ -1919,7 +1928,11 @@ do_one_cmd(
 	}
     }
 # endif
+#endif
 
+    ea.cmd = cmd;
+
+#ifdef FEAT_EVAL
     // May go to debug mode.  If this happens and the ">quit" debug command is
     // used, throw an interrupt exception and skip the next command.
     dbg_check_breakpoint(&ea);
@@ -1965,7 +1978,6 @@ do_one_cmd(
 #endif
     }
 
-    ea.cmd = cmd;
     if (!may_have_range)
 	ea.line1 = ea.line2 = default_address(&ea);
     else if (parse_cmd_address(&ea, &errormsg, FALSE) == FAIL)
@@ -2122,14 +2134,12 @@ do_one_cmd(
 
 	if (!IS_USER_CMDIDX(ea.cmdidx))
 	{
-#ifdef FEAT_CMDWIN
 	    if (cmdwin_type != 0 && !(ea.argt & EX_CMDWIN))
 	    {
 		// Command not allowed in the command line window
 		errormsg = _(e_invalid_in_cmdline_window);
 		goto doend;
 	    }
-#endif
 	    if (text_locked() && !(ea.argt & EX_LOCK_OK))
 	    {
 		// Command not allowed when text is locked
@@ -2531,11 +2541,17 @@ do_one_cmd(
     }
 #endif
 
-    if (ea.argt & EX_XFILE)
+    if ((ea.argt & EX_XFILE)
+	    && expand_filename(&ea, cmdlinep, &errormsg) == FAIL)
+	goto doend;
+
+#ifdef FEAT_EVAL
+    if (is_export && (ea.argt & EX_EXPORT) == 0)
     {
-	if (expand_filename(&ea, cmdlinep, &errormsg) == FAIL)
-	    goto doend;
+	emsg(_(e_invalid_command_after_export));
+	goto doend;
     }
+#endif
 
     /*
      * Accept buffer name.  Cannot be used at the same time with a buffer
@@ -2592,13 +2608,21 @@ do_one_cmd(
 	/*
 	 * Call the function to execute the builtin command.
 	 */
-	ea.errmsg = NULL;
 	(cmdnames[ea.cmdidx].cmd_func)(&ea);
 	if (ea.errmsg != NULL)
 	    errormsg = ea.errmsg;
     }
 
 #ifdef FEAT_EVAL
+    // A command will reset "is_export" when exporting an item.  If it is still
+    // set something went wrong.
+    if (is_export)
+    {
+	if (errormsg == NULL)
+	    errormsg = _(e_export_with_invalid_argument);
+	is_export = FALSE;
+    }
+
     // Set flag that any command was executed, used by ex_vim9script().
     // Not if this was a command that wasn't executed or :endif.
     if (sourcing_a_script(&ea)
@@ -2655,6 +2679,7 @@ doend:
 
     if (did_set_expr_line)
 	set_expr_line(NULL, NULL);
+    is_export = FALSE;
 #endif
 
     undo_cmdmod(&cmdmod);
@@ -4591,10 +4616,11 @@ get_address(
 		i = '+';		// "number" is same as "+number"
 	    else
 		i = *cmd++;
-	    if (!VIM_ISDIGIT(*cmd))	// '+' is '+1', but '+0' is not '+1'
+	    if (!VIM_ISDIGIT(*cmd))	// '+' is '+1'
 		n = 1;
 	    else
 	    {
+		// "number", "+number" or "-number"
 		n = getdigits(&cmd);
 		if (n == MAXLNUM)
 		{
@@ -4616,8 +4642,8 @@ get_address(
 	    else
 	    {
 #ifdef FEAT_FOLDING
-		// Relative line addressing, need to adjust for folded lines
-		// now, but only do it after the first address.
+		// Relative line addressing: need to adjust for lines in a
+		// closed fold after the first address.
 		if (addr_type == ADDR_LINES && (i == '-' || i == '+')
 							 && address_count >= 2)
 		    (void)hasFolding(lnum, NULL, &lnum);
@@ -5865,13 +5891,11 @@ ex_quit(exarg_T *eap)
 {
     win_T	*wp;
 
-#ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
     {
 	cmdwin_result = Ctrl_C;
 	return;
     }
-#endif
     // Don't quit while editing the command line.
     if (text_locked())
     {
@@ -5950,7 +5974,6 @@ ex_cquit(exarg_T *eap UNUSED)
     static void
 ex_quit_all(exarg_T *eap)
 {
-# ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
     {
 	if (eap->forceit)
@@ -5959,7 +5982,6 @@ ex_quit_all(exarg_T *eap)
 	    cmdwin_result = K_XF2;
 	return;
     }
-# endif
 
     // Don't quit while editing the command line.
     if (text_locked())
@@ -5985,11 +6007,9 @@ ex_close(exarg_T *eap)
 {
     win_T	*win;
     int		winnr = 0;
-#ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
 	cmdwin_result = Ctrl_C;
     else
-#endif
 	if (!text_locked() && !curbuf_locked())
 	{
 	    if (eap->addr_count == 0)
@@ -6046,11 +6066,13 @@ ex_win_close(
     buf_T	*buf = win->w_buffer;
 
     // Never close the autocommand window.
-    if (win == aucmd_win)
+    if (is_aucmd_win(win))
     {
 	emsg(_(e_cannot_close_autocmd_or_popup_window));
 	return;
     }
+    if (window_layout_locked(CMD_close))
+	return;
 
     need_hide = (bufIsChanged(buf) && buf->b_nwindows <= 1);
     if (need_hide && !buf_hide(buf) && !forceit)
@@ -6058,13 +6080,27 @@ ex_win_close(
 #if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG)
 	if ((p_confirm || (cmdmod.cmod_flags & CMOD_CONFIRM)) && p_write)
 	{
-	    bufref_T bufref;
+# ifdef FEAT_TERMINAL
+	    if (term_job_running(buf->b_term))
+	    {
+		if (term_confirm_stop(buf) == FAIL)
+		    return;
+		// Manually kill the terminal here because this command will
+		// hide it otherwise.
+		free_terminal(buf);
+		need_hide = FALSE;
+	    }
+	    else
+# endif
+	    {
+		bufref_T bufref;
 
-	    set_bufref(&bufref, buf);
-	    dialog_changed(buf, FALSE);
-	    if (bufref_valid(&bufref) && bufIsChanged(buf))
-		return;
-	    need_hide = FALSE;
+		set_bufref(&bufref, buf);
+		dialog_changed(buf, FALSE);
+		if (bufref_valid(&bufref) && bufIsChanged(buf))
+		    return;
+		need_hide = FALSE;
+	    }
 	}
 	else
 #endif
@@ -6205,33 +6241,30 @@ ex_tabclose(exarg_T *eap)
     tabpage_T	*tp;
     int		tab_number;
 
-# ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
 	cmdwin_result = K_IGNORE;
-    else
-# endif
-	if (first_tabpage->tp_next == NULL)
-	    emsg(_(e_cannot_close_last_tab_page));
-	else
+    else if (first_tabpage->tp_next == NULL)
+	emsg(_(e_cannot_close_last_tab_page));
+    else if (!window_layout_locked(CMD_tabclose))
+    {
+	tab_number = get_tabpage_arg(eap);
+	if (eap->errmsg == NULL)
 	{
-	    tab_number = get_tabpage_arg(eap);
-	    if (eap->errmsg == NULL)
+	    tp = find_tabpage(tab_number);
+	    if (tp == NULL)
 	    {
-		tp = find_tabpage(tab_number);
-		if (tp == NULL)
-		{
-		    beep_flush();
-		    return;
-		}
-		if (tp != curtab)
-		{
-		    tabpage_close_other(tp, eap->forceit);
-		    return;
-		}
-		else if (!text_locked() && !curbuf_locked())
-		    tabpage_close(eap->forceit);
+		beep_flush();
+		return;
 	    }
+	    if (tp != curtab)
+	    {
+		tabpage_close_other(tp, eap->forceit);
+		return;
+	    }
+	    else if (!text_locked() && !curbuf_locked())
+		tabpage_close(eap->forceit);
 	}
+    }
 }
 
 /*
@@ -6244,38 +6277,35 @@ ex_tabonly(exarg_T *eap)
     int		done;
     int		tab_number;
 
-# ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
 	cmdwin_result = K_IGNORE;
-    else
-# endif
-	if (first_tabpage->tp_next == NULL)
-	    msg(_("Already only one tab page"));
-	else
+    else if (first_tabpage->tp_next == NULL)
+	msg(_("Already only one tab page"));
+    else if (!window_layout_locked(CMD_tabonly))
+    {
+	tab_number = get_tabpage_arg(eap);
+	if (eap->errmsg == NULL)
 	{
-	    tab_number = get_tabpage_arg(eap);
-	    if (eap->errmsg == NULL)
+	    goto_tabpage(tab_number);
+	    // Repeat this up to a 1000 times, because autocommands may
+	    // mess up the lists.
+	    for (done = 0; done < 1000; ++done)
 	    {
-		goto_tabpage(tab_number);
-		// Repeat this up to a 1000 times, because autocommands may
-		// mess up the lists.
-		for (done = 0; done < 1000; ++done)
-		{
-		    FOR_ALL_TABPAGES(tp)
-			if (tp->tp_topframe != topframe)
-			{
-			    tabpage_close_other(tp, eap->forceit);
-			    // if we failed to close it quit
-			    if (valid_tabpage(tp))
-				done = 1000;
-			    // start over, "tp" is now invalid
-			    break;
-			}
-		    if (first_tabpage->tp_next == NULL)
+		FOR_ALL_TABPAGES(tp)
+		    if (tp->tp_topframe != topframe)
+		    {
+			tabpage_close_other(tp, eap->forceit);
+			// if we failed to close it quit
+			if (valid_tabpage(tp))
+			    done = 1000;
+			// start over, "tp" is now invalid
 			break;
-		}
+		    }
+		if (first_tabpage->tp_next == NULL)
+		    break;
 	    }
 	}
+    }
 }
 
 /*
@@ -6284,6 +6314,9 @@ ex_tabonly(exarg_T *eap)
     void
 tabpage_close(int forceit)
 {
+    if (window_layout_locked(CMD_tabclose))
+	return;
+
     // First close all the windows but the current one.  If that worked then
     // close the last window in this tab, that will close it.
     if (!ONE_WINDOW)
@@ -6329,14 +6362,15 @@ tabpage_close_other(tabpage_T *tp, int forceit)
     static void
 ex_only(exarg_T *eap)
 {
-    win_T   *wp;
-    int	    wnr;
+    if (window_layout_locked(CMD_only))
+	return;
 # ifdef FEAT_GUI
     need_mouse_correct = TRUE;
 # endif
     if (eap->addr_count > 0)
     {
-	wnr = eap->line2;
+	win_T   *wp;
+	int	wnr = eap->line2;
 	for (wp = firstwin; --wnr > 0; )
 	{
 	    if (wp->w_next == NULL)
@@ -6355,6 +6389,8 @@ ex_hide(exarg_T *eap UNUSED)
     // ":hide" or ":hide | cmd": hide current window
     if (!eap->skip)
     {
+	if (window_layout_locked(CMD_hide))
+	    return;
 #ifdef FEAT_GUI
 	need_mouse_correct = TRUE;
 #endif
@@ -6419,13 +6455,11 @@ ex_exit(exarg_T *eap)
     if (not_in_vim9(eap) == FAIL)
 	return;
 #endif
-#ifdef FEAT_CMDWIN
     if (cmdwin_type != 0)
     {
 	cmdwin_result = Ctrl_C;
 	return;
     }
-#endif
     // Don't quit while editing the command line.
     if (text_locked())
     {

@@ -344,6 +344,7 @@ PKGADD_VENDOR = @PKGADD_VENDOR@
 PKGCONFIG = @PKGCONFIG@
 RANDOM_FILE = @RANDOM_FILE@
 RANLIB = @RANLIB@
+RC = @RC@
 REQUIRE_LIB_DEPS = @REQUIRE_LIB_DEPS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -451,7 +452,7 @@ EXTRA_DIST = ftpserver.pl httpserver.pl secureserver.pl runtests.pl           \
  manpage-scan.pl nroff-scan.pl http2-server.pl dictserver.py                  \
  negtelnetserver.py smbserver.py util.py                                      \
  disable-scan.pl manpage-syntax.pl error-codes.pl badsymbols.pl               \
- azure.pm appveyor.pm version-scan.pl options-scan.pl
+ azure.pm appveyor.pm version-scan.pl options-scan.pl markdown-uppercase.pl
 
 DISTCLEANFILES = configurehelp.pm
 @BUILD_UNITTESTS_FALSE@BUILD_UNIT = 
@@ -479,7 +480,7 @@ MAN2HTML = roffit $< >$@
 @CROSSCOMPILING_FALSE@TEST_NF = -a -p !flaky
 
 # special CI target derived from nonflaky with CI-specific flags
-@CROSSCOMPILING_FALSE@TEST_CI = $(TEST_NF) -r -rm
+@CROSSCOMPILING_FALSE@TEST_CI = $(TEST_NF) -rm
 all: all-recursive
 
 .SUFFIXES:
@@ -493,9 +494,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu tests/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign tests/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu tests/Makefile
+	  $(AUTOMAKE) --foreign tests/Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \

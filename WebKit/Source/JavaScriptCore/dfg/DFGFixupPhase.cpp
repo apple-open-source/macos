@@ -2679,6 +2679,7 @@ private:
             break;
         }
 
+        case NumberToStringWithValidRadixConstant:
         case NumberToStringWithRadix: {
             if (node->child1()->shouldSpeculateInt32())
                 fixEdge<Int32Use>(node->child1());
@@ -2686,7 +2687,13 @@ private:
                 fixEdge<Int52RepUse>(node->child1());
             else
                 fixEdge<DoubleRepUse>(node->child1());
-            fixEdge<Int32Use>(node->child2());
+
+            if (op == NumberToStringWithRadix)
+                fixEdge<Int32Use>(node->child2());
+            else if (node->validRadixConstant() == 10 && node->child1()->shouldSpeculateNumber()) {
+                node->setOp(ToString);
+                node->resetOpInfo();
+            }
             break;
         }
 
@@ -2925,7 +2932,6 @@ private:
         case PutByValWithThis:
         case GetByValWithThis:
         case CompareEqPtr:
-        case NumberToStringWithValidRadixConstant:
         case GetGlobalThis:
         case ExtractValueFromWeakMapGet:
         case CPUIntrinsic:
@@ -4318,26 +4324,33 @@ private:
 
         Edge& searchElement = m_graph.varArgChild(node, 1);
 
+        fixEdge<KnownCellUse>(array);
+        if (node->numChildren() == 4)
+            fixEdge<Int32Use>(m_graph.varArgChild(node, 2));
+
         // Constant folding.
         switch (node->arrayMode().type()) {
         case Array::Double:
         case Array::Int32: {
             if (searchElement->shouldSpeculateCell()) {
-                m_insertionSet.insertNode(m_indexInBlock, SpecNone, Check, node->origin, Edge(searchElement.node(), CellUse));
+                fixEdge<CellUse>(searchElement);
+                m_insertionSet.insertCheck(m_graph, m_indexInBlock, node);
                 m_graph.convertToConstant(node, jsNumber(-1));
                 observeUseKindOnNode<CellUse>(searchElement.node());
                 return;
             }
 
             if (searchElement->shouldSpeculateOther()) {
-                m_insertionSet.insertNode(m_indexInBlock, SpecNone, Check, node->origin, Edge(searchElement.node(), OtherUse));
+                fixEdge<OtherUse>(searchElement);
+                m_insertionSet.insertCheck(m_graph, m_indexInBlock, node);
                 m_graph.convertToConstant(node, jsNumber(-1));
                 observeUseKindOnNode<OtherUse>(searchElement.node());
                 return;
             }
 
             if (searchElement->shouldSpeculateBoolean()) {
-                m_insertionSet.insertNode(m_indexInBlock, SpecNone, Check, node->origin, Edge(searchElement.node(), BooleanUse));
+                fixEdge<BooleanUse>(searchElement);
+                m_insertionSet.insertCheck(m_graph, m_indexInBlock, node);
                 m_graph.convertToConstant(node, jsNumber(-1));
                 observeUseKindOnNode<BooleanUse>(searchElement.node());
                 return;
@@ -4347,10 +4360,6 @@ private:
         default:
             break;
         }
-
-        fixEdge<KnownCellUse>(array);
-        if (node->numChildren() == 4)
-            fixEdge<Int32Use>(m_graph.varArgChild(node, 2));
 
         switch (node->arrayMode().type()) {
         case Array::Double: {

@@ -1577,6 +1577,188 @@ cupsdGetUserJobCount(
   return (count);
 }
 
+/*
+ * Purge old files that have become obviously stranded
+ * this is based on the current file name scheme of:
+ * one of a, c or d; 5 decimal digits; optional - and
+ * subsequent characters.
+ */
+
+#define CONTROL_NAME_MIN 6
+#define CONTROL_NAME_MAX 32
+
+enum Kind {
+  eNoKind,
+  eCtrl,
+  eAuth,
+  eData,
+};
+
+struct Entries {
+  char      name[CONTROL_NAME_MAX];
+  enum Kind kind;
+  uint      seen[(int) (1 + eData)];
+};
+
+static void removeRequestFile(const char* name)
+{
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "%s/%s", RequestRoot, name);
+
+  cupsdLogMessage(CUPSD_LOG_NOTICE, "Removing orphan request file: '%s'", name);
+
+  cupsdUnlinkOrRemoveFile(path);
+}
+
+static Boolean isEntryInJobArray(struct Entries* e)
+{
+  // this works for [ac]XXXXX and dXXXXX-YYY; atoi stops at the -
+  int num = atoi(&e->name[1]);
+
+  for (cupsd_job_t* job = cupsArrayFirst(Jobs); job != NULL; job = cupsArrayNext(Jobs)) {
+    if (job->id == num) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static int handle_orphans(struct Entries* entries, uint count)
+{
+  int ctDeleted = 0;
+
+  for (uint o = 0;  o < (count - 1);  o++) {
+    struct Entries* cursor = &entries[o];
+
+    for (uint i = o + 1; i < count; i++) {
+      struct Entries* now = &entries[i];
+
+      if (memcmp(&cursor->name[1], &now->name[1], 5) == 0) {
+	cursor->seen[now->kind]++;
+	now->seen[cursor->kind]++;
+      }
+    }
+  }
+
+/*
+  for (uint i = 0; i < count; i++) {
+    struct Entries* now = &entries[i];
+    fprintf(stderr, "%.32s %d %d %d %d\n", now->name, now->kind, now->seen[0], now->seen[1], now->seen[2]);
+  }
+*/
+
+  for (uint i = 0; i < count; i++) {
+    struct Entries* now = &entries[i];
+
+    switch (now->kind) {
+      default:
+	continue;
+
+      case eCtrl:
+	// For control files, if we have any data files, we keep it
+	if (now->seen[eData] > 0)
+	  continue;
+	break;
+
+	// For data files, we need a control file
+      case eData:
+	if (now->seen[eCtrl] > 0)
+	  continue;
+	break;
+
+	// For auth, we need to see both the others
+      case eAuth:
+	if (now->seen[eCtrl] > 0 && now->seen[eData] > 0)
+	  continue;
+	break;
+    }
+
+    // remove this orphan if it isn't otherwise referenced by the actively scanned Jobs
+    // array.
+    if (! isEntryInJobArray(now)) {
+      ctDeleted++;
+      removeRequestFile(now->name);
+    }
+  }
+
+  return ctDeleted;
+}
+
+// this always consumes src
+static struct Entries* moreEntries(struct Entries* src, uint oldNum)
+{
+  uint num = oldNum + 10;
+  struct Entries* narray = (struct Entries*) calloc(num, sizeof(struct Entries));
+  if (narray != NULL) {
+    memcpy(narray, src, oldNum * sizeof(struct Entries));
+  }
+  free(src);
+  return narray;
+}
+
+static int purge_orphan_request_data()
+{
+  uint ctEntries = 0;
+  uint allocEntries = 0;
+  struct Entries* entries = NULL;
+
+  cups_dir_t* dir = cupsDirOpen(RequestRoot);
+
+  if (dir != NULL) {
+    cups_dentry_t* p;
+
+    while ((p = cupsDirRead(dir)) != NULL) {
+      if (S_ISREG(p->fileinfo.st_mode)) {
+	size_t nameLen = strlen(p->filename);
+
+	if (nameLen < CONTROL_NAME_MIN || nameLen >= CONTROL_NAME_MAX) {
+	  continue;
+	}
+
+	enum Kind kind = eNoKind;
+
+	char ch = p->filename[0];
+	if (ch == 'a')
+	  kind = eAuth;
+	else if (ch == 'c')
+	  kind = eCtrl;
+	else if (ch == 'd')
+	  kind = eData;
+
+	if (kind != eNoKind) {
+	  if (ctEntries == allocEntries) {
+	    entries = moreEntries(entries, allocEntries);
+	    if (entries == NULL) {
+	      allocEntries = 0;
+	      ctEntries = 0;
+	      break;
+	    }
+	    allocEntries += 10;
+	  }
+	  entries[ctEntries].kind = kind;
+	  strlcpy(entries[ctEntries].name, p->filename, CONTROL_NAME_MAX);
+	  ctEntries++;
+	}
+      }
+    }
+
+    cupsDirClose(dir);
+  }
+
+  int ctDeleted = 0;
+
+  if (entries != NULL) {
+    if (ctEntries > 0) {
+      ctDeleted = handle_orphans(entries, ctEntries);
+    }
+
+    free(entries);
+  }
+
+  return ctDeleted;
+}
+
 
 /*
  * 'cupsdLoadAllJobs()' - Load all jobs from disk.
@@ -1673,11 +1855,17 @@ cupsdLoadAllJobs(void)
     load_next_job_id(filename);
   }
 
- /*
+  /*
+   * Lose orphan job data after we've done all the scanning,
+   * and force a clean of old jobs if we did remove anything.
+   */
+  int forceClean = (purge_orphan_request_data() > 0);
+
+  /*
   * Clean out old jobs as needed...
   */
 
-  if (MaxJobs > 0 && cupsArrayCount(Jobs) >= MaxJobs)
+  if (forceClean || (MaxJobs > 0 && cupsArrayCount(Jobs) >= MaxJobs))
     cupsdCleanJobs();
 }
 
@@ -4412,6 +4600,33 @@ load_job_cache(const char *filename)	/* I - job.cache filename */
     }
     else if (!_cups_strcasecmp(line, "</Job>"))
     {
+      if (job->state_value >= IPP_JSTATE_CANCELED && job->completed_time != 0) {
+        // history_time is otherwise not going to be set, and this job will live,
+        // potentially until MaxJobs is reached
+        if (job->history_time == 0)
+        {
+          if (JobHistory < INT_MAX)
+            job->history_time = job->completed_time + JobHistory;
+          else
+            job->history_time = INT_MAX;
+
+          if (job->history_time < JobHistoryUpdate || !JobHistoryUpdate)
+            JobHistoryUpdate = job->history_time;
+        }
+
+        // keeping the files is a separate thing
+        if (job->file_time == 0)
+        {
+          if (JobFiles < INT_MAX)
+            job->file_time = job->completed_time + JobFiles;
+         else
+            job->file_time = INT_MAX;
+
+          if (job->file_time < JobHistoryUpdate || !JobHistoryUpdate)
+            JobHistoryUpdate = job->file_time;
+        }
+      }
+
       cupsArrayAdd(Jobs, job);
 
       if (job->state_value <= IPP_JOB_STOPPED && cupsdLoadJob(job))

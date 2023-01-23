@@ -27,10 +27,8 @@
 DECC = YES
 
 # Build model selection
-# TINY   - Almost no features enabled, not even multiple windows
-# SMALL  - Few features enabled, as basic as possible
+# TINY   - No optional features enabled
 # NORMAL - A default selection of features enabled
-# BIG    - Many features enabled, as rich as possible. (default)
 # HUGE   - All possible features enabled.
 # Please select one of these alternatives above.
 MODEL = HUGE
@@ -359,6 +357,7 @@ SRC = \
 	json.c \
 	list.c \
 	locale.c \
+	logfile.c \
 	main.c \
 	map.c \
 	mark.c \
@@ -483,6 +482,7 @@ OBJ = \
 	json.obj \
 	list.obj \
 	locale.obj \
+	logfile.obj \
 	main.obj \
 	map.obj \
 	mark.obj \
@@ -927,6 +927,10 @@ list.obj : list.c vim.h [.auto]config.h feature.h os_unix.h \
  beval.h [.proto]gui_beval.pro alloc.h ex_cmds.h spell.h proto.h \
  errors.h globals.h
 locale.obj : locale.c vim.h [.auto]config.h feature.h os_unix.h \
+ ascii.h keymap.h termdefs.h macros.h option.h structs.h regexp.h gui.h \
+ beval.h [.proto]gui_beval.pro alloc.h ex_cmds.h spell.h proto.h \
+ errors.h globals.h
+logfile.obj : logfile.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h termdefs.h macros.h option.h structs.h regexp.h gui.h \
  beval.h [.proto]gui_beval.pro alloc.h ex_cmds.h spell.h proto.h \
  errors.h globals.h

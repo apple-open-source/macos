@@ -96,6 +96,7 @@ typedef struct {
 #define kInterfaceTypeFlagIsAWDL	0x02
 #define kInterfaceTypeFlagIsTethered	0x04
 #define kInterfaceTypeFlagIsExpensive	0x08
+#define kInterfaceTypeFlagIsWiFiInfra	0x10
 
 typedef struct {
     char 		name[IFNAMSIZ]; /* eg. en0 */
@@ -181,6 +182,7 @@ void			if_link_copy(interface_t * dest,
 				     const interface_t * source);
 boolean_t		if_link_address_is_private(interface_t * if_p);
 boolean_t		if_is_wireless(interface_t * if_p);
+boolean_t		if_is_wifi_infra(interface_t * if_p);
 boolean_t		if_is_expensive(interface_t * if_p);
 boolean_t		if_is_ethernet(interface_t * if_p);
 int			if_link_index(interface_t * if_p);

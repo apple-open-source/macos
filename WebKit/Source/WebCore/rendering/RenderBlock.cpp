@@ -1068,7 +1068,8 @@ void RenderBlock::layoutPositionedObject(RenderBox& r, bool relayoutChildren, bo
     // If we are paginated or in a line grid, compute a vertical position for our object now.
     // If it's wrong we'll lay out again.
     LayoutUnit oldLogicalTop;
-    bool needsBlockDirectionLocationSetBeforeLayout = r.needsLayout() && view().frameView().layoutContext().layoutState()->needsBlockDirectionLocationSetBeforeLayout();
+    auto* layoutState = view().frameView().layoutContext().layoutState();
+    bool needsBlockDirectionLocationSetBeforeLayout = r.needsLayout() && layoutState && layoutState->needsBlockDirectionLocationSetBeforeLayout();
     if (needsBlockDirectionLocationSetBeforeLayout) {
         if (isHorizontalWritingMode() == r.isHorizontalWritingMode())
             r.updateLogicalHeight();
@@ -1100,7 +1101,7 @@ void RenderBlock::layoutPositionedObject(RenderBox& r, bool relayoutChildren, bo
         r.layoutIfNeeded();
     }
     
-    if (view().frameView().layoutContext().layoutState()->isPaginated() && is<RenderBlockFlow>(*this))
+    if (layoutState && layoutState->isPaginated() && is<RenderBlockFlow>(*this))
         downcast<RenderBlockFlow>(*this).adjustSizeContainmentChildForPagination(r, r.logicalTop());
 }
 
@@ -1131,7 +1132,7 @@ void RenderBlock::markPositionedObjectsForLayout()
 void RenderBlock::markForPaginationRelayoutIfNeeded()
 {
     auto* layoutState = view().frameView().layoutContext().layoutState();
-    if (needsLayout() || !layoutState->isPaginated())
+    if (needsLayout() || !layoutState || !layoutState->isPaginated())
         return;
 
     if (layoutState->pageLogicalHeightChanged() || (layoutState->pageLogicalHeight() && layoutState->pageLogicalOffset(this, logicalTop()) != pageLogicalOffset()))
@@ -2442,7 +2443,7 @@ void RenderBlock::computeChildPreferredLogicalWidths(RenderObject& child, Layout
         auto& box = downcast<RenderBox>(child);
         if (box.shouldComputeLogicalHeightFromAspectRatio() && box.style().logicalWidth().isFixed()) {
             LayoutUnit logicalWidth = LayoutUnit(box.style().logicalWidth().value());
-            minPreferredLogicalWidth = maxPreferredLogicalWidth = blockSizeFromAspectRatio(box.horizontalBorderAndPaddingExtent(), box.verticalBorderAndPaddingExtent(), LayoutUnit(box.style().logicalAspectRatio()), box.style().boxSizingForAspectRatio(), logicalWidth);
+            minPreferredLogicalWidth = maxPreferredLogicalWidth = blockSizeFromAspectRatio(box.horizontalBorderAndPaddingExtent(), box.verticalBorderAndPaddingExtent(), LayoutUnit(box.style().logicalAspectRatio()), box.style().boxSizingForAspectRatio(), logicalWidth, style().aspectRatioType(), isRenderReplaced());
             return;
         }
         minPreferredLogicalWidth = maxPreferredLogicalWidth = box.computeLogicalHeightWithoutLayout();
@@ -2590,7 +2591,7 @@ std::optional<LayoutUnit> RenderBlock::lastLineBaseline() const
 std::optional<LayoutUnit> RenderBlock::inlineBlockBaseline(LineDirectionMode lineDirection) const
 {
     if (shouldApplyLayoutContainment())
-        return synthesizedBaselineFromBorderBox(*this, lineDirection) + (lineDirection == HorizontalLine ? marginBottom() : marginLeft());
+        return synthesizedBaseline(*this, *parentStyle(), lineDirection, BorderBox) + (lineDirection == HorizontalLine ? marginBottom() : marginLeft());
 
     if (isWritingModeRoot() && !isRubyRun())
         return std::optional<LayoutUnit>();
@@ -3216,7 +3217,7 @@ std::optional<LayoutUnit> RenderBlock::availableLogicalHeightForPercentageComput
         // Only grid is expected to be in a state where it is calculating pref width and having unknown logical width.
         if (isRenderGrid() && preferredLogicalWidthsDirty() && !style().logicalWidth().isSpecified())
             return availableHeight;
-        availableHeight = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), LayoutUnit(style().logicalAspectRatio()), style().boxSizingForAspectRatio(), logicalWidth());
+        availableHeight = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), LayoutUnit(style().logicalAspectRatio()), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced());
     } else if (isOutOfFlowPositionedWithSpecifiedHeight) {
         // Don't allow this to affect the block' size() member variable, since this
         // can get called while the block is still laying out its kids.

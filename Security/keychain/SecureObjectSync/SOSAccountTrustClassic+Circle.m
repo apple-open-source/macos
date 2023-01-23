@@ -492,12 +492,18 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             // do this on daily interval +/- 8 hours random to keep all peers doing this at the same time
             SOSIntervalEvent *iCloudCheckEvent = [self iCloudCheckEventHandle: account];
             if([iCloudCheckEvent checkDate]) {
-                bool fixedIdentities = [self fixICloudIdentities:account circle:newCircle];
-                if(fixedIdentities) {
-                    writeUpdate = true;
-                    secnotice("circleOps", "Fixed iCloud Identity in circle");
-                } else {
-                    secnotice("circleOps", "Failed to fix broken icloud identity");
+                /*
+                    If this is a "local" push then don't confuse things by further altering the circle this
+                    can make a mess of piggy-back joins.  Still reset the timer.
+                 */
+                if(!writeUpdate) {
+                    bool fixedIdentities = [self fixICloudIdentities:account circle:newCircle];
+                    if(fixedIdentities) {
+                        writeUpdate = true;
+                        secnotice("circleOps", "Fixed iCloud Identity in circle");
+                    } else {
+                        secnotice("circleOps", "Failed to fix broken icloud identity");
+                    }
                 }
                 [iCloudCheckEvent followup];
             }

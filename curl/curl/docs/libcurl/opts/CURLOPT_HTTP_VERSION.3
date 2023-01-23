@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_HTTP_VERSION 3 "May 17, 2022" "libcurl 7.85.0" "curl_easy_setopt options"
+.TH CURLOPT_HTTP_VERSION 3 "October 22, 2022" "libcurl 7.86.0" "curl_easy_setopt options"
 
 .SH NAME
 CURLOPT_HTTP_VERSION \- HTTP protocol version to use
@@ -86,7 +86,8 @@ CURL *curl = curl_easy_init();
 if(curl) {
   CURLcode ret;
   curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/");
-  curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+  curl_easy_setopt(curl, CURLOPT_HTTP_VERSION,
+                   (long)CURL_HTTP_VERSION_2TLS);
   ret = curl_easy_perform(curl);
   if(ret == CURLE_HTTP_RETURNED_ERROR) {
     /* an HTTP response error problem */

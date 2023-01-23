@@ -257,10 +257,9 @@ arg_type_modifiable(type_T *type, int arg_idx)
     static int
 arg_float_or_nr(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_FLOAT
-	    || type->tt_type == VAR_NUMBER)
+    if (type->tt_type == VAR_FLOAT
+	    || type->tt_type == VAR_NUMBER
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_number, type, context->arg_idx + 1);
     return FAIL;
@@ -356,10 +355,9 @@ arg_bool(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_list_or_blob(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_LIST
-	    || type->tt_type == VAR_BLOB)
+    if (type->tt_type == VAR_LIST
+	    || type->tt_type == VAR_BLOB
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_list_any, type, context->arg_idx + 1);
     return FAIL;
@@ -385,10 +383,9 @@ arg_list_or_blob_mod(
     static int
 arg_string_or_nr(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
-	    || type->tt_type == VAR_NUMBER)
+    if (type->tt_type == VAR_STRING
+	    || type->tt_type == VAR_NUMBER
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
     return FAIL;
@@ -400,10 +397,9 @@ arg_string_or_nr(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_buffer(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
-	    || type->tt_type == VAR_NUMBER)
+    if (type->tt_type == VAR_STRING
+	    || type->tt_type == VAR_NUMBER
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
     return FAIL;
@@ -415,11 +411,10 @@ arg_buffer(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_buffer_or_dict_any(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
+    if (type->tt_type == VAR_STRING
 	    || type->tt_type == VAR_NUMBER
-	    || type->tt_type == VAR_DICT)
+	    || type->tt_type == VAR_DICT
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
     return FAIL;
@@ -431,10 +426,9 @@ arg_buffer_or_dict_any(type_T *type, type_T *decl_type UNUSED, argcontext_T *con
     static int
 arg_lnum(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
-	    || type->tt_type == VAR_NUMBER)
+    if (type->tt_type == VAR_STRING
+	    || type->tt_type == VAR_NUMBER
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
     return FAIL;
@@ -446,9 +440,8 @@ arg_lnum(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_string_or_list_string(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING)
+    if (type->tt_type == VAR_STRING
+	    || type_any_or_unknown(type))
 	return OK;
     if (type->tt_type != VAR_LIST)
     {
@@ -469,10 +462,9 @@ arg_string_or_list_string(type_T *type, type_T *decl_type UNUSED, argcontext_T *
     static int
 arg_string_or_list_any(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
-	    || type->tt_type == VAR_LIST)
+    if (type->tt_type == VAR_STRING
+	    || type->tt_type == VAR_LIST
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
     return FAIL;
@@ -484,10 +476,9 @@ arg_string_or_list_any(type_T *type, type_T *decl_type UNUSED, argcontext_T *con
     static int
 arg_string_or_dict_any(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
-	    || type->tt_type == VAR_DICT)
+    if (type->tt_type == VAR_STRING
+	    || type->tt_type == VAR_DICT
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
     return FAIL;
@@ -499,10 +490,9 @@ arg_string_or_dict_any(type_T *type, type_T *decl_type UNUSED, argcontext_T *con
     static int
 arg_string_or_blob(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
-	    || type->tt_type == VAR_BLOB)
+    if (type->tt_type == VAR_STRING
+	    || type->tt_type == VAR_BLOB
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
     return FAIL;
@@ -514,10 +504,9 @@ arg_string_or_blob(type_T *type, type_T *decl_type UNUSED, argcontext_T *context
     static int
 arg_list_or_dict(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_LIST
-	    || type->tt_type == VAR_DICT)
+    if (type->tt_type == VAR_LIST
+	    || type->tt_type == VAR_DICT
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_list_any, type, context->arg_idx + 1);
     return FAIL;
@@ -547,11 +536,10 @@ arg_list_or_dict_or_blob_mod(
 	type_T	     *decl_type UNUSED,
 	argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_LIST
+    if (type->tt_type == VAR_LIST
 	    || type->tt_type == VAR_DICT
-	    || type->tt_type == VAR_BLOB)
+	    || type->tt_type == VAR_BLOB
+	    || type_any_or_unknown(type))
 	return arg_type_modifiable(type, context->arg_idx + 1);
     arg_type_mismatch(&t_list_any, type, context->arg_idx + 1);
     return FAIL;
@@ -563,12 +551,11 @@ arg_list_or_dict_or_blob_mod(
     static int
 arg_list_or_dict_or_blob_or_string(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_LIST
+    if (type->tt_type == VAR_LIST
 	    || type->tt_type == VAR_DICT
 	    || type->tt_type == VAR_BLOB
-	    || type->tt_type == VAR_STRING)
+	    || type->tt_type == VAR_STRING
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_list_any, type, context->arg_idx + 1);
     return FAIL;
@@ -642,15 +629,13 @@ check_map_filter_arg2(type_T *type, argcontext_T *context, int is_map)
 	}
     }
 
-    if ((type->tt_member != &t_any && type->tt_member != &t_unknown)
-	    || args[0] != NULL)
+    if (!type_any_or_unknown(type->tt_member) || args[0] != NULL)
     {
 	where_T where = WHERE_INIT;
 
 	if (is_map)
 	    t_func_exp.tt_member = expected_member == NULL
-				    || type->tt_member == &t_any
-				    || type->tt_member == &t_unknown
+					|| type_any_or_unknown(type->tt_member)
 				? &t_any : expected_member;
 	else
 	    t_func_exp.tt_member = &t_bool;
@@ -673,8 +658,7 @@ arg_filter_func(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
     if (type->tt_type == VAR_STRING
 	    || type->tt_type == VAR_PARTIAL
-	    || type == &t_unknown
-	    || type == &t_any)
+	    || type_any_or_unknown(type))
 	return OK;
 
     if (type->tt_type == VAR_FUNC)
@@ -691,8 +675,7 @@ arg_map_func(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
     if (type->tt_type == VAR_STRING
 	    || type->tt_type == VAR_PARTIAL
-	    || type == &t_unknown
-	    || type == &t_any)
+	    || type_any_or_unknown(type))
 	return OK;
 
     if (type->tt_type == VAR_FUNC)
@@ -709,8 +692,7 @@ arg_sort_how(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
     if (type->tt_type == VAR_STRING
 	    || type->tt_type == VAR_PARTIAL
-	    || type == &t_unknown
-	    || type == &t_any)
+	    || type_any_or_unknown(type))
 	return OK;
 
     if (type->tt_type == VAR_FUNC)
@@ -722,8 +704,7 @@ arg_sort_how(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 	    args[0] = context->arg_types[0].type_curr->tt_member;
 	else
 	    args[0] = &t_unknown;
-	if ((type->tt_member != &t_any && type->tt_member != &t_unknown)
-		|| args[0] != &t_unknown)
+	if (!type_any_or_unknown(type->tt_member) || args[0] != &t_unknown)
 	{
 	    where_T where = WHERE_INIT;
 
@@ -748,13 +729,12 @@ arg_sort_how(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_string_or_func(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
+    if (type->tt_type == VAR_STRING
 	    || type->tt_type == VAR_PARTIAL
 	    || type->tt_type == VAR_FUNC
 	    || type->tt_type == VAR_BOOL
-	    || type->tt_type == VAR_NUMBER)
+	    || type->tt_type == VAR_NUMBER
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_func_any, type, context->arg_idx + 1);
     return FAIL;
@@ -766,11 +746,10 @@ arg_string_or_func(type_T *type, type_T *decl_type UNUSED, argcontext_T *context
     static int
 arg_string_list_or_blob(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_LIST
+    if (type->tt_type == VAR_LIST
 	    || type->tt_type == VAR_BLOB
-	    || type->tt_type == VAR_STRING)
+	    || type->tt_type == VAR_STRING
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_list_any, type, context->arg_idx + 1);
     return FAIL;
@@ -791,10 +770,9 @@ arg_job(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_chan_or_job(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_CHANNEL
-	    || type->tt_type == VAR_JOB)
+    if (type->tt_type == VAR_CHANNEL
+	    || type->tt_type == VAR_JOB
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_channel, type, context->arg_idx + 1);
     return FAIL;
@@ -854,11 +832,10 @@ arg_item_of_prev(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_str_or_nr_or_list(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
+    if (type->tt_type == VAR_STRING
 	    || type->tt_type == VAR_NUMBER
-	    || type->tt_type == VAR_LIST)
+	    || type->tt_type == VAR_LIST
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
     return FAIL;
@@ -870,10 +847,9 @@ arg_str_or_nr_or_list(type_T *type, type_T *decl_type UNUSED, argcontext_T *cont
     static int
 arg_dict_any_or_string(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_DICT
-	    || type->tt_type == VAR_STRING)
+    if (type->tt_type == VAR_DICT
+	    || type->tt_type == VAR_STRING
+	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
     return FAIL;
@@ -902,13 +878,12 @@ arg_extend3(type_T *type, type_T *decl_type, argcontext_T *context)
     static int
 arg_get1(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_BLOB
+    if (type->tt_type == VAR_BLOB
 	    || type->tt_type == VAR_LIST
 	    || type->tt_type == VAR_DICT
 	    || type->tt_type == VAR_FUNC
-	    || type->tt_type == VAR_PARTIAL)
+	    || type->tt_type == VAR_PARTIAL
+	    || type_any_or_unknown(type))
 	return OK;
 
     arg_type_mismatch(&t_list_any, type, context->arg_idx + 1);
@@ -922,13 +897,12 @@ arg_get1(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_len1(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
+    if (type->tt_type == VAR_STRING
 	    || type->tt_type == VAR_NUMBER
 	    || type->tt_type == VAR_BLOB
 	    || type->tt_type == VAR_LIST
-	    || type->tt_type == VAR_DICT)
+	    || type->tt_type == VAR_DICT
+	    || type_any_or_unknown(type))
 	return OK;
 
     arg_type_mismatch(&t_list_any, type, context->arg_idx + 1);
@@ -958,12 +932,11 @@ arg_remove2(type_T *type, type_T *decl_type, argcontext_T *context)
     static int
 arg_repeat1(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
+    if (type->tt_type == VAR_STRING
 	    || type->tt_type == VAR_NUMBER
 	    || type->tt_type == VAR_BLOB
-	    || type->tt_type == VAR_LIST)
+	    || type->tt_type == VAR_LIST
+	    || type_any_or_unknown(type))
 	return OK;
 
     arg_type_mismatch(&t_string, type, context->arg_idx + 1);
@@ -977,11 +950,10 @@ arg_repeat1(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_slice1(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_LIST
+    if (type->tt_type == VAR_LIST
 	    || type->tt_type == VAR_BLOB
-	    || type->tt_type == VAR_STRING)
+	    || type->tt_type == VAR_STRING
+	    || type_any_or_unknown(type))
 	return OK;
 
     arg_type_mismatch(&t_list_any, type, context->arg_idx + 1);
@@ -995,11 +967,10 @@ arg_slice1(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
     static int
 arg_string_or_list_or_dict(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_STRING
+    if (type->tt_type == VAR_STRING
 	    || type->tt_type == VAR_LIST
-	    || type->tt_type == VAR_DICT)
+	    || type->tt_type == VAR_DICT
+	    || type_any_or_unknown(type))
 	return OK;
 
     semsg(_(e_string_list_or_dict_required_for_argument_nr),
@@ -1014,11 +985,10 @@ arg_string_or_list_or_dict(type_T *type, type_T *decl_type UNUSED, argcontext_T 
     static int
 arg_cursor1(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
-    if (type->tt_type == VAR_ANY
-	    || type->tt_type == VAR_UNKNOWN
-	    || type->tt_type == VAR_NUMBER
+    if (type->tt_type == VAR_NUMBER
 	    || type->tt_type == VAR_STRING
-	    || type->tt_type == VAR_LIST)
+	    || type->tt_type == VAR_LIST
+	    || type_any_or_unknown(type))
 	return OK;
 
     arg_type_mismatch(&t_number, type, context->arg_idx + 1);
@@ -1088,6 +1058,7 @@ static argcheck_T arg2_string_list_number[] = {arg_string, arg_list_number};
 static argcheck_T arg2_string_number[] = {arg_string, arg_number};
 static argcheck_T arg2_string_or_list_dict[] = {arg_string_or_list_any, arg_dict_any};
 static argcheck_T arg2_string_or_list_bool[] = {arg_string_or_list_any, arg_bool};
+static argcheck_T arg2_string_or_list_number[] = {arg_string_or_list_any, arg_number};
 static argcheck_T arg2_string_string_or_number[] = {arg_string, arg_string_or_nr};
 static argcheck_T arg3_any_list_dict[] = {NULL, arg_list_any, arg_dict_any};
 static argcheck_T arg3_buffer_lnum_lnum[] = {arg_buffer, arg_lnum, arg_lnum};
@@ -1108,6 +1079,7 @@ static argcheck_T arg3_string_any_dict[] = {arg_string, NULL, arg_dict_any};
 static argcheck_T arg3_string_any_string[] = {arg_string, NULL, arg_string};
 static argcheck_T arg3_string_bool_bool[] = {arg_string, arg_bool, arg_bool};
 static argcheck_T arg3_string_number_bool[] = {arg_string, arg_number, arg_bool};
+static argcheck_T arg3_string_number_number[] = {arg_string, arg_number, arg_number};
 static argcheck_T arg3_string_or_dict_bool_dict[] = {arg_string_or_dict_any, arg_bool, arg_dict_any};
 static argcheck_T arg3_string_string_bool[] = {arg_string, arg_string, arg_bool};
 static argcheck_T arg3_string_string_dict[] = {arg_string, arg_string, arg_dict_any};
@@ -1778,9 +1750,9 @@ static funcentry_T global_functions[] =
     {"ch_info",		1, 1, FEARG_1,	    arg1_chan_or_job,
 			ret_dict_any,	    JOB_FUNC(f_ch_info)},
     {"ch_log",		1, 2, FEARG_1,	    arg2_string_chan_or_job,
-			ret_void,	    JOB_FUNC(f_ch_log)},
+			ret_void,	    f_ch_log},
     {"ch_logfile",	1, 2, FEARG_1,	    arg2_string,
-			ret_void,	    JOB_FUNC(f_ch_logfile)},
+			ret_void,	    f_ch_logfile},
     {"ch_open",		1, 2, FEARG_1,	    arg2_string_dict,
 			ret_channel,	    JOB_FUNC(f_ch_open)},
     {"ch_read",		1, 2, FEARG_1,	    arg2_chan_or_job_dict,
@@ -1803,7 +1775,7 @@ static funcentry_T global_functions[] =
 			ret_number,	    f_char2nr},
     {"charclass",	1, 1, FEARG_1,	    arg1_string,
 			ret_number,	    f_charclass},
-    {"charcol",		1, 1, FEARG_1,	    arg1_string_or_list_any,
+    {"charcol",		1, 2, FEARG_1,	    arg2_string_or_list_number,
 			ret_number,	    f_charcol},
     {"charidx",		2, 3, FEARG_1,	    arg3_string_number_bool,
 			ret_number,	    f_charidx},
@@ -1813,7 +1785,7 @@ static funcentry_T global_functions[] =
 			ret_number,	    f_cindent},
     {"clearmatches",	0, 1, FEARG_1,	    arg1_number,
 			ret_void,	    f_clearmatches},
-    {"col",		1, 1, FEARG_1,	    arg1_string_or_list_any,
+    {"col",		1, 2, FEARG_1,	    arg2_string_or_list_number,
 			ret_number,	    f_col},
     {"complete",	2, 2, FEARG_2,	    arg2_number_list,
 			ret_void,	    f_complete},
@@ -1951,6 +1923,8 @@ static funcentry_T global_functions[] =
 			ret_list_dict_any,  f_getbufinfo},
     {"getbufline",	2, 3, FEARG_1,	    arg3_buffer_lnum_lnum,
 			ret_list_string,    f_getbufline},
+    {"getbufoneline",	2, 2, FEARG_1,	    arg2_buffer_lnum,
+			ret_string,	    f_getbufoneline},
     {"getbufvar",	2, 3, FEARG_1,	    arg3_buffer_string_any,
 			ret_any,	    f_getbufvar},
     {"getchangelist",	0, 1, FEARG_1,	    arg1_buffer,
@@ -2011,6 +1985,8 @@ static funcentry_T global_functions[] =
 			ret_list_dict_any,  f_getmatches},
     {"getmousepos",	0, 0, 0,	    NULL,
 			ret_dict_number,    f_getmousepos},
+    {"getmouseshape",	0, 0, 0,	    NULL,
+			ret_string,	    f_getmouseshape},
     {"getpid",		0, 0, 0,	    NULL,
 			ret_number,	    f_getpid},
     {"getpos",		1, 1, FEARG_1,	    arg1_string,
@@ -2273,6 +2249,8 @@ static funcentry_T global_functions[] =
 			ret_bool,	    PROP_FUNC(f_popup_filter_menu)},
     {"popup_filter_yesno", 2, 2, 0,	    arg2_number_string,
 			ret_bool,	    PROP_FUNC(f_popup_filter_yesno)},
+    {"popup_findecho",	0, 0, 0,	    NULL,
+			ret_number,	    PROP_FUNC(f_popup_findecho)},
     {"popup_findinfo",	0, 0, 0,	    NULL,
 			ret_number,	    PROP_FUNC(f_popup_findinfo)},
     {"popup_findpreview", 0, 0, 0,	    NULL,
@@ -2367,7 +2345,7 @@ static funcentry_T global_functions[] =
 			ret_number,	    f_rand},
     {"range",		1, 3, FEARG_1,	    arg3_number,
 			ret_list_number,    f_range},
-    {"readblob",	1, 1, FEARG_1,	    arg1_string,
+    {"readblob",	1, 3, FEARG_1,	    arg3_string_number_number,
 			ret_blob,	    f_readblob},
     {"readdir",		1, 3, FEARG_1,	    arg3_string_any_dict,
 			ret_list_string,    f_readdir},
@@ -3416,12 +3394,31 @@ get_col(typval_T *argvars, typval_T *rettv, int charcol)
 {
     colnr_T	col = 0;
     pos_T	*fp;
-    int		fnum = curbuf->b_fnum;
+    switchwin_T	switchwin;
+    int		winchanged = FALSE;
 
-    if (in_vim9script()
-	    && check_for_string_or_list_arg(argvars, 0) == FAIL)
+    if (check_for_string_or_list_arg(argvars, 0) == FAIL
+	    || check_for_opt_number_arg(argvars, 1) == FAIL)
 	return;
 
+    if (argvars[1].v_type != VAR_UNKNOWN)
+    {
+	tabpage_T	*tp;
+	win_T		*wp;
+
+	// use the window specified in the second argument
+	wp = win_id2wp_tp((int)tv_get_number(&argvars[1]), &tp);
+	if (wp == NULL || tp == NULL)
+	    return;
+
+	if (switch_win_noblock(&switchwin, wp, tp, TRUE) != OK)
+	    return;
+
+	check_cursor();
+	winchanged = TRUE;
+    }
+
+    int fnum = curbuf->b_fnum;
     fp = var2fpos(&argvars[0], FALSE, &fnum, charcol);
     if (fp != NULL && fnum == curbuf->b_fnum)
     {
@@ -3454,6 +3451,9 @@ get_col(typval_T *argvars, typval_T *rettv, int charcol)
 	}
     }
     rettv->vval.v_number = col;
+
+    if (winchanged)
+	restore_win_noblock(&switchwin, TRUE);
 }
 
 /*
@@ -3573,7 +3573,7 @@ f_copy(typval_T *argvars, typval_T *rettv)
     static void
 set_cursorpos(typval_T *argvars, typval_T *rettv, int charcol)
 {
-    long	line, col;
+    long	lnum, col;
     long	coladd = 0;
     int		set_curswant = TRUE;
 
@@ -3595,7 +3595,7 @@ set_cursorpos(typval_T *argvars, typval_T *rettv, int charcol)
 	    emsg(_(e_invalid_argument));
 	    return;
 	}
-	line = pos.lnum;
+	lnum = pos.lnum;
 	col = pos.col;
 	coladd = pos.coladd;
 	if (curswant >= 0)
@@ -3604,17 +3604,19 @@ set_cursorpos(typval_T *argvars, typval_T *rettv, int charcol)
 	    set_curswant = FALSE;
 	}
     }
-    else if ((argvars[0].v_type == VAR_NUMBER ||
-					argvars[0].v_type == VAR_STRING)
-	    && (argvars[1].v_type == VAR_NUMBER ||
-					argvars[1].v_type == VAR_STRING))
+    else if ((argvars[0].v_type == VAR_NUMBER
+					    || argvars[0].v_type == VAR_STRING)
+	    && (argvars[1].v_type == VAR_NUMBER
+					   || argvars[1].v_type == VAR_STRING))
     {
-	line = tv_get_lnum(argvars);
-	if (line < 0)
+	lnum = tv_get_lnum(argvars);
+	if (lnum < 0)
 	    semsg(_(e_invalid_argument_str), tv_get_string(&argvars[0]));
+	else if (lnum == 0)
+	    lnum = curwin->w_cursor.lnum;
 	col = (long)tv_get_number_chk(&argvars[1], NULL);
 	if (charcol)
-	    col = buf_charidx_to_byteidx(curbuf, line, col) + 1;
+	    col = buf_charidx_to_byteidx(curbuf, lnum, col) + 1;
 	if (argvars[2].v_type != VAR_UNKNOWN)
 	    coladd = (long)tv_get_number_chk(&argvars[2], NULL);
     }
@@ -3623,10 +3625,10 @@ set_cursorpos(typval_T *argvars, typval_T *rettv, int charcol)
 	emsg(_(e_invalid_argument));
 	return;
     }
-    if (line < 0 || col < 0 || coladd < 0)
+    if (lnum < 0 || col < 0 || coladd < 0)
 	return;		// type error; errmsg already given
-    if (line > 0)
-	curwin->w_cursor.lnum = line;
+    if (lnum > 0)
+	curwin->w_cursor.lnum = lnum;
     if (col > 0)
 	curwin->w_cursor.col = col - 1;
     curwin->w_cursor.coladd = coladd;
@@ -5582,13 +5584,7 @@ f_has(typval_T *argvars, typval_T *rettv)
 		},
 	{"cmdline_compl", 1},
 	{"cmdline_hist", 1},
-	{"cmdwin",
-#ifdef FEAT_CMDWIN
-		1
-#else
-		0
-#endif
-		},
+	{"cmdwin", 1},
 	{"comments", 1},
 	{"conceal",
 #ifdef FEAT_CONCEAL
@@ -6123,20 +6119,8 @@ f_has(typval_T *argvars, typval_T *rettv)
 #endif
 		},
 	{"scrollbind", 1},
-	{"showcmd",
-#ifdef FEAT_CMDL_INFO
-		1
-#else
-		0
-#endif
-		},
-	{"cmdline_info",
-#ifdef FEAT_CMDL_INFO
-		1
-#else
-		0
-#endif
-		},
+	{"showcmd", 1},
+	{"cmdline_info", 1},
 	{"signs",
 #ifdef FEAT_SIGNS
 		1
@@ -8431,7 +8415,7 @@ f_getreginfo(typval_T *argvars, typval_T *rettv)
 
 	if (item != NULL)
 	{
-	    item->di_tv.v_type = VAR_SPECIAL;
+	    item->di_tv.v_type = VAR_BOOL;
 	    item->di_tv.vval.v_number = regname == buf[0]
 						      ? VVAL_TRUE : VVAL_FALSE;
 	    (void)dict_add(dict, item);
@@ -10308,7 +10292,7 @@ f_synIDattr(typval_T *argvars UNUSED, typval_T *rettv)
 		    p = highlight_has_attr(id, HL_ITALIC, modec);
 		break;
 
-	case 'n':					
+	case 'n':
 		if (TOLOWER_ASC(what[1]) == 'o')	// nocombine
 		    p = highlight_has_attr(id, HL_NOCOMBINE, modec);
 		else					// name

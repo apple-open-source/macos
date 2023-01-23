@@ -860,7 +860,7 @@ func Test_sub_with_no_last_pat()
     call writefile(v:errors, 'Xresult')
     qall!
   [SCRIPT]
-  call writefile(lines, 'Xscript')
+  call writefile(lines, 'Xscript', 'D')
   if RunVim([], [], '--clean -S Xscript')
     call assert_equal([], readfile('Xresult'))
   endif
@@ -876,7 +876,6 @@ func Test_sub_with_no_last_pat()
     call assert_equal([], readfile('Xresult'))
   endif
 
-  call delete('Xscript')
   call delete('Xresult')
 endfunc
 
@@ -1075,13 +1074,12 @@ func Test_sub_open_cmdline_win()
     redir END
     qall!
   [SCRIPT]
-  call writefile(lines, 'Xscript')
+  call writefile(lines, 'Xscript', 'D')
   if RunVim([], [], '-u NONE -S Xscript')
     call assert_match('E565: Not allowed to change text or change window',
           \ readfile('Xresult')->join('XX'))
   endif
 
-  call delete('Xscript')
   call delete('Xresult')
 endfunc
 
@@ -1095,6 +1093,25 @@ func Test_sub_edit_scriptfile()
   s/\%')/\=EditScript()
 
   delfunc EditScript
+  bwipe!
+endfunc
+
+" This was editing another file from the expression.
+func Test_sub_expr_goto_other_file()
+  call writefile([''], 'Xfileone', 'D')
+  enew!
+  call setline(1, ['a', 'b', 'c', 'd',
+	\ 'Xfileone zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'])
+
+  func g:SplitGotoFile()
+    exe "sil! norm 0\<C-W>gf"
+    return ''
+  endfunc
+
+  $
+  s/\%')/\=g:SplitGotoFile()
+
+  delfunc g:SplitGotoFile
   bwipe!
 endfunc
 

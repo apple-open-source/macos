@@ -1,4 +1,4 @@
-*eval.txt*	For Vim version 9.0.  Last change: 2022 Sep 17
+*eval.txt*	For Vim version 9.0.  Last change: 2022 Nov 22
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -1548,7 +1548,7 @@ to be doubled.  These two commands are equivalent: >
 	if a =~ '\s*'
 
 
-interpolated-string				*$quote* *interp-string*
+interpolated-string				*$quote* *interpolated-string*
 --------------------
 $"string"		interpolated string constant		*expr-$quote*
 $'string'		interpolated literal string constant	*expr-$'*
@@ -1965,7 +1965,7 @@ v:collate	The current locale setting for collation order of the runtime
 		command.
 		See |multi-lang|.
 
-                                                                *v:colornames*
+								*v:colornames*
 v:colornames    A dictionary that maps color names to hex color strings. These
 		color names can be used with the |highlight-guifg|,
 		|highlight-guibg|, and |highlight-guisp| parameters. Updating
@@ -2859,7 +2859,7 @@ text...
 			does not need to be doubled.
 			If "eval" is specified, then any Vim expression in the
 			form {expr} is evaluated and the result replaces the
-			expression, like with |interp-string|.
+			expression, like with |interpolated-string|.
 			Example where $HOME is expanded: >
 				let lines =<< trim eval END
 				  some text
@@ -3072,6 +3072,10 @@ text...
 :unlo[ckvar][!] [depth] {name} ...		*:unlockvar* *:unlo* *E1246*
 			Unlock the internal variable {name}.  Does the
 			opposite of |:lockvar|.
+
+			If {name} does not exist:
+			- In |Vim9| script an error is given.
+			- In legacy script this is silently ignored.
 
 :if {expr1}			*:if* *:end* *:endif* *:en* *E171* *E579* *E580*
 :en[dif]		Execute the commands until the next matching `:else`
@@ -3392,7 +3396,7 @@ text...
 			when the screen is redrawn.
 
 					*:echow* *:echowin* *:echowindow*
-:echow[indow] {expr1} ..
+:[N]echow[indow] {expr1} ..
 			Like |:echomsg| but when the messages popup window is
 			available the message is displayed there.  This means
 			it will show for three seconds and avoid a
@@ -3400,6 +3404,9 @@ text...
 			that, press Esc in Normal mode (when it would
 			otherwise beep).  If it disappears too soon you can
 			use `:messages` to see the text.
+			When [N] is given then the window will show up for
+			this number of seconds.  The last `:echowindow` with a
+			count matters, it is used once only.
 			The message window is available when Vim was compiled
 			with the +timer and the +popupwin features.
 
@@ -3595,7 +3602,7 @@ this pending exception or command is discarded.
 For examples see |throw-catch| and |try-finally|.
 
 
-NESTING	OF TRY CONDITIONALS				*try-nesting*
+NESTING OF TRY CONDITIONALS				*try-nesting*
 
 Try conditionals can be nested arbitrarily.  That is, a complete try
 conditional can be put into the try block, a catch clause, or the finally

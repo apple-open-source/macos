@@ -1,7 +1,7 @@
 " Vim support file to detect file types
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2022 Sep 27
+" Last Change:	2022 Nov 23
 
 " Listen very carefully, I will say this only once
 if exists("did_load_filetypes")
@@ -369,6 +369,12 @@ au BufNewFile,BufRead *.ch			call dist#ft#FTchange()
 " ChordPro
 au BufNewFile,BufRead *.chopro,*.crd,*.cho,*.crdpro,*.chordpro	setf chordpro
 
+" Clang-format
+au BufNewFile,BufRead .clang-format		setf yaml
+
+" Clang-tidy
+au BufNewFile,BufRead .clang-tidy		setf yaml
+
 " Clean
 au BufNewFile,BufRead *.dcl,*.icl		setf clean
 
@@ -412,6 +418,12 @@ au BufNewFile,BufRead configure.in,configure.ac setf config
 
 " Cooklang
 au BufNewFile,BufRead *.cook			setf cook
+
+" Clinical Quality Language (CQL)
+" .cql is also mentioned as the 'XDCC Catcher queue list' file extension.
+" If support for XDCC Catcher is needed in the future, the contents of the file
+" needs to be inspected.
+au BufNewFile,BufRead *.cql			setf cqlang
 
 " CSV Files
 au BufNewFile,BufRead *.csv			setf csv
@@ -969,6 +981,8 @@ au BufNewFile,BufRead *.jsp			setf jsp
 
 " Java Properties resource file (note: doesn't catch font.properties.pl)
 au BufNewFile,BufRead *.properties,*.properties_??,*.properties_??_??	setf jproperties
+" Eclipse preference files use Java Properties syntax
+au BufNewFile,BufRead org.eclipse.*.prefs	setf jproperties
 
 " Jess
 au BufNewFile,BufRead *.clp			setf jess
@@ -998,7 +1012,7 @@ au BufNewFile,BufRead .babelrc,.eslintrc,.prettierrc,.firebaserc  setf json
 au BufNewFile,BufRead *.jsonc			setf jsonc
 
 " Jsonnet
-au BufNewFile,BufRead *.jsonnet,*.libjsonnet	setf jsonnet
+au BufNewFile,BufRead *.jsonnet,*.libsonnet	setf jsonnet
 
 " Julia
 au BufNewFile,BufRead *.jl			setf julia
@@ -1028,6 +1042,9 @@ au BufNewFile,BufRead Kconfig,Kconfig.debug	setf kconfig
 
 " Lace (ISE)
 au BufNewFile,BufRead *.ace,*.ACE		setf lace
+
+" Larch Shared Language
+au BufNewFile,BufRead .lsl			call dist#ft#FTlsl()
 
 " Latexmkrc
 au BufNewFile,BufRead .latexmkrc,latexmkrc	setf perl
@@ -1119,7 +1136,7 @@ au BufNewFile,BufRead .luacheckrc		setf lua
 au BufNewFile,BufRead *.rockspec		setf lua
 
 " Linden Scripting Language (Second Life)
-au BufNewFile,BufRead *.lsl			setf lsl
+au BufNewFile,BufRead *.lsl			call dist#ft#FTlsl()
 
 " Lynx style file (or LotusScript!)
 au BufNewFile,BufRead *.lss			setf lss
@@ -1182,6 +1199,9 @@ au BufNewFile,BufRead hg-editor-*.txt		setf hgcommit
 " Mercurial config (looks like generic config file)
 au BufNewFile,BufRead *.hgrc,*hgrc		setf cfg
 
+" Mermaid
+au BufNewFile,BufRead *.mmd,*.mmdc,*.mermaid	setf mermaid
+
 " Meson Build system config
 au BufNewFile,BufRead meson.build,meson_options.txt setf meson
 au BufNewFile,BufRead *.wrap			setf dosini
@@ -1216,6 +1236,9 @@ au BufNewFile,BufRead *.m2,*.DEF,*.mi		setf modula2
 
 " Modula-3 (.m3, .i3, .mg, .ig)
 au BufNewFile,BufRead *.[mi][3g]		setf modula3
+
+" Larch/Modula-3
+au BufNewFile,BufRead *.lm3			setf modula3
 
 " Monk
 au BufNewFile,BufRead *.isc,*.monk,*.ssc,*.tsc	setf monk
@@ -1322,6 +1345,9 @@ au BufNewFile,BufRead *.nse			setf lua
 " NSIS
 au BufNewFile,BufRead *.nsi,*.nsh		setf nsis
 
+" Oblivion Language and Oblivion Script Extender
+au BufNewFile,BufRead *.obl,*.obse,*.oblivion,*.obscript  setf obse
+
 " OCaml
 au BufNewFile,BufRead *.ml,*.mli,*.mll,*.mly,.ocamlinit,*.mlt,*.mlp,*.mlip,*.mli.cppo,*.ml.cppo setf ocaml
 
@@ -1360,6 +1386,7 @@ au BufNewFile,BufRead pf.conf				setf pf
 
 " ini style config files, using # comments
 au BufNewFile,BufRead */etc/pacman.conf,mpv.conf	setf confini
+au BufNewFile,BufRead */.aws/config,*/.aws/credentials	setf confini
 
 " Pacman hooks
 au BufNewFile,BufRead *.hook
@@ -1390,6 +1417,9 @@ au BufNewFile,BufRead *.dpr,*.lpr			setf pascal
 
 " Free Pascal makefile definition file
 au BufNewFile,BufRead *.fpc				setf fpcmake
+
+" Path of Exile item filter
+au BufNewFile,BufRead *.filter				setf poefilter
 
 " PDF
 au BufNewFile,BufRead *.pdf				setf pdf
@@ -1622,6 +1652,9 @@ else
   au BufNewFile,BufRead *.rmd,*.smd			setf rmd
 endif
 
+" R profile file
+au BufNewFile,BufRead .Rprofile,Rprofile,Rprofile.site	setf r
+
 " RSS looks like XML
 au BufNewFile,BufRead *.rss				setf xml
 
@@ -1746,6 +1779,9 @@ au BufNewFile,BufRead *.sed			setf sed
 
 " SubRip
 au BufNewFile,BufRead *.srt			setf srt
+
+" SubStation Alpha
+au BufNewFile,BufRead *.ass,*.ssa		setf ssa
 
 " svelte
 au BufNewFile,BufRead *.svelte			setf svelte
@@ -1941,6 +1977,10 @@ au BufNewFile,BufRead */etc/ssh/ssh_config.d/*.conf		setf sshconfig
 " OpenSSH server configuration
 au BufNewFile,BufRead sshd_config			setf sshdconfig
 au BufNewFile,BufRead */etc/ssh/sshd_config.d/*.conf	setf sshdconfig
+
+" OpenVPN configuration
+au BufNewFile,BufRead *.ovpn			setf openvpn
+au BufNewFile,BufRead */openvpn/*/*.conf	setf openvpn
 
 " Stata
 au BufNewFile,BufRead *.ado,*.do,*.imata,*.mata	setf stata
@@ -2155,6 +2195,11 @@ au BufNewFile,BufRead *.va,*.vams		setf verilogams
 " SystemVerilog
 au BufNewFile,BufRead *.sv,*.svh		setf systemverilog
 
+" VHS tape
+" .tape is also used by TapeCalc, which we do not support ATM.  If TapeCalc
+" support is needed the contents of the file needs to be inspected.
+au BufNewFile,BufRead *.tape			setf vhs
+
 " VHDL
 au BufNewFile,BufRead *.hdl,*.vhd,*.vhdl,*.vbe,*.vst,*.vho  setf vhdl
 
@@ -2305,6 +2350,9 @@ au BufNewFile,BufRead fglrxrc			setf xml
 
 " Web Services Description Language (WSDL)
 au BufNewFile,BufRead *.wsdl			setf xml
+
+" Workflow Description Language (WDL)
+au BufNewFile,BufRead *.wdl			setf wdl
 
 " XLIFF (XML Localisation Interchange File Format) is also XML
 au BufNewFile,BufRead *.xlf			setf xml

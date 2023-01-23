@@ -1,4 +1,4 @@
-*vim9.txt*	For Vim version 9.0.  Last change: 2022 Sep 19
+*vim9.txt*	For Vim version 9.0.  Last change: 2022 Nov 14
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -502,7 +502,7 @@ How constants work varies between languages.  Some consider a variable that
 can't be assigned another value a constant.  JavaScript is an example.  Others
 also make the value immutable, thus when a constant uses a list, the list
 cannot be changed.  In Vim9 we can use both.
-							*E1021*
+							*E1021* *E1307*
 `:const` is used for making both the variable and the value a constant.  Use
 this for composite structures that you want to make sure will not be modified.
 Example: >
@@ -962,6 +962,8 @@ In compiled Vim9 script you get:
 	3
 Generally, you should not change the list that is iterated over.  Make a copy
 first if needed.
+When looping over a list of lists, the nested lists can be changed.  The loop
+variable is "final", it cannot be changed but what its value can be changed.
 							*E1306*
 The depth of loops, :for and :while loops added together, cannot exceed 10.
 
@@ -1037,7 +1039,7 @@ In Vim9 script one can use the following predefined values: >
 `true` is the same as `v:true`, `false` the same as `v:false`, `null` the same
 as `v:null`.
 
-While `null` has the type "special", the other "null_" types have the type
+While `null` has the type "special", the other "null_" values have the type
 indicated by their name.  Quite often a null value is handled the same as an
 empty value, but not always.  The values can be useful to clear a script-local
 variable, since they cannot be deleted with `:unlet`.  E.g.: >
@@ -1413,11 +1415,11 @@ to a Vim9 function:
 
 Calling a function in an expr option ~
 							*expr-option-function*
-A few options, such as 'foldexpr', are an expresison that is evaluated to get
-a value.  The evaluation can have quite a bit of overhead.  One way to
-minimize the overhead, and also to keep the option value very simple, is to
-defined a compiled function and set the option to call it without arguments.
-Example: >
+The value of a few options, such as 'foldexpr', is an expression that is
+evaluated to get a value.  The evaluation can have quite a bit of overhead.
+One way to minimize the overhead, and also to keep the option value very
+simple, is to define a compiled function and set the option to call it
+without arguments.  Example: >
 	vim9script
 	def MyFoldFunc(): any
 	   ... compute fold level for line v:lnum
@@ -1948,13 +1950,22 @@ For now we'll just make sure classes can be added later.
 Thoughts:
 - `class` / `endclass`, the whole class must be in one file
 - Class names are always CamelCase (to avoid a name clash with builtin types)
-- A single constructor called "constructor"
-- Single inheritance with `class ThisClass extends BaseClass`
-- `abstract class` (class with incomplete implementation)
-- `interface` / `endinterface` (abstract class without any implementation)
-- `class SomeClass implements SomeInterface`
+- A single constructor called "constructor" (similar to TypeScript)
+- Single inheritance: `class ThisClass extends BaseClass`
+- `interface` / `endinterface` (looks like a class without any implementation)
+- Explicit declaration that the class supports an interface, so that type
+  checking works properly:
+  `class SomeClass implements SomeInterface, OtherInterface`
+- `abstract class` (class with incomplete implementation) - not really needed?
+- Class (static) methods and Object methods: syntax to be defined.
+- Class (static) members and Object members: syntax to be defined.
+- Access control: private / protected / shared / public ?  Keep it simple.
+- Access object members with `this.member` ?
 - Generics for class: `class <Tkey, Tentry>`
 - Generics for function: `def <Tkey> GetLast(key: Tkey)`
+- Method overloading (two methods with the same name but different argument
+  types): Most likely not
+- Mixins: not sure if that is useful, leave out for simplicity.
 
 Again, much of this is from TypeScript with a slightly different syntax.
 
@@ -1982,10 +1993,10 @@ Some commands have already been reserved:
 
 Some examples: >
 
-	abstract class Person 
+	abstract class Person
 	    static const prefix = 'xxx'
 	    var name: string
-	    
+
 	    def constructor(name: string)
 		this.name = name
 	    enddef

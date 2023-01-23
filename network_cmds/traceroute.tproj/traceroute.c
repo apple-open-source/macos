@@ -290,6 +290,8 @@ The Regents of the University of California.  All rights reserved.\n";
 #include "as.h"
 #include "traceroute.h"
 
+#include "network_cmds_lib.h"
+
 /* Maximum number of gateways (include room for one noop) */
 #define NGATEWAYS ((int)((MAX_IPOPTLEN - IPOPT_MINOFF - 1) / sizeof(u_int32_t)))
 
@@ -1632,6 +1634,7 @@ inetname(struct in_addr in)
 			    strcmp(cp + 1, domain) == 0)
 				*cp = '\0';
 			(void)strlcpy(line, hp->h_name, sizeof(line));
+			clean_non_printable(line, strlen(line));
 			return (line);
 		}
 	}
@@ -1681,6 +1684,7 @@ gethostinfo(register char *hostname)
 		exit(1);
 	}
 	hi->name = strdup(hp->h_name);
+	clean_non_printable(hi->name, strlen(hi->name));
 	for (n = 0, p = hp->h_addr_list; *p != NULL; ++n, ++p)
 		continue;
 	hi->n = n;

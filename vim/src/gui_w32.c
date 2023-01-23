@@ -852,6 +852,13 @@ get_active_modifiers(void)
 	modifiers |= MOD_MASK_ALT;
     if ((modifiers & MOD_MASK_CTRL) && (GetKeyState(VK_RMENU) & 0x8000))
 	modifiers &= ~MOD_MASK_CTRL;
+    // Add RightALT only if it is hold alone (without Ctrl), because if AltGr
+    // is pressed, Windows claims that Ctrl is hold as well. That way we can
+    // recognize Right-ALT alone and be sure that not AltGr is hold.
+    if (!(GetKeyState(VK_CONTROL) & 0x8000)
+	    &&  (GetKeyState(VK_RMENU) & 0x8000)
+	    && !(GetKeyState(VK_LMENU) & 0x8000)) // seems AltGr has both set
+	modifiers |= MOD_MASK_ALT;
 
     return modifiers;
 }
@@ -1966,7 +1973,7 @@ process_message(void)
 	if (dead_key != DEAD_KEY_OFF)
 	{
 	    /*
-	     * Expell the dead key pressed with Ctrl in a special way.
+	     * Expel the dead key pressed with Ctrl in a special way.
 	     *
 	     * After dead key was pressed with Ctrl in some cases, ESC was
 	     * artificially injected and handled by _OnChar(), now we are
@@ -2145,16 +2152,25 @@ process_message(void)
 
 	    if (len <= 0)
 	    {
-		if (   dead_key == DEAD_KEY_SET_DEFAULT
-		    && (GetKeyState(VK_CONTROL) & 0x8000)
-		    && (   (vk == 221 && scan_code == 26) // AZERTY CTRL+dead_circumflex
-			|| (vk == 220 && scan_code == 41) // QWERTZ CTRL+dead_circumflex
-		       )
-		   )
+		int wm_char = NUL;
+
+		if (dead_key == DEAD_KEY_SET_DEFAULT
+			&& (GetKeyState(VK_CONTROL) & 0x8000))
+		{
+		    if (   // AZERTY CTRL+dead_circumflex
+			   (vk == 221 && scan_code == 26)
+			   // QWERTZ CTRL+dead_circumflex
+			|| (vk == 220 && scan_code == 41))
+			wm_char = '[';
+		    if (   // QWERTZ CTRL+dead_two-overdots
+			   (vk == 192 && scan_code == 27))
+			wm_char = ']';
+		}
+		if (wm_char != NUL)
 		{
 		    // post WM_CHAR='[' - which will be interpreted with CTRL
-		    // stil hold as ESC
-		    PostMessageW(msg.hwnd, WM_CHAR, '[', msg.lParam);
+		    // still hold as ESC
+		    PostMessageW(msg.hwnd, WM_CHAR, wm_char, msg.lParam);
 		    // ask _OnChar() to not touch this state, wait for next key
 		    // press and maintain knowledge that we are "poisoned" with
 		    // "dead state"
@@ -2609,11 +2625,7 @@ show_tabline_popup_menu(void)
     POINT	    pt;
 
     // When ignoring events don't show the menu.
-    if (hold_gui_events
-# ifdef FEAT_CMDWIN
-	    || cmdwin_type != 0
-# endif
-       )
+    if (hold_gui_events || cmdwin_type != 0)
 	return;
 
     tab_pmenu = CreatePopupMenu();
@@ -6187,13 +6199,11 @@ gui_mch_draw_string(
 	// handled here.
 	int		i;
 	int		wlen;	// string length in words
-	int		clen;	// string length in characters
 	int		cells;	// cell width of string up to composing char
 	int		cw;	// width of current cell
 	int		c;
 
 	wlen = 0;
-	clen = 0;
 	cells = 0;
 	for (i = 0; i < len; )
 	{
@@ -6233,7 +6243,6 @@ gui_mch_draw_string(
 	    }
 	    cells += cw;
 	    i += utf_ptr2len_len(text + i, len - i);
-	    ++clen;
 	}
 #if defined(FEAT_DIRECTX)
 	if (IS_ENABLE_DIRECTX())

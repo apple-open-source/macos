@@ -100,6 +100,24 @@ __setonlyClocaleconv(int val)
 }
 #endif /* __APPLE_PR3417676_HACK__ */
 
+__private_extern__ void
+_locale_lock_fork_prepare(void) {
+	locale_t loc = __current_locale();
+	XL_LOCK(loc);
+}
+
+__private_extern__ void
+_locale_lock_fork_parent(void) {
+	locale_t loc = __current_locale();
+	XL_UNLOCK(loc);
+}
+
+__private_extern__ void
+_locale_lock_fork_child(void) {
+	locale_t loc = __current_locale();
+	loc->__lock = OS_UNFAIR_LOCK_INIT;
+}
+
 /* 
  * The localeconv() function constructs a struct lconv from the current
  * monetary and numeric locales.

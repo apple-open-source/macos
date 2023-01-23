@@ -65,6 +65,12 @@ _libc_initializer(const struct _libc_functions *funcs,
 	const struct ProgramVars *vars);
 
 extern void
+_libc_fork_prepare(void);
+
+extern void
+_libc_fork_parent(void);
+
+extern void
 _libc_fork_child(void);
 
 __END_DECLS

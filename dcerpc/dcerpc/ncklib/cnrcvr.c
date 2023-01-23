@@ -651,15 +651,18 @@ INTERNAL void receive_dispatch
         RPC_CN_PKT_DUMP (pktp, fragbuf_p->data_size);
 
         /*
-         * Keep some stats on the packets received.
-         */
-        RPC_CN_STATS_INCR (pstats[RPC_CN_PKT_PTYPE (pktp)].rcvd);
-        RPC_CN_STATS_INCR (pkts_rcvd);
-
-        /*
          * Setup some local variables.
          */
         ptype = RPC_CN_PKT_PTYPE (pktp);
+
+        /*
+         * Keep some stats on the packets received.
+         */
+        if (/* ptype >= 0 && */ ptype <= RPC_C_CN_PKT_MAX_TYPE)
+        {
+            RPC_CN_STATS_INCR (pstats[ptype].rcvd);
+        }
+        RPC_CN_STATS_INCR (pkts_rcvd);
 
 	/*
 	 * Make sure that we have a valid packet type.

@@ -42,6 +42,13 @@
 #include <corecrypto/ccsha2.h>
 #include <corecrypto/ccrng.h>
 
+#if !TARGET_OS_BRIDGE
+#import <Accounts/Accounts.h>
+#import <Accounts/Accounts_Private.h>
+#import <AppleAccount/ACAccount+AppleAccount.h>
+#import <AppleAccount/ACAccountStore+AppleAccount.h>
+#endif
+
 #include <limits.h>
 
 #include "keychain/SecureObjectSync/SOSInternal.h"
@@ -170,7 +177,14 @@ SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateForAccount(CFAllocatorRef allocator,
     SOSGenCountRef gencount = NULL;
     require_action_quiet(account, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Null Account Object"), NULL, error));
     CFStringRef dsid = NULL;
-    dsid = asString(SOSAccountGetValue((__bridge SOSAccount*)account, kSOSDSIDKey, NULL), error);
+    dsid = asString(SOSAccountGetValue((__bridge SOSAccount*)account, kSOSDSIDKey, NULL), NULL);
+#if !TARGET_OS_BRIDGE
+    if (!dsid) {
+        ACAccountStore* store = [ACAccountStore defaultStore];
+        dsid = (__bridge CFStringRef)store.aa_primaryAppleAccount.aa_personID;
+        SOSAccountSetValue((__bridge SOSAccount*) account, kSOSDSIDKey, dsid, NULL);
+    }
+#endif
     require_action_quiet(dsid, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Couldn't get dsid for recovery keybag components"), NULL, error));
 
     gencount = SOSGenerationCreate();

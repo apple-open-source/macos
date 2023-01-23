@@ -183,4 +183,15 @@ bool RenderSVGForeignObject::nodeAtFloatPoint(const HitTestRequest& request, Hit
         || RenderBlock::nodeAtPoint(request, result, hitTestLocation, LayoutPoint(), HitTestChildBlockBackgrounds);
 }
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+LayoutSize RenderSVGForeignObject::offsetFromContainer(RenderElement& container, const LayoutPoint&, bool*) const
+{
+    ASSERT_UNUSED(container, &container == this->container());
+    ASSERT(!isInFlowPositioned());
+    ASSERT(!isAbsolutelyPositioned());
+    ASSERT(!isInline());
+    return locationOffset();
+}
+#endif
+
 }

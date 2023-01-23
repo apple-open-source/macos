@@ -1909,7 +1909,7 @@ void WebPage::setDefersLoading(bool defersLoading)
     m_page->setDefersLoading(defersLoading);
 }
 
-void WebPage::reload(uint64_t navigationID, uint32_t reloadOptions, SandboxExtension::Handle&& sandboxExtensionHandle)
+void WebPage::reload(uint64_t navigationID, OptionSet<WebCore::ReloadOption> reloadOptions, SandboxExtension::Handle&& sandboxExtensionHandle)
 {
     SendStopResponsivenessTimer stopper;
 
@@ -1918,7 +1918,7 @@ void WebPage::reload(uint64_t navigationID, uint32_t reloadOptions, SandboxExten
 
     m_sandboxExtensionTracker.beginReload(m_mainFrame.ptr(), WTFMove(sandboxExtensionHandle));
     if (m_page && m_mainFrame->coreFrame())
-        m_page->userInputBridge().reloadFrame(*m_mainFrame->coreFrame(), OptionSet<ReloadOption>::fromRaw(reloadOptions));
+        m_page->userInputBridge().reloadFrame(*m_mainFrame->coreFrame(), reloadOptions);
     else
         ASSERT_NOT_REACHED();
 
@@ -6756,6 +6756,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
     
     bool viewportChanged = false;
 
+    m_viewportConfiguration.setCanIgnoreViewportArgumentsToAvoidExcessiveZoom(shouldIgnoreMetaViewport());
     m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(shouldEnableViewportBehaviorsForResizableWindows());
 
     LOG_WITH_STREAM(VisibleRects, stream << "WebPage " << m_identifier.toUInt64() << " didCommitLoad setting content size to " << coreFrame->view()->contentsSize());
@@ -6983,6 +6984,10 @@ void WebPage::updateWebsitePolicies(WebsitePoliciesData&& websitePolicies)
     
 #if ENABLE(VIDEO)
     m_page->updateMediaElementRateChangeRestrictions();
+#endif
+
+#if ENABLE(META_VIEWPORT)
+    m_viewportConfiguration.setCanIgnoreViewportArgumentsToAvoidExcessiveZoom(shouldIgnoreMetaViewport());
 #endif
 }
 

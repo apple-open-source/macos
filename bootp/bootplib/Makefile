@@ -5,7 +5,7 @@
 ifeq ($(PLATFORM),iphoneos)
 # iOS internal SDK
 CORETELEPHONY=-framework CoreTelephony
-ARCHS=armv7
+ARCHS=arm64
 endif
 
 ifeq ($(PLATFORM),macosx)
@@ -72,7 +72,8 @@ nihosts:
 	cc -Wall -g -o nihosts -DTEST_NIHOSTS NIHosts.m util.c NIDomain.c dynarray.c ptrlist.c netinfo.c host_identifier.c
 
 interfaces: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
-	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -framework IOKit -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
+	codesign -s - $@
 
 interface_changes: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACE_CHANGES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^

@@ -53,7 +53,7 @@ def Test_expr1_ternary()
       assert_equal(function('len'), Res)
 
       var RetOne: func(string): number = function('len')
-      var RetTwo: func(string): number = function('charcol')
+      var RetTwo: func(string): number = function('strlen')
       var RetThat: func = g:atrue ? RetOne : RetTwo
       assert_equal(function('len'), RetThat)
 
@@ -3132,6 +3132,42 @@ def Test_expr9_any_index_slice()
   unlet g:testlist
 enddef
 
+def s:GetList(): list<string>
+  return ['a', 'b', 'z']
+enddef
+
+def Test_slice_const_list()
+  const list = GetList()
+  final sliced = list[0 : 1]
+  # OK to change the list after slicing, it is a copy now
+  add(sliced, 'Z')
+  assert_equal(['a', 'b', 'Z'], sliced)
+enddef
+
+def Test_expr9_const_any_index_slice()
+  var lines =<< trim END
+      vim9script
+
+      export def V(): dict<any>
+        return {a: [1, 43], b: 0}
+      enddef
+  END
+  writefile(lines, 'XexportDict.vim', 'D')
+
+  lines =<< trim END
+      vim9script
+
+      import './XexportDict.vim' as x
+
+      def Test()
+        const v = x.V()
+        assert_equal(43, v.a[1])
+      enddef
+      Test()
+  END
+  v9.CheckScriptSuccess(lines)
+enddef
+
 def Test_expr_member_vim9script()
   var lines =<< trim END
       var d = {one:
@@ -3490,7 +3526,7 @@ def Test_expr9_autoload_var()
   var auto_lines =<< trim END
       let autofile#var = 'found'
   END
-  mkdir('Xruntime/autoload', 'p')
+  mkdir('Xruntime/autoload', 'pR')
   writefile(auto_lines, 'Xruntime/autoload/autofile.vim')
   var save_rtp = &rtp
   &rtp = getcwd() .. '/Xruntime,' .. &rtp
@@ -3506,7 +3542,6 @@ def Test_expr9_autoload_var()
   v9.CheckDefExecAndScriptFailure(lines, 'E121: Undefined variable: autofile#other')
 
   &rtp = save_rtp
-  delete('Xruntime', 'rf')
 enddef
 
 def Test_expr9_call_autoload()
@@ -3515,7 +3550,7 @@ def Test_expr9_call_autoload()
 	return 'found'
       enddef
   END
-  mkdir('Xruntime/autoload', 'p')
+  mkdir('Xruntime/autoload', 'pR')
   writefile(auto_lines, 'Xruntime/autoload/some.vim')
   var save_rtp = &rtp
   &rtp = getcwd() .. '/Xruntime,' .. &rtp
@@ -3523,7 +3558,6 @@ def Test_expr9_call_autoload()
   assert_equal('found', some#func())
 
   &rtp = save_rtp
-  delete('Xruntime', 'rf')
 enddef
 
 def Test_expr9_method_call()
@@ -3640,7 +3674,7 @@ def Test_expr9_method_call_import()
           return map(items, (_, i) => i * i)
       enddef
   END
-  call writefile(lines, 'Xsquare.vim')
+  call writefile(lines, 'Xsquare.vim', 'D')
 
   lines =<< trim END
       vim9script
@@ -3663,8 +3697,6 @@ def Test_expr9_method_call_import()
       echo range(5)->Xsquare.NoSuchFunc()
   END
   v9.CheckScriptFailure(lines, 'E1048: Item not found in script: NoSuchFunc')
-
-  delete('Xsquare.vim')
 enddef
 
 

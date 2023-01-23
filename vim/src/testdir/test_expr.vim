@@ -35,7 +35,7 @@ func Test_version()
   call assert_true(has('patch-6.9.999'))
   call assert_true(has('patch-7.1.999'))
   call assert_true(has('patch-7.4.123'))
-  call assert_true(has('patch-7.4.123 ')) " Traling space can be allowed.
+  call assert_true(has('patch-7.4.123 ')) " Trailing space can be allowed.
 
   call assert_false(has('patch-7'))
   call assert_false(has('patch-7.4'))
@@ -759,6 +759,12 @@ func Test_eval_after_if()
   endfunc
   if 0 | eval SetVal('a') | endif | call SetVal('b')
   call assert_equal('b', s:val)
+endfunc
+
+func Test_divide_by_zero()
+  " only tests that this doesn't crash, the result is not important
+  echo 0 / 0
+  echo 0 / 0 / -1
 endfunc
 
 " Test for command-line completion of expressions

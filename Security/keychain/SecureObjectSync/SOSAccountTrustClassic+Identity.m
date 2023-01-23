@@ -240,10 +240,12 @@
             if(self->_cachedOctagonEncryptionKey) CFReleaseNull(self->_cachedOctagonEncryptionKey);
         }
         
+        CFStringRef circleName = SOSCircleGetName(self.trustedCircle);
+        
         SecKeyRef fullKey = NULL;
         bool skipInitialSync = false; // This will be set if the set of initial sync views is empty
         NSString* octagonKeyName;
-        CFStringRef keyName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("ID for %@-%@"), SOSPeerGestaltGetName((__bridge CFDictionaryRef)(account.gestalt)), SOSCircleGetName(self.trustedCircle));
+        CFStringRef keyName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("ID for %@-%@"), SOSPeerGestaltGetName((__bridge CFDictionaryRef)(account.gestalt)), circleName);
         fullKey = [self randomPermanentFullECKey:256 name:(__bridge NSString *)keyName error:NULL];
         
         octagonKeyName = [@"Octagon Peer Signing " stringByAppendingString:(__bridge NSString*)keyName];
@@ -281,7 +283,7 @@
 
             // setting fullPeerInfo takes an extra ref, so...
             self.fullPeerInfo = nil;
-            SOSFullPeerInfoRef fpi = SOSFullPeerInfoCreateWithViews(kCFAllocatorDefault, (__bridge CFDictionaryRef)(account.gestalt), (__bridge CFDataRef)(account.backup_key), initialViews, fullKey, octagonSigningFullKey, octagonEncryptionFullKey, error);
+            SOSFullPeerInfoRef fpi = SOSFullPeerInfoCreateWithViews(kCFAllocatorDefault, circleName, (__bridge CFDictionaryRef)(account.gestalt), (__bridge CFDataRef)(account.backup_key), initialViews, fullKey, octagonSigningFullKey, octagonEncryptionFullKey, error);
             self.fullPeerInfo = fpi;
             SecKeyRef pubKey = SOSFullPeerInfoCopyPubKey(fpi, NULL);
             account.peerPublicKey = pubKey;

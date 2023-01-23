@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -608,6 +608,7 @@ main(int argc, char * argv[])
 			char		bssid[LINK_ADDR_ETHER_STR_LEN];
 
 			link_addr_to_string(bssid, sizeof(bssid),
+					    (const uint8_t *)
 					    WiFiInfoGetBSSID(info_p),
 					    ETHER_ADDR_LEN);
 			auth_type = WiFiInfoGetAuthType(info_p);

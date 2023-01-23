@@ -2293,7 +2293,8 @@ func Test_zz_ch_log()
   call ch_log('%s%s')
   call ch_logfile('')
   let text = readfile('Xlog')
-  call assert_match("hello there", text[1])
+  call assert_match("start log session", text[0])
+  call assert_match("ch_log(): hello there", text[1])
   call assert_match("%s%s", text[2])
   call mkdir("Xchlogdir1", 'D')
   call assert_fails("call ch_logfile('Xchlogdir1')", 'E484:')
@@ -2563,11 +2564,11 @@ func LspTests(port)
 
   " Test for using a one time callback function to process a response
   let g:lspOtMsgs = []
-  let r = ch_sendexpr(ch, #{method: 'msg-specifc-cb', params: {}},
+  let r = ch_sendexpr(ch, #{method: 'msg-specific-cb', params: {}},
         \ #{callback: 'LspOtCb'})
   call assert_equal(9, r.id)
   call assert_equal('alive', ch_evalexpr(ch, #{method: 'ping'}).result)
-  call assert_equal([#{id: 9, jsonrpc: '2.0', result: 'msg-specifc-cb'}],
+  call assert_equal([#{id: 9, jsonrpc: '2.0', result: 'msg-specific-cb'}],
         \ g:lspOtMsgs)
 
   " Test for generating a request message from the other end (server)

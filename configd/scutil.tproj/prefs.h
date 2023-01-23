@@ -45,6 +45,7 @@ __BEGIN_DECLS
 #define DISABLE_PRIVATE_RELAY	"disable-private-relay"
 #define ENABLE_LOW_DATA_MODE	"enable-low-data-mode"
 #define OVERRIDE_EXPENSIVE	"override-expensive"
+#define DISABLE_SERVICE_COUPLING "disable-service-coupling"
 
 AuthorizationRef	_prefs_AuthorizationCreate	(void);
 void			_prefs_AuthorizationFree	(AuthorizationRef authorization);
@@ -75,6 +76,7 @@ void	do_prefs_set		(int argc, char * const argv[]);
 void	do_prefs_remove		(int argc, char * const argv[]);
 
 void	do_log			(char *pref, int argc, char * const argv[]);
+void	do_disable_service_coupling	(int argc, char * const argv[]);
 void	do_disable_until_needed	(int argc, char * const argv[]);
 void	do_disable_private_relay(int argc, char * const argv[]);
 void	do_enable_low_data_mode	(int argc, char * const argv[]);

@@ -234,7 +234,7 @@ exe_newdict(int count, ectx_T *ectx)
 	    item = dict_find(dict, key, -1);
 	    if (item != NULL)
 	    {
-		semsg(_(e_duplicate_key_in_dicitonary), key);
+		semsg(_(e_duplicate_key_in_dictionary), key);
 		dict_unref(dict);
 		return MAYBE;
 	    }
@@ -866,7 +866,7 @@ in_def_function(void)
  * a user function.
  */
     ectx_T *
-clear_currrent_ectx(void)
+clear_current_ectx(void)
 {
     ectx_T *r = current_ectx;
 
@@ -2366,7 +2366,7 @@ execute_unletindex(isn_T *iptr, ectx_T *ectx)
 						  NULL, FALSE))
 		    status = FAIL;
 		else
-		    dictitem_remove(d, di);
+		    dictitem_remove(d, di, "unlet");
 	    }
 	}
     }
@@ -3269,7 +3269,7 @@ exec_instructions(ectx_T *ectx)
 	    case ISN_ECHOCONSOLE:
 	    case ISN_ECHOERR:
 		{
-		    int		count = iptr->isn_arg.number;
+		    int		count;
 		    garray_T	ga;
 		    char_u	buf[NUMBUFLEN];
 		    char_u	*p;
@@ -3277,6 +3277,10 @@ exec_instructions(ectx_T *ectx)
 		    int		failed = FALSE;
 		    int		idx;
 
+		    if (iptr->isn_type == ISN_ECHOWINDOW)
+			count = iptr->isn_arg.echowin.ewin_count;
+		    else
+			count = iptr->isn_arg.number;
 		    ga_init2(&ga, 1, 80);
 		    for (idx = 0; idx < count; ++idx)
 		    {
@@ -3339,7 +3343,8 @@ exec_instructions(ectx_T *ectx)
 #ifdef HAS_MESSAGE_WINDOW
 			    else if (iptr->isn_type == ISN_ECHOWINDOW)
 			    {
-				start_echowindow();
+				start_echowindow(
+					      iptr->isn_arg.echowin.ewin_time);
 				msg_attr(ga.ga_data, echo_attr);
 				end_echowindow();
 			    }
@@ -4518,7 +4523,7 @@ exec_instructions(ectx_T *ectx)
 			if (arg2 < 0)
 			{
 			    SOURCING_LNUM = iptr->isn_lnum;
-			    emsg(_(e_bitshift_ops_must_be_postive));
+			    emsg(_(e_bitshift_ops_must_be_positive));
 			    goto on_error;
 			}
 		    }
@@ -5924,7 +5929,7 @@ unwind_def_callstack(ectx_T *ectx)
 }
 
 /*
- * Invoke any deffered functions for the top function in "ectx".
+ * Invoke any deferred functions for the top function in "ectx".
  */
     void
 may_invoke_defer_funcs(ectx_T *ectx)
@@ -6094,8 +6099,13 @@ list_instructions(char *pfx, isn_T *instr, int instr_count, ufunc_T *ufunc)
 					  (varnumber_T)(iptr->isn_arg.number));
 		break;
 	    case ISN_ECHOWINDOW:
-		smsg("%s%4d ECHOWINDOW %lld", pfx, current,
-					  (varnumber_T)(iptr->isn_arg.number));
+		if (iptr->isn_arg.echowin.ewin_time > 0)
+		    smsg("%s%4d ECHOWINDOW %d (%ld sec)", pfx, current,
+				      iptr->isn_arg.echowin.ewin_count,
+				      iptr->isn_arg.echowin.ewin_time);
+		else
+		    smsg("%s%4d ECHOWINDOW %d", pfx, current,
+					     iptr->isn_arg.echowin.ewin_count);
 		break;
 	    case ISN_ECHOCONSOLE:
 		smsg("%s%4d ECHOCONSOLE %lld", pfx, current,

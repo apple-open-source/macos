@@ -899,6 +899,15 @@ void Element::setHasFocusWithin(bool value)
     }
 }
 
+void Element::setHasTentativeFocus(bool value)
+{
+    // Tentative focus is used when trying to set the focus on a new element.
+    for (auto& ancestor : composedTreeAncestors(*this)) {
+        ASSERT(ancestor.hasFocusWithin() != value);
+        document().userActionElements().setHasFocusWithin(ancestor, value);
+    }
+}
+
 void Element::setHovered(bool value, Style::InvalidationScope invalidationScope, HitTestRequest)
 {
     if (value == hovered())
@@ -3180,6 +3189,8 @@ static bool isProgramaticallyFocusable(Element& element)
     return element.supportsFocus();
 }
 
+static RefPtr<Element> findFocusDelegateInternal(ContainerNode& target);
+
 // https://html.spec.whatwg.org/multipage/interaction.html#autofocus-delegate
 static RefPtr<Element> autoFocusDelegate(ContainerNode& target)
 {
@@ -3187,7 +3198,7 @@ static RefPtr<Element> autoFocusDelegate(ContainerNode& target)
         if (!element.hasAttributeWithoutSynchronization(HTMLNames::autofocusAttr))
             continue;
         if (auto root = shadowRootWithDelegatesFocus(element)) {
-            if (auto target = autoFocusDelegate(*root))
+            if (auto target = findFocusDelegateInternal(*root))
                 return target;
         }
         if (isProgramaticallyFocusable(element))
@@ -3662,29 +3673,76 @@ const RenderStyle* Element::renderOrDisplayContentsStyle(PseudoId pseudoId) cons
 const RenderStyle* Element::resolveComputedStyle(ResolveComputedStyleMode mode)
 {
     ASSERT(isConnected());
-    ASSERT(!existingComputedStyle() || hasNodeFlag(NodeFlag::IsComputedStyleInvalidFlag));
 
-    Deque<RefPtr<Element>, 32> elementsRequiringComputedStyle({ this });
-    const RenderStyle* computedStyle = nullptr;
+    bool isInDisplayNoneTree = false;
 
-    // Collect ancestors until we find one that has style.
-    for (auto& ancestor : composedTreeAncestors(*this)) {
-        if (auto* existingStyle = ancestor.existingComputedStyle()) {
-            computedStyle = existingStyle;
-            break;
+    // Traverse the ancestor chain to find the rootmost element that has invalid computed style.
+    auto* rootmostInvalidElement = [&]() -> const Element* {
+        // In ResolveComputedStyleMode::RenderedOnly case we check for display:none ancestors.
+        if (mode == ResolveComputedStyleMode::Normal && !document().hasPendingStyleRecalc() && existingComputedStyle())
+            return nullptr;
+
+        if (document().hasPendingFullStyleRebuild())
+            return document().documentElement();
+
+        if (!document().documentElement() || document().documentElement()->hasNodeFlag(NodeFlag::IsComputedStyleInvalidFlag))
+            return document().documentElement();
+
+        const Element* rootmost = nullptr;
+
+        for (auto* element = this; element; element = element->parentElementInComposedTree()) {
+            if (element->hasNodeFlag(NodeFlag::IsComputedStyleInvalidFlag)) {
+                rootmost = element;
+                continue;
+            }
+            auto* existing = element->existingComputedStyle();
+            if (!existing) {
+                rootmost = element;
+                continue;
+            }
+            if (mode == ResolveComputedStyleMode::RenderedOnly && existing->display() == DisplayType::None) {
+                isInDisplayNoneTree = true;
+                return nullptr;
+            }
         }
-        elementsRequiringComputedStyle.prepend(&ancestor);
-    }
+        return rootmost;
+    }();
+
+    if (isInDisplayNoneTree)
+        return nullptr;
+
+    if (!rootmostInvalidElement)
+        return existingComputedStyle();
+
+    auto* ancestorWithValidStyle = rootmostInvalidElement->parentElementInComposedTree();
+
+    Vector<RefPtr<Element>, 32> elementsRequiringComputedStyle;
+    for (auto* toResolve = this; toResolve != ancestorWithValidStyle; toResolve = toResolve->parentElementInComposedTree())
+        elementsRequiringComputedStyle.append(toResolve);
+
+    auto* computedStyle = ancestorWithValidStyle ? ancestorWithValidStyle->existingComputedStyle() : nullptr;
 
     // On iOS request delegates called during styleForElement may result in re-entering WebKit and killing the style resolver.
     Style::PostResolutionCallbackDisabler disabler(document(), Style::PostResolutionCallbackDisabler::DrainCallbacks::No);
 
     // Resolve and cache styles starting from the most distant ancestor.
-    for (auto& element : elementsRequiringComputedStyle) {
+    // FIXME: This is not as efficient as it could be. For example if an ancestor has a non-inherited style change but
+    // the styles are otherwise clean we would not need to re-resolve descendants.
+    for (auto& element : makeReversedRange(elementsRequiringComputedStyle)) {
         bool hadDisplayContents = element->hasDisplayContents();
         auto style = document().styleForElementIgnoringPendingStylesheets(*element, computedStyle);
         computedStyle = style.get();
         ElementRareData& rareData = element->ensureElementRareData();
+        if (auto* existing = rareData.computedStyle()) {
+            auto change = Style::determineChange(*existing, *style);
+            if (change > Style::Change::NonInherited) {
+                for (auto& child : composedTreeChildren(*element)) {
+                    if (!is<Element>(child))
+                        continue;
+                    downcast<Element>(child).setNodeFlag(NodeFlag::IsComputedStyleInvalidFlag);
+                }
+            }
+        }
         rareData.setComputedStyle(WTFMove(style));
         element->clearNodeFlag(NodeFlag::IsComputedStyleInvalidFlag);
         if (hadDisplayContents && computedStyle->display() != DisplayType::Contents)
@@ -3697,21 +3755,6 @@ const RenderStyle* Element::resolveComputedStyle(ResolveComputedStyleMode mode)
     return computedStyle;
 }
 
-bool Element::hasValidStyle() const
-{
-    if (!document().needsStyleRecalc())
-        return true;
-
-    if (document().hasPendingFullStyleRebuild())
-        return false;
-    
-    for (auto& element : lineageOfType<Element>(*this)) {
-        if (element.styleValidity() != Style::Validity::Valid)
-            return false;
-    }
-    return true;
-}
-
 bool Element::isFocusableWithoutResolvingFullStyle() const
 {
     auto isFocusableStyle = [](const RenderStyle* style) {
@@ -3722,26 +3765,12 @@ bool Element::isFocusableWithoutResolvingFullStyle() const
             && !style->effectiveInert();
     };
 
-    if (renderStyle() || hasValidStyle())
+    if (renderStyle())
         return isFocusableStyle(renderStyle());
 
-    auto computedStyleForElement = [](Element& element) -> const RenderStyle* {
-        auto* style = element.hasNodeFlag(NodeFlag::IsComputedStyleInvalidFlag) ? nullptr : element.existingComputedStyle();
-        return style ? style : element.resolveComputedStyle(ResolveComputedStyleMode::RenderedOnly);
-    };
-
     // Compute style in yet unstyled subtree.
-    auto* style = computedStyleForElement(const_cast<Element&>(*this));
-    if (!isFocusableStyle(style))
-        return false;
-
-    for (auto& element : composedTreeAncestors(const_cast<Element&>(*this))) {
-        auto* style = computedStyleForElement(element);
-        if (!style || style->display() == DisplayType::None)
-            return false;
-    }
-
-    return true;
+    auto* style = const_cast<Element&>(*this).resolveComputedStyle(ResolveComputedStyleMode::RenderedOnly);
+    return isFocusableStyle(style);
 }
 
 const RenderStyle& Element::resolvePseudoElementStyle(PseudoId pseudoElementSpecifier)
@@ -3774,6 +3803,7 @@ const RenderStyle* Element::computedStyle(PseudoId pseudoElementSpecifier)
     if (PseudoElement* pseudoElement = beforeOrAfterPseudoElement(*this, pseudoElementSpecifier))
         return pseudoElement->computedStyle();
 
+    // FIXME: This should call resolveComputedStyle() unconditionally so we check if the style is valid.
     auto* style = existingComputedStyle();
     if (!style)
         style = resolveComputedStyle();
@@ -3785,6 +3815,15 @@ const RenderStyle* Element::computedStyle(PseudoId pseudoElementSpecifier)
     }
 
     return style;
+}
+
+// FIXME: The caller should be able to just use computedStyle().
+const RenderStyle* Element::computedStyleForEditability()
+{
+    if (!isConnected())
+        return nullptr;
+
+    return resolveComputedStyle();
 }
 
 bool Element::needsStyleInvalidation() const

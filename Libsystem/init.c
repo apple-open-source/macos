@@ -28,7 +28,6 @@
 
 #include <TargetConditionals.h>	// for TARGET_OS_*
 
-
 #include <stddef.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -450,6 +449,7 @@ libSystem_atfork_prepare(unsigned int flags, ...)
 	_dyld_atfork_prepare();
 	cc_atfork_prepare();
 	_malloc_fork_prepare();
+	_libc_fork_prepare();
 	_pthread_atfork_prepare();
 }
 
@@ -461,6 +461,7 @@ libSystem_atfork_parent(unsigned int flags, ...)
 	_pthread_atfork_parent();
 	_malloc_fork_parent();
 	cc_atfork_parent();
+	_libc_fork_parent();
 	_dyld_atfork_parent();
 	dispatch_atfork_parent();
 #if !TARGET_OS_DRIVERKIT

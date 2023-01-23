@@ -112,6 +112,7 @@ public enum ContainerError: Error {
     case configuredContainerDoesNotMatchSpecifiedUser(TPSpecificUser)
     case noSpecifiedUser
     case noEscrowCache
+    case recoveryKeyIsNotCorrect
 }
 
 extension ContainerError: LocalizedError {
@@ -215,6 +216,8 @@ extension ContainerError: LocalizedError {
             return "No user specified"
         case .noEscrowCache:
             return "No escrow cache available"
+        case .recoveryKeyIsNotCorrect:
+            return "Preflighted recovery key is not correct"
         }
     }
 }
@@ -326,6 +329,8 @@ extension ContainerError: CustomNSError {
             return 50
         case .noEscrowCache:
             return 51
+        case .recoveryKeyIsNotCorrect:
+            return 52
         }
     }
 
@@ -3266,7 +3271,7 @@ class Container: NSObject, ConfiguredCloudKit {
         self.semaphore.wait()
         self.fetchViableBottlesWithSemaphore(from: source) { result in
             self.semaphore.signal()
-            
+
             switch result {
             case let .success((viableBottles, partialBottles)):
                 logger.info("fetchViableBottles succeeded with \(viableBottles.count, privacy: .public) viable bottles and \(partialBottles.count, privacy: .public) partial bottles")
@@ -3441,10 +3446,10 @@ class Container: NSObject, ConfiguredCloudKit {
         }
         self.containerMO.escrowFetchDate = nil
     }
-    
+
     func fetchViableBottlesWithSemaphore(from source: OTEscrowRecordFetchSource, reply: @escaping (Result<([String], [String]), Error>) -> Void) {
         logger.info("beginning a fetchViableBottles from source \(source.rawValue)")
-        
+
         switch source {
         case .cache:
             self.fetchViableBottlesFromCacheWithSemaphore(checkingTimeout: false, reply: reply)
@@ -3462,7 +3467,7 @@ class Container: NSObject, ConfiguredCloudKit {
                         logger.info("fetchViableBottlesFromCache returned bottles")
                         reply(.success((viableBottles, partialBottles)))
                     }
-                case .failure(_):
+                case .failure:
                     logger.info("fetchViableBottlesFromCache did not return any bottles, checking cuttlefish")
                     self.fetchViableBottlesFromCuttlefishWithSemaphore(reply: reply)
                 }
@@ -3472,7 +3477,7 @@ class Container: NSObject, ConfiguredCloudKit {
 
     func fetchEscrowRecordsWithSemaphore(from source: OTEscrowRecordFetchSource, reply: @escaping (Result<[Data], Error>) -> Void) {
         logger.info("starting fetchEscrowRecordsWithSemaphore from source \(source.rawValue)")
-        
+
         switch source {
         case .cache:
             self.fetchEscrowRecordsFromCacheWithSemaphore(checkingTimeout: false, reply: reply)
@@ -3490,14 +3495,14 @@ class Container: NSObject, ConfiguredCloudKit {
                         logger.info("fetchEscrowRecordsFromCache returned records")
                         reply(.success(records))
                     }
-                case .failure(_):
+                case .failure:
                     logger.info("fetchEscrowRecordsFromCache did not return any records, checking cuttlefish")
                     self.fetchEscrowRecordsFromCuttlefishWithSemaphore(reply: reply)
                 }
             }
         }
     }
-    
+
     func fetchViableBottlesFromCacheWithSemaphore(checkingTimeout: Bool, reply: @escaping (Result<([String], [String]), Error>) -> Void) {
         logger.info("starting fetchViableBottlesFromCacheWithSemaphore and will check timeout: \(checkingTimeout)")
         self.moc.performAndWait {
@@ -3510,7 +3515,7 @@ class Container: NSObject, ConfiguredCloudKit {
             }, reply: reply)
         }
     }
-    
+
     func fetchEscrowRecordsFromCacheWithSemaphore(checkingTimeout: Bool, reply: @escaping (Result<[Data], Error>) -> Void) {
         logger.info("starting fetchEscrowRecordsFromCacheWithSemaphore and will check timeout: \(checkingTimeout)")
         self.moc.performAndWait {
@@ -3523,7 +3528,7 @@ class Container: NSObject, ConfiguredCloudKit {
             }, reply: reply)
         }
     }
-    
+
     func fetchFromEscrowCacheWithSemaphore<T>(
         checkingTimeout: Bool,
         cacheFetch: () -> (collection: T, isEmpty: Bool),
@@ -3536,12 +3541,12 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.info("no cached records were found, no saved escrowFetchDate either, returning no cache error")
                 return .failure(ContainerError.noEscrowCache)
             }
-            
+
             guard checkingTimeout else {
                 logger.info("skipping timeout check and directly returning cached records")
                 return .success(records)
             }
-            
+
             if let lastDate = self.containerMO.escrowFetchDate, Date() < lastDate.addingTimeInterval(self.escrowCacheTimeout) {
                 logger.info("escrow cache still valid")
                 return .success(records)
@@ -3551,10 +3556,10 @@ class Container: NSObject, ConfiguredCloudKit {
             }
         })
     }
-    
+
     func fetchViableBottlesFromCuttlefishWithSemaphore(reply: @escaping (Result<([String], [String]), Error>) -> Void) {
         logger.info("starting fetchViableBottlesWithSemaphoreFromCuttlefish")
-        
+
         let request = FetchViableBottlesRequest.with { request in
             if OctagonPlatformSupportsSOS() {
                 request.filterRequest = .unknown
@@ -3563,7 +3568,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 request.filterRequest = .byOctagonOnly
             }
         }
-        
+
         self.cuttlefish.fetchViableBottles(request) { result in
             switch result {
             case let .success(response):
@@ -3573,16 +3578,16 @@ class Container: NSObject, ConfiguredCloudKit {
                         self.onQueueRemoveEscrowCache()
                         self.handleFetchViableBottlesResponseWithSemaphore(response: response)
                         self.containerMO.escrowFetchDate = Date()
-                        
+
                         try self.moc.save()
                         logger.info("fetchViableBottles saved bottles and records")
-                        
+
                         let viableBottleIDs = response.viableBottles.map { $0.bottle.bottleID }
                         let partialBottleIDs = response.partialBottles.map { $0.bottle.bottleID }
-                        
+
                         logger.info("fetchViableBottles returned viable bottles: \(viableBottleIDs, privacy: .public)")
                         logger.info("fetchViableBottles returned partial bottles: \(partialBottleIDs, privacy: .public)")
-                        
+
                         return .success((viableBottleIDs, partialBottleIDs))
                     } catch {
                         logger.error("fetchViableBottles unable to save bottles and records with \(traceError(error), privacy: .public)")
@@ -3595,7 +3600,7 @@ class Container: NSObject, ConfiguredCloudKit {
             }
         }
     }
-    
+
     func fetchEscrowRecordsFromCuttlefishWithSemaphore(reply: @escaping (Result<[Data], Error>) -> Void) {
         self.fetchViableBottlesFromCuttlefishWithSemaphore { result in
             reply(self.moc.performAndWait { result.map { _ in
@@ -3766,7 +3771,7 @@ class Container: NSObject, ConfiguredCloudKit {
 
         let request = FetchPolicyDocumentsRequest.with {
             $0.keys = remaining.map { version in
-                PolicyDocumentKey.with { $0.version = version.versionNumber; $0.hash = version.policyHash }}
+                PolicyDocumentKey.with { $0.version = version.versionNumber; $0.hash = version.policyHash } }
         }
 
         self.cuttlefish.fetchPolicyDocuments(request) { response in

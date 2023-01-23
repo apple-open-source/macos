@@ -206,4 +206,52 @@ extension Container {
             }
         }
     }
+
+    func preflightRecoverOctagonWithRecoveryKey(recoveryKey: String,
+                                                salt: String,
+                                                reply: @escaping (Bool, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (Bool, Error?) -> Void = {
+            logger.info("preflightRecoverOctagonWithRecoveryKey complete: \(traceError($1), privacy: .public)")
+            self.semaphore.signal()
+            reply($0, $1)
+        }
+
+        self.fetchAndPersistChanges { error in
+            guard error == nil else {
+                logger.info("preflightRecoverOctagonWithRecoveryKey unable to fetch changes: \(String(describing: error), privacy: .public)")
+                reply(false, error)
+                return
+            }
+
+            self.moc.performAndWait {
+
+                // inflate this RK
+                var recoveryKeys: RecoveryKey
+                do {
+                    recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
+                } catch {
+                    logger.info("preflightRecoverOctagonWithRecoveryKey: failed to create recovery keys: \(String(describing: error), privacy: .public)")
+                    reply(false, ContainerError.failedToCreateRecoveryKey)
+                    return
+                }
+
+                // is a RK enrolled and trusted?
+                guard self.model.isRecoveryKeyEnrolled() else {
+                    logger.info("preflightRecoverOctagonWithRecoveryKey: recovery Key is not enrolled")
+                    reply(false, ContainerError.recoveryKeysNotEnrolled)
+                    return
+                }
+
+                // does this passed in recovery key match the enrolled one?
+                guard self.model.recoverySigningPublicKey() == recoveryKeys.peerKeys.publicSigningKey?.keyData && self.model.recoveryEncryptionPublicKey() == recoveryKeys.peerKeys.publicEncryptionKey?.keyData else {
+                    logger.info("preflightRecoverOctagonWithRecoveryKey: recovery Key is incorrect")
+                    reply(false, ContainerError.recoveryKeyIsNotCorrect)
+                    return
+                }
+
+                reply(true, nil)
+            }
+        }
+    }
 }

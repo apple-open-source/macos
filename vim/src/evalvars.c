@@ -217,10 +217,10 @@ evalvars_init(void)
 
 	// add to v: scope dict, unless the value is not always available
 	if (p->vv_tv_type != VAR_UNKNOWN)
-	    hash_add(&vimvarht, p->vv_di.di_key);
+	    hash_add(&vimvarht, p->vv_di.di_key, "initialization");
 	if (p->vv_flags & VV_COMPAT)
 	    // add to compat scope dict
-	    hash_add(&compat_hashtab, p->vv_di.di_key);
+	    hash_add(&compat_hashtab, p->vv_di.di_key, "initialization");
     }
     set_vim_var_nr(VV_VERSION, VIM_VERSION_100);
     set_vim_var_nr(VV_VERSIONLONG, VIM_VERSION_100 * 10000 + highest_patch());
@@ -562,7 +562,7 @@ prepare_vimvar(int idx, typval_T *save_tv)
     *save_tv = vimvars[idx].vv_tv;
     vimvars[idx].vv_str = NULL;  // don't free it now
     if (vimvars[idx].vv_tv_type == VAR_UNKNOWN)
-	hash_add(&vimvarht, vimvars[idx].vv_di.di_key);
+	hash_add(&vimvarht, vimvars[idx].vv_di.di_key, "prepare vimvar");
 }
 
 /*
@@ -582,7 +582,7 @@ restore_vimvar(int idx, typval_T *save_tv)
 	if (HASHITEM_EMPTY(hi))
 	    internal_error("restore_vimvar()");
 	else
-	    hash_remove(&vimvarht, hi);
+	    hash_remove(&vimvarht, hi, "restore vimvar");
     }
 }
 
@@ -1066,11 +1066,18 @@ ex_let(exarg_T *eap)
     }
     else if (expr[0] == '=' && expr[1] == '<' && expr[2] == '<')
     {
-	list_T	*l;
+	list_T	*l = NULL;
 	long	cur_lnum = SOURCING_LNUM;
 
-	// HERE document
-	l = heredoc_get(eap, expr + 3, FALSE, FALSE);
+	// :let text =<< [trim] [eval] END
+	// :var text =<< [trim] [eval] END
+	if (vim9script && !eap->skip && (!VIM_ISWHITE(expr[-1])
+						 || !IS_WHITE_OR_NUL(expr[3])))
+	    semsg(_(e_white_space_required_before_and_after_str_at_str),
+								  "=<<", expr);
+	else
+	    l = heredoc_get(eap, expr + 3, FALSE, FALSE);
+
 	if (l != NULL)
 	{
 	    rettv_list_set(&rettv, l);
@@ -1319,7 +1326,7 @@ skip_var_list(
 	}
 	return p + 1;
     }
- 
+
     return skip_var_one(arg, include_type);
 }
 
@@ -1336,6 +1343,11 @@ skip_var_one(char_u *arg, int include_type)
 
     if (*arg == '@' && arg[1] != NUL)
 	return arg + 2;
+
+    // termcap option name may have non-alpha characters
+    if (STRNCMP(arg, "&t_", 3) == 0 && arg[3] != NUL && arg[4] != NUL)
+	return arg + 5;
+
     end = find_name_end(*arg == '$' || *arg == '&' ? arg + 1 : arg,
 				   NULL, NULL, FNE_INCL_BR | FNE_CHECK_START);
 
@@ -1368,6 +1380,9 @@ list_hashtable_vars(
     int		todo;
     char_u	buf[IOSIZE];
 
+    int save_ht_flags = ht->ht_flags;
+    ht->ht_flags |= HTFLAGS_FROZEN;
+
     todo = (int)ht->ht_used;
     for (hi = ht->ht_array; todo > 0 && !got_int; ++hi)
     {
@@ -1387,6 +1402,8 @@ list_hashtable_vars(
 		list_one_var(di, prefix, first);
 	}
     }
+
+    ht->ht_flags = save_ht_flags;
 }
 
 /*
@@ -1996,7 +2013,7 @@ do_unlet_var(
 	listitem_remove(lp->ll_list, lp->ll_li);
     else
 	// unlet a Dictionary item.
-	dictitem_remove(lp->ll_dict, lp->ll_di);
+	dictitem_remove(lp->ll_dict, lp->ll_di, "unlet");
 
     return ret;
 }
@@ -2083,7 +2100,8 @@ do_unlet(char_u *name, int forceit)
 	    di = HI2DI(hi);
 	    if (var_check_fixed(di->di_flags, name, FALSE)
 		    || var_check_ro(di->di_flags, name, FALSE)
-		    || value_check_lock(d->dv_lock, name, FALSE))
+		    || value_check_lock(d->dv_lock, name, FALSE)
+		    || check_hashtab_frozen(ht, "unlet"))
 		return FAIL;
 
 	    delete_var(ht, hi);
@@ -3153,18 +3171,20 @@ find_var(char_u *name, hashtab_T **htp, int no_autoload)
     // When using "vim9script autoload" script-local items are prefixed but can
     // be used with s:name.
     if (SCRIPT_ID_VALID(current_sctx.sc_sid)
-					   && name[0] == 's' && name[1] == ':')
+		   && (in_vim9script() || (name[0] == 's' && name[1] == ':')))
     {
 	scriptitem_T *si = SCRIPT_ITEM(current_sctx.sc_sid);
 
 	if (si->sn_autoload_prefix != NULL)
 	{
-	    char_u *auto_name = concat_str(si->sn_autoload_prefix, name + 2);
+	    char_u *base_name = (name[0] == 's' && name[1] == ':')
+							     ? name + 2 : name;
+	    char_u *auto_name = concat_str(si->sn_autoload_prefix, base_name);
 
 	    if (auto_name != NULL)
 	    {
 		ht = &globvarht;
-		ret = find_var_in_ht(ht, *name, auto_name, TRUE);
+		ret = find_var_in_ht(ht, 'g', auto_name, TRUE);
 		vim_free(auto_name);
 		if (ret != NULL)
 		{
@@ -3540,9 +3560,11 @@ delete_var(hashtab_T *ht, hashitem_T *hi)
 {
     dictitem_T	*di = HI2DI(hi);
 
-    hash_remove(ht, hi);
-    clear_tv(&di->di_tv);
-    vim_free(di);
+    if (hash_remove(ht, hi, "delete variable") == OK)
+    {
+	clear_tv(&di->di_tv);
+	vim_free(di);
+    }
 }
 
 /*
@@ -3881,6 +3903,9 @@ set_var_const(
 	    goto failed;
 	}
 
+	if (check_hashtab_frozen(ht, "add variable"))
+	    goto failed;
+
 	// Can't add "v:" or "a:" variable.
 	if (ht == &vimvarht || ht == get_funccal_args_ht())
 	{
@@ -3899,7 +3924,7 @@ set_var_const(
 	if (di == NULL)
 	    goto failed;
 	STRCPY(di->di_key, varname);
-	if (hash_add(ht, DI2HIKEY(di)) == FAIL)
+	if (hash_add(ht, DI2HIKEY(di), "add variable") == FAIL)
 	{
 	    vim_free(di);
 	    goto failed;
@@ -4736,13 +4761,16 @@ f_setbufvar(typval_T *argvars, typval_T *rettv UNUSED)
 	{
 	    aco_save_T	aco;
 
-	    // set curbuf to be our buf, temporarily
+	    // Set curbuf to be our buf, temporarily.
 	    aucmd_prepbuf(&aco, buf);
+	    if (curbuf == buf)
+	    {
+		// Only when it worked to set "curbuf".
+		set_option_from_tv(varname + 1, varp);
 
-	    set_option_from_tv(varname + 1, varp);
-
-	    // reset notion of buffer
-	    aucmd_restbuf(&aco);
+		// reset notion of buffer
+		aucmd_restbuf(&aco);
+	    }
 	}
 	else
 	{

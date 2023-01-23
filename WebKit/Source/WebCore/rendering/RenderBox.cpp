@@ -32,6 +32,7 @@
 #include "EventHandler.h"
 #include "FloatQuad.h"
 #include "FloatRoundedRect.h"
+#include "FontBaseline.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
@@ -83,6 +84,7 @@
 #include "TransformState.h"
 #include <algorithm>
 #include <math.h>
+#include <wtf/Assertions.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
@@ -672,49 +674,101 @@ void RenderBox::applyTransform(TransformationMatrix& t, const RenderStyle& style
     style.applyTransform(t, boundingBox, options);
 }
 
+void RenderBox::constrainLogicalMinMaxSizesByAspectRatio(LayoutUnit& computedMinSize, LayoutUnit& computedMaxSize, LayoutUnit computedSize, MinimumSizeIsAutomaticContentBased minimumSizeType, ConstrainDimension dimension) const
+{
+    // TODO: Here we use isSpecified() to present the definite value. This is not quite correct, for the definite value should also include
+    // a size of the initial containing block and the “stretch-fit” sizing of non-replaced blocks if they have definite values.
+    // See https://www.w3.org/TR/css-sizing-3/#definite
+    const RenderStyle& styleToUse = style();
+    ASSERT(styleToUse.hasAspectRatio() || isRenderReplacedWithIntrinsicRatio());
+    auto logicalSize = dimension == ConstrainDimension::Width ? styleToUse.logicalWidth() : styleToUse.logicalHeight();
+    // https://www.w3.org/TR/css-sizing-4/#aspect-ratio-minimum
+    if (minimumSizeType == MinimumSizeIsAutomaticContentBased::Yes) {
+        // Only use Automatic Content-based Minimum Sizes in the ratio-dependent axis.
+        if (logicalSize.isSpecified())
+            computedMinSize = std::min(computedMinSize, computedSize);
+        computedMinSize = std::min(computedMinSize, computedMaxSize);
+    }
+
+    if (logicalSize.isSpecified())
+        return;
+
+    // Sizing constraints in either axis (the origin axis) should be transferred through the preferred aspect ratio. See https://www.w3.org/TR/css-sizing-4/#aspect-ratio-size-transfers
+    bool shouldCheckTransferredMinSize = dimension == ConstrainDimension::Width ? !styleToUse.logicalMinWidth().isSpecified() : !styleToUse.logicalMinHeight().isSpecified();
+    bool shouldCheckTransferredMaxSize = dimension == ConstrainDimension::Width ? !styleToUse.logicalMaxWidth().isSpecified() : !styleToUse.logicalMaxHeight().isSpecified();
+    if (!shouldCheckTransferredMaxSize && !shouldCheckTransferredMinSize)
+        return;
+
+    auto [transferredLogicalMinSize, transferredLogicalMaxSize] = dimension == ConstrainDimension::Width ? computeMinMaxLogicalWidthFromAspectRatio() : computeMinMaxLogicalHeightFromAspectRatio();
+    if (shouldCheckTransferredMaxSize && transferredLogicalMaxSize != LayoutUnit::max()) {
+        // The transferred max size should be floored by the definite minimum size.
+        if (!shouldCheckTransferredMinSize && minimumSizeType == MinimumSizeIsAutomaticContentBased::No)
+            transferredLogicalMaxSize = std::max(transferredLogicalMaxSize, computedMinSize);
+        computedMaxSize = std::min(computedMaxSize, transferredLogicalMaxSize);
+        if (minimumSizeType == MinimumSizeIsAutomaticContentBased::Yes)
+            computedMinSize = std::min(computedMinSize, computedMaxSize);
+    }
+
+    if (shouldCheckTransferredMinSize && transferredLogicalMinSize > LayoutUnit()) {
+        // The transferred min size should be capped by the definite maximum size.
+        if (!shouldCheckTransferredMaxSize)
+            transferredLogicalMinSize = std::min(transferredLogicalMinSize, computedMaxSize);
+        computedMinSize = std::max(computedMinSize, transferredLogicalMinSize);
+    }
+}
+
 LayoutUnit RenderBox::constrainLogicalWidthInFragmentByMinMax(LayoutUnit logicalWidth, LayoutUnit availableWidth, RenderBlock& cb, RenderFragmentContainer* fragment, AllowIntrinsic allowIntrinsic) const
 {
     const RenderStyle& styleToUse = style();
-
-    if (shouldComputeLogicalHeightFromAspectRatio()) {
-        if (!styleToUse.logicalWidth().isSpecified()) {
-            auto [logicalMinWidth, logicalMaxWidth] = computeMinMaxLogicalWidthFromAspectRatio();
-            logicalWidth = std::clamp(logicalWidth, logicalMinWidth, logicalMaxWidth);
-        }
-    }
-
+    LayoutUnit computedMaxWidth = LayoutUnit::max();
     if (!styleToUse.logicalMaxWidth().isUndefined() && (allowIntrinsic == AllowIntrinsic::Yes || !styleToUse.logicalMaxWidth().isIntrinsic()))
-        logicalWidth = std::min(logicalWidth, computeLogicalWidthInFragmentUsing(MaxSize, styleToUse.logicalMaxWidth(), availableWidth, cb, fragment));
+        computedMaxWidth = computeLogicalWidthInFragmentUsing(MaxSize, styleToUse.logicalMaxWidth(), availableWidth, cb, fragment);
+
     if (allowIntrinsic == AllowIntrinsic::No && styleToUse.logicalMinWidth().isIntrinsic())
-        return logicalWidth;
+        return std::min(logicalWidth, computedMaxWidth);
+
     auto logicalMinWidth = styleToUse.logicalMinWidth();
+    LayoutUnit computedMinWidth;
+    MinimumSizeIsAutomaticContentBased minimumSizeType = MinimumSizeIsAutomaticContentBased::No;
     if (logicalMinWidth.isAuto() && shouldComputeLogicalWidthFromAspectRatio() && (styleToUse.logicalWidth().isAuto() || styleToUse.logicalWidth().isMinContent() || styleToUse.logicalWidth().isMaxContent()) && !is<RenderReplaced>(*this) && effectiveOverflowInlineDirection() == Overflow::Visible) {
-        // Make sure we actually used the aspect ratio.
+        // The automatic minimum size in the ratio-dependent axis is  its min-content size. See https://www.w3.org/TR/css-sizing-4/#aspect-ratio-minimum
         logicalMinWidth = Length(LengthType::MinContent);
+        minimumSizeType = MinimumSizeIsAutomaticContentBased::Yes;
     }
-    return std::max(logicalWidth, computeLogicalWidthInFragmentUsing(MinSize, logicalMinWidth, availableWidth, cb, fragment));
+    computedMinWidth = computeLogicalWidthInFragmentUsing(MinSize, logicalMinWidth, availableWidth, cb, fragment);
+
+    if (styleToUse.hasAspectRatio())
+        constrainLogicalMinMaxSizesByAspectRatio(computedMinWidth, computedMaxWidth, logicalWidth, minimumSizeType, ConstrainDimension::Width);
+
+    logicalWidth = std::min(logicalWidth, computedMaxWidth);
+    return std::max(logicalWidth, computedMinWidth);
 }
 
 LayoutUnit RenderBox::constrainLogicalHeightByMinMax(LayoutUnit logicalHeight, std::optional<LayoutUnit> intrinsicContentHeight) const
 {
     const RenderStyle& styleToUse = style();
-    if (!styleToUse.logicalMaxHeight().isUndefined()) {
-        if (std::optional<LayoutUnit> maxH = computeLogicalHeightUsing(MaxSize, styleToUse.logicalMaxHeight(), intrinsicContentHeight))
-            logicalHeight = std::min(logicalHeight, maxH.value());
-    }
+    std::optional<LayoutUnit> computedLogicalMaxHeight;
+    if (!styleToUse.logicalMaxHeight().isUndefined())
+        computedLogicalMaxHeight = computeLogicalHeightUsing(MaxSize, styleToUse.logicalMaxHeight(), intrinsicContentHeight);
+
+    MinimumSizeIsAutomaticContentBased minimumSizeType = MinimumSizeIsAutomaticContentBased::No;
     auto logicalMinHeight = styleToUse.logicalMinHeight();
     if (logicalMinHeight.isAuto() && shouldComputeLogicalHeightFromAspectRatio() && intrinsicContentHeight && !is<RenderReplaced>(*this) && effectiveOverflowBlockDirection() == Overflow::Visible) {
-        auto heightFromAspectRatio = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth()) - borderAndPaddingLogicalHeight();
-        heightFromAspectRatio = std::min(heightFromAspectRatio, logicalHeight);
+        auto heightFromAspectRatio = blockSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced()) - borderAndPaddingLogicalHeight();
         if (firstChild())
             heightFromAspectRatio = std::max(heightFromAspectRatio, *intrinsicContentHeight);
         logicalMinHeight = Length(heightFromAspectRatio, LengthType::Fixed);
+        minimumSizeType = MinimumSizeIsAutomaticContentBased::Yes;
     }
     if (logicalMinHeight.isMinContent() || logicalMinHeight.isMaxContent())
         logicalMinHeight = Length();
-    if (std::optional<LayoutUnit> computedLogicalHeight = computeLogicalHeightUsing(MinSize, logicalMinHeight, intrinsicContentHeight))
-        return std::max(logicalHeight, computedLogicalHeight.value());
-    return logicalHeight;
+    std::optional<LayoutUnit> computedLogicalMinHeight = computeLogicalHeightUsing(MinSize, logicalMinHeight, intrinsicContentHeight);
+    LayoutUnit maxHeight = computedLogicalMaxHeight ? computedLogicalMaxHeight.value() : LayoutUnit::max();
+    LayoutUnit minHeight = computedLogicalMinHeight ? computedLogicalMinHeight.value() : LayoutUnit();
+    if (styleToUse.hasAspectRatio())
+        constrainLogicalMinMaxSizesByAspectRatio(minHeight, maxHeight, logicalHeight, minimumSizeType, ConstrainDimension::Height);
+    logicalHeight = std::min(logicalHeight, maxHeight);
+    return std::max(logicalHeight, minHeight);
 }
 
 LayoutUnit RenderBox::constrainContentBoxLogicalHeightByMinMax(LayoutUnit logicalHeight, std::optional<LayoutUnit> intrinsicContentHeight) const
@@ -2677,10 +2731,10 @@ void RenderBox::updateLogicalWidth()
     setMarginEnd(computedValues.m_margins.m_end);
 }
 
-static LayoutUnit inlineSizeFromAspectRatio(LayoutUnit borderPaddingInlineSum, LayoutUnit borderPaddingBlockSum, double aspectRatio, BoxSizing boxSizing, LayoutUnit blockSize)
+static LayoutUnit inlineSizeFromAspectRatio(LayoutUnit borderPaddingInlineSum, LayoutUnit borderPaddingBlockSum, double aspectRatio, BoxSizing boxSizing, LayoutUnit blockSize, AspectRatioType aspectRatioType, bool isRenderReplaced)
 {
-    if (boxSizing == BoxSizing::BorderBox)
-        return LayoutUnit(blockSize * aspectRatio);
+    if (boxSizing == BoxSizing::BorderBox && aspectRatioType == AspectRatioType::Ratio && !isRenderReplaced)
+        return std::max(borderPaddingInlineSum, LayoutUnit(blockSize * aspectRatio));
 
     return LayoutUnit((blockSize - borderPaddingBlockSum) * aspectRatio) + borderPaddingInlineSum;
 }
@@ -3151,7 +3205,7 @@ RenderBox::LogicalExtentComputedValues RenderBox::computeLogicalHeight(LayoutUni
         // For tables, calculate margins only.
         if (isTable()) {
             if (shouldComputeLogicalHeightFromAspectRatio())
-                computedValues.m_extent = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth());
+                computedValues.m_extent = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced());
             if (hasPerpendicularContainingBlock) {
                 bool shouldFlipBeforeAfter = shouldFlipBeforeAfterMargins(cb.style(), &style());
                 computeInlineDirectionMargins(cb, containingBlockLogicalWidthForContent(), computedValues.m_extent,
@@ -3200,8 +3254,8 @@ RenderBox::LogicalExtentComputedValues RenderBox::computeLogicalHeight(LayoutUni
                 intrinsicHeight = computedValues.m_extent;
             if (shouldComputeLogicalHeightFromAspectRatio()) {
                 if (intrinsicHeight && style().boxSizingForAspectRatio() == BoxSizing::ContentBox)
-                    *intrinsicHeight -= borderAndPaddingLogicalHeight();
-                heightResult = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth());
+                    *intrinsicHeight -= RenderBox::borderBefore() + RenderBox::paddingBefore() + RenderBox::borderAfter() + RenderBox::paddingAfter();
+                heightResult = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced());
             } else {
                 if (intrinsicHeight)
                     *intrinsicHeight -= borderAndPaddingLogicalHeight();
@@ -3668,7 +3722,7 @@ LayoutUnit RenderBox::availableLogicalHeightUsing(const Length& h, AvailableLogi
         return overridingContentLogicalHeight();
 
     if (shouldComputeLogicalHeightFromAspectRatio())
-        return blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth());
+        return blockSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced());
 
     if (h.isPercentOrCalculated() && isOutOfFlowPositioned() && !isRenderFragmentedFlow()) {
         // FIXME: This is wrong if the containingBlock has a perpendicular writing mode.
@@ -4475,7 +4529,7 @@ void RenderBox::computePositionedLogicalHeightUsing(SizeType heightType, Length 
         if (logicalHeightLength.isIntrinsic())
             resolvedLogicalHeight = adjustContentBoxLogicalHeightForBoxSizing(computeIntrinsicLogicalContentHeightUsing(logicalHeightLength, contentLogicalHeight, bordersPlusPadding).value_or(0_lu));
         else if (fromAspectRatio) {
-            resolvedLogicalHeight = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth());
+            resolvedLogicalHeight = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced());
             resolvedLogicalHeight = std::max(LayoutUnit(), resolvedLogicalHeight - bordersPlusPadding);
         } else
             resolvedLogicalHeight = adjustContentBoxLogicalHeightForBoxSizing(valueForLength(logicalHeightLength, containerLogicalHeight));
@@ -5480,7 +5534,7 @@ LayoutUnit RenderBox::computeLogicalWidthFromAspectRatioInternal() const
     auto computedValues = computeLogicalHeight(logicalHeight(), logicalTop());
     LayoutUnit logicalHeightforAspectRatio = computedValues.m_extent;
 
-    return inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalHeightforAspectRatio);
+    return inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalHeightforAspectRatio, style().aspectRatioType(), isRenderReplaced());
 }
 
 LayoutUnit RenderBox::computeLogicalWidthFromAspectRatio(RenderFragmentContainer* fragment) const
@@ -5490,18 +5544,63 @@ LayoutUnit RenderBox::computeLogicalWidthFromAspectRatio(RenderFragmentContainer
     return constrainLogicalWidthInFragmentByMinMax(logicalWidth, containerWidthInInlineDirection, *containingBlock(), fragment, AllowIntrinsic::No);
 }
 
+bool RenderBox::isRenderReplacedWithIntrinsicRatio() const
+{
+    if (auto* replaced = dynamicDowncast<RenderReplaced>(this))
+        return replaced->computeIntrinsicAspectRatio();
+    return false;
+}
+
+std::optional<double> RenderBox::resolveAspectRatio() const
+{
+    if (auto* replacedElement = dynamicDowncast<RenderReplaced>(this)) 
+        return replacedElement->computeIntrinsicAspectRatio();
+    if (style().hasAspectRatio()) 
+        return style().logicalAspectRatio();
+    ASSERT_NOT_REACHED();
+    return std::nullopt;
+}
+
 std::pair<LayoutUnit, LayoutUnit> RenderBox::computeMinMaxLogicalWidthFromAspectRatio() const
 {
-    LayoutUnit blockMinSize = constrainLogicalHeightByMinMax(LayoutUnit(), std::nullopt);
-    LayoutUnit blockMaxSize = constrainLogicalHeightByMinMax(LayoutUnit::max(), std::nullopt);
     LayoutUnit transferredMinSize = LayoutUnit();
     LayoutUnit transferredMaxSize = LayoutUnit::max();
-    if (blockMinSize > LayoutUnit())
-        transferredMinSize = inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), blockMinSize);
-    if (blockMaxSize != LayoutUnit::max())
-        transferredMaxSize = inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), blockMaxSize);
-    // Minimum size wins over maximum size.
-    transferredMaxSize = std::max(transferredMaxSize, transferredMinSize);
+    std::optional<double> aspectRatio = resolveAspectRatio();
+    if (!aspectRatio)
+        return { transferredMinSize, transferredMaxSize };
+
+    if (style().logicalMinHeight().isSpecified()) {
+        if (LayoutUnit blockMinSize = constrainLogicalHeightByMinMax(LayoutUnit(), std::nullopt); blockMinSize > LayoutUnit())
+            transferredMinSize = inlineSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), *aspectRatio, style().boxSizingForAspectRatio(), blockMinSize, style().aspectRatioType(), isRenderReplaced());
+    }
+    if (style().logicalMaxHeight().isSpecified()) {
+        if (LayoutUnit blockMaxSize = constrainLogicalHeightByMinMax(LayoutUnit::max(), std::nullopt); blockMaxSize != LayoutUnit::max())
+            transferredMaxSize = inlineSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), *aspectRatio, style().boxSizingForAspectRatio(), blockMaxSize, style().aspectRatioType(), isRenderReplaced());
+    }
+    // Spec says the transferred max size should be floored by the transferred min size
+    transferredMaxSize = std::max(transferredMinSize, transferredMaxSize);
+    return { transferredMinSize, transferredMaxSize };
+}
+
+std::pair<LayoutUnit, LayoutUnit> RenderBox::computeMinMaxLogicalHeightFromAspectRatio() const
+{
+    LayoutUnit transferredMinSize = LayoutUnit();
+    LayoutUnit transferredMaxSize = LayoutUnit::max();
+    std::optional<double> aspectRatio = resolveAspectRatio();
+    if (!aspectRatio)
+        return { transferredMinSize, transferredMaxSize };
+
+    if (style().logicalMinWidth().isSpecified()) {
+        if (LayoutUnit inlineMinSize = computeLogicalWidthInFragmentUsing(MinSize, style().logicalMinWidth(), containingBlockLogicalWidthForContent(), *containingBlock(), nullptr); inlineMinSize > LayoutUnit())
+            transferredMinSize = blockSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), *aspectRatio, style().boxSizingForAspectRatio(), inlineMinSize, style().aspectRatioType(), isRenderReplaced());
+    }
+
+    if (style().logicalMaxWidth().isSpecified()) {
+        if (LayoutUnit inlineMaxSize = computeLogicalWidthInFragmentUsing(MaxSize, style().logicalMaxWidth(), containingBlockLogicalWidthForContent(), *containingBlock(), nullptr); inlineMaxSize != LayoutUnit::max())
+            transferredMaxSize = blockSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), *aspectRatio, style().boxSizingForAspectRatio(), inlineMaxSize, style().aspectRatioType(), isRenderReplaced());
+    }
+    // Spec says the transferred max size should be floored by the transferred min size 
+    transferredMaxSize = std::max(transferredMinSize, transferredMaxSize);
     return { transferredMinSize, transferredMaxSize };
 }
 
@@ -5546,9 +5645,18 @@ LayoutBoxExtent RenderBox::scrollPaddingForViewportRect(const LayoutRect& viewpo
         minimumValueForLength(padding.bottom(), viewportRect.height()), minimumValueForLength(padding.left(), viewportRect.width()));
 }
 
-LayoutUnit synthesizedBaselineFromBorderBox(const RenderBox& box, LineDirectionMode direction)
+LayoutUnit synthesizedBaseline(const RenderBox& box, const RenderStyle& parentStyle, LineDirectionMode direction, BaselineSynthesisEdge edge)
 {
-    return direction == HorizontalLine ? box.height() : box.width();
+    auto boxSize = direction == HorizontalLine ? box.height() : box.width();
+
+    if (edge == ContentBox)
+        boxSize -= direction == HorizontalLine ? box.verticalBorderAndPaddingExtent() : box.horizontalBorderAndPaddingExtent();
+    else if (edge == MarginBox)
+        boxSize += direction == HorizontalLine ? box.verticalMarginExtent() : box.horizontalMarginExtent();
+    
+    if (parentStyle.isHorizontalWritingMode() || parentStyle.textOrientation() == TextOrientation::Sideways)
+        return boxSize;
+    return boxSize / 2;
 }
 
 bool RenderBox::shouldIgnoreMinMaxSizes() const

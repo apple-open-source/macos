@@ -30,6 +30,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef __APPLE__
+#include <assert.h>
+#endif
 #include <ctype.h>
 #ifdef __APPLE__
 #include <errno.h>
@@ -733,7 +736,11 @@ another_hunk(void)
 	LINENUM	repl_patch_line;		/* input line number for same */
 	LINENUM	ptrn_copiable;			/* # of copiable lines in ptrn */
 	char	*s;
+#ifdef __APPLE__
+	size_t	len, lsz;
+#else
 	size_t	len;
+#endif
 	int	context = 0;
 
 	while (p_end >= 0) {
@@ -807,8 +814,10 @@ another_hunk(void)
 #ifdef __APPLE__
 				p_leading_ctx = -1;
 				p_trailing_ctx = 0;
-#endif
+				p_line[p_end] = saveline(buf, len, &lsz);
+#else
 				p_line[p_end] = savestr(buf);
+#endif
 				if (out_of_mem) {
 					p_end--;
 					return false;
@@ -881,7 +890,12 @@ another_hunk(void)
 					repl_beginning = p_end;
 					repl_backtrack_position = ftello(pfp);
 					repl_patch_line = p_input_line;
+#ifdef __APPLE__
+					p_line[p_end] = saveline(buf, len,
+					    &lsz);
+#else
 					p_line[p_end] = savestr(buf);
+#endif
 					if (out_of_mem) {
 						p_end--;
 						return false;
@@ -959,18 +973,26 @@ another_hunk(void)
 				}
 #ifdef __APPLE__
 				p_trailing_ctx = 0;
-#endif
+				p_line[p_end] = saveline(buf + 2, len - 2,
+				    &lsz);
+#else
 				p_line[p_end] = savestr(buf + 2);
+#endif
 				if (out_of_mem) {
 					p_end--;
 					return false;
 				}
 				if (p_end == p_ptrn_lines) {
 					if (remove_special_line()) {
+#ifdef __APPLE__
+						lsz--;
+						(p_line[p_end])[lsz - 1] = 0;
+#else
 						int	l;
 
 						l = strlen(p_line[p_end]) - 1;
 						(p_line[p_end])[l] = 0;
+#endif
 					}
 				}
 				break;
@@ -982,7 +1004,11 @@ another_hunk(void)
 					repl_missing = true;
 					goto hunk_done;
 				}
+#ifdef __APPLE__
+				p_line[p_end] = saveline(buf, len, &lsz);
+#else
 				p_line[p_end] = savestr(buf);
+#endif
 				if (out_of_mem) {
 					p_end--;
 					return false;
@@ -1007,11 +1033,28 @@ another_hunk(void)
 #endif
 				if (!repl_beginning)
 					ptrn_copiable++;
+#ifdef __APPLE__
+				p_line[p_end] = saveline(buf + 2, len - 2,
+				    &lsz);
+#else
 				p_line[p_end] = savestr(buf + 2);
+#endif
 				if (out_of_mem) {
 					p_end--;
 					return false;
 				}
+#ifdef __APPLE__
+				/*
+				 * We see this in diffs of UTF-16LE files, but
+				 * it's generally innocuous.
+				 */
+				if (p_end == p_ptrn_lines) {
+					if (remove_special_line()) {
+						lsz--;
+						(p_line[p_end])[lsz - 1] = 0;
+					}
+				}
+#endif
 				break;
 			default:
 				if (repl_beginning && repl_could_be_missing) {
@@ -1023,7 +1066,11 @@ another_hunk(void)
 			/* set up p_len for strncmp() so we don't have to */
 			/* assume null termination */
 			if (p_line[p_end])
+#ifdef __APPLE__
+				p_len[p_end] = lsz;
+#else
 				p_len[p_end] = strlen(p_line[p_end]);
+#endif
 			else
 				p_len[p_end] = 0;
 		}
@@ -1176,6 +1223,12 @@ hunk_done:
 		context = 0;
 		p_hunk_beg = p_input_line + 1;
 		while (fillold <= p_ptrn_lines || fillnew <= p_end) {
+#ifdef __APPLE__
+#ifndef NDEBUG
+			size_t insz;	/* Used for an assertion later */
+#endif /* !NDEBUG */
+#endif /* __APPLE__ */
+
 			line_beginning = ftello(pfp);
 			len = pgets(true);
 			p_input_line++;
@@ -1189,10 +1242,18 @@ hunk_done:
 			}
 			if (*buf == '\t' || *buf == '\n') {
 				ch = ' ';	/* assume the space got eaten */
+#ifdef __APPLE__
+				s = saveline(buf, len, &lsz);
+#else
 				s = savestr(buf);
+#endif
 			} else {
 				ch = *buf;
+#ifdef __APPLE__
+				s = saveline(buf + 1, len - 1, &lsz);
+#else
 				s = savestr(buf + 1);
+#endif
 			}
 			if (out_of_mem) {
 				while (--fillnew > p_ptrn_lines)
@@ -1209,9 +1270,11 @@ hunk_done:
 				}
 				p_char[fillold] = ch;
 				p_line[fillold] = s;
-				p_len[fillold++] = strlen(s);
 #ifdef __APPLE__
+				p_len[fillold++] = lsz;
 				p_trailing_ctx = 0;
+#else
+				p_len[fillold++] = strlen(s);
 #endif
 				if (fillold > p_ptrn_lines) {
 					if (remove_special_line()) {
@@ -1237,8 +1300,21 @@ hunk_done:
 #endif
 				p_char[fillold] = ch;
 				p_line[fillold] = s;
+#ifdef __APPLE__
+				p_len[fillold++] = lsz;
+
+				/*
+				 * This should just copy `s` as it's a complete
+				 * line, but note that `s` is still likely to
+				 * have internal NUL bytes.
+				 */
+				insz = lsz;
+				s = saveline(s, insz, &lsz);
+				assert(insz == lsz);
+#else
 				p_len[fillold++] = strlen(s);
 				s = savestr(s);
+#endif
 				if (out_of_mem) {
 					while (--fillnew > p_ptrn_lines)
 						free(p_line[fillnew]);
@@ -1266,7 +1342,11 @@ hunk_done:
 #endif
 				p_char[fillnew] = ch;
 				p_line[fillnew] = s;
+#ifdef __APPLE__
+				p_len[fillnew++] = lsz;
+#else
 				p_len[fillnew++] = strlen(s);
+#endif
 				if (fillold > p_ptrn_lines) {
 					if (remove_special_line()) {
 						p_len[fillnew - 1] -= 1;
@@ -1348,12 +1428,20 @@ hunk_done:
 			if (*buf != '<')
 				fatal("< expected at line %ld of patch\n",
 				    p_input_line);
+#ifdef __APPLE__
+			p_line[i] = saveline(buf + 2, len - 2, &lsz);
+#else
 			p_line[i] = savestr(buf + 2);
+#endif
 			if (out_of_mem) {
 				p_end = i - 1;
 				return false;
 			}
+#ifdef __APPLE__
+			p_len[i] = lsz;
+#else
 			p_len[i] = strlen(p_line[i]);
+#endif
 			p_char[i] = '-';
 		}
 
@@ -1388,16 +1476,28 @@ hunk_done:
 				fatal("> expected at line %ld of patch\n",
 				    p_input_line);
 			/* Don't overrun if we don't have enough line */
+#ifdef __APPLE__
+			if (len > 2) {
+				p_line[i] = saveline(buf + 2, len - 2, &lsz);
+			} else {
+				p_line[i] = savestr("");
+				lsz = 1;
+			}
+#else
 			if (len > 2)
 				p_line[i] = savestr(buf + 2);
 			else
 				p_line[i] = savestr("");
-
+#endif
 			if (out_of_mem) {
 				p_end = i - 1;
 				return false;
 			}
+#ifdef __APPLE__
+			p_len[i] = lsz;
+#else
 			p_len[i] = strlen(p_line[i]);
+#endif
 			p_char[i] = '+';
 		}
 

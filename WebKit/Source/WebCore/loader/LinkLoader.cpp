@@ -82,6 +82,11 @@ void LinkLoader::triggerEvents(const CachedResource& resource)
         m_client.linkLoaded();
 }
 
+void LinkLoader::triggerError()
+{
+    m_client.linkLoadingErrored();
+}
+
 void LinkLoader::notifyFinished(CachedResource& resource, const NetworkLoadMetrics&)
 {
     ASSERT_UNUSED(resource, m_cachedLinkResource.get() == &resource);
@@ -274,6 +279,9 @@ std::unique_ptr<LinkPreloadResourceClient> LinkLoader::preloadIfNeeded(const Lin
 
     if (cachedLinkResource && loader)
         return createLinkPreloadResourceClient(*cachedLinkResource, *loader, document);
+
+    if (loader)
+        loader->triggerError();
     return nullptr;
 }
 
@@ -294,7 +302,7 @@ void LinkLoader::prefetchIfNeeded(const LinkLoadParameters& params, Document& do
     // - third-party iframes cannot trigger prefetches
     // - Number of prefetches of a given page is limited (to 1 maybe?)
     ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
-    options.contentSecurityPolicyImposition = ContentSecurityPolicyImposition::SkipPolicyCheck;
+    options.contentSecurityPolicyImposition = ContentSecurityPolicyImposition::DoPolicyCheck;
     options.certificateInfoPolicy = CertificateInfoPolicy::IncludeCertificateInfo;
     options.credentials = FetchOptions::Credentials::SameOrigin;
     options.redirect = FetchOptions::Redirect::Manual;

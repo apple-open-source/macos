@@ -167,7 +167,7 @@ WI.CSSStyleDeclaration = class CSSStyleDeclaration extends WI.Object
         }
 
         for (let oldProperty of oldProperties) {
-            if (this.enabledProperties.includes(oldProperty))
+            if (this._properties.includes(oldProperty))
                 continue;
 
             // Clear the index, since it is no longer valid.
@@ -390,6 +390,7 @@ WI.CSSStyleDeclaration = class CSSStyleDeclaration extends WI.Object
 
         this.markModified();
         let property = new WI.CSSProperty(propertyIndex, text, name, value, priority, enabled, overridden, implicit, anonymous, valid, styleSheetTextRange);
+        property.isNewProperty = true;
         this.insertProperty(property, propertyIndex);
         this.update(this._text, this._properties, this._styleSheetTextRange, {dontFireEvents: true, forceUpdate: true});
 

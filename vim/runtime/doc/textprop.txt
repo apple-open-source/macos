@@ -1,4 +1,4 @@
-*textprop.txt*  For Vim version 9.0.  Last change: 2022 Sep 21
+*textprop.txt*  For Vim version 9.0.  Last change: 2022 Nov 18
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -147,7 +147,8 @@ prop_add({lnum}, {col}, {props})
 				above/below the line if {col} is zero; prepend
 				and/or append spaces for padding with
 				highlighting; cannot be used with "length",
-				"end_lnum" and "end_col" |virtual-text|
+				"end_lnum" and "end_col"
+				See |virtual-text| for more information.
 		   					*E1294*
 		   text_align	when "text" is present and {col} is zero;
 				specifies where to display the text:
@@ -172,6 +173,9 @@ prop_add({lnum}, {col}, {props})
 				   wrap      wrap the text to the next line
 				   truncate  truncate the text to make it fit
 		   		When omitted "truncate" is used.
+				Note that this applies to the individual text
+				property, the 'wrap' option sets the overall
+				behavior
 		All fields except "type" are optional.
 
 		It is an error when both "length" and "end_lnum" or "end_col"
@@ -225,7 +229,7 @@ prop_add({lnum}, {col}, {props})
 			GetLnum()->prop_add(col, props)
 <
 						*prop_add_list()*
-prop_add_list({props}, [[{lnum}, {col}, {end-lnum}, {end-col}], ...])
+prop_add_list({props}, [{item}, ...])
 		Similar to prop_add(), but attaches a text property at
 		multiple positions in a buffer.
 
@@ -237,12 +241,18 @@ prop_add_list({props}, [[{lnum}, {col}, {end-lnum}, {end-col}], ...])
 		   type		name of the text property type
 		All fields except "type" are optional.
 
-		The second argument is a List of Lists where each list
-		specifies the starting and ending position of the text.  The
-		first two items {lnum} and {col} specify the starting position
-		of the text where the property will be attached and the last
-		two items {end-lnum} and {end-col} specify the position just
-		after the text.
+		The second argument is a List of items, where each {item} is a
+		list that specifies the starting and ending position of the
+		text: [{lnum}, {col}, {end-lnum}, {end-col}]
+		or:   [{lnum}, {col}, {end-lnum}, {end-col}, {id}]
+
+		The first two items {lnum} and {col} specify the starting
+		position of the text where the property will be attached.
+		The next two items {end-lnum} and {end-col} specify the
+		position just after the text.
+		An optional fifth item {id} can be used to give a different ID
+		to a property.  When omitted the ID from {props} is used,
+		falling back to zero if none are present.
 
 		It is not possible to add a text property with a "text" field
 		here.

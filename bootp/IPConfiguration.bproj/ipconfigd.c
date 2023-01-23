@@ -409,10 +409,6 @@ typedef void (^ServiceInitHandler)(ServiceRef service);
 #define kSCEntNetNAT64			CFSTR("NAT64")
 #endif /* kSCEntNetNAT64 */
 
-#ifndef kSCEntNetDHCPv6
-#define kSCEntNetDHCPv6			CFSTR("DHCPv6")
-#endif /* kSCEntNetDHCPv6 */
-
 #ifndef kSCValNetIPv4ConfigMethodFailover
 static const CFStringRef kIPConfigurationConfigMethodFailover = CFSTR("Failover");
 #define kSCValNetIPv4ConfigMethodFailover kIPConfigurationConfigMethodFailover
@@ -888,6 +884,9 @@ ipconfig_method_string(ipconfig_method_t m)
 	break;
     case ipconfig_method_linklocal_v6_e:
 	str = "LINKLOCAL-V6";
+	break;
+    case ipconfig_method_dhcpv6_pd_e:
+	str = "DHCPV6-PD";
 	break;
     }
     return (str);
@@ -2253,7 +2252,7 @@ IFState_update_media_status(IFStateRef ifstate)
     else {
 	my_log(LOG_INFO, "%s link is %s", ifname, link.active ? "up" : "down");
     }
-    if (if_is_wireless(ifstate->if_p)) {
+    if (if_is_wifi_infra(ifstate->if_p)) {
 	WiFiInfoRef		info_p;
 
 	info_p = S_copy_wifi_info(ifstate->ifname);
@@ -2628,7 +2627,7 @@ IFStateCopySummary(IFStateRef ifstate)
 
             CFDictionarySetValue(if_summary, CFSTR("LinkStatusActive"),
                                  kCFBooleanTrue);
-            if (if_is_wireless(if_p) && info_p != NULL) {
+            if (if_is_wifi_infra(if_p) && info_p != NULL) {
 		const char *	auth_type;
 		char		bssid[LINK_ADDR_ETHER_STR_LEN];
 		CFStringRef	networkID;
@@ -3734,11 +3733,36 @@ ServiceIPv6CopyMergedDNSAndCaptive(ServiceRef service_p,
     return (dns);
 }
 
+STATIC void
+ipv6_dict_add_delegated_prefix(CFMutableDictionaryRef dict,
+			       const struct in6_addr * prefix_p,
+			       uint8_t prefix_length,
+			       uint32_t valid_lifetime,
+			       uint32_t preferred_lifetime)
+{
+    if (prefix_length == 0
+	|| IN6_IS_ADDR_UNSPECIFIED(prefix_p)) {
+	return;
+    }
+    my_CFDictionarySetIPv6AddressAsString(dict,
+					  kSCPropNetIPv6DelegatedPrefix,
+					  prefix_p);
+    my_CFDictionarySetUInt64(dict,
+			     kSCPropNetIPv6DelegatedPrefixLength,
+			     prefix_length);
+    my_CFDictionarySetUInt64(dict,
+			     kSCPropNetIPv6DelegatedPrefixValidLifetime,
+			     valid_lifetime);
+    my_CFDictionarySetUInt64(dict,
+			     kSCPropNetIPv6DelegatedPrefixPreferredLifetime,
+			     preferred_lifetime);
+}
+
 PRIVATE_EXTERN void
 ServicePublishSuccessIPv6(ServiceRef service_p,
 			  inet6_addrinfo_t * addresses, int addresses_count,
 			  const struct in6_addr * router, int router_count,
-			  ipv6_info_t * ipv6_info_p,
+			  ipv6_info_t * info_p,
 			  CFStringRef signature)
 {
     CFDictionaryRef		dhcp_dict = NULL;
@@ -3748,20 +3772,16 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
     CFStringRef			entities_summary;
     int				entity_count;
     const char *		extra_string;
+    boolean_t			has_addresses;
     interface_t *		if_p = service_interface(service_p);
     IFStateRef			ifstate = service_ifstate(service_p);
     CFDictionaryRef		ipv4_dict = NULL;
     CFMutableDictionaryRef	ipv6_dict = NULL;
-    CFStringRef			nat64_prefix = NULL;
-    DHCPv6OptionListRef		options = NULL;
     boolean_t			perform_plat_discovery = FALSE;
     CFDictionaryRef		rank_dict = NULL;
     CFDictionaryRef		values[N_PUBLISH_ENTITIES];
 
     if (service_p->serviceID == NULL) {
-	return;
-    }
-    if (addresses == NULL || addresses_count == 0) {
 	return;
     }
     ServiceSetIsPublished(service_p);
@@ -3770,37 +3790,58 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 	/* configd is not running */
 	return;
     }
-
-    if (ipv6_info_p != NULL) {
-	options = ipv6_info_p->options;
-	ipv4_dict = ipv6_info_p->ipv4_dict;
-	nat64_prefix = ipv6_info_p->nat64_prefix;
-	if (nat64_prefix == NULL) {
-	    /* the prefix isn't already known, discover PLAT if told to do so */
-	    perform_plat_discovery = ipv6_info_p->perform_plat_discovery;
-	}
-    }
+    has_addresses
+	= (addresses != NULL && addresses_count != 0);
 
     /* IPv6 */
     ipv6_dict = CFDictionaryCreateMutable(NULL, 0,
 					  &kCFTypeDictionaryKeyCallBacks,
 					  &kCFTypeDictionaryValueCallBacks);
+    if (info_p != NULL && info_p->is_stateful) {
+	/* DelegatedPrefix information */
+	ipv6_dict_add_delegated_prefix(ipv6_dict,
+				       &info_p->prefix,
+				       info_p->prefix_length,
+				       info_p->prefix_valid_lifetime,
+				       info_p->prefix_preferred_lifetime);
+    }
 
     /* Addresses, PrefixLength */
-    dict_set_inet6_info(ipv6_dict, addresses, addresses_count);
+    if (has_addresses) {
+	CFStringRef	nat64_prefix = NULL;
 
-    /* Router */
-    if (router != NULL) {
-	my_CFDictionarySetIPv6AddressAsString(ipv6_dict,
-					      kSCPropNetIPv6Router,
-					      router);
-    }
-    /* NAT64 Prefix */
+	if (info_p != NULL) {
+	    nat64_prefix = info_p->nat64_prefix;
+	    ipv4_dict = info_p->ipv4_dict;
 #ifndef kSCPropNetIPv6NAT64Prefix
 #define kSCPropNetIPv6NAT64Prefix	CFSTR("NAT64Prefix")
 #endif /* kSCPropNetIPv6NAT64Prefix */
-    if (nat64_prefix != NULL) {
-	CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6NAT64Prefix, nat64_prefix);
+	    /* NAT64 Prefix */
+	    if (nat64_prefix != NULL) {
+		CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6NAT64Prefix,
+				     nat64_prefix);
+	    }
+	    else {
+		/* prefix isn't already known, discover PLAT if told to do so */
+		perform_plat_discovery = info_p->perform_plat_discovery;
+		if (perform_plat_discovery) {
+		    CFDictionarySetValue(ipv6_dict,
+					 kSCPropNetIPv6PerformPLATDiscovery,
+					 kCFBooleanTrue);
+		}
+	    }
+	}
+	dict_set_inet6_info(ipv6_dict, addresses, addresses_count);
+	/* Router */
+	if (router != NULL) {
+	    my_CFDictionarySetIPv6AddressAsString(ipv6_dict,
+						  kSCPropNetIPv6Router,
+					      router);
+	}
+	/* DNS and Captive Portal */
+	dns_dict = ServiceIPv6CopyMergedDNSAndCaptive(service_p,
+						      info_p,
+						      &capport_dict);
     }
 
     /* InterfaceName */
@@ -3817,20 +3858,10 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 				 signature);
 	}
     }
-    /* PerformPLATDiscovery */
-    if (perform_plat_discovery) {
-	CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6PerformPLATDiscovery,
-			     kCFBooleanTrue);
-    }
-
-    /* DNS and Captive Portal */
-    dns_dict = ServiceIPv6CopyMergedDNSAndCaptive(service_p,
-						  ipv6_info_p,
-						  &capport_dict);
 
     /* DHCPv6 */
-    if (options != NULL) {
-	dhcp_dict = DHCPv6InfoDictionaryCreate(options);
+    if (info_p != NULL) {
+	dhcp_dict = DHCPv6InfoDictionaryCreate(info_p);
     }
 
     /*
@@ -3856,7 +3887,9 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
      * demote the rank to RankLast to allow a fully dual-stack
      * or NAT64 service to get priority.
      */
-    if (!service_interface_ipv4_published(service_p) && ipv4_dict == NULL) {
+    if (has_addresses
+	&& !service_interface_ipv4_published(service_p)
+	&& ipv4_dict == NULL) {
 	/* demote the service to RankLast */
 	const void *	key = kSCPropNetServicePrimaryRank;
 	const void *	rank = kSCValNetServicePrimaryRankLast;
@@ -3993,6 +4026,9 @@ ipconfig_method_to_cfstring(ipconfig_method_t method)
         case ipconfig_method_linklocal_v6_e:
             str = kSCValNetIPv6ConfigMethodLinkLocal;
             break;
+	case ipconfig_method_dhcpv6_pd_e:
+	    str = kSCValNetIPv6ConfigMethodDHCPv6PD;
+	    break;
         default:
             str = CFSTR("<unknown>");
             break;
@@ -5778,6 +5814,9 @@ lookup_func(ipconfig_method_t method)
 	    func = linklocal_v6_thread;
 	}
 	break;
+    case ipconfig_method_dhcpv6_pd_e:
+	func = dhcpv6_pd_thread;
+	break;
     default:
 	break;
     }
@@ -6437,6 +6476,29 @@ refresh_service(const char * ifname, ServiceID service_id)
 }
 
 PRIVATE_EXTERN ipconfig_status_t
+is_service_valid(const char * ifname, ServiceID service_id)
+{
+    IFStateRef		ifstate;
+    CFStringRef		serviceID;
+    ServiceRef		service_p;
+    ipconfig_status_t	status;
+
+    serviceID = ServiceIDCreateCFString(service_id);
+    if (serviceID == NULL) {
+	return (ipconfig_status_allocation_failed_e);
+    }
+    ifstate = S_find_service_with_id(ifname, serviceID, &service_p);
+    if (ifstate == NULL) {
+	status = ipconfig_status_no_such_service_e;
+    }
+    else {
+	status = ipconfig_status_success_e;
+    }
+    CFRelease(serviceID);
+    return (status);
+}
+
+PRIVATE_EXTERN ipconfig_status_t
 forget_network(const char * name, CFStringRef ssid)
 {
     IFStateRef		ifstate;
@@ -6448,7 +6510,7 @@ forget_network(const char * name, CFStringRef ssid)
     if (ifstate == NULL) {
 	return (ipconfig_status_interface_does_not_exist_e);
     }
-    if (!if_is_wireless(ifstate->if_p)) {
+    if (!if_is_wifi_infra(ifstate->if_p)) {
 	/* not wireless */
 	return (ipconfig_status_invalid_parameter_e);
     }
@@ -6664,6 +6726,9 @@ ipconfig_method_from_cfstring_ipv6(CFStringRef m, ipconfig_method_t * method)
     else if (CFEqual(m, kSCValNetIPv6ConfigMethodLinkLocal)) {
 	*method = ipconfig_method_linklocal_v6_e;
     }
+    else if (CFEqual(m, kSCValNetIPv6ConfigMethodDHCPv6PD)) {
+	*method = ipconfig_method_dhcpv6_pd_e;
+    }
     else {
 	return (FALSE);
     }
@@ -6807,6 +6872,59 @@ method_info_from_ipv6_dict(CFDictionaryRef dict,
 		}
 		break;
 	    }
+	}
+    }
+    else if (info->method == ipconfig_method_dhcpv6_pd_e) {
+	CFStringRef				prefix;
+	CFNumberRef				prefix_length;
+	ipconfig_method_data_dhcpv6_pd_t 	dhcpv6_pd;
+
+	dhcpv6_pd = &method_data->dhcpv6_pd;
+	prefix  = CFDictionaryGetValue(dict, kSCPropNetIPv6RequestedPrefix);
+	if (prefix != NULL) {
+	    char 	ntopbuf[INET6_ADDRSTRLEN];
+
+	    if (isA_CFString(prefix) == NULL) {
+		my_log(LOG_NOTICE,
+		       "%s: %@ not a string", __func__,
+		       kSCPropNetIPv6RequestedPrefix);
+		goto done;
+	    }
+	    if (!my_CFStringToIPv6Address(prefix,
+					  &dhcpv6_pd->requested_prefix)) {
+		my_log(LOG_NOTICE,
+		       "%s: %@ not an IPv6 address", __func__,
+		       kSCPropNetIPv6RequestedPrefix);
+		goto done;
+	    }
+	    inet_ntop(AF_INET6, &dhcpv6_pd->requested_prefix,
+		      ntopbuf, sizeof(ntopbuf));
+	}
+	prefix_length
+	    = CFDictionaryGetValue(dict,
+				   kSCPropNetIPv6RequestedPrefixLength);
+	if (prefix_length != NULL) {
+	    uint32_t	len;
+
+	    if (isA_CFNumber(prefix_length) == NULL) {
+		my_log(LOG_NOTICE,
+		       "%s: %@ not a number", __func__,
+		       kSCPropNetIPv6RequestedPrefixLength);
+		goto done;
+	    }
+	    if (!my_CFTypeToNumber(prefix_length, &len)) {
+		my_log(LOG_NOTICE,
+		       "%s: %@ invalid number", __func__,
+		       kSCPropNetIPv6RequestedPrefixLength);
+		goto done;
+	    }
+	    if (len > 128) {
+		my_log(LOG_NOTICE,
+		       "%s: %@ %d > 128", __func__,
+		       kSCPropNetIPv6RequestedPrefixLength, len);
+		goto done;
+	    }
+	    dhcpv6_pd->requested_prefix_length = len;
 	}
     }
     status = ipconfig_status_success_e;
@@ -7280,6 +7398,7 @@ ServiceConfigListLookupMethod(ServiceConfigListRef scl,
     ServiceConfigRef	scan;
 
     switch (info->method) {
+    case ipconfig_method_dhcpv6_pd_e:
     case ipconfig_method_stf_e:
     case ipconfig_method_linklocal_e:
     case ipconfig_method_linklocal_v6_e:
@@ -7926,7 +8045,7 @@ IFState_update_link_event_data(IFStateRef ifstate, link_event_data_t link_event,
 
     bzero(link_event, sizeof(*link_event));
     link_event->link_status = *link_status_p;
-    if (if_is_wireless(if_p)) {
+    if (if_is_wifi_infra(if_p)) {
 	WiFiInfoRef		info_p;
 
 	info_p = S_copy_wifi_info(ifstate->ifname);
@@ -8568,7 +8687,7 @@ ap_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 	goto done;
     }
     link = if_link_status_update(if_p);
-    if (if_is_wireless(ifstate->if_p) == FALSE) {
+    if (if_is_wifi_infra(ifstate->if_p) == FALSE) {
 	goto done;
     }
     if ((link.valid && !link.active)

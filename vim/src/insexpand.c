@@ -123,8 +123,6 @@ struct compl_S
 # define CP_ICASE	    16	// ins_compl_equal() ignores case
 # define CP_FAST	    32	// use fast_breakcheck instead of ui_breakcheck
 
-static char e_hitend[] = N_("Hit end of paragraph");
-
 /*
  * All the current matches are stored in a list.
  * "compl_first_match" points to the start of the list.
@@ -1573,7 +1571,7 @@ ins_compl_files(
     for (i = 0; i < count && !got_int && !compl_interrupted; i++)
     {
 	fp = mch_fopen((char *)files[i], "r");  // open dictionary file
-	if (flags != DICT_EXACT)
+	if (flags != DICT_EXACT && !shortmess(SHM_COMPLETIONSCAN))
 	{
 	    msg_hist_off = TRUE;	// reset in msg_trunc_attr()
 	    vim_snprintf((char *)IObuff, IOSIZE,
@@ -2293,12 +2291,10 @@ ins_compl_stop(int c, int prev_mode, int retval)
 	showmode();
     }
 
-#ifdef FEAT_CMDWIN
     if (c == Ctrl_C && cmdwin_type != 0)
 	// Avoid the popup menu remains displayed when leaving the
 	// command line window.
 	update_screen(0);
-#endif
     // Indent now if a key was typed that is in 'cinkeys'.
     if (want_cindent && in_cinkeys(KEY_COMPLETE, ' ', inindent(0)))
 	do_c_expr_indent();
@@ -3283,14 +3279,17 @@ process_next_cpt_value(
 	    st->dict = st->ins_buf->b_fname;
 	    st->dict_f = DICT_EXACT;
 	}
-	msg_hist_off = TRUE;	// reset in msg_trunc_attr()
-	vim_snprintf((char *)IObuff, IOSIZE, _("Scanning: %s"),
-		st->ins_buf->b_fname == NULL
-		    ? buf_spname(st->ins_buf)
-		    : st->ins_buf->b_sfname == NULL
-			? st->ins_buf->b_fname
-			: st->ins_buf->b_sfname);
-	(void)msg_trunc_attr((char *)IObuff, TRUE, HL_ATTR(HLF_R));
+	if (!shortmess(SHM_COMPLETIONSCAN))
+	{
+	    msg_hist_off = TRUE;	// reset in msg_trunc_attr()
+	    vim_snprintf((char *)IObuff, IOSIZE, _("Scanning: %s"),
+		    st->ins_buf->b_fname == NULL
+			? buf_spname(st->ins_buf)
+			: st->ins_buf->b_sfname == NULL
+			    ? st->ins_buf->b_fname
+			    : st->ins_buf->b_sfname);
+	    (void)msg_trunc_attr((char *)IObuff, TRUE, HL_ATTR(HLF_R));
+	}
     }
     else if (*st->e_cpt == NUL)
 	status = INS_COMPL_CPT_END;
@@ -3318,10 +3317,13 @@ process_next_cpt_value(
 #endif
 	else if (*st->e_cpt == ']' || *st->e_cpt == 't')
 	{
-	    msg_hist_off = TRUE;	// reset in msg_trunc_attr()
 	    compl_type = CTRL_X_TAGS;
-	    vim_snprintf((char *)IObuff, IOSIZE, _("Scanning tags."));
-	    (void)msg_trunc_attr((char *)IObuff, TRUE, HL_ATTR(HLF_R));
+	    if (!shortmess(SHM_COMPLETIONSCAN))
+	    {
+		msg_hist_off = TRUE;	// reset in msg_trunc_attr()
+		vim_snprintf((char *)IObuff, IOSIZE, _("Scanning tags."));
+		(void)msg_trunc_attr((char *)IObuff, TRUE, HL_ATTR(HLF_R));
+	    }
 	}
 	else
 	    compl_type = -1;
@@ -4906,8 +4908,8 @@ ins_compl_show_statusmsg(void)
     if (is_first_match(compl_first_match->cp_next))
     {
 	edit_submode_extra = compl_status_adding() && compl_length > 1
-				? (char_u *)_(e_hitend)
-				: (char_u *)_(e_pattern_not_found);
+				? (char_u *)_("Hit end of paragraph")
+				: (char_u *)_("Pattern not found");
 	edit_submode_highl = HLF_E;
     }
 

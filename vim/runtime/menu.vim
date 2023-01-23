@@ -129,6 +129,12 @@ an <silent> 10.330 &File.&Close<Tab>:close
 	\ else <Bar>
 	\   confirm close <Bar>
 	\ endif<CR>
+tln <silent> 10.330 &File.&Close<Tab>:close
+	\ <C-W>:if winheight(2) < 0 && tabpagewinnr(2) == 0 <Bar>
+	\   confirm enew <Bar>
+	\ else <Bar>
+	\   confirm close <Bar>
+	\ endif<CR>
 an 10.335 &File.-SEP1-				<Nop>
 an <silent> 10.340 &File.&Save<Tab>:w		:if expand("%") == ""<Bar>browse confirm w<Bar>else<Bar>confirm w<Bar>endif<CR>
 an 10.350 &File.Save\ &As\.\.\.<Tab>:sav	:browse confirm saveas<CR>
@@ -335,7 +341,7 @@ def s:TextWidth()
     # Remove leading zeros to avoid it being used as an octal number.
     # But keep a zero by itself.
     var tw = substitute(n, "^0*", "", "")
-    &tw = tw == '' ? 0 : tw
+    &tw = tw == '' ? 0 : str2nr(tw)
   endif
 enddef
 
@@ -468,7 +474,7 @@ if has("spell")
   an <silent> 40.335.270 &Tools.&Spelling.&Find\ More\ Languages	:call <SID>SpellLang()<CR>
 
   let s:undo_spelllang = ['aun &Tools.&Spelling.&Find\ More\ Languages']
-  def s:SpellLang()
+  def s:SpellLang(encChanged = false)
     for cmd in s:undo_spelllang
       exe "silent! " .. cmd
     endfor
@@ -476,7 +482,8 @@ if has("spell")
 
     var enc = &enc == "iso-8859-15" ? "latin1" : &enc
 
-    if !exists("g:menutrans_set_lang_to")
+    # Reset g:menutrans_set_lang_to when called for the EncodingChanged event.
+    if !exists("g:menutrans_set_lang_to") || encChanged
       g:menutrans_set_lang_to = 'Set Language to'
     endif
 
@@ -504,12 +511,12 @@ if has("spell")
     else
       echomsg "Found " .. found .. " more spell files"
     endif
+
     # Need to redo this when 'encoding' is changed.
     augroup spellmenu
-    au! EncodingChanged * call <SID>SpellLang()
+    au! EncodingChanged * call SpellLang(true)
     augroup END
   enddef
-
 endif
 
 " Tools.Fold Menu

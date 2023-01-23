@@ -41,9 +41,3 @@ Changes to curl_config.h post-configure:
   (4) Enable USE_NGHTTP2.  Because our nghttp2 is at a non-standard path and we
       don't install the pkgconfig support, the configure script cannot
       configure it automatically.
-
-
-== Clean Up ==
-Run this script to remove GPL files which trigger the verifiers
-
-./post_import_scripts/remove_gpl_files.sh

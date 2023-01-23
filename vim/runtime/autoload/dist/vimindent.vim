@@ -2,7 +2,12 @@ vim9script
 
 # Language:     Vim script
 # Maintainer:   github user lacygoill
-# Last Change:  2022 Sep 24
+# Last Change:  2022 Oct 15
+
+# NOTE: Whenever you change the code, make sure the tests are still passing:
+#
+#     $ cd runtime/indent/
+#     $ make clean; make test || vimdiff testdir/vim.{fail,ok}
 
 # Config {{{1
 
@@ -151,7 +156,7 @@ const ASSIGNS_HEREDOC: string = $'^\%({COMMENT}\)\@!.*\%({HEREDOC_OPERATOR}\)\s\
 
 # CD_COMMAND {{{3
 
-const CD_COMMAND: string = $'[lt]\=cd!\=\s\+-{END_OF_COMMAND}'
+const CD_COMMAND: string = $'\<[lt]\=cd!\=\s\+-{END_OF_COMMAND}'
 
 # HIGHER_ORDER_COMMAND {{{3
 
@@ -173,7 +178,7 @@ const HIGHER_ORDER_COMMAND: string = $'\%(^\|{BAR_SEPARATION}\)\s*\<\%(' .. patt
 
 # MAPPING_COMMAND {{{3
 
-const MAPPING_COMMAND: string = '\%(\<sil\%[ent]!\=\s\+\)\=[nvxsoilct]\=\%(nore\|un\)map!\=\s'
+const MAPPING_COMMAND: string = '\%(\<sil\%[ent]!\=\s\+\)\=\<[nvxsoilct]\=\%(nore\|un\)map!\=\s'
 
 # NORMAL_COMMAND {{{3
 
@@ -217,7 +222,7 @@ END
 
 const ENDS_BLOCK_OR_CLAUSE: string = '^\s*\%(' .. patterns->join('\|') .. $'\){END_OF_COMMAND}'
     .. $'\|^\s*cat\%[ch]\%(\s\+\({PATTERN_DELIMITER}\).*\1\)\={END_OF_COMMAND}'
-    .. $'\|^\s*elseif\=\s\+\%({OPERATOR}\)\@!'
+    .. $'\|^\s*elseif\=\>\%({OPERATOR}\)\@!'
 
 # STARTS_CURLY_BLOCK {{{3
 
@@ -293,7 +298,7 @@ const START_MIDDLE_END: dict<list<string>> = {
 # EOL {{{2
 # OPENING_BRACKET_AT_EOL {{{3
 
-const OPENING_BRACKET_AT_EOL: string = $'{OPENING_BRACKET}{END_OF_VIM9_LINE}'
+const OPENING_BRACKET_AT_EOL: string = OPENING_BRACKET .. END_OF_VIM9_LINE
 
 # COMMA_AT_EOL {{{3
 
@@ -349,7 +354,7 @@ const LINE_CONTINUATION_AT_SOL: string = '^\s*\%('
 const RANGE_AT_SOL: string = '^\s*:\S'
 # }}}1
 # Interface {{{1
-export def Expr(lnum: number): number # {{{2
+export def Expr(lnum = v:lnum): number # {{{2
     # line which is indented
     var line_A: dict<any> = {text: getline(lnum), lnum: lnum}
     # line above, on which we'll base the indent of line A
@@ -404,16 +409,15 @@ export def Expr(lnum: number): number # {{{2
         line_A->CacheBracketBlock()
     endif
     if line_A.lnum->IsInside('BracketBlock')
-            && !b:vimindent.block_stack[0].is_curly_block
+        var is_in_curly_block: bool = IsInCurlyBlock()
         for block: dict<any> in b:vimindent.block_stack
-            # Can't call `BracketBlockIndent()` before we're indenting a line *after* the start of the block.{{{
-            #
-            # That's because it might need  the correct indentation of the start
-            # of the block.   But if we're still *on* the  start, we haven't yet
-            # computed that indentation.
-            #}}}
-            if line_A.lnum > block.startlnum
-                    && !block.is_curly_block
+            if line_A.lnum <= block.startlnum
+                continue
+            endif
+            if !block->has_key('startindent')
+                block.startindent = Indent(block.startlnum)
+            endif
+            if !is_in_curly_block
                 return BracketBlockIndent(line_A, block)
             endif
         endfor
@@ -481,7 +485,7 @@ export def Expr(lnum: number): number # {{{2
         cursor(line_A.lnum, 1)
 
         var [start: string, middle: string, end: string] = START_MIDDLE_END[kwd]
-        var block_start = SearchPairStart(start, middle, end)
+        var block_start: number = SearchPairStart(start, middle, end)
         if block_start > 0
             return Indent(block_start)
         else
@@ -516,7 +520,7 @@ enddef
 
 def g:GetVimIndent(): number # {{{2
     # for backward compatibility
-    return Expr(v:lnum)
+    return Expr()
 enddef
 # }}}1
 # Core {{{1
@@ -535,10 +539,10 @@ def Offset( # {{{2
         # Indent twice for  a line continuation in the block  header itself, so that
         # we can easily  distinguish the end of  the block header from  the start of
         # the block body.
-        elseif line_B->EndsWithLineContinuation()
-                && !line_A.isfirst
-                || line_A.text =~ LINE_CONTINUATION_AT_SOL
-                && line_A.text !~ PLUS_MINUS_COMMAND
+        elseif (line_B->EndsWithLineContinuation()
+                && !line_A.isfirst)
+                || (line_A.text =~ LINE_CONTINUATION_AT_SOL
+                && line_A.text !~ PLUS_MINUS_COMMAND)
                 || line_A.text->Is_IN_KeywordForLoop(line_B.text)
             return 2 * shiftwidth()
         else
@@ -646,10 +650,6 @@ def CommentIndent(): number # {{{2
 enddef
 
 def BracketBlockIndent(line_A: dict<any>, block: dict<any>): number # {{{2
-    if !block->has_key('startindent')
-        block.startindent = block.startlnum->Indent()
-    endif
-
     var ind: number = block.startindent
 
     if line_A.text =~ CLOSING_BRACKET_AT_SOL
@@ -995,6 +995,11 @@ def IsRightBelow(lnum: number, syntax: string): bool # {{{3
     return exists('b:vimindent')
         && b:vimindent->has_key($'is_{syntax}')
         && lnum > b:vimindent.endlnum
+enddef
+
+def IsInCurlyBlock(): bool # {{{3
+    return b:vimindent.block_stack
+        ->indexof((_, block: dict<any>): bool => block.is_curly_block) >= 0
 enddef
 
 def IsInThisBlock(line_A: dict<any>, lnum: number): bool # {{{3

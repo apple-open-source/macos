@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -318,7 +318,7 @@ DHCPv6ServerProcessRequest(DHCPv6ServerRef server,
     if (pkt->msg_type != kDHCPv6MessageINFORMATION_REQUEST) {
 	/* we only handle stateless requests */
 	my_log(LOG_DEBUG, "Ignoring %s (%d) packet on interface %d (%d bytes)",
-	       DHCPv6MessageName(pkt->msg_type), pkt->msg_type,
+	       DHCPv6MessageTypeName(pkt->msg_type), pkt->msg_type,
 	       if_index, pkt_len);
 	return;
     }
@@ -341,7 +341,7 @@ DHCPv6ServerProcessRequest(DHCPv6ServerRef server,
     else {
 	my_log(LOG_NOTICE, "[%s] Receive %s (%d) [%d bytes] from %s",
 	       if_name, 
-	       DHCPv6MessageName(pkt->msg_type), pkt->msg_type, pkt_len,
+	       DHCPv6MessageTypeName(pkt->msg_type), pkt->msg_type, pkt_len,
 	       inet_ntop(AF_INET6,
 			 &from_p->sin6_addr, ntopbuf, sizeof(ntopbuf)));
     }
@@ -987,7 +987,7 @@ DHCPv6ServerTransmit(DHCPv6ServerRef server,
     else {
 	my_log(LOG_NOTICE, "[%s] Transmit %s (%d) [%d bytes] to %s",
 	       if_indextoname(if_index, if_name),
-	       DHCPv6MessageName(pkt->msg_type),
+	       DHCPv6MessageTypeName(pkt->msg_type),
 	       pkt->msg_type,
 	       pkt_len,
 	       inet_ntop(AF_INET6, dst_p, ntopbuf, sizeof(ntopbuf)));

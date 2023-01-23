@@ -61,6 +61,8 @@
 #include "ecn.h"
 #include "history.h"
 
+#include "network_cmds_lib.h"
+
 extern struct TcpSession session;
 
 void usage (char *name);
@@ -192,6 +194,7 @@ int GetCannonicalInfo(char *string, size_t str_size, u_int32_t *address)
 			return(-1);
 		} else {
 			strlcpy(string, hp->h_name, str_size);
+			clean_non_printable(string, strlen(string));
 			memcpy((void *)address, (void *)hp->h_addr,
 			    hp->h_length);
 		}

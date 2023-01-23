@@ -331,10 +331,7 @@ xauth_reply_stub(args)
 }
 
 int
-xauth_reply(iph1, port, id, res)
-	phase1_handle_t *iph1;
-	int port;
-	int id;
+xauth_reply(phase1_handle_t *iph1, int port, int id, int res)
 {
 	struct xauth_state *xst = &iph1->mode_cfg->xauth;
 	char *usr = xst->authdata.generic.usr;

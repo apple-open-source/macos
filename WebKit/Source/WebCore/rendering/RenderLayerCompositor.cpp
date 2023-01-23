@@ -1107,13 +1107,11 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* ancestor
         // Speculatively push this layer onto the overlap map.
         bool didSpeculativelyPushOverlapContainer = false;
         if (!didPushOverlapContainer) {
-            overlapMap.pushCompositingContainer(layer);
+            overlapMap.pushSpeculativeCompositingContainer(layer);
             didPushOverlapContainer = true;
             didSpeculativelyPushOverlapContainer = true;
         }
 
-        bool compositeForNegativeZOrderDescendant = false;
-        
         for (auto* childLayer : layer.negativeZOrderLayers()) {
             computeCompositingRequirements(&layer, *childLayer, overlapMap, currentState, backingSharingState, anyDescendantHas3DTransform);
 
@@ -1122,13 +1120,17 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* ancestor
             if (!willBeComposited && currentState.subtreeIsCompositing) {
                 layer.setIndirectCompositingReason(IndirectCompositingReason::BackgroundLayer);
                 layerWillComposite();
-                compositeForNegativeZOrderDescendant = true;
+                overlapMap.confirmSpeculativeCompositingContainer();
             }
         }
 
-        if (!compositeForNegativeZOrderDescendant && didSpeculativelyPushOverlapContainer) {
-            overlapMap.popCompositingContainer(layer);
-            didPushOverlapContainer = false;
+        if (didSpeculativelyPushOverlapContainer) {
+            if (overlapMap.maybePopSpeculativeCompositingContainer())
+                didPushOverlapContainer = false;
+            else if (!willBeComposited) {
+                layer.setIndirectCompositingReason(IndirectCompositingReason::BackgroundLayer);
+                layerWillComposite();
+            }
         }
     }
 
@@ -1758,6 +1760,10 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
             if (styleAffectsLayerGeometry(*oldStyle) || styleAffectsLayerGeometry(newStyle))
                 layer.setNeedsCompositingGeometryUpdate();
         }
+
+        // image rendering mode can determine whether we use device pixel ratio for the backing store.
+        if (oldStyle && oldStyle->imageRendering() != newStyle.imageRendering())
+            layer.setNeedsCompositingConfigurationUpdate();
     }
 
     if (diff >= StyleDifference::RecompositeLayer) {
@@ -2951,6 +2957,23 @@ Vector<CompositedClipData> RenderLayerCompositor::computeAncestorClippingStack(c
     auto pushNonScrollableClip = [&](const RenderLayer& clippedLayer, const RenderLayer& clippingRoot, ShouldRespectOverflowClip respectClip = IgnoreOverflowClip) {
         // Pass IgnoreOverflowClip to ignore overflow contributed by clippingRoot (which may be a scroller).
         auto clipRect = clippedLayer.backgroundClipRect(RenderLayer::ClipRectsContext(&clippingRoot, TemporaryClipRects, IgnoreOverlayScrollbarSize, respectClip)).rect();
+        
+        auto infiniteRect = LayoutRect::infiniteRect();
+        auto renderableInfiniteRect = [] {
+            // Return a infinite-like rect whose values are such that, when converted to float pixel values, they can reasonably represent device pixels.
+            return LayoutRect(LayoutUnit::nearlyMin() / 32, LayoutUnit::nearlyMin() / 32, LayoutUnit::nearlyMax() / 16, LayoutUnit::nearlyMax() / 16);
+        }();
+
+        if (clipRect.width() == infiniteRect.width()) {
+            clipRect.setX(renderableInfiniteRect.x());
+            clipRect.setWidth(renderableInfiniteRect.width());
+        }
+
+        if (clipRect.height() == infiniteRect.height()) {
+            clipRect.setY(renderableInfiniteRect.y());
+            clipRect.setHeight(renderableInfiniteRect.height());
+        }
+
         auto offset = layer.convertToLayerCoords(&clippingRoot, { }, RenderLayer::AdjustForColumns);
         clipRect.moveBy(-offset);
 

@@ -1,0 +1,11 @@
+framework module Security_Private [system] {
+  umbrella header "Security_Private.h"
+
+  explicit module SecureObjectSync {
+    umbrella "PrivateHeaders/SecureObjectSync"
+
+    explicit module * { export * }
+  }
+
+  explicit module * { export * }
+}

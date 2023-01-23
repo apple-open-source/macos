@@ -262,11 +262,13 @@ typedef struct
 #endif
     long	wo_scr;
 #define w_p_scr w_onebuf_opt.wo_scr	// 'scroll'
+    int		wo_sms;
+#define w_p_sms w_onebuf_opt.wo_sms	// 'smoothscroll'
 #ifdef FEAT_SPELL
     int		wo_spell;
 # define w_p_spell w_onebuf_opt.wo_spell // 'spell'
 #endif
-#ifdef FEAT_SYN_HL
+#if defined(FEAT_SYN_HL) || defined(FEAT_FOLDING) || defined(FEAT_DIFF)
     int		wo_cuc;
 # define w_p_cuc w_onebuf_opt.wo_cuc	// 'cursorcolumn'
     int		wo_cul;
@@ -821,7 +823,7 @@ typedef struct textprop_S
 					// text is truncated
 #define TP_FLAG_START_INCL	0x100	// "start_incl" copied from proptype
 
-#define PROP_TEXT_MIN_CELLS	4	// minimun number of cells to use for
+#define PROP_TEXT_MIN_CELLS	4	// minimum number of cells to use for
 					// the text, even when truncating
 
 /*
@@ -1262,7 +1264,7 @@ struct mapblock
     int		m_keylen;	// strlen(m_keys)
     int		m_mode;		// valid mode
     int		m_simplified;	// m_keys was simplified, do not use this map
-				// if seenModifyOtherKeys is TRUE
+				// if key_protocol_enabled() returns TRUE
     int		m_noremap;	// if non-zero no re-mapping for m_str
     char	m_silent;	// <silent> used, don't echo commands
     char	m_nowait;	// <nowait> used
@@ -1311,6 +1313,12 @@ typedef struct hashitem_S
 // This allows for storing 10 items (2/3 of 16) before a resize is needed.
 #define HT_INIT_SIZE 16
 
+// flags used for ht_flags
+#define HTFLAGS_ERROR	0x01	// Set when growing failed, can't add more
+				// items before growing works.
+#define HTFLAGS_FROZEN	0x02	// Trying to add or remove an item will result
+				// in an error message.
+
 typedef struct hashtable_S
 {
     long_u	ht_mask;	// mask used for hash value (nr of items in
@@ -1319,8 +1327,7 @@ typedef struct hashtable_S
     long_u	ht_filled;	// number of items used + removed
     int		ht_changed;	// incremented when adding or removing an item
     int		ht_locked;	// counter for hash_lock()
-    int		ht_error;	// when set growing failed, can't add more
-				// items before growing works
+    int		ht_flags;	// HTFLAGS_ values
     hashitem_T	*ht_array;	// points to the array, allocated when it's
 				// not "ht_smallarray"
     hashitem_T	ht_smallarray[HT_INIT_SIZE];   // initial array
@@ -1882,7 +1889,7 @@ typedef struct {
 #define IMP_FLAGS_AUTOLOAD	4   // script still needs to be loaded
 
 /*
- * Info about an encoutered script.
+ * Info about an encountered script.
  * When sn_state has the SN_STATE_NOT_LOADED is has not been sourced yet.
  */
 typedef struct
@@ -2093,7 +2100,7 @@ struct funcstack_S
 };
 
 /*
- * Structure to hold the variables declared in a loop that are possiblly used
+ * Structure to hold the variables declared in a loop that are possibly used
  * in a closure.
  */
 typedef struct loopvars_S loopvars_T;
@@ -2997,6 +3004,7 @@ struct file_buffer
     char_u	*b_p_tfu;	// 'tagfunc' option value
     callback_T	b_tfu_cb;	// 'tagfunc' callback
 #endif
+    int		b_p_eof;	// 'endoffile'
     int		b_p_eol;	// 'endofline'
     int		b_p_fixeol;	// 'fixendofline'
     int		b_p_et;		// 'expandtab'
@@ -3032,6 +3040,7 @@ struct file_buffer
 #endif
     char_u	*b_p_kp;	// 'keywordprg'
     int		b_p_lisp;	// 'lisp'
+    char_u	*b_p_lop;	// 'lispoptions'
     char_u	*b_p_menc;	// 'makeencoding'
     char_u	*b_p_mps;	// 'matchpairs'
     int		b_p_ml;		// 'modeline'
@@ -3146,6 +3155,7 @@ struct file_buffer
     linenr_T	b_no_eol_lnum;	// non-zero lnum when last line of next binary
 				// write should not have an end-of-line
 
+    int		b_start_eof;	// last line had eof (CTRL-Z) when it was read
     int		b_start_eol;	// last line had eol when it was read
     int		b_start_ffc;	// first char of 'ff' when edit started
     char_u	*b_start_fenc;	// 'fileencoding' when edit started or NULL
@@ -3517,6 +3527,7 @@ typedef struct
     int	foldsep;
     int	diff;
     int	eob;
+    int	lastline;
 } fill_chars_T;
 
 /*
@@ -3592,11 +3603,12 @@ struct window_S
 				    // below w_topline (at end of file)
     int		w_old_botfill;	    // w_botfill at last redraw
 #endif
-    colnr_T	w_leftcol;	    // window column number of the left most
+    colnr_T	w_leftcol;	    // screen column number of the left most
 				    // character in the window; used when
 				    // 'wrap' is off
-    colnr_T	w_skipcol;	    // starting column when a single line
-				    // doesn't fit in the window
+    colnr_T	w_skipcol;	    // starting screen column for the first
+				    // line in the window; used when 'wrap' is
+				    // on; does not include win_col_off()
 
     int		w_empty_rows;	    // number of ~ rows in window
 #ifdef FEAT_DIFF
@@ -3618,8 +3630,8 @@ struct window_S
     int		w_winrow;	    // first row of window in screen
     int		w_height;	    // number of rows in window, excluding
 				    // status/command/winbar line(s)
-    int		w_prev_winrow;	    // previous winrow used for 'splitscroll'
-    int		w_prev_height;	    // previous height used for 'splitscroll'
+    int		w_prev_winrow;	    // previous winrow used for 'splitkeep'
+    int		w_prev_height;	    // previous height used for 'splitkeep'
 
     int		w_status_height;    // number of status lines (0 or 1)
     int		w_wincol;	    // Leftmost column of window in screen.
@@ -3710,6 +3722,7 @@ struct window_S
     pos_T	w_valid_cursor;	    // last known position of w_cursor, used
 				    // to adjust w_valid
     colnr_T	w_valid_leftcol;    // last known w_leftcol
+    colnr_T	w_valid_skipcol;    // last known w_skipcol
 
     /*
      * w_cline_height is the number of physical lines taken by the buffer line
@@ -3780,17 +3793,15 @@ struct window_S
     linenr_T	w_redraw_bot;	    // when != 0: last line needing redraw
     int		w_redr_status;	    // if TRUE status line must be redrawn
 
-#ifdef FEAT_CMDL_INFO
     // remember what is shown in the ruler for this window (if 'ruler' set)
     pos_T	w_ru_cursor;	    // cursor position shown in ruler
     colnr_T	w_ru_virtcol;	    // virtcol shown in ruler
     linenr_T	w_ru_topline;	    // topline shown in ruler
     linenr_T	w_ru_line_count;    // line count used for ruler
-# ifdef FEAT_DIFF
+#ifdef FEAT_DIFF
     int		w_ru_topfill;	    // topfill shown in ruler
-# endif
-    char	w_ru_empty;	    // TRUE if ruler shows 0-1 (empty line)
 #endif
+    char	w_ru_empty;	    // TRUE if ruler shows 0-1 (empty line)
 
     int		w_alt_fnum;	    // alternate file (for # and CTRL-^)
 
@@ -3828,7 +3839,7 @@ struct window_S
     long_u	w_p_fde_flags;	    // flags for 'foldexpr'
     long_u	w_p_fdt_flags;	    // flags for 'foldtext'
 #endif
-#ifdef FEAT_SYN_HL
+#if defined(FEAT_SIGNS) || defined(FEAT_FOLDING) || defined(FEAT_DIFF)
     int		*w_p_cc_cols;	    // array of columns to highlight or NULL
     char_u	w_p_culopt_flags;   // flags for cursorline highlighting
 #endif
@@ -4149,7 +4160,7 @@ typedef int vimmenu_T;
 typedef struct
 {
     buf_T	*save_curbuf;	    // saved curbuf
-    int		use_aucmd_win;	    // using aucmd_win
+    int		use_aucmd_win_idx;  // index in aucmd_win[] if >= 0
     int		save_curwin_id;	    // ID of saved curwin
     int		new_curwin_id;	    // ID of new curwin
     int		save_prevwin_id;    // ID of saved prevwin
@@ -4663,8 +4674,8 @@ typedef struct {
 					// cts_text_props is not used
     textprop_T	*cts_text_props;	// text props (allocated)
     char	cts_has_prop_with_text; // TRUE if if a property inserts text
-    int         cts_cur_text_width;     // width of current inserted text
-    int         cts_first_char;		// width text props above the line
+    int		cts_cur_text_width;     // width of current inserted text
+    int		cts_first_char;		// width text props above the line
     int		cts_with_trailing;	// include size of trailing props with
 					// last character
     int		cts_start_incl;		// prop has true "start_incl" arg

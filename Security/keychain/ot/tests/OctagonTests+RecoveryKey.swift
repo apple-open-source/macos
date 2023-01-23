@@ -1780,5 +1780,387 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
         self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
     }
+
+    func testPreflightRecoveryKeySuccess() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        self.manager.setSOSEnabledForPlatformFlag(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
+        self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = establishContextID
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
+        bottlerotcliqueContext.otControl = self.otControl
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        let createRecoveryExpectation = self.expectation(description: "createRecoveryExpectation returns")
+        self.manager.createRecoveryKey(self.otcontrolArgumentsFor(context: establishContext), recoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            createRecoveryExpectation.fulfill()
+        }
+        self.wait(for: [createRecoveryExpectation], timeout: 10)
+
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
+        XCTAssertNotNil(cliqueBridge, "cliqueBridge should not be nil")
+
+        let fetchExpectation = self.expectation(description: "fetch expectation")
+        self.fakeCuttlefishServer.fetchChangesListener = { _ in
+
+            fetchExpectation.fulfill()
+            return nil
+        }
+
+        var localError: NSError?
+        let result = cliqueBridge.preflightRecoveryKey(self.otcliqueContext, recoveryKey: recoveryKey, error: &localError)
+        self.wait(for: [fetchExpectation], timeout: 10)
+
+        XCTAssertTrue(result, "recovery key should be correct")
+        XCTAssertNil(localError, "error should be nil")
+    }
+
+    func testPreflightRecoveryKeyFailureIncorrectRecoveryKey() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.manager.setSOSEnabledForPlatformFlag(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
+        self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = establishContextID
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
+        bottlerotcliqueContext.otControl = self.otControl
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        let createRecoveryExpectation = self.expectation(description: "createRecoveryExpectation returns")
+        self.manager.createRecoveryKey(self.otcontrolArgumentsFor(context: establishContext), recoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            createRecoveryExpectation.fulfill()
+        }
+        self.wait(for: [createRecoveryExpectation], timeout: 10)
+
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
+        XCTAssertNotNil(cliqueBridge, "cliqueBridge should not be nil")
+
+        let fetchExpectation = self.expectation(description: "fetch expectation")
+        self.fakeCuttlefishServer.fetchChangesListener = { _ in
+
+            fetchExpectation.fulfill()
+            return nil
+        }
+
+        let wrongRecoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(wrongRecoveryKey, "wrongRecoveryKey should not be nil")
+
+        var localError: NSError?
+        let result = cliqueBridge.preflightRecoveryKey(self.otcliqueContext, recoveryKey: wrongRecoveryKey, error: &localError)
+        self.wait(for: [fetchExpectation], timeout: 10)
+
+        XCTAssertFalse(result, "recovery key should be incorrect")
+        XCTAssertNotNil(localError, "error should not be nil")
+        XCTAssertEqual(localError!.domain, TrustedPeersHelperErrorDomain, "error domain should be TrustedPeersHelperErrorDomain")
+        XCTAssertEqual(localError!.code, TrustedPeersHelperErrorCode.recoveryKeyIsNotCorrect.rawValue, "error code should be recoveryKeyIsNotCorrect")
+    }
+
+    func testPreflightRecoveryKeyFailureNotEnrolled() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.manager.setSOSEnabledForPlatformFlag(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
+        self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = establishContextID
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
+        bottlerotcliqueContext.otControl = self.otControl
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
+        XCTAssertNotNil(cliqueBridge, "cliqueBridge should not be nil")
+
+        let fetchExpectation = self.expectation(description: "fetch expectation")
+        self.fakeCuttlefishServer.fetchChangesListener = { _ in
+
+            fetchExpectation.fulfill()
+            return nil
+        }
+
+        let notEnrolledRK = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(notEnrolledRK, "notEnrolledRK should not be nil")
+
+        var localError: NSError?
+        let result = cliqueBridge.preflightRecoveryKey(self.otcliqueContext, recoveryKey: notEnrolledRK, error: &localError)
+        self.wait(for: [fetchExpectation], timeout: 10)
+
+        XCTAssertFalse(result, "recovery key should be incorrect")
+        XCTAssertNotNil(localError, "error should not be nil")
+        XCTAssertEqual(localError!.domain, TrustedPeersHelperErrorDomain, "error domain should be TrustedPeersHelperErrorDomain")
+        XCTAssertEqual(localError!.code, TrustedPeersHelperErrorCode.codeNotEnrolled.rawValue, "error code should be recovery key not enrolled")
+    }
+
+    func testPreflightRecoveryKeyFailureErrorFetching() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.manager.setSOSEnabledForPlatformFlag(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
+        self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = establishContextID
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
+        bottlerotcliqueContext.otControl = self.otControl
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        let createRecoveryExpectation = self.expectation(description: "createRecoveryExpectation returns")
+        self.manager.createRecoveryKey(self.otcontrolArgumentsFor(context: establishContext), recoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            createRecoveryExpectation.fulfill()
+        }
+        self.wait(for: [createRecoveryExpectation], timeout: 10)
+
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        // Now, join from a new device
+        let recoveryContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        recoveryContext.startOctagonStateMachine()
+        self.assertEnters(context: recoveryContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        self.sendContainerChangeWaitForUntrustedFetch(context: recoveryContext)
+
+        let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKey callback occurs")
+        recoveryContext.join(withRecoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            joinWithRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 20)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.sendContainerChangeWaitForFetch(context: recoveryContext)
+
+        let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
+        XCTAssertNotNil(cliqueBridge, "cliqueBridge should not be nil")
+
+        let rolledRecoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(rolledRecoveryKey, "wrongRecoveryKey should not be nil")
+
+        let rolledRecoveryExpectation = self.expectation(description: "rolledRecoveryExpectation returns")
+        self.manager.createRecoveryKey(self.otcontrolArgumentsFor(context: establishContext), recoveryKey: rolledRecoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            rolledRecoveryExpectation.fulfill()
+        }
+        self.wait(for: [rolledRecoveryExpectation], timeout: 10)
+
+        let ckError = FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+
+        let fetchExpectation = self.expectation(description: "fetch expectation")
+        fetchExpectation.expectedFulfillmentCount = 6
+        self.fakeCuttlefishServer.fetchChangesListener = { _ in
+            fetchExpectation.fulfill()
+            return nil
+        }
+
+        var localError: NSError?
+        let result = cliqueBridge.preflightRecoveryKey(self.otcliqueContext, recoveryKey: rolledRecoveryKey, error: &localError)
+        self.wait(for: [fetchExpectation], timeout: 10)
+
+        XCTAssertFalse(result, "recovery key should be incorrect")
+        XCTAssertNotNil(localError, "error should not be nil")
+        XCTAssertEqual(localError!.domain, CKErrorDomain, "error domain should be CKErrorDomain")
+        XCTAssertEqual(localError!.code, 15, "error code should be 15")
+    }
+
+    func testPreflightRecoveryKeyFailureMalformed() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.manager.setSOSEnabledForPlatformFlag(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
+        self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = establishContextID
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
+        bottlerotcliqueContext.otControl = self.otControl
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        let createRecoveryExpectation = self.expectation(description: "createRecoveryExpectation returns")
+        self.manager.createRecoveryKey(self.otcontrolArgumentsFor(context: establishContext), recoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            createRecoveryExpectation.fulfill()
+        }
+        self.wait(for: [createRecoveryExpectation], timeout: 10)
+
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
+        XCTAssertNotNil(cliqueBridge, "cliqueBridge should not be nil")
+
+        let fetchExpectation = self.expectation(description: "fetch expectation")
+        fetchExpectation.isInverted = true
+        self.fakeCuttlefishServer.fetchChangesListener = { _ in
+            fetchExpectation.fulfill()
+            return nil
+        }
+
+        var localError: NSError?
+        let result = cliqueBridge.preflightRecoveryKey(self.otcliqueContext, recoveryKey: "malformed recovery key", error: &localError)
+        self.wait(for: [fetchExpectation], timeout: 2)
+        XCTAssertFalse(result, "preflight recovery key should fail")
+        XCTAssertNotNil(localError, "error should not be nil")
+        XCTAssertEqual(localError?.domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
+        XCTAssertEqual(localError?.code, OctagonError.recoveryKeyMalformed.rawValue, "error domain should be OctagonErrorRecoveryKeyMalformed")
+    }
 }
 #endif

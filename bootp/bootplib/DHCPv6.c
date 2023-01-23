@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,11 +41,11 @@
 #include <SystemConfiguration/SCPrivate.h>
 
 const char *
-DHCPv6MessageName(int message)
+DHCPv6MessageTypeName(DHCPv6MessageType message_type)
 {
     const char	*	str;
 
-    switch (message) {
+    switch (message_type) {
     case kDHCPv6MessageNone:
 	str = "None";
 	break;
@@ -96,7 +96,7 @@ DHCPv6MessageName(int message)
 }
 
 void
-DHCPv6PacketSetMessageType(DHCPv6PacketRef pkt, int msg_type)
+DHCPv6PacketSetMessageType(DHCPv6PacketRef pkt, DHCPv6MessageType msg_type)
 {
     pkt->msg_type = msg_type;
     return;
@@ -111,7 +111,8 @@ DHCPv6PacketSetMessageType(DHCPv6PacketRef pkt, int msg_type)
  *   field.
  */
 void
-DHCPv6PacketSetTransactionID(DHCPv6PacketRef pkt, uint32_t transaction_id)
+DHCPv6PacketSetTransactionID(DHCPv6PacketRef pkt,
+			     DHCPv6TransactionID transaction_id)
 {
     uint32_t	r = htonl(transaction_id);
     uint8_t *	v;
@@ -133,7 +134,7 @@ DHCPv6PacketSetTransactionID(DHCPv6PacketRef pkt, uint32_t transaction_id)
  * Returns:
  *   Transaction id from DHCPv6 packet in host byte order as a 32-bit quantity.
  */
-uint32_t
+DHCPv6TransactionID
 DHCPv6PacketGetTransactionID(const DHCPv6PacketRef pkt)
 {
     uint32_t	r;
@@ -158,7 +159,7 @@ DHCPv6PacketPrintToString(CFMutableStringRef str,
     }
     else {
 	STRING_APPEND(str, "DHCPv6 %s (%d) Transaction ID 0x%06x Length %d\n",
-		      DHCPv6MessageName(pkt->msg_type), pkt->msg_type,
+		      DHCPv6MessageTypeName(pkt->msg_type), pkt->msg_type,
 		      DHCPv6PacketGetTransactionID(pkt), pkt_len);
     }
     return;

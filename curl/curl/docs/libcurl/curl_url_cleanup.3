@@ -21,10 +21,10 @@
 .\" * SPDX-License-Identifier: curl
 .\" *
 .\" **************************************************************************
-.TH curl_url_cleanup 3 "May 17, 2022" "libcurl 7.85.0" "libcurl Manual"
+.TH curl_url_cleanup 3 "September 20, 2022" "libcurl 7.86.0" "libcurl Manual"
 
 .SH NAME
-curl_url_cleanup - free a CURLU handle
+curl_url_cleanup - free the URL handle
 .SH SYNOPSIS
 .nf
 #include <curl/curl.h>
@@ -32,7 +32,7 @@ curl_url_cleanup - free a CURLU handle
 void curl_url_cleanup(CURLU *handle);
 .fi
 .SH DESCRIPTION
-Frees all the resources associated with the given CURLU handle!
+Frees all the resources associated with the given \fICURLU\fP handle!
 .SH EXAMPLE
 .nf
   CURLU *url = curl_url();

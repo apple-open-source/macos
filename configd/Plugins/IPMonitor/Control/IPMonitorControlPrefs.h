@@ -55,6 +55,12 @@ IPMonitorControlPrefsIsVerbose	(void);
 Boolean
 IPMonitorControlPrefsSetVerbose	(Boolean			verbose);
 
+Boolean
+IPMonitorControlPrefsGetDisableServiceCoupling(void);
+
+Boolean
+IPMonitorControlPrefsSetDisableServiceCoupling(Boolean disable_coupling);
+
 __END_DECLS
 
 #endif	/* _IPMONITORCONTROLPREFS_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2022 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -591,6 +591,33 @@ static SCDynamicStoreRef	S_session = NULL;
 /* debug output flags */
 static uint32_t			S_IPMonitor_debug = 0;
 static Boolean			S_IPMonitor_verbose = FALSE;
+
+/*
+ * Global: S_disable_service_coupling
+ * Purpose:
+ *   Disable coupling of all services. By default, couple all services.
+ *   Note that services that are expensive continue to be coupled regardless
+ *   of the state of this variable.
+ *
+ *   This variable can be modified using:
+ *       scutil --disable-service-coupling [ on | off ]
+ *
+ * Notes:
+ * - services are "coupled" to ensure that only a single interface can be
+ *   "primary" for IPv4 and IPv6
+ * - this was originally done to ensure that "expensive" interfaces
+ *   like cellular did not end up with unintentional traffic
+ * - specifically, if Wi-Fi had just IPv4 and no IPv6, and cellular had
+ *   both IPv4 and IPv6, Wi-Fi was primary for IPv4 and cellular was
+ *   primary for IPv6, leading to unexpected data usage over cellular
+ * - doing this by default means that an interface that is primary for
+ *   one protocol (IPv4, IPv6) is the only interface that is capable of
+ *   being primary for the other protocol (IPv6, IPv4)
+ * - the main benefit of this is that we now always respect interface sorting,
+ *   in particular for cases where the system has both Ethernet and Wi-Fi,
+ *   Ethernet will always be used regardless of IPv4/IPv6 protocol availability
+ */
+static Boolean			S_disable_service_coupling;
 
 /* are we netbooted?  If so, don't touch the default route */
 static boolean_t		S_netboot = FALSE;
@@ -6020,13 +6047,19 @@ set_dns(CFArrayRef val_search_domains,
 static boolean_t
 service_get_ip_is_coupled(CFStringRef serviceID)
 {
-    CFDictionaryRef	dict;
     boolean_t		ip_is_coupled = FALSE;
 
-    dict = service_dict_get(serviceID, kSCEntNetService);
-    if (dict != NULL) {
-	if (CFDictionaryContainsKey(dict, kIPIsCoupled)) {
-	    ip_is_coupled = TRUE;
+    if (!S_disable_service_coupling) {
+	ip_is_coupled = TRUE;
+    }
+    else {
+	CFDictionaryRef	dict;
+
+	dict = service_dict_get(serviceID, kSCEntNetService);
+	if (dict != NULL) {
+	    if (CFDictionaryContainsKey(dict, kIPIsCoupled)) {
+		ip_is_coupled = TRUE;
+	    }
 	}
     }
     return (ip_is_coupled);
@@ -7087,6 +7120,18 @@ ElectionResultsCopy(int af, CFArrayRef order)
     return (info.results);
 }
 
+static Boolean
+CandidateNoDemotionNeeded(CandidateRef candidate)
+{
+    Boolean	no_demotion;
+
+    /* allow stf and gif to co-exist with any other interface */
+    no_demotion = (CFStringHasPrefix(candidate->if_name, CFSTR("stf"))
+		   || CFStringHasPrefix(candidate->if_name, CFSTR("gif")));
+
+    return (no_demotion);
+}
+
 /*
  * Function: ElectionResultsCandidateNeedsDemotion
  * Purpose:
@@ -7124,8 +7169,9 @@ ElectionResultsCandidateNeedsDemotion(CandidateRef other_candidate,
 	/* they are over the same interface, no need to demote */
 	goto done;
     }
-    if (CFStringHasPrefix(other_candidate->if_name, CFSTR("stf"))) {
-	/* avoid creating a feedback loop */
+    if (CandidateNoDemotionNeeded(other_candidate)
+	|| CandidateNoDemotionNeeded(candidate)) {
+	/* either candidate needs no demotion */
 	goto done;
     }
     if (candidate->rank < other_candidate->rank) {
@@ -8796,6 +8842,10 @@ prefs_changed(_SCControlPrefsRef control)
 	S_IPMonitor_debug = 0;
 	S_IPMonitor_verbose = FALSE;
     }
+    S_disable_service_coupling
+	= IPMonitorControlPrefsGetDisableServiceCoupling();
+    my_log(LOG_DEBUG, "Service coupling is %s",
+	   S_disable_service_coupling ? "disabled" : "enabled");
     return;
 }
 
@@ -9365,7 +9415,7 @@ test_complete(void)
     if (S_run_leaks) {
 	char    cmd[128];
 
-	sprintf(cmd, "leaks %d 2>&1", getpid());
+	snprintf(cmd, sizeof(cmd), "leaks %d 2>&1", getpid());
 	fflush(stdout);
 	(void)system(cmd);
     }

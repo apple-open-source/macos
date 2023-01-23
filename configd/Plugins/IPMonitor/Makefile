@@ -23,7 +23,7 @@ ARCH_FLAGS=$(foreach a,$(ARCHS),-arch $(a))
 EXTRA_CFLAGS=-fsanitize=address
 #EXTRA_CFLAGS=
 
-TEST_INCLUDE=-I. -I../common -I../../dnsinfo -I../../nwi -I../../libSystemConfiguration -I../../SystemConfiguration.fproj -I../../IPMonitorControl -I../../IPMonitorControl/AWD -I$(SYSROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+TEST_INCLUDE=-I. -I./Control -I../common -I../../dnsinfo -I../../nwi -I../../libSystemConfiguration -I../../SystemConfiguration.fproj -I../../IPMonitorControl -I../../IPMonitorControl/AWD -I$(SYSROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
 
 REFERENCE_OUTPUT=../../common/reference_output.sh
 
@@ -82,8 +82,8 @@ libSystemConfiguration_client.o: ../../libSystemConfiguration/libSystemConfigura
 libSystemConfiguration_server.o: ../../libSystemConfiguration/libSystemConfiguration_server.h ../../libSystemConfiguration/libSystemConfiguration_server.c
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) ${TEST_INCLUDE} -Wall -O0 -g -c ../../libSystemConfiguration/libSystemConfiguration_server.c
 
-IPMonitorControlPrefs.o: ../common/IPMonitorControlPrefs.h ../common/IPMonitorControlPrefs.c
-	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) ${TEST_INCLUDE} -Wall -O0 -g -c ../common/IPMonitorControlPrefs.c
+IPMonitorControlPrefs.o: ./Control/IPMonitorControlPrefs.h ./Control/IPMonitorControlPrefs.c
+	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) ${TEST_INCLUDE} -Wall -O0 -g -c ./Control/IPMonitorControlPrefs.c
 
 IPMonitorControlServer.o: ../../IPMonitorControl/IPMonitorControlServer.c
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) ${TEST_INCLUDE} -Wall -O0 -g -c $^

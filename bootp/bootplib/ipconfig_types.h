@@ -40,6 +40,58 @@
 
 #define kInterfaceNameSize	IF_NAMESIZE
 
+#ifndef kSCEntNetDHCPv6
+#define kSCEntNetDHCPv6				CFSTR("DHCPv6")
+#endif /* kSCEntNetDHCPv6 */
+
+#ifndef kSCValNetIPv6ConfigMethodDHCPv6PD
+#define kSCValNetIPv6ConfigMethodDHCPv6PD	CFSTR("DHCPv6PD")
+#endif /* kSCValNetIPv6ConfigMethodDHCPv6PD */
+
+#ifndef kSCPropNetIPv6RequestedPrefix
+#define kSCPropNetIPv6RequestedPrefix		CFSTR("RequestedPrefix")
+#endif /* kSCPropNetIPv6RequestedPrefix */
+
+#ifndef kSCPropNetIPv6RequestedPrefixLength
+#define kSCPropNetIPv6RequestedPrefixLength 	CFSTR("RequestedPrefixLength")
+#endif /* kSCPropNetIPv6RequestedPrefixLength */
+
+#ifndef kSCPropNetIPv6DelegatedPrefix
+#define kSCPropNetIPv6DelegatedPrefix		CFSTR("DelegatedPrefix")
+#endif /* kSCPropNetIPv6DelegatedPrefix */
+
+#ifndef kSCPropNetIPv6DelegatedPrefixLength
+#define kSCPropNetIPv6DelegatedPrefixLength	CFSTR("DelegatedPrefixLength")
+#endif /* kSCPropNetIPv6DelegatedPrefixLength */
+
+#ifndef kSCPropNetIPv6DelegatedPrefixValidLifetime
+#define kSCPropNetIPv6DelegatedPrefixValidLifetime	\
+    CFSTR("DelegatedPrefixValidLifetime")
+#endif /* kSCPropNetIPv6DelegatedPrefixValidLifetime */
+
+#ifndef kSCPropNetIPv6DelegatedPrefixPreferredLifetime
+#define kSCPropNetIPv6DelegatedPrefixPreferredLifetime	\
+    CFSTR("DelegatedPrefixPreferredLifetime")
+#endif /* kSCPropNetIPv6DelegatedPrefixPreferredLifetime */
+
+#ifndef kSCPropNetDHCPLeaseStartTime
+#define kSCPropNetDHCPLeaseStartTime		CFSTR("LeaseStartTime")
+#endif /* kSCPropNetDHCPLeaseStartTime */
+
+#ifndef kSCPropNetDHCPLeaseExpirationTime
+#define kSCPropNetDHCPLeaseExpirationTime	CFSTR("LeaseExpirationTime")
+#endif /* kSCPropNetDHCPLeaseExpirationTime */
+
+#ifndef kSCPropNetDHCPv6LeaseStartTime
+#define kSCPropNetDHCPv6LeaseStartTime		CFSTR("LeaseStartTime")
+#endif /* kSCPropNetDHCPv6LeaseStartTime */
+
+#ifndef kSCPropNetDHCPv6LeaseExpirationTime
+#define kSCPropNetDHCPv6LeaseExpirationTime	CFSTR("LeaseExpirationTime")
+#endif /* kSCPropNetDHCPv6LeaseExpirationTime */
+
+#define kDHCPOptionFormat		CFSTR("Option_%d")
+
 typedef char	InterfaceName[kInterfaceNameSize];
 
 static inline char *
@@ -72,6 +124,13 @@ InterfaceNameInitWithCFString(InterfaceName name, CFStringRef str)
 #define kServiceIDSize		128
 
 typedef char	ServiceID[kServiceIDSize];
+
+static inline char *
+ServiceIDNulTerminate(ServiceID service_id)
+{
+    service_id[kServiceIDSize - 1] = '\0';
+    return (service_id);
+}
 
 static inline void
 ServiceIDClear(ServiceID service_id)

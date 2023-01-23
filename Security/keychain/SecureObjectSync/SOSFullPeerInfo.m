@@ -40,6 +40,8 @@
 #include <dispatch/dispatch.h>
 #include <Security/SecFramework.h>
 
+#import "keychain/categories/NSError+UsefulConstructors.h"
+
 #include <stdlib.h>
 
 #include <utilities/SecCFWrappers.h>
@@ -58,7 +60,17 @@
 
 #include <AssertMacros.h>
 
+#import <SecurityFoundation/SFKey.h>
+#import <SecurityFoundation/SFKey_Private.h>
 #include <utilities/SecCFError.h>
+
+#import <SoftLinking/SoftLinking.h>
+SOFT_LINK_FRAMEWORK(PrivateFrameworks, SecurityFoundation);
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+SOFT_LINK_CLASS(SecurityFoundation, SFECKeyPair);
+#pragma clang diagnostic pop
 
 // for OS X
 #ifdef __cplusplus
@@ -116,16 +128,81 @@ bool SOSFullPeerInfoUpdateToThisPeer(SOSFullPeerInfoRef peer, SOSPeerInfoRef pi,
 }
 
 SOSFullPeerInfoRef SOSFullPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt,
+                                         CFStringRef circleName,
                                          CFDataRef backupKey,
                                          SecKeyRef signingKey,
                                          SecKeyRef octagonPeerSigningKey,
                                          SecKeyRef octagonPeerEncryptionKey,
                                          CFErrorRef* error) {
-    return SOSFullPeerInfoCreateWithViews(allocator, gestalt, backupKey, NULL, signingKey,
+    return SOSFullPeerInfoCreateWithViews(allocator, circleName, gestalt, backupKey, NULL, signingKey,
                                           octagonPeerSigningKey, octagonPeerEncryptionKey, error);
 }
 
-SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
+
+static bool SOSFullPeerInfoSaveOctagonKeysToKeychain(NSString* keyLabel, NSData* keyDataToSave, SecKeyRef octagonPublicKey, NSError** error) {
+    NSError* localerror = nil;
+
+
+    NSMutableDictionary* query = [((NSDictionary*)CFBridgingRelease(SecKeyGeneratePrivateAttributeDictionary(octagonPublicKey,
+                                                                                                             kSecAttrKeyTypeEC,
+                                                                                                             (__bridge CFDataRef)keyDataToSave))) mutableCopy];
+
+    query[(id)kSecAttrLabel] = keyLabel;
+    query[(id)kSecUseDataProtectionKeychain] = @YES;
+    query[(id)kSecAttrSynchronizable] = (id)kCFBooleanFalse;
+    query[(id)kSecAttrAccessGroup] = (id)kSOSInternalAccessGroup;
+
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, &result);
+
+    if (status == errSecSuccess) {
+        return true;
+    }
+    if (status == errSecDuplicateItem) {
+        // Add every primary key attribute to this find dictionary
+        NSMutableDictionary* findQuery = [[NSMutableDictionary alloc] init];
+        findQuery[(id)kSecClass] = query[(id)kSecClass];
+        findQuery[(id)kSecAttrKeyType] = query[(id)kSecAttrKeyTypeEC];
+        findQuery[(id)kSecAttrKeyClass] = query[(id)kSecAttrKeyClassPrivate];
+        findQuery[(id)kSecAttrAccessGroup] = query[(id)kSecAttrAccessGroup];
+        findQuery[(id)kSecAttrLabel] = query[(id)kSecAttrLabel];
+        findQuery[(id)kSecAttrApplicationLabel] = query[(id)kSecAttrApplicationLabel];
+        findQuery[(id)kSecUseDataProtectionKeychain] = query[(id)kSecUseDataProtectionKeychain];
+
+        NSMutableDictionary* updateQuery = [query mutableCopy];
+        updateQuery[(id)kSecClass] = nil;
+
+        status = SecItemUpdate((__bridge CFDictionaryRef)findQuery, (__bridge CFDictionaryRef)updateQuery);
+
+        if (status) {
+            localerror = [NSError
+                          errorWithDomain:NSOSStatusErrorDomain
+                          code:status
+                          description:[NSString stringWithFormat:@"SecItemUpdate: %d", (int)status]];
+        }
+    } else {
+        localerror = [NSError
+                      errorWithDomain:NSOSStatusErrorDomain
+                      code:status
+                      description:[NSString stringWithFormat:@"SecItemAdd: %d", (int)status]];
+    }
+    if (localerror && error) {
+        *error = localerror;
+    }
+
+    return (status == errSecSuccess);
+}
+
+static NSString* createKeyLabel(NSDictionary *gestalt, NSString* circleName, NSString* prefix)
+{
+    NSString *keyName = [NSString stringWithFormat:@"ID for %@-%@",SOSPeerGestaltGetName((__bridge CFDictionaryRef)(gestalt)), circleName];
+
+    NSString* octagonKeyName = [prefix stringByAppendingString: keyName];
+
+    return octagonKeyName;
+}
+
+SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator, CFStringRef circleName,
                                                   CFDictionaryRef gestalt, CFDataRef backupKey, CFSetRef initialViews,
                                                   SecKeyRef signingKey,
                                                   SecKeyRef octagonPeerSigningKey,
@@ -152,9 +229,47 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
 
     OSStatus status = SecKeyCopyPersistentRef(signingKey, &fpi->key_ref);
     require_quiet(SecError(status, error, CFSTR("Inflating persistent ref")), exit);
+    
     status = SecKeyCopyPersistentRef(octagonPeerSigningKey, &fpi->octagon_peer_signing_key_ref);
+    if (status == errSecItemNotFound) {
+        SFECKeyPair* signingFullKey = [[get_SFECKeyPairClass() alloc] initWithSecKey:octagonPeerSigningKey];
+        NSString* octagonSigningKeyName = createKeyLabel((__bridge NSDictionary*)gestalt, (__bridge NSString*)circleName, @"Octagon Peer Signing ");
+        SecKeyRef signingPublicKeyDataOctagon = SecKeyCreatePublicFromPrivate(octagonPeerSigningKey);
+        if (signingPublicKeyDataOctagon == NULL) {
+            secerror("Unable to get public from octagon peer signing key");
+        } else {
+            NSError* saveError = nil;
+            bool result = SOSFullPeerInfoSaveOctagonKeysToKeychain(octagonSigningKeyName, signingFullKey.keyData, signingPublicKeyDataOctagon, &saveError);
+            if (!result || saveError) {
+                secerror("Unable to save octagon signing key to the keychain");
+            } else {
+                // now copy persistent ref
+                status = SecKeyCopyPersistentRef(octagonPeerSigningKey, &fpi->octagon_peer_signing_key_ref);
+            }
+        }
+    }
+    
     require_quiet(SecError(status, error, CFSTR("Inflating octagon peer signing persistent ref")), exit);
+    
     status = SecKeyCopyPersistentRef(octagonPeerEncryptionKey, &fpi->octagon_peer_encryption_key_ref);
+    if (status == errSecItemNotFound) {
+        SFECKeyPair* encryptionFullKey = [[get_SFECKeyPairClass() alloc] initWithSecKey:octagonPeerEncryptionKey];
+        NSString* octagonEncryptionKeyName = createKeyLabel((__bridge NSDictionary*)gestalt, (__bridge NSString*)circleName, @"Octagon Peer Encryption ");
+        SecKeyRef encryptionPublicKeyDataOctagon = SecKeyCreatePublicFromPrivate(octagonPeerEncryptionKey);
+        if (encryptionPublicKeyDataOctagon == NULL) {
+            secerror("Unable to get public from octagon peer encryption key");
+        } else {
+            NSError* saveError = nil;
+            bool result = SOSFullPeerInfoSaveOctagonKeysToKeychain(octagonEncryptionKeyName, encryptionFullKey.keyData, encryptionPublicKeyDataOctagon, &saveError);
+            if (!result || saveError) {
+                secerror("Unable to save octagon encryption key to the keychain");
+            } else {
+                // now copy persistent ref
+                status = SecKeyCopyPersistentRef(octagonPeerEncryptionKey, &fpi->octagon_peer_encryption_key_ref);
+            }
+        }
+    }
+    
     require_quiet(SecError(status, error, CFSTR("Inflating octagon peer encryption persistent ref")), exit);
 
     CFTransferRetained(result, fpi);

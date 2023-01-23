@@ -100,7 +100,7 @@ DHCPInfoDictionaryCreate(ipconfig_method_t method, dhcpol_t * options_p,
 			 absolute_time_t expiration_time);
 
 CFDictionaryRef
-DHCPv6InfoDictionaryCreate(DHCPv6OptionListRef options);
+DHCPv6InfoDictionaryCreate(ipv6_info_t * info_p);
 
 CFStringRef
 IPv4ARPCollisionKeyParse(CFStringRef cache_key, struct in_addr * ipaddr_p,

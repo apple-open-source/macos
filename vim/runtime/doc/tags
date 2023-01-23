@@ -231,7 +231,9 @@ $quote	eval.txt	/*$quote*
 'emoji'	options.txt	/*'emoji'*
 'enc'	options.txt	/*'enc'*
 'encoding'	options.txt	/*'encoding'*
+'endoffile'	options.txt	/*'endoffile'*
 'endofline'	options.txt	/*'endofline'*
+'eof'	options.txt	/*'eof'*
 'eol'	options.txt	/*'eol'*
 'ep'	options.txt	/*'ep'*
 'equalalways'	options.txt	/*'equalalways'*
@@ -435,10 +437,12 @@ $quote	eval.txt	/*$quote*
 'key'	options.txt	/*'key'*
 'keymap'	options.txt	/*'keymap'*
 'keymodel'	options.txt	/*'keymodel'*
+'keyprotocol'	options.txt	/*'keyprotocol'*
 'keywordprg'	options.txt	/*'keywordprg'*
 'km'	options.txt	/*'km'*
 'kmp'	options.txt	/*'kmp'*
 'kp'	options.txt	/*'kp'*
+'kpc'	options.txt	/*'kpc'*
 'langmap'	options.txt	/*'langmap'*
 'langmenu'	options.txt	/*'langmenu'*
 'langnoremap'	options.txt	/*'langnoremap'*
@@ -451,6 +455,7 @@ $quote	eval.txt	/*$quote*
 'lines'	options.txt	/*'lines'*
 'linespace'	options.txt	/*'linespace'*
 'lisp'	options.txt	/*'lisp'*
+'lispoptions'	options.txt	/*'lispoptions'*
 'lispwords'	options.txt	/*'lispwords'*
 'list'	options.txt	/*'list'*
 'listchars'	options.txt	/*'listchars'*
@@ -458,6 +463,7 @@ $quote	eval.txt	/*$quote*
 'lmap'	options.txt	/*'lmap'*
 'lnr'	options.txt	/*'lnr'*
 'loadplugins'	options.txt	/*'loadplugins'*
+'lop'	options.txt	/*'lop'*
 'lpl'	options.txt	/*'lpl'*
 'lrm'	options.txt	/*'lrm'*
 'ls'	options.txt	/*'ls'*
@@ -596,7 +602,9 @@ $quote	eval.txt	/*$quote*
 'noek'	options.txt	/*'noek'*
 'noemo'	options.txt	/*'noemo'*
 'noemoji'	options.txt	/*'noemoji'*
+'noendoffile'	options.txt	/*'noendoffile'*
 'noendofline'	options.txt	/*'noendofline'*
+'noeof'	options.txt	/*'noeof'*
 'noeol'	options.txt	/*'noeol'*
 'noequalalways'	options.txt	/*'noequalalways'*
 'noerrorbells'	options.txt	/*'noerrorbells'*
@@ -714,14 +722,14 @@ $quote	eval.txt	/*$quote*
 'nosmartindent'	options.txt	/*'nosmartindent'*
 'nosmarttab'	options.txt	/*'nosmarttab'*
 'nosmd'	options.txt	/*'nosmd'*
+'nosmoothscroll'	options.txt	/*'nosmoothscroll'*
+'nosms'	options.txt	/*'nosms'*
 'nosn'	options.txt	/*'nosn'*
 'nosol'	options.txt	/*'nosol'*
 'nospell'	options.txt	/*'nospell'*
 'nosplitbelow'	options.txt	/*'nosplitbelow'*
 'nosplitright'	options.txt	/*'nosplitright'*
-'nosplitscroll'	options.txt	/*'nosplitscroll'*
 'nospr'	options.txt	/*'nospr'*
-'nospsc'	options.txt	/*'nospsc'*
 'nosr'	options.txt	/*'nosr'*
 'nossl'	options.txt	/*'nossl'*
 'nosta'	options.txt	/*'nosta'*
@@ -938,6 +946,8 @@ $quote	eval.txt	/*$quote*
 'smarttab'	options.txt	/*'smarttab'*
 'smc'	options.txt	/*'smc'*
 'smd'	options.txt	/*'smd'*
+'smoothscroll'	options.txt	/*'smoothscroll'*
+'sms'	options.txt	/*'sms'*
 'sn'	options.txt	/*'sn'*
 'so'	options.txt	/*'so'*
 'softtabstop'	options.txt	/*'softtabstop'*
@@ -952,14 +962,14 @@ $quote	eval.txt	/*$quote*
 'spelloptions'	options.txt	/*'spelloptions'*
 'spellsuggest'	options.txt	/*'spellsuggest'*
 'spf'	options.txt	/*'spf'*
+'spk'	options.txt	/*'spk'*
 'spl'	options.txt	/*'spl'*
 'splitbelow'	options.txt	/*'splitbelow'*
+'splitkeep'	options.txt	/*'splitkeep'*
 'splitright'	options.txt	/*'splitright'*
-'splitscroll'	options.txt	/*'splitscroll'*
 'spo'	options.txt	/*'spo'*
 'spr'	options.txt	/*'spr'*
 'sps'	options.txt	/*'sps'*
-'spsc'	options.txt	/*'spsc'*
 'sr'	options.txt	/*'sr'*
 'srr'	options.txt	/*'srr'*
 'ss'	options.txt	/*'ss'*
@@ -3034,6 +3044,9 @@ $quote	eval.txt	/*$quote*
 :r!	insert.txt	/*:r!*
 :range	cmdline.txt	/*:range*
 :range!	change.txt	/*:range!*
+:range-closed-fold	cmdline.txt	/*:range-closed-fold*
+:range-offset	cmdline.txt	/*:range-offset*
+:range-pattern	cmdline.txt	/*:range-pattern*
 :re	insert.txt	/*:re*
 :read	insert.txt	/*:read*
 :read!	insert.txt	/*:read!*
@@ -4345,7 +4358,13 @@ E1303	map.txt	/*E1303*
 E1304	vim9.txt	/*E1304*
 E1305	textprop.txt	/*E1305*
 E1306	vim9.txt	/*E1306*
+E1307	vim9.txt	/*E1307*
+E1308	builtin.txt	/*E1308*
+E1309	map.txt	/*E1309*
 E131	userfunc.txt	/*E131*
+E1310	gui.txt	/*E1310*
+E1311	map.txt	/*E1311*
+E1312	windows.txt	/*E1312*
 E132	userfunc.txt	/*E132*
 E133	userfunc.txt	/*E133*
 E134	change.txt	/*E134*
@@ -5545,6 +5564,7 @@ TerminalWinOpen	autocmd.txt	/*TerminalWinOpen*
 TextChanged	autocmd.txt	/*TextChanged*
 TextChangedI	autocmd.txt	/*TextChangedI*
 TextChangedP	autocmd.txt	/*TextChangedP*
+TextChangedT	autocmd.txt	/*TextChangedT*
 TextYankPost	autocmd.txt	/*TextYankPost*
 Transact-SQL	ft_sql.txt	/*Transact-SQL*
 U	undo.txt	/*U*
@@ -5572,7 +5592,6 @@ VimResume	autocmd.txt	/*VimResume*
 VimSuspend	autocmd.txt	/*VimSuspend*
 Vimball-copyright	pi_vimball.txt	/*Vimball-copyright*
 Virtual-Replace-mode	insert.txt	/*Virtual-Replace-mode*
-VisVim	if_ole.txt	/*VisVim*
 Visual	visual.txt	/*Visual*
 Visual-mode	visual.txt	/*Visual-mode*
 W	motion.txt	/*W*
@@ -5598,7 +5617,10 @@ WinClosed	autocmd.txt	/*WinClosed*
 WinEnter	autocmd.txt	/*WinEnter*
 WinLeave	autocmd.txt	/*WinLeave*
 WinNew	autocmd.txt	/*WinNew*
+WinResized	autocmd.txt	/*WinResized*
+WinResized-event	windows.txt	/*WinResized-event*
 WinScrolled	autocmd.txt	/*WinScrolled*
+WinScrolled-event	windows.txt	/*WinScrolled-event*
 X	change.txt	/*X*
 X11	options.txt	/*X11*
 X11-icon	gui_x11.txt	/*X11-icon*
@@ -6646,6 +6668,7 @@ end	intro.txt	/*end*
 end-of-file	pattern.txt	/*end-of-file*
 enlightened-terminal	syntax.txt	/*enlightened-terminal*
 environ()	builtin.txt	/*environ()*
+eol-and-eof	editing.txt	/*eol-and-eof*
 erlang.vim	syntax.txt	/*erlang.vim*
 err_buf	channel.txt	/*err_buf*
 err_cb	channel.txt	/*err_cb*
@@ -6675,6 +6698,8 @@ escape()	builtin.txt	/*escape()*
 escape-bar	version4.txt	/*escape-bar*
 euphoria3.vim	syntax.txt	/*euphoria3.vim*
 euphoria4.vim	syntax.txt	/*euphoria4.vim*
+euro	digraph.txt	/*euro*
+euro-digraph	digraph.txt	/*euro-digraph*
 eval	eval.txt	/*eval*
 eval()	builtin.txt	/*eval()*
 eval-examples	eval.txt	/*eval-examples*
@@ -6777,6 +6802,7 @@ expr-lambda	eval.txt	/*expr-lambda*
 expr-nesting	eval.txt	/*expr-nesting*
 expr-number	eval.txt	/*expr-number*
 expr-option	eval.txt	/*expr-option*
+expr-option-function	vim9.txt	/*expr-option-function*
 expr-quote	eval.txt	/*expr-quote*
 expr-register	eval.txt	/*expr-register*
 expr-star	eval.txt	/*expr-star*
@@ -7244,8 +7270,11 @@ g:html_id_expr	syntax.txt	/*g:html_id_expr*
 g:html_ignore_conceal	syntax.txt	/*g:html_ignore_conceal*
 g:html_ignore_folding	syntax.txt	/*g:html_ignore_folding*
 g:html_line_ids	syntax.txt	/*g:html_line_ids*
+g:html_no_doc	syntax.txt	/*g:html_no_doc*
 g:html_no_foldcolumn	syntax.txt	/*g:html_no_foldcolumn*
 g:html_no_invalid	syntax.txt	/*g:html_no_invalid*
+g:html_no_links	syntax.txt	/*g:html_no_links*
+g:html_no_modeline	syntax.txt	/*g:html_no_modeline*
 g:html_no_pre	syntax.txt	/*g:html_no_pre*
 g:html_no_progress	syntax.txt	/*g:html_no_progress*
 g:html_number_lines	syntax.txt	/*g:html_number_lines*
@@ -7466,6 +7495,7 @@ get()	builtin.txt	/*get()*
 get-ms-debuggers	debug.txt	/*get-ms-debuggers*
 getbufinfo()	builtin.txt	/*getbufinfo()*
 getbufline()	builtin.txt	/*getbufline()*
+getbufoneline()	builtin.txt	/*getbufoneline()*
 getbufvar()	builtin.txt	/*getbufvar()*
 getchangelist()	builtin.txt	/*getchangelist()*
 getchar()	builtin.txt	/*getchar()*
@@ -7497,6 +7527,7 @@ getloclist()	builtin.txt	/*getloclist()*
 getmarklist()	builtin.txt	/*getmarklist()*
 getmatches()	builtin.txt	/*getmatches()*
 getmousepos()	builtin.txt	/*getmousepos()*
+getmouseshape()	builtin.txt	/*getmouseshape()*
 getpid()	builtin.txt	/*getpid()*
 getpos()	builtin.txt	/*getpos()*
 getqflist()	builtin.txt	/*getqflist()*
@@ -7817,6 +7848,7 @@ howto.txt	howto.txt	/*howto.txt*
 hpterm	term.txt	/*hpterm*
 hpterm-color	syntax.txt	/*hpterm-color*
 html-flavor	insert.txt	/*html-flavor*
+html-folding	syntax.txt	/*html-folding*
 html-indent	indent.txt	/*html-indent*
 html-indenting	indent.txt	/*html-indenting*
 html.vim	syntax.txt	/*html.vim*
@@ -8043,7 +8075,7 @@ interfaces-5.2	version5.txt	/*interfaces-5.2*
 internal-variables	eval.txt	/*internal-variables*
 internal-wordlist	spell.txt	/*internal-wordlist*
 internet	intro.txt	/*internet*
-interp-string	eval.txt	/*interp-string*
+interpolated-string	eval.txt	/*interpolated-string*
 interrupt()	builtin.txt	/*interrupt()*
 intro	intro.txt	/*intro*
 intro.txt	intro.txt	/*intro.txt*
@@ -8135,6 +8167,7 @@ keypad-plus	intro.txt	/*keypad-plus*
 keypad-point	intro.txt	/*keypad-point*
 keys()	builtin.txt	/*keys()*
 keytrans()	builtin.txt	/*keytrans()*
+kitty-keyboard-protocol	map.txt	/*kitty-keyboard-protocol*
 known-bugs	todo.txt	/*known-bugs*
 l	motion.txt	/*l*
 l:	eval.txt	/*l:*
@@ -8412,6 +8445,7 @@ motion-count-multiplied	motion.txt	/*motion-count-multiplied*
 motion.txt	motion.txt	/*motion.txt*
 mouse-mode-table	term.txt	/*mouse-mode-table*
 mouse-overview	term.txt	/*mouse-overview*
+mouse-scrolling-off	scroll.txt	/*mouse-scrolling-off*
 mouse-swap-buttons	term.txt	/*mouse-swap-buttons*
 mouse-using	term.txt	/*mouse-using*
 mouse_col-variable	eval.txt	/*mouse_col-variable*
@@ -9031,6 +9065,7 @@ popup_dialog()	popup.txt	/*popup_dialog()*
 popup_dialog-example	popup.txt	/*popup_dialog-example*
 popup_filter_menu()	popup.txt	/*popup_filter_menu()*
 popup_filter_yesno()	popup.txt	/*popup_filter_yesno()*
+popup_findecho()	popup.txt	/*popup_findecho()*
 popup_findinfo()	popup.txt	/*popup_findinfo()*
 popup_findpreview()	popup.txt	/*popup_findpreview()*
 popup_getoptions()	popup.txt	/*popup_getoptions()*
@@ -10162,6 +10197,7 @@ termdebug_popup	terminal.txt	/*termdebug_popup*
 termdebug_shortcuts	terminal.txt	/*termdebug_shortcuts*
 termdebug_use_prompt	terminal.txt	/*termdebug_use_prompt*
 termdebug_wide	terminal.txt	/*termdebug_wide*
+termdebug_winbar	terminal.txt	/*termdebug_winbar*
 terminal	terminal.txt	/*terminal*
 terminal-api	terminal.txt	/*terminal-api*
 terminal-autoshelldir	terminal.txt	/*terminal-autoshelldir*
@@ -10834,6 +10870,7 @@ whitespace	pattern.txt	/*whitespace*
 wildcard	editing.txt	/*wildcard*
 wildcards	editing.txt	/*wildcards*
 wildmenumode()	builtin.txt	/*wildmenumode()*
+win-scrolled-resized	windows.txt	/*win-scrolled-resized*
 win16	os_win32.txt	/*win16*
 win32	os_win32.txt	/*win32*
 win32-!start	gui_w32.txt	/*win32-!start*

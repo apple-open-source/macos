@@ -2596,6 +2596,20 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     reply(nil);
 }
 
+- (void)preflightRecoverOctagonUsingRecoveryKey:(OTControlArguments *)arguments recoveryKey:(NSString *)recoveryKey reply:(void (^)(BOOL, NSError * _Nullable))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a preflightRecoverOctagonUsingRecoveryKey RPC for arguments (%@): %@", arguments, clientError);
+        reply(NO, clientError);
+        return;
+    }
+    
+    [cfshContext preflightRecoverOctagonUsingRecoveryKey:recoveryKey reply:reply];
+}
+
 + (CKContainer*)makeCKContainer:(NSString*)containerName
 {
     CKContainerOptions* containerOptions = [[CKContainerOptions alloc] init];

@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_IOCTLDATA 3 "May 17, 2022" "libcurl 7.85.0" "curl_easy_setopt options"
+.TH CURLOPT_IOCTLDATA 3 "October 12, 2022" "libcurl 7.86.0" "curl_easy_setopt options"
 
 .SH NAME
 CURLOPT_IOCTLDATA \- pointer passed to I/O callback
@@ -58,7 +58,7 @@ static curlioerr ioctl_callback(CURL *handle, int cmd, void *clientp)
 }
 .fi
 .SH AVAILABILITY
-Added in 7.12.3
+Added in 7.12.3. Deprecated since 7.18.0.
 .SH RETURN VALUE
 Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
 .SH "SEE ALSO"

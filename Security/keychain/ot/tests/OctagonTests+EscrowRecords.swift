@@ -851,7 +851,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             XCTAssertEqual(container.containerMO.fullyViableEscrowRecords as? Set<EscrowRecordMO>, [], "fully viable escrowRecords should be empty")
         }
     }
-    
+
     func testFetchEscrowRecordsFromEmptyCache() throws {
         let initiatorContextID = "initiator-context-id"
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
@@ -923,7 +923,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
-        
+
         // (1) Fetch escrow records from cuttlefish to populate the cache.
         // Expectation: Cuttlefish should return 2 records.
         bottlerotcliqueContext.escrowFetchSource = .cuttlefish
@@ -932,16 +932,16 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let escrowRecords1 = escrowRecordDatas1.map { OTEscrowRecord(data: $0) }
         XCTAssertNotNil(escrowRecords1, "escrowRecords should not be nil")
         XCTAssertEqual(escrowRecords1.count, 2, "should be 2 escrow records")
-        
+
         // (2) Fetch escrow records from cache.
         // Expectation: Cache should return 2 records.
         bottlerotcliqueContext.escrowFetchSource = .cache
-        
+
         let escrowRecordDatas2 = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
         let escrowRecords2 = escrowRecordDatas2.map { OTEscrowRecord(data: $0) }
         XCTAssertNotNil(escrowRecords2, "escrowRecords should not be nil")
         XCTAssertEqual(escrowRecords2.count, 2, "should be 2 escrow records")
-        
+
         // (3) Invalidate escrow cache and fetch from cache.
         // Expectation: Cache should be invalid and return an error.
         let invalidateExpectation = self.expectation(description: "invalidate escrow cache expectation")
@@ -950,14 +950,14 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             invalidateExpectation.fulfill()
         }
         self.wait(for: [invalidateExpectation], timeout: 10)
-        
+
         do {
-            let _ = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+            _ = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
             XCTAssert(false, "Expected noEscrowCache error")
         } catch let error as NSError {
             XCTAssertEqual(error.code, ContainerError.noEscrowCache.errorCode, "expected noEscrowCacheError")
         }
-        
+
         // (4) Mock no escrow records and fetch from cuttlefish to re-populate cache.
         // Expectation: Cuttlefish should return 0 records.
         self.fakeCuttlefishServer.state.bottles = []
@@ -967,7 +967,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let escrowRecords4 = escrowRecordDatas4.map { OTEscrowRecord(data: $0) }
         XCTAssertNotNil(escrowRecords4, "escrowRecords should not be nil")
         XCTAssertEqual(escrowRecords4.count, 0, "should be 0 escrow records")
-        
+
         // (5) Fetch escrow records from cache.
         // Expectation: Cache should return 0 records (not an error).
         bottlerotcliqueContext.escrowFetchSource = .cache
@@ -1230,7 +1230,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
 
         OctagonSetPlatformSupportsSOS(true)
-        
+
         return bottlerContext
     }
 
@@ -1497,7 +1497,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             throw error
         }
     }
-    
+
     /// Tests the -[OTClique initWithContextData] initializer method and ensures supported
     /// properties are transferred correctly.
     func testCliqueInitWithContextData() throws {
@@ -1510,7 +1510,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         ctx.ckksControl = self.ckksControl
         ctx.escrowFetchSource = .cache
         ctx.overrideForSetupAccountScript = true
-        
+
         let clique = OTClique(contextData: ctx)
         XCTAssertEqual(clique.ctx.context, ctx.context)
         XCTAssertEqual(clique.ctx.containerName, ctx.containerName)
@@ -1521,7 +1521,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         XCTAssertEqual(clique.ctx.escrowFetchSource, ctx.escrowFetchSource)
         XCTAssertEqual(clique.ctx.overrideForSetupAccountScript, ctx.overrideForSetupAccountScript)
     }
-    
+
     func testCachedTLKRecoverability() throws {
         let initiatorContextID = "initiator-context-id"
         let bottlerContext = try self.setupTLKRecoverability(contextID: initiatorContextID)
@@ -1558,7 +1558,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             throw error
         }
         self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 10)
-        
+
         // Adjust cache timeout to 0.5 seconds, sleep for 1 second, simulates scenario with an
         // expired cache (to ensure cuttlefish fetch still doesn't happen).
         let container = try self.tphClient.getContainer(with: try XCTUnwrap(bottlerContext.activeAccount))
@@ -1566,17 +1566,17 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         // sleep to invalidate the cache
         sleep(1)
-        
+
         // Create an inverted expectation (inverted indicates this expectation should NOT be fulfilled).
         let doNotFetchUnCachedViableBottlesExpectation = self.expectation(description: "do not fetch UnCached ViableBottles")
         doNotFetchUnCachedViableBottlesExpectation.isInverted = true
-        
-        self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
+
+        self.fakeCuttlefishServer.fetchViableBottlesListener = { _ in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
             doNotFetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
-        
+
         // Check for 1st viable TLK.
         var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
         self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .cache) {retViews, error in
@@ -1602,11 +1602,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             tlkRecoverabilityExpectation.fulfill()
         }
         self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
-        
+
         // Test that the expectation was NOT fulfilled (i.e., inverted), proving only cache was used.
         self.wait(for: [doNotFetchUnCachedViableBottlesExpectation], timeout: 0)
     }
-    
+
     func testCachedTLKRecoverabilityWithoutAccount() throws {
         let initiatorContextID = "initiator-context-id"
         let bottlerContext = try self.setupTLKRecoverability(contextID: initiatorContextID)
@@ -1643,22 +1643,22 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             throw error
         }
         self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 10)
-        
+
         // Create an inverted expectation (inverted indicates this expectation should NOT be fulfilled).
         let doNotFetchUnCachedViableBottlesExpectation = self.expectation(description: "do not fetch UnCached ViableBottles")
         doNotFetchUnCachedViableBottlesExpectation.isInverted = true
-        
-        self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
+
+        self.fakeCuttlefishServer.fetchViableBottlesListener = { _ in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
             doNotFetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
-        
+
         // Simulate no CK account state.
         let noAccountInfo = CKAccountInfo()
         noAccountInfo.accountStatus = .noAccount
         bottlerContext.cloudkitAccountStateChange(nil, to: noAccountInfo)
-        
+
         // Check for 1st viable TLK.
         var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
         self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .cache) {retViews, error in
@@ -1684,11 +1684,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             tlkRecoverabilityExpectation.fulfill()
         }
         self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
-        
+
         // Test that the expectation was NOT fulfilled (i.e., inverted), proving only cache was used.
         self.wait(for: [doNotFetchUnCachedViableBottlesExpectation], timeout: 0)
     }
-    
+
     func testCachedTLKRecoverabilityWithEmptyCache() throws {
         let initiatorContextID = "initiator-context-id"
         try self.setupTLKRecoverability(contextID: initiatorContextID)
@@ -1725,7 +1725,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             throw error
         }
         self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 10)
-        
+
         // Invalidate the escrow cache.
         // Expectation: Cache should be invalid and return an error.
         let invalidateExpectation = self.expectation(description: "invalidate escrow cache expectation")
@@ -1734,26 +1734,26 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             invalidateExpectation.fulfill()
         }
         self.wait(for: [invalidateExpectation], timeout: 10)
-        
+
         // Create an inverted expectation (inverted indicates this expectation should NOT be fulfilled).
         let doNotFetchUnCachedViableBottlesExpectation = self.expectation(description: "do not fetch UnCached ViableBottles")
         doNotFetchUnCachedViableBottlesExpectation.isInverted = true
-        
-        self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
+
+        self.fakeCuttlefishServer.fetchViableBottlesListener = { _ in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
             doNotFetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
-        
+
         // Check for 1st viable TLK.
         var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
-        self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .cache) {retViews, error in
+        self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .cache) {_, error in
             XCTAssertNotNil(error, "error should not be nil")
             guard let error = error as? NSError else {
                 XCTFail("unable to cast error as NSError")
                 return
             }
-            
+
             XCTAssertEqual(error.code, ContainerError.noEscrowCache.errorCode, "error should be equal to noEscrowCache")
             XCTAssertEqual(error.domain, ContainerError.errorDomain, "error domain should be ContainerError")
             tlkRecoverabilityExpectation.fulfill()
@@ -1762,22 +1762,22 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         // Check for 2nd viable TLK.
         tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
-        self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1], source: .cache) {retViews, error in
+        self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1], source: .cache) {_, error in
             XCTAssertNotNil(error, "error should not be nil")
             guard let error = error as? NSError else {
                 XCTFail("unable to cast error as NSError")
                 return
             }
-            
+
             XCTAssertEqual(error.code, ContainerError.noEscrowCache.errorCode, "error should be equal to noEscrowCache")
             XCTAssertEqual(error.domain, ContainerError.errorDomain, "error domain should be ContainerError")
             tlkRecoverabilityExpectation.fulfill()
         }
         self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
-        
+
         // Test that the expectation was NOT fulfilled (i.e., inverted), proving only cache was used.
         self.wait(for: [doNotFetchUnCachedViableBottlesExpectation], timeout: 0)
-        
+
         // now call fetchviablebottles, we should get the uncached version
         fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles (again)")
 
@@ -1787,7 +1787,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
-        
+
         // Check for viable TLK (this time using .default source).
         // Expectation: Fetch from cuttlefish should happen and TLK views should be returned.
         tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")

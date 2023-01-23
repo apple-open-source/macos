@@ -115,6 +115,9 @@ static LINENUM	locate_hunk(LINENUM);
 static void	abort_context_hunk(void);
 static void	rej_line(int, LINENUM);
 static void	abort_hunk(void);
+#ifdef __APPLE__
+static bool	putline(LINENUM line, FILE *fp);
+#endif
 static void	apply_hunk(LINENUM);
 static void	init_output(const char *);
 static void	init_reject(const char *);
@@ -1197,13 +1200,22 @@ abort_context_hunk(void)
 				    newlast, minuses);
 			break;
 		case '\n':
+#ifdef __APPLE__
+			putline(i, rejfp);
+#else
 			fprintf(rejfp, "%s", pfetch(i));
+#endif
 			break;
 		case ' ':
 		case '-':
 		case '+':
 		case '!':
+#ifdef __APPLE__
+			fprintf(rejfp, "%c ", pch_char(i));
+			putline(i, rejfp);
+#else
 			fprintf(rejfp, "%c %s", pch_char(i), pfetch(i));
+#endif
 			break;
 		default:
 			fatal("fatal internal error in abort_context_hunk\n");
@@ -1217,9 +1229,21 @@ rej_line(int ch, LINENUM i)
 	size_t len;
 	const char *line = pfetch(i);
 
+#ifdef __APPLE__
+	/*
+	 * We could use putline() here as well, but we need both the line itself
+	 * and the size to track if we had a newline, while none of the other
+	 * consumers do.
+	 */
+	len = pch_line_len(i);
+
+	fputc(ch, rejfp);
+	fwrite(line, 1, len, rejfp);
+#else
 	len = strlen(line);
 
 	fprintf(rejfp, "%c%s", ch, line);
+#endif
 	if (len == 0 || line[len - 1] != '\n') {
 		if (len >= USHRT_MAX)
 			fprintf(rejfp, "\n\\ Line too long\n");
@@ -1293,6 +1317,23 @@ abort_hunk(void)
 	}
 }
 
+#ifdef __APPLE__
+/*
+ * putline -- write a line from the patch file out to fp.  This avoids assuming
+ * the length of the fetched line, explicitly grabbing it and writing it out
+ * char-by-char so that we're not breaking any internal NULs (e.g., UTF-16).
+ *
+ * Returns true on success or false on EOF or write error.
+ */
+static bool
+putline(LINENUM line, FILE *fp)
+{
+	size_t len = pch_line_len(line);
+
+	return (fwrite(pfetch(line), 1, len, fp) == len);
+}
+#endif
+
 /* We found where to apply it (we hope), so do it. */
 
 static void
@@ -1323,7 +1364,11 @@ apply_hunk(LINENUM where)
 					fputs(else_defined, ofp);
 					def_state = IN_ELSE;
 				}
+#ifdef __APPLE__
+				putline(old, ofp);
+#else
 				fputs(pfetch(old), ofp);
+#endif
 			}
 			last_frozen_line++;
 			old++;
@@ -1340,7 +1385,11 @@ apply_hunk(LINENUM where)
 					def_state = IN_IFDEF;
 				}
 			}
+#ifdef __APPLE__
+			putline(new, ofp);
+#else
 			fputs(pfetch(new), ofp);
+#endif
 			new++;
 		} else if (pch_char(new) != pch_char(old)) {
 			say("Out-of-sync patch, lines %ld,%ld--mangled text or line numbers, maybe?\n",
@@ -1359,7 +1408,11 @@ apply_hunk(LINENUM where)
 			}
 			while (pch_char(old) == '!') {
 				if (do_defines) {
+#ifdef __APPLE__
+					putline(old, ofp);
+#else
 					fputs(pfetch(old), ofp);
+#endif
 				}
 				last_frozen_line++;
 				old++;
@@ -1369,7 +1422,11 @@ apply_hunk(LINENUM where)
 				def_state = IN_ELSE;
 			}
 			while (pch_char(new) == '!') {
+#ifdef __APPLE__
+				putline(new, ofp);
+#else
 				fputs(pfetch(new), ofp);
+#endif
 				new++;
 			}
 		} else {
@@ -1395,7 +1452,11 @@ apply_hunk(LINENUM where)
 			}
 		}
 		while (new <= pat_end && pch_char(new) == '+') {
+#ifdef __APPLE__
+			putline(new, ofp);
+#else
 			fputs(pfetch(new), ofp);
+#endif
 			new++;
 		}
 	}
@@ -1521,7 +1582,11 @@ patch_match(LINENUM base, LINENUM offset, LINENUM fuzz)
 		if (canonicalize) {
 			if (!similar(ilineptr, plineptr, plinelen))
 				return false;
+#ifdef __APPLE__
+		} else if (bstrnNE(ilineptr, plineptr, plinelen))
+#else
 		} else if (strnNE(ilineptr, plineptr, plinelen))
+#endif
 			return false;
 		if (iline == input_lines) {
 			/*

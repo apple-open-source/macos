@@ -377,8 +377,10 @@ int l2tp_udp_output(socket_t so, int thread, mbuf_t m, struct sockaddr* to)
 
 	return 0;
 	
-no_thread:
+no_thread:	
+	lck_mtx_unlock(ppp_domain_mutex);
 	err = sock_sendmbuf(so, 0, m, MSG_DONTWAIT, 0);
+	lck_mtx_lock(ppp_domain_mutex);
 	return err;
 }
 

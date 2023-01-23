@@ -9563,10 +9563,10 @@ next_attr:
              * Arithmetic on dangling pointers is technically undefined
              * behavior, but well...
              */
-            ptrdiff_t offset = ctxt->input->base - atts[i+2];
+            const xmlChar *old = atts[i+2];
             atts[i+2]  = NULL;    /* Reset repurposed namespace URI */
-            atts[i+3] += offset;  /* value */
-            atts[i+4] += offset;  /* valuend */
+            atts[i+3] = ctxt->input->base + (atts[i+3] - old);  /* value */
+            atts[i+4] = ctxt->input->base + (atts[i+4] - old);  /* valuend */
         }
     }
 
@@ -13171,6 +13171,7 @@ xmlParseExternalEntityPrivate(xmlDocPtr doc, xmlParserCtxtPtr oldctxt,
             ctxt->vctxt.error = oldctxt->vctxt.error;
             ctxt->vctxt.warning = oldctxt->vctxt.warning;
             ctxt->vctxt.userData = oldctxt->vctxt.userData;
+            ctxt->vctxt.finishDtd = oldctxt->vctxt.finishDtd;
         }
 	ctxt->external = oldctxt->external;
         if (ctxt->dict) xmlDictFree(ctxt->dict);

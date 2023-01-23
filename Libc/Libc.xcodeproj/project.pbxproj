@@ -781,7 +781,7 @@
 		C0E345981C582ECB00E749C2 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C0E345991C582ECB00E749C2 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
 		C0E3459A1C582ECB00E749C2 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C0E3459B1C582ECB00E749C2 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C0E3459B1C582ECB00E749C2 /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C0E3459C1C582ECB00E749C2 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C0E3459D1C582ECB00E749C2 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C0E3459E1C582ECB00E749C2 /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -1699,7 +1699,7 @@
 		C942128E13900C8A004BA536 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C942128F13900C8A004BA536 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
 		C942129013900C8A004BA536 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C942129113900C8A004BA536 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C942129113900C8A004BA536 /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C942129213900C8A004BA536 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C942129413900C8A004BA536 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C942129613900C8A004BA536 /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -2221,7 +2221,7 @@
 		C95B8139138F3C55004311DA /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C95B813A138F3C55004311DA /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
 		C95B813B138F3C55004311DA /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C95B813C138F3C55004311DA /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C95B813C138F3C55004311DA /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C95B813D138F3C55004311DA /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C95B813F138F3C55004311DA /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C95B8141138F3C55004311DA /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -2739,7 +2739,7 @@
 		C95B83E4138F52B0004311DA /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C95B83E5138F52B0004311DA /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
 		C95B83E6138F52B0004311DA /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C95B83E7138F52B0004311DA /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C95B83E7138F52B0004311DA /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C95B83E8138F52B0004311DA /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C95B83EA138F52B0004311DA /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C95B83EC138F52B0004311DA /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -3257,7 +3257,7 @@
 		C95B868A138F53DB004311DA /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C95B868B138F53DB004311DA /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
 		C95B868C138F53DB004311DA /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C95B868D138F53DB004311DA /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C95B868D138F53DB004311DA /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C95B868E138F53DB004311DA /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C95B8690138F53DB004311DA /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C95B8692138F53DB004311DA /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -3775,7 +3775,7 @@
 		C976610E138EC61A00741512 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C976610F138EC61A00741512 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
 		C9766110138EC61A00741512 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C9766111138EC61A00741512 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C9766111138EC61A00741512 /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C9766112138EC61A00741512 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C9766114138EC61A00741512 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C9766116138EC61A00741512 /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -4313,7 +4313,7 @@
 		C97A71C41517AF53005E1998 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C97A71C51517AF53005E1998 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
 		C97A71C61517AF53005E1998 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C97A71C71517AF53005E1998 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C97A71C71517AF53005E1998 /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C97A71C81517AF53005E1998 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C97A71CA1517AF53005E1998 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C97A71CC1517AF53005E1998 /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -4915,7 +4915,7 @@
 		C9EB3229138F6D880075BB52 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C9EB322A138F6D880075BB52 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
 		C9EB322B138F6D880075BB52 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C9EB322C138F6D880075BB52 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C9EB322C138F6D880075BB52 /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C9EB322D138F6D880075BB52 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C9EB322F138F6D880075BB52 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C9EB3231138F6D880075BB52 /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -5433,7 +5433,7 @@
 		C9EB34D0138F75580075BB52 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C9EB34D1138F75580075BB52 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
 		C9EB34D2138F75580075BB52 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C9EB34D3138F75580075BB52 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C9EB34D3138F75580075BB52 /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C9EB34D4138F75580075BB52 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C9EB34D6138F75580075BB52 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C9EB34D8138F75580075BB52 /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -5478,7 +5478,7 @@
 		C9FA32F4138E49550089A94B /* abort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C1D138D9E9A0028D27C /* abort.c */; };
 		C9FA32F9138E4A5C0089A94B /* utf2.c in Sources */ = {isa = PBXBuildFile; fileRef = C9FA32F8138E4A5C0089A94B /* utf2.c */; };
 		C9FA32FB138E4BD00089A94B /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
-		C9FA32FC138E4BD00089A94B /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
+		C9FA32FC138E4BD00089A94B /* _libc_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_atfork.c */; };
 		C9FA32FD138E4BD00089A94B /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C9FA32FF138E4BD00089A94B /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
 		C9FA3301138E4BD00089A94B /* fork.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9E138D9E9A0028D27C /* fork.c */; };
@@ -6979,7 +6979,7 @@
 		C9B53D91138D9E9A0028D27C /* memset_pattern.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = memset_pattern.3; sourceTree = "<group>"; };
 		C9B53D92138D9E9A0028D27C /* strip-header.ed */ = {isa = PBXFileReference; lastKnownFileType = text; path = "strip-header.ed"; sourceTree = "<group>"; };
 		C9B53D94138D9E9A0028D27C /* _libc_init.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = _libc_init.c; sourceTree = "<group>"; };
-		C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = _libc_fork_child.c; sourceTree = "<group>"; };
+		C9B53D95138D9E9A0028D27C /* _libc_atfork.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = _libc_atfork.c; sourceTree = "<group>"; };
 		C9B53D99138D9E9A0028D27C /* chmodx_np.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = chmodx_np.c; sourceTree = "<group>"; };
 		C9B53D9C138D9E9A0028D27C /* crt_externs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = crt_externs.c; sourceTree = "<group>"; };
 		C9B53D9E138D9E9A0028D27C /* fork.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fork.c; sourceTree = "<group>"; };
@@ -9027,7 +9027,7 @@
 			isa = PBXGroup;
 			children = (
 				C9B53D94138D9E9A0028D27C /* _libc_init.c */,
-				C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */,
+				C9B53D95138D9E9A0028D27C /* _libc_atfork.c */,
 				C9B53D99138D9E9A0028D27C /* chmodx_np.c */,
 				C9B53D9C138D9E9A0028D27C /* crt_externs.c */,
 				C9B53D9E138D9E9A0028D27C /* fork.c */,
@@ -10793,7 +10793,7 @@
 				C0E345981C582ECB00E749C2 /* wmemmove.c in Sources */,
 				C0E345991C582ECB00E749C2 /* wmemset.c in Sources */,
 				C0E3459A1C582ECB00E749C2 /* _libc_init.c in Sources */,
-				C0E3459B1C582ECB00E749C2 /* _libc_fork_child.c in Sources */,
+				C0E3459B1C582ECB00E749C2 /* _libc_atfork.c in Sources */,
 				C0E3459C1C582ECB00E749C2 /* chmodx_np.c in Sources */,
 				C0E3459D1C582ECB00E749C2 /* crt_externs.c in Sources */,
 				C0E3459E1C582ECB00E749C2 /* fork.c in Sources */,
@@ -11810,7 +11810,7 @@
 				C942128E13900C8A004BA536 /* wmemmove.c in Sources */,
 				C942128F13900C8A004BA536 /* wmemset.c in Sources */,
 				C942129013900C8A004BA536 /* _libc_init.c in Sources */,
-				C942129113900C8A004BA536 /* _libc_fork_child.c in Sources */,
+				C942129113900C8A004BA536 /* _libc_atfork.c in Sources */,
 				C942129213900C8A004BA536 /* chmodx_np.c in Sources */,
 				C942129413900C8A004BA536 /* crt_externs.c in Sources */,
 				C942129613900C8A004BA536 /* fork.c in Sources */,
@@ -12354,7 +12354,7 @@
 				C95B8139138F3C55004311DA /* wmemmove.c in Sources */,
 				C95B813A138F3C55004311DA /* wmemset.c in Sources */,
 				C95B813B138F3C55004311DA /* _libc_init.c in Sources */,
-				C95B813C138F3C55004311DA /* _libc_fork_child.c in Sources */,
+				C95B813C138F3C55004311DA /* _libc_atfork.c in Sources */,
 				C95B813D138F3C55004311DA /* chmodx_np.c in Sources */,
 				C95B813F138F3C55004311DA /* crt_externs.c in Sources */,
 				C95B8141138F3C55004311DA /* fork.c in Sources */,
@@ -12891,7 +12891,7 @@
 				C95B83E4138F52B0004311DA /* wmemmove.c in Sources */,
 				C95B83E5138F52B0004311DA /* wmemset.c in Sources */,
 				C95B83E6138F52B0004311DA /* _libc_init.c in Sources */,
-				C95B83E7138F52B0004311DA /* _libc_fork_child.c in Sources */,
+				C95B83E7138F52B0004311DA /* _libc_atfork.c in Sources */,
 				C95B83E8138F52B0004311DA /* chmodx_np.c in Sources */,
 				C95B83EA138F52B0004311DA /* crt_externs.c in Sources */,
 				C95B83EC138F52B0004311DA /* fork.c in Sources */,
@@ -13428,7 +13428,7 @@
 				C95B868A138F53DB004311DA /* wmemmove.c in Sources */,
 				C95B868B138F53DB004311DA /* wmemset.c in Sources */,
 				C95B868C138F53DB004311DA /* _libc_init.c in Sources */,
-				C95B868D138F53DB004311DA /* _libc_fork_child.c in Sources */,
+				C95B868D138F53DB004311DA /* _libc_atfork.c in Sources */,
 				C95B868E138F53DB004311DA /* chmodx_np.c in Sources */,
 				C95B8690138F53DB004311DA /* crt_externs.c in Sources */,
 				C95B8692138F53DB004311DA /* fork.c in Sources */,
@@ -13989,7 +13989,7 @@
 				C97A71C41517AF53005E1998 /* wmemmove.c in Sources */,
 				C97A71C51517AF53005E1998 /* wmemset.c in Sources */,
 				C97A71C61517AF53005E1998 /* _libc_init.c in Sources */,
-				C97A71C71517AF53005E1998 /* _libc_fork_child.c in Sources */,
+				C97A71C71517AF53005E1998 /* _libc_atfork.c in Sources */,
 				C97A71C81517AF53005E1998 /* chmodx_np.c in Sources */,
 				C97A71CA1517AF53005E1998 /* crt_externs.c in Sources */,
 				C97A71CC1517AF53005E1998 /* fork.c in Sources */,
@@ -14126,7 +14126,7 @@
 				C9A12984138E10FB0003880A /* unparse.c in Sources */,
 				C9C2A983138E058200287F00 /* tcgetsid.c in Sources */,
 				C9FA32FB138E4BD00089A94B /* _libc_init.c in Sources */,
-				C9FA32FC138E4BD00089A94B /* _libc_fork_child.c in Sources */,
+				C9FA32FC138E4BD00089A94B /* _libc_atfork.c in Sources */,
 				C9FA32FD138E4BD00089A94B /* chmodx_np.c in Sources */,
 				C9FA32FF138E4BD00089A94B /* crt_externs.c in Sources */,
 				C9FA3301138E4BD00089A94B /* fork.c in Sources */,
@@ -14660,7 +14660,7 @@
 				C976610E138EC61A00741512 /* wmemmove.c in Sources */,
 				C976610F138EC61A00741512 /* wmemset.c in Sources */,
 				C9766110138EC61A00741512 /* _libc_init.c in Sources */,
-				C9766111138EC61A00741512 /* _libc_fork_child.c in Sources */,
+				C9766111138EC61A00741512 /* _libc_atfork.c in Sources */,
 				C9766112138EC61A00741512 /* chmodx_np.c in Sources */,
 				C9766114138EC61A00741512 /* crt_externs.c in Sources */,
 				C9766116138EC61A00741512 /* fork.c in Sources */,
@@ -15197,7 +15197,7 @@
 				C9EB3229138F6D880075BB52 /* wmemmove.c in Sources */,
 				C9EB322A138F6D880075BB52 /* wmemset.c in Sources */,
 				C9EB322B138F6D880075BB52 /* _libc_init.c in Sources */,
-				C9EB322C138F6D880075BB52 /* _libc_fork_child.c in Sources */,
+				C9EB322C138F6D880075BB52 /* _libc_atfork.c in Sources */,
 				C9EB322D138F6D880075BB52 /* chmodx_np.c in Sources */,
 				C9EB322F138F6D880075BB52 /* crt_externs.c in Sources */,
 				C9EB3231138F6D880075BB52 /* fork.c in Sources */,
@@ -15735,7 +15735,7 @@
 				C9EB34D0138F75580075BB52 /* wmemmove.c in Sources */,
 				C9EB34D1138F75580075BB52 /* wmemset.c in Sources */,
 				C9EB34D2138F75580075BB52 /* _libc_init.c in Sources */,
-				C9EB34D3138F75580075BB52 /* _libc_fork_child.c in Sources */,
+				C9EB34D3138F75580075BB52 /* _libc_atfork.c in Sources */,
 				C9EB34D4138F75580075BB52 /* chmodx_np.c in Sources */,
 				C9EB34D6138F75580075BB52 /* crt_externs.c in Sources */,
 				C9EB34D8138F75580075BB52 /* fork.c in Sources */,

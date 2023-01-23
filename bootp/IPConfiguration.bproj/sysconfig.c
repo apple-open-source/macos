@@ -43,8 +43,9 @@
 #include "cfutil.h"
 #include "symbol_scope.h"
 #include "dhcp_thread.h"
-#include "DHCPv6Client.h"
+#include "ipconfigd_types.h"
 #include "IPConfigurationServiceInternal.h"
+#include "DHCPv6Client.h"
 
 PRIVATE_EXTERN CFDictionaryRef
 my_SCDynamicStoreCopyDictionary(SCDynamicStoreRef session, CFStringRef key)
@@ -279,43 +280,50 @@ DHCPInfoDictionaryCreate(ipconfig_method_t method, dhcpol_t * options_p,
 			 absolute_time_t start_time,
 			 absolute_time_t expiration_time)
 {
+    int				count;
     CFMutableDictionaryRef	dict;
-    int				tag;
 
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
-    for (tag = 1; tag < 255; tag++) {
-	CFDataRef	data;
+    count = dhcpol_count(options_p);
+    for (int i = 0; i < count; i++) {
 	CFStringRef	key;
 	int		len;
-	void * 		option;
+	uint8_t		tag;
+	uint8_t *	tag_p;
 
+	tag_p = dhcpol_element(options_p, i);
+	tag = *tag_p;
 	if (tag == dhcptag_host_name_e 
 	    && method == ipconfig_method_bootp_e) {
 	}
-	else if (dhcp_parameter_is_ok(tag) == FALSE) {
+	else if (!dhcp_parameter_is_ok(tag)) {
 	    continue;
 	}
-	option = dhcpol_option_copy(options_p, tag, &len);
-	if (option == NULL) {
-	    continue;
-	}
-	key = CFStringCreateWithFormat(NULL, NULL, CFSTR("Option_%d"), tag);
-	data = CFDataCreate(NULL, option, len);
-	if (key != NULL && data != NULL) {
-	    CFDictionarySetValue(dict, key, data);
+	key = CFStringCreateWithFormat(NULL, NULL, kDHCPOptionFormat, tag);
+	if (CFDictionaryGetValue(dict, key) == NULL) {
+	    void * 		option;
+
+	    option = dhcpol_option_copy(options_p, tag, &len);
+	    if (option != NULL) {
+		CFDataRef	data;
+
+		data = CFDataCreate(NULL, option, len);
+		CFDictionarySetValue(dict, key, data);
+		CFRelease(data);
+		free(option);
+	    }
 	}
 	my_CFRelease(&key);
-	my_CFRelease(&data);
-	free(option);
     }
-
     if (method == ipconfig_method_dhcp_e) {
-	my_CFDictionarySetAbsoluteTime(dict, CFSTR("LeaseStartTime"),
+	my_CFDictionarySetAbsoluteTime(dict,
+				       kSCPropNetDHCPLeaseStartTime,
 				       (CFAbsoluteTime)start_time);
 	if (expiration_time != 0) {
-	    my_CFDictionarySetAbsoluteTime(dict, CFSTR("LeaseExpirationTime"),
+	    my_CFDictionarySetAbsoluteTime(dict,
+					   kSCPropNetDHCPLeaseExpirationTime,
 					   (CFAbsoluteTime)expiration_time);
 	}
     }
@@ -890,19 +898,25 @@ DNSEntityCreateWithInfo(const char * if_name,
  **/
 
 PRIVATE_EXTERN CFDictionaryRef
-DHCPv6InfoDictionaryCreate(DHCPv6OptionListRef options)
+DHCPv6InfoDictionaryCreate(ipv6_info_t * info_p)
 {
-    int 			count = DHCPv6OptionListGetCount(options);
-    CFMutableDictionaryRef	dict;
-    int				i;
+    CFIndex			count = 0;
+    CFMutableDictionaryRef	dict = NULL;
+    DHCPv6OptionListRef		options = NULL;
 
+    if (info_p != NULL) {
+	options = info_p->options;
+    }
+    if (options != NULL) {
+	count = DHCPv6OptionListGetCount(info_p->options);
+    }
     if (count == 0) {
-	return (NULL);
+	goto done;
     }
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
-    for (i = 0; i < count; i++) {
+    for (CFIndex i = 0; i < count; i++) {
 	CFMutableArrayRef	array;
 	CFDataRef		data;
 	CFStringRef		key;
@@ -919,7 +933,8 @@ DHCPv6InfoDictionaryCreate(DHCPv6OptionListRef options)
 	option_len = DHCPv6OptionGetLength(option);
 	option_data = DHCPv6OptionGetData(option);
 	data = CFDataCreate(NULL, option_data, option_len);
-	key = CFStringCreateWithFormat(NULL, NULL, CFSTR("Option_%d"),
+	key = CFStringCreateWithFormat(NULL, NULL,
+				       kDHCPOptionFormat,
 				       option_code);
 	array = (CFMutableArrayRef)CFDictionaryGetValue(dict, key);
 	if (array == NULL) {
@@ -932,9 +947,21 @@ DHCPv6InfoDictionaryCreate(DHCPv6OptionListRef options)
 	CFRelease(key);
 	CFRelease(data);
     }
+    if (info_p->is_stateful) {
+	my_CFDictionarySetAbsoluteTime(dict,
+				       kSCPropNetDHCPv6LeaseStartTime,
+				       (CFAbsoluteTime)info_p->lease_start);
+	if (info_p->lease_expiration != 0) {
+	    my_CFDictionarySetAbsoluteTime(dict,
+					   kSCPropNetDHCPv6LeaseExpirationTime,
+					   (CFAbsoluteTime)
+					   info_p->lease_expiration);
+	}
+    }
     if (CFDictionaryGetCount(dict) == 0) {
 	my_CFRelease(&dict);
     }
+ done:
     return (dict);
 }
 

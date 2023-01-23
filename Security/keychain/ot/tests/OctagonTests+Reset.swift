@@ -197,7 +197,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.silentZoneDeletesAllowed = true
 
         let resetExpectation = self.expectation(description: "resetExpectation")
-        
+
         self.fakeCuttlefishServer.resetListener = { [unowned self] _ in
             let laterZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
             XCTAssertNil(laterZoneKeys, "Should not have any zone keys")

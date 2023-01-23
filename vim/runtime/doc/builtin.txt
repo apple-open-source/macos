@@ -1,4 +1,4 @@
-*builtin.txt*	For Vim version 9.0.  Last change: 2022 Sep 17
+*builtin.txt*	For Vim version 9.0.  Last change: 2022 Nov 21
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -6,9 +6,10 @@
 
 Builtin functions				*builtin-functions*
 
-Note: Expression evaluation can be disabled at compile time.  If this has been
-done, the builtin functions are not available.  See |+eval| and
-|no-eval-feature|.
+Note: Expression evaluation can be disabled at compile time, the builtin
+functions are not available then.  See |+eval| and |no-eval-feature|.
+
+For functions grouped by what they are used for see |function-list|.
 
 1. Overview				|builtin-function-list|
 2. Details				|builtin-function-details|
@@ -115,13 +116,13 @@ ch_status({handle} [, {options}])
 changenr()			Number	current change number
 char2nr({expr} [, {utf8}])	Number	ASCII/UTF-8 value of first char in {expr}
 charclass({string})		Number	character class of {string}
-charcol({expr})			Number	column number of cursor or mark
+charcol({expr} [, {winid}])	Number	column number of cursor or mark
 charidx({string}, {idx} [, {countcc}])
 				Number	char index of byte {idx} in {string}
 chdir({dir})			String	change current working directory
 cindent({lnum})			Number	C indent for line {lnum}
 clearmatches([{win}])		none	clear all matches
-col({expr})			Number	column byte index of cursor or mark
+col({expr} [, {winid}])		Number	column byte index of cursor or mark
 complete({startcol}, {matches}) none	set Insert mode completion
 complete_add({expr})		Number	add completion match
 complete_check()		Number	check for key typed during completion
@@ -207,6 +208,7 @@ get({func}, {what})		any	get property of funcref/partial {func}
 getbufinfo([{buf}])		List	information about buffers
 getbufline({buf}, {lnum} [, {end}])
 				List	lines {lnum} to {end} of buffer {buf}
+getbufoneline({buf}, {lnum})	String	line {lnum} of buffer {buf}
 getbufvar({buf}, {varname} [, {def}])
 				any	variable {varname} in buffer {buf}
 getchangelist([{buf}])		List	list of change list items
@@ -245,6 +247,7 @@ getloclist({nr}, {what})	Dict	get specific location list properties
 getmarklist([{buf}])		List	list of global/local marks
 getmatches([{win}])		List	list of current matches
 getmousepos()			Dict	last known mouse position
+getmouseshape()			String	current mouse shape name
 getpid()			Number	process ID of Vim
 getpos({expr})			List	position of cursor, mark, etc.
 getqflist()			List	list of quickfix items
@@ -395,6 +398,7 @@ popup_create({what}, {options}) Number	create a popup window
 popup_dialog({what}, {options}) Number	create a popup window used as a dialog
 popup_filter_menu({id}, {key})  Number	filter for a menu popup window
 popup_filter_yesno({id}, {key}) Number	filter for a dialog popup window
+popup_findecho()		Number	get window ID of popup for `:echowin`
 popup_findinfo()		Number	get window ID of info popup window
 popup_findpreview()		Number	get window ID of preview popup window
 popup_getoptions({id})		Dict	get options of popup window {id}
@@ -443,7 +447,8 @@ pyxeval({expr})			any	evaluate |python_x| expression
 rand([{expr}])			Number	get pseudo-random number
 range({expr} [, {max} [, {stride}]])
 				List	items from {expr} to {max}
-readblob({fname})		Blob	read a |Blob| from {fname}
+readblob({fname} [, {offset} [, {size}]])
+				Blob	read a |Blob| from {fname}
 readdir({dir} [, {expr} [, {dict}]])
 				List	file names in {dir} selected by {expr}
 readdirex({dir} [, {expr} [, {dict}]])
@@ -803,8 +808,10 @@ append({lnum}, {text})					*append()*
 		{lnum} can be zero to insert a line before the first one.
 		{lnum} is used like with |getline()|.
 		Returns 1 for failure ({lnum} out of range or out of memory),
-		0 for success.  In |Vim9| script an invalid argument or
-		negative number results in an error.  Example: >
+		0 for success.  When {text} is an empty list zero is returned,
+		no matter the value of {lnum}.
+		In |Vim9| script an invalid argument or negative number
+		results in an error.  Example: >
 			:let failed = append(line('$'), "# THE END")
 			:let failed = append(0, ["Chapter 1", "the beginning"])
 
@@ -832,7 +839,9 @@ appendbufline({buf}, {lnum}, {text})			*appendbufline()*
 		If {buf} is not a valid buffer or {lnum} is not valid, an
 		error message is given. Example: >
 			:let failed = appendbufline(13, 0, "# THE START")
-<
+<		However, when {text} is an empty list then no error is given
+		for an invalid {lnum}, since {lnum} isn't actually used.
+
 		Can also be used as a |method| after a List, the base is
 		passed as the second argument: >
 			mylist->appendbufline(buf, lnum)
@@ -978,7 +987,7 @@ autocmd_add({acmds})					*autocmd_add()*
 			let acmd.bufnr = 5
 			let acmd.cmd = 'call BufEnterFunc()'
 			call autocmd_add([acmd])
-
+<
 		Can also be used as a |method|: >
 			GetAutocmdList()->autocmd_add()
 <
@@ -1314,7 +1323,8 @@ bufwinid({buf})						*bufwinid()*
 
 	echo "A window containing buffer 1 is " .. (bufwinid(1))
 <
-		Only deals with the current tab page.
+		Only deals with the current tab page.  See |win_findbuf()| for
+		finding more.
 
 		Can also be used as a |method|: >
 			FindBuffer()->bufwinid()
@@ -1466,7 +1476,7 @@ charclass({string})					*charclass()*
 		Returns 0 if {string} is not a |String|.
 
 
-charcol({expr})						*charcol()*
+charcol({expr} [, {winid}])				*charcol()*
 		Same as |col()| but returns the character index of the column
 		position given with {expr} instead of the byte position.
 
@@ -1549,8 +1559,8 @@ clearmatches([{win}])					*clearmatches()*
 		Can also be used as a |method|: >
 			GetWin()->clearmatches()
 <
-							*col()*
-col({expr})	The result is a Number, which is the byte index of the column
+col({expr} [, {winid})					*col()*
+		The result is a Number, which is the byte index of the column
 		position given with {expr}.  The accepted positions are:
 		    .	    the cursor position
 		    $	    the end of the cursor line (the result is the
@@ -1565,6 +1575,8 @@ col({expr})	The result is a Number, which is the byte index of the column
 		and column number. Most useful when the column is "$", to get
 		the last column of a specific line.  When "lnum" or "col" is
 		out of range then col() returns zero.
+		With the optional {winid} argument the values are obtained for
+		that window instead of the current window.
 		To get the line number use |line()|.  To get both use
 		|getpos()|.
 		For the screen column position use |virtcol()|.  For the
@@ -1575,16 +1587,15 @@ col({expr})	The result is a Number, which is the byte index of the column
 			col("$")		length of cursor line plus one
 			col("'t")		column of mark t
 			col("'" .. markname)	column of mark markname
-<		The first column is 1.  Returns 0 if {expr} is invalid.
+<		The first column is 1.  Returns 0 if {expr} is invalid or when
+		the window with ID {winid} is not found.
 		For an uppercase mark the column may actually be in another
 		buffer.
 		For the cursor position, when 'virtualedit' is active, the
 		column is one higher if the cursor is after the end of the
-		line.  This can be used to obtain the column in Insert mode: >
-			:imap <F2> <C-O>:let save_ve = &ve<CR>
-				\<C-O>:set ve=all<CR>
-				\<C-O>:echo col(".") .. "\n" <Bar>
-				\let &ve = save_ve<CR>
+		line.  Also, when using a <Cmd> mapping the cursor isn't
+		moved, this can be used to obtain the column in Insert mode: >
+			:imap <F2> <Cmd>echowin col(".")<CR>
 
 <		Can also be used as a |method|: >
 			GetPos()->col()
@@ -1880,10 +1891,10 @@ cursor({list})
 		|setcursorcharpos()|.
 
 		Does not change the jumplist.
-		{lnum} is used like with |getline()|.
+		{lnum} is used like with |getline()|, except that if {lnum} is
+		zero, the cursor will stay in the current line.
 		If {lnum} is greater than the number of lines in the buffer,
 		the cursor will be positioned at the last line in the buffer.
-		If {lnum} is zero, the cursor will stay in the current line.
 		If {col} is greater than the number of bytes in the line,
 		the cursor will be positioned at the last character in the
 		line.
@@ -2768,7 +2779,7 @@ flattennew({list} [, {maxdepth}])			*flattennew()*
 float2nr({expr})					*float2nr()*
 		Convert {expr} to a Number by omitting the part after the
 		decimal point.
-		{expr} must evaluate to a |Float| or a Number.
+		{expr} must evaluate to a |Float| or a |Number|.
 		Returns 0 if {expr} is not a |Float| or a |Number|.
 		When the value of {expr} is out of range for a |Number| the
 		result is truncated to 0x7fffffff or -0x7fffffff (or when
@@ -3194,7 +3205,8 @@ getbufinfo([{dict}])
 getbufline({buf}, {lnum} [, {end}])
 		Return a |List| with the lines starting from {lnum} to {end}
 		(inclusive) in the buffer {buf}.  If {end} is omitted, a
-		|List| with only the line {lnum} is returned.
+		|List| with only the line {lnum} is returned.  See
+		`getbufoneline()` for only getting the line.
 
 		For the use of {buf}, see |bufname()| above.
 
@@ -3217,6 +3229,11 @@ getbufline({buf}, {lnum} [, {end}])
 
 <		Can also be used as a |method|: >
 			GetBufnr()->getbufline(lnum)
+<
+							*getbufoneline()*
+getbufoneline({buf}, {lnum})
+		Just like `getbufline()` but only get one line and return it
+		as a string.
 
 getbufvar({buf}, {varname} [, {def}])				*getbufvar()*
 		The result is the value of option or local buffer variable
@@ -3761,7 +3778,8 @@ getline({lnum} [, {end}])
 <		Can also be used as a |method|: >
 			ComputeLnum()->getline()
 
-<		To get lines from another buffer see |getbufline()|
+<		To get lines from another buffer see |getbufline()| and
+		|getbufoneline()|
 
 getloclist({nr} [, {what}])				*getloclist()*
 		Returns a |List| with all the entries in the location list for
@@ -3869,6 +3887,12 @@ getmousepos()						*getmousepos()*
 
 		When using |getchar()| the Vim variables |v:mouse_lnum|,
 		|v:mouse_col| and |v:mouse_winid| also provide these values.
+
+getmouseshape()						*getmouseshape()*
+		Returns the name of the currently showing mouse pointer.
+		When the |+mouseshape| feature is not supported or the shape
+		is unknown an empty string is returned.
+		This function is mainly intended for testing.
 
 							*getpid()*
 getpid()	Return a Number which is the process ID of the Vim process.
@@ -5402,7 +5426,8 @@ listener_add({callback} [, {buf}])			*listener_add()*
 				the change; one if unknown or the whole line
 				was affected; this is a byte index, first
 				character has a value of one.
-		When lines are inserted the values are:
+		When lines are inserted (not when a line is split, e.g. by
+		typing CR in Insert mode) the values are:
 		    lnum	line above which the new line is added
 		    end		equal to "lnum"
 		    added	number of lines inserted
@@ -5547,6 +5572,10 @@ map({expr1}, {expr2})					*map()*
 		If {expr2} is a |Funcref| it is called with two arguments:
 			1. The key or the index of the current item.
 			2. the value of the current item.
+		With a legacy script lambda you don't get an error if it only
+		accepts one argument, but with a Vim9 lambda you get "E1106:
+		One argument too many", the number of arguments must match.
+
 		The function must return the new value of the item. Example
 		that changes each value by "key-value": >
 			func KeyValue(key, val)
@@ -6844,10 +6873,28 @@ range({expr} [, {max} [, {stride}]])				*range()*
 			GetExpr()->range()
 <
 
-readblob({fname})					*readblob()*
+readblob({fname} [, {offset} [, {size}]])			*readblob()*
 		Read file {fname} in binary mode and return a |Blob|.
-		When the file can't be opened an error message is given and
+		If {offset} is specified, read the file from the specified
+		offset.  If it is a negative value, it is used as an offset
+		from the end of the file.  E.g., to read the last 12 bytes: >
+			readblob('file.bin', -12)
+<		If {size} is specified, only the specified size will be read.
+		E.g. to read the first 100 bytes of a file: >
+			readblob('file.bin', 0, 100)
+<		If {size} is -1 or omitted, the whole data starting from
+		{offset} will be read.
+		This can be also used to read the data from a character device
+		on Unix when {size} is explicitly set.  Only if the device
+		supports seeking {offset} can be used.  Otherwise it should be
+		zero.  E.g. to read 10 bytes from a serial console: >
+			readblob('/dev/ttyS0', 0, 10)
+<		When the file can't be opened an error message is given and
 		the result is an empty |Blob|.
+		When the offset is beyond the end of the file the result is an
+		empty blob.
+		When trying to read more bytes than are available the result
+		is truncated.
 		Also see |readfile()| and |writefile()|.
 
 
@@ -7035,13 +7082,19 @@ reg_recording()						*reg_recording()*
 		Returns the single letter name of the register being recorded.
 		Returns an empty string when not recording.  See |q|.
 
-reltime([{start} [, {end}]])				*reltime()*
+reltime()
+reltime({start})
+reltime({start}, {end})					*reltime()*
 		Return an item that represents a time value.  The item is a
 		list with items that depend on the system.  In Vim 9 script
 		list<any> can be used.
 		The item can be passed to |reltimestr()| to convert it to a
-		string or |reltimefloat()| to convert to a Float.
-
+		string or |reltimefloat()| to convert to a Float.  For
+		example, to see the time spent in function Work(): >
+			var startTime = reltime()
+			Work()
+			echo startTime->reltime()->reltimestr()
+<
 		Without an argument reltime() returns the current time (the
 		representation is system-dependent, it can not be used as the
 		wall-clock time, see |localtime()| for that).
@@ -7162,8 +7215,8 @@ remote_peek({serverid} [, {retvar}])		*remote_peek()*
 		This function is not available in the |sandbox|.
 		{only available when compiled with the |+clientserver| feature}
 		Examples: >
-			:let repl = ""
-			:echo "PEEK: " .. remote_peek(id, "repl") .. ": " .. repl
+		   :let repl = ""
+		   :echo "PEEK: " .. remote_peek(id, "repl") .. ": " .. repl
 
 <		Can also be used as a |method|: >
 			ServerId()->remote_peek()
@@ -7223,7 +7276,8 @@ remote_startserver({name})
 
 <		{only available when compiled with the |+clientserver| feature}
 
-remove({list}, {idx} [, {end}])				*remove()*
+remove({list}, {idx})
+remove({list}, {idx}, {end})				*remove()*
 		Without {end}: Remove the item at {idx} from |List| {list} and
 		return the item.
 		With {end}: Remove items from {idx} to {end} (inclusive) and
@@ -7241,7 +7295,8 @@ remove({list}, {idx} [, {end}])				*remove()*
 		Can also be used as a |method|: >
 			mylist->remove(idx)
 
-remove({blob}, {idx} [, {end}])
+remove({blob}, {idx})
+remove({blob}, {idx}, {end})
 		Without {end}: Remove the byte at {idx} from |Blob| {blob} and
 		return the byte.
 		With {end}: Remove bytes from {idx} to {end} (inclusive) and
@@ -7845,9 +7900,10 @@ setbufline({buf}, {lnum}, {text})			*setbufline()*
 		To insert lines use |appendbufline()|.
 		Any text properties in {lnum} are cleared.
 
-		{text} can be a string to set one line, or a list of strings
-		to set multiple lines.  If the list extends below the last
-		line then those lines are added.
+		{text} can be a string to set one line, or a List of strings
+		to set multiple lines.  If the List extends below the last
+		line then those lines are added.  If the List is empty then
+		nothing is changed and zero is returned.
 
 		For the use of {buf}, see |bufname()| above.
 
@@ -7886,29 +7942,38 @@ setbufvar({buf}, {varname}, {val})			*setbufvar()*
 
 setcellwidths({list})					*setcellwidths()*
 		Specify overrides for cell widths of character ranges.  This
-		tells Vim how wide characters are, counted in screen cells.
-		This overrides 'ambiwidth'.  Example: >
-		   setcellwidths([[0xad, 0xad, 1],
-				\ [0x2194, 0x2199, 2]])
+		tells Vim how wide characters are when displayed in the
+		terminal, counted in screen cells.  The values override
+		'ambiwidth'.  Example: >
+		   call setcellwidths([
+		   		\ [0x111, 0x111, 1],
+				\ [0x2194, 0x2199, 2],
+				\ ])
 
-<				*E1109* *E1110* *E1111* *E1112* *E1113* *E1114*
-		The {list} argument is a list of lists with each three
-		numbers. These three numbers are [low, high, width].  "low"
-		and "high" can be the same, in which case this refers to one
-		character. Otherwise it is the range of characters from "low"
-		to "high" (inclusive).  "width" is either 1 or 2, indicating
-		the character width in screen cells.
-		An error is given if the argument is invalid, also when a
-		range overlaps with another.
+<		The {list} argument is a List of Lists with each three
+		numbers: [{low}, {high}, {width}].	*E1109* *E1110*
+		{low} and {high} can be the same, in which case this refers to
+		one character.  Otherwise it is the range of characters from
+		{low} to {high} (inclusive).		*E1111* *E1114*
 		Only characters with value 0x100 and higher can be used.
+
+		{width} must be either 1 or 2, indicating the character width
+		in screen cells.			*E1112*
+		An error is given if the argument is invalid, also when a
+		range overlaps with another. 		*E1113*
 
 		If the new value causes 'fillchars' or 'listchars' to become
 		invalid it is rejected and an error is given.
 
-		To clear the overrides pass an empty list: >
+		To clear the overrides pass an empty {list}: >
 		   setcellwidths([]);
+
 <		You can use the script $VIMRUNTIME/tools/emoji_list.vim to see
-		the effect for known emoji characters.
+		the effect for known emoji characters.  Move the cursor
+		through the text to check if the cell widths of your terminal
+		match with what Vim knows about each emoji.  If it doesn't
+		look right you need to adjust the {list} argument.
+
 
 setcharpos({expr}, {list})				*setcharpos()*
 		Same as |setpos()| but uses the specified column number as the
@@ -8032,7 +8097,8 @@ setline({lnum}, {text})					*setline()*
 		When {lnum} is just below the last line the {text} will be
 		added below the last line.
 		{text} can be any type or a List of any type, each item is
-		converted to a String.
+		converted to a String.  When {text} is an empty List then
+		nothing is changed and FALSE is returned.
 
 		If this succeeds, FALSE is returned.  If this fails (most likely
 		because {lnum} is invalid) TRUE is returned.
@@ -8621,6 +8687,9 @@ sound_playevent({name} [, {callback}])
 <		On MS-Windows, {name} can be SystemAsterisk, SystemDefault,
 		SystemExclamation, SystemExit, SystemHand, SystemQuestion,
 		SystemStart, SystemWelcome, etc.
+		On macOS, {name} refers to files located in
+		/System/Library/Sounds (e.g. "Tink").  It will also work for
+		custom installed sounds in folders like ~/Library/Sounds.
 
 		When {callback} is specified it is invoked when the sound is
 		finished.  The first argument is the sound ID, the second
@@ -9637,6 +9706,7 @@ terminalprops()						*terminalprops()*
 		   cursor_blink_mode	whether sending |t_RC| works  **
 		   underline_rgb	whether |t_8u| works **
 		   mouse		mouse type supported
+		   kitty		whether Kitty terminal was detected
 
 		** value 'u' for unknown, 'y' for yes, 'n' for no
 
@@ -10166,6 +10236,7 @@ win_move_separator({nr}, {offset})			*win_move_separator()*
 		FALSE otherwise.
 		This will fail for the rightmost window and a full-width
 		window, since it has no separator on the right.
+		Only works for the current tab page. *E1308*
 
 		Can also be used as a |method|: >
 			GetWinnr()->win_move_separator(offset)
@@ -10180,6 +10251,7 @@ win_move_statusline({nr}, {offset})			*win_move_statusline()*
 		movement may be smaller than specified (e.g., as a consequence
 		of maintaining 'winminheight'). Returns TRUE if the window can
 		be found and FALSE otherwise.
+		Only works for the current tab page.
 
 		Can also be used as a |method|: >
 			GetWinnr()->win_move_statusline(offset)

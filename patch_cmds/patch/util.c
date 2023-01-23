@@ -218,6 +218,47 @@ savestr(const char *s)
 	return rv;
 }
 
+#ifdef __APPLE__
+/*
+ * Save a line into a new buffer, including the terminal newline.  This is like
+ * savestr(), but used in contexts where we don't want to assume that the buffer
+ * won't have internal NULs for other reasons (e.g., patch files).
+ */
+char *
+saveline(const char *line, size_t linesz, size_t *sz)
+{
+	const char *s, *end;
+	char *rv;
+
+	if (!line)
+		return savestr(NULL);
+
+	end = line + linesz;
+	for (s = line; s != end && *s != '\n'; s++)
+	    ;
+
+	/*
+	 * If we reached the end of the buffer, do a quick rewind by one and
+	 * consider it the whole line.  There's a great chance this is
+	 * malformed since diff(1) inserts a newline and a notice about no
+	 * newline at end of file at EOL as needed, so the caller will probably
+	 * just toss this out anyways (but it deserves a chance).
+	 */
+	if (s == end)
+		s--;
+	*sz = (s - line) + 1;
+	if ((rv = malloc(*sz)) == NULL) {
+		if (using_plan_a)
+			out_of_mem = true;
+		else
+			fatal("out of memory\n");
+	}
+
+	memcpy(rv, line, *sz);
+	return (rv);
+}
+#endif
+
 /*
  * Allocate a unique area for a string.  Call fatal if out of memory.
  */

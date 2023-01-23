@@ -331,9 +331,6 @@
 /* Define if you want tiny features. */
 /* #undef FEAT_TINY */
 
-/* Define if you want small features. */
-/* #undef FEAT_SMALL */
-
 /* Define if you want normal features. */
 #define FEAT_NORMAL 1
 

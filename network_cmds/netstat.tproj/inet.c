@@ -103,6 +103,8 @@
 #include <TargetConditionals.h>
 #endif
 
+#include "network_cmds_lib.h"
+
 #define ROUNDUP64(a) \
 	((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint64_t) - 1))) : sizeof(uint64_t))
 #define ADVANCE64(x, n) (((char *)x) += ROUNDUP64(n))
@@ -1314,7 +1316,7 @@ inetname(struct in_addr *inp)
 			hp = gethostbyaddr((char *)inp, sizeof (*inp), AF_INET);
 			if (hp) {
 				cp = hp->h_name;
-				 //### trimdomain(cp, strlen(cp));
+				cp = clean_non_printable(cp, strlen(cp));
 			}
 		}
 	}

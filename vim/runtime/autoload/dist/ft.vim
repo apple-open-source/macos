@@ -145,7 +145,7 @@ export def FTcls()
     return
   endif
 
-  if getline(1) =~ '^%'
+  if getline(1) =~ '^\v%(\%|\\)'
     setf tex
   elseif getline(1)[0] == '#' && getline(1) =~ 'rexx'
     setf rexx
@@ -712,7 +712,8 @@ export def SetFileTypeSH(name: string)
     if exists("b:is_sh")
       unlet b:is_sh
     endif
-  elseif name =~ '\<sh\>'
+  elseif name =~ '\<sh\>' || name =~ '\<dash\>'
+    # Ubuntu links "sh" to "dash", thus it is expected to work the same way
     b:is_sh = 1
     if exists("b:is_kornshell")
       unlet b:is_kornshell
@@ -1084,6 +1085,19 @@ export def FTdat()
     exe "setf " .. g:filetype_dat
   elseif getline(nextnonblank(1)) =~? '\v^\s*%(' .. ft_krl_header .. '|' .. ft_krl_defdat .. ')'
     setf krl
+  endif
+enddef
+
+export def FTlsl()
+  if exists("g:filetype_lsl")
+    exe "setf " .. g:filetype_lsl
+  endif
+
+  var line = getline(nextnonblank(1))
+  if line =~ '^\s*%' || line =~# ':\s*trait\s*$'
+    setf larch
+  else
+    setf lsl
   endif
 enddef
 

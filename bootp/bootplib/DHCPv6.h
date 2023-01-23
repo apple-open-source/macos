@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,7 +56,7 @@
     {{{ 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
         0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02  }}}
 
-enum {
+typedef CF_ENUM(uint8_t, DHCPv6MessageType) {
     kDHCPv6MessageNone 			= 0,
     kDHCPv6MessageSOLICIT		= 1,
     kDHCPv6MessageADVERTISE		= 2,
@@ -102,7 +102,7 @@ enum {
 #define DHCPv6_HOP_COUNT_LIMIT  32 /* Max hop count in Relay-forward message */
 
 const char *
-DHCPv6MessageName(int message);
+DHCPv6MessageTypeName(DHCPv6MessageType msg_type);
 
 /**
  ** DHCPv6 Packet
@@ -115,14 +115,17 @@ typedef struct {
 
 #define DHCPV6_PACKET_HEADER_LENGTH	((int)offsetof(DHCPv6Packet, options))
 
-uint32_t
+typedef uint32_t	DHCPv6TransactionID;
+
+DHCPv6TransactionID
 DHCPv6PacketGetTransactionID(const DHCPv6PacketRef pkt);
 
 void
-DHCPv6PacketSetTransactionID(DHCPv6PacketRef pkt, uint32_t transaction_id);
+DHCPv6PacketSetTransactionID(DHCPv6PacketRef pkt,
+			     DHCPv6TransactionID transaction_id);
 
 void
-DHCPv6PacketSetMessageType(DHCPv6PacketRef pkt, int msg_type);
+DHCPv6PacketSetMessageType(DHCPv6PacketRef pkt, DHCPv6MessageType msg_type);
 
 void
 DHCPv6PacketFPrint(FILE * file, const DHCPv6PacketRef pkt, int pkt_len);

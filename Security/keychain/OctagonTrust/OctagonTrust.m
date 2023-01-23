@@ -28,6 +28,7 @@
 #import "OctagonTrust.h"
 #import <Security/OTClique+Private.h>
 #import "utilities/debugging.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #import "OTEscrowTranslation.h"
 
 #import <SoftLinking/SoftLinking.h>
@@ -39,6 +40,7 @@
 #import "keychain/ot/OTClique+Private.h"
 #import <Security/OctagonSignPosts.h>
 #include "utilities/SecCFRelease.h"
+#include <Security/SecPasswordGenerate.h>
 
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CloudServices);
 
@@ -871,6 +873,63 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
     return NO;
 #endif
 }
+
+
++ (BOOL)preflightRecoverOctagonUsingRecoveryKey:(OTConfigurationContext*)ctx
+                                    recoveryKey:(NSString*)recoveryKey
+                                          error:(NSError**)error
+{
+#if OCTAGON
+    secnotice("octagon-preflight-recovery-key", "Preflight using recovery key for context: %@", ctx);
+    __block NSError* localError = nil;
+    __block BOOL isRecoveryKeyCorrect = NO;
+    
+    
+    CFErrorRef validateError = NULL;
+    bool result = SecPasswordValidatePasswordFormat(kSecPasswordTypeiCloudRecoveryKey, (__bridge CFStringRef)recoveryKey, &validateError);
+    if (!result) {
+        NSError *validateErrorWrapper = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecoveryKeyMalformed description:@"malformed recovery key"];
+        secerror("octagon-preflight-recovery-key: recovery failed validation with error:%@", validateErrorWrapper);
+        if (error) {
+            *error = validateErrorWrapper;
+        }
+        return NO;
+    }
+    
+    
+    OTControl *control = [ctx makeOTControl:&localError];
+    if (!control) {
+        secnotice("octagon-preflight-recovery-key", "unable to create otcontrol: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return NO;
+    }
+
+    [control preflightRecoverOctagonUsingRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] recoveryKey:recoveryKey reply:^(BOOL correct, NSError * _Nullable replyError) {
+        if(replyError) {
+            secnotice("octagon-preflight-recovery-key", "Preflight recovery key errored: %@", replyError);
+        } else {
+            secnotice("octagon-preflight-recovery-key", "Recovery key is %@", correct ? @"correct" : @"incorrect");
+            isRecoveryKeyCorrect = correct;
+        }
+        localError = replyError;
+    }];
+
+    if(error && localError) {
+        *error = localError;
+    }
+
+    return isRecoveryKeyCorrect;
+
+#else
+    if (error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return NO;
+#endif
+}
+
 
 @end
 

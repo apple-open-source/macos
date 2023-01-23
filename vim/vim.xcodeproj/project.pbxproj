@@ -125,6 +125,7 @@
 		C1119FAF2245DA330072C208 /* indent.c in Sources */ = {isa = PBXBuildFile; fileRef = C1119FAE2245DA330072C208 /* indent.c */; };
 		C12D91A3228213B000501F22 /* debugger.c in Sources */ = {isa = PBXBuildFile; fileRef = C12D91A2228213B000501F22 /* debugger.c */; };
 		C12D91C1228214E800501F22 /* usercmd.c in Sources */ = {isa = PBXBuildFile; fileRef = C12D91C0228214E800501F22 /* usercmd.c */; };
+		C17B0B912939004B000BD8D8 /* logfile.c in Sources */ = {isa = PBXBuildFile; fileRef = C17B0B902939004B000BD8D8 /* logfile.c */; };
 		C18E31EE2327271B00A8F600 /* scriptfile.c in Sources */ = {isa = PBXBuildFile; fileRef = C18E31ED2327270D00A8F600 /* scriptfile.c */; };
 		C18E31F12327285B00A8F600 /* evalvars.c in Sources */ = {isa = PBXBuildFile; fileRef = C18E31F02327285B00A8F600 /* evalvars.c */; };
 		C18E31F4232728D000A8F600 /* evalbuffer.c in Sources */ = {isa = PBXBuildFile; fileRef = C18E31F3232728D000A8F600 /* evalbuffer.c */; };
@@ -2279,6 +2280,7 @@
 		C12D91BE228214A100501F22 /* usercmd.pro */ = {isa = PBXFileReference; lastKnownFileType = text; path = usercmd.pro; sourceTree = "<group>"; };
 		C12D91BF228214A100501F22 /* findfile.pro */ = {isa = PBXFileReference; lastKnownFileType = text; path = findfile.pro; sourceTree = "<group>"; };
 		C12D91C0228214E800501F22 /* usercmd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = usercmd.c; path = src/usercmd.c; sourceTree = "<group>"; };
+		C17B0B902939004B000BD8D8 /* logfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = logfile.c; path = src/logfile.c; sourceTree = "<group>"; };
 		C18E31ED2327270D00A8F600 /* scriptfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = scriptfile.c; path = src/scriptfile.c; sourceTree = "<group>"; };
 		C18E31F02327285B00A8F600 /* evalvars.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = evalvars.c; path = src/evalvars.c; sourceTree = "<group>"; };
 		C18E31F3232728D000A8F600 /* evalbuffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = evalbuffer.c; path = src/evalbuffer.c; sourceTree = "<group>"; };
@@ -2432,6 +2434,7 @@
 				C1AA54CF234F926D00C82C5B /* libvterm */,
 				3E452FA11DD4F15D001BF7DB /* list.c */,
 				A9C135A825103E320052BC57 /* locale.c */,
+				C17B0B902939004B000BD8D8 /* logfile.c */,
 				4CD04BBF10361A30001C87D5 /* macros.h */,
 				4CD04BC110361A30001C87D5 /* main.c */,
 				C1F2ADA0230613C000B8602B /* map.c */,
@@ -5312,6 +5315,7 @@
 				4CD04D6510361A31001C87D5 /* ex_eval.c in Sources */,
 				4CD04D6610361A31001C87D5 /* ex_getln.c in Sources */,
 				C1A08291243905D600F16C39 /* clipboard.c in Sources */,
+				C17B0B912939004B000BD8D8 /* logfile.c in Sources */,
 				C101D14D230E14DC0032FCED /* os_macosx.m in Sources */,
 				A9DA7B962482CA2900ECA3F8 /* textformat.c in Sources */,
 				C1AA54DE234F93F600C82C5B /* drawscreen.c in Sources */,

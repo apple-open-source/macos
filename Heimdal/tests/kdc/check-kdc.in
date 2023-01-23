@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -x
 #
 # Copyright (c) 2006 - 2007 Kungliga Tekniska Högskolan
 # (Royal Institute of Technology, Stockholm, Sweden). 
@@ -123,6 +123,7 @@ ${kadmin} add -p foo --use-defaults remove@${R} || exit 1
 ${kadmin} add -p kaka --use-defaults ${server}@${R} || exit 1
 ${kadmin} add -p kaka --use-defaults ${server}-des3@${R} || exit 1
 ${kadmin} add -p kaka --use-defaults kt-des3@${R} || exit 1
+${kadmin} add -p sens --use-defaults --attributes=disallow-forwardable sensitive@${R} || exit 1
 ${kadmin} add -p foo --use-defaults ${ps} || exit 1
 ${kadmin} modify --attributes=+trusted-for-delegation ${ps} || exit 1
 ${kadmin} modify --constrained-delegation=${server} ${ps} || exit 1
@@ -147,6 +148,12 @@ ${kadmin} add -p cross2 --use-defaults krbtgt/${R}@${R2} || exit 1
 
 ${kadmin} add -p foo --use-defaults pw-expire@${R} || exit 1
 ${kadmin} modify --pw-expiration-time=+1day  pw-expire@${R} || exit 1
+
+${kadmin} add -p foo --use-defaults pw-expired@${R} || exit 1
+${kadmin} modify --pw-expiration-time=2012-06-12  pw-expired@${R} || exit 1
+
+${kadmin} add -p foo --use-defaults account-expired@${R} || exit 1
+${kadmin} modify --expiration-time=2012-06-12  account-expired@${R} || exit 1
 
 ${kadmin} add -p foo --use-defaults foo@${R3} || exit 1
 
@@ -195,9 +202,9 @@ ec=0
 echo "Getting client initial tickets"; > ${logfile}
 ${kinit} --password-file=${testdir}/foopassword foo@$R || \
 	{ ec=1 ; eval "${testfailed}"; }
-echo "Doing krbtgt key rollover"; > messages.log
+echo "Doing krbtgt key rollover"; > ${logfile}
 ${kadmin} cpw -r --keepold krbtgt/${R}@${R} || exit 1
-echo "Getting tickets"; > messages.log
+echo "Getting tickets"; > ${logfile}
 ${kgetcred} ${server}@${R} || { ec=1 ; eval "${testfailed}"; }
 echo "Listing tickets"; > ${logfile}
 ${klist} > /dev/null || { ec=1 ; eval "${testfailed}"; }
@@ -468,17 +475,38 @@ else
 	echo "no pkinit (pkinit: $pkinit, rsa: $rsa)"; > ${logfile}
 fi
 
-#echo "tickets for impersonate test case"; > ${logfile}
-#${kinit} --forwardable --password-file=${testdir}/foopassword ${ps} || \
-#	{ ec=1 ; eval "${testfailed}"; }
-#${kgetcred_imp} --impersonate=bar@${R} ${ps} || \
-#	{ ec=1 ; eval "${testfailed}"; }
-#${test_ap_req} ${ps} ${keytab} ${ocache} || \
-#	{ ec=1 ; eval "${testfailed}"; }
-#echo "  negative check"
-#${kgetcred_imp} --impersonate=bar@${R} foo@${R} 2>/dev/null && \
-#	{ ec=1 ; eval "${testfailed}"; }
-#
+echo "tickets for impersonate test case"; > ${logfile}
+${kinit} --forwardable --password-file=${testdir}/foopassword ${ps} || \
+	{ ec=1 ; eval "${testfailed}"; }
+${kgetcred_imp} --impersonate=bar@${R} ${ps} || \
+	{ ec=1 ; eval "${testfailed}"; }
+${test_ap_req} ${ps} ${keytab} ${ocache} || \
+	{ ec=1 ; eval "${testfailed}"; }
+echo "  negative check"
+${kgetcred_imp} --impersonate=bar@${R} foo@${R} 2>/dev/null && \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "test impersonate unknown client"; > ${logfile}
+${kgetcred_imp} --forward --impersonate=unknown@${R} ${ps} && \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "test impersonate account-expired client"; > ${logfile}
+${kgetcred_imp} --forward --impersonate=account-expired@${R} ${ps} && \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "test impersonate pw-expired client"; > ${logfile}
+${kgetcred_imp} --forward --impersonate=pw-expired@${R} ${ps} || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "test delegate sensitive client"; > ${logfile}
+${kgetcred_imp} --forward --impersonate=sensitive@${R} ${ps} || \
+	{ ec=1 ; eval "${testfailed}"; }
+${kgetcred} \
+	--out-cache=${o2cache} \
+	--delegation-credential-cache=${ocache} \
+	${server}@${R} && \
+	{ ec=1 ; eval "${testfailed}"; }
+
 #echo "test constrained delegation"; > ${logfile}
 #${kgetcred_imp} --forward --impersonate=bar@${R} ${ps} || \
 #	{ ec=1 ; eval "${testfailed}"; }
@@ -512,6 +540,7 @@ fi
 #	{ ec=1 ; eval "${testfailed}"; }
 #
 #${kdestroy}
+#
 
 echo "check renewing" > ${logfile}
 ${kinit} --renewable --password-file=${testdir}/foopassword foo@$R || \

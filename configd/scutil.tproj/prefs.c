@@ -1104,6 +1104,46 @@ do_log(char * log, int argc, char * const argv[])
 }
 
 
+static void
+disable_service_coupling_usage(void)
+{
+	fprintf(stderr,
+		"usage: scutil --" DISABLE_SERVICE_COUPLING " [on|off]\n");
+	return;
+}
+
+__private_extern__
+void
+do_disable_service_coupling(int argc, char * const argv[])
+{
+	Boolean	disable_coupling = FALSE;
+
+	if (argc > 1) {
+		disable_service_coupling_usage();
+		exit(1);
+	}
+	if (argc == 0) {
+		Boolean		val;
+
+		val = IPMonitorControlPrefsGetDisableServiceCoupling();
+		SCPrint(TRUE, stdout, CFSTR(DISABLE_SERVICE_COUPLING " is %s\n"),
+			on_off_str(val));
+		return;
+	}
+
+	if (!get_bool_from_string(argv[0], FALSE, &disable_coupling, NULL)) {
+		disable_service_coupling_usage();
+		exit(1);
+	}
+
+	if (!IPMonitorControlPrefsSetDisableServiceCoupling(disable_coupling)) {
+		SCPrint(TRUE, stderr, CFSTR("failed to set preferences\n"));
+		exit(2);
+	}
+
+	return;
+}
+
 /* -------------------- */
 
 static SCNetworkInterfaceRef

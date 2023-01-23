@@ -475,6 +475,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)fetchAccountSettingsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                        reply:(void (^)(NSDictionary<NSString*, TPPBPeerStableInfoSetting *> * _Nullable setting,
                                                        NSError* _Nullable error))reply;
+
+- (void)preflightRecoverOctagonUsingRecoveryKey:(TPSpecificUser* _Nullable)specificUser
+                                    recoveryKey:(NSString*)recoveryKey
+                                           salt:(NSString*)salt
+                                          reply:(void (^)(BOOL correct, NSError * _Nullable error))reply;
 @end
 
 /*

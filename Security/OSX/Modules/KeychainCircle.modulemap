@@ -1,0 +1,6 @@
+framework module KeychainCircle [system] {
+  umbrella header "KeychainCircle.h"
+
+  export *
+  module * { export * }
+}

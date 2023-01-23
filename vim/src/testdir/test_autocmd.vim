@@ -62,6 +62,7 @@ if has('timers')
     set updatetime=20
     call timer_start(200, 'ExitInsertMode')
     call feedkeys('a', 'x!')
+    sleep 30m
     call assert_equal(1, g:triggered)
     unlet g:triggered
     au! CursorHoldI
@@ -305,6 +306,61 @@ func Test_win_tab_autocmd()
   unlet g:record
 endfunc
 
+func Test_WinResized()
+  CheckRunVimInTerminal
+
+  let lines =<< trim END
+    set scrolloff=0
+    call setline(1, ['111', '222'])
+    vnew
+    call setline(1, ['aaa', 'bbb'])
+    new
+    call setline(1, ['foo', 'bar'])
+
+    let g:resized = 0
+    au WinResized * let g:resized += 1
+
+    func WriteResizedEvent()
+      call writefile([json_encode(v:event)], 'XresizeEvent')
+    endfunc
+    au WinResized * call WriteResizedEvent()
+  END
+  call writefile(lines, 'Xtest_winresized', 'D')
+  let buf = RunVimInTerminal('-S Xtest_winresized', {'rows': 10})
+
+  " redraw now to avoid a redraw after the :echo command
+  call term_sendkeys(buf, ":redraw!\<CR>")
+  call TermWait(buf)
+
+  call term_sendkeys(buf, ":echo g:resized\<CR>")
+  call WaitForAssert({-> assert_match('^0$', term_getline(buf, 10))}, 1000)
+
+  " increase window height, two windows will be reported
+  call term_sendkeys(buf, "\<C-W>+")
+  call TermWait(buf)
+  call term_sendkeys(buf, ":echo g:resized\<CR>")
+  call WaitForAssert({-> assert_match('^1$', term_getline(buf, 10))}, 1000)
+
+  let event = readfile('XresizeEvent')[0]->json_decode()
+  call assert_equal({
+        \ 'windows': [1002, 1001],
+        \ }, event)
+
+  " increase window width, three windows will be reported
+  call term_sendkeys(buf, "\<C-W>>")
+  call TermWait(buf)
+  call term_sendkeys(buf, ":echo g:resized\<CR>")
+  call WaitForAssert({-> assert_match('^2$', term_getline(buf, 10))}, 1000)
+
+  let event = readfile('XresizeEvent')[0]->json_decode()
+  call assert_equal({
+        \ 'windows': [1002, 1001, 1000],
+        \ }, event)
+
+  call delete('XresizeEvent')
+  call StopVimInTerminal(buf)
+endfunc
+
 func Test_WinScrolled()
   CheckRunVimInTerminal
 
@@ -315,11 +371,15 @@ func Test_WinScrolled()
     endfor
     let win_id = win_getid()
     let g:matched = v:false
+    func WriteScrollEvent()
+      call writefile([json_encode(v:event)], 'XscrollEvent')
+    endfunc
     execute 'au WinScrolled' win_id 'let g:matched = v:true'
     let g:scrolled = 0
     au WinScrolled * let g:scrolled += 1
     au WinScrolled * let g:amatch = str2nr(expand('<amatch>'))
     au WinScrolled * let g:afile = str2nr(expand('<afile>'))
+    au WinScrolled * call WriteScrollEvent()
   END
   call writefile(lines, 'Xtest_winscrolled', 'D')
   let buf = RunVimInTerminal('-S Xtest_winscrolled', {'rows': 6})
@@ -331,14 +391,32 @@ func Test_WinScrolled()
   call term_sendkeys(buf, "zlzh:echo g:scrolled\<CR>")
   call WaitForAssert({-> assert_match('^2 ', term_getline(buf, 6))}, 1000)
 
+  let event = readfile('XscrollEvent')[0]->json_decode()
+  call assert_equal({
+        \ 'all': {'leftcol': 1, 'topline': 0, 'width': 0, 'height': 0, 'skipcol': 0},
+        \ '1000': {'leftcol': -1, 'topline': 0, 'width': 0, 'height': 0, 'skipcol': 0}
+        \ }, event)
+
   " Scroll up/down in Normal mode.
   call term_sendkeys(buf, "\<c-e>\<c-y>:echo g:scrolled\<CR>")
   call WaitForAssert({-> assert_match('^4 ', term_getline(buf, 6))}, 1000)
+
+  let event = readfile('XscrollEvent')[0]->json_decode()
+  call assert_equal({
+        \ 'all': {'leftcol': 0, 'topline': 1, 'width': 0, 'height': 0, 'skipcol': 0},
+        \ '1000': {'leftcol': 0, 'topline': -1, 'width': 0, 'height': 0, 'skipcol': 0}
+        \ }, event)
 
   " Scroll up/down in Insert mode.
   call term_sendkeys(buf, "Mi\<c-x>\<c-e>\<Esc>i\<c-x>\<c-y>\<Esc>")
   call term_sendkeys(buf, ":echo g:scrolled\<CR>")
   call WaitForAssert({-> assert_match('^6 ', term_getline(buf, 6))}, 1000)
+
+  let event = readfile('XscrollEvent')[0]->json_decode()
+  call assert_equal({
+        \ 'all': {'leftcol': 0, 'topline': 1, 'width': 0, 'height': 0, 'skipcol': 0},
+        \ '1000': {'leftcol': 0, 'topline': -1, 'width': 0, 'height': 0, 'skipcol': 0}
+        \ }, event)
 
   " Scroll the window horizontally to focus the last letter of the third line
   " containing only six characters. Moving to the previous and shorter lines
@@ -346,6 +424,12 @@ func Test_WinScrolled()
   call term_sendkeys(buf, "5zl2k")
   call term_sendkeys(buf, ":echo g:scrolled\<CR>")
   call WaitForAssert({-> assert_match('^8 ', term_getline(buf, 6))}, 1000)
+
+  let event = readfile('XscrollEvent')[0]->json_decode()
+  call assert_equal({
+        \ 'all': {'leftcol': 5, 'topline': 0, 'width': 0, 'height': 0, 'skipcol': 0},
+        \ '1000': {'leftcol': -5, 'topline': 0, 'width': 0, 'height': 0, 'skipcol': 0}
+        \ }, event)
 
   " Ensure the command was triggered for the specified window ID.
   call term_sendkeys(buf, ":echo g:matched\<CR>")
@@ -355,6 +439,7 @@ func Test_WinScrolled()
   call term_sendkeys(buf, ":echo g:amatch == win_id && g:afile == win_id\<CR>")
   call WaitForAssert({-> assert_match('^v:true ', term_getline(buf, 6))}, 1000)
 
+  call delete('XscrollEvent')
   call StopVimInTerminal(buf)
 endfunc
 
@@ -406,9 +491,62 @@ func Test_WinScrolled_close_curwin()
   call TermWait(buf)
   call StopVimInTerminal(buf)
 
+  " check the startup script finished to the end
   call assert_equal(['123456'], readfile('Xtestout'))
-
   call delete('Xtestout')
+endfunc
+
+func Test_WinScrolled_once_only()
+  CheckRunVimInTerminal
+
+  let lines =<< trim END
+      set cmdheight=2
+      call setline(1, ['aaa', 'bbb'])
+      let trigger_count = 0
+      func ShowInfo(id)
+        echo g:trigger_count g:winid winlayout()
+      endfunc
+
+      vsplit
+      split
+      " use a timer to show the info after a redraw
+      au WinScrolled * let trigger_count += 1 | let winid = expand('<amatch>') | call timer_start(100, 'ShowInfo')
+      wincmd j
+      wincmd l
+  END
+  call writefile(lines, 'Xtest_winscrolled_once', 'D')
+  let buf = RunVimInTerminal('-S Xtest_winscrolled_once', #{rows: 10, cols: 60, statusoff: 2})
+
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, 'Test_winscrolled_once_only_1', {})
+
+  call StopVimInTerminal(buf)
+endfunc
+
+" Check that WinScrolled is not triggered immediately when defined and there
+" are split windows.
+func Test_WinScrolled_not_when_defined()
+  CheckRunVimInTerminal
+
+  let lines =<< trim END
+      call setline(1, ['aaa', 'bbb'])
+      echo 'nothing happened'
+      func ShowTriggered(id)
+        echo 'triggered'
+      endfunc
+  END
+  call writefile(lines, 'Xtest_winscrolled_not', 'D')
+  let buf = RunVimInTerminal('-S Xtest_winscrolled_not', #{rows: 10, cols: 60, statusoff: 2})
+  call term_sendkeys(buf, ":split\<CR>")
+  call TermWait(buf)
+  " use a timer to show the message after redrawing
+  call term_sendkeys(buf, ":au WinScrolled * call timer_start(100, 'ShowTriggered')\<CR>")
+  call VerifyScreenDump(buf, 'Test_winscrolled_not_when_defined_1', {})
+
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, 'Test_winscrolled_not_when_defined_2', {})
+
+  call StopVimInTerminal(buf)
 endfunc
 
 func Test_WinScrolled_long_wrapped()
@@ -755,6 +893,14 @@ func Test_BufEnter()
     bwipe!
     au! BufEnter
   endfor
+
+  new
+  new
+  autocmd BufEnter * ++once close
+  call assert_fails('close', 'E1312:')
+
+  au! BufEnter
+  only
 endfunc
 
 " Closing a window might cause an endless loop
@@ -2159,6 +2305,49 @@ func Test_autocmd_user()
   unlet s:res
 endfunc
 
+func Test_autocmd_user_clear_group()
+  CheckRunVimInTerminal
+
+  let lines =<< trim END
+    autocmd! User
+    for i in range(1, 999)
+      exe 'autocmd User ' .. 'Foo' .. i .. ' bar'
+    endfor
+    au CmdlineLeave : call timer_start(0, {-> execute('autocmd! User')})
+  END
+  call writefile(lines, 'XautoUser', 'D')
+  let buf = RunVimInTerminal('-S XautoUser', {'rows': 10})
+
+  " this was using freed memory
+  call term_sendkeys(buf, ":autocmd User\<CR>")
+  call TermWait(buf, 50)
+  call term_sendkeys(buf, "G")
+
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_autocmd_CmdlineLeave_unlet()
+  CheckRunVimInTerminal
+
+  let lines =<< trim END
+      for i in range(1, 999)
+        exe 'let g:var' .. i '=' i
+      endfor
+      au CmdlineLeave : call timer_start(0, {-> execute('unlet g:var990')})
+  END
+  call writefile(lines, 'XleaveUnlet', 'D')
+  let buf = RunVimInTerminal('-S XleaveUnlet', {'rows': 10})
+
+  " this was using freed memory
+  call term_sendkeys(buf, ":let g:\<CR>")
+  call TermWait(buf, 50)
+  call term_sendkeys(buf, "G")
+  call TermWait(buf, 50)
+  call term_sendkeys(buf, "\<CR>")  " for the hit-enter prompt
+
+  call StopVimInTerminal(buf)
+endfunc
+
 function s:Before_test_dirchanged()
   augroup test_dirchanged
     autocmd!
@@ -2778,7 +2967,6 @@ endfunc
 
 func Test_autocmd_CmdWinEnter()
   CheckRunVimInTerminal
-  CheckFeature cmdwin
 
   let lines =<< trim END
     augroup vimHints | au! | augroup END
@@ -2887,6 +3075,7 @@ func Test_SpellFileMissing_bwipe()
   call assert_fails('set spell spelllang=0', 'E937:')
 
   au! SpellFileMissing
+  set nospell spelllang=en
   bwipe
 endfunc
 
@@ -3418,19 +3607,29 @@ func Test_mode_changes()
     call assert_equal(5, g:nori_to_any)
   endif
 
-  if has('cmdwin')
-    let g:n_to_c = 0
-    au ModeChanged n:c let g:n_to_c += 1
-    let g:c_to_n = 0
-    au ModeChanged c:n let g:c_to_n += 1
-    let g:mode_seq += ['c', 'n', 'c', 'n']
-    call feedkeys("q:\<C-C>\<Esc>", 'tnix')
-    call assert_equal(len(g:mode_seq) - 1, g:index)
-    call assert_equal(2, g:n_to_c)
-    call assert_equal(2, g:c_to_n)
-    unlet g:n_to_c
-    unlet g:c_to_n
-  endif
+  let g:n_to_c = 0
+  au ModeChanged n:c let g:n_to_c += 1
+  let g:c_to_n = 0
+  au ModeChanged c:n let g:c_to_n += 1
+  let g:mode_seq += ['c', 'n', 'c', 'n']
+  call feedkeys("q:\<C-C>\<Esc>", 'tnix')
+  call assert_equal(len(g:mode_seq) - 1, g:index)
+  call assert_equal(2, g:n_to_c)
+  call assert_equal(2, g:c_to_n)
+  unlet g:n_to_c
+  unlet g:c_to_n
+
+  let g:n_to_v = 0
+  au ModeChanged n:v let g:n_to_v += 1
+  let g:v_to_n = 0
+  au ModeChanged v:n let g:v_to_n += 1
+  let g:mode_seq += ['v', 'n']
+  call feedkeys("v\<C-C>", 'tnix')
+  call assert_equal(len(g:mode_seq) - 1, g:index)
+  call assert_equal(1, g:n_to_v)
+  call assert_equal(1, g:v_to_n)
+  unlet g:n_to_v
+  unlet g:v_to_n
 
   au! ModeChanged
   delfunc TestMode
@@ -3847,5 +4046,49 @@ func Test_autocmd_delete()
   call assert_true(autocmd_delete([[]]))
   call assert_true(autocmd_delete([test_null_dict()]))
 endfunc
+
+func Test_autocmd_split_dummy()
+  " Autocommand trying to split a window containing a dummy buffer.
+  auto BufReadPre * exe "sbuf " .. expand("<abuf>") 
+  " Avoid the "W11" prompt
+  au FileChangedShell * let v:fcs_choice = 'reload'
+  func Xautocmd_changelist()
+    cal writefile(['Xtestfile2:4:4'], 'Xerr')
+    edit Xerr
+    lex 'Xtestfile2:4:4'
+  endfunc
+  call Xautocmd_changelist()
+  " Should get E86, but it doesn't always happen (timing?)
+  silent! call Xautocmd_changelist()
+
+  au! BufReadPre
+  au! FileChangedShell
+  delfunc Xautocmd_changelist
+  bwipe! Xerr
+  call delete('Xerr')
+endfunc
+
+" This was crashing because there was only one window to execute autocommands
+" in.
+func Test_autocmd_nested_setbufvar()
+  CheckFeature python3
+
+  set hidden
+  edit Xaaa
+  edit Xbbb
+  call setline(1, 'bar')
+  enew
+  au BufWriteCmd Xbbb ++nested call setbufvar('Xaaa', '&ft', 'foo') | bw! Xaaa
+  au FileType foo call py3eval('vim.current.buffer.options["cindent"]')
+  wall
+
+  au! BufWriteCmd
+  au! FileType foo
+  set nohidden
+  call delete('Xaaa')
+  call delete('Xbbb')
+  %bwipe!
+endfunc
+
 
 " vim: shiftwidth=2 sts=2 expandtab

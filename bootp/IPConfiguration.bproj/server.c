@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -326,6 +326,7 @@ _ipconfig_remove_service_on_interface(mach_port_t server,
 	else {
 	    ifname = InterfaceNameNulTerminate(name);
 	}
+	ServiceIDNulTerminate(service_id);
 	*ret_status = remove_service_with_id(ifname, service_id);
     }
     return (KERN_SUCCESS);
@@ -405,11 +406,25 @@ _ipconfig_refresh_service(mach_port_t server,
 	*ret_status = ipconfig_status_permission_denied_e;
     }
     else {
+	ServiceIDNulTerminate(service_id);
 	*ret_status = refresh_service(InterfaceNameNulTerminate(name),
 				      service_id);
     }
     return (KERN_SUCCESS);
 }
+
+PRIVATE_EXTERN kern_return_t
+_ipconfig_is_service_valid(mach_port_t server,
+			   InterfaceName name,
+			   ServiceID service_id,
+			   ipconfig_status_t * ret_status)
+{
+    InterfaceNameNulTerminate(name);
+    ServiceIDNulTerminate(service_id);
+    *ret_status = is_service_valid(name, service_id);
+    return (KERN_SUCCESS);
+}
+
 
 PRIVATE_EXTERN kern_return_t
 _ipconfig_forget_network(mach_port_t server,

@@ -1,0 +1,14 @@
+framework module Security_Private [system] {
+  umbrella header "Security_Private.h"
+
+  explicit module SecureObjectSync {
+    umbrella "PrivateHeaders/SecureObjectSync"
+
+    explicit module * { export * }
+  }
+
+  // Use SecAsn1Templates.h instead
+  exclude header "asn1Templates.h"
+
+  explicit module * { export * }
+}

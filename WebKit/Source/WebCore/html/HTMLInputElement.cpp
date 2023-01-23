@@ -93,12 +93,12 @@ using namespace HTMLNames;
 class ListAttributeTargetObserver final : public IdTargetObserver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ListAttributeTargetObserver(const AtomString& id, HTMLInputElement*);
+    ListAttributeTargetObserver(const AtomString& id, HTMLInputElement&);
 
     void idTargetChanged() override;
 
 private:
-    HTMLInputElement* m_element;
+    WeakPtr<HTMLInputElement, WeakPtrImplWithEventTargetData> m_element;
 };
 #endif
 
@@ -1709,7 +1709,7 @@ void HTMLInputElement::resetListAttributeTargetObserver()
 {
     if (isConnected()) {
         if (auto& listAttrValue = attributeWithoutSynchronization(listAttr); !listAttrValue.isNull()) {
-            m_listAttributeTargetObserver = makeUnique<ListAttributeTargetObserver>(listAttrValue, this);
+            m_listAttributeTargetObserver = makeUnique<ListAttributeTargetObserver>(listAttrValue, *this);
             return;
         }
     }
@@ -1719,7 +1719,8 @@ void HTMLInputElement::resetListAttributeTargetObserver()
 
 void HTMLInputElement::dataListMayHaveChanged()
 {
-    m_inputType->dataListMayHaveChanged();
+    auto protectedInputType = m_inputType;
+    protectedInputType->dataListMayHaveChanged();
 }
 
 bool HTMLInputElement::isFocusingWithDataListDropdown() const
@@ -2036,15 +2037,18 @@ void HTMLInputElement::setWidth(unsigned width)
 }
 
 #if ENABLE(DATALIST_ELEMENT)
-ListAttributeTargetObserver::ListAttributeTargetObserver(const AtomString& id, HTMLInputElement* element)
-    : IdTargetObserver(element->treeScope().idTargetObserverRegistry(), id)
+ListAttributeTargetObserver::ListAttributeTargetObserver(const AtomString& id, HTMLInputElement& element)
+    : IdTargetObserver(element.treeScope().idTargetObserverRegistry(), id)
     , m_element(element)
 {
 }
 
 void ListAttributeTargetObserver::idTargetChanged()
 {
-    m_element->dataListMayHaveChanged();
+    m_element->document().eventLoop().queueTask(TaskSource::DOMManipulation, [element = m_element] {
+        if (element)
+            element->dataListMayHaveChanged();
+    });
 }
 #endif
 

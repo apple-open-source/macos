@@ -72,6 +72,16 @@ DHCPv6OptionIAADDRPrintLevelToString(CFMutableStringRef str,
 				     int ia_addr_len, int level);
 
 STATIC void
+DHCPv6OptionIA_PDPrintLevelToString(CFMutableStringRef str,
+				    const DHCPv6OptionIA_PDRef ia_pd,
+				    int ia_pd_len, int level);
+
+STATIC void
+DHCPv6OptionIAPREFIXPrintLevelToString(CFMutableStringRef str,
+				     DHCPv6OptionIAPREFIXRef ia_prefix,
+				     int ia_prefix_len, int level);
+
+STATIC void
 DHCPv6OptionSTATUS_CODEPrintToString(CFMutableStringRef str,
 				     DHCPv6OptionSTATUS_CODERef status_p,
 				     int status_len);
@@ -109,8 +119,14 @@ DHCPv6OptionCodeGetType(DHCPv6OptionCode option_code)
     case kDHCPv6OPTION_IA_NA:
 	type = kDHCPv6OptionTypeIA_NA;
 	break;
+    case kDHCPv6OPTION_IA_PD:
+	type = kDHCPv6OptionTypeIA_PD;
+	break;
     case kDHCPv6OPTION_IAADDR:
 	type = kDHCPv6OptionTypeIAADDR;
+	break;
+    case kDHCPv6OPTION_IAPREFIX:
+	type = kDHCPv6OptionTypeIAPREFIX;
 	break;
     case kDHCPv6OPTION_STATUS_CODE:
 	type = kDHCPv6OptionTypeStatusCode;
@@ -247,6 +263,12 @@ DHCPv6OptionCodeGetName(DHCPv6OptionCode code)
 	break;
     case kDHCPv6OPTION_CAPTIVE_PORTAL_URL:
 	str = kDHCPv6OPTIONSTR_CAPTIVE_PORTAL_URL;
+	break;
+    case kDHCPv6OPTION_IA_PD:
+	str = "IA_PD";
+	break;
+    case kDHCPv6OPTION_IAPREFIX:
+	str = "IAPREFIX";
 	break;
     default:
 	str = "<unknown>";
@@ -534,6 +556,20 @@ DHCPv6OptionPrintToString(CFMutableStringRef str,
 					     option_length, level);
 	break;
 
+    case kDHCPv6OptionTypeIA_PD:
+	DHCPv6OptionIA_PDPrintLevelToString(str,
+					    (DHCPv6OptionIA_PDRef)
+					    option_data,
+					    option_length, level);
+	break;
+
+    case kDHCPv6OptionTypeIAPREFIX:
+	DHCPv6OptionIAPREFIXPrintLevelToString(str,
+					       (DHCPv6OptionIAPREFIXRef)
+					       option_data,
+					       option_length, level);
+	break;
+
     case kDHCPv6OptionTypeStatusCode:
 	DHCPv6OptionSTATUS_CODEPrintToString(str,
 					     (DHCPv6OptionSTATUS_CODERef)
@@ -585,7 +621,7 @@ DHCPv6OptionListPrintLevelToString(CFMutableStringRef str,
     for (lev = 0; lev < level; lev++) {
 	STRING_APPEND(str, "  ");
     }
-    STRING_APPEND(str, "}");
+    STRING_APPEND(str, "}\n");
     return;
 }
 
@@ -607,6 +643,27 @@ DHCPv6OptionListFPrint(FILE * file, DHCPv6OptionListRef options)
     SCPrint(TRUE, file, CFSTR("%@\n"), str);
     CFRelease(str);
     return;
+}
+
+STATIC void
+DHCPv6OptionsBufferPrintLevelToString(CFMutableStringRef str,
+				      const uint8_t * buf, int buf_length,
+				      int level)
+{
+    DHCPv6OptionErrorString 	err;
+    DHCPv6OptionListRef		options;
+
+    options = DHCPv6OptionListCreate(buf, buf_length, &err);
+    if (options == NULL) {
+	STRING_APPEND(str, " options invalid:\n\t%s\n",
+		      err.str);
+    }
+    else {
+	STRING_APPEND(str, " ");
+	/* possibly recurse */
+	DHCPv6OptionListPrintLevelToString(str, options, level + 1);
+    }
+    DHCPv6OptionListRelease(&options);
 }
 
 PRIVATE_EXTERN int
@@ -914,11 +971,51 @@ DHCPv6OptionIAADDRPrintLevelToString(CFMutableStringRef str,
 	STRING_APPEND(str, "\n");
     }
     else {
+	DHCPv6OptionsBufferPrintLevelToString(str,
+					      ia_addr->options, options_length,
+					      level);
+    }
+    return;
+}
+
+PRIVATE_EXTERN void
+DHCPv6OptionIAADDRPrintToString(CFMutableStringRef str,
+				DHCPv6OptionIAADDRRef ia_addr,
+				int ia_addr_len)
+{
+    DHCPv6OptionIAADDRPrintLevelToString(str, ia_addr, ia_addr_len, 0);
+    return;
+}
+
+/**
+ ** DHCPv6OptionIA_PD
+ **/
+STATIC void
+DHCPv6OptionIA_PDPrintLevelToString(CFMutableStringRef str,
+				    const DHCPv6OptionIA_PDRef ia_pd,
+				    int ia_pd_len, int level)
+{
+    int		options_length;
+
+    if (ia_pd_len < DHCPv6OptionIA_PD_MIN_LENGTH) {
+	STRING_APPEND(str, " IA_PD option is too short %d < %d\n",
+		      ia_pd_len, DHCPv6OptionIA_PD_MIN_LENGTH);
+	return;
+    }
+    options_length = ia_pd_len - DHCPv6OptionIA_PD_MIN_LENGTH;
+    STRING_APPEND(str, " IA_PD IAID=%d T1=%d T2=%d",
+		  DHCPv6OptionIA_PDGetIAID(ia_pd),
+		  DHCPv6OptionIA_PDGetT1(ia_pd),
+		  DHCPv6OptionIA_PDGetT2(ia_pd));
+
+    if (options_length == 0) {
+	STRING_APPEND(str, "\n");
+    }
+    else {
 	DHCPv6OptionErrorString 	err;
 	DHCPv6OptionListRef		options;
 
-	options = DHCPv6OptionListCreate(ia_addr->options,
-					 options_length, &err);
+	options = DHCPv6OptionListCreate(ia_pd->options, options_length, &err);
 	if (options == NULL) {
 	    STRING_APPEND(str, " options invalid:\n\t%s\n",
 			  err.str);
@@ -933,12 +1030,50 @@ DHCPv6OptionIAADDRPrintLevelToString(CFMutableStringRef str,
     return;
 }
 
-PRIVATE_EXTERN void
-DHCPv6OptionIAADDRPrintToString(CFMutableStringRef str,
-				DHCPv6OptionIAADDRRef ia_addr,
-				int ia_addr_len)
+/**
+ ** DHCPv6OptionIAPREFIX
+ **/
+
+STATIC void
+DHCPv6OptionIAPREFIXPrintLevelToString(CFMutableStringRef str,
+				       DHCPv6OptionIAPREFIXRef ia_prefix,
+				       int ia_prefix_len, int level)
 {
-    DHCPv6OptionIAADDRPrintLevelToString(str, ia_addr, ia_addr_len, 0);
+    char 	ntopbuf[INET6_ADDRSTRLEN];
+    int		options_length;
+
+
+    if (ia_prefix_len < DHCPv6OptionIAPREFIX_MIN_LENGTH) {
+	STRING_APPEND(str, " IAPREFIX option is too short %d < %d\n",
+		      ia_prefix_len, DHCPv6OptionIAPREFIX_MIN_LENGTH);
+	return;
+    }
+    options_length = ia_prefix_len - DHCPv6OptionIAPREFIX_MIN_LENGTH;
+    STRING_APPEND(str, " IAPREFIX %s/%d Preferred %d Valid=%d",
+		  inet_ntop(AF_INET6,
+			    DHCPv6OptionIAPREFIXGetPrefix(ia_prefix),
+			    ntopbuf, sizeof(ntopbuf)),
+		  DHCPv6OptionIAPREFIXGetPrefixLength(ia_prefix),
+		  DHCPv6OptionIAPREFIXGetPreferredLifetime(ia_prefix),
+		  DHCPv6OptionIAPREFIXGetValidLifetime(ia_prefix));
+    if (options_length == 0) {
+	STRING_APPEND(str, "\n");
+    }
+    else {
+	DHCPv6OptionsBufferPrintLevelToString(str,
+					      ia_prefix->options,
+					      options_length,
+					      level);
+    }
+    return;
+}
+
+PRIVATE_EXTERN void
+DHCPv6OptionIAPREFIXPrintToString(CFMutableStringRef str,
+				  DHCPv6OptionIAPREFIXRef ia_prefix,
+				  int ia_prefix_len)
+{
+    DHCPv6OptionIAPREFIXPrintLevelToString(str, ia_prefix, ia_prefix_len, 0);
     return;
 }
 
@@ -1069,9 +1204,14 @@ DHCPv6OptionSTATUS_CODEPrintToString(CFMutableStringRef str,
 
 PRIVATE_EXTERN bool
 DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
-			      DHCPv6StatusCode * ret_code)			 {
+			      DHCPv6StatusCode * ret_code,
+			      const char * * ret_msg,
+			      unsigned int * ret_msg_length)
+{
     DHCPv6StatusCode		code = kDHCPv6StatusCodeSuccess;
     int				option_len;
+    const char *		msg = NULL;
+    unsigned int		msg_length = 0;
     DHCPv6OptionSTATUS_CODERef	status_code;
     bool			success = true;
 
@@ -1082,6 +1222,9 @@ DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
     if (status_code != NULL) {
 	if (option_len >= DHCPv6OptionSTATUS_CODE_MIN_LENGTH) {
 	    code = DHCPv6OptionSTATUS_CODEGetCode(status_code);
+	    msg = (const char *)
+		DHCPv6OptionSTATUS_CODEGetMessage(status_code);
+	    msg_length = option_len - DHCPv6OptionSTATUS_CODE_MIN_LENGTH;
 	}
 	else {
 	    my_log(LOG_NOTICE,
@@ -1092,10 +1235,29 @@ DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
 	}
     }
     *ret_code = code;
+    if (ret_msg_length != NULL) {
+	*ret_msg_length = msg_length;
+    }
+    if (ret_msg != NULL) {
+	*ret_msg = msg;
+    }
     return (success);
 }
 
 #if TEST_DHCPV6_OPTIONS
+
+#define IA_ADDR_1 \
+	0x00, 0x05, 0x00, 0x18,						\
+	0xfc, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,			\
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,			\
+	0x00, 0x00, 0x00, 0x8e,						\
+	0x00, 0x00, 0x01, 0xff
+
+#define IA_NA_1	0x00, 0x00, 0x00, 0x01,					\
+	0xff, 0xff, 0xff, 0xff,						\
+	0xff, 0xff, 0xff, 0xff,						\
+	IA_ADDR_1
+
 /* type = 1, hw = 1, time = aabbccdd, linklayer_address = 0x000102030405 */
 #define DUID_LLT_1	0x00, 0x01, 0x00, 0x01, 0xaa, 0xbb, 0xcc, 0xdd, \
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05
@@ -1109,6 +1271,12 @@ DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
 #define DUID_LLT_UNDEF6_1 0x00, 0x06, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, \
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05
 
+#define DUID_UUID_1	0x00, 0x04,		\
+	0x00, 0x01, 0x02, 0x03,			\
+	0x04, 0x05, 0x06, 0x07,			\
+	0x08, 0x09, 0x0a, 0x0b,			\
+	0x0c, 0x0d, 0x0e, 0x0f
+
 #define ORO_1 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04
 
 #define DNS_SERVER_1 0x20, 0x02, 0x45, 0xb5, 0xea, 0x61, 0x00, 0x00, 0x2, 0x1f, 0xf3, 0xff, 0xfe, 0x43, 0x1a, 0xbf
@@ -1119,8 +1287,10 @@ DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
 	11, 'e', 'n', 'g', 'i', 'n', 'e', 'e', 'r', 'i', 'n', 'g', 5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0
 
 
+
+/* test_buf1 parses OK */
 const uint8_t test_buf1[] = {
-    0x00, 0x03, 0x00, 0x02, 0x01, 0x02,
+    0x00, 0x03, 0x00, 0x28, IA_NA_1 ,
     0x00, 0x01, 0x00, 0x0e, DUID_LLT_1 ,
     0x00, 0x01, 0x00, 0xa, DUID_EN_1 ,
     0x00, 0x02, 0x00, 0xa, DUID_LL_1 ,
@@ -1131,6 +1301,13 @@ const uint8_t test_buf1[] = {
     0x00, 0x17, 0x00, 0x10, DNS_SERVER_1 ,
 };
 
+/* test_buf2 parses at a high level OK, but IA_NA is too short. */
+const uint8_t test_buf2[] = {
+    0x00, 0x03, 0x00, 0x02, 0x01, 0x02, /* truncated IA_NA(3) */
+    0x00, 0x02, 0x00, 0x12, DUID_UUID_1 ,
+};
+
+/* test_bad_buf1 does not parse OK */
 const uint8_t test_bad_buf1[] = {
     0x00, 0x01, 0x01, 0x00, 0x01, 0x02,
 };
@@ -1142,6 +1319,7 @@ struct testbuf {
 };
 struct testbuf tests[] = {
     { test_buf1, sizeof(test_buf1), TRUE },
+    { test_buf2, sizeof(test_buf2), TRUE },
     { test_bad_buf1, sizeof(test_bad_buf1), FALSE },
     { NULL, 0 }
 };

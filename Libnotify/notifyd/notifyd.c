@@ -45,6 +45,8 @@
 #include <servers/bootstrap.h>
 #include <os/trace_private.h>
 #include <sandbox.h>
+#include <os/variant_private.h>
+#include <sys/reboot.h>
 
 #include "pathwatch.h"
 #include "service.h"
@@ -61,6 +63,7 @@
 
 #define forever for(;;)
 #define IndexNull (unsigned int)~0
+#define is_internal_build() (os_variant_has_internal_diagnostics("com.apple.notifyd"))
 
 /* Compile flags */
 #define RUN_TIME_CHECKS
@@ -71,10 +74,16 @@ static char *_config_file_path;
 
 static char *_debug_log_path;
 #define DEBUG_LOG_PATH _debug_log_path
+
+static char *_jetsam_log_path;
+#define JETSAM_LOG_PATH _jetsam_log_path
 #else
 #define CONFIG_FILE_PATH "/etc/notify.conf"
 #define DEBUG_LOG_PATH "/var/log/notifyd.log"
+#define JETSAM_LOG_PATH "/var/run/notifyd_jetsam.log"
 #endif
+
+#define JETSAM_PANIC_PROB_THRESHOLD (RAND_MAX / 10) // 0.1 probability
 
 static char *status_file = NULL;
 
@@ -688,6 +697,16 @@ fprint_status(FILE *f)
 	fprintf(f, "\n");
 }
 
+static void
+fcopy(FILE *dst, FILE *src)
+{
+	int c;
+
+	while ((c = fgetc(src)) != EOF) {
+		fputc(c, dst);
+	}
+}
+
 void
 dump_status(uint32_t level, int fd)
 {
@@ -710,6 +729,14 @@ dump_status(uint32_t level, int fd)
 	}
 
 	if (f == NULL) return;
+
+	if (is_internal_build()) {
+		FILE *jetsam = fopen(JETSAM_LOG_PATH, "r");
+		if (jetsam != NULL) {
+			fcopy(f, jetsam);
+			fclose(jetsam);
+		}
+	}
 
 	if (level == STATUS_REQUEST_SHORT) fprint_quick_status(f);
 	else if (level == STATUS_REQUEST_LONG) fprint_status(f);
@@ -1119,6 +1146,39 @@ notifyd_mach_channel_handler(void *context, dispatch_mach_reason_t reason,
 	}
 }
 
+static void
+notifyd_dump_status_on_jetsam(void)
+{
+	FILE* f;
+
+	unlink(JETSAM_LOG_PATH);
+	f = fopen(JETSAM_LOG_PATH, "w");
+	if (f == NULL) {
+		return;
+	}
+
+	fprintf(f, "-- JETSAM LOG BEGIN ---\n");
+	fprint_quick_status(f);
+	fprintf(f, "-- JETSAM LOG END ---\n");
+	fclose(f);
+}
+
+static void
+notifyd_panic_on_jetsam(void)
+{
+	reboot_np(RB_PANIC, "notifyd reached 80% of its memory limit");
+}
+
+static void
+notifyd_jetsam(void)
+{
+	if (random() < JETSAM_PANIC_PROB_THRESHOLD) {
+		notifyd_panic_on_jetsam();
+	} else {
+		notifyd_dump_status_on_jetsam();
+	}
+}
+
 kern_return_t
 do_mach_notify_port_deleted(mach_port_t notify, mach_port_name_t name)
 {
@@ -1224,6 +1284,7 @@ main(int argc, const char *argv[])
 #if TARGET_OS_SIMULATOR
 	asprintf(&_config_file_path, "%s/private/etc/notify.conf", getenv("SIMULATOR_ROOT"));
 	asprintf(&_debug_log_path, "%s/var/log/notifyd.log", getenv("SIMULATOR_LOG_ROOT"));
+	asprintf(&_jetsam_log_path, "%s/var/run/notifyd_jetsam.log", getenv("SIMULATOR_LOG_ROOT"));
 #endif
 
 	service_name = NOTIFY_SERVICE_NAME;
@@ -1390,6 +1451,17 @@ main(int argc, const char *argv[])
 		notify_reset_stats();
 	});
 	dispatch_activate(global.stat_reset_src);
+
+	/* Set up handler for memory pressure notification */
+	if (is_internal_build()) {
+		global.memory_pressure_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0,
+															DISPATCH_MEMORYPRESSURE_PROC_LIMIT_WARN, global.workloop);
+		assert(global.memory_pressure_src != NULL);
+		dispatch_source_set_event_handler(global.memory_pressure_src, ^{
+			notifyd_jetsam();
+		});
+		dispatch_activate(global.memory_pressure_src);
+	}
 
 	dispatch_async(global.workloop, ^{
 		notify_reset_stats();

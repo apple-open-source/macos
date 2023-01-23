@@ -3,6 +3,8 @@
 source check.vim
 CheckFeature menu
 
+source screendump.vim
+
 func Test_load_menu()
   try
     source $VIMRUNTIME/menu.vim
@@ -479,6 +481,35 @@ func Test_popup_menu()
   unmenu PopUp
 endfunc
 
+" Test for MenuPopup autocommand
+func Test_autocmd_MenuPopup()
+  CheckNotGui
+
+  set mouse=a
+  set mousemodel=popup
+  aunmenu *
+  autocmd MenuPopup * exe printf(
+    \ 'anoremenu PopUp.Foo <Cmd>let g:res = ["%s", "%s"]<CR>',
+    \ expand('<afile>'), expand('<amatch>'))
+
+  call feedkeys("\<RightMouse>\<Down>\<CR>", 'tnix')
+  call assert_equal(['n', 'n'], g:res)
+
+  call feedkeys("v\<RightMouse>\<Down>\<CR>\<Esc>", 'tnix')
+  call assert_equal(['v', 'v'], g:res)
+
+  call feedkeys("gh\<RightMouse>\<Down>\<CR>\<Esc>", 'tnix')
+  call assert_equal(['s', 's'], g:res)
+
+  call feedkeys("i\<RightMouse>\<Down>\<CR>\<Esc>", 'tnix')
+  call assert_equal(['i', 'i'], g:res)
+
+  autocmd! MenuPopup
+  aunmenu PopUp.Foo
+  unlet g:res
+  set mouse& mousemodel&
+endfunc
+
 " Test for listing the menus using the :menu command
 func Test_show_menus()
   " In the GUI, tear-off menu items are present in the output below
@@ -537,6 +568,30 @@ func Test_only_modifier()
   call assert_equal(exp, split(execute('tmenu'), "\n"))
 
   tunmenu a.b
+endfunc
+
+func Test_mapclear_while_listing()
+  CheckRunVimInTerminal
+
+  let lines =<< trim END
+      set nocompatible
+      unmenu *
+      for i in range(1, 999)
+        exe 'menu ' .. 'foo.' .. i .. ' bar'
+      endfor
+      au CmdlineLeave : call timer_start(0, {-> execute('unmenu *')})
+  END
+  call writefile(lines, 'Xmenuclear', 'D')
+  let buf = RunVimInTerminal('-S Xmenuclear', {'rows': 10})
+
+  " this was using freed memory
+  call term_sendkeys(buf, ":menu\<CR>")
+  call TermWait(buf, 50)
+  call term_sendkeys(buf, "G")
+  call TermWait(buf, 50)
+  call term_sendkeys(buf, "\<CR>")
+
+  call StopVimInTerminal(buf)
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

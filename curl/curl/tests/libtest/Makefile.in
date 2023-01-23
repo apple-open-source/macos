@@ -153,8 +153,10 @@ noinst_PROGRAMS = chkhostname$(EXEEXT) libauthretry$(EXEEXT) \
 	lib1919$(EXEEXT) lib1933$(EXEEXT) lib1934$(EXEEXT) \
 	lib1935$(EXEEXT) lib1936$(EXEEXT) lib1937$(EXEEXT) \
 	lib1938$(EXEEXT) lib1939$(EXEEXT) lib1940$(EXEEXT) \
-	lib1945$(EXEEXT) lib1946$(EXEEXT) lib3010$(EXEEXT) \
-	lib3025$(EXEEXT) lib3026$(EXEEXT)
+	lib1945$(EXEEXT) lib1946$(EXEEXT) lib1947$(EXEEXT) \
+	lib1948$(EXEEXT) lib1955$(EXEEXT) lib2301$(EXEEXT) \
+	lib2302$(EXEEXT) lib3010$(EXEEXT) lib3025$(EXEEXT) \
+	lib3026$(EXEEXT) lib3027$(EXEEXT)
 @USE_CPPFLAG_CURL_STATICLIB_TRUE@am__append_1 = -DCURL_STATICLIB
 @CURL_LT_SHLIB_USE_NO_UNDEFINED_TRUE@am__append_2 = -no-undefined
 @CURL_LT_SHLIB_USE_NO_UNDEFINED_TRUE@am__append_3 = -no-undefined
@@ -226,7 +228,6 @@ am__dirstamp = $(am__leading_dot)dirstamp
 am_chkdecimalpoint_OBJECTS =  \
 	chkdecimalpoint-chkdecimalpoint.$(OBJEXT) \
 	../../lib/chkdecimalpoint-mprintf.$(OBJEXT) \
-	../../lib/chkdecimalpoint-curl_ctype.$(OBJEXT) \
 	../../lib/chkdecimalpoint-dynbuf.$(OBJEXT) \
 	../../lib/chkdecimalpoint-strdup.$(OBJEXT)
 chkdecimalpoint_OBJECTS = $(am_chkdecimalpoint_OBJECTS)
@@ -861,765 +862,797 @@ am__objects_201 = ../../lib/lib1946-timediff.$(OBJEXT) \
 am_lib1946_OBJECTS = lib1946-lib1940.$(OBJEXT) $(am__objects_201)
 lib1946_OBJECTS = $(am_lib1946_OBJECTS)
 lib1946_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_202 = ../../lib/lib3010-timediff.$(OBJEXT) \
+am__objects_202 = ../../lib/lib1947-timediff.$(OBJEXT) \
+	lib1947-first.$(OBJEXT)
+am_lib1947_OBJECTS = lib1947-lib1947.$(OBJEXT) $(am__objects_202)
+lib1947_OBJECTS = $(am_lib1947_OBJECTS)
+lib1947_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__objects_203 = ../../lib/lib1948-timediff.$(OBJEXT) \
+	lib1948-first.$(OBJEXT)
+am_lib1948_OBJECTS = lib1948-lib1948.$(OBJEXT) $(am__objects_203)
+lib1948_OBJECTS = $(am_lib1948_OBJECTS)
+lib1948_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__objects_204 = ../../lib/lib1955-timediff.$(OBJEXT) \
+	lib1955-first.$(OBJEXT)
+am__objects_205 = lib1955-testutil.$(OBJEXT)
+am__objects_206 = ../../lib/lib1955-warnless.$(OBJEXT)
+am_lib1955_OBJECTS = lib1955-lib1955.$(OBJEXT) $(am__objects_204) \
+	$(am__objects_205) $(am__objects_206)
+lib1955_OBJECTS = $(am_lib1955_OBJECTS)
+lib1955_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am_lib2301_OBJECTS = lib2301.$(OBJEXT) $(am__objects_128)
+lib2301_OBJECTS = $(am_lib2301_OBJECTS)
+lib2301_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am_lib2302_OBJECTS = lib2302.$(OBJEXT) $(am__objects_128)
+lib2302_OBJECTS = $(am_lib2302_OBJECTS)
+lib2302_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__objects_207 = ../../lib/lib3010-timediff.$(OBJEXT) \
 	lib3010-first.$(OBJEXT)
-am__objects_203 = lib3010-testutil.$(OBJEXT)
-am__objects_204 = ../../lib/lib3010-warnless.$(OBJEXT)
-am_lib3010_OBJECTS = lib3010-lib3010.$(OBJEXT) $(am__objects_202) \
-	$(am__objects_203) $(am__objects_204)
+am__objects_208 = lib3010-testutil.$(OBJEXT)
+am__objects_209 = ../../lib/lib3010-warnless.$(OBJEXT)
+am_lib3010_OBJECTS = lib3010-lib3010.$(OBJEXT) $(am__objects_207) \
+	$(am__objects_208) $(am__objects_209)
 lib3010_OBJECTS = $(am_lib3010_OBJECTS)
 lib3010_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_205 = ../../lib/lib3025-timediff.$(OBJEXT) \
+am__objects_210 = ../../lib/lib3025-timediff.$(OBJEXT) \
 	lib3025-first.$(OBJEXT)
-am__objects_206 = lib3025-testutil.$(OBJEXT)
-am__objects_207 = ../../lib/lib3025-warnless.$(OBJEXT)
-am_lib3025_OBJECTS = lib3025-lib3025.$(OBJEXT) $(am__objects_205) \
-	$(am__objects_206) $(am__objects_207)
+am__objects_211 = lib3025-testutil.$(OBJEXT)
+am__objects_212 = ../../lib/lib3025-warnless.$(OBJEXT)
+am_lib3025_OBJECTS = lib3025-lib3025.$(OBJEXT) $(am__objects_210) \
+	$(am__objects_211) $(am__objects_212)
 lib3025_OBJECTS = $(am_lib3025_OBJECTS)
 lib3025_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_208 = ../../lib/lib3026-timediff.$(OBJEXT) \
+am__objects_213 = ../../lib/lib3026-timediff.$(OBJEXT) \
 	lib3026-first.$(OBJEXT)
-am__objects_209 = lib3026-testutil.$(OBJEXT)
-am__objects_210 = ../../lib/lib3026-warnless.$(OBJEXT)
-am_lib3026_OBJECTS = lib3026-lib3026.$(OBJEXT) $(am__objects_208) \
-	$(am__objects_209) $(am__objects_210)
+am__objects_214 = lib3026-testutil.$(OBJEXT)
+am__objects_215 = ../../lib/lib3026-warnless.$(OBJEXT)
+am_lib3026_OBJECTS = lib3026-lib3026.$(OBJEXT) $(am__objects_213) \
+	$(am__objects_214) $(am__objects_215)
 lib3026_OBJECTS = $(am_lib3026_OBJECTS)
 lib3026_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_211 = ../../lib/lib500-timediff.$(OBJEXT) \
+am__objects_216 = ../../lib/lib3027-timediff.$(OBJEXT) \
+	lib3027-first.$(OBJEXT)
+am__objects_217 = lib3027-testutil.$(OBJEXT)
+am__objects_218 = ../../lib/lib3027-warnless.$(OBJEXT)
+am_lib3027_OBJECTS = lib3027-lib3027.$(OBJEXT) $(am__objects_216) \
+	$(am__objects_217) $(am__objects_218)
+lib3027_OBJECTS = $(am_lib3027_OBJECTS)
+lib3027_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am__objects_219 = ../../lib/lib500-timediff.$(OBJEXT) \
 	lib500-first.$(OBJEXT)
-am__objects_212 = lib500-testutil.$(OBJEXT)
-am__objects_213 = lib500-testtrace.$(OBJEXT)
-am__objects_214 = ../../lib/lib500-curl_multibyte.$(OBJEXT)
-am_lib500_OBJECTS = lib500-lib500.$(OBJEXT) $(am__objects_211) \
-	$(am__objects_212) $(am__objects_213) $(am__objects_214)
+am__objects_220 = lib500-testutil.$(OBJEXT)
+am__objects_221 = lib500-testtrace.$(OBJEXT)
+am__objects_222 = ../../lib/lib500-curl_multibyte.$(OBJEXT)
+am_lib500_OBJECTS = lib500-lib500.$(OBJEXT) $(am__objects_219) \
+	$(am__objects_220) $(am__objects_221) $(am__objects_222)
 lib500_OBJECTS = $(am_lib500_OBJECTS)
 lib500_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_215 = ../../lib/lib501-timediff.$(OBJEXT) \
+am__objects_223 = ../../lib/lib501-timediff.$(OBJEXT) \
 	lib501-first.$(OBJEXT)
-am_lib501_OBJECTS = lib501-lib501.$(OBJEXT) $(am__objects_215)
+am_lib501_OBJECTS = lib501-lib501.$(OBJEXT) $(am__objects_223)
 lib501_OBJECTS = $(am_lib501_OBJECTS)
 lib501_LDADD = $(LDADD)
 lib501_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_216 = ../../lib/lib502-timediff.$(OBJEXT) \
+am__objects_224 = ../../lib/lib502-timediff.$(OBJEXT) \
 	lib502-first.$(OBJEXT)
-am__objects_217 = lib502-testutil.$(OBJEXT)
-am__objects_218 = ../../lib/lib502-warnless.$(OBJEXT)
-am_lib502_OBJECTS = lib502-lib502.$(OBJEXT) $(am__objects_216) \
-	$(am__objects_217) $(am__objects_218)
+am__objects_225 = lib502-testutil.$(OBJEXT)
+am__objects_226 = ../../lib/lib502-warnless.$(OBJEXT)
+am_lib502_OBJECTS = lib502-lib502.$(OBJEXT) $(am__objects_224) \
+	$(am__objects_225) $(am__objects_226)
 lib502_OBJECTS = $(am_lib502_OBJECTS)
 lib502_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_219 = ../../lib/lib503-timediff.$(OBJEXT) \
+am__objects_227 = ../../lib/lib503-timediff.$(OBJEXT) \
 	lib503-first.$(OBJEXT)
-am__objects_220 = lib503-testutil.$(OBJEXT)
-am__objects_221 = ../../lib/lib503-warnless.$(OBJEXT)
-am_lib503_OBJECTS = lib503-lib503.$(OBJEXT) $(am__objects_219) \
-	$(am__objects_220) $(am__objects_221)
+am__objects_228 = lib503-testutil.$(OBJEXT)
+am__objects_229 = ../../lib/lib503-warnless.$(OBJEXT)
+am_lib503_OBJECTS = lib503-lib503.$(OBJEXT) $(am__objects_227) \
+	$(am__objects_228) $(am__objects_229)
 lib503_OBJECTS = $(am_lib503_OBJECTS)
 lib503_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_222 = ../../lib/lib504-timediff.$(OBJEXT) \
+am__objects_230 = ../../lib/lib504-timediff.$(OBJEXT) \
 	lib504-first.$(OBJEXT)
-am__objects_223 = lib504-testutil.$(OBJEXT)
-am__objects_224 = ../../lib/lib504-warnless.$(OBJEXT)
-am_lib504_OBJECTS = lib504-lib504.$(OBJEXT) $(am__objects_222) \
-	$(am__objects_223) $(am__objects_224)
+am__objects_231 = lib504-testutil.$(OBJEXT)
+am__objects_232 = ../../lib/lib504-warnless.$(OBJEXT)
+am_lib504_OBJECTS = lib504-lib504.$(OBJEXT) $(am__objects_230) \
+	$(am__objects_231) $(am__objects_232)
 lib504_OBJECTS = $(am_lib504_OBJECTS)
 lib504_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_225 = ../../lib/lib505-timediff.$(OBJEXT) \
+am__objects_233 = ../../lib/lib505-timediff.$(OBJEXT) \
 	lib505-first.$(OBJEXT)
-am__objects_226 = ../../lib/lib505-curl_multibyte.$(OBJEXT)
-am_lib505_OBJECTS = lib505-lib505.$(OBJEXT) $(am__objects_225) \
-	$(am__objects_226)
+am__objects_234 = ../../lib/lib505-curl_multibyte.$(OBJEXT)
+am_lib505_OBJECTS = lib505-lib505.$(OBJEXT) $(am__objects_233) \
+	$(am__objects_234)
 lib505_OBJECTS = $(am_lib505_OBJECTS)
 lib505_LDADD = $(LDADD)
 lib505_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_227 = ../../lib/lib506-timediff.$(OBJEXT) \
+am__objects_235 = ../../lib/lib506-timediff.$(OBJEXT) \
 	lib506-first.$(OBJEXT)
-am_lib506_OBJECTS = lib506-lib506.$(OBJEXT) $(am__objects_227)
+am_lib506_OBJECTS = lib506-lib506.$(OBJEXT) $(am__objects_235)
 lib506_OBJECTS = $(am_lib506_OBJECTS)
 lib506_LDADD = $(LDADD)
 lib506_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_228 = ../../lib/lib507-timediff.$(OBJEXT) \
+am__objects_236 = ../../lib/lib507-timediff.$(OBJEXT) \
 	lib507-first.$(OBJEXT)
-am__objects_229 = lib507-testutil.$(OBJEXT)
-am__objects_230 = ../../lib/lib507-warnless.$(OBJEXT)
-am_lib507_OBJECTS = lib507-lib507.$(OBJEXT) $(am__objects_228) \
-	$(am__objects_229) $(am__objects_230)
+am__objects_237 = lib507-testutil.$(OBJEXT)
+am__objects_238 = ../../lib/lib507-warnless.$(OBJEXT)
+am_lib507_OBJECTS = lib507-lib507.$(OBJEXT) $(am__objects_236) \
+	$(am__objects_237) $(am__objects_238)
 lib507_OBJECTS = $(am_lib507_OBJECTS)
 lib507_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_231 = ../../lib/lib508-timediff.$(OBJEXT) \
+am__objects_239 = ../../lib/lib508-timediff.$(OBJEXT) \
 	lib508-first.$(OBJEXT)
-am_lib508_OBJECTS = lib508-lib508.$(OBJEXT) $(am__objects_231)
+am_lib508_OBJECTS = lib508-lib508.$(OBJEXT) $(am__objects_239)
 lib508_OBJECTS = $(am_lib508_OBJECTS)
 lib508_LDADD = $(LDADD)
 lib508_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_232 = ../../lib/lib509-timediff.$(OBJEXT) \
+am__objects_240 = ../../lib/lib509-timediff.$(OBJEXT) \
 	lib509-first.$(OBJEXT)
-am_lib509_OBJECTS = lib509-lib509.$(OBJEXT) $(am__objects_232)
+am_lib509_OBJECTS = lib509-lib509.$(OBJEXT) $(am__objects_240)
 lib509_OBJECTS = $(am_lib509_OBJECTS)
 lib509_LDADD = $(LDADD)
 lib509_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_233 = ../../lib/lib510-timediff.$(OBJEXT) \
+am__objects_241 = ../../lib/lib510-timediff.$(OBJEXT) \
 	lib510-first.$(OBJEXT)
-am_lib510_OBJECTS = lib510-lib510.$(OBJEXT) $(am__objects_233)
+am_lib510_OBJECTS = lib510-lib510.$(OBJEXT) $(am__objects_241)
 lib510_OBJECTS = $(am_lib510_OBJECTS)
 lib510_LDADD = $(LDADD)
 lib510_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_234 = ../../lib/lib511-timediff.$(OBJEXT) \
+am__objects_242 = ../../lib/lib511-timediff.$(OBJEXT) \
 	lib511-first.$(OBJEXT)
-am_lib511_OBJECTS = lib511-lib511.$(OBJEXT) $(am__objects_234)
+am_lib511_OBJECTS = lib511-lib511.$(OBJEXT) $(am__objects_242)
 lib511_OBJECTS = $(am_lib511_OBJECTS)
 lib511_LDADD = $(LDADD)
 lib511_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_235 = ../../lib/lib512-timediff.$(OBJEXT) \
+am__objects_243 = ../../lib/lib512-timediff.$(OBJEXT) \
 	lib512-first.$(OBJEXT)
-am_lib512_OBJECTS = lib512-lib512.$(OBJEXT) $(am__objects_235)
+am_lib512_OBJECTS = lib512-lib512.$(OBJEXT) $(am__objects_243)
 lib512_OBJECTS = $(am_lib512_OBJECTS)
 lib512_LDADD = $(LDADD)
 lib512_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_236 = ../../lib/lib513-timediff.$(OBJEXT) \
+am__objects_244 = ../../lib/lib513-timediff.$(OBJEXT) \
 	lib513-first.$(OBJEXT)
-am_lib513_OBJECTS = lib513-lib513.$(OBJEXT) $(am__objects_236)
+am_lib513_OBJECTS = lib513-lib513.$(OBJEXT) $(am__objects_244)
 lib513_OBJECTS = $(am_lib513_OBJECTS)
 lib513_LDADD = $(LDADD)
 lib513_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_237 = ../../lib/lib514-timediff.$(OBJEXT) \
+am__objects_245 = ../../lib/lib514-timediff.$(OBJEXT) \
 	lib514-first.$(OBJEXT)
-am_lib514_OBJECTS = lib514-lib514.$(OBJEXT) $(am__objects_237)
+am_lib514_OBJECTS = lib514-lib514.$(OBJEXT) $(am__objects_245)
 lib514_OBJECTS = $(am_lib514_OBJECTS)
 lib514_LDADD = $(LDADD)
 lib514_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_238 = ../../lib/lib515-timediff.$(OBJEXT) \
+am__objects_246 = ../../lib/lib515-timediff.$(OBJEXT) \
 	lib515-first.$(OBJEXT)
-am_lib515_OBJECTS = lib515-lib515.$(OBJEXT) $(am__objects_238)
+am_lib515_OBJECTS = lib515-lib515.$(OBJEXT) $(am__objects_246)
 lib515_OBJECTS = $(am_lib515_OBJECTS)
 lib515_LDADD = $(LDADD)
 lib515_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_239 = ../../lib/lib516-timediff.$(OBJEXT) \
+am__objects_247 = ../../lib/lib516-timediff.$(OBJEXT) \
 	lib516-first.$(OBJEXT)
-am_lib516_OBJECTS = lib516-lib516.$(OBJEXT) $(am__objects_239)
+am_lib516_OBJECTS = lib516-lib516.$(OBJEXT) $(am__objects_247)
 lib516_OBJECTS = $(am_lib516_OBJECTS)
 lib516_LDADD = $(LDADD)
 lib516_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_240 = ../../lib/lib517-timediff.$(OBJEXT) \
+am__objects_248 = ../../lib/lib517-timediff.$(OBJEXT) \
 	lib517-first.$(OBJEXT)
-am_lib517_OBJECTS = lib517-lib517.$(OBJEXT) $(am__objects_240)
+am_lib517_OBJECTS = lib517-lib517.$(OBJEXT) $(am__objects_248)
 lib517_OBJECTS = $(am_lib517_OBJECTS)
 lib517_LDADD = $(LDADD)
 lib517_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_241 = ../../lib/lib518-timediff.$(OBJEXT) \
+am__objects_249 = ../../lib/lib518-timediff.$(OBJEXT) \
 	lib518-first.$(OBJEXT)
-am__objects_242 = ../../lib/lib518-warnless.$(OBJEXT)
-am__objects_243 = ../../lib/lib518-curl_multibyte.$(OBJEXT)
-am_lib518_OBJECTS = lib518-lib518.$(OBJEXT) $(am__objects_241) \
-	$(am__objects_242) $(am__objects_243)
+am__objects_250 = ../../lib/lib518-warnless.$(OBJEXT)
+am__objects_251 = ../../lib/lib518-curl_multibyte.$(OBJEXT)
+am_lib518_OBJECTS = lib518-lib518.$(OBJEXT) $(am__objects_249) \
+	$(am__objects_250) $(am__objects_251)
 lib518_OBJECTS = $(am_lib518_OBJECTS)
 lib518_LDADD = $(LDADD)
 lib518_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_244 = ../../lib/lib519-timediff.$(OBJEXT) \
+am__objects_252 = ../../lib/lib519-timediff.$(OBJEXT) \
 	lib519-first.$(OBJEXT)
-am_lib519_OBJECTS = lib519-lib519.$(OBJEXT) $(am__objects_244)
+am_lib519_OBJECTS = lib519-lib519.$(OBJEXT) $(am__objects_252)
 lib519_OBJECTS = $(am_lib519_OBJECTS)
 lib519_LDADD = $(LDADD)
 lib519_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_245 = ../../lib/lib520-timediff.$(OBJEXT) \
+am__objects_253 = ../../lib/lib520-timediff.$(OBJEXT) \
 	lib520-first.$(OBJEXT)
-am_lib520_OBJECTS = lib520-lib520.$(OBJEXT) $(am__objects_245)
+am_lib520_OBJECTS = lib520-lib520.$(OBJEXT) $(am__objects_253)
 lib520_OBJECTS = $(am_lib520_OBJECTS)
 lib520_LDADD = $(LDADD)
 lib520_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_246 = ../../lib/lib521-timediff.$(OBJEXT) \
+am__objects_254 = ../../lib/lib521-timediff.$(OBJEXT) \
 	lib521-first.$(OBJEXT)
-am_lib521_OBJECTS = lib521-lib521.$(OBJEXT) $(am__objects_246)
+am_lib521_OBJECTS = lib521-lib521.$(OBJEXT) $(am__objects_254)
 lib521_OBJECTS = $(am_lib521_OBJECTS)
 lib521_LDADD = $(LDADD)
 lib521_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_247 = ../../lib/lib523-timediff.$(OBJEXT) \
+am__objects_255 = ../../lib/lib523-timediff.$(OBJEXT) \
 	lib523-first.$(OBJEXT)
-am_lib523_OBJECTS = lib523-lib523.$(OBJEXT) $(am__objects_247)
+am_lib523_OBJECTS = lib523-lib523.$(OBJEXT) $(am__objects_255)
 lib523_OBJECTS = $(am_lib523_OBJECTS)
 lib523_LDADD = $(LDADD)
 lib523_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_248 = ../../lib/lib524-timediff.$(OBJEXT) \
+am__objects_256 = ../../lib/lib524-timediff.$(OBJEXT) \
 	lib524-first.$(OBJEXT)
-am_lib524_OBJECTS = lib524-lib524.$(OBJEXT) $(am__objects_248)
+am_lib524_OBJECTS = lib524-lib524.$(OBJEXT) $(am__objects_256)
 lib524_OBJECTS = $(am_lib524_OBJECTS)
 lib524_LDADD = $(LDADD)
 lib524_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_249 = ../../lib/lib525-timediff.$(OBJEXT) \
+am__objects_257 = ../../lib/lib525-timediff.$(OBJEXT) \
 	lib525-first.$(OBJEXT)
-am__objects_250 = lib525-testutil.$(OBJEXT)
-am__objects_251 = ../../lib/lib525-warnless.$(OBJEXT)
-am__objects_252 = ../../lib/lib525-curl_multibyte.$(OBJEXT)
-am_lib525_OBJECTS = lib525-lib525.$(OBJEXT) $(am__objects_249) \
-	$(am__objects_250) $(am__objects_251) $(am__objects_252)
+am__objects_258 = lib525-testutil.$(OBJEXT)
+am__objects_259 = ../../lib/lib525-warnless.$(OBJEXT)
+am__objects_260 = ../../lib/lib525-curl_multibyte.$(OBJEXT)
+am_lib525_OBJECTS = lib525-lib525.$(OBJEXT) $(am__objects_257) \
+	$(am__objects_258) $(am__objects_259) $(am__objects_260)
 lib525_OBJECTS = $(am_lib525_OBJECTS)
 lib525_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_253 = ../../lib/lib526-timediff.$(OBJEXT) \
+am__objects_261 = ../../lib/lib526-timediff.$(OBJEXT) \
 	lib526-first.$(OBJEXT)
-am__objects_254 = lib526-testutil.$(OBJEXT)
-am__objects_255 = ../../lib/lib526-warnless.$(OBJEXT)
-am_lib526_OBJECTS = lib526-lib526.$(OBJEXT) $(am__objects_253) \
-	$(am__objects_254) $(am__objects_255)
+am__objects_262 = lib526-testutil.$(OBJEXT)
+am__objects_263 = ../../lib/lib526-warnless.$(OBJEXT)
+am_lib526_OBJECTS = lib526-lib526.$(OBJEXT) $(am__objects_261) \
+	$(am__objects_262) $(am__objects_263)
 lib526_OBJECTS = $(am_lib526_OBJECTS)
 lib526_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_256 = ../../lib/lib527-timediff.$(OBJEXT) \
+am__objects_264 = ../../lib/lib527-timediff.$(OBJEXT) \
 	lib527-first.$(OBJEXT)
-am__objects_257 = lib527-testutil.$(OBJEXT)
-am__objects_258 = ../../lib/lib527-warnless.$(OBJEXT)
-am_lib527_OBJECTS = lib527-lib526.$(OBJEXT) $(am__objects_256) \
-	$(am__objects_257) $(am__objects_258)
+am__objects_265 = lib527-testutil.$(OBJEXT)
+am__objects_266 = ../../lib/lib527-warnless.$(OBJEXT)
+am_lib527_OBJECTS = lib527-lib526.$(OBJEXT) $(am__objects_264) \
+	$(am__objects_265) $(am__objects_266)
 lib527_OBJECTS = $(am_lib527_OBJECTS)
 lib527_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_259 = ../../lib/lib529-timediff.$(OBJEXT) \
+am__objects_267 = ../../lib/lib529-timediff.$(OBJEXT) \
 	lib529-first.$(OBJEXT)
-am__objects_260 = lib529-testutil.$(OBJEXT)
-am__objects_261 = ../../lib/lib529-warnless.$(OBJEXT)
-am__objects_262 = ../../lib/lib529-curl_multibyte.$(OBJEXT)
-am_lib529_OBJECTS = lib529-lib525.$(OBJEXT) $(am__objects_259) \
-	$(am__objects_260) $(am__objects_261) $(am__objects_262)
+am__objects_268 = lib529-testutil.$(OBJEXT)
+am__objects_269 = ../../lib/lib529-warnless.$(OBJEXT)
+am__objects_270 = ../../lib/lib529-curl_multibyte.$(OBJEXT)
+am_lib529_OBJECTS = lib529-lib525.$(OBJEXT) $(am__objects_267) \
+	$(am__objects_268) $(am__objects_269) $(am__objects_270)
 lib529_OBJECTS = $(am_lib529_OBJECTS)
 lib529_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_263 = ../../lib/lib530-timediff.$(OBJEXT) \
+am__objects_271 = ../../lib/lib530-timediff.$(OBJEXT) \
 	lib530-first.$(OBJEXT)
-am__objects_264 = lib530-testutil.$(OBJEXT)
-am__objects_265 = ../../lib/lib530-warnless.$(OBJEXT)
-am_lib530_OBJECTS = lib530-lib530.$(OBJEXT) $(am__objects_263) \
-	$(am__objects_264) $(am__objects_265)
+am__objects_272 = lib530-testutil.$(OBJEXT)
+am__objects_273 = ../../lib/lib530-warnless.$(OBJEXT)
+am_lib530_OBJECTS = lib530-lib530.$(OBJEXT) $(am__objects_271) \
+	$(am__objects_272) $(am__objects_273)
 lib530_OBJECTS = $(am_lib530_OBJECTS)
 lib530_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_266 = ../../lib/lib532-timediff.$(OBJEXT) \
+am__objects_274 = ../../lib/lib532-timediff.$(OBJEXT) \
 	lib532-first.$(OBJEXT)
-am__objects_267 = lib532-testutil.$(OBJEXT)
-am__objects_268 = ../../lib/lib532-warnless.$(OBJEXT)
-am_lib532_OBJECTS = lib532-lib526.$(OBJEXT) $(am__objects_266) \
-	$(am__objects_267) $(am__objects_268)
+am__objects_275 = lib532-testutil.$(OBJEXT)
+am__objects_276 = ../../lib/lib532-warnless.$(OBJEXT)
+am_lib532_OBJECTS = lib532-lib526.$(OBJEXT) $(am__objects_274) \
+	$(am__objects_275) $(am__objects_276)
 lib532_OBJECTS = $(am_lib532_OBJECTS)
 lib532_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_269 = ../../lib/lib533-timediff.$(OBJEXT) \
+am__objects_277 = ../../lib/lib533-timediff.$(OBJEXT) \
 	lib533-first.$(OBJEXT)
-am__objects_270 = lib533-testutil.$(OBJEXT)
-am__objects_271 = ../../lib/lib533-warnless.$(OBJEXT)
-am_lib533_OBJECTS = lib533-lib533.$(OBJEXT) $(am__objects_269) \
-	$(am__objects_270) $(am__objects_271)
+am__objects_278 = lib533-testutil.$(OBJEXT)
+am__objects_279 = ../../lib/lib533-warnless.$(OBJEXT)
+am_lib533_OBJECTS = lib533-lib533.$(OBJEXT) $(am__objects_277) \
+	$(am__objects_278) $(am__objects_279)
 lib533_OBJECTS = $(am_lib533_OBJECTS)
 lib533_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_272 = ../../lib/lib537-timediff.$(OBJEXT) \
+am__objects_280 = ../../lib/lib537-timediff.$(OBJEXT) \
 	lib537-first.$(OBJEXT)
-am__objects_273 = ../../lib/lib537-warnless.$(OBJEXT)
-am__objects_274 = ../../lib/lib537-curl_multibyte.$(OBJEXT)
-am_lib537_OBJECTS = lib537-lib537.$(OBJEXT) $(am__objects_272) \
-	$(am__objects_273) $(am__objects_274)
+am__objects_281 = ../../lib/lib537-warnless.$(OBJEXT)
+am__objects_282 = ../../lib/lib537-curl_multibyte.$(OBJEXT)
+am_lib537_OBJECTS = lib537-lib537.$(OBJEXT) $(am__objects_280) \
+	$(am__objects_281) $(am__objects_282)
 lib537_OBJECTS = $(am_lib537_OBJECTS)
 lib537_LDADD = $(LDADD)
 lib537_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_275 = ../../lib/lib539-timediff.$(OBJEXT) \
+am__objects_283 = ../../lib/lib539-timediff.$(OBJEXT) \
 	lib539-first.$(OBJEXT)
-am_lib539_OBJECTS = lib539-lib539.$(OBJEXT) $(am__objects_275)
+am_lib539_OBJECTS = lib539-lib539.$(OBJEXT) $(am__objects_283)
 lib539_OBJECTS = $(am_lib539_OBJECTS)
 lib539_LDADD = $(LDADD)
 lib539_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_276 = ../../lib/lib540-timediff.$(OBJEXT) \
+am__objects_284 = ../../lib/lib540-timediff.$(OBJEXT) \
 	lib540-first.$(OBJEXT)
-am__objects_277 = lib540-testutil.$(OBJEXT)
-am__objects_278 = ../../lib/lib540-warnless.$(OBJEXT)
-am_lib540_OBJECTS = lib540-lib540.$(OBJEXT) $(am__objects_276) \
-	$(am__objects_277) $(am__objects_278)
+am__objects_285 = lib540-testutil.$(OBJEXT)
+am__objects_286 = ../../lib/lib540-warnless.$(OBJEXT)
+am_lib540_OBJECTS = lib540-lib540.$(OBJEXT) $(am__objects_284) \
+	$(am__objects_285) $(am__objects_286)
 lib540_OBJECTS = $(am_lib540_OBJECTS)
 lib540_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_279 = ../../lib/lib541-timediff.$(OBJEXT) \
+am__objects_287 = ../../lib/lib541-timediff.$(OBJEXT) \
 	lib541-first.$(OBJEXT)
-am__objects_280 = ../../lib/lib541-curl_multibyte.$(OBJEXT)
-am_lib541_OBJECTS = lib541-lib541.$(OBJEXT) $(am__objects_279) \
-	$(am__objects_280)
+am__objects_288 = ../../lib/lib541-curl_multibyte.$(OBJEXT)
+am_lib541_OBJECTS = lib541-lib541.$(OBJEXT) $(am__objects_287) \
+	$(am__objects_288)
 lib541_OBJECTS = $(am_lib541_OBJECTS)
 lib541_LDADD = $(LDADD)
 lib541_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_281 = ../../lib/lib542-timediff.$(OBJEXT) \
+am__objects_289 = ../../lib/lib542-timediff.$(OBJEXT) \
 	lib542-first.$(OBJEXT)
-am_lib542_OBJECTS = lib542-lib542.$(OBJEXT) $(am__objects_281)
+am_lib542_OBJECTS = lib542-lib542.$(OBJEXT) $(am__objects_289)
 lib542_OBJECTS = $(am_lib542_OBJECTS)
 lib542_LDADD = $(LDADD)
 lib542_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_282 = ../../lib/lib543-timediff.$(OBJEXT) \
+am__objects_290 = ../../lib/lib543-timediff.$(OBJEXT) \
 	lib543-first.$(OBJEXT)
-am_lib543_OBJECTS = lib543-lib543.$(OBJEXT) $(am__objects_282)
+am_lib543_OBJECTS = lib543-lib543.$(OBJEXT) $(am__objects_290)
 lib543_OBJECTS = $(am_lib543_OBJECTS)
 lib543_LDADD = $(LDADD)
 lib543_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_283 = ../../lib/lib544-timediff.$(OBJEXT) \
+am__objects_291 = ../../lib/lib544-timediff.$(OBJEXT) \
 	lib544-first.$(OBJEXT)
-am_lib544_OBJECTS = lib544-lib544.$(OBJEXT) $(am__objects_283)
+am_lib544_OBJECTS = lib544-lib544.$(OBJEXT) $(am__objects_291)
 lib544_OBJECTS = $(am_lib544_OBJECTS)
 lib544_LDADD = $(LDADD)
 lib544_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_284 = ../../lib/lib545-timediff.$(OBJEXT) \
+am__objects_292 = ../../lib/lib545-timediff.$(OBJEXT) \
 	lib545-first.$(OBJEXT)
-am_lib545_OBJECTS = lib545-lib544.$(OBJEXT) $(am__objects_284)
+am_lib545_OBJECTS = lib545-lib544.$(OBJEXT) $(am__objects_292)
 lib545_OBJECTS = $(am_lib545_OBJECTS)
 lib545_LDADD = $(LDADD)
 lib545_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_285 = ../../lib/lib547-timediff.$(OBJEXT) \
+am__objects_293 = ../../lib/lib547-timediff.$(OBJEXT) \
 	lib547-first.$(OBJEXT)
-am_lib547_OBJECTS = lib547-lib547.$(OBJEXT) $(am__objects_285)
+am_lib547_OBJECTS = lib547-lib547.$(OBJEXT) $(am__objects_293)
 lib547_OBJECTS = $(am_lib547_OBJECTS)
 lib547_LDADD = $(LDADD)
 lib547_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_286 = ../../lib/lib548-timediff.$(OBJEXT) \
+am__objects_294 = ../../lib/lib548-timediff.$(OBJEXT) \
 	lib548-first.$(OBJEXT)
-am_lib548_OBJECTS = lib548-lib547.$(OBJEXT) $(am__objects_286)
+am_lib548_OBJECTS = lib548-lib547.$(OBJEXT) $(am__objects_294)
 lib548_OBJECTS = $(am_lib548_OBJECTS)
 lib548_LDADD = $(LDADD)
 lib548_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_287 = ../../lib/lib549-timediff.$(OBJEXT) \
+am__objects_295 = ../../lib/lib549-timediff.$(OBJEXT) \
 	lib549-first.$(OBJEXT)
-am_lib549_OBJECTS = lib549-lib549.$(OBJEXT) $(am__objects_287)
+am_lib549_OBJECTS = lib549-lib549.$(OBJEXT) $(am__objects_295)
 lib549_OBJECTS = $(am_lib549_OBJECTS)
 lib549_LDADD = $(LDADD)
 lib549_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_288 = ../../lib/lib552-timediff.$(OBJEXT) \
+am__objects_296 = ../../lib/lib552-timediff.$(OBJEXT) \
 	lib552-first.$(OBJEXT)
-am__objects_289 = ../../lib/lib552-warnless.$(OBJEXT)
-am_lib552_OBJECTS = lib552-lib552.$(OBJEXT) $(am__objects_288) \
-	$(am__objects_289)
+am__objects_297 = ../../lib/lib552-warnless.$(OBJEXT)
+am_lib552_OBJECTS = lib552-lib552.$(OBJEXT) $(am__objects_296) \
+	$(am__objects_297)
 lib552_OBJECTS = $(am_lib552_OBJECTS)
 lib552_LDADD = $(LDADD)
 lib552_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_290 = ../../lib/lib553-timediff.$(OBJEXT) \
+am__objects_298 = ../../lib/lib553-timediff.$(OBJEXT) \
 	lib553-first.$(OBJEXT)
-am_lib553_OBJECTS = lib553-lib553.$(OBJEXT) $(am__objects_290)
+am_lib553_OBJECTS = lib553-lib553.$(OBJEXT) $(am__objects_298)
 lib553_OBJECTS = $(am_lib553_OBJECTS)
 lib553_LDADD = $(LDADD)
 lib553_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_291 = ../../lib/lib554-timediff.$(OBJEXT) \
+am__objects_299 = ../../lib/lib554-timediff.$(OBJEXT) \
 	lib554-first.$(OBJEXT)
-am_lib554_OBJECTS = lib554-lib554.$(OBJEXT) $(am__objects_291)
+am_lib554_OBJECTS = lib554-lib554.$(OBJEXT) $(am__objects_299)
 lib554_OBJECTS = $(am_lib554_OBJECTS)
 lib554_LDADD = $(LDADD)
 lib554_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_292 = ../../lib/lib555-timediff.$(OBJEXT) \
+am__objects_300 = ../../lib/lib555-timediff.$(OBJEXT) \
 	lib555-first.$(OBJEXT)
-am__objects_293 = lib555-testutil.$(OBJEXT)
-am__objects_294 = ../../lib/lib555-warnless.$(OBJEXT)
-am_lib555_OBJECTS = lib555-lib555.$(OBJEXT) $(am__objects_292) \
-	$(am__objects_293) $(am__objects_294)
+am__objects_301 = lib555-testutil.$(OBJEXT)
+am__objects_302 = ../../lib/lib555-warnless.$(OBJEXT)
+am_lib555_OBJECTS = lib555-lib555.$(OBJEXT) $(am__objects_300) \
+	$(am__objects_301) $(am__objects_302)
 lib555_OBJECTS = $(am_lib555_OBJECTS)
 lib555_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_295 = ../../lib/lib556-timediff.$(OBJEXT) \
+am__objects_303 = ../../lib/lib556-timediff.$(OBJEXT) \
 	lib556-first.$(OBJEXT)
-am__objects_296 = ../../lib/lib556-warnless.$(OBJEXT)
-am_lib556_OBJECTS = lib556-lib556.$(OBJEXT) $(am__objects_295) \
-	$(am__objects_296)
+am__objects_304 = ../../lib/lib556-warnless.$(OBJEXT)
+am_lib556_OBJECTS = lib556-lib556.$(OBJEXT) $(am__objects_303) \
+	$(am__objects_304)
 lib556_OBJECTS = $(am_lib556_OBJECTS)
 lib556_LDADD = $(LDADD)
 lib556_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_297 = ../../lib/lib557-timediff.$(OBJEXT) \
+am__objects_305 = ../../lib/lib557-timediff.$(OBJEXT) \
 	lib557-first.$(OBJEXT)
-am_lib557_OBJECTS = lib557-lib557.$(OBJEXT) $(am__objects_297)
+am_lib557_OBJECTS = lib557-lib557.$(OBJEXT) $(am__objects_305)
 lib557_OBJECTS = $(am_lib557_OBJECTS)
 lib557_LDADD = $(LDADD)
 lib557_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_298 = ../../lib/lib558-timediff.$(OBJEXT) \
+am__objects_306 = ../../lib/lib558-timediff.$(OBJEXT) \
 	lib558-first.$(OBJEXT)
-am_lib558_OBJECTS = lib558-lib558.$(OBJEXT) $(am__objects_298)
+am_lib558_OBJECTS = lib558-lib558.$(OBJEXT) $(am__objects_306)
 lib558_OBJECTS = $(am_lib558_OBJECTS)
 lib558_LDADD = $(LDADD)
 lib558_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_299 = ../../lib/lib559-timediff.$(OBJEXT) \
+am__objects_307 = ../../lib/lib559-timediff.$(OBJEXT) \
 	lib559-first.$(OBJEXT)
-am_lib559_OBJECTS = lib559-lib559.$(OBJEXT) $(am__objects_299)
+am_lib559_OBJECTS = lib559-lib559.$(OBJEXT) $(am__objects_307)
 lib559_OBJECTS = $(am_lib559_OBJECTS)
 lib559_LDADD = $(LDADD)
 lib559_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_300 = ../../lib/lib560-timediff.$(OBJEXT) \
+am__objects_308 = ../../lib/lib560-timediff.$(OBJEXT) \
 	lib560-first.$(OBJEXT)
-am__objects_301 = lib560-testutil.$(OBJEXT)
-am__objects_302 = ../../lib/lib560-warnless.$(OBJEXT)
-am_lib560_OBJECTS = lib560-lib560.$(OBJEXT) $(am__objects_300) \
-	$(am__objects_301) $(am__objects_302)
+am__objects_309 = lib560-testutil.$(OBJEXT)
+am__objects_310 = ../../lib/lib560-warnless.$(OBJEXT)
+am_lib560_OBJECTS = lib560-lib560.$(OBJEXT) $(am__objects_308) \
+	$(am__objects_309) $(am__objects_310)
 lib560_OBJECTS = $(am_lib560_OBJECTS)
 lib560_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_303 = ../../lib/lib562-timediff.$(OBJEXT) \
+am__objects_311 = ../../lib/lib562-timediff.$(OBJEXT) \
 	lib562-first.$(OBJEXT)
-am_lib562_OBJECTS = lib562-lib562.$(OBJEXT) $(am__objects_303)
+am_lib562_OBJECTS = lib562-lib562.$(OBJEXT) $(am__objects_311)
 lib562_OBJECTS = $(am_lib562_OBJECTS)
 lib562_LDADD = $(LDADD)
 lib562_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_304 = ../../lib/lib564-timediff.$(OBJEXT) \
+am__objects_312 = ../../lib/lib564-timediff.$(OBJEXT) \
 	lib564-first.$(OBJEXT)
-am__objects_305 = lib564-testutil.$(OBJEXT)
-am__objects_306 = ../../lib/lib564-warnless.$(OBJEXT)
-am_lib564_OBJECTS = lib564-lib564.$(OBJEXT) $(am__objects_304) \
-	$(am__objects_305) $(am__objects_306)
+am__objects_313 = lib564-testutil.$(OBJEXT)
+am__objects_314 = ../../lib/lib564-warnless.$(OBJEXT)
+am_lib564_OBJECTS = lib564-lib564.$(OBJEXT) $(am__objects_312) \
+	$(am__objects_313) $(am__objects_314)
 lib564_OBJECTS = $(am_lib564_OBJECTS)
 lib564_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_307 = ../../lib/lib565-timediff.$(OBJEXT) \
+am__objects_315 = ../../lib/lib565-timediff.$(OBJEXT) \
 	lib565-first.$(OBJEXT)
-am_lib565_OBJECTS = lib565-lib510.$(OBJEXT) $(am__objects_307)
+am_lib565_OBJECTS = lib565-lib510.$(OBJEXT) $(am__objects_315)
 lib565_OBJECTS = $(am_lib565_OBJECTS)
 lib565_LDADD = $(LDADD)
 lib565_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_308 = ../../lib/lib566-timediff.$(OBJEXT) \
+am__objects_316 = ../../lib/lib566-timediff.$(OBJEXT) \
 	lib566-first.$(OBJEXT)
-am__objects_309 = ../../lib/lib566-curl_multibyte.$(OBJEXT)
-am_lib566_OBJECTS = lib566-lib566.$(OBJEXT) $(am__objects_308) \
-	$(am__objects_309)
+am__objects_317 = ../../lib/lib566-curl_multibyte.$(OBJEXT)
+am_lib566_OBJECTS = lib566-lib566.$(OBJEXT) $(am__objects_316) \
+	$(am__objects_317)
 lib566_OBJECTS = $(am_lib566_OBJECTS)
 lib566_LDADD = $(LDADD)
 lib566_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_310 = ../../lib/lib567-timediff.$(OBJEXT) \
+am__objects_318 = ../../lib/lib567-timediff.$(OBJEXT) \
 	lib567-first.$(OBJEXT)
-am_lib567_OBJECTS = lib567-lib567.$(OBJEXT) $(am__objects_310)
+am_lib567_OBJECTS = lib567-lib567.$(OBJEXT) $(am__objects_318)
 lib567_OBJECTS = $(am_lib567_OBJECTS)
 lib567_LDADD = $(LDADD)
 lib567_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_311 = ../../lib/lib568-timediff.$(OBJEXT) \
+am__objects_319 = ../../lib/lib568-timediff.$(OBJEXT) \
 	lib568-first.$(OBJEXT)
-am__objects_312 = ../../lib/lib568-curl_multibyte.$(OBJEXT)
-am_lib568_OBJECTS = lib568-lib568.$(OBJEXT) $(am__objects_311) \
-	$(am__objects_312)
+am__objects_320 = ../../lib/lib568-curl_multibyte.$(OBJEXT)
+am_lib568_OBJECTS = lib568-lib568.$(OBJEXT) $(am__objects_319) \
+	$(am__objects_320)
 lib568_OBJECTS = $(am_lib568_OBJECTS)
 lib568_LDADD = $(LDADD)
 lib568_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_313 = ../../lib/lib569-timediff.$(OBJEXT) \
+am__objects_321 = ../../lib/lib569-timediff.$(OBJEXT) \
 	lib569-first.$(OBJEXT)
-am__objects_314 = ../../lib/lib569-curl_multibyte.$(OBJEXT)
-am_lib569_OBJECTS = lib569-lib569.$(OBJEXT) $(am__objects_313) \
-	$(am__objects_314)
+am__objects_322 = ../../lib/lib569-curl_multibyte.$(OBJEXT)
+am_lib569_OBJECTS = lib569-lib569.$(OBJEXT) $(am__objects_321) \
+	$(am__objects_322)
 lib569_OBJECTS = $(am_lib569_OBJECTS)
 lib569_LDADD = $(LDADD)
 lib569_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_315 = ../../lib/lib570-timediff.$(OBJEXT) \
+am__objects_323 = ../../lib/lib570-timediff.$(OBJEXT) \
 	lib570-first.$(OBJEXT)
-am_lib570_OBJECTS = lib570-lib570.$(OBJEXT) $(am__objects_315)
+am_lib570_OBJECTS = lib570-lib570.$(OBJEXT) $(am__objects_323)
 lib570_OBJECTS = $(am_lib570_OBJECTS)
 lib570_LDADD = $(LDADD)
 lib570_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_316 = ../../lib/lib571-timediff.$(OBJEXT) \
+am__objects_324 = ../../lib/lib571-timediff.$(OBJEXT) \
 	lib571-first.$(OBJEXT)
-am__objects_317 = ../../lib/lib571-warnless.$(OBJEXT)
-am__objects_318 = ../../lib/lib571-curl_multibyte.$(OBJEXT)
-am_lib571_OBJECTS = lib571-lib571.$(OBJEXT) $(am__objects_316) \
-	$(am__objects_317) $(am__objects_318)
+am__objects_325 = ../../lib/lib571-warnless.$(OBJEXT)
+am__objects_326 = ../../lib/lib571-curl_multibyte.$(OBJEXT)
+am_lib571_OBJECTS = lib571-lib571.$(OBJEXT) $(am__objects_324) \
+	$(am__objects_325) $(am__objects_326)
 lib571_OBJECTS = $(am_lib571_OBJECTS)
 lib571_LDADD = $(LDADD)
 lib571_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_319 = ../../lib/lib572-timediff.$(OBJEXT) \
+am__objects_327 = ../../lib/lib572-timediff.$(OBJEXT) \
 	lib572-first.$(OBJEXT)
-am__objects_320 = ../../lib/lib572-curl_multibyte.$(OBJEXT)
-am_lib572_OBJECTS = lib572-lib572.$(OBJEXT) $(am__objects_319) \
-	$(am__objects_320)
+am__objects_328 = ../../lib/lib572-curl_multibyte.$(OBJEXT)
+am_lib572_OBJECTS = lib572-lib572.$(OBJEXT) $(am__objects_327) \
+	$(am__objects_328)
 lib572_OBJECTS = $(am_lib572_OBJECTS)
 lib572_LDADD = $(LDADD)
 lib572_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_321 = ../../lib/lib573-timediff.$(OBJEXT) \
+am__objects_329 = ../../lib/lib573-timediff.$(OBJEXT) \
 	lib573-first.$(OBJEXT)
-am__objects_322 = lib573-testutil.$(OBJEXT)
-am__objects_323 = ../../lib/lib573-warnless.$(OBJEXT)
-am__objects_324 = lib573-testtrace.$(OBJEXT)
-am_lib573_OBJECTS = lib573-lib573.$(OBJEXT) $(am__objects_321) \
-	$(am__objects_322) $(am__objects_323) $(am__objects_324)
+am__objects_330 = lib573-testutil.$(OBJEXT)
+am__objects_331 = ../../lib/lib573-warnless.$(OBJEXT)
+am__objects_332 = lib573-testtrace.$(OBJEXT)
+am_lib573_OBJECTS = lib573-lib573.$(OBJEXT) $(am__objects_329) \
+	$(am__objects_330) $(am__objects_331) $(am__objects_332)
 lib573_OBJECTS = $(am_lib573_OBJECTS)
 lib573_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_325 = ../../lib/lib574-timediff.$(OBJEXT) \
+am__objects_333 = ../../lib/lib574-timediff.$(OBJEXT) \
 	lib574-first.$(OBJEXT)
-am_lib574_OBJECTS = lib574-lib574.$(OBJEXT) $(am__objects_325)
+am_lib574_OBJECTS = lib574-lib574.$(OBJEXT) $(am__objects_333)
 lib574_OBJECTS = $(am_lib574_OBJECTS)
 lib574_LDADD = $(LDADD)
 lib574_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_326 = ../../lib/lib575-timediff.$(OBJEXT) \
+am__objects_334 = ../../lib/lib575-timediff.$(OBJEXT) \
 	lib575-first.$(OBJEXT)
-am__objects_327 = lib575-testutil.$(OBJEXT)
-am__objects_328 = ../../lib/lib575-warnless.$(OBJEXT)
-am_lib575_OBJECTS = lib575-lib575.$(OBJEXT) $(am__objects_326) \
-	$(am__objects_327) $(am__objects_328)
+am__objects_335 = lib575-testutil.$(OBJEXT)
+am__objects_336 = ../../lib/lib575-warnless.$(OBJEXT)
+am_lib575_OBJECTS = lib575-lib575.$(OBJEXT) $(am__objects_334) \
+	$(am__objects_335) $(am__objects_336)
 lib575_OBJECTS = $(am_lib575_OBJECTS)
 lib575_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_329 = ../../lib/lib576-timediff.$(OBJEXT) \
+am__objects_337 = ../../lib/lib576-timediff.$(OBJEXT) \
 	lib576-first.$(OBJEXT)
-am_lib576_OBJECTS = lib576-lib576.$(OBJEXT) $(am__objects_329)
+am_lib576_OBJECTS = lib576-lib576.$(OBJEXT) $(am__objects_337)
 lib576_OBJECTS = $(am_lib576_OBJECTS)
 lib576_LDADD = $(LDADD)
 lib576_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_330 = ../../lib/lib578-timediff.$(OBJEXT) \
+am__objects_338 = ../../lib/lib578-timediff.$(OBJEXT) \
 	lib578-first.$(OBJEXT)
-am__objects_331 = ../../lib/lib578-curl_multibyte.$(OBJEXT)
-am_lib578_OBJECTS = lib578-lib578.$(OBJEXT) $(am__objects_330) \
-	$(am__objects_331)
+am__objects_339 = ../../lib/lib578-curl_multibyte.$(OBJEXT)
+am_lib578_OBJECTS = lib578-lib578.$(OBJEXT) $(am__objects_338) \
+	$(am__objects_339)
 lib578_OBJECTS = $(am_lib578_OBJECTS)
 lib578_LDADD = $(LDADD)
 lib578_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_332 = ../../lib/lib579-timediff.$(OBJEXT) \
+am__objects_340 = ../../lib/lib579-timediff.$(OBJEXT) \
 	lib579-first.$(OBJEXT)
-am__objects_333 = ../../lib/lib579-curl_multibyte.$(OBJEXT)
-am_lib579_OBJECTS = lib579-lib579.$(OBJEXT) $(am__objects_332) \
-	$(am__objects_333)
+am__objects_341 = ../../lib/lib579-curl_multibyte.$(OBJEXT)
+am_lib579_OBJECTS = lib579-lib579.$(OBJEXT) $(am__objects_340) \
+	$(am__objects_341)
 lib579_OBJECTS = $(am_lib579_OBJECTS)
 lib579_LDADD = $(LDADD)
 lib579_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_334 = ../../lib/lib582-timediff.$(OBJEXT) \
+am__objects_342 = ../../lib/lib582-timediff.$(OBJEXT) \
 	lib582-first.$(OBJEXT)
-am__objects_335 = lib582-testutil.$(OBJEXT)
-am__objects_336 = ../../lib/lib582-warnless.$(OBJEXT)
-am__objects_337 = ../../lib/lib582-curl_multibyte.$(OBJEXT)
-am_lib582_OBJECTS = lib582-lib582.$(OBJEXT) $(am__objects_334) \
-	$(am__objects_335) $(am__objects_336) $(am__objects_337)
+am__objects_343 = lib582-testutil.$(OBJEXT)
+am__objects_344 = ../../lib/lib582-warnless.$(OBJEXT)
+am__objects_345 = ../../lib/lib582-curl_multibyte.$(OBJEXT)
+am_lib582_OBJECTS = lib582-lib582.$(OBJEXT) $(am__objects_342) \
+	$(am__objects_343) $(am__objects_344) $(am__objects_345)
 lib582_OBJECTS = $(am_lib582_OBJECTS)
 lib582_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_338 = ../../lib/lib583-timediff.$(OBJEXT) \
+am__objects_346 = ../../lib/lib583-timediff.$(OBJEXT) \
 	lib583-first.$(OBJEXT)
-am_lib583_OBJECTS = lib583-lib583.$(OBJEXT) $(am__objects_338)
+am_lib583_OBJECTS = lib583-lib583.$(OBJEXT) $(am__objects_346)
 lib583_OBJECTS = $(am_lib583_OBJECTS)
 lib583_LDADD = $(LDADD)
 lib583_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_339 = ../../lib/lib584-timediff.$(OBJEXT) \
+am__objects_347 = ../../lib/lib584-timediff.$(OBJEXT) \
 	lib584-first.$(OBJEXT)
-am_lib584_OBJECTS = lib584-lib589.$(OBJEXT) $(am__objects_339)
+am_lib584_OBJECTS = lib584-lib589.$(OBJEXT) $(am__objects_347)
 lib584_OBJECTS = $(am_lib584_OBJECTS)
 lib584_LDADD = $(LDADD)
 lib584_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_340 = ../../lib/lib585-timediff.$(OBJEXT) \
+am__objects_348 = ../../lib/lib585-timediff.$(OBJEXT) \
 	lib585-first.$(OBJEXT)
-am__objects_341 = lib585-testutil.$(OBJEXT)
-am__objects_342 = lib585-testtrace.$(OBJEXT)
-am__objects_343 = ../../lib/lib585-curl_multibyte.$(OBJEXT)
-am_lib585_OBJECTS = lib585-lib500.$(OBJEXT) $(am__objects_340) \
-	$(am__objects_341) $(am__objects_342) $(am__objects_343)
+am__objects_349 = lib585-testutil.$(OBJEXT)
+am__objects_350 = lib585-testtrace.$(OBJEXT)
+am__objects_351 = ../../lib/lib585-curl_multibyte.$(OBJEXT)
+am_lib585_OBJECTS = lib585-lib500.$(OBJEXT) $(am__objects_348) \
+	$(am__objects_349) $(am__objects_350) $(am__objects_351)
 lib585_OBJECTS = $(am_lib585_OBJECTS)
 lib585_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_344 = ../../lib/lib586-timediff.$(OBJEXT) \
+am__objects_352 = ../../lib/lib586-timediff.$(OBJEXT) \
 	lib586-first.$(OBJEXT)
-am_lib586_OBJECTS = lib586-lib586.$(OBJEXT) $(am__objects_344)
+am_lib586_OBJECTS = lib586-lib586.$(OBJEXT) $(am__objects_352)
 lib586_OBJECTS = $(am_lib586_OBJECTS)
 lib586_LDADD = $(LDADD)
 lib586_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_345 = ../../lib/lib587-timediff.$(OBJEXT) \
+am__objects_353 = ../../lib/lib587-timediff.$(OBJEXT) \
 	lib587-first.$(OBJEXT)
-am_lib587_OBJECTS = lib587-lib554.$(OBJEXT) $(am__objects_345)
+am_lib587_OBJECTS = lib587-lib554.$(OBJEXT) $(am__objects_353)
 lib587_OBJECTS = $(am_lib587_OBJECTS)
 lib587_LDADD = $(LDADD)
 lib587_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_346 = ../../lib/lib589-timediff.$(OBJEXT) \
+am__objects_354 = ../../lib/lib589-timediff.$(OBJEXT) \
 	lib589-first.$(OBJEXT)
-am_lib589_OBJECTS = lib589-lib589.$(OBJEXT) $(am__objects_346)
+am_lib589_OBJECTS = lib589-lib589.$(OBJEXT) $(am__objects_354)
 lib589_OBJECTS = $(am_lib589_OBJECTS)
 lib589_LDADD = $(LDADD)
 lib589_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_347 = ../../lib/lib590-timediff.$(OBJEXT) \
+am__objects_355 = ../../lib/lib590-timediff.$(OBJEXT) \
 	lib590-first.$(OBJEXT)
-am_lib590_OBJECTS = lib590-lib590.$(OBJEXT) $(am__objects_347)
+am_lib590_OBJECTS = lib590-lib590.$(OBJEXT) $(am__objects_355)
 lib590_OBJECTS = $(am_lib590_OBJECTS)
 lib590_LDADD = $(LDADD)
 lib590_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_348 = ../../lib/lib591-timediff.$(OBJEXT) \
+am__objects_356 = ../../lib/lib591-timediff.$(OBJEXT) \
 	lib591-first.$(OBJEXT)
-am__objects_349 = lib591-testutil.$(OBJEXT)
-am__objects_350 = ../../lib/lib591-warnless.$(OBJEXT)
-am__objects_351 = ../../lib/lib591-curl_multibyte.$(OBJEXT)
-am_lib591_OBJECTS = lib591-lib591.$(OBJEXT) $(am__objects_348) \
-	$(am__objects_349) $(am__objects_350) $(am__objects_351)
+am__objects_357 = lib591-testutil.$(OBJEXT)
+am__objects_358 = ../../lib/lib591-warnless.$(OBJEXT)
+am__objects_359 = ../../lib/lib591-curl_multibyte.$(OBJEXT)
+am_lib591_OBJECTS = lib591-lib591.$(OBJEXT) $(am__objects_356) \
+	$(am__objects_357) $(am__objects_358) $(am__objects_359)
 lib591_OBJECTS = $(am_lib591_OBJECTS)
 lib591_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_352 = ../../lib/lib597-timediff.$(OBJEXT) \
+am__objects_360 = ../../lib/lib597-timediff.$(OBJEXT) \
 	lib597-first.$(OBJEXT)
-am__objects_353 = lib597-testutil.$(OBJEXT)
-am__objects_354 = ../../lib/lib597-warnless.$(OBJEXT)
-am_lib597_OBJECTS = lib597-lib597.$(OBJEXT) $(am__objects_352) \
-	$(am__objects_353) $(am__objects_354)
+am__objects_361 = lib597-testutil.$(OBJEXT)
+am__objects_362 = ../../lib/lib597-warnless.$(OBJEXT)
+am_lib597_OBJECTS = lib597-lib597.$(OBJEXT) $(am__objects_360) \
+	$(am__objects_361) $(am__objects_362)
 lib597_OBJECTS = $(am_lib597_OBJECTS)
 lib597_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_355 = ../../lib/lib598-timediff.$(OBJEXT) \
+am__objects_363 = ../../lib/lib598-timediff.$(OBJEXT) \
 	lib598-first.$(OBJEXT)
-am_lib598_OBJECTS = lib598-lib598.$(OBJEXT) $(am__objects_355)
+am_lib598_OBJECTS = lib598-lib598.$(OBJEXT) $(am__objects_363)
 lib598_OBJECTS = $(am_lib598_OBJECTS)
 lib598_LDADD = $(LDADD)
 lib598_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_356 = ../../lib/lib599-timediff.$(OBJEXT) \
+am__objects_364 = ../../lib/lib599-timediff.$(OBJEXT) \
 	lib599-first.$(OBJEXT)
-am__objects_357 = ../../lib/lib599-curl_multibyte.$(OBJEXT)
-am_lib599_OBJECTS = lib599-lib599.$(OBJEXT) $(am__objects_356) \
-	$(am__objects_357)
+am__objects_365 = ../../lib/lib599-curl_multibyte.$(OBJEXT)
+am_lib599_OBJECTS = lib599-lib599.$(OBJEXT) $(am__objects_364) \
+	$(am__objects_365)
 lib599_OBJECTS = $(am_lib599_OBJECTS)
 lib599_LDADD = $(LDADD)
 lib599_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_358 = ../../lib/lib643-timediff.$(OBJEXT) \
+am__objects_366 = ../../lib/lib643-timediff.$(OBJEXT) \
 	lib643-first.$(OBJEXT)
-am_lib643_OBJECTS = lib643-lib643.$(OBJEXT) $(am__objects_358)
+am_lib643_OBJECTS = lib643-lib643.$(OBJEXT) $(am__objects_366)
 lib643_OBJECTS = $(am_lib643_OBJECTS)
 lib643_LDADD = $(LDADD)
 lib643_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_359 = ../../lib/lib645-timediff.$(OBJEXT) \
+am__objects_367 = ../../lib/lib645-timediff.$(OBJEXT) \
 	lib645-first.$(OBJEXT)
-am_lib645_OBJECTS = lib645-lib643.$(OBJEXT) $(am__objects_359)
+am_lib645_OBJECTS = lib645-lib643.$(OBJEXT) $(am__objects_367)
 lib645_OBJECTS = $(am_lib645_OBJECTS)
 lib645_LDADD = $(LDADD)
 lib645_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_360 = ../../lib/lib650-timediff.$(OBJEXT) \
+am__objects_368 = ../../lib/lib650-timediff.$(OBJEXT) \
 	lib650-first.$(OBJEXT)
-am_lib650_OBJECTS = lib650-lib650.$(OBJEXT) $(am__objects_360)
+am_lib650_OBJECTS = lib650-lib650.$(OBJEXT) $(am__objects_368)
 lib650_OBJECTS = $(am_lib650_OBJECTS)
 lib650_LDADD = $(LDADD)
 lib650_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_361 = ../../lib/lib651-timediff.$(OBJEXT) \
+am__objects_369 = ../../lib/lib651-timediff.$(OBJEXT) \
 	lib651-first.$(OBJEXT)
-am_lib651_OBJECTS = lib651-lib651.$(OBJEXT) $(am__objects_361)
+am_lib651_OBJECTS = lib651-lib651.$(OBJEXT) $(am__objects_369)
 lib651_OBJECTS = $(am_lib651_OBJECTS)
 lib651_LDADD = $(LDADD)
 lib651_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_362 = ../../lib/lib652-timediff.$(OBJEXT) \
+am__objects_370 = ../../lib/lib652-timediff.$(OBJEXT) \
 	lib652-first.$(OBJEXT)
-am_lib652_OBJECTS = lib652-lib652.$(OBJEXT) $(am__objects_362)
+am_lib652_OBJECTS = lib652-lib652.$(OBJEXT) $(am__objects_370)
 lib652_OBJECTS = $(am_lib652_OBJECTS)
 lib652_LDADD = $(LDADD)
 lib652_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_363 = ../../lib/lib653-timediff.$(OBJEXT) \
+am__objects_371 = ../../lib/lib653-timediff.$(OBJEXT) \
 	lib653-first.$(OBJEXT)
-am_lib653_OBJECTS = lib653-lib653.$(OBJEXT) $(am__objects_363)
+am_lib653_OBJECTS = lib653-lib653.$(OBJEXT) $(am__objects_371)
 lib653_OBJECTS = $(am_lib653_OBJECTS)
 lib653_LDADD = $(LDADD)
 lib653_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_364 = ../../lib/lib654-timediff.$(OBJEXT) \
+am__objects_372 = ../../lib/lib654-timediff.$(OBJEXT) \
 	lib654-first.$(OBJEXT)
-am_lib654_OBJECTS = lib654-lib654.$(OBJEXT) $(am__objects_364)
+am_lib654_OBJECTS = lib654-lib654.$(OBJEXT) $(am__objects_372)
 lib654_OBJECTS = $(am_lib654_OBJECTS)
 lib654_LDADD = $(LDADD)
 lib654_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_365 = ../../lib/lib655-timediff.$(OBJEXT) \
+am__objects_373 = ../../lib/lib655-timediff.$(OBJEXT) \
 	lib655-first.$(OBJEXT)
-am_lib655_OBJECTS = lib655-lib655.$(OBJEXT) $(am__objects_365)
+am_lib655_OBJECTS = lib655-lib655.$(OBJEXT) $(am__objects_373)
 lib655_OBJECTS = $(am_lib655_OBJECTS)
 lib655_LDADD = $(LDADD)
 lib655_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_366 = ../../lib/lib658-timediff.$(OBJEXT) \
+am__objects_374 = ../../lib/lib658-timediff.$(OBJEXT) \
 	lib658-first.$(OBJEXT)
-am__objects_367 = lib658-testutil.$(OBJEXT)
-am__objects_368 = ../../lib/lib658-warnless.$(OBJEXT)
-am_lib658_OBJECTS = lib658-lib658.$(OBJEXT) $(am__objects_366) \
-	$(am__objects_367) $(am__objects_368)
+am__objects_375 = lib658-testutil.$(OBJEXT)
+am__objects_376 = ../../lib/lib658-warnless.$(OBJEXT)
+am_lib658_OBJECTS = lib658-lib658.$(OBJEXT) $(am__objects_374) \
+	$(am__objects_375) $(am__objects_376)
 lib658_OBJECTS = $(am_lib658_OBJECTS)
 lib658_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_369 = ../../lib/lib659-timediff.$(OBJEXT) \
+am__objects_377 = ../../lib/lib659-timediff.$(OBJEXT) \
 	lib659-first.$(OBJEXT)
-am__objects_370 = lib659-testutil.$(OBJEXT)
-am__objects_371 = ../../lib/lib659-warnless.$(OBJEXT)
-am_lib659_OBJECTS = lib659-lib659.$(OBJEXT) $(am__objects_369) \
-	$(am__objects_370) $(am__objects_371)
+am__objects_378 = lib659-testutil.$(OBJEXT)
+am__objects_379 = ../../lib/lib659-warnless.$(OBJEXT)
+am_lib659_OBJECTS = lib659-lib659.$(OBJEXT) $(am__objects_377) \
+	$(am__objects_378) $(am__objects_379)
 lib659_OBJECTS = $(am_lib659_OBJECTS)
 lib659_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_372 = ../../lib/lib661-timediff.$(OBJEXT) \
+am__objects_380 = ../../lib/lib661-timediff.$(OBJEXT) \
 	lib661-first.$(OBJEXT)
-am_lib661_OBJECTS = lib661-lib661.$(OBJEXT) $(am__objects_372)
+am_lib661_OBJECTS = lib661-lib661.$(OBJEXT) $(am__objects_380)
 lib661_OBJECTS = $(am_lib661_OBJECTS)
 lib661_LDADD = $(LDADD)
 lib661_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_373 = ../../lib/lib666-timediff.$(OBJEXT) \
+am__objects_381 = ../../lib/lib666-timediff.$(OBJEXT) \
 	lib666-first.$(OBJEXT)
-am_lib666_OBJECTS = lib666-lib666.$(OBJEXT) $(am__objects_373)
+am_lib666_OBJECTS = lib666-lib666.$(OBJEXT) $(am__objects_381)
 lib666_OBJECTS = $(am_lib666_OBJECTS)
 lib666_LDADD = $(LDADD)
 lib666_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_374 = ../../lib/lib667-timediff.$(OBJEXT) \
+am__objects_382 = ../../lib/lib667-timediff.$(OBJEXT) \
 	lib667-first.$(OBJEXT)
-am__objects_375 = lib667-testutil.$(OBJEXT)
-am__objects_376 = ../../lib/lib667-warnless.$(OBJEXT)
-am_lib667_OBJECTS = lib667-lib667.$(OBJEXT) $(am__objects_374) \
-	$(am__objects_375) $(am__objects_376)
+am__objects_383 = lib667-testutil.$(OBJEXT)
+am__objects_384 = ../../lib/lib667-warnless.$(OBJEXT)
+am_lib667_OBJECTS = lib667-lib667.$(OBJEXT) $(am__objects_382) \
+	$(am__objects_383) $(am__objects_384)
 lib667_OBJECTS = $(am_lib667_OBJECTS)
 lib667_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_377 = ../../lib/lib668-timediff.$(OBJEXT) \
+am__objects_385 = ../../lib/lib668-timediff.$(OBJEXT) \
 	lib668-first.$(OBJEXT)
-am__objects_378 = lib668-testutil.$(OBJEXT)
-am__objects_379 = ../../lib/lib668-warnless.$(OBJEXT)
-am_lib668_OBJECTS = lib668-lib668.$(OBJEXT) $(am__objects_377) \
-	$(am__objects_378) $(am__objects_379)
+am__objects_386 = lib668-testutil.$(OBJEXT)
+am__objects_387 = ../../lib/lib668-warnless.$(OBJEXT)
+am_lib668_OBJECTS = lib668-lib668.$(OBJEXT) $(am__objects_385) \
+	$(am__objects_386) $(am__objects_387)
 lib668_OBJECTS = $(am_lib668_OBJECTS)
 lib668_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_380 = ../../lib/lib670-timediff.$(OBJEXT) \
+am__objects_388 = ../../lib/lib670-timediff.$(OBJEXT) \
 	lib670-first.$(OBJEXT)
-am__objects_381 = lib670-testutil.$(OBJEXT)
-am__objects_382 = ../../lib/lib670-warnless.$(OBJEXT)
-am_lib670_OBJECTS = lib670-lib670.$(OBJEXT) $(am__objects_380) \
-	$(am__objects_381) $(am__objects_382)
+am__objects_389 = lib670-testutil.$(OBJEXT)
+am__objects_390 = ../../lib/lib670-warnless.$(OBJEXT)
+am_lib670_OBJECTS = lib670-lib670.$(OBJEXT) $(am__objects_388) \
+	$(am__objects_389) $(am__objects_390)
 lib670_OBJECTS = $(am_lib670_OBJECTS)
 lib670_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_383 = ../../lib/lib671-timediff.$(OBJEXT) \
+am__objects_391 = ../../lib/lib671-timediff.$(OBJEXT) \
 	lib671-first.$(OBJEXT)
-am__objects_384 = lib671-testutil.$(OBJEXT)
-am__objects_385 = ../../lib/lib671-warnless.$(OBJEXT)
-am_lib671_OBJECTS = lib671-lib670.$(OBJEXT) $(am__objects_383) \
-	$(am__objects_384) $(am__objects_385)
+am__objects_392 = lib671-testutil.$(OBJEXT)
+am__objects_393 = ../../lib/lib671-warnless.$(OBJEXT)
+am_lib671_OBJECTS = lib671-lib670.$(OBJEXT) $(am__objects_391) \
+	$(am__objects_392) $(am__objects_393)
 lib671_OBJECTS = $(am_lib671_OBJECTS)
 lib671_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_386 = ../../lib/lib672-timediff.$(OBJEXT) \
+am__objects_394 = ../../lib/lib672-timediff.$(OBJEXT) \
 	lib672-first.$(OBJEXT)
-am__objects_387 = lib672-testutil.$(OBJEXT)
-am__objects_388 = ../../lib/lib672-warnless.$(OBJEXT)
-am_lib672_OBJECTS = lib672-lib670.$(OBJEXT) $(am__objects_386) \
-	$(am__objects_387) $(am__objects_388)
+am__objects_395 = lib672-testutil.$(OBJEXT)
+am__objects_396 = ../../lib/lib672-warnless.$(OBJEXT)
+am_lib672_OBJECTS = lib672-lib670.$(OBJEXT) $(am__objects_394) \
+	$(am__objects_395) $(am__objects_396)
 lib672_OBJECTS = $(am_lib672_OBJECTS)
 lib672_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_389 = ../../lib/lib673-timediff.$(OBJEXT) \
+am__objects_397 = ../../lib/lib673-timediff.$(OBJEXT) \
 	lib673-first.$(OBJEXT)
-am__objects_390 = lib673-testutil.$(OBJEXT)
-am__objects_391 = ../../lib/lib673-warnless.$(OBJEXT)
-am_lib673_OBJECTS = lib673-lib670.$(OBJEXT) $(am__objects_389) \
-	$(am__objects_390) $(am__objects_391)
+am__objects_398 = lib673-testutil.$(OBJEXT)
+am__objects_399 = ../../lib/lib673-warnless.$(OBJEXT)
+am_lib673_OBJECTS = lib673-lib670.$(OBJEXT) $(am__objects_397) \
+	$(am__objects_398) $(am__objects_399)
 lib673_OBJECTS = $(am_lib673_OBJECTS)
 lib673_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_392 = ../../lib/lib674-timediff.$(OBJEXT) \
+am__objects_400 = ../../lib/lib674-timediff.$(OBJEXT) \
 	lib674-first.$(OBJEXT)
-am__objects_393 = lib674-testutil.$(OBJEXT)
-am__objects_394 = ../../lib/lib674-warnless.$(OBJEXT)
-am_lib674_OBJECTS = lib674-lib674.$(OBJEXT) $(am__objects_392) \
-	$(am__objects_393) $(am__objects_394)
+am__objects_401 = lib674-testutil.$(OBJEXT)
+am__objects_402 = ../../lib/lib674-warnless.$(OBJEXT)
+am_lib674_OBJECTS = lib674-lib674.$(OBJEXT) $(am__objects_400) \
+	$(am__objects_401) $(am__objects_402)
 lib674_OBJECTS = $(am_lib674_OBJECTS)
 lib674_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_395 = ../../lib/lib676-timediff.$(OBJEXT) \
+am__objects_403 = ../../lib/lib676-timediff.$(OBJEXT) \
 	lib676-first.$(OBJEXT)
-am__objects_396 = lib676-testutil.$(OBJEXT)
-am__objects_397 = ../../lib/lib676-warnless.$(OBJEXT)
-am_lib676_OBJECTS = lib676-lib676.$(OBJEXT) $(am__objects_395) \
-	$(am__objects_396) $(am__objects_397)
+am__objects_404 = lib676-testutil.$(OBJEXT)
+am__objects_405 = ../../lib/lib676-warnless.$(OBJEXT)
+am_lib676_OBJECTS = lib676-lib676.$(OBJEXT) $(am__objects_403) \
+	$(am__objects_404) $(am__objects_405)
 lib676_OBJECTS = $(am_lib676_OBJECTS)
 lib676_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_398 = ../../lib/lib677-timediff.$(OBJEXT) \
+am__objects_406 = ../../lib/lib677-timediff.$(OBJEXT) \
 	lib677-first.$(OBJEXT)
-am__objects_399 = lib677-testutil.$(OBJEXT)
-am__objects_400 = ../../lib/lib677-warnless.$(OBJEXT)
-am__objects_401 = ../../lib/lib677-curl_multibyte.$(OBJEXT)
-am_lib677_OBJECTS = lib677-lib677.$(OBJEXT) $(am__objects_398) \
-	$(am__objects_399) $(am__objects_400) $(am__objects_401)
+am__objects_407 = lib677-testutil.$(OBJEXT)
+am__objects_408 = ../../lib/lib677-warnless.$(OBJEXT)
+am__objects_409 = ../../lib/lib677-curl_multibyte.$(OBJEXT)
+am_lib677_OBJECTS = lib677-lib677.$(OBJEXT) $(am__objects_406) \
+	$(am__objects_407) $(am__objects_408) $(am__objects_409)
 lib677_OBJECTS = $(am_lib677_OBJECTS)
 lib677_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_402 = ../../lib/lib678-timediff.$(OBJEXT) \
+am__objects_410 = ../../lib/lib678-timediff.$(OBJEXT) \
 	lib678-first.$(OBJEXT)
-am__objects_403 = lib678-testutil.$(OBJEXT)
-am__objects_404 = ../../lib/lib678-warnless.$(OBJEXT)
-am__objects_405 = ../../lib/lib678-curl_multibyte.$(OBJEXT)
-am_lib678_OBJECTS = lib678-lib678.$(OBJEXT) $(am__objects_402) \
-	$(am__objects_403) $(am__objects_404) $(am__objects_405)
+am__objects_411 = lib678-testutil.$(OBJEXT)
+am__objects_412 = ../../lib/lib678-warnless.$(OBJEXT)
+am__objects_413 = ../../lib/lib678-curl_multibyte.$(OBJEXT)
+am_lib678_OBJECTS = lib678-lib678.$(OBJEXT) $(am__objects_410) \
+	$(am__objects_411) $(am__objects_412) $(am__objects_413)
 lib678_OBJECTS = $(am_lib678_OBJECTS)
 lib678_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_406 = ../../lib/libauthretry-timediff.$(OBJEXT) \
+am__objects_414 = ../../lib/libauthretry-timediff.$(OBJEXT) \
 	libauthretry-first.$(OBJEXT)
 am_libauthretry_OBJECTS = libauthretry-libauthretry.$(OBJEXT) \
-	$(am__objects_406)
+	$(am__objects_414)
 libauthretry_OBJECTS = $(am_libauthretry_OBJECTS)
 libauthretry_LDADD = $(LDADD)
 libauthretry_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_407 = ../../lib/libntlmconnect-timediff.$(OBJEXT) \
+am__objects_415 = ../../lib/libntlmconnect-timediff.$(OBJEXT) \
 	libntlmconnect-first.$(OBJEXT)
-am__objects_408 = libntlmconnect-testutil.$(OBJEXT)
-am__objects_409 = ../../lib/libntlmconnect-warnless.$(OBJEXT)
+am__objects_416 = libntlmconnect-testutil.$(OBJEXT)
+am__objects_417 = ../../lib/libntlmconnect-warnless.$(OBJEXT)
 am_libntlmconnect_OBJECTS = libntlmconnect-libntlmconnect.$(OBJEXT) \
-	$(am__objects_407) $(am__objects_408) $(am__objects_409)
+	$(am__objects_415) $(am__objects_416) $(am__objects_417)
 libntlmconnect_OBJECTS = $(am_libntlmconnect_OBJECTS)
 libntlmconnect_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am__objects_410 = ../../lib/libprereq-timediff.$(OBJEXT) \
+am__objects_418 = ../../lib/libprereq-timediff.$(OBJEXT) \
 	libprereq-first.$(OBJEXT)
-am__objects_411 = libprereq-testutil.$(OBJEXT)
-am__objects_412 = ../../lib/libprereq-warnless.$(OBJEXT)
+am__objects_419 = libprereq-testutil.$(OBJEXT)
+am__objects_420 = ../../lib/libprereq-warnless.$(OBJEXT)
 am_libprereq_OBJECTS = libprereq-libprereq.$(OBJEXT) \
-	$(am__objects_410) $(am__objects_411) $(am__objects_412)
+	$(am__objects_418) $(am__objects_419) $(am__objects_420)
 libprereq_OBJECTS = $(am_libprereq_OBJECTS)
 libprereq_DEPENDENCIES = $(am__DEPENDENCIES_1)
 AM_V_P = $(am__v_P_@AM_V@)
@@ -1637,9 +1670,7 @@ am__v_at_1 =
 DEFAULT_INCLUDES = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade =  \
-	../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Po \
-	../../lib/$(DEPDIR)/chkdecimalpoint-dynbuf.Po \
+am__depfiles_remade = ../../lib/$(DEPDIR)/chkdecimalpoint-dynbuf.Po \
 	../../lib/$(DEPDIR)/chkdecimalpoint-mprintf.Po \
 	../../lib/$(DEPDIR)/chkdecimalpoint-strdup.Po \
 	../../lib/$(DEPDIR)/chkhostname-curl_gethostname.Po \
@@ -1781,12 +1812,18 @@ am__depfiles_remade =  \
 	../../lib/$(DEPDIR)/lib1940-timediff.Po \
 	../../lib/$(DEPDIR)/lib1945-timediff.Po \
 	../../lib/$(DEPDIR)/lib1946-timediff.Po \
+	../../lib/$(DEPDIR)/lib1947-timediff.Po \
+	../../lib/$(DEPDIR)/lib1948-timediff.Po \
+	../../lib/$(DEPDIR)/lib1955-timediff.Po \
+	../../lib/$(DEPDIR)/lib1955-warnless.Po \
 	../../lib/$(DEPDIR)/lib3010-timediff.Po \
 	../../lib/$(DEPDIR)/lib3010-warnless.Po \
 	../../lib/$(DEPDIR)/lib3025-timediff.Po \
 	../../lib/$(DEPDIR)/lib3025-warnless.Po \
 	../../lib/$(DEPDIR)/lib3026-timediff.Po \
 	../../lib/$(DEPDIR)/lib3026-warnless.Po \
+	../../lib/$(DEPDIR)/lib3027-timediff.Po \
+	../../lib/$(DEPDIR)/lib3027-warnless.Po \
 	../../lib/$(DEPDIR)/lib500-curl_multibyte.Po \
 	../../lib/$(DEPDIR)/lib500-timediff.Po \
 	../../lib/$(DEPDIR)/lib501-timediff.Po \
@@ -2069,11 +2106,17 @@ am__depfiles_remade =  \
 	./$(DEPDIR)/lib1940-first.Po ./$(DEPDIR)/lib1940-lib1940.Po \
 	./$(DEPDIR)/lib1945-first.Po ./$(DEPDIR)/lib1945-lib1945.Po \
 	./$(DEPDIR)/lib1946-first.Po ./$(DEPDIR)/lib1946-lib1940.Po \
-	./$(DEPDIR)/lib3010-first.Po ./$(DEPDIR)/lib3010-lib3010.Po \
-	./$(DEPDIR)/lib3010-testutil.Po ./$(DEPDIR)/lib3025-first.Po \
-	./$(DEPDIR)/lib3025-lib3025.Po ./$(DEPDIR)/lib3025-testutil.Po \
-	./$(DEPDIR)/lib3026-first.Po ./$(DEPDIR)/lib3026-lib3026.Po \
-	./$(DEPDIR)/lib3026-testutil.Po ./$(DEPDIR)/lib500-first.Po \
+	./$(DEPDIR)/lib1947-first.Po ./$(DEPDIR)/lib1947-lib1947.Po \
+	./$(DEPDIR)/lib1948-first.Po ./$(DEPDIR)/lib1948-lib1948.Po \
+	./$(DEPDIR)/lib1955-first.Po ./$(DEPDIR)/lib1955-lib1955.Po \
+	./$(DEPDIR)/lib1955-testutil.Po ./$(DEPDIR)/lib2301.Po \
+	./$(DEPDIR)/lib2302.Po ./$(DEPDIR)/lib3010-first.Po \
+	./$(DEPDIR)/lib3010-lib3010.Po ./$(DEPDIR)/lib3010-testutil.Po \
+	./$(DEPDIR)/lib3025-first.Po ./$(DEPDIR)/lib3025-lib3025.Po \
+	./$(DEPDIR)/lib3025-testutil.Po ./$(DEPDIR)/lib3026-first.Po \
+	./$(DEPDIR)/lib3026-lib3026.Po ./$(DEPDIR)/lib3026-testutil.Po \
+	./$(DEPDIR)/lib3027-first.Po ./$(DEPDIR)/lib3027-lib3027.Po \
+	./$(DEPDIR)/lib3027-testutil.Po ./$(DEPDIR)/lib500-first.Po \
 	./$(DEPDIR)/lib500-lib500.Po ./$(DEPDIR)/lib500-testtrace.Po \
 	./$(DEPDIR)/lib500-testutil.Po ./$(DEPDIR)/lib501-first.Po \
 	./$(DEPDIR)/lib501-lib501.Po ./$(DEPDIR)/lib502-first.Po \
@@ -2254,8 +2297,10 @@ SOURCES = $(libhostname_la_SOURCES) $(libstubgss_la_SOURCES) \
 	$(lib1933_SOURCES) $(lib1934_SOURCES) $(lib1935_SOURCES) \
 	$(lib1936_SOURCES) $(lib1937_SOURCES) $(lib1938_SOURCES) \
 	$(lib1939_SOURCES) $(lib1940_SOURCES) $(lib1945_SOURCES) \
-	$(lib1946_SOURCES) $(lib3010_SOURCES) $(lib3025_SOURCES) \
-	$(lib3026_SOURCES) $(lib500_SOURCES) $(lib501_SOURCES) \
+	$(lib1946_SOURCES) $(lib1947_SOURCES) $(lib1948_SOURCES) \
+	$(lib1955_SOURCES) $(lib2301_SOURCES) $(lib2302_SOURCES) \
+	$(lib3010_SOURCES) $(lib3025_SOURCES) $(lib3026_SOURCES) \
+	$(lib3027_SOURCES) $(lib500_SOURCES) $(lib501_SOURCES) \
 	$(lib502_SOURCES) $(lib503_SOURCES) $(lib504_SOURCES) \
 	$(lib505_SOURCES) $(lib506_SOURCES) $(lib507_SOURCES) \
 	$(lib508_SOURCES) $(lib509_SOURCES) $(lib510_SOURCES) \
@@ -2321,8 +2366,10 @@ DIST_SOURCES = $(libhostname_la_SOURCES) \
 	$(lib1919_SOURCES) $(lib1933_SOURCES) $(lib1934_SOURCES) \
 	$(lib1935_SOURCES) $(lib1936_SOURCES) $(lib1937_SOURCES) \
 	$(lib1938_SOURCES) $(lib1939_SOURCES) $(lib1940_SOURCES) \
-	$(lib1945_SOURCES) $(lib1946_SOURCES) $(lib3010_SOURCES) \
-	$(lib3025_SOURCES) $(lib3026_SOURCES) $(lib500_SOURCES) \
+	$(lib1945_SOURCES) $(lib1946_SOURCES) $(lib1947_SOURCES) \
+	$(lib1948_SOURCES) $(lib1955_SOURCES) $(lib2301_SOURCES) \
+	$(lib2302_SOURCES) $(lib3010_SOURCES) $(lib3025_SOURCES) \
+	$(lib3026_SOURCES) $(lib3027_SOURCES) $(lib500_SOURCES) \
 	$(lib501_SOURCES) $(lib502_SOURCES) $(lib503_SOURCES) \
 	$(lib504_SOURCES) $(lib505_SOURCES) $(lib506_SOURCES) \
 	$(lib507_SOURCES) $(lib508_SOURCES) $(lib509_SOURCES) \
@@ -2504,6 +2551,7 @@ PKGADD_VENDOR = @PKGADD_VENDOR@
 PKGCONFIG = @PKGCONFIG@
 RANDOM_FILE = @RANDOM_FILE@
 RANLIB = @RANLIB@
+RC = @RC@
 REQUIRE_LIB_DEPS = @REQUIRE_LIB_DEPS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -2686,7 +2734,7 @@ MULTIBYTE = ../../lib/curl_multibyte.c ../../lib/curl_multibyte.h
 # these files are used in every single test program below
 SUPPORTFILES = ../../lib/timediff.c ../../lib/timediff.h first.c test.h
 chkdecimalpoint_SOURCES = chkdecimalpoint.c ../../lib/mprintf.c \
- ../../lib/curl_ctype.c  ../../lib/dynbuf.c ../../lib/strdup.c
+ ../../lib/dynbuf.c ../../lib/strdup.c
 
 chkdecimalpoint_LDADD = 
 chkdecimalpoint_CPPFLAGS = $(AM_CPPFLAGS) -DCURL_STATICLIB \
@@ -3176,6 +3224,19 @@ lib1945_CPPFLAGS = $(AM_CPPFLAGS)
 lib1946_SOURCES = lib1940.c $(SUPPORTFILES)
 lib1946_LDADD = $(TESTUTIL_LIBS)
 lib1946_CPPFLAGS = $(AM_CPPFLAGS) -DLIB1946
+lib1947_SOURCES = lib1947.c $(SUPPORTFILES)
+lib1947_LDADD = $(TESTUTIL_LIBS)
+lib1947_CPPFLAGS = $(AM_CPPFLAGS)
+lib1948_SOURCES = lib1948.c $(SUPPORTFILES)
+lib1948_LDADD = $(TESTUTIL_LIBS)
+lib1948_CPPFLAGS = $(AM_CPPFLAGS)
+lib1955_SOURCES = lib1955.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
+lib1955_LDADD = $(TESTUTIL_LIBS)
+lib1955_CPPFLAGS = $(AM_CPPFLAGS)
+lib2301_SOURCES = lib2301.c $(SUPPORTFILES)
+lib2301_LDADD = $(TESTUTIL_LIBS)
+lib2302_SOURCES = lib2302.c $(SUPPORTFILES)
+lib2302_LDADD = $(TESTUTIL_LIBS)
 lib3010_SOURCES = lib3010.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
 lib3010_LDADD = $(TESTUTIL_LIBS)
 lib3010_CPPFLAGS = $(AM_CPPFLAGS)
@@ -3185,6 +3246,9 @@ lib3025_CPPFLAGS = $(AM_CPPFLAGS)
 lib3026_SOURCES = lib3026.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
 lib3026_LDADD = $(TESTUTIL_LIBS)
 lib3026_CPPFLAGS = $(AM_CPPFLAGS)
+lib3027_SOURCES = lib3027.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
+lib3027_LDADD = $(TESTUTIL_LIBS)
+lib3027_CPPFLAGS = $(AM_CPPFLAGS)
 @BUILD_LIBHOSTNAME_FALSE@noinst_LTLIBRARIES = $(am__append_7)
 
 # Makefile.inc provides the source defines (TESTUTIL, SUPPORTFILES,
@@ -3284,8 +3348,6 @@ libstubgss.la: $(libstubgss_la_OBJECTS) $(libstubgss_la_DEPENDENCIES) $(EXTRA_li
 	@$(MKDIR_P) ../../lib/$(DEPDIR)
 	@: > ../../lib/$(DEPDIR)/$(am__dirstamp)
 ../../lib/chkdecimalpoint-mprintf.$(OBJEXT):  \
-	../../lib/$(am__dirstamp) ../../lib/$(DEPDIR)/$(am__dirstamp)
-../../lib/chkdecimalpoint-curl_ctype.$(OBJEXT):  \
 	../../lib/$(am__dirstamp) ../../lib/$(DEPDIR)/$(am__dirstamp)
 ../../lib/chkdecimalpoint-dynbuf.$(OBJEXT): ../../lib/$(am__dirstamp) \
 	../../lib/$(DEPDIR)/$(am__dirstamp)
@@ -3925,6 +3987,34 @@ lib1945$(EXEEXT): $(lib1945_OBJECTS) $(lib1945_DEPENDENCIES) $(EXTRA_lib1945_DEP
 lib1946$(EXEEXT): $(lib1946_OBJECTS) $(lib1946_DEPENDENCIES) $(EXTRA_lib1946_DEPENDENCIES) 
 	@rm -f lib1946$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib1946_OBJECTS) $(lib1946_LDADD) $(LIBS)
+../../lib/lib1947-timediff.$(OBJEXT): ../../lib/$(am__dirstamp) \
+	../../lib/$(DEPDIR)/$(am__dirstamp)
+
+lib1947$(EXEEXT): $(lib1947_OBJECTS) $(lib1947_DEPENDENCIES) $(EXTRA_lib1947_DEPENDENCIES) 
+	@rm -f lib1947$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib1947_OBJECTS) $(lib1947_LDADD) $(LIBS)
+../../lib/lib1948-timediff.$(OBJEXT): ../../lib/$(am__dirstamp) \
+	../../lib/$(DEPDIR)/$(am__dirstamp)
+
+lib1948$(EXEEXT): $(lib1948_OBJECTS) $(lib1948_DEPENDENCIES) $(EXTRA_lib1948_DEPENDENCIES) 
+	@rm -f lib1948$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib1948_OBJECTS) $(lib1948_LDADD) $(LIBS)
+../../lib/lib1955-timediff.$(OBJEXT): ../../lib/$(am__dirstamp) \
+	../../lib/$(DEPDIR)/$(am__dirstamp)
+../../lib/lib1955-warnless.$(OBJEXT): ../../lib/$(am__dirstamp) \
+	../../lib/$(DEPDIR)/$(am__dirstamp)
+
+lib1955$(EXEEXT): $(lib1955_OBJECTS) $(lib1955_DEPENDENCIES) $(EXTRA_lib1955_DEPENDENCIES) 
+	@rm -f lib1955$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib1955_OBJECTS) $(lib1955_LDADD) $(LIBS)
+
+lib2301$(EXEEXT): $(lib2301_OBJECTS) $(lib2301_DEPENDENCIES) $(EXTRA_lib2301_DEPENDENCIES) 
+	@rm -f lib2301$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib2301_OBJECTS) $(lib2301_LDADD) $(LIBS)
+
+lib2302$(EXEEXT): $(lib2302_OBJECTS) $(lib2302_DEPENDENCIES) $(EXTRA_lib2302_DEPENDENCIES) 
+	@rm -f lib2302$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib2302_OBJECTS) $(lib2302_LDADD) $(LIBS)
 ../../lib/lib3010-timediff.$(OBJEXT): ../../lib/$(am__dirstamp) \
 	../../lib/$(DEPDIR)/$(am__dirstamp)
 ../../lib/lib3010-warnless.$(OBJEXT): ../../lib/$(am__dirstamp) \
@@ -3949,6 +4039,14 @@ lib3025$(EXEEXT): $(lib3025_OBJECTS) $(lib3025_DEPENDENCIES) $(EXTRA_lib3025_DEP
 lib3026$(EXEEXT): $(lib3026_OBJECTS) $(lib3026_DEPENDENCIES) $(EXTRA_lib3026_DEPENDENCIES) 
 	@rm -f lib3026$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(lib3026_OBJECTS) $(lib3026_LDADD) $(LIBS)
+../../lib/lib3027-timediff.$(OBJEXT): ../../lib/$(am__dirstamp) \
+	../../lib/$(DEPDIR)/$(am__dirstamp)
+../../lib/lib3027-warnless.$(OBJEXT): ../../lib/$(am__dirstamp) \
+	../../lib/$(DEPDIR)/$(am__dirstamp)
+
+lib3027$(EXEEXT): $(lib3027_OBJECTS) $(lib3027_DEPENDENCIES) $(EXTRA_lib3027_DEPENDENCIES) 
+	@rm -f lib3027$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(lib3027_OBJECTS) $(lib3027_LDADD) $(LIBS)
 ../../lib/lib500-timediff.$(OBJEXT): ../../lib/$(am__dirstamp) \
 	../../lib/$(DEPDIR)/$(am__dirstamp)
 ../../lib/lib500-curl_multibyte.$(OBJEXT): ../../lib/$(am__dirstamp) \
@@ -4699,7 +4797,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/chkdecimalpoint-dynbuf.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/chkdecimalpoint-mprintf.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/chkdecimalpoint-strdup.Po@am__quote@ # am--include-marker
@@ -4842,12 +4939,18 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib1940-timediff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib1945-timediff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib1946-timediff.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib1947-timediff.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib1948-timediff.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib1955-timediff.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib1955-warnless.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib3010-timediff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib3010-warnless.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib3025-timediff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib3025-warnless.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib3026-timediff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib3026-warnless.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib3027-timediff.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib3027-warnless.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib500-curl_multibyte.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib500-timediff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../../lib/$(DEPDIR)/lib501-timediff.Po@am__quote@ # am--include-marker
@@ -5242,6 +5345,15 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1945-lib1945.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1946-first.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1946-lib1940.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1947-first.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1947-lib1947.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1948-first.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1948-lib1948.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1955-first.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1955-lib1955.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib1955-testutil.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib2301.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib2302.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib3010-first.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib3010-lib3010.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib3010-testutil.Po@am__quote@ # am--include-marker
@@ -5251,6 +5363,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib3026-first.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib3026-lib3026.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib3026-testutil.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib3027-first.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib3027-lib3027.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib3027-testutil.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib500-first.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib500-lib500.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib500-testtrace.Po@am__quote@ # am--include-marker
@@ -5573,20 +5688,6 @@ chkdecimalpoint-chkdecimalpoint.obj: chkdecimalpoint.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/mprintf.c' object='../../lib/chkdecimalpoint-mprintf.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(chkdecimalpoint_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/chkdecimalpoint-mprintf.obj `if test -f '../../lib/mprintf.c'; then $(CYGPATH_W) '../../lib/mprintf.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/mprintf.c'; fi`
-
-../../lib/chkdecimalpoint-curl_ctype.o: ../../lib/curl_ctype.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(chkdecimalpoint_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/chkdecimalpoint-curl_ctype.o -MD -MP -MF ../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Tpo -c -o ../../lib/chkdecimalpoint-curl_ctype.o `test -f '../../lib/curl_ctype.c' || echo '$(srcdir)/'`../../lib/curl_ctype.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Tpo ../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/curl_ctype.c' object='../../lib/chkdecimalpoint-curl_ctype.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(chkdecimalpoint_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/chkdecimalpoint-curl_ctype.o `test -f '../../lib/curl_ctype.c' || echo '$(srcdir)/'`../../lib/curl_ctype.c
-
-../../lib/chkdecimalpoint-curl_ctype.obj: ../../lib/curl_ctype.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(chkdecimalpoint_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/chkdecimalpoint-curl_ctype.obj -MD -MP -MF ../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Tpo -c -o ../../lib/chkdecimalpoint-curl_ctype.obj `if test -f '../../lib/curl_ctype.c'; then $(CYGPATH_W) '../../lib/curl_ctype.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/curl_ctype.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Tpo ../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/curl_ctype.c' object='../../lib/chkdecimalpoint-curl_ctype.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(chkdecimalpoint_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/chkdecimalpoint-curl_ctype.obj `if test -f '../../lib/curl_ctype.c'; then $(CYGPATH_W) '../../lib/curl_ctype.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/curl_ctype.c'; fi`
 
 ../../lib/chkdecimalpoint-dynbuf.o: ../../lib/dynbuf.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(chkdecimalpoint_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/chkdecimalpoint-dynbuf.o -MD -MP -MF ../../lib/$(DEPDIR)/chkdecimalpoint-dynbuf.Tpo -c -o ../../lib/chkdecimalpoint-dynbuf.o `test -f '../../lib/dynbuf.c' || echo '$(srcdir)/'`../../lib/dynbuf.c
@@ -10656,6 +10757,160 @@ lib1946-first.obj: first.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1946_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1946-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
 
+lib1947-lib1947.o: lib1947.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1947-lib1947.o -MD -MP -MF $(DEPDIR)/lib1947-lib1947.Tpo -c -o lib1947-lib1947.o `test -f 'lib1947.c' || echo '$(srcdir)/'`lib1947.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1947-lib1947.Tpo $(DEPDIR)/lib1947-lib1947.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib1947.c' object='lib1947-lib1947.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1947-lib1947.o `test -f 'lib1947.c' || echo '$(srcdir)/'`lib1947.c
+
+lib1947-lib1947.obj: lib1947.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1947-lib1947.obj -MD -MP -MF $(DEPDIR)/lib1947-lib1947.Tpo -c -o lib1947-lib1947.obj `if test -f 'lib1947.c'; then $(CYGPATH_W) 'lib1947.c'; else $(CYGPATH_W) '$(srcdir)/lib1947.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1947-lib1947.Tpo $(DEPDIR)/lib1947-lib1947.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib1947.c' object='lib1947-lib1947.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1947-lib1947.obj `if test -f 'lib1947.c'; then $(CYGPATH_W) 'lib1947.c'; else $(CYGPATH_W) '$(srcdir)/lib1947.c'; fi`
+
+../../lib/lib1947-timediff.o: ../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib1947-timediff.o -MD -MP -MF ../../lib/$(DEPDIR)/lib1947-timediff.Tpo -c -o ../../lib/lib1947-timediff.o `test -f '../../lib/timediff.c' || echo '$(srcdir)/'`../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib1947-timediff.Tpo ../../lib/$(DEPDIR)/lib1947-timediff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/timediff.c' object='../../lib/lib1947-timediff.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib1947-timediff.o `test -f '../../lib/timediff.c' || echo '$(srcdir)/'`../../lib/timediff.c
+
+../../lib/lib1947-timediff.obj: ../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib1947-timediff.obj -MD -MP -MF ../../lib/$(DEPDIR)/lib1947-timediff.Tpo -c -o ../../lib/lib1947-timediff.obj `if test -f '../../lib/timediff.c'; then $(CYGPATH_W) '../../lib/timediff.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/timediff.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib1947-timediff.Tpo ../../lib/$(DEPDIR)/lib1947-timediff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/timediff.c' object='../../lib/lib1947-timediff.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib1947-timediff.obj `if test -f '../../lib/timediff.c'; then $(CYGPATH_W) '../../lib/timediff.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/timediff.c'; fi`
+
+lib1947-first.o: first.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1947-first.o -MD -MP -MF $(DEPDIR)/lib1947-first.Tpo -c -o lib1947-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1947-first.Tpo $(DEPDIR)/lib1947-first.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='first.c' object='lib1947-first.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1947-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c
+
+lib1947-first.obj: first.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1947-first.obj -MD -MP -MF $(DEPDIR)/lib1947-first.Tpo -c -o lib1947-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1947-first.Tpo $(DEPDIR)/lib1947-first.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='first.c' object='lib1947-first.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1947_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1947-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
+
+lib1948-lib1948.o: lib1948.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1948-lib1948.o -MD -MP -MF $(DEPDIR)/lib1948-lib1948.Tpo -c -o lib1948-lib1948.o `test -f 'lib1948.c' || echo '$(srcdir)/'`lib1948.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1948-lib1948.Tpo $(DEPDIR)/lib1948-lib1948.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib1948.c' object='lib1948-lib1948.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1948-lib1948.o `test -f 'lib1948.c' || echo '$(srcdir)/'`lib1948.c
+
+lib1948-lib1948.obj: lib1948.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1948-lib1948.obj -MD -MP -MF $(DEPDIR)/lib1948-lib1948.Tpo -c -o lib1948-lib1948.obj `if test -f 'lib1948.c'; then $(CYGPATH_W) 'lib1948.c'; else $(CYGPATH_W) '$(srcdir)/lib1948.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1948-lib1948.Tpo $(DEPDIR)/lib1948-lib1948.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib1948.c' object='lib1948-lib1948.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1948-lib1948.obj `if test -f 'lib1948.c'; then $(CYGPATH_W) 'lib1948.c'; else $(CYGPATH_W) '$(srcdir)/lib1948.c'; fi`
+
+../../lib/lib1948-timediff.o: ../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib1948-timediff.o -MD -MP -MF ../../lib/$(DEPDIR)/lib1948-timediff.Tpo -c -o ../../lib/lib1948-timediff.o `test -f '../../lib/timediff.c' || echo '$(srcdir)/'`../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib1948-timediff.Tpo ../../lib/$(DEPDIR)/lib1948-timediff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/timediff.c' object='../../lib/lib1948-timediff.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib1948-timediff.o `test -f '../../lib/timediff.c' || echo '$(srcdir)/'`../../lib/timediff.c
+
+../../lib/lib1948-timediff.obj: ../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib1948-timediff.obj -MD -MP -MF ../../lib/$(DEPDIR)/lib1948-timediff.Tpo -c -o ../../lib/lib1948-timediff.obj `if test -f '../../lib/timediff.c'; then $(CYGPATH_W) '../../lib/timediff.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/timediff.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib1948-timediff.Tpo ../../lib/$(DEPDIR)/lib1948-timediff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/timediff.c' object='../../lib/lib1948-timediff.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib1948-timediff.obj `if test -f '../../lib/timediff.c'; then $(CYGPATH_W) '../../lib/timediff.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/timediff.c'; fi`
+
+lib1948-first.o: first.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1948-first.o -MD -MP -MF $(DEPDIR)/lib1948-first.Tpo -c -o lib1948-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1948-first.Tpo $(DEPDIR)/lib1948-first.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='first.c' object='lib1948-first.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1948-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c
+
+lib1948-first.obj: first.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1948-first.obj -MD -MP -MF $(DEPDIR)/lib1948-first.Tpo -c -o lib1948-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1948-first.Tpo $(DEPDIR)/lib1948-first.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='first.c' object='lib1948-first.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1948_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1948-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
+
+lib1955-lib1955.o: lib1955.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1955-lib1955.o -MD -MP -MF $(DEPDIR)/lib1955-lib1955.Tpo -c -o lib1955-lib1955.o `test -f 'lib1955.c' || echo '$(srcdir)/'`lib1955.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1955-lib1955.Tpo $(DEPDIR)/lib1955-lib1955.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib1955.c' object='lib1955-lib1955.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1955-lib1955.o `test -f 'lib1955.c' || echo '$(srcdir)/'`lib1955.c
+
+lib1955-lib1955.obj: lib1955.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1955-lib1955.obj -MD -MP -MF $(DEPDIR)/lib1955-lib1955.Tpo -c -o lib1955-lib1955.obj `if test -f 'lib1955.c'; then $(CYGPATH_W) 'lib1955.c'; else $(CYGPATH_W) '$(srcdir)/lib1955.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1955-lib1955.Tpo $(DEPDIR)/lib1955-lib1955.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib1955.c' object='lib1955-lib1955.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1955-lib1955.obj `if test -f 'lib1955.c'; then $(CYGPATH_W) 'lib1955.c'; else $(CYGPATH_W) '$(srcdir)/lib1955.c'; fi`
+
+../../lib/lib1955-timediff.o: ../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib1955-timediff.o -MD -MP -MF ../../lib/$(DEPDIR)/lib1955-timediff.Tpo -c -o ../../lib/lib1955-timediff.o `test -f '../../lib/timediff.c' || echo '$(srcdir)/'`../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib1955-timediff.Tpo ../../lib/$(DEPDIR)/lib1955-timediff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/timediff.c' object='../../lib/lib1955-timediff.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib1955-timediff.o `test -f '../../lib/timediff.c' || echo '$(srcdir)/'`../../lib/timediff.c
+
+../../lib/lib1955-timediff.obj: ../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib1955-timediff.obj -MD -MP -MF ../../lib/$(DEPDIR)/lib1955-timediff.Tpo -c -o ../../lib/lib1955-timediff.obj `if test -f '../../lib/timediff.c'; then $(CYGPATH_W) '../../lib/timediff.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/timediff.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib1955-timediff.Tpo ../../lib/$(DEPDIR)/lib1955-timediff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/timediff.c' object='../../lib/lib1955-timediff.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib1955-timediff.obj `if test -f '../../lib/timediff.c'; then $(CYGPATH_W) '../../lib/timediff.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/timediff.c'; fi`
+
+lib1955-first.o: first.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1955-first.o -MD -MP -MF $(DEPDIR)/lib1955-first.Tpo -c -o lib1955-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1955-first.Tpo $(DEPDIR)/lib1955-first.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='first.c' object='lib1955-first.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1955-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c
+
+lib1955-first.obj: first.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1955-first.obj -MD -MP -MF $(DEPDIR)/lib1955-first.Tpo -c -o lib1955-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1955-first.Tpo $(DEPDIR)/lib1955-first.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='first.c' object='lib1955-first.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1955-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
+
+lib1955-testutil.o: testutil.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1955-testutil.o -MD -MP -MF $(DEPDIR)/lib1955-testutil.Tpo -c -o lib1955-testutil.o `test -f 'testutil.c' || echo '$(srcdir)/'`testutil.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1955-testutil.Tpo $(DEPDIR)/lib1955-testutil.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='testutil.c' object='lib1955-testutil.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1955-testutil.o `test -f 'testutil.c' || echo '$(srcdir)/'`testutil.c
+
+lib1955-testutil.obj: testutil.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib1955-testutil.obj -MD -MP -MF $(DEPDIR)/lib1955-testutil.Tpo -c -o lib1955-testutil.obj `if test -f 'testutil.c'; then $(CYGPATH_W) 'testutil.c'; else $(CYGPATH_W) '$(srcdir)/testutil.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib1955-testutil.Tpo $(DEPDIR)/lib1955-testutil.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='testutil.c' object='lib1955-testutil.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib1955-testutil.obj `if test -f 'testutil.c'; then $(CYGPATH_W) 'testutil.c'; else $(CYGPATH_W) '$(srcdir)/testutil.c'; fi`
+
+../../lib/lib1955-warnless.o: ../../lib/warnless.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib1955-warnless.o -MD -MP -MF ../../lib/$(DEPDIR)/lib1955-warnless.Tpo -c -o ../../lib/lib1955-warnless.o `test -f '../../lib/warnless.c' || echo '$(srcdir)/'`../../lib/warnless.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib1955-warnless.Tpo ../../lib/$(DEPDIR)/lib1955-warnless.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/warnless.c' object='../../lib/lib1955-warnless.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib1955-warnless.o `test -f '../../lib/warnless.c' || echo '$(srcdir)/'`../../lib/warnless.c
+
+../../lib/lib1955-warnless.obj: ../../lib/warnless.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib1955-warnless.obj -MD -MP -MF ../../lib/$(DEPDIR)/lib1955-warnless.Tpo -c -o ../../lib/lib1955-warnless.obj `if test -f '../../lib/warnless.c'; then $(CYGPATH_W) '../../lib/warnless.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/warnless.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib1955-warnless.Tpo ../../lib/$(DEPDIR)/lib1955-warnless.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/warnless.c' object='../../lib/lib1955-warnless.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib1955_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib1955-warnless.obj `if test -f '../../lib/warnless.c'; then $(CYGPATH_W) '../../lib/warnless.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/warnless.c'; fi`
+
 lib3010-lib3010.o: lib3010.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3010_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib3010-lib3010.o -MD -MP -MF $(DEPDIR)/lib3010-lib3010.Tpo -c -o lib3010-lib3010.o `test -f 'lib3010.c' || echo '$(srcdir)/'`lib3010.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib3010-lib3010.Tpo $(DEPDIR)/lib3010-lib3010.Po
@@ -10865,6 +11120,76 @@ lib3026-testutil.obj: testutil.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/warnless.c' object='../../lib/lib3026-warnless.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3026_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib3026-warnless.obj `if test -f '../../lib/warnless.c'; then $(CYGPATH_W) '../../lib/warnless.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/warnless.c'; fi`
+
+lib3027-lib3027.o: lib3027.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib3027-lib3027.o -MD -MP -MF $(DEPDIR)/lib3027-lib3027.Tpo -c -o lib3027-lib3027.o `test -f 'lib3027.c' || echo '$(srcdir)/'`lib3027.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib3027-lib3027.Tpo $(DEPDIR)/lib3027-lib3027.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib3027.c' object='lib3027-lib3027.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib3027-lib3027.o `test -f 'lib3027.c' || echo '$(srcdir)/'`lib3027.c
+
+lib3027-lib3027.obj: lib3027.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib3027-lib3027.obj -MD -MP -MF $(DEPDIR)/lib3027-lib3027.Tpo -c -o lib3027-lib3027.obj `if test -f 'lib3027.c'; then $(CYGPATH_W) 'lib3027.c'; else $(CYGPATH_W) '$(srcdir)/lib3027.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib3027-lib3027.Tpo $(DEPDIR)/lib3027-lib3027.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib3027.c' object='lib3027-lib3027.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib3027-lib3027.obj `if test -f 'lib3027.c'; then $(CYGPATH_W) 'lib3027.c'; else $(CYGPATH_W) '$(srcdir)/lib3027.c'; fi`
+
+../../lib/lib3027-timediff.o: ../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib3027-timediff.o -MD -MP -MF ../../lib/$(DEPDIR)/lib3027-timediff.Tpo -c -o ../../lib/lib3027-timediff.o `test -f '../../lib/timediff.c' || echo '$(srcdir)/'`../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib3027-timediff.Tpo ../../lib/$(DEPDIR)/lib3027-timediff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/timediff.c' object='../../lib/lib3027-timediff.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib3027-timediff.o `test -f '../../lib/timediff.c' || echo '$(srcdir)/'`../../lib/timediff.c
+
+../../lib/lib3027-timediff.obj: ../../lib/timediff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib3027-timediff.obj -MD -MP -MF ../../lib/$(DEPDIR)/lib3027-timediff.Tpo -c -o ../../lib/lib3027-timediff.obj `if test -f '../../lib/timediff.c'; then $(CYGPATH_W) '../../lib/timediff.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/timediff.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib3027-timediff.Tpo ../../lib/$(DEPDIR)/lib3027-timediff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/timediff.c' object='../../lib/lib3027-timediff.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib3027-timediff.obj `if test -f '../../lib/timediff.c'; then $(CYGPATH_W) '../../lib/timediff.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/timediff.c'; fi`
+
+lib3027-first.o: first.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib3027-first.o -MD -MP -MF $(DEPDIR)/lib3027-first.Tpo -c -o lib3027-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib3027-first.Tpo $(DEPDIR)/lib3027-first.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='first.c' object='lib3027-first.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib3027-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c
+
+lib3027-first.obj: first.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib3027-first.obj -MD -MP -MF $(DEPDIR)/lib3027-first.Tpo -c -o lib3027-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib3027-first.Tpo $(DEPDIR)/lib3027-first.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='first.c' object='lib3027-first.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib3027-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
+
+lib3027-testutil.o: testutil.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib3027-testutil.o -MD -MP -MF $(DEPDIR)/lib3027-testutil.Tpo -c -o lib3027-testutil.o `test -f 'testutil.c' || echo '$(srcdir)/'`testutil.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib3027-testutil.Tpo $(DEPDIR)/lib3027-testutil.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='testutil.c' object='lib3027-testutil.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib3027-testutil.o `test -f 'testutil.c' || echo '$(srcdir)/'`testutil.c
+
+lib3027-testutil.obj: testutil.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib3027-testutil.obj -MD -MP -MF $(DEPDIR)/lib3027-testutil.Tpo -c -o lib3027-testutil.obj `if test -f 'testutil.c'; then $(CYGPATH_W) 'testutil.c'; else $(CYGPATH_W) '$(srcdir)/testutil.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/lib3027-testutil.Tpo $(DEPDIR)/lib3027-testutil.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='testutil.c' object='lib3027-testutil.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o lib3027-testutil.obj `if test -f 'testutil.c'; then $(CYGPATH_W) 'testutil.c'; else $(CYGPATH_W) '$(srcdir)/testutil.c'; fi`
+
+../../lib/lib3027-warnless.o: ../../lib/warnless.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib3027-warnless.o -MD -MP -MF ../../lib/$(DEPDIR)/lib3027-warnless.Tpo -c -o ../../lib/lib3027-warnless.o `test -f '../../lib/warnless.c' || echo '$(srcdir)/'`../../lib/warnless.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib3027-warnless.Tpo ../../lib/$(DEPDIR)/lib3027-warnless.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/warnless.c' object='../../lib/lib3027-warnless.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib3027-warnless.o `test -f '../../lib/warnless.c' || echo '$(srcdir)/'`../../lib/warnless.c
+
+../../lib/lib3027-warnless.obj: ../../lib/warnless.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ../../lib/lib3027-warnless.obj -MD -MP -MF ../../lib/$(DEPDIR)/lib3027-warnless.Tpo -c -o ../../lib/lib3027-warnless.obj `if test -f '../../lib/warnless.c'; then $(CYGPATH_W) '../../lib/warnless.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/warnless.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../lib/$(DEPDIR)/lib3027-warnless.Tpo ../../lib/$(DEPDIR)/lib3027-warnless.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../lib/warnless.c' object='../../lib/lib3027-warnless.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib3027_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ../../lib/lib3027-warnless.obj `if test -f '../../lib/warnless.c'; then $(CYGPATH_W) '../../lib/warnless.c'; else $(CYGPATH_W) '$(srcdir)/../../lib/warnless.c'; fi`
 
 lib500-lib500.o: lib500.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib500_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT lib500-lib500.o -MD -MP -MF $(DEPDIR)/lib500-lib500.Tpo -c -o lib500-lib500.o `test -f 'lib500.c' || echo '$(srcdir)/'`lib500.c
@@ -16740,8 +17065,7 @@ clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
 	clean-noinstPROGRAMS mostlyclean-am
 
 distclean: distclean-am
-		-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Po
-	-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-dynbuf.Po
+		-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-dynbuf.Po
 	-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-mprintf.Po
 	-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-strdup.Po
 	-rm -f ../../lib/$(DEPDIR)/chkhostname-curl_gethostname.Po
@@ -16883,12 +17207,18 @@ distclean: distclean-am
 	-rm -f ../../lib/$(DEPDIR)/lib1940-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib1945-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib1946-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib1947-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib1948-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib1955-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib1955-warnless.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3010-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3010-warnless.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3025-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3025-warnless.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3026-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3026-warnless.Po
+	-rm -f ../../lib/$(DEPDIR)/lib3027-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib3027-warnless.Po
 	-rm -f ../../lib/$(DEPDIR)/lib500-curl_multibyte.Po
 	-rm -f ../../lib/$(DEPDIR)/lib500-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib501-timediff.Po
@@ -17283,6 +17613,15 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/lib1945-lib1945.Po
 	-rm -f ./$(DEPDIR)/lib1946-first.Po
 	-rm -f ./$(DEPDIR)/lib1946-lib1940.Po
+	-rm -f ./$(DEPDIR)/lib1947-first.Po
+	-rm -f ./$(DEPDIR)/lib1947-lib1947.Po
+	-rm -f ./$(DEPDIR)/lib1948-first.Po
+	-rm -f ./$(DEPDIR)/lib1948-lib1948.Po
+	-rm -f ./$(DEPDIR)/lib1955-first.Po
+	-rm -f ./$(DEPDIR)/lib1955-lib1955.Po
+	-rm -f ./$(DEPDIR)/lib1955-testutil.Po
+	-rm -f ./$(DEPDIR)/lib2301.Po
+	-rm -f ./$(DEPDIR)/lib2302.Po
 	-rm -f ./$(DEPDIR)/lib3010-first.Po
 	-rm -f ./$(DEPDIR)/lib3010-lib3010.Po
 	-rm -f ./$(DEPDIR)/lib3010-testutil.Po
@@ -17292,6 +17631,9 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/lib3026-first.Po
 	-rm -f ./$(DEPDIR)/lib3026-lib3026.Po
 	-rm -f ./$(DEPDIR)/lib3026-testutil.Po
+	-rm -f ./$(DEPDIR)/lib3027-first.Po
+	-rm -f ./$(DEPDIR)/lib3027-lib3027.Po
+	-rm -f ./$(DEPDIR)/lib3027-testutil.Po
 	-rm -f ./$(DEPDIR)/lib500-first.Po
 	-rm -f ./$(DEPDIR)/lib500-lib500.Po
 	-rm -f ./$(DEPDIR)/lib500-testtrace.Po
@@ -17587,8 +17929,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-		-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-curl_ctype.Po
-	-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-dynbuf.Po
+		-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-dynbuf.Po
 	-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-mprintf.Po
 	-rm -f ../../lib/$(DEPDIR)/chkdecimalpoint-strdup.Po
 	-rm -f ../../lib/$(DEPDIR)/chkhostname-curl_gethostname.Po
@@ -17730,12 +18071,18 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ../../lib/$(DEPDIR)/lib1940-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib1945-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib1946-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib1947-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib1948-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib1955-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib1955-warnless.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3010-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3010-warnless.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3025-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3025-warnless.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3026-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib3026-warnless.Po
+	-rm -f ../../lib/$(DEPDIR)/lib3027-timediff.Po
+	-rm -f ../../lib/$(DEPDIR)/lib3027-warnless.Po
 	-rm -f ../../lib/$(DEPDIR)/lib500-curl_multibyte.Po
 	-rm -f ../../lib/$(DEPDIR)/lib500-timediff.Po
 	-rm -f ../../lib/$(DEPDIR)/lib501-timediff.Po
@@ -18130,6 +18477,15 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/lib1945-lib1945.Po
 	-rm -f ./$(DEPDIR)/lib1946-first.Po
 	-rm -f ./$(DEPDIR)/lib1946-lib1940.Po
+	-rm -f ./$(DEPDIR)/lib1947-first.Po
+	-rm -f ./$(DEPDIR)/lib1947-lib1947.Po
+	-rm -f ./$(DEPDIR)/lib1948-first.Po
+	-rm -f ./$(DEPDIR)/lib1948-lib1948.Po
+	-rm -f ./$(DEPDIR)/lib1955-first.Po
+	-rm -f ./$(DEPDIR)/lib1955-lib1955.Po
+	-rm -f ./$(DEPDIR)/lib1955-testutil.Po
+	-rm -f ./$(DEPDIR)/lib2301.Po
+	-rm -f ./$(DEPDIR)/lib2302.Po
 	-rm -f ./$(DEPDIR)/lib3010-first.Po
 	-rm -f ./$(DEPDIR)/lib3010-lib3010.Po
 	-rm -f ./$(DEPDIR)/lib3010-testutil.Po
@@ -18139,6 +18495,9 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/lib3026-first.Po
 	-rm -f ./$(DEPDIR)/lib3026-lib3026.Po
 	-rm -f ./$(DEPDIR)/lib3026-testutil.Po
+	-rm -f ./$(DEPDIR)/lib3027-first.Po
+	-rm -f ./$(DEPDIR)/lib3027-lib3027.Po
+	-rm -f ./$(DEPDIR)/lib3027-testutil.Po
 	-rm -f ./$(DEPDIR)/lib500-first.Po
 	-rm -f ./$(DEPDIR)/lib500-lib500.Po
 	-rm -f ./$(DEPDIR)/lib500-testtrace.Po

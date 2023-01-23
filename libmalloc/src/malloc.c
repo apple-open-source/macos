@@ -171,8 +171,8 @@ static bool _malloc_entropy_initialized;
 typedef void * (*dlopen_t) (const char * __path, int __mode);
 typedef void * (*dlsym_t) (void * __handle, const char * __symbol);
 
-static dlopen_t _dlopen = NULL;
-static dlsym_t _dlsym = NULL;
+static dlopen_t LIBMALLOC_FUNCTION_PTRAUTH(_dlopen) = NULL;
+static dlsym_t LIBMALLOC_FUNCTION_PTRAUTH(_dlsym) = NULL;
 #else
 #define _dlopen(...) NULL
 #define _dlsym(...) NULL

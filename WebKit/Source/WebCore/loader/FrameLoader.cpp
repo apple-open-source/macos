@@ -736,11 +736,6 @@ void FrameLoader::didBeginDocument(bool dispatch)
     m_didCallImplicitClose = false;
     m_frame.document()->setReadyState(Document::Loading);
 
-    if (m_pendingStateObject) {
-        m_frame.document()->statePopped(*m_pendingStateObject);
-        m_pendingStateObject = nullptr;
-    }
-
     if (dispatch)
         dispatchDidClearWindowObjectsInAllWorlds();
 
@@ -1008,10 +1003,17 @@ void FrameLoader::loadArchive(Ref<Archive>&& archive)
     if (!mainResource)
         return;
 
+    URL url { mainResource->url() };
+#if ENABLE(WEB_ARCHIVE)
+    constexpr auto webArchivePrefix { "webarchive+"_s };
+    if (url.protocol().startsWith(webArchivePrefix))
+        url.setProtocol({ url.protocol().substring(webArchivePrefix.length()) });
+#endif
+
     ResourceResponse response(URL(), mainResource->mimeType(), mainResource->data().size(), mainResource->textEncoding());
     SubstituteData substituteData(&mainResource->data(), URL(), response, SubstituteData::SessionHistoryVisibility::Hidden);
     
-    ResourceRequest request(mainResource->url());
+    ResourceRequest request(url);
 
     auto documentLoader = m_client->createDocumentLoader(request, substituteData);
     documentLoader->setArchive(WTFMove(archive));
@@ -1137,13 +1139,13 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
         // we have already saved away the scroll and doc state for the long slow load,
         // but it's not an obvious case.
 
+        history().updateBackForwardListForFragmentScroll();
+
         auto* document = m_frame.document();
         if (document && !document->hasRecentUserInteractionForNavigationFromJS() && !documentLoader()->triggeringAction().isRequestFromClientOrUserInput()) {
             if (auto* currentItem = history().currentItem())
                 currentItem->setWasCreatedByJSWithoutUserInteraction(true);
         }
-
-        history().updateBackForwardListForFragmentScroll();
     }
 
     bool hashChange = equalIgnoringFragmentIdentifier(url, oldURL) && !equalRespectingNullity(url.fragmentIdentifier(), oldURL.fragmentIdentifier());
@@ -1188,6 +1190,11 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
         m_frame.document()->enqueueHashchangeEvent(oldURL.string(), url.string());
         m_client->dispatchDidChangeLocationWithinPage();
     }
+
+    if (auto* parentFrame = m_frame.tree().parent(); parentFrame
+        && (m_frame.document()->processingLoadEvent() || m_frame.document()->loadEventFinished())
+        && !m_frame.document()->securityOrigin().isSameOriginAs(parentFrame->document()->securityOrigin()))
+        m_frame.document()->dispatchWindowLoadEvent();
     
     // FrameLoaderClient::didFinishLoad() tells the internal load delegate the load finished with no error
     m_client->didFinishLoad();
@@ -2218,10 +2225,6 @@ void FrameLoader::transitionToCommitted(CachedPage* cachedPage)
                 history().updateForStandardLoad(HistoryController::UpdateAllExceptBackForwardList);
 
             history().updateForBackForwardNavigation();
-
-            // For cached pages, CachedFrame::restore will take care of firing the popstate event with the history item's state object
-            if (history().currentItem() && !cachedPage)
-                m_pendingStateObject = history().currentItem()->stateObject();
 
             // Create a document view for this document, or used the cached view.
             if (cachedPage) {

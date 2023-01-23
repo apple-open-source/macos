@@ -239,7 +239,7 @@ inet_attach_interface(const char * ifname, boolean_t set_iff_up)
     if (siocprotoattach(s, ifname) < 0) {
 	ret = errno;
 	if (ret != EEXIST && ret != ENXIO) {
-	    my_log(LOG_INFO, "siocprotoattach(%s) failed, %s (%d)", 
+	    my_log(LOG_NOTICE, "siocprotoattach(%s) failed, %s (%d)",
 		   ifname, strerror(errno), errno);
 	}
     }
@@ -678,7 +678,7 @@ inet6_attach_interface(const char * ifname, boolean_t set_iff_up)
     if (siocprotoattach_in6(s, ifname) < 0) {
 	ret = errno;
 	if (ret != EEXIST && ret != ENXIO) {
-	    my_log(LOG_INFO, "siocprotoattach_in6(%s) failed, %s (%d)",
+	    my_log(LOG_NOTICE, "siocprotoattach_in6(%s) failed, %s (%d)",
 		   ifname, strerror(errno), errno);
 	}
     }
@@ -709,7 +709,7 @@ inet6_detach_interface(const char * ifname)
     if (siocprotodetach_in6(s, ifname) < 0) {
 	ret = errno;
 	if (ret != ENXIO) {
-	    my_log(LOG_INFO, "siocprotodetach_in6(%s) failed, %s (%d)",
+	    my_log(LOG_NOTICE, "siocprotodetach_in6(%s) failed, %s (%d)",
 		   ifname, strerror(errno), errno);
 	}
     }
@@ -1299,7 +1299,7 @@ inet6_clat46_start_stop(const char * if_name, boolean_t start)
     if (start) {
 	my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_START)", if_name);
 	if (siocclat46_start(s, if_name) < 0) {
-	    my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_START), failed, %s (%d)",
+	    my_log(LOG_NOTICE, "ioctl(%s, SIOCCLAT46_START), failed, %s (%d)",
 		   if_name, strerror(errno), errno);
 	    ret = errno;
 	}
@@ -1307,7 +1307,7 @@ inet6_clat46_start_stop(const char * if_name, boolean_t start)
     else {
 	my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_STOP)", if_name);
 	if (siocclat46_stop(s, if_name) < 0) {
-	    my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_STOP), failed, %s (%d)",
+	    my_log(LOG_NOTICE, "ioctl(%s, SIOCCLAT46_STOP), failed, %s (%d)",
 		   if_name, strerror(errno), errno);
 	    ret = errno;
 	}
