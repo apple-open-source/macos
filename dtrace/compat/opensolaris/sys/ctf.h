@@ -96,16 +96,21 @@ extern "C" {
  * together so that the full set of types can be explored and manipulated.
  */
 
-#define	CTF_MAX_TYPE	0xffff	/* max type identifier value */
-#define	CTF_MAX_NAME 0x7fffffff	/* max offset into a string table */
+#define	CTF_MAX_TYPE	0xfffffffe	/* max type identifier value */
+#define	CTF_MAX_NAME	0x7fffffff	/* max offset into a string table */
 #define	CTF_MAX_VLEN	0x3ff	/* max struct, union, enum members or args */
 #define	CTF_MAX_INTOFF	0xff	/* max offset of intrinsic value in bits */
 #define	CTF_MAX_INTBITS	0xffff	/* max size of an intrinsic in bits */
 
 /* See ctf_type_t */
-#define	CTF_MAX_SIZE	0xfffe	/* max size of a type in bytes */
-#define	CTF_LSIZE_SENT	0xffff	/* sentinel for ctt_size */
+
+#define	CTF_MAX_SIZE	0xfffffffe
+#define	CTF_LSIZE_SENT	0xffffffff
 #define	CTF_MAX_LSIZE	UINT64_MAX
+
+#define	CTF_MAX_SIZE_V1	0xfffe	/* max size of a type in bytes */
+#define	CTF_LSIZE_SENT_V1	0xffff	/* sentinel for ctt_size */
+
 
 typedef struct ctf_preamble {
 	uint16_t ctp_magic;	/* magic number (CTF_MAGIC) */
@@ -129,8 +134,6 @@ typedef struct ctf_header {
 #define	cth_version cth_preamble.ctp_version
 #define	cth_flags   cth_preamble.ctp_flags
 
-#ifdef CTF_OLD_VERSIONS
-
 typedef struct ctf_header_v1 {
 	ctf_preamble_t cth_preamble;
 	uint32_t cth_objtoff;
@@ -140,15 +143,14 @@ typedef struct ctf_header_v1 {
 	uint32_t cth_strlen;
 } ctf_header_v1_t;
 
-#endif /* CTF_OLD_VERSIONS */
-
 #define	CTF_MAGIC	0xcff1	/* magic number identifying header */
 
 /* data format version number */
 #define	CTF_VERSION_1	1
 #define	CTF_VERSION_2	2
 #define	CTF_VERSION_3	3
-#define	CTF_VERSION	CTF_VERSION_3	/* current version */
+#define	CTF_VERSION_4	4
+#define	CTF_VERSION	CTF_VERSION_4	/* current version */
 
 #define	CTF_F_COMPRESS	0x1	/* data buffer is compressed */
 
@@ -159,12 +161,32 @@ typedef struct ctf_lblent {
 
 typedef struct ctf_stype {
 	uint32_t ctt_name;	/* reference to name in string table */
+	uint32_t ctt_info;	/* encoded kind, variant length (see below) */
+	union {
+		uint32_t _size;	/* size of entire type in bytes */
+		uint32_t _type;	/* reference to another type */
+	} _u;
+} ctf_stype_t;
+
+typedef struct ctf_stype_v1 {
+	uint32_t ctt_name;	/* reference to name in string table */
 	uint16_t ctt_info;	/* encoded kind, variant length (see below) */
 	union {
 		uint16_t _size;	/* size of entire type in bytes */
 		uint16_t _type;	/* reference to another type */
 	} _u;
-} ctf_stype_t;
+} ctf_stype_v1_t;
+
+typedef struct ctf_type {
+	uint32_t ctt_name;    /* reference to name in string table */
+	uint32_t ctt_info;    /* encoded kind, variant length (see below) */
+	union {
+		uint32_t _size;    /* always CTF_LSIZE_SENT */
+		uint32_t _type; /* do not use */
+	} _u;
+	uint32_t ctt_lsizehi;    /* high 32 bits of type size in bytes */
+	uint32_t ctt_lsizelo;    /* low 32 bits of type size in bytes */
+} ctf_type_t;
 
 /*
  * type sizes, measured in bytes, come in two flavors.  99% of them fit within
@@ -174,7 +196,7 @@ typedef struct ctf_stype {
  * ctf_type_t.  Use of this member is indicated by the presence of
  * CTF_LSIZE_SENT in ctt_size.
  */
-typedef struct ctf_type {
+typedef struct ctf_type_v1 {
 	uint32_t ctt_name;	/* reference to name in string table */
 	uint16_t ctt_info;	/* encoded kind, variant length (see below) */
 	union {
@@ -183,7 +205,7 @@ typedef struct ctf_type {
 	} _u;
 	uint32_t ctt_lsizehi;	/* high 32 bits of type size in bytes */
 	uint32_t ctt_lsizelo;	/* low 32 bits of type size in bytes */
-} ctf_type_t;
+} ctf_type_v1_t;
 
 #define	ctt_size _u._size	/* for fundamental types that have a size */
 #define	ctt_type _u._type	/* for types that reference another type */
@@ -192,10 +214,10 @@ typedef struct ctf_type {
  * The following macros compose and decompose values for ctt_info and
  * ctt_name, as well as other structures that contain name references.
  *
- *             ------------------------
- * ctt_info:   | kind | isroot | vlen |
- *             ------------------------
- *             15   11    10    9     0
+ *             -----------------------------------
+ * ctt_info:   | reserved | kind | isroot | vlen |
+ *             -----------------------------------
+ *             31         15   11    10    9     0
  *
  * kind = CTF_INFO_KIND(c.ctt_info);     <-- CTF_K_* value (see below)
  * vlen = CTF_INFO_VLEN(c.ctt_info);     <-- length of variable data list
@@ -220,12 +242,19 @@ typedef struct ctf_type {
 #define	CTF_TYPE_NAME(stid, offset) \
 	(((stid) << 31) | ((offset) & 0x7fffffff))
 
-#define	CTF_TYPE_ISPARENT(id)	((id) < 0x8000)
-#define	CTF_TYPE_ISCHILD(id)	((id) > 0x7fff)
+#define	CTF_TYPE_ISPARENT(id)	((uint32_t)(id) < 0x80000000)
+#define	CTF_TYPE_ISCHILD(id)	((uint32_t)(id) > 0x7fffffff)
 
-#define	CTF_TYPE_TO_INDEX(id)		((id) & 0x7fff)
-#define	CTF_INDEX_TO_TYPE(id, child)	((child) ? ((id) | 0x8000) : (id))
-#define	CTF_PARENT_SHIFT	15
+#define	CTF_TYPE_ISPARENT_V1(id)	((id) < 0x8000)
+#define	CTF_TYPE_ISCHILD_V1(id)	((id) > 0x7fff)
+
+#define	CTF_TYPE_TO_INDEX(id)		((id) & 0x7fffffff)
+#define	CTF_INDEX_TO_TYPE(id, child)	((child) ? ((uint32_t)(id) | 0x80000000) : (uint32_t)(id))
+#define	CTF_PARENT_SHIFT	31
+
+#define	CTF_TYPE_TO_INDEX_V1(id)		((id) & 0x7fff)
+#define	CTF_INDEX_TO_TYPE_V1(id, child)	((child) ? ((id) | 0x8000) : (id))
+#define	CTF_PARENT_SHIFT_V1	15
 
 #define	CTF_STRTAB_0	0	/* symbolic define for string table id 0 */
 #define	CTF_STRTAB_1	1	/* symbolic define for string table id 1 */
@@ -235,16 +264,12 @@ typedef struct ctf_type {
 #define	CTF_SIZE_TO_LSIZE_HI(size)	((uint32_t)((uint64_t)(size) >> 32))
 #define	CTF_SIZE_TO_LSIZE_LO(size)	((uint32_t)(size))
 
-#ifdef CTF_OLD_VERSIONS
-
 #define	CTF_INFO_KIND_V1(info)		(((info) & 0xf000) >> 12)
 #define	CTF_INFO_ISROOT_V1(info)	(((info) & 0x0800) >> 11)
 #define	CTF_INFO_VLEN_V1(info)		(((info) & 0x07ff))
 
 #define	CTF_TYPE_INFO_V1(kind, isroot, vlen) \
 	(((kind) << 12) | (((isroot) ? 1 : 0) << 11) | ((vlen) & 0x07ff))
-
-#endif /* CTF_OLD_VERSIONS */
 
 /*
  * Values for CTF_TYPE_KIND().  If the kind has an associated data list,
@@ -257,7 +282,7 @@ typedef struct ctf_type {
 #define	CTF_K_POINTER	3	/* ctt_type is referenced type */
 #define	CTF_K_ARRAY	4	/* variant data is single ctf_array_t */
 #define	CTF_K_FUNCTION	5	/* ctt_type is return type, variant data is */
-				/* list of argument types (uint16_t's) */
+				/* list of argument types (uint32_t's) */
 #define	CTF_K_STRUCT	6	/* variant data is list of ctf_member_t's */
 #define	CTF_K_UNION	7	/* variant data is list of ctf_member_t's */
 #define	CTF_K_ENUM	8	/* variant data is list of ctf_enum_t's */
@@ -326,10 +351,16 @@ typedef struct ctf_type {
 #define	CTF_PTRAUTH_DISCRIMINATOR(data)		(((data) & 0x0000ffff))
 
 typedef struct ctf_array {
+	uint32_t cta_contents;	/* reference to type of array contents */
+	uint32_t cta_index;	/* reference to type of array index */
+	uint32_t cta_nelems;	/* number of elements */
+} ctf_array_t;
+
+typedef struct ctf_array_v1 {
 	uint16_t cta_contents;	/* reference to type of array contents */
 	uint16_t cta_index;	/* reference to type of array index */
 	uint32_t cta_nelems;	/* number of elements */
-} ctf_array_t;
+} ctf_array_v1_t;
 
 /*
  * Most structure members have bit offsets that can be expressed using a
@@ -343,17 +374,30 @@ typedef struct ctf_array {
 
 typedef struct ctf_member {
 	uint32_t ctm_name;	/* reference to name in string table */
-	uint16_t ctm_type;	/* reference to type of member */
+	uint32_t ctm_type;	/* reference to type of member */
 	uint16_t ctm_offset;	/* offset of this member in bits */
 } ctf_member_t;
 
 typedef struct ctf_lmember {
 	uint32_t ctlm_name;	/* reference to name in string table */
+	uint32_t ctlm_type;	/* reference to type of member */
+	uint32_t ctlm_offsethi;	/* high 32 bits of member offset in bits */
+	uint32_t ctlm_offsetlo;	/* low 32 bits of member offset in bits */
+} ctf_lmember_t;
+
+typedef struct ctf_member_v1 {
+	uint32_t ctm_name;	/* reference to name in string table */
+	uint16_t ctm_type;	/* reference to type of member */
+	uint16_t ctm_offset;	/* offset of this member in bits */
+} ctf_member_v1_t;
+
+typedef struct ctf_lmember_v1 {
+	uint32_t ctlm_name;	/* reference to name in string table */
 	uint16_t ctlm_type;	/* reference to type of member */
 	uint16_t ctlm_pad;	/* padding */
 	uint32_t ctlm_offsethi;	/* high 32 bits of member offset in bits */
 	uint32_t ctlm_offsetlo;	/* low 32 bits of member offset in bits */
-} ctf_lmember_t;
+} ctf_lmember_v1_t;
 
 #define	CTF_LMEM_OFFSET(ctlmp) \
 	(((uint64_t)(ctlmp)->ctlm_offsethi) << 32 | (ctlmp)->ctlm_offsetlo)

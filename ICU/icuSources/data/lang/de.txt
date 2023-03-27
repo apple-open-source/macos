@@ -46,6 +46,7 @@ de{
         ang{"Altenglisch"}
         anp{"Angika"}
         apw{"Apachen, westliche"}
+        apw_Latn{"Apachen, westliche"}
         ar{"Arabisch"}
         ar_001{"Modernes Hocharabisch"}
         arc{"Aramäisch"}
@@ -122,9 +123,12 @@ de{
         chm{"Mari"}
         chn{"Chinook"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chp{"Chipewyan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}
+        cic{"Chickasaw"}
+        cic_Latn{"Chickasaw"}
         ckb{"Kurdisch (Sorani)"}
         co{"Korsisch"}
         cop{"Koptisch"}

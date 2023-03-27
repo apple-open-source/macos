@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -217,7 +217,7 @@ prefs_observer_release(scprefs_observer_t observer)
 }
 
 static void
-prefs_observer_handle_notifications()
+prefs_observer_handle_notifications(void)
 {
 	scprefs_observer_t observer;
 
@@ -232,7 +232,7 @@ prefs_observer_handle_notifications()
 }
 
 static void
-_prefs_observer_init()
+_prefs_observer_init(void)
 {
 	uint32_t	status;
 	static int	token;

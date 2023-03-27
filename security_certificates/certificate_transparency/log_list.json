@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 19,
+    "assetVersion": 20,
     "operators": [
         {
             "email": [
@@ -158,9 +158,9 @@
                     "log_id": "2ra/az+1tiKfm8K7XGvocJFxbLtRhIU0vaQ9MEjX+6s=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2022-08-30T02:31:50Z",
-                            "version": "160"
+                        "usable": {
+                            "timestamp": "2022-11-13T00:00:00Z",
+                            "version": "179"
                         }
                     },
                     "temporal_interval": {
@@ -612,9 +612,9 @@
                     "log_id": "7s3QZNXbGs7FXLedtM0TojKHRny87N7DUUhZRnEftZs=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2022-08-30T02:30:16Z",
-                            "version": "165"
+                        "usable": {
+                            "timestamp": "2022-11-13T00:00:00Z",
+                            "version": "173"
                         }
                     },
                     "temporal_interval": {
@@ -629,9 +629,9 @@
                     "log_id": "dv+IPwq2+5VRwmHM9Ye6NLSkzbsp3GhCCp/mZ0xaOnQ=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2022-08-30T02:30:32Z",
-                            "version": "166"
+                        "usable": {
+                            "timestamp": "2022-11-13T00:00:00Z",
+                            "version": "174"
                         }
                     },
                     "temporal_interval": {
@@ -982,9 +982,9 @@
                     "log_id": "SLDja9qmRzQP5WoC+p0w6xxSActW3SyB2bu/qznYhHM=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2022-08-30T02:30:52Z",
-                            "version": "156"
+                        "usable": {
+                            "timestamp": "2022-11-13T00:00:00Z",
+                            "version": "175"
                         }
                     },
                     "temporal_interval": {
@@ -999,9 +999,9 @@
                     "log_id": "c9meiRtMlnigIH1HneayxhzQUV5xGSqMa4AQesF3crU=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2022-08-30T02:31:17Z",
-                            "version": "158"
+                        "usable": {
+                            "timestamp": "2022-11-13T00:00:00Z",
+                            "version": "177"
                         }
                     },
                     "temporal_interval": {
@@ -1016,9 +1016,9 @@
                     "log_id": "fVkeEuF4KnscYWd8Xv340IdcFKBOlZ65Ay/ZDowuebg=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2022-08-30T02:31:04Z",
-                            "version": "157"
+                        "usable": {
+                            "timestamp": "2022-11-13T00:00:00Z",
+                            "version": "176"
                         }
                     },
                     "temporal_interval": {
@@ -1033,9 +1033,9 @@
                     "log_id": "5tIxY0B3jMEQQQbXcbnOwdJA9paEhvu6hzId/R43jlA=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2022-08-30T02:31:30Z",
-                            "version": "159"
+                        "usable": {
+                            "timestamp": "2022-11-13T00:00:00Z",
+                            "version": "178"
                         }
                     },
                     "temporal_interval": {
@@ -1058,9 +1058,9 @@
                     "log_id": "b1N2rDHwMRnYmQCkURX/dxUcEdkCwQApBo2yCJo32RM=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2017-09-19T18:24:24Z",
-                            "version": "7"
+                        "retired": {
+                            "timestamp": "2023-01-15T00:00:00Z",
+                            "version": "182"
                         }
                     },
                     "url": "https://mammoth.ct.comodo.com/"
@@ -1177,9 +1177,9 @@
                     "log_id": "O1N3dT4tuYBOizBbBv5AO2fYT8P0x70ADS1yb+H61Bc=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2022-08-31T22:55:22Z",
-                            "version": "163"
+                        "usable": {
+                            "timestamp": "2022-11-13T00:00:00Z",
+                            "version": "180"
                         }
                     },
                     "temporal_interval": {
@@ -1194,9 +1194,9 @@
                     "log_id": "PxdLT9ciR1iUHWUchL4NEu2QN38fhWrrwb8ohez4ZG4=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2022-08-31T22:55:36Z",
-                            "version": "164"
+                        "usable": {
+                            "timestamp": "2022-11-13T00:00:00Z",
+                            "version": "181"
                         }
                     },
                     "temporal_interval": {
@@ -1285,5 +1285,5 @@
             "name": "TrustAsia"
         }
     ],
-    "version": "172"
+    "version": "182"
 }

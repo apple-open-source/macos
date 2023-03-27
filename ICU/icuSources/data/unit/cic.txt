@@ -1,0 +1,27 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+cic{
+    units{
+        duration{
+            day{
+                other{"{0} Nittak"}
+            }
+            hour{
+                other{"Hashiʼ kanalli chaffaʼ {0}"}
+            }
+            minute{
+                other{"Hashiʼ kanallloshiʼ {0}"}
+            }
+            month{
+                other{"Hashiʼ alhpisaʼ {0}"}
+            }
+            week{
+                other{"Nittak hollo ittataklaʼ {0}"}
+            }
+            year{
+                other{"Afammi {0}"}
+            }
+        }
+    }
+}

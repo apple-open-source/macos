@@ -891,7 +891,7 @@ get_statd_pid(void)
 {
 	char pidbuf[128], *pidend;
 	int fd, rv;
-	size_t len;
+	ssize_t len;
 	pid_t pid;
 	struct flock lock;
 

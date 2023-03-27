@@ -110,6 +110,8 @@ struct SpirvType
     SpirvTypeSpec typeSpec;
 };
 
+bool operator==(const SpirvType &a, const SpirvType &b);
+
 struct SpirvIdAndIdList
 {
     spirv::IdRef id;
@@ -223,15 +225,17 @@ struct SpirvTypeData
 // are:
 //
 //     RelaxedPrecision: used to implement |lowp| and |mediump|
-//     NoContraction: used to implement |precise|.  TODO: support this.  It requires the precise
-//                    property to be promoted through the nodes in the AST, which currently isn't.
-//                    http://anglebug.com/4889
+//     NoContraction: used to implement |precise|.
 //     Invariant: used to implement |invariant|, which is applied to output variables.
+//     Memory qualifiers: used to implement |coherent, volatile, restrict, readonly, writeonly|,
+//                        which apply to shader storage blocks, variables declared within shader
+//                        storage blocks, and images.
 //
-// Note that Invariant applies to variables and NoContraction to arithmetic instructions, so they
-// are mutually exclusive and a maximum of 2 decorations are possible.  FixedVector::push_back will
-// ASSERT if the given size is ever not enough.
-using SpirvDecorations = angle::FixedVector<spv::Decoration, 2>;
+// Note that Invariant applies to output variables, NoContraction to arithmetic instructions, and
+// memory qualifiers to shader storage and images, so they are mutually exclusive. A maximum of 6
+// decorations are possible.  FixedVector::push_back will ASSERT if the given size is ever not
+// enough.
+using SpirvDecorations = angle::FixedVector<spv::Decoration, 6>;
 
 // A block of code.  SPIR-V produces forward references to blocks, such as OpBranchConditional
 // specifying the id of the if and else blocks, each of those referencing the id of the block after
@@ -290,8 +294,11 @@ enum class SPIRVExtensions
     // GL_OVR_multiview / SPV_KHR_multiview
     MultiviewOVR = 0,
 
-    InvalidEnum = 1,
-    EnumCount   = 1,
+    // GL_ARB_fragment_shader_interlock / SPV_EXT_fragment_shader_interlock
+    FragmentShaderInterlockARB = 1,
+
+    InvalidEnum = 2,
+    EnumCount   = 2,
 };
 
 // Helper class to construct SPIR-V
@@ -299,7 +306,7 @@ class SPIRVBuilder : angle::NonCopyable
 {
   public:
     SPIRVBuilder(TCompiler *compiler,
-                 ShCompileOptions compileOptions,
+                 const ShCompileOptions &compileOptions,
                  ShHashFunction64 hashFunction,
                  NameMap &nameMap);
 
@@ -458,8 +465,8 @@ class SPIRVBuilder : angle::NonCopyable
     void writeExtensions(spirv::Blob *blob);
     void writeSourceExtensions(spirv::Blob *blob);
 
-    [[maybe_unused]] TCompiler *mCompiler;
-    ShCompileOptions mCompileOptions;
+    ANGLE_MAYBE_UNUSED_PRIVATE_FIELD TCompiler *mCompiler;
+    const ShCompileOptions &mCompileOptions;
     gl::ShaderType mShaderType;
 
     // Capabilities the shader is using.  Accumulated as the instructions are generated.  The Shader
@@ -468,7 +475,7 @@ class SPIRVBuilder : angle::NonCopyable
     // Execution modes the shader is using.  Most execution modes are automatically derived from
     // shader metadata, but some are only discovered while traversing the tree.  Only the latter
     // execution modes are stored here.
-    angle::BitSet<32> mExecutionModes;
+    std::set<spv::ExecutionMode> mExecutionModes;
     // Extensions used by the shader.
     angle::PackedEnumBitSet<SPIRVExtensions> mExtensions;
 

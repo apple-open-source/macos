@@ -78,7 +78,7 @@
 	<integer>0</integer>
 	<key>matd</key>
 	<integer>0</integer>
-	<key>HealthStudies</key>
+	<key>HealthStudiesWatchExtension</key>
 	<integer>0</integer>
 </dict>
 </plist>

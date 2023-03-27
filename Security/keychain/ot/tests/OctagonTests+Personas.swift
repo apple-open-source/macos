@@ -82,8 +82,8 @@ class OctagonPersonaTests: OctagonTestsBase {
         let secondAltDSID = "second_altdsid"
         let secondPersonaString = UUID().uuidString
 
-        self.mockPersonaAdapter.currentPersonaString = secondPersonaString
-        self.mockPersonaAdapter.isDefaultPersona = false
+        self.mockPersonaAdapter!.currentPersonaString = secondPersonaString
+        self.mockPersonaAdapter!.isDefaultPersona = false
 
         XCTAssertThrowsError(try self.manager.context(forClientRPC: OTControlArguments(),
                                                       createIfMissing: true,
@@ -129,7 +129,7 @@ class OctagonPersonaTests: OctagonTestsBase {
 
         self.mockAuthKit.add(account)
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Primary account is signed out
         self.mockAuthKit.removeAccount(forPersona: OTMockPersonaAdapter.defaultMockPersonaString())
@@ -237,7 +237,7 @@ class OctagonPersonaTests: OctagonTestsBase {
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: secondAccountPersona, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
 
         self.mockAuthKit.add(account)
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Primary account is signed out
         self.mockAuthKit.removeAccount(forPersona: OTMockPersonaAdapter.defaultMockPersonaString())
@@ -248,8 +248,8 @@ class OctagonPersonaTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
 
         // Sign in occurs from some other Persona, and is rejected because of the platform flag
-        self.mockPersonaAdapter.currentPersonaString = secondAccountPersona
-        self.mockPersonaAdapter.isDefaultPersona = false
+        self.mockPersonaAdapter!.currentPersonaString = secondAccountPersona
+        self.mockPersonaAdapter!.isDefaultPersona = false
         OctagonSetSupportsPersonaMultiuser(false)
 
         do {
@@ -305,7 +305,7 @@ class OctagonPersonaTests: OctagonTestsBase {
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
         self.mockAuthKit.add(account)
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Primary account is signed out
         self.mockAuthKit.removeAccount(forPersona: OTMockPersonaAdapter.defaultMockPersonaString())
@@ -359,7 +359,7 @@ class OctagonPersonaTests: OctagonTestsBase {
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
         self.mockAuthKit.add(account)
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Primary account is signed out
         self.mockAuthKit.removeAccount(forPersona: OTMockPersonaAdapter.defaultMockPersonaString())
@@ -455,7 +455,7 @@ class OctagonPersonaTests: OctagonTestsBase {
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
         self.mockAuthKit.add(account)
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Primary account is signed out
         self.mockAuthKit.removeAccount(forPersona: OTMockPersonaAdapter.defaultMockPersonaString())
@@ -510,26 +510,26 @@ class OctagonPersonaTests: OctagonTestsBase {
             do {
                 _ = try OTAccountMetadataClassC.loadFromKeychain(forContainer: activeAccount.cloudkitContainerName,
                                                                      contextID: activeAccount.octagonContextID,
-                                                                     personaAdapter: self.mockPersonaAdapter,
+                                                                     personaAdapter: self.mockPersonaAdapter!,
                                                                      personaUniqueString: activeAccount.personaUniqueString)
             } catch {
                 XCTFail("didn't expect to throw an error")
             }
 
             #if os(watchOS)
-                XCTAssertNoThrow(try OTAccountMetadataClassC.loadFromKeychain(forContainer: activeAccount.cloudkitContainerName, contextID: activeAccount.octagonContextID, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil))
+                XCTAssertNoThrow(try OTAccountMetadataClassC.loadFromKeychain(forContainer: activeAccount.cloudkitContainerName, contextID: activeAccount.octagonContextID, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil))
             #else // watchOS
                 XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: activeAccount.cloudkitContainerName,
                                                                               contextID: activeAccount.octagonContextID,
-                                                                              personaAdapter: self.mockPersonaAdapter,
+                                                                              personaAdapter: self.mockPersonaAdapter!,
                                                                               personaUniqueString: nil))
             #endif // watchOS
 
             // Ensure that the ego keys are in the right musr.
-            self.mockPersonaAdapter.prepareThreadForKeychainAPIUse(forPersonaIdentifier: activeAccount.personaUniqueString)
+            self.mockPersonaAdapter!.prepareThreadForKeychainAPIUse(forPersonaIdentifier: activeAccount.personaUniqueString)
             _ = try XCTUnwrap(loadEgoKeysSync(peerID: peerID))
 
-            self.mockPersonaAdapter.prepareThreadForKeychainAPIUse(forPersonaIdentifier: nil)
+            self.mockPersonaAdapter!.prepareThreadForKeychainAPIUse(forPersonaIdentifier: nil)
 
             #if os(watchOS)
                 XCTAssertNoThrow(try loadEgoKeysSync(peerID: peerID))
@@ -580,7 +580,7 @@ class OctagonPersonaTests: OctagonTestsBase {
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
         self.mockAuthKit.add(account)
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.startCKAccountStatusMock()
 
@@ -765,7 +765,7 @@ class OctagonPersonaTests: OctagonTestsBase {
         let secondAccount = CloudKitAccount(altDSID: UUID().uuidString, appleAccountID: UUID().uuidString, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
 
         self.mockAuthKit.add(secondAccount)
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Primary account is signed out
         self.mockAuthKit.removeAccount(forPersona: OTMockPersonaAdapter.defaultMockPersonaString())
@@ -881,7 +881,7 @@ class OctagonPersonaTests: OctagonTestsBase {
         let thirdAccount = CloudKitAccount(altDSID: thirdAccountAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: false)
         self.mockAuthKit.add(thirdAccount)
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.manager.initializeOctagon()
 
@@ -911,7 +911,7 @@ class OctagonPersonaTests: OctagonTestsBase {
         let actualAdapter = OTAccountsActualAdapter()
         TestsObjectiveC.setACAccountStoreWithInvalidationError(actualAdapter)
 
-        XCTAssertThrowsError(try actualAdapter.findAccount(forCurrentThread: self.mockPersonaAdapter, optionalAltDSID: nil, cloudkitContainerName: OTCKContainerName, octagonContextID: OTDefaultContext), "expect an error to be thrown")
+        XCTAssertThrowsError(try actualAdapter.findAccount(forCurrentThread: self.mockPersonaAdapter!, optionalAltDSID: nil, cloudkitContainerName: OTCKContainerName, octagonContextID: OTDefaultContext), "expect an error to be thrown")
 
         XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 6, "should have been invoked 6 times")
     }
@@ -920,7 +920,7 @@ class OctagonPersonaTests: OctagonTestsBase {
         let actualAdapter = OTAccountsActualAdapter()
         TestsObjectiveC.setACAccountStoreWithRandomError(actualAdapter)
 
-        XCTAssertThrowsError(try actualAdapter.findAccount(forCurrentThread: self.mockPersonaAdapter, optionalAltDSID: nil, cloudkitContainerName: OTCKContainerName, octagonContextID: OTDefaultContext), "expect an error to be thrown")
+        XCTAssertThrowsError(try actualAdapter.findAccount(forCurrentThread: self.mockPersonaAdapter!, optionalAltDSID: nil, cloudkitContainerName: OTCKContainerName, octagonContextID: OTDefaultContext), "expect an error to be thrown")
 
         XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 1, "should have been invoked 1 times")
     }

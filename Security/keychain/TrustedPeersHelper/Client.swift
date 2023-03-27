@@ -146,11 +146,11 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func reset(with user: TPSpecificUser?, resetReason: CuttlefishResetReason, reply: @escaping (Error?) -> Void) {
+    func reset(with user: TPSpecificUser?, resetReason: CuttlefishResetReason, idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
         do {
             logger.info("Resetting for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.reset(resetReason: resetReason) { error in
+            container.reset(resetReason: resetReason, idmsTargetContext: idmsTargetContext, idmsCuttlefishPassword: idmsCuttlefishPassword, notifyIdMS: notifyIdMS) { error in
                 self.logComplete(function: "Resetting", container: container.name, error: error)
                 reply(error?.sanitizeForClientXPC()) }
         } catch {
@@ -262,7 +262,7 @@ class Client: TrustedPeersHelperProtocol {
                  policySecrets: [String: Data]?,
                  syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus,
                  secureElementIdentity: TPPBSecureElementIdentity?,
-                 setting: OTAccountSettingsX?,
+                 setting: OTAccountSettings?,
                  signingPrivKeyPersistentRef: Data?,
                  encPrivKeyPersistentRef: Data?,
                  reply: @escaping (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, Error?) -> Void) {
@@ -284,8 +284,8 @@ class Client: TrustedPeersHelperProtocol {
                               setting: setting,
                               signingPrivateKeyPersistentRef: signingPrivKeyPersistentRef,
                               encryptionPrivateKeyPersistentRef: encPrivKeyPersistentRef) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, policy, error in
-                self.logComplete(function: "Prepare", container: container.name, error: error)
-                reply(peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, policy, error?.sanitizeForClientXPC())
+                                self.logComplete(function: "Prepare", container: container.name, error: error)
+                                reply(peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, policy, error?.sanitizeForClientXPC())
             }
         } catch {
             logger.info("Prepare failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
@@ -557,6 +557,8 @@ class Client: TrustedPeersHelperProtocol {
                 policySecrets: [String: Data]?,
                 syncUserControllableViews: NSNumber?,
                 secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity?,
+                walrusSetting: TPPBPeerStableInfoSetting?,
+                webAccess: TPPBPeerStableInfoSetting?,
                 reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
         do {
             logger.info("Updating \(String(describing: user), privacy: .public)")
@@ -585,7 +587,9 @@ class Client: TrustedPeersHelperProtocol {
                              policyVersion: policyVersion?.uint64Value,
                              policySecrets: policySecrets,
                              syncUserControllableViews: syncUserControllableSetting,
-                             secureElementIdentity: secureElementIdentity
+                             secureElementIdentity: secureElementIdentity,
+                             walrusSetting: walrusSetting,
+                             webAccess: webAccess
                              ) { state, policy, error in reply(state, policy, error?.sanitizeForClientXPC()) }
         } catch {
             logger.info("update failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
@@ -872,11 +876,11 @@ class Client: TrustedPeersHelperProtocol {
             reply(error.sanitizeForClientXPC())
         }
     }
-    func resetAccountCDPContents(with user: TPSpecificUser?, reply: @escaping (Error?) -> Void) {
+    func resetAccountCDPContents(with user: TPSpecificUser?, idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
         do {
             logger.info("resetAccountCDPContents for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.resetCDPAccountData { error in
+            container.resetCDPAccountData(idmsTargetContext: idmsTargetContext, idmsCuttlefishPassword: idmsCuttlefishPassword, notifyIdMS: notifyIdMS) { error in
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
@@ -884,16 +888,53 @@ class Client: TrustedPeersHelperProtocol {
             reply(error.sanitizeForClientXPC())
         }
     }
-    func fetchAccountSettings(with user: TPSpecificUser?, reply: @escaping ([String: TPPBPeerStableInfoSetting]?, Error?) -> Void) {
+    func fetchAccountSettings(with user: TPSpecificUser?, forceFetch: Bool, reply: @escaping ([String: TPPBPeerStableInfoSetting]?, Error?) -> Void) {
         do {
             logger.info("fetchAccountSettings for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.fetchAccountSettings { settings, error in
+            container.fetchAccountSettings(forceFetch: forceFetch) { settings, error in
                 reply(settings, error?.sanitizeForClientXPC())
             }
         } catch {
             logger.info("fetchAccountSettings failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+    func isRecoveryKeySet(_ specificUser: TPSpecificUser?, reply: @escaping (Bool, Error?) -> Void) {
+        do {
+            logger.info("isRecoveryKeySet for \(String(describing: specificUser), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: specificUser)
+            container.isRecoveryKeySet { isSet, error in
+                reply(isSet, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.info("isRecoveryKeySet failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(false, error.sanitizeForClientXPC())
+        }
+    }
+    func removeRecoveryKey(_ specificUser: TPSpecificUser?, reply: @escaping (Bool, Error?) -> Void) {
+        do {
+            logger.info("removeRecoveryKey for \(String(describing: specificUser), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: specificUser)
+            container.removeRecoveryKey { removed, error in
+                reply(removed, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.info("removeRecoveryKey failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(false, error.sanitizeForClientXPC())
+        }
+    }
+
+    func performATOPRVActions(with user: TPSpecificUser?, reply: @escaping (Error?) -> Void) {
+        do {
+            logger.info("performATOPRVActions for \(String(describing: user), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.performATOPRVActions { error in
+                reply(error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.info("performATOPRVActions failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(error.sanitizeForClientXPC())
         }
     }
 

@@ -31,7 +31,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(SVGFEOffsetElement);
 
 inline SVGFEOffsetElement::SVGFEOffsetElement(const QualifiedName& tagName, Document& document)
-    : SVGFilterPrimitiveStandardAttributes(tagName, document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document, makeUniqueRef<PropertyRegistry>(*this))
 {
     ASSERT(hasTagName(SVGNames::feOffsetTag));
     
@@ -96,6 +96,11 @@ bool SVGFEOffsetElement::setFilterEffectAttribute(FilterEffect& effect, const Qu
 
     ASSERT_NOT_REACHED();
     return false;
+}
+
+bool SVGFEOffsetElement::isIdentity() const
+{
+    return !dx() && !dy();
 }
 
 IntOutsets SVGFEOffsetElement::outsets(const FloatRect& targetBoundingBox, SVGUnitTypes::SVGUnitType primitiveUnits) const

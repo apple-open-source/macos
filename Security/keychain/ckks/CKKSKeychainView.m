@@ -206,8 +206,8 @@
         }];
 
         _outgoingQueuePriorityOperationScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"outgoing-queue-priority-scheduler"]
-                                                                                    initialDelay:NSEC_PER_SEC*1
-                                                                                 continuingDelay:NSEC_PER_SEC*1
+                                                                                    initialDelay:NSEC_PER_MSEC*500
+                                                                                 continuingDelay:NSEC_PER_MSEC*500
                                                                                 keepProcessAlive:false
                                                                        dependencyDescriptionCode:CKKSResultDescriptionPendingOutgoingQueueScheduling
                                                                                            block:^{
@@ -1732,7 +1732,7 @@
         return;
     }
 
-    ckksnotice("ckks", viewState.zoneID, "Routing item to zone %@: " SECDBITEM_FMT, viewName, modified);
+    ckksinfo("ckks", viewState.zoneID, "Routing item to zone %@: " SECDBITEM_FMT, viewName, modified);
 
     __block NSError* error = nil;
 
@@ -2074,7 +2074,7 @@
                           identifier:(NSString*)identifier
                             viewHint:(NSString*)viewHint
                      fetchCloudValue:(bool)fetchCloudValue
-                            complete:(void (^) (NSString* uuid, NSError* operror)) complete
+                            complete:(void (^) (CKKSCurrentItemData* data, NSError* operror)) complete
 {
     NSError* viewError = nil;
     CKKSKeychainViewState* viewState = [self policyDependentViewStateForName:viewHint
@@ -2165,7 +2165,9 @@
             }
 
             ckksinfo("ckkscurrent", self, "Retrieved current item pointer: %@", cip);
-            complete(cip.currentItemUUID, NULL);
+            CKKSCurrentItemData *data = [[CKKSCurrentItemData alloc] initWithUUID: cip.currentItemUUID];
+            data.modificationDate = cip.storedCKRecord.modificationDate;
+            complete(data, NULL);
             return;
         }];
     }];
@@ -3393,7 +3395,12 @@
             }
         }
 
-        ckksnotice("ckksfetch", zoneID, "Finished processing changes for %@", zoneID);
+        ckksnotice("ckksfetch", zoneID, "Finished processing changes: changed=%lu deleted=%lu moreComing=%lu resync=%u changeToken=%@",
+                   (unsigned long)changedRecords.count,
+                   (unsigned long)deletedRecords.count,
+                   (unsigned long)moreComing,
+                   resync,
+                   newChangeToken);
 
         return CKKSDatabaseTransactionCommit;
     }];
@@ -3792,6 +3799,12 @@
             NSDate *lastCKKSPush = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastCKKSPush];
 
 #define stringify(obj) CKKSNilToNSNull([obj description])
+            NSMutableArray<NSString*>* operationDescriptions = [NSMutableArray array];
+            NSArray* ops = [self.operationQueue.operations copy];
+            for(id op in ops) {
+                [operationDescriptions addObject:[op description]];
+            }
+
             NSDictionary* global = @{
                 @"view":                @"global",
                 @"reachability":        self.reachabilityTracker.currentReachability ? @"network" : @"no-network",
@@ -3819,6 +3832,7 @@
                 @"lastReencryptOutgoingItemsOperation":stringify(self.lastReencryptOutgoingItemsOperation),
 
                 @"launchSequence":      CKKSNilToNSNull([self.operationDependencies.overallLaunch eventsByTime]),
+                @"operationQueue":  operationDescriptions,
             };
             [result addObject:global];
         }

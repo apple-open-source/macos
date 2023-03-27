@@ -30,29 +30,19 @@ bool AppleRAIDMemoryDescriptor::initWithStorageRequest(AppleRAIDStorageRequest *
 {
     if (!super::init()) return false;
     
-    mdMemoryDescriptorLock = IOLockAlloc();
-    if (mdMemoryDescriptorLock == 0) return false;
-    
     mdStorageRequest = storageRequest;
     
     mdMemberIndex = memberIndex;
     return true;
 }
 
-void AppleRAIDMemoryDescriptor::free(void)
-{
-    IOLockFree(mdMemoryDescriptorLock);
-
-    super::free();
-}
-
 IOReturn AppleRAIDMemoryDescriptor::prepare(IODirection forDirection)
 {
     IOReturn result;
     
-    IOLockLock(mdMemoryDescriptorLock);
+    IOLockLock(mdStorageRequest->srClientMemoryDescriptorLock);
     result = mdMemoryDescriptor->prepare(forDirection);
-    IOLockUnlock(mdMemoryDescriptorLock);
+    IOLockUnlock(mdStorageRequest->srClientMemoryDescriptorLock);
     
     return result;
 }
@@ -61,9 +51,9 @@ IOReturn AppleRAIDMemoryDescriptor::complete(IODirection forDirection)
 {
     IOReturn result;
     
-    IOLockLock(mdMemoryDescriptorLock);
+    IOLockLock(mdStorageRequest->srClientMemoryDescriptorLock);
     result = mdMemoryDescriptor->complete(forDirection);
-    IOLockUnlock(mdMemoryDescriptorLock);
+    IOLockUnlock(mdStorageRequest->srClientMemoryDescriptorLock);
     
     return result;
 }

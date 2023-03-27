@@ -67,9 +67,6 @@ OSStatus authorization_right_get(connection_t,xpc_object_t,xpc_object_t);
     
 AUTH_NONNULL_ALL
 OSStatus authorization_right_set(connection_t,xpc_object_t,xpc_object_t);
-    
-AUTH_NONNULL_ALL
-OSStatus authorization_enable_smartcard(connection_t,xpc_object_t,xpc_object_t);
 
 AUTH_NONNULL_ALL
 OSStatus authorization_right_remove(connection_t,xpc_object_t,xpc_object_t);

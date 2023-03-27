@@ -24,9 +24,6 @@
 #include "pgm_malloc.h"
 
 #include <TargetConditionals.h>
-#if !TARGET_OS_DRIVERKIT
-# include <dlfcn.h>  // dladdr()
-#endif
 #include <mach/mach_time.h>  // mach_absolute_time()
 #include <sys/codesign.h>  // csops()
 
@@ -89,7 +86,6 @@ typedef struct {
 	uint32_t max_metadata;
 	uint32_t sample_counter_range;
 	uint32_t min_alignment;
-	bool signal_handler;
 	bool debug;
 	uint64_t debug_log_throttle_ms;
 
@@ -136,13 +132,6 @@ MALLOC_STATIC_ASSERT(sizeof(void *) >= sizeof(uint32_t), "Pointer is used as 32b
 #define TSD_SET_COUNTER(val) _pthread_setspecific_direct(__TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER, (void *)(uintptr_t)val)
 
 static const uint32_t k_no_sample = UINT32_MAX;
-
-void
-pgm_disable_for_current_thread(void)
-{
-	malloc_thread_options_t opts = {.DisableExpensiveDebuggingOptions = true};
-	malloc_set_thread_options(opts);
-}
 
 void
 pgm_thread_set_disabled(bool disabled)
@@ -1152,6 +1141,9 @@ is_high_memory_device(void)
 }
 #endif
 
+#define PGM_ALLOW_NON_INTERNAL_ACTIVATION 0
+
+
 bool
 pgm_should_enable(bool internal_build)
 {
@@ -1165,6 +1157,8 @@ pgm_should_enable(bool internal_build)
 		if (is_high_memory_device()) {
 			return true;
 		}
+#elif PGM_ALLOW_NON_INTERNAL_ACTIVATION
+		return true;
 #elif TARGET_OS_DRIVERKIT
 		// Never enable for DriverKit
 #else
@@ -1226,7 +1220,6 @@ configure_zone(pgm_zone_t *zone)
 	zone->sample_counter_range = (sample_rate != 1) ? (2 * sample_rate) : 1;
 	bool strict_alignment = env_var("MallocProbGuardStrictAlignment") ? env_bool("MallocProbGuardStrictAlignment") : FEATURE_FLAG(ProbGuardStrictAlignment, false);
 	zone->min_alignment = (strict_alignment && MALLOC_TARGET_64BIT) ? 1 : 16;  // Darwin ABI requires 16 byte alignment.
-	zone->signal_handler = env_bool("MallocProbGuardSignalHandler");
 	zone->debug = env_bool("MallocProbGuardDebug");
 	zone->debug_log_throttle_ms = env_uint("MallocProbGuardDebugLogThrottleInMillis", 1000);
 
@@ -1278,7 +1271,6 @@ setup_zone(pgm_zone_t *zone, malloc_zone_t *wrapped_zone)
 	init_lock(zone);
 }
 
-static void install_signal_handler(void *unused);
 malloc_zone_t *
 pgm_create_zone(malloc_zone_t *wrapped_zone)
 {
@@ -1290,11 +1282,6 @@ pgm_create_zone(malloc_zone_t *wrapped_zone)
 	pgm_zone_t *zone = (pgm_zone_t *)my_vm_map(sizeof(pgm_zone_t), VM_PROT_READ_WRITE, VM_MEMORY_MALLOC);
 	setup_zone(zone, wrapped_zone);
 	my_vm_protect((vm_address_t)zone, PAGE_MAX_SIZE, VM_PROT_READ);
-
-	if (zone->signal_handler) {
-		static os_once_t once_pred;
-		os_once(&once_pred, NULL, &install_signal_handler);
-	}
 
 	return (malloc_zone_t *)zone;
 }
@@ -1427,60 +1414,6 @@ diagnose_page_fault(const pgm_zone_t *zone, vm_address_t fault_address, pgm_repo
 
 
 #pragma mark -
-#pragma mark Error Printing
-
-static const uint32_t k_buf_len = 1024;
-static void
-get_symbol_and_module_name(vm_address_t addr, char buf[k_buf_len])
-{
-	int success = 0;
-#if !TARGET_OS_DRIVERKIT
-	Dl_info info;
-	success = dladdr((void *)addr, &info);
-	if (success) {
-		snprintf(buf, k_buf_len, "%s  (%s)", info.dli_sname, info.dli_fname);
-	}
-#endif
-	if (!success) {
-		snprintf(buf, k_buf_len, "%p", (void *)addr);
-	}
-}
-
-static void
-print_trace(stack_trace_t *trace, const char *label)
-{
-	malloc_report(ASL_LEVEL_ERR, "%s trace (thread %llu, time: %llu):\n", label, trace->thread_id, trace->time);
-	for (uint32_t i = 0; i < trace->num_frames; i++) {
-		char sym_name[k_buf_len];
-		get_symbol_and_module_name(trace->frames[i], sym_name);
-		malloc_report(ASL_LEVEL_ERR, "  #%u %s\n", i, sym_name);
-	}
-	malloc_report(ASL_LEVEL_ERR, "\n", label);
-}
-
-static void
-print_report(pgm_report_t *report)
-{
-	malloc_report(ASL_LEVEL_ERR, "ProbGuard: invalid access at 0x%lx\n",
-			report->fault_address);
-	malloc_report(ASL_LEVEL_ERR, "Error type: %s (%s confidence)\n",
-			report->error_type, report->confidence);
-	malloc_report(ASL_LEVEL_ERR, "Nearest allocation: 0x%lx, size: %lu, state: %s\n",
-			report->nearest_allocation, report->allocation_size, report->allocation_state);
-
-	if (report->num_traces >= 1) {
-		print_trace(&report->alloc_trace, "Allocation");
-		if (report->num_traces >= 2) {
-			print_trace(&report->dealloc_trace, "Deallocation");
-		}
-	} else {
-		malloc_report(ASL_LEVEL_ERR, "Allocation stack traces not available.  "
-			"Try increasing `MallocProbGuardMetadata` and rerun.\n");
-	}
-}
-
-
-#pragma mark -
 #pragma mark Crash Reporter API
 
 static kern_return_t
@@ -1535,65 +1468,6 @@ pgm_diagnose_fault_from_crash_reporter(vm_address_t fault_address, pgm_report_t 
 
 	_malloc_lock_unlock(&crash_reporter_lock);
 	return kr;
-}
-
-
-#pragma mark -
-#pragma mark Signal Handler
-
-extern malloc_zone_t **malloc_zones;
-static void
-report_error_from_signal_handler(vm_address_t fault_address)
-{
-	pgm_zone_t *zone = (pgm_zone_t *)malloc_zones[0];
-	MALLOC_ASSERT(zone->malloc_zone.size == FN_PTR(pgm_size));
-
-	if (!is_guarded(zone, fault_address)) {
-		return;
-	}
-
-	pgm_report_t report;
-	{
-		trylock(zone); // Best-effort locking to avoid deadlock.
-		diagnose_page_fault(zone, fault_address, &report);
-		unlock(zone);
-	}
-	print_report(&report);
-
-	MALLOC_REPORT_FATAL_ERROR(fault_address, "ProbGuard: invalid access detected");
-}
-
-static struct sigaction prev_sigaction;
-static void
-signal_handler(int sig, siginfo_t *info, void *ucontext)
-{
-	MALLOC_ASSERT(sig == SIGBUS);
-	report_error_from_signal_handler((vm_address_t)info->si_addr);
-
-	// Delegate to previous handler.
-	if (prev_sigaction.sa_flags & SA_SIGINFO) {
-		prev_sigaction.sa_sigaction(sig, info, ucontext);
-	} else if (prev_sigaction.sa_handler == SIG_IGN ||
-						 prev_sigaction.sa_handler == SIG_DFL) {
-		// If the previous handler was the default handler, or was ignoring this
-		// signal, install the default handler and re-raise the signal in order to
-		// get a core dump and terminate this process.
-		signal(SIGBUS, SIG_DFL);
-		raise(SIGBUS);
-	} else {
-		prev_sigaction.sa_handler(sig);
-	}
-}
-
-static void
-install_signal_handler(void *unused)
-{
-	struct sigaction act = {
-		.sa_sigaction = &signal_handler,
-		.sa_flags = SA_SIGINFO
-	};
-	int res = sigaction(SIGBUS, &act, &prev_sigaction);
-	MALLOC_ASSERT(res == 0);
 }
 
 

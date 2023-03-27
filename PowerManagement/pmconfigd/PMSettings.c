@@ -1175,7 +1175,7 @@ PMSettingsSupportedPrefsListHasChanged(void)
     notify_post(kIOPMPrefsChangeNotify);
 }
 
-static void updatePowerNapSetting( )
+static void updatePowerNapSetting(void)
 {
     char     *model = NULL;
     uint32_t majorRev;

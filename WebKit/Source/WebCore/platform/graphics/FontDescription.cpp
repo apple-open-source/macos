@@ -46,7 +46,9 @@ FontDescription::FontDescription()
     , m_renderingMode(static_cast<unsigned>(FontRenderingMode::Normal))
     , m_textRendering(static_cast<unsigned>(TextRenderingMode::AutoTextRendering))
     , m_script(USCRIPT_COMMON)
-    , m_fontSynthesis(FontSynthesisWeight | FontSynthesisStyle | FontSynthesisSmallCaps)
+    , m_fontSynthesisWeight(static_cast<unsigned>(FontSynthesisLonghandValue::Auto))
+    , m_fontSynthesisStyle(static_cast<unsigned>(FontSynthesisLonghandValue::Auto))
+    , m_fontSynthesisCaps(static_cast<unsigned>(FontSynthesisLonghandValue::Auto))
     , m_variantCommonLigatures(static_cast<unsigned>(FontVariantLigatures::Normal))
     , m_variantDiscretionaryLigatures(static_cast<unsigned>(FontVariantLigatures::Normal))
     , m_variantHistoricalLigatures(static_cast<unsigned>(FontVariantLigatures::Normal))
@@ -81,7 +83,7 @@ static AtomString computeSpecializedChineseLocale()
 
 static AtomString& cachedSpecializedChineseLocale()
 {
-    static NeverDestroyed<AtomString> specializedChineseLocale;
+    static MainThreadNeverDestroyed<AtomString> specializedChineseLocale;
     return specializedChineseLocale.get();
 }
 
@@ -103,6 +105,7 @@ static const AtomString& specializedChineseLocale()
 
 void FontDescription::setSpecifiedLocale(const AtomString& locale)
 {
+    ASSERT(isMainThread());
     m_specifiedLocale = locale;
     m_script = localeToScriptCodeForFontSelection(m_specifiedLocale);
     m_locale = m_script == USCRIPT_HAN ? specializedChineseLocale() : m_specifiedLocale;

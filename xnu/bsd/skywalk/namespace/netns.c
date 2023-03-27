@@ -220,8 +220,7 @@ SLIST_HEAD(, ns_token) netns_all_tokens = SLIST_HEAD_INITIALIZER(
 /*
  * Memory management
  */
-static ZONE_DEFINE(netns_ns_zone, SKMEM_ZONE_PREFIX ".netns.ns",
-    sizeof(struct ns), ZC_ZFREE_CLEARMEM);
+static SKMEM_TYPE_DEFINE(netns_ns_zone, struct ns);
 
 #define NETNS_NS_TOKEN_ZONE_NAME        "netns.ns_token"
 static unsigned int netns_ns_token_size; /* size of zone element */

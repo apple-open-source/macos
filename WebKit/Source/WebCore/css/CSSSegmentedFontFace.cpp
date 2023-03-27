@@ -126,17 +126,17 @@ FontRanges CSSSegmentedFontFace::fontRanges(const FontDescription& fontDescripti
         if (face->computeFailureState())
             continue;
 
-        auto selectionCapabilities = *face->fontSelectionCapabilities();
+        auto selectionCapabilities = face->fontSelectionCapabilities();
 
-        bool syntheticBold = (fontDescription.fontSynthesis() & FontSynthesisWeight) && !isFontWeightBold(selectionCapabilities.weight.maximum) && isFontWeightBold(desiredRequest.weight);
-        bool syntheticItalic = (fontDescription.fontSynthesis() & FontSynthesisStyle) && !isItalic(selectionCapabilities.slope.maximum) && isItalic(desiredRequest.slope);
+        bool syntheticBold = fontDescription.hasAutoFontSynthesisWeight() && !isFontWeightBold(selectionCapabilities.weight.maximum) && isFontWeightBold(desiredRequest.weight);
+        bool syntheticItalic = fontDescription.hasAutoFontSynthesisStyle() && !isItalic(selectionCapabilities.slope.maximum) && isItalic(desiredRequest.slope);
 
         // Metrics used for layout come from FontRanges::fontForFirstRange(), which assumes that the first font is non-null.
         auto fontAccessor = CSSFontAccessor::create(face, fontDescription, fontPaletteValues, fontFeatureValues, syntheticBold, syntheticItalic);
         if (ranges.isNull() && !fontAccessor->font(ExternalResourceDownloadPolicy::Forbid))
             continue;
         
-        appendFont(ranges, WTFMove(fontAccessor), *face->ranges());
+        appendFont(ranges, WTFMove(fontAccessor), face->ranges());
     }
     
     ranges.shrinkToFit();

@@ -200,7 +200,9 @@ static NSData* ManifestDERData(NSString* zone, NSData* digestValue, NSArray<NSSt
         ckkserrorwithzonename("ckksmanifest", zone, "error creating manifest der data: %@", cfError);
         if (error) {
             *error = (__bridge_transfer NSError*)cfError;
-        }        
+        } else {
+            CFReleaseNull(cfError);
+        }
         return nil;
     }
     
@@ -586,6 +588,8 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
         ckkserror("ckksmanifest", self, "failed to decode signatures der dict with error: %@", localError);
         if (error) {
             *error = (__bridge_transfer NSError*)localError;
+        } else {
+            CFReleaseNull(localError);
         }
     }
     
@@ -600,6 +604,8 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
         ckkserror("ckksmanifest", self, "failed to encode signatures dict to der with error: %@", localError);
         if (error) {
             *error = (__bridge_transfer NSError*)localError;
+        } else {
+            CFReleaseNull(localError);
         }
     }
     
@@ -614,6 +620,8 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
         ckkserror("ckksmanifest", self, "failed to decode peer manifests der array with error: %@", localError);
         if (error) {
             *error = (__bridge_transfer NSError*)localError;
+        } else {
+            CFReleaseNull(localError);
         }
     }
     
@@ -628,6 +636,8 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
         ckkserror("ckksmanifest", self, "failed to encode peer manifests to der with error: %@", localError);
         if (error) {
             *error = (__bridge_transfer NSError*)localError;
+        } else {
+            CFReleaseNull(localError);
         }
     }
     

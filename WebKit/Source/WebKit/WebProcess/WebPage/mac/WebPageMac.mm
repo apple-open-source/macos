@@ -93,6 +93,7 @@
 #import <WebCore/ScrollView.h>
 #import <WebCore/StyleInheritedData.h>
 #import <WebCore/TextIterator.h>
+#import <WebCore/ThemeMac.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WindowsKeyboardCodes.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
@@ -153,7 +154,7 @@ void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
 
     result.canEnableAutomaticSpellingCorrection = result.isContentEditable && frame.editor().canEnableAutomaticSpellingCorrection();
 
-    if (result.isMissingPostLayoutData)
+    if (!result.hasPostLayoutAndVisualData())
         return;
 
     auto& selection = frame.selection().selection();
@@ -161,7 +162,7 @@ void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
     if (!selectedRange)
         return;
 
-    auto& postLayoutData = result.postLayoutData();
+    auto& postLayoutData = *result.postLayoutData;
     VisiblePosition selectionStart = selection.visibleStart();
     auto selectionStartBoundary = makeBoundaryPoint(selectionStart);
     auto selectionEnd = makeBoundaryPoint(selection.visibleEnd());
@@ -277,13 +278,12 @@ bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressComm
                 bool commandExecutedByEditor = command.execute(event);
                 eventWasHandled |= commandExecutedByEditor;
                 if (!commandExecutedByEditor) {
-                    bool performedNonEditingBehavior = event->underlyingPlatformEvent()->type() == PlatformEvent::RawKeyDown && performNonEditingBehaviorForSelector(commands[i].commandName, event);
+                    bool performedNonEditingBehavior = event->underlyingPlatformEvent()->type() == PlatformEvent::Type::RawKeyDown && performNonEditingBehaviorForSelector(commands[i].commandName, event);
                     eventWasHandled |= performedNonEditingBehavior;
                 }
             } else {
-                bool commandWasHandledByUIProcess = false;
-                WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::ExecuteSavedCommandBySelector(commands[i].commandName),
-                    Messages::WebPageProxy::ExecuteSavedCommandBySelector::Reply(commandWasHandledByUIProcess), m_identifier);
+                auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::ExecuteSavedCommandBySelector(commands[i].commandName), m_identifier);
+                auto [commandWasHandledByUIProcess] = sendResult.takeReplyOr(false);
                 eventWasHandled |= commandWasHandledByUIProcess;
             }
         }
@@ -303,7 +303,7 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent& event)
     ASSERT(!platformEvent->macEvent()); // Cannot have a native event in WebProcess.
 
     // Don't handle Esc while handling keydown event, we need to dispatch a keypress first.
-    if (platformEvent->type() != PlatformEvent::Char && platformEvent->windowsVirtualKeyCode() == VK_ESCAPE && commands.size() == 1 && commandNameForSelectorName(commands[0].commandName) == "cancelOperation"_s)
+    if (platformEvent->type() != PlatformEvent::Type::Char && platformEvent->windowsVirtualKeyCode() == VK_ESCAPE && commands.size() == 1 && commandNameForSelectorName(commands[0].commandName) == "cancelOperation"_s)
         return false;
 
     if (handleKeyEventByRelinquishingFocusToChrome(event))
@@ -322,7 +322,7 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent& event)
     }
     // If there are no text insertion commands, default keydown handler is the right time to execute the commands.
     // Keypress (Char event) handler is the latest opportunity to execute.
-    if (!haveTextInsertionCommands || platformEvent->type() == PlatformEvent::Char) {
+    if (!haveTextInsertionCommands || platformEvent->type() == PlatformEvent::Type::Char) {
         eventWasHandled = executeKeypressCommandsInternal(commands, &event);
         commands.clear();
     }
@@ -412,9 +412,9 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForSelectionInPDFPlugin(PDFSelec
     dataForSelection.presentationTransition = presentationTransition;
     
     dictionaryPopupInfo.origin = rangeRect.origin;
-    dictionaryPopupInfo.options = options;
+    dictionaryPopupInfo.platformData.options = options;
     dictionaryPopupInfo.textIndicator = dataForSelection;
-    dictionaryPopupInfo.attributedString = scaledNSAttributedString;
+    dictionaryPopupInfo.platformData.attributedString = scaledNSAttributedString;
     
     return dictionaryPopupInfo;
 }
@@ -434,7 +434,7 @@ bool WebPage::performNonEditingBehaviorForSelector(const String& selector, Keybo
     
     bool didPerformAction = false;
     
-    if (!frame->settings().eventHandlerDrivenSmoothKeyboardScrollingEnabled()) {
+    if (!frame->eventHandler().shouldUseSmoothKeyboardScrollingForFocusedScrollableArea()) {
         if (selector == "moveUp:"_s)
             didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Line);
         else if (selector == "moveToBeginningOfParagraph:"_s)
@@ -465,11 +465,6 @@ bool WebPage::performNonEditingBehaviorForSelector(const String& selector, Keybo
         didPerformAction = m_userInterfaceLayoutDirection == WebCore::UserInterfaceLayoutDirection::LTR ? m_page->backForward().goForward() : m_page->backForward().goBack();
 
     return didPerformAction;
-}
-
-bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent&)
-{
-    return false;
 }
 
 void WebPage::registerUIProcessAccessibilityTokens(const IPC::DataReference& elementToken, const IPC::DataReference& windowToken)
@@ -602,6 +597,17 @@ void WebPage::setBottomOverhangImage(WebImage* image)
     layer->platformLayer().contents = (__bridge id)nativeImage->platformImage().get();
 }
 
+void WebPage::setUseFormSemanticContext(bool useFormSemanticContext)
+{
+    ThemeMac::setUseFormSemanticContext(useFormSemanticContext);
+}
+
+void WebPage::semanticContextDidChange(bool useFormSemanticContext)
+{
+    setUseFormSemanticContext(useFormSemanticContext);
+    m_page->scheduleRenderingUpdate({ });
+}
+
 void WebPage::updateHeaderAndFooterLayersForDeviceScaleChange(float scaleFactor)
 {    
     if (m_headerBanner)
@@ -727,22 +733,6 @@ void WebPage::drawPagesToPDFFromPDFDocument(CGContextRef context, PDFDocument *p
     }
 }
 
-#if ENABLE(WEBGL)
-WebCore::WebGLLoadPolicy WebPage::webGLPolicyForURL(WebFrame*, const URL& url)
-{
-    WebGLLoadPolicy policyResult = WebGLLoadPolicy::WebGLAllowCreation;
-    sendSync(Messages::WebPageProxy::WebGLPolicyForURL(url), Messages::WebPageProxy::WebGLPolicyForURL::Reply(policyResult));
-    return policyResult;
-}
-
-WebCore::WebGLLoadPolicy WebPage::resolveWebGLPolicyForURL(WebFrame*, const URL& url)
-{
-    WebGLLoadPolicy policyResult = WebGLLoadPolicy::WebGLAllowCreation;
-    sendSync(Messages::WebPageProxy::ResolveWebGLPolicyForURL(url), Messages::WebPageProxy::ResolveWebGLPolicyForURL::Reply(policyResult));
-    return policyResult;
-}
-#endif // ENABLE(WEBGL)
-
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
 void WebPage::handleTelephoneNumberClick(const String& number, const IntPoint& point, const IntRect& rect)
 {
@@ -849,7 +839,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
     auto selectionRange = corePage()->focusController().focusedOrMainFrame().selection().selection().firstRange();
 
     auto indicatorOptions = [&](const SimpleRange& range) {
-        OptionSet<TextIndicatorOption> options { TextIndicatorOption::UseBoundingRectAndPaintAllContentForComplexRanges };
+        OptionSet<TextIndicatorOption> options { TextIndicatorOption::UseBoundingRectAndPaintAllContentForComplexRanges, TextIndicatorOption::UseUserSelectAllCommonAncestor };
         if (ImageOverlay::isInsideOverlay(range))
             options.add({ TextIndicatorOption::PaintAllContent, TextIndicatorOption::PaintBackgrounds });
         return options;
@@ -885,19 +875,19 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
             continue;
 
         pageOverlayDidOverrideDataDetectors = true;
-        immediateActionResult.detectedDataActionContext = actionContext->context.get();
-        immediateActionResult.detectedDataBoundingBox = view->contentsToWindow(enclosingIntRect(unitedBoundingBoxes(RenderObject::absoluteTextQuads(actionContext->range))));
-        immediateActionResult.detectedDataTextIndicator = TextIndicator::createWithRange(actionContext->range, indicatorOptions(actionContext->range), TextIndicatorPresentationTransition::FadeIn);
-        immediateActionResult.detectedDataOriginatingPageOverlay = overlay->pageOverlayID();
+        immediateActionResult.platformData.detectedDataActionContext = actionContext->context.get();
+        immediateActionResult.platformData.detectedDataBoundingBox = view->contentsToWindow(enclosingIntRect(unitedBoundingBoxes(RenderObject::absoluteTextQuads(actionContext->range))));
+        immediateActionResult.platformData.detectedDataTextIndicator = TextIndicator::createWithRange(actionContext->range, indicatorOptions(actionContext->range), TextIndicatorPresentationTransition::FadeIn);
+        immediateActionResult.platformData.detectedDataOriginatingPageOverlay = overlay->pageOverlayID();
         break;
     }
 
     // FIXME: Avoid scanning if we will just throw away the result (e.g. we're over a link).
     if (!pageOverlayDidOverrideDataDetectors && hitTestResult.innerNode() && (hitTestResult.innerNode()->isTextNode() || hitTestResult.isOverTextInsideFormControlElement())) {
         if (auto result = DataDetection::detectItemAroundHitTestResult(hitTestResult)) {
-            immediateActionResult.detectedDataActionContext = WTFMove(result->actionContext);
-            immediateActionResult.detectedDataBoundingBox = result->boundingBox;
-            immediateActionResult.detectedDataTextIndicator = TextIndicator::createWithRange(result->range, indicatorOptions(result->range), TextIndicatorPresentationTransition::FadeIn);
+            immediateActionResult.platformData.detectedDataActionContext = WTFMove(result->actionContext);
+            immediateActionResult.platformData.detectedDataBoundingBox = result->boundingBox;
+            immediateActionResult.platformData.detectedDataTextIndicator = TextIndicator::createWithRange(result->range, indicatorOptions(result->range), TextIndicatorPresentationTransition::FadeIn);
         }
     }
 

@@ -56,6 +56,7 @@ WK_CLASS_AVAILABLE(macos(10.13.4), ios(11.3))
 @property (nonatomic, readonly, nullable, copy) NSString *applicationDescription;
 @property (nonatomic, readonly, nullable, copy) NSURL *scope;
 @property (nonatomic, readonly, copy) NSURL *startURL;
+@property (nonatomic, readonly, copy) NSURL *manifestId WK_API_AVAILABLE(macos(13.3), ios(16.4));
 @property (nonatomic, readonly) _WKApplicationManifestDisplayMode displayMode;
 @property (nonatomic, readonly, copy) NSArray<_WKApplicationManifestIcon *> *icons WK_API_AVAILABLE(macos(13.0), ios(16.0));
 

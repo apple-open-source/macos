@@ -27,6 +27,7 @@
 
 #include "Connection.h"
 #include "MessageReceiveQueue.h"
+#include "WorkQueueMessageReceiver.h"
 
 namespace IPC {
 
@@ -51,29 +52,10 @@ private:
     MessageReceiver& m_receiver;
 };
 
-class ThreadMessageReceiverQueue final : public MessageReceiveQueue {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    ThreadMessageReceiverQueue(Connection::ThreadMessageReceiver& receiver)
-        : m_receiver(receiver)
-    {
-    }
-    ~ThreadMessageReceiverQueue() final = default;
-
-    void enqueueMessage(Connection& connection, std::unique_ptr<Decoder>&& message) final
-    {
-        m_receiver->dispatchToThread([connection = Ref { connection }, message = WTFMove(message), receiver = m_receiver]() mutable {
-            connection->dispatchMessageReceiverMessage(receiver.get(), WTFMove(message));
-        });
-    }
-private:
-    Ref<Connection::ThreadMessageReceiver> m_receiver;
-};
-
 class WorkQueueMessageReceiverQueue final : public MessageReceiveQueue {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    WorkQueueMessageReceiverQueue(WorkQueue& queue, Connection::WorkQueueMessageReceiver& receiver)
+    WorkQueueMessageReceiverQueue(WorkQueue& queue, WorkQueueMessageReceiver& receiver)
         : m_queue(queue)
         , m_receiver(receiver)
     {
@@ -88,7 +70,7 @@ public:
     }
 private:
     Ref<WorkQueue> m_queue;
-    Ref<Connection::WorkQueueMessageReceiver> m_receiver;
+    Ref<WorkQueueMessageReceiver> m_receiver;
 };
 
 } // namespace IPC

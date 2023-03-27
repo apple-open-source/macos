@@ -28,7 +28,6 @@
 #include "Connection.h"
 #include "MessageNames.h"
 #include "TestClassName.h"
-#include "TestWithSuperclassMessagesReplies.h"
 #include <optional>
 #include <wtf/Forward.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -48,7 +47,7 @@ static inline IPC::ReceiverName messageReceiverName()
 
 class LoadURL {
 public:
-    using Arguments = std::tuple<const String&>;
+    using Arguments = std::tuple<String>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_LoadURL; }
     static constexpr bool isSync = false;
@@ -58,13 +57,13 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const String&> m_arguments;
 };
 
 #if ENABLE(TEST_FEATURE)
@@ -75,25 +74,21 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessage; }
     static constexpr bool isSync = false;
 
-    static void callReply(IPC::Decoder&, CompletionHandler<void(uint64_t&&)>&&);
-    static void cancelReply(CompletionHandler<void(uint64_t&&)>&&);
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageReply; }
-    using AsyncReply = TestAsyncMessageAsyncReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::MainThread;
-    using Reply = std::tuple<uint64_t&>;
     using ReplyArguments = std::tuple<uint64_t>;
     explicit TestAsyncMessage(WebKit::TestTwoStateEnum twoStateEnum)
         : m_arguments(twoStateEnum)
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<WebKit::TestTwoStateEnum> m_arguments;
 };
 #endif
 
@@ -105,20 +100,16 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithNoArguments; }
     static constexpr bool isSync = false;
 
-    static void callReply(IPC::Decoder&, CompletionHandler<void()>&&);
-    static void cancelReply(CompletionHandler<void()>&&);
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithNoArgumentsReply; }
-    using AsyncReply = TestAsyncMessageWithNoArgumentsAsyncReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<>;
     using ReplyArguments = std::tuple<>;
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<> m_arguments;
 };
 #endif
 
@@ -130,50 +121,42 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithMultipleArguments; }
     static constexpr bool isSync = false;
 
-    static void callReply(IPC::Decoder&, CompletionHandler<void(bool&&, uint64_t&&)>&&);
-    static void cancelReply(CompletionHandler<void(bool&&, uint64_t&&)>&&);
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithMultipleArgumentsReply; }
-    using AsyncReply = TestAsyncMessageWithMultipleArgumentsAsyncReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<bool&, uint64_t&>;
     using ReplyArguments = std::tuple<bool, uint64_t>;
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<> m_arguments;
 };
 #endif
 
 #if ENABLE(TEST_FEATURE)
 class TestAsyncMessageWithConnection {
 public:
-    using Arguments = std::tuple<const int&>;
+    using Arguments = std::tuple<int>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithConnection; }
     static constexpr bool isSync = false;
 
-    static void callReply(IPC::Decoder&, CompletionHandler<void(bool&&)>&&);
-    static void cancelReply(CompletionHandler<void(bool&&)>&&);
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithConnectionReply; }
-    using AsyncReply = TestAsyncMessageWithConnectionAsyncReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<bool&>;
     using ReplyArguments = std::tuple<bool>;
     explicit TestAsyncMessageWithConnection(const int& value)
         : m_arguments(value)
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const int&> m_arguments;
 };
 #endif
 
@@ -184,22 +167,20 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestSyncMessage; }
     static constexpr bool isSync = true;
 
-    using DelayedReply = TestSyncMessageDelayedReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<uint8_t&>;
     using ReplyArguments = std::tuple<uint8_t>;
     explicit TestSyncMessage(uint32_t param)
         : m_arguments(param)
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<uint32_t> m_arguments;
 };
 
 class TestSynchronousMessage {
@@ -209,22 +190,20 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestSynchronousMessage; }
     static constexpr bool isSync = true;
 
-    using DelayedReply = TestSynchronousMessageDelayedReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<std::optional<WebKit::TestClassName>&>;
     using ReplyArguments = std::tuple<std::optional<WebKit::TestClassName>>;
     explicit TestSynchronousMessage(bool value)
         : m_arguments(value)
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<bool> m_arguments;
 };
 
 } // namespace TestWithSuperclass

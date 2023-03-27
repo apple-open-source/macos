@@ -243,8 +243,6 @@ static RetainPtr<CGImageRef> createImageWithCopiedData(CGImageRef sourceImage)
     webViewContents = createImageWithCopiedData(webViewContents.get());
 
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    // Screen updates to be re-enabled in _startEnterFullScreenAnimationWithDuration:
-    NSDisableScreenUpdates();
     [[self window] setAutodisplay:NO];
     ALLOW_DEPRECATED_DECLARATIONS_END
 
@@ -314,9 +312,6 @@ static RetainPtr<CGImageRef> createImageWithCopiedData(CGImageRef sourceImage)
     [[self window] setAutodisplay:YES];
     ALLOW_DEPRECATED_DECLARATIONS_END
     [[self window] displayIfNeeded];
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSEnableScreenUpdates();
-    ALLOW_DEPRECATED_DECLARATIONS_END
 
     [CATransaction commit];
 
@@ -333,10 +328,6 @@ static const float minVideoWidth = 468; // Keep in sync with `--controls-bar-wid
     if (completed) {
         _fullScreenState = InFullScreen;
 
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        // Screen updates to be re-enabled ta the end of the current block.
-        NSDisableScreenUpdates();
-        ALLOW_DEPRECATED_DECLARATIONS_END
         [self _manager]->didEnterFullScreen();
         [self _manager]->setAnimatingFullScreen(false);
 
@@ -374,8 +365,8 @@ static const float minVideoWidth = 468; // Keep in sync with `--controls-bar-wid
         _page->scalePage(_savedScale, WebCore::IntPoint());
         [self _manager]->restoreScrollPosition();
         _page->setTopContentInset(_savedTopContentInset);
-        [self _manager]->didExitFullScreen();
         [self _manager]->setAnimatingFullScreen(false);
+        [self _manager]->didExitFullScreen();
 
         // FIXME(53342): remove once pointer events fire when elements move out from under the pointer.
         NSEvent *fakeEvent = [NSEvent mouseEventWithType:NSEventTypeMouseMoved
@@ -390,10 +381,6 @@ static const float minVideoWidth = 468; // Keep in sync with `--controls-bar-wid
         WebKit::NativeWebMouseEvent webEvent(fakeEvent, nil, _webView);
         _page->handleMouseEvent(webEvent);
     }
-
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSEnableScreenUpdates();
-    ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (_requestedExitFullScreen) {
         _requestedExitFullScreen = NO;
@@ -424,8 +411,6 @@ static const float minVideoWidth = 468; // Keep in sync with `--controls-bar-wid
     [_webViewPlaceholder setExitWarningVisible:NO];
 
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    // Screen updates to be re-enabled in _startExitFullScreenAnimationWithDuration: or beganExitFullScreenWithInitialFrame:finalFrame:
-    NSDisableScreenUpdates();
     [[self window] setAutodisplay:NO];
     ALLOW_DEPRECATED_DECLARATIONS_END
 
@@ -465,13 +450,6 @@ static const float minVideoWidth = 468; // Keep in sync with `--controls-bar-wid
         // If the full screen window is not in the active space, the NSWindow full screen animation delegate methods
         // will never be called. So call finishedExitFullScreenAnimationAndExitImmediately explicitly.
         [self finishedExitFullScreenAnimationAndExitImmediately:NO];
-
-        // Because we are breaking the normal animation pattern, re-enable screen updates
-        // as exitFullScreen has disabled them, but _startExitFullScreenAnimationWithDuration:
-        // will never be called.
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        NSEnableScreenUpdates();
-        ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     [[self window] exitFullScreenMode:self];
@@ -554,8 +532,8 @@ static RetainPtr<CGImageRef> takeWindowSnapshot(CGSWindowID windowID, bool captu
     makeResponderFirstResponderIfDescendantOfView(_webView.window, firstResponder, _webView);
 
     // These messages must be sent after the swap or flashing will occur during forceRepaint:
-    [self _manager]->didExitFullScreen();
     [self _manager]->setAnimatingFullScreen(false);
+    [self _manager]->didExitFullScreen();
     _page->scalePage(_savedScale, WebCore::IntPoint());
     [self _manager]->restoreScrollPosition();
     _page->setTopContentInset(_savedTopContentInset);
@@ -857,9 +835,6 @@ static CAAnimation *fadeAnimation(CFTimeInterval duration, AnimationDirection di
     [[self window] setAutodisplay:YES];
     ALLOW_DEPRECATED_DECLARATIONS_END
     [[self window] displayIfNeeded];
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSEnableScreenUpdates();
-    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 - (void)_watchdogTimerFired:(NSTimer *)timer

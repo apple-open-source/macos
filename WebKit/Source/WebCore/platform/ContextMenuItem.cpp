@@ -143,7 +143,7 @@ bool ContextMenuItem::enabled() const
     return m_enabled;
 }
 
-bool isValidContextMenuAction(ContextMenuAction action)
+static bool isValidContextMenuAction(WebCore::ContextMenuAction action)
 {
     switch (action) {
     case ContextMenuAction::ContextMenuItemTagNoAction:
@@ -197,6 +197,9 @@ bool isValidContextMenuAction(ContextMenuAction action)
     case ContextMenuAction::ContextMenuItemPDFZoomOut:
     case ContextMenuAction::ContextMenuItemPDFAutoSize:
     case ContextMenuAction::ContextMenuItemPDFSinglePage:
+    case ContextMenuAction::ContextMenuItemPDFSinglePageContinuous:
+    case ContextMenuAction::ContextMenuItemPDFTwoPages:
+    case ContextMenuAction::ContextMenuItemPDFTwoPagesContinuous:
     case ContextMenuAction::ContextMenuItemPDFFacingPages:
     case ContextMenuAction::ContextMenuItemPDFContinuous:
     case ContextMenuAction::ContextMenuItemPDFNextPage:
@@ -252,6 +255,7 @@ bool isValidContextMenuAction(ContextMenuAction action)
     case ContextMenuAction::ContextMenuItemTagCopyMediaLinkToClipboard:
     case ContextMenuAction::ContextMenuItemTagToggleMediaControls:
     case ContextMenuAction::ContextMenuItemTagToggleMediaLoop:
+    case ContextMenuAction::ContextMenuItemTagShowMediaStats:
     case ContextMenuAction::ContextMenuItemTagEnterVideoFullscreen:
     case ContextMenuAction::ContextMenuItemTagMediaPlayPause:
     case ContextMenuAction::ContextMenuItemTagMediaMute:
@@ -264,6 +268,8 @@ bool isValidContextMenuAction(ContextMenuAction action)
     case ContextMenuAction::ContextMenuItemBaseCustomTag:
     case ContextMenuAction::ContextMenuItemLastCustomTag:
     case ContextMenuAction::ContextMenuItemBaseApplicationTag:
+    case ContextMenuAction::ContextMenuItemTagPlayAllAnimations:
+    case ContextMenuAction::ContextMenuItemTagPauseAllAnimations:
         return true;
     }
 
@@ -277,5 +283,14 @@ bool isValidContextMenuAction(ContextMenuAction action)
 }
 
 } // namespace WebCore
+
+namespace WTF {
+
+template<> bool isValidEnum<WebCore::ContextMenuAction, void>(std::underlying_type_t<WebCore::ContextMenuAction> action)
+{
+    return WebCore::isValidContextMenuAction(static_cast<WebCore::ContextMenuAction>(action));
+}
+
+}
 
 #endif // ENABLE(CONTEXT_MENUS)

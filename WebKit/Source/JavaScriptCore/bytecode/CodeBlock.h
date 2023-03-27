@@ -367,8 +367,6 @@ public:
 
     VirtualRegister thisRegister() const { return m_unlinkedCode->thisRegister(); }
 
-    bool usesCallEval() const { return m_unlinkedCode->usesCallEval(); }
-
     void setScopeRegister(VirtualRegister scopeRegister)
     {
         ASSERT(scopeRegister.isLocal() || !scopeRegister.isValid());
@@ -427,7 +425,6 @@ public:
     bool couldTakeSpecialArithFastCase(BytecodeIndex bytecodeOffset);
 
     ArrayProfile* getArrayProfile(const ConcurrentJSLocker&, BytecodeIndex);
-    ArrayProfile* getArrayProfile(BytecodeIndex);
 
     // Exception handling support
 
@@ -627,7 +624,7 @@ public:
     void countReoptimization();
 
 #if !ENABLE(C_LOOP)
-    static unsigned numberOfLLIntBaselineCalleeSaveRegisters() { return RegisterSet::llintBaselineCalleeSaveRegisters().numberOfSetRegisters(); }
+    static unsigned numberOfLLIntBaselineCalleeSaveRegisters() { return RegisterSetBuilder::llintBaselineCalleeSaveRegisters().numberOfSetRegisters(); }
     static size_t llintBaselineCalleeSaveSpaceAsVirtualRegisters();
     static size_t calleeSaveSpaceAsVirtualRegisters(const RegisterAtOffsetList&);
 #else
@@ -723,9 +720,10 @@ public:
 #endif
 
     bool shouldOptimizeNow();
-    void updateAllValueProfilePredictions(const ConcurrentJSLocker&);
+    void updateAllNonLazyValueProfilePredictions(const ConcurrentJSLocker&);
+    void updateAllLazyValueProfilePredictions(const ConcurrentJSLocker&);
     void updateAllArrayProfilePredictions(const ConcurrentJSLocker&);
-    void updateAllArrayPredictions(const ConcurrentJSLocker&);
+    void updateAllArrayAllocationProfilePredictions();
     void updateAllPredictions();
 
     unsigned frameRegisterCount();
@@ -777,7 +775,15 @@ public:
     // concurrent compilation threads finish what they're doing.
     mutable ConcurrentJSLock m_lock;
 
-    bool m_shouldAlwaysBeInlined; // Not a bitfield because the JIT wants to store to it.
+    bool m_shouldAlwaysBeInlined { true }; // Not a bitfield because the JIT wants to store to it.
+
+#if USE(JSVALUE64)
+    // 64bit environment does not need a lock for ValueProfile operations.
+    NoLockingNecessaryTag valueProfileLock() { return NoLockingNecessary; }
+#else
+    ConcurrentJSLock& valueProfileLock() { return m_lock; }
+#endif
+
     static ptrdiff_t offsetOfShouldAlwaysBeInlined() { return OBJECT_OFFSETOF(CodeBlock, m_shouldAlwaysBeInlined); }
 
 #if ENABLE(JIT)
@@ -875,7 +881,7 @@ private:
     
     double optimizationThresholdScalingFactor();
 
-    void updateAllValueProfilePredictionsAndCountLiveness(const ConcurrentJSLocker&, unsigned& numberOfLiveNonArgumentValueProfiles, unsigned& numberOfSamplesInProfiles);
+    void updateAllNonLazyValueProfilePredictionsAndCountLiveness(const ConcurrentJSLocker&, unsigned& numberOfLiveNonArgumentValueProfiles, unsigned& numberOfSamplesInProfiles);
 
     Vector<unsigned> setConstantRegisters(const FixedVector<WriteBarrier<Unknown>>& constants, const FixedVector<SourceCodeRepresentation>& constantsSourceCodeRepresentation);
     void initializeTemplateObjects(ScriptExecutable* topLevelExecutable, const Vector<unsigned>& templateObjectIndices);

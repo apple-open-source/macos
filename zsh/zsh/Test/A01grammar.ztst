@@ -557,6 +557,13 @@
 >Hip hip hooray
 >Hip hip hooray
 
+  repeat 2*2 print yeah
+0:Tokens in repeat argument
+>yeah
+>yeah
+>yeah
+>yeah
+
   case bravo {
     (alpha) print schmalpha
 	    ;;
@@ -915,7 +922,7 @@ F:Note that the behaviour of 'exit' inside try-list inside a function is unspeci
   x=1
   x=2 | echo $x
   echo $x
-0:Assignment-only current shell commands in LHS of pipelin
+0:Assignment-only current shell commands in LHS of pipeline
 >1
 >1
 
@@ -930,5 +937,36 @@ F:Note that the behaviour of 'exit' inside try-list inside a function is unspeci
 >or false
 
  $ZTST_testdir/../Src/zsh -fc '{ ( ) } always { echo foo }'
--f:exec last command optimization inhibited for try/always
+0:exec last command optimization inhibited for try/always
 >foo
+
+ a='${'
+ if : ${(e)a}; then echo x; fi
+1:Status on bad substitution in if without else
+?(eval):2: bad substitution
+
+ echo 'echo foo # comment
+  echo $(
+  echo bar # comment
+ )' >source_comments.zsh
+ $ZTST_testdir/../Src/zsh -f -o extendedglob -is -c '. ./source_comments.zsh'
+0:Comments should be handled in command subst in interactively sourced files
+>foo
+>bar
+
+ function 'ls,/' () {echo success}
+ {ls,/}
+0:workers/47599: current-shell blocks masquerading as brace expansion
+>success
+F:This test was written to ensure the behaviour doesn't change silently.
+F:If this test fails during development, it *might* be appropriate to change
+F:its expectations.
+
+ (
+   export VALUE=first
+   print -l 'echo Value is $VALUE' 'VALUE=second sh' 'echo Value is $VALUE' |
+   $ZTST_testdir/../Src/zsh -f
+ )
+0:Non-interactive shell command input is line buffered
+>Value is first
+>Value is second

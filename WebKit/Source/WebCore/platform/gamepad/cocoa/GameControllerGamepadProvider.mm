@@ -34,6 +34,7 @@
 #import "Logging.h"
 #import <GameController/GameController.h>
 #import <pal/spi/cocoa/IOKitSPI.h>
+#import <wtf/CompletionHandler.h>
 #import <wtf/NeverDestroyed.h>
 
 #import "GameControllerSoftLink.h"
@@ -159,6 +160,24 @@ void GameControllerGamepadProvider::prewarmGameControllerDevicesIfNecessary()
 
     LOG(Gamepad, "GameControllerGamepadProvider explicitly starting GameController framework monitoring");
     [getGCControllerClass() __openXPC_and_CBApplicationDidBecomeActive__];
+
+    init_GameController_GCInputButtonA();
+    init_GameController_GCInputButtonB();
+    init_GameController_GCInputButtonX();
+    init_GameController_GCInputButtonY();
+    init_GameController_GCInputButtonHome();
+    init_GameController_GCInputButtonMenu();
+    init_GameController_GCInputButtonOptions();
+    init_GameController_GCInputDirectionPad();
+    init_GameController_GCInputLeftShoulder();
+    init_GameController_GCInputLeftTrigger();
+    init_GameController_GCInputLeftThumbstick();
+    init_GameController_GCInputLeftThumbstickButton();
+    init_GameController_GCInputRightShoulder();
+    init_GameController_GCInputRightTrigger();
+    init_GameController_GCInputRightThumbstick();
+    init_GameController_GCInputRightThumbstickButton();
+    
     prewarmed = true;
 }
 
@@ -206,6 +225,9 @@ void GameControllerGamepadProvider::stopMonitoringGamepads(GamepadProviderClient
 
     [[NSNotificationCenter defaultCenter] removeObserver:m_connectObserver.get()];
     [[NSNotificationCenter defaultCenter] removeObserver:m_disconnectObserver.get()];
+
+    for (auto& gamepad : m_gamepadMap.values())
+        gamepad->noLongerHasAnyClient();
 }
 
 unsigned GameControllerGamepadProvider::indexForNewlyConnectedDevice()
@@ -246,6 +268,28 @@ void GameControllerGamepadProvider::inputNotificationTimerFired()
     m_shouldMakeInvisibleGamepadsVisible = false;
 
     dispatchPlatformGamepadInputActivity();
+}
+
+void GameControllerGamepadProvider::playEffect(unsigned gamepadIndex, const String& gamepadID, GamepadHapticEffectType type, const GamepadEffectParameters& parameters, CompletionHandler<void(bool)>&& completionHandler)
+{
+    if (gamepadIndex >= m_gamepadVector.size())
+        return completionHandler(false);
+    auto* gamepad = m_gamepadVector[gamepadIndex];
+    if (!gamepad || gamepad->id() != gamepadID)
+        return completionHandler(false);
+
+    gamepad->playEffect(type, parameters, WTFMove(completionHandler));
+}
+
+void GameControllerGamepadProvider::stopEffects(unsigned gamepadIndex, const String& gamepadID, CompletionHandler<void()>&& completionHandler)
+{
+    if (gamepadIndex >= m_gamepadVector.size())
+        return completionHandler();
+    auto* gamepad = m_gamepadVector[gamepadIndex];
+    if (!gamepad || gamepad->id() != gamepadID)
+        return completionHandler();
+
+    gamepad->stopEffects(WTFMove(completionHandler));
 }
 
 } // namespace WebCore

@@ -63,36 +63,41 @@ GPUProcessConnection& RemoteCDMFactory::gpuProcessConnection()
 
 bool RemoteCDMFactory::supportsKeySystem(const String& keySystem)
 {
-    bool supported = false;
-    gpuProcessConnection().connection().sendSync(Messages::RemoteCDMFactoryProxy::SupportsKeySystem(keySystem), Messages::RemoteCDMFactoryProxy::SupportsKeySystem::Reply(supported), { });
+    auto sendResult = gpuProcessConnection().connection().sendSync(Messages::RemoteCDMFactoryProxy::SupportsKeySystem(keySystem), { });
+    auto [supported] = sendResult.takeReplyOr(false);
     return supported;
 }
 
 std::unique_ptr<CDMPrivate> RemoteCDMFactory::createCDM(const String& keySystem, const CDMPrivateClient&)
 {
-    RemoteCDMIdentifier identifier;
-    RemoteCDMConfiguration configuration;
-    gpuProcessConnection().connection().sendSync(Messages::RemoteCDMFactoryProxy::CreateCDM(keySystem), Messages::RemoteCDMFactoryProxy::CreateCDM::Reply(identifier, configuration), { });
+    auto sendResult = gpuProcessConnection().connection().sendSync(Messages::RemoteCDMFactoryProxy::CreateCDM(keySystem), { });
+    auto [identifier, configuration] = sendResult.takeReplyOr(RemoteCDMIdentifier { }, RemoteCDMConfiguration { });
     if (!identifier)
         return nullptr;
     return RemoteCDM::create(*this, WTFMove(identifier), WTFMove(configuration));
 }
 
-void RemoteCDMFactory::addSession(Ref<RemoteCDMInstanceSession>&& session)
+void RemoteCDMFactory::addSession(RemoteCDMInstanceSession& session)
 {
-    ASSERT(!m_sessions.contains(session->identifier()));
-    m_sessions.set(session->identifier(), WTFMove(session));
+    ASSERT(!m_sessions.contains(session.identifier()));
+    m_sessions.set(session.identifier(), session);
 }
 
 void RemoteCDMFactory::removeSession(RemoteCDMInstanceSessionIdentifier identifier)
 {
     ASSERT(m_sessions.contains(identifier));
     m_sessions.remove(identifier);
+    gpuProcessConnection().connection().send(Messages::RemoteCDMFactoryProxy::RemoveSession(identifier), { });
+}
+
+void RemoteCDMFactory::removeInstance(RemoteCDMInstanceIdentifier identifier)
+{
+    gpuProcessConnection().connection().send(Messages::RemoteCDMFactoryProxy::RemoveInstance(identifier), { });
 }
 
 void RemoteCDMFactory::didReceiveSessionMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    if (auto* session = m_sessions.get(makeObjectIdentifier<RemoteCDMInstanceSessionIdentifierType>(decoder.destinationID())))
+    if (auto session = m_sessions.get(makeObjectIdentifier<RemoteCDMInstanceSessionIdentifierType>(decoder.destinationID())))
         session->didReceiveMessage(connection, decoder);
 }
 

@@ -49,7 +49,6 @@ JSObject* createTypeError(JSGlobalObject*, const String&, ErrorInstance::SourceA
 JSObject* createNotEnoughArgumentsError(JSGlobalObject*, ErrorInstance::SourceAppender);
 JSObject* createURIError(JSGlobalObject*, const String&, ErrorInstance::SourceAppender);
 
-
 JS_EXPORT_PRIVATE JSObject* createError(JSGlobalObject*, const String&);
 JS_EXPORT_PRIVATE JSObject* createEvalError(JSGlobalObject*, const String&);
 JS_EXPORT_PRIVATE JSObject* createRangeError(JSGlobalObject*, const String&);
@@ -67,11 +66,19 @@ JS_EXPORT_PRIVATE JSObject* createError(JSGlobalObject*, ErrorType, const String
 JS_EXPORT_PRIVATE JSObject* createError(JSGlobalObject*, ErrorTypeWithExtension, const String&);
 
 std::unique_ptr<Vector<StackFrame>> getStackTrace(JSGlobalObject*, VM&, JSObject*, bool useCurrentFrame);
-void getBytecodeIndex(VM&, CallFrame*, Vector<StackFrame>*, CallFrame*&, BytecodeIndex&);
+std::tuple<CodeBlock*, BytecodeIndex> getBytecodeIndex(VM&, CallFrame*);
 bool getLineColumnAndSource(VM&, Vector<StackFrame>* stackTrace, unsigned& line, unsigned& column, String& sourceURL);
 bool addErrorInfo(VM&, Vector<StackFrame>*, JSObject*);
 JS_EXPORT_PRIVATE void addErrorInfo(JSGlobalObject*, JSObject*, bool);
 JSObject* addErrorInfo(VM&, JSObject* error, int line, const SourceCode&);
+
+// https://github.com/tc39/proposal-shadowrealm/pull/382
+//
+// When an crosses the ShadowRealm barrier, it is converted to a TypeError,
+// without invoking any observable operations. It attempts to maintain the
+// error message of the original error, if possible, and may include additional
+// information.
+JSObject* createTypeErrorCopy(JSGlobalObject*, JSValue error);
 
 // Methods to throw Errors.
 

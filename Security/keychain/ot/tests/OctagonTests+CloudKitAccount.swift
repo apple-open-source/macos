@@ -11,7 +11,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.accountStateTracker.notifyCKAccountStatusChangeAndWaitForSignal()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
@@ -37,7 +37,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
@@ -124,7 +124,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
@@ -221,7 +221,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
@@ -460,7 +460,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
@@ -514,7 +514,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.ckAccountStatusFetchError = NSError(domain: NSCocoaErrorDomain, code: 4099, userInfo: nil)
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.startCKAccountStatusMock()
 
@@ -544,7 +544,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.ckAccountStatusFetchError = NSError(domain: NSCocoaErrorDomain, code: 4099, userInfo: nil)
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.startCKAccountStatusMock()
 

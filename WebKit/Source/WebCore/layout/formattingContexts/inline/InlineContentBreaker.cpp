@@ -26,13 +26,11 @@
 #include "config.h"
 #include "InlineContentBreaker.h"
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
 #include "FontCascade.h"
 #include "Hyphenation.h"
 #include "InlineItem.h"
 #include "InlineTextItem.h"
-#include "LayoutContainerBox.h"
+#include "LayoutElementBox.h"
 #include "TextUtil.h"
 
 namespace WebCore {
@@ -66,8 +64,7 @@ static inline bool hasLeadingTextContent(const InlineContentBreaker::ContinuousC
 static inline bool hasTextRun(const InlineContentBreaker::ContinuousContent& continuousContent)
 {
     // <span>text</span> is considered a text run even with the [inline box start][inline box end] inline items.
-    // Based on standards commit boundary rules it would be enough to check the first inline item, but due to the table quirk, we can have
-    // image and text next to each other inside a continuous set of runs (see InlineFormattingContext::Quirks::hasSoftWrapOpportunityAtImage).
+    // Based on standards commit boundary rules it would be enough to check the first inline item.
     for (auto& run : continuousContent.runs()) {
         if (run.inlineItem.isText())
             return true;
@@ -156,28 +153,33 @@ InlineContentBreaker::Result InlineContentBreaker::processOverflowingContent(con
 
     ASSERT(continuousContent.logicalWidth() > lineStatus.availableWidth);
     auto checkForTrailingContentFit = [&]() -> std::optional<InlineContentBreaker::Result> {
-        if (continuousContent.hasCollapsibleContent()) {
-            // Check if the content fits if we collapsed it.
-            if (continuousContent.isFullyCollapsible() || isWhitespaceOnlyContent(continuousContent)) {
-                // If this new content is fully collapsible (including when it is enclosed by an inline box with overflowing decoration)
-                // it should not be wrapped to the next line (as it either fits/or gets fully collapsed).
+        if (continuousContent.hasTrimmableContent()) {
+            // Check if the content fits if we trimmed it.
+            if (continuousContent.isFullyTrimmable() || isWhitespaceOnlyContent(continuousContent)) {
+                // If this new content is fully trimmable (including when it is enclosed by an inline box with overflowing decoration)
+                // it should not be wrapped to the next line (as it either fits/or gets fully trimmed).
                 return InlineContentBreaker::Result { Result::Action::Keep };
             }
-            auto spaceRequired = continuousContent.logicalWidth() - continuousContent.trailingCollapsibleWidth().value_or(0.f);
-            if (lineStatus.hasFullyCollapsibleTrailingContent)
-                spaceRequired -= continuousContent.leadingCollapsibleWidth().value_or(0.f);
+            auto spaceRequired = continuousContent.logicalWidth() - continuousContent.trailingTrimmableWidth();
+            if (lineStatus.hasFullyTrimmableTrailingContent)
+                spaceRequired -= continuousContent.leadingTrimmableWidth();
             if (spaceRequired <= lineStatus.availableWidth)
                 return InlineContentBreaker::Result { Result::Action::Keep };
         }
 
-        if (continuousContent.isHangingContent())
-            return InlineContentBreaker::Result { Result::Action::Keep };
+        if (continuousContent.hasHangingContent()) {
+            if (continuousContent.isHangingContent())
+                return InlineContentBreaker::Result { Result::Action::Keep };
+            auto spaceRequired = continuousContent.logicalWidth() - continuousContent.hangingContentWidth();
+            if (spaceRequired <= lineStatus.availableWidth)
+                return InlineContentBreaker::Result { Result::Action::Keep };
+        }
 
-        auto canIgnoreNonContentTrailingRuns = lineStatus.collapsibleOrHangingWidth && isNonContentRunsOnly(continuousContent);
+        auto canIgnoreNonContentTrailingRuns = lineStatus.trimmableOrHangingWidth && isNonContentRunsOnly(continuousContent);
         if (canIgnoreNonContentTrailingRuns) {
-            // Let's see if the non-content runs fit when the line has trailing collapsible/hanging content.
-            // "text content <span style="padding: 1px"></span>" <- the <span></span> runs could fit after collapsing the trailing whitespace.
-            if (continuousContent.logicalWidth() <= lineStatus.availableWidth + lineStatus.collapsibleOrHangingWidth)
+            // Let's see if the non-content runs fit when the line has trailing trimmable/hanging content.
+            // "text content <span style="padding: 1px"></span>" <- the <span></span> runs could fit after trimming the trailing whitespace.
+            if (continuousContent.logicalWidth() <= lineStatus.availableWidth + lineStatus.trimmableOrHangingWidth)
                 return InlineContentBreaker::Result { Result::Action::Keep };
         }
 
@@ -265,7 +267,8 @@ InlineContentBreaker::Result InlineContentBreaker::processOverflowingContent(con
         // Parent style drives the wrapping behavior here.
         // e.g. <div style="white-space: nowrap">some text<div style="display: inline-block; white-space: pre-wrap"></div></div>.
         // While the inline-block has pre-wrap which allows wrapping, the content lives in a nowrap context.
-        return TextUtil::isWrappingAllowed(continuousContent.runs()[overflowingRunIndex].style);
+        auto& parentLayoutBox = continuousContent.runs()[overflowingRunIndex].inlineItem.layoutBox().parent();
+        return TextUtil::isWrappingAllowed(parentLayoutBox.style());
     };
     if (shouldWrapUnbreakableContentToNextLine())
         return { Result::Action::Wrap, IsEndOfLine::Yes };
@@ -292,7 +295,7 @@ static std::optional<size_t> findTrailingRunIndex(const InlineContentBreaker::Co
 
 static bool isWrappableRun(const InlineContentBreaker::ContinuousContent::Run& run)
 {
-    ASSERT(run.inlineItem.isText() || run.inlineItem.isInlineBoxStart() || run.inlineItem.isInlineBoxEnd() || run.inlineItem.layoutBox().isImage() || run.inlineItem.layoutBox().isListMarker());
+    ASSERT(run.inlineItem.isText() || run.inlineItem.isInlineBoxStart() || run.inlineItem.isInlineBoxEnd() || run.inlineItem.layoutBox().isImage() || run.inlineItem.layoutBox().isListMarkerBox());
     if (!run.inlineItem.isText()) {
         // Can't break horizontal spacing -> e.g. <span style="padding-right: 100px;">textcontent</span>, if the [inline box end] is the overflown inline item
         // we need to check if there's another inline item beyond the [inline box end] to split.
@@ -579,14 +582,14 @@ std::optional<InlineContentBreaker::OverflowingTextContent::BreakingPosition> In
                     // we should forward the breaking index to the closing inline box.
                     // FIXME: We may wanna skip over the visually empty inline boxes only e.g. <span style="word-wrap: break-word">fits_and_we_break_at_the_right_edge</span><span></span><span>overflows</span>
                     auto trailingInlineBoxEndIndex = std::optional<size_t> { };
-                    for (auto candidateIndex = index + 1; candidateIndex < overflowingRunIndex; ++candidateIndex) {
+                    for (auto candidateIndex = index + 1; candidateIndex <= overflowingRunIndex; ++candidateIndex) {
                         auto& trailingInlineItem = runs[candidateIndex].inlineItem;
                         if (trailingInlineItem.isInlineBoxEnd())
                             trailingInlineBoxEndIndex = candidateIndex;
                         if (!trailingInlineItem.isInlineBoxStart() && !trailingInlineItem.isInlineBoxEnd())
                             break;
                     }
-                    ASSERT(!trailingInlineBoxEndIndex || *trailingInlineBoxEndIndex < overflowingRunIndex);
+                    ASSERT(!trailingInlineBoxEndIndex || *trailingInlineBoxEndIndex <= overflowingRunIndex);
                     return trailingInlineBoxEndIndex.value_or(index);
                 };
                 return OverflowingTextContent::BreakingPosition { trailingRunIndex(), OverflowingTextContent::BreakingPosition::TrailingContent { false, std::nullopt } };
@@ -636,7 +639,7 @@ InlineContentBreaker::OverflowingTextContent InlineContentBreaker::processOverfl
     // Check where the overflow occurs and use the corresponding style to figure out the breaking behavior.
     // <span style="word-break: normal">first</span><span style="word-break: break-all">second</span><span style="word-break: normal">third</span>
 
-    // First find the overflowing run. 
+    // First find the overflowing run.
     auto nonOverflowingContentWidth = InlineLayoutUnit { };
     auto overflowingRunIndex = runs.size(); 
     for (size_t index = 0; index < runs.size(); ++index) {
@@ -647,17 +650,31 @@ InlineContentBreaker::OverflowingTextContent InlineContentBreaker::processOverfl
         }
         nonOverflowingContentWidth += runLogicalWidth;
     }
-    // We have to have an overflowing run.
-    RELEASE_ASSERT(overflowingRunIndex < runs.size());
+    if (overflowingRunIndex == runs.size()) {
+        // We have to have an overflowing run.
+        ASSERT_NOT_REACHED();
+        return { runs.size() ? runs.size() - 1 : 0 };
+    }
 
     // Check first if we can actually break the overflowing run.
     if (auto breakingPosition = tryBreakingOverflowingRun(lineStatus, runs, overflowingRunIndex, nonOverflowingContentWidth))
         return { overflowingRunIndex, breakingPosition };
 
-    // We did not manage to break the run that overflows the line.
-    // Let's try to find a previous breaking position starting from the overflowing run. It surely fits.
-    if (auto breakingPosition = tryBreakingPreviousNonOverflowingRuns(lineStatus, runs, overflowingRunIndex, nonOverflowingContentWidth))
-        return { overflowingRunIndex, breakingPosition };
+    auto& overflowingInlineItem = runs[overflowingRunIndex].inlineItem;
+    // In some cases we just can't break before certain overflowing runs due to content specific CSS rules, e.g. line-break: after-white-space.
+    // This is in addition to having soft wrap opportunties only after the whitespace. This is about not breaking at all
+    // before the whitespace content e.g.
+    // <div style="line-break: after-white-space; word-wrap: break-word">before<span style="white-space: pre">   </span>after</div>
+    // "before" content is not breakable sine it is _before_ the overflowing whitespace content.
+    auto isBreakingAllowedBeforeOverflowingRun = !is<InlineTextItem>(overflowingInlineItem)
+        || !downcast<InlineTextItem>(overflowingInlineItem).isWhitespace()
+        || overflowingInlineItem.style().lineBreak() != LineBreak::AfterWhiteSpace;
+    if (isBreakingAllowedBeforeOverflowingRun) {
+        // We did not manage to break the run that overflows the line.
+        // Let's try to find a previous breaking position starting from the overflowing run. It surely fits.
+        if (auto breakingPosition = tryBreakingPreviousNonOverflowingRuns(lineStatus, runs, overflowingRunIndex, nonOverflowingContentWidth))
+            return { overflowingRunIndex, breakingPosition };
+    }
 
     // At this point we know that there's no breakable run all the way to the overflowing run.
     // Now we need to check if any run after the overflowing content can break.
@@ -715,11 +732,11 @@ void InlineContentBreaker::ContinuousContent::appendToRunList(const InlineItem& 
     m_logicalWidth = clampTo<InlineLayoutUnit>(m_logicalWidth + logicalWidth);
 }
 
-void InlineContentBreaker::ContinuousContent::resetTrailingWhitespace()
+void InlineContentBreaker::ContinuousContent::resetTrailingTrimmableContent()
 {
-    if (!m_leadingCollapsibleWidth)
-        m_leadingCollapsibleWidth = m_trailingCollapsibleWidth;
-    m_trailingCollapsibleWidth = { };
+    if (!m_leadingTrimmableWidth)
+        m_leadingTrimmableWidth = m_trailingTrimmableWidth;
+    m_trailingTrimmableWidth = { };
 }
 
 void InlineContentBreaker::ContinuousContent::append(const InlineItem& inlineItem, const RenderStyle& style, InlineLayoutUnit logicalWidth)
@@ -727,46 +744,39 @@ void InlineContentBreaker::ContinuousContent::append(const InlineItem& inlineIte
     ASSERT(inlineItem.isBox() || inlineItem.isInlineBoxStart() || inlineItem.isInlineBoxEnd());
     appendToRunList(inlineItem, style, logicalWidth);
     if (inlineItem.isBox()) {
-        // Inline boxes (whitespace-> <span></span>) do not prevent the trailing content from getting collapsed/hung
+        // Inline boxes (whitespace-> <span></span>) do not prevent the trailing content from getting trimmed/hung
         // but atomic inline level boxes do.
-        resetTrailingWhitespace();
+        resetTrailingTrimmableContent();
     }
 }
 
-void InlineContentBreaker::ContinuousContent::append(const InlineTextItem& inlineTextItem, const RenderStyle& style, InlineLayoutUnit logicalWidth, std::optional<InlineLayoutUnit> collapsibleWidth)
+void InlineContentBreaker::ContinuousContent::appendTextContent(const InlineTextItem& inlineTextItem, const RenderStyle& style, InlineLayoutUnit logicalWidth, std::optional<InlineLayoutUnit> trimmableWidth)
 {
-    if (!collapsibleWidth) {
+    if (!trimmableWidth) {
         appendToRunList(inlineTextItem, style, logicalWidth);
-        resetTrailingWhitespace();
+        resetTrailingTrimmableContent();
         return;
     }
 
-    ASSERT(*collapsibleWidth <= logicalWidth);
-    auto isLeadingCollapsible = collapsibleWidth && (!this->logicalWidth() || isFullyCollapsible());
+    ASSERT(*trimmableWidth <= logicalWidth);
+    auto isLeadingTrimmable = trimmableWidth && (!this->logicalWidth() || isFullyTrimmable());
     appendToRunList(inlineTextItem, style, logicalWidth);
-    if (isLeadingCollapsible) {
-        ASSERT(!m_trailingCollapsibleWidth);
-        m_leadingCollapsibleWidth = m_leadingCollapsibleWidth.value_or(0.f) + *collapsibleWidth;
+    if (isLeadingTrimmable) {
+        ASSERT(!m_trailingTrimmableWidth);
+        m_leadingTrimmableWidth = m_leadingTrimmableWidth + *trimmableWidth;
         return;
     }
-    m_trailingCollapsibleWidth = *collapsibleWidth == logicalWidth ? m_trailingCollapsibleWidth.value_or(0.f) + logicalWidth : *collapsibleWidth;
-}
-
-void InlineContentBreaker::ContinuousContent::append(const InlineTextItem& inlineTextItem, const RenderStyle& style, InlineLayoutUnit hangingWidth)
-{
-    appendToRunList(inlineTextItem, style, hangingWidth);
-    m_trailingHangingContentWidth = hangingWidth;
-    resetTrailingWhitespace();
+    m_trailingTrimmableWidth = *trimmableWidth == logicalWidth ? m_trailingTrimmableWidth + logicalWidth : *trimmableWidth;
 }
 
 void InlineContentBreaker::ContinuousContent::reset()
 {
     m_logicalWidth = { };
-    m_leadingCollapsibleWidth = { };
-    m_trailingCollapsibleWidth = { };
-    m_trailingHangingContentWidth = { };
+    m_leadingTrimmableWidth = { };
+    m_trailingTrimmableWidth = { };
+    m_hangingContentWidth = { };
     m_runs.clear();
 }
+
 }
 }
-#endif

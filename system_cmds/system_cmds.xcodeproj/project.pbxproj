@@ -450,7 +450,7 @@
 		BA9BF4A31396816D0018C7BB /* sysctl.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA4FD2BE1372FAFA0025925C /* sysctl.conf.5 */; };
 		BA9BF4A4139681710018C7BB /* sysctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA4FD2BC1372FAFA0025925C /* sysctl.8 */; };
 		BA9BF4A9139681910018C7BB /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA4B7A091373BA4600003422 /* libutil.dylib */; };
-		BA9BF4B0139682430018C7BB /* trace.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA4FD2C11372FAFA0025925C /* trace.1 */; };
+		BA9BF4B0139682430018C7BB /* trace-legacy.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA4FD2C11372FAFA0025925C /* trace-legacy.1 */; };
 		BA9BF4B1139682480018C7BB /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = BA4FD2C21372FAFA0025925C /* trace.c */; };
 		BA9BF4C8139682DE0018C7BB /* vifs.c in Sources */ = {isa = PBXBuildFile; fileRef = BA4FD2C61372FAFA0025925C /* vifs.c */; };
 		BA9BF4C9139682E70018C7BB /* vifs.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA4FD2C51372FAFA0025925C /* vifs.8 */; };
@@ -2135,7 +2135,7 @@
 			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
-				BA9BF4B0139682430018C7BB /* trace.1 in CopyFiles */,
+				BA9BF4B0139682430018C7BB /* trace-legacy.1 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -2585,7 +2585,7 @@
 		BA4FD2BC1372FAFA0025925C /* sysctl.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = sysctl.8; sourceTree = "<group>"; };
 		BA4FD2BD1372FAFA0025925C /* sysctl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sysctl.c; sourceTree = "<group>"; };
 		BA4FD2BE1372FAFA0025925C /* sysctl.conf.5 */ = {isa = PBXFileReference; lastKnownFileType = text; path = sysctl.conf.5; sourceTree = "<group>"; };
-		BA4FD2C11372FAFA0025925C /* trace.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = trace.1; sourceTree = "<group>"; };
+		BA4FD2C11372FAFA0025925C /* trace-legacy.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = "trace-legacy.1"; sourceTree = "<group>"; };
 		BA4FD2C21372FAFA0025925C /* trace.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = trace.c; sourceTree = "<group>"; };
 		BA4FD2C51372FAFA0025925C /* vifs.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = vifs.8; sourceTree = "<group>"; };
 		BA4FD2C61372FAFA0025925C /* vifs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vifs.c; sourceTree = "<group>"; };
@@ -3728,7 +3728,7 @@
 		BA4FD2BF1372FAFA0025925C /* trace.tproj */ = {
 			isa = PBXGroup;
 			children = (
-				BA4FD2C11372FAFA0025925C /* trace.1 */,
+				BA4FD2C11372FAFA0025925C /* trace-legacy.1 */,
 				BA4FD2C21372FAFA0025925C /* trace.c */,
 			);
 			path = trace.tproj;

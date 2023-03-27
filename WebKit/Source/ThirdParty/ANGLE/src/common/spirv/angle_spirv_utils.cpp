@@ -31,8 +31,11 @@ bool Validate(const Blob &blob)
 {
     spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
 
+    spvtools::ValidatorOptions options;
+    options.SetFriendlyNames(false);
+
     spirvTools.SetMessageConsumer(ValidateSpirvMessage);
-    bool result = spirvTools.Validate(blob);
+    const bool result = spirvTools.Validate(blob.data(), blob.size(), options);
 
     if (!result)
     {
@@ -42,6 +45,14 @@ bool Validate(const Blob &blob)
     }
 
     return result;
+}
+
+void Print(const Blob &blob)
+{
+    spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
+    std::string readableSpirv;
+    spirvTools.Disassemble(blob, &readableSpirv, 0);
+    INFO() << "Dissembly SPIRV: " << readableSpirv.c_str();
 }
 #else   // ANGLE_ENABLE_ASSERTS
 bool Validate(const Blob &blob)

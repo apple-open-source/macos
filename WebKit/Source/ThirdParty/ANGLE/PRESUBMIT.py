@@ -7,12 +7,15 @@ See http://dev.chromium.org/developers/how-tos/depottools/presubmit-scripts
 for more details on the presubmit API built into depot_tools.
 """
 
+import itertools
 import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
+import pathlib
 
 # This line is 'magic' in that git-cl looks for it to decide whether to
 # use Python3 instead of Python2 when running the code in this file.
@@ -32,6 +35,20 @@ _PRIMARY_EXPORT_TARGETS = [
 ]
 
 
+def _SplitIntoMultipleCommits(description_text):
+    paragraph_split_pattern = r"(?m)(^\s*$\n)"
+    multiple_paragraphs = re.split(paragraph_split_pattern, description_text)
+    multiple_commits = [""]
+    change_id_pattern = re.compile(r"(?m)^Change-Id: [a-zA-Z0-9]*$")
+    for paragraph in multiple_paragraphs:
+        multiple_commits[-1] += paragraph
+        if change_id_pattern.search(paragraph):
+            multiple_commits.append("")
+    if multiple_commits[-1] == "":
+        multiple_commits.pop()
+    return multiple_commits
+
+
 def _CheckCommitMessageFormatting(input_api, output_api):
 
     def _IsLineBlank(line):
@@ -48,23 +65,10 @@ def _CheckCommitMessageFormatting(input_api, output_api):
     def _IsTagLine(line):
         return ":" in line
 
-    def _SplitIntoMultipleCommits(description_text):
-        paragraph_split_pattern = r"((?m)^\s*$\n)"
-        multiple_paragraphs = re.split(paragraph_split_pattern, description_text)
-        multiple_commits = [""]
-        change_id_pattern = re.compile(r"(?m)^Change-Id: [a-zA-Z0-9]*$")
-        for paragraph in multiple_paragraphs:
-            multiple_commits[-1] += paragraph
-            if change_id_pattern.search(paragraph):
-                multiple_commits.append("")
-        if multiple_commits[-1] == "":
-            multiple_commits.pop()
-        return multiple_commits
-
     def _CheckTabInCommit(lines):
         return all([line.find("\t") == -1 for line in lines])
 
-    allowlist_strings = ['Revert "', 'Roll ', 'Reland ', 'Re-land ']
+    allowlist_strings = ['Revert "', 'Roll ', 'Manual roll ', 'Reland ', 'Re-land ']
     summary_linelength_warning_lower_limit = 65
     summary_linelength_warning_upper_limit = 70
     description_linelength_limit = 72
@@ -327,7 +331,7 @@ def _CheckExportValidity(input_api, output_api):
 
 
 def _CheckTabsInSourceFiles(input_api, output_api):
-    """Forbids tab characters in source files due to a WebKit repo requirement. """
+    """Forbids tab characters in source files due to a WebKit repo requirement."""
 
     def implementation_and_headers_including_third_party(f):
         # Check third_party files too, because WebKit's checks don't make exceptions.
@@ -362,7 +366,7 @@ def is_ascii(s):
 
 
 def _CheckNonAsciiInSourceFiles(input_api, output_api):
-    """Forbids non-ascii characters in source files. """
+    """Forbids non-ascii characters in source files."""
 
     def implementation_and_headers(f):
         return input_api.FilterSourceFile(
@@ -387,11 +391,11 @@ def _CheckNonAsciiInSourceFiles(input_api, output_api):
 
 
 def _CheckCommentBeforeTestInTestFiles(input_api, output_api):
-    """Require a comment before TEST_P() and other tests. """
+    """Require a comment before TEST_P() and other tests."""
 
     def test_files(f):
         return input_api.FilterSourceFile(
-            f, files_to_check=(r'^src\/tests\/.+\.cpp$', r'^src\/.+_unittest\.cpp$'))
+            f, files_to_check=(r'^src/tests/.+\.cpp$', r'^src/.+_unittest\.cpp$'))
 
     tests_with_no_comment = []
     for f in input_api.AffectedSourceFiles(test_files):
@@ -422,11 +426,71 @@ def _CheckCommentBeforeTestInTestFiles(input_api, output_api):
     return []
 
 
+def _CheckShaderVersionInShaderLangHeader(input_api, output_api):
+    """Requires an update to ANGLE_SH_VERSION when ShaderLang.h or ShaderVars.h change."""
+
+    def headers(f):
+        return input_api.FilterSourceFile(
+            f,
+            files_to_check=(r'^include/GLSLANG/ShaderLang.h$', r'^include/GLSLANG/ShaderVars.h$'))
+
+    headers_changed = input_api.AffectedSourceFiles(headers)
+    if len(headers_changed) == 0:
+        return []
+
+    # Skip this check for reverts and rolls.  Unlike
+    # _CheckCommitMessageFormatting, relands are still checked because the
+    # original change might have incremented the version correctly, but the
+    # rebase over a new version could accidentally remove that (because another
+    # change in the meantime identically incremented it).
+    git_output = input_api.change.DescriptionText()
+    multiple_commits = _SplitIntoMultipleCommits(git_output)
+    for commit in multiple_commits:
+        if commit.startswith('Revert') or commit.startswith('Roll'):
+            return []
+
+    diffs = '\n'.join(f.GenerateScmDiff() for f in headers_changed)
+    versions = dict(re.findall(r'^([-+])#define ANGLE_SH_VERSION\s+(\d+)', diffs, re.M))
+
+    if len(versions) != 2 or int(versions['+']) <= int(versions['-']):
+        return [
+            output_api.PresubmitError(
+                'ANGLE_SH_VERSION should be incremented when ShaderLang.h or ShaderVars.h change.',
+            )
+        ]
+    return []
+
+
+def _CheckGClientExists(input_api, output_api, search_limit=None):
+    presubmit_path = pathlib.Path(input_api.PresubmitLocalPath())
+
+    for current_path in itertools.chain([presubmit_path], presubmit_path.parents):
+        gclient_path = current_path.joinpath('.gclient')
+        if gclient_path.exists() and gclient_path.is_file():
+            return []
+        # search_limit parameter is used in unit tests to prevent searching all the way to root
+        # directory for reproducibility.
+        elif search_limit != None and current_path == search_limit:
+            break
+
+    return [
+        output_api.PresubmitError(
+            'Missing .gclient file.',
+            long_text=textwrap.fill(
+                width=100,
+                text='The top level directory of the repository must contain a .gclient file.'
+                ' You can follow the steps outlined in the link below to get set up for ANGLE'
+                ' development:') +
+            '\n\nhttps://chromium.googlesource.com/angle/angle/+/refs/heads/main/doc/DevSetup.md')
+    ]
+
+
 def CheckChangeOnUpload(input_api, output_api):
     results = []
     results.extend(_CheckTabsInSourceFiles(input_api, output_api))
     results.extend(_CheckNonAsciiInSourceFiles(input_api, output_api))
     results.extend(_CheckCommentBeforeTestInTestFiles(input_api, output_api))
+    results.extend(_CheckShaderVersionInShaderLangHeader(input_api, output_api))
     results.extend(_CheckCodeGeneration(input_api, output_api))
     results.extend(_CheckChangeHasBugField(input_api, output_api))
     results.extend(input_api.canned_checks.CheckChangeHasDescription(input_api, output_api))
@@ -436,6 +500,8 @@ def CheckChangeOnUpload(input_api, output_api):
         input_api.canned_checks.CheckPatchFormatted(
             input_api, output_api, result_factory=output_api.PresubmitError))
     results.extend(_CheckCommitMessageFormatting(input_api, output_api))
+    results.extend(_CheckGClientExists(input_api, output_api))
+
     return results
 
 

@@ -40,11 +40,12 @@
 #include <WebCore/SourceBufferParserWebM.h>
 #include <WebCore/VideoTrackPrivate.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
-#include <pal/cf/CoreMediaSoftLink.h>
+#include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/WorkQueue.h>
 
+#include <pal/cf/CoreMediaSoftLink.h>
 #include <pal/cocoa/MediaToolboxSoftLink.h>
 
 WTF_DECLARE_CF_TYPE_TRAIT(MTPluginFormatReader);
@@ -52,19 +53,6 @@ WTF_DECLARE_CF_TYPE_TRAIT(MTPluginFormatReader);
 namespace WebKit {
 
 using namespace WebCore;
-
-static const void* nextLogIdentifier()
-{
-    static uint64_t logIdentifier = cryptographicallyRandomNumber();
-    return reinterpret_cast<const void*>(++logIdentifier);
-}
-
-static WTFLogChannel& logChannel()
-{
-    return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
-}
-
-static const char* logClassName() { return "MediaFormatReader"; }
 
 class AbortAction {
 public:
@@ -305,6 +293,17 @@ OSStatus MediaFormatReader::copyTrackArray(CFArrayRef* trackArrayCopy)
 const void* MediaFormatReader::nextTrackReaderLogIdentifier(uint64_t trackID) const
 {
     return LoggerHelper::childLogIdentifier(m_logIdentifier, trackID);
+}
+
+const void* MediaFormatReader::nextLogIdentifier()
+{
+    static uint64_t logIdentifier = cryptographicallyRandomNumber<uint32_t>();
+    return reinterpret_cast<const void*>(++logIdentifier);
+}
+
+WTFLogChannel& MediaFormatReader::logChannel()
+{
+    return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
 }
 
 } // namespace WebKit

@@ -19,6 +19,7 @@
 	<array>
 		<string>Aqua</string>
 		<string>Background</string>
+		<string>CryptexContainer</string>
 		<string>LoginWindow</string>
 	</array>
 	<key>MachServices</key>

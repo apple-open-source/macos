@@ -32,6 +32,7 @@ struct WebKitWebSrc;
 typedef struct _GstGLDisplay GstGLDisplay;
 typedef struct _GstGLContext GstGLContext;
 typedef struct _GstEGLImage GstEGLImage;
+typedef struct _GstGLColorConvert GstGLColorConvert;
 #endif
 
 #if USE(GSTREAMER_WEBRTC)
@@ -42,6 +43,7 @@ typedef struct _GstWebRTCICETransport GstWebRTCICETransport;
 typedef struct _GstWebRTCRTPReceiver GstWebRTCRTPReceiver;
 typedef struct _GstWebRTCRTPSender GstWebRTCRTPSender;
 typedef struct _GstWebRTCRTPTransceiver GstWebRTCRTPTransceiver;
+typedef struct _GstRTPHeaderExtension GstRTPHeaderExtension;
 #endif
 
 namespace WTF {
@@ -155,6 +157,11 @@ template<> void derefGPtr<GstGLContext>(GstGLContext* ptr);
 template<> GRefPtr<GstEGLImage> adoptGRef(GstEGLImage* ptr);
 template<> GstEGLImage* refGPtr<GstEGLImage>(GstEGLImage* ptr);
 template<> void derefGPtr<GstEGLImage>(GstEGLImage* ptr);
+
+template<> GRefPtr<GstGLColorConvert> adoptGRef(GstGLColorConvert* ptr);
+template<> GstGLColorConvert* refGPtr<GstGLColorConvert>(GstGLColorConvert* ptr);
+template<> void derefGPtr<GstGLColorConvert>(GstGLColorConvert* ptr);
+
 #endif
 
 template<> GRefPtr<GstEncodingProfile> adoptGRef(GstEncodingProfile*);
@@ -189,6 +196,11 @@ template <> void derefGPtr<GstWebRTCICETransport>(GstWebRTCICETransport*);
 template <> GRefPtr<GstPromise> adoptGRef(GstPromise*);
 template <> GstPromise* refGPtr<GstPromise>(GstPromise*);
 template <> void derefGPtr<GstPromise>(GstPromise*);
+
+template<> GRefPtr<GstRTPHeaderExtension> adoptGRef(GstRTPHeaderExtension*);
+template<> GstRTPHeaderExtension* refGPtr<GstRTPHeaderExtension>(GstRTPHeaderExtension*);
+template<> void derefGPtr<GstRTPHeaderExtension>(GstRTPHeaderExtension*);
+
 #endif
 
 } // namespace WTF

@@ -26,7 +26,6 @@
 #pragma once
 
 #include "SourceSpan.h"
-#include <wtf/text/StringView.h>
 #include <wtf/text/WTFString.h>
 
 namespace WGSL {
@@ -50,6 +49,7 @@ enum class TokenType: uint32_t {
     Identifier,
 
     ReservedWord,
+    KeywordArray,
     KeywordFn,
     KeywordFunction,
     KeywordPrivate,
@@ -81,10 +81,15 @@ enum class TokenType: uint32_t {
     Equal,
     GT,
     LT,
+    Minus,
+    MinusMinus,
+    Plus,
+    PlusPlus,
     Period,
     ParenLeft,
     ParenRight,
     Semicolon,
+    Star,
     // FIXME: add all the other special tokens
 };
 
@@ -95,7 +100,7 @@ struct Token {
     SourceSpan m_span;
     union {
         double m_literalValue;
-        StringView m_ident;
+        String m_ident;
     };
 
     Token(TokenType type, SourcePosition position, unsigned length)
@@ -122,25 +127,26 @@ struct Token {
             || type == TokenType::HexFloatLiteral);
     }
 
-    Token(TokenType type, SourcePosition position, unsigned length, StringView ident)
+    Token(TokenType type, SourcePosition position, unsigned length, String&& ident)
         : m_type(type)
         , m_span(position.m_line, position.m_lineOffset, position.m_offset, length)
-        , m_ident(ident)
+        , m_ident(WTFMove(ident))
     {
+        ASSERT(m_ident.impl() && m_ident.impl()->bufferOwnership() == StringImpl::BufferInternal);
         ASSERT(type == TokenType::Identifier);
     }
 
     Token& operator=(Token&& other)
     {
         if (m_type == TokenType::Identifier)
-            m_ident.~StringView();
+            m_ident.~String();
 
         m_type = other.m_type;
         m_span = other.m_span;
 
         switch (other.m_type) {
         case TokenType::Identifier:
-            new (NotNull, &m_ident) StringView();
+            new (NotNull, &m_ident) String();
             m_ident = other.m_ident;
             break;
         case TokenType::IntegerLiteral:
@@ -163,7 +169,7 @@ struct Token {
     {
         switch (other.m_type) {
         case TokenType::Identifier:
-            new (NotNull, &m_ident) StringView();
+            new (NotNull, &m_ident) String();
             m_ident = other.m_ident;
             break;
         case TokenType::IntegerLiteral:
@@ -181,7 +187,7 @@ struct Token {
     ~Token()
     {
         if (m_type == TokenType::Identifier)
-            (&m_ident)->~StringView();
+            (&m_ident)->~String();
     }
 };
 

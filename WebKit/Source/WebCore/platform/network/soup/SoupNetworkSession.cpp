@@ -33,6 +33,7 @@
 #include "GUniquePtrSoup.h"
 #include "Logging.h"
 #include "SoupVersioning.h"
+#include "WebKitAutoconfigProxyResolver.h"
 #include <glib/gstdio.h>
 #include <libsoup/soup.h>
 #include <pal/crypto/CryptoDigest.h>
@@ -41,7 +42,6 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/CString.h>
-#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -93,14 +93,6 @@ private:
 
     HashSet<String> m_certificates;
 };
-
-using AllowedCertificatesMap = HashMap<String, HostTLSCertificateSet, ASCIICaseInsensitiveHash>;
-
-static AllowedCertificatesMap& allowedCertificates()
-{
-    static NeverDestroyed<AllowedCertificatesMap> certificates;
-    return certificates;
-}
 
 SoupNetworkSession::SoupNetworkSession(PAL::SessionID sessionID)
     : m_sessionID(sessionID)
@@ -314,6 +306,9 @@ void SoupNetworkSession::setProxySettings(const SoupNetworkProxySettings& settin
         for (const auto& iter : m_proxySettings.proxyMap)
             g_simple_proxy_resolver_set_uri_proxy(G_SIMPLE_PROXY_RESOLVER(resolver.get()), iter.key.data(), iter.value.data());
         break;
+    case SoupNetworkProxySettings::Mode::Auto:
+        resolver = webkitAutoconfigProxyResolverNew(m_proxySettings.defaultProxyURL);
+        break;
     }
 
     soup_session_set_proxy_resolver(m_soupSession.get(), resolver.get());
@@ -340,8 +335,8 @@ std::optional<ResourceError> SoupNetworkSession::checkTLSErrors(const URL& reque
     if (m_ignoreTLSErrors || !tlsErrors)
         return std::nullopt;
 
-    auto it = allowedCertificates().find<ASCIICaseInsensitiveStringViewHashTranslator>(requestURL.host());
-    if (it != allowedCertificates().end() && it->value.contains(certificate))
+    auto it = m_allowedCertificates.find<ASCIICaseInsensitiveStringViewHashTranslator>(requestURL.host());
+    if (it != m_allowedCertificates.end() && it->value.contains(certificate))
         return std::nullopt;
 
     return ResourceError::tlsError(requestURL, tlsErrors, certificate);
@@ -349,7 +344,7 @@ std::optional<ResourceError> SoupNetworkSession::checkTLSErrors(const URL& reque
 
 void SoupNetworkSession::allowSpecificHTTPSCertificateForHost(const CertificateInfo& certificateInfo, const String& host)
 {
-    allowedCertificates().add(host, HostTLSCertificateSet()).iterator->value.add(certificateInfo.certificate());
+    m_allowedCertificates.add(host, HostTLSCertificateSet()).iterator->value.add(certificateInfo.certificate().get());
 }
 
 } // namespace WebCore

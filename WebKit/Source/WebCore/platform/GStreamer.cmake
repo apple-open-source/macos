@@ -4,6 +4,7 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
         "${WEBCORE_DIR}/platform/graphics/gstreamer"
         "${WEBCORE_DIR}/platform/graphics/gstreamer/mse"
         "${WEBCORE_DIR}/platform/graphics/gstreamer/eme"
+        "${WEBCORE_DIR}/platform/gstreamer"
         "${WEBCORE_DIR}/platform/mediarecorder/gstreamer"
     )
 
@@ -25,6 +26,7 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
 
         Modules/webaudio/MediaStreamAudioSourceGStreamer.cpp
 
+        platform/graphics/gstreamer/AppSinkWorkaround.cpp
         platform/graphics/gstreamer/AudioTrackPrivateGStreamer.cpp
         platform/graphics/gstreamer/DMABufVideoSinkGStreamer.cpp
         platform/graphics/gstreamer/GLVideoSinkGStreamer.cpp
@@ -44,6 +46,8 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
         platform/graphics/gstreamer/TextCombinerPadGStreamer.cpp
         platform/graphics/gstreamer/TextSinkGStreamer.cpp
         platform/graphics/gstreamer/TrackPrivateBaseGStreamer.cpp
+        platform/graphics/gstreamer/VideoDecoderGStreamer.cpp
+        platform/graphics/gstreamer/VideoEncoderGStreamer.cpp
         platform/graphics/gstreamer/VideoFrameGStreamer.cpp
         platform/graphics/gstreamer/VideoFrameMetadataGStreamer.cpp
         platform/graphics/gstreamer/VideoSinkGStreamer.cpp
@@ -64,9 +68,13 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
         platform/graphics/gstreamer/mse/TrackQueue.cpp
         platform/graphics/gstreamer/mse/WebKitMediaSourceGStreamer.cpp
 
-        platform/mediarecorder/MediaRecorderPrivateGStreamer.cpp
+        platform/gstreamer/GStreamerCodecUtilities.cpp
+        platform/gstreamer/GStreamerElementHarness.cpp
+        platform/gstreamer/PlatformSpeechSynthesizerGStreamer.cpp
+        platform/gstreamer/VideoEncoderPrivateGStreamer.cpp
+        platform/gstreamer/WebKitFliteSourceGStreamer.cpp
 
-        platform/mediastream/libwebrtc/LibWebRTCAudioModule.cpp
+        platform/mediarecorder/MediaRecorderPrivateGStreamer.cpp
 
         platform/mediastream/libwebrtc/gstreamer/GStreamerVideoCommon.cpp
         platform/mediastream/libwebrtc/gstreamer/GStreamerVideoDecoderFactory.cpp
@@ -87,7 +95,7 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
         platform/mediastream/gstreamer/GStreamerMediaStreamSource.cpp
         platform/mediastream/gstreamer/GStreamerVideoCaptureSource.cpp
         platform/mediastream/gstreamer/GStreamerVideoCapturer.cpp
-        platform/mediastream/gstreamer/GStreamerVideoEncoder.cpp
+        platform/mediastream/gstreamer/GStreamerWebRTCProvider.cpp
         platform/mediastream/gstreamer/MockRealtimeAudioSourceGStreamer.cpp
         platform/mediastream/gstreamer/MockRealtimeVideoSourceGStreamer.cpp
         platform/mediastream/gstreamer/RealtimeIncomingAudioSourceGStreamer.cpp
@@ -100,10 +108,10 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
     )
 
     list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+        platform/gstreamer/GStreamerElementHarness.h
         platform/graphics/gstreamer/GRefPtrGStreamer.h
         platform/graphics/gstreamer/GStreamerCommon.h
         platform/graphics/gstreamer/GUniquePtrGStreamer.h
-        platform/graphics/gstreamer/MediaPlayerRequestInstallMissingPluginsCallback.h
 
         platform/mediastream/libwebrtc/gstreamer/GStreamerVideoDecoderFactory.h
         platform/mediastream/libwebrtc/gstreamer/GStreamerVideoEncoderFactory.h
@@ -138,6 +146,11 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
 
     # Avoiding a GLib deprecation warning due to GStreamer API using deprecated classes.
     set_source_files_properties(platform/audio/gstreamer/WebKitWebAudioSourceGStreamer.cpp PROPERTIES COMPILE_DEFINITIONS "GLIB_DISABLE_DEPRECATION_WARNINGS=1")
+
+    if (VIDEO_DECODING_LIMIT)
+        # Specify video decoding limits.
+        set_source_files_properties(platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp PROPERTIES COMPILE_DEFINITIONS VIDEO_DECODING_LIMIT="${VIDEO_DECODING_LIMIT}")
+    endif ()
 endif ()
 
 if (USE_GSTREAMER_TRANSCODER)

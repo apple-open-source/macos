@@ -40,11 +40,13 @@
 #import <WebCore/Frame.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsLayer.h>
+#import <WebCore/Page.h>
 #import <WebCore/RenderLayerCompositor.h>
 #import <WebCore/RenderView.h>
-#import <WebCore/ScrollingTreeFixedNode.h>
+#import <WebCore/ScrollingStateFrameScrollingNode.h>
+#import <WebCore/ScrollingTreeFixedNodeCocoa.h>
 #import <WebCore/ScrollingTreeStickyNodeCocoa.h>
-
+#import <WebCore/WheelEventTestMonitor.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -101,6 +103,8 @@ void RemoteScrollingCoordinator::setScrollPinningBehavior(ScrollPinningBehavior)
 void RemoteScrollingCoordinator::buildTransaction(RemoteScrollingCoordinatorTransaction& transaction)
 {
     willCommitTree();
+
+    transaction.setClearScrollLatching(std::exchange(m_clearScrollLatchingInNextTransaction, false));
     transaction.setStateTreeToEncode(scrollingStateTree()->commit(LayerRepresentation::PlatformLayerIDRepresentation));
 }
 
@@ -129,10 +133,10 @@ void RemoteScrollingCoordinator::currentSnapPointIndicesChangedForNode(Scrolling
 void RemoteScrollingCoordinator::scrollingStateInUIProcessChanged(const RemoteScrollingUIState& uiState)
 {
     // FIXME: Also track m_nodesWithActiveRubberBanding.
-    if (uiState.changes().contains(RemoteScrollingUIState::Changes::ScrollSnapNodes))
+    if (uiState.changes().contains(RemoteScrollingUIStateChanges::ScrollSnapNodes))
         m_nodesWithActiveScrollSnap = uiState.nodesWithActiveScrollSnap();
 
-    if (uiState.changes().contains(RemoteScrollingUIState::Changes::UserScrollNodes))
+    if (uiState.changes().contains(RemoteScrollingUIStateChanges::UserScrollNodes))
         m_nodesWithActiveUserScrolls = uiState.nodesWithActiveUserScrolls();
 }
 
@@ -144,6 +148,30 @@ void RemoteScrollingCoordinator::addNodeWithActiveRubberBanding(ScrollingNodeID 
 void RemoteScrollingCoordinator::removeNodeWithActiveRubberBanding(ScrollingNodeID nodeID)
 {
     m_nodesWithActiveRubberBanding.remove(nodeID);
+}
+
+void RemoteScrollingCoordinator::startMonitoringWheelEvents(bool clearLatchingState)
+{
+    if (clearLatchingState)
+        m_clearScrollLatchingInNextTransaction = true;
+}
+
+void RemoteScrollingCoordinator::receivedWheelEventWithPhases(WebCore::PlatformWheelEventPhase phase, WebCore::PlatformWheelEventPhase momentumPhase)
+{
+    if (auto monitor = m_page->wheelEventTestMonitor())
+        monitor->receivedWheelEventWithPhases(phase, momentumPhase);
+}
+
+void RemoteScrollingCoordinator::startDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID nodeID, WebCore::WheelEventTestMonitor::DeferReason reason)
+{
+    if (auto monitor = m_page->wheelEventTestMonitor())
+        monitor->deferForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(nodeID), reason);
+}
+
+void RemoteScrollingCoordinator::stopDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID nodeID, WebCore::WheelEventTestMonitor::DeferReason reason)
+{
+    if (auto monitor = m_page->wheelEventTestMonitor())
+        monitor->removeDeferralForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(nodeID), reason);
 }
 
 } // namespace WebKit

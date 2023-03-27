@@ -39,11 +39,21 @@
 #include "WebPageGroup.h"
 #include "WebProcessPool.h"
 #include <WebCore/CompositionUnderline.h>
+#if ENABLE(GAMEPAD)
+#include <WebCore/GamepadProviderLibWPE.h>
+#endif
 #include <wpe/wpe.h>
+#include <wtf/NeverDestroyed.h>
 
 using namespace WebKit;
 
 namespace WKWPE {
+
+static Vector<View*>& viewsVector()
+{
+    static NeverDestroyed<Vector<View*>> vector;
+    return vector;
+}
 
 View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseConfiguration)
     : m_client(makeUnique<API::ViewClient>())
@@ -303,10 +313,13 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
     wpe_view_backend_initialize(m_backend);
 
     m_pageProxy->initializeWebPage();
+
+    viewsVector().append(this);
 }
 
 View::~View()
 {
+    viewsVector().removeAll(this);
 #if ENABLE(ACCESSIBILITY)
     if (m_accessible)
         webkitWebViewAccessibleSetWebView(m_accessible.get(), nullptr);
@@ -326,11 +339,6 @@ void View::frameDisplayed()
     m_client->frameDisplayed(*this);
 }
 
-void View::handleDownloadRequest(DownloadProxy& download)
-{
-    m_client->handleDownloadRequest(*this, download);
-}
-
 void View::willStartLoad()
 {
     m_client->willStartLoad(*this);
@@ -344,6 +352,11 @@ void View::didChangePageID()
 void View::didReceiveUserMessage(UserMessage&& message, CompletionHandler<void(UserMessage&&)>&& completionHandler)
 {
     m_client->didReceiveUserMessage(*this, WTFMove(message), WTFMove(completionHandler));
+}
+
+WebKitWebResourceLoadManager* View::webResourceLoadManager()
+{
+    return m_client->webResourceLoadManager();
 }
 
 void View::setInputMethodContext(WebKitInputMethodContext* context)
@@ -364,10 +377,10 @@ void View::setInputMethodState(std::optional<InputMethodState>&& state)
 void View::selectionDidChange()
 {
     const auto& editorState = m_pageProxy->editorState();
-    if (!editorState.isMissingPostLayoutData) {
-        m_inputMethodFilter.notifyCursorRect(editorState.postLayoutData().caretRectAtStart);
-        m_inputMethodFilter.notifySurrounding(editorState.postLayoutData().surroundingContext, editorState.postLayoutData().surroundingContextCursorPosition,
-            editorState.postLayoutData().surroundingContextSelectionPosition);
+    if (editorState.hasPostLayoutAndVisualData()) {
+        m_inputMethodFilter.notifyCursorRect(editorState.visualData->caretRectAtStart);
+        m_inputMethodFilter.notifySurrounding(editorState.postLayoutData->surroundingContext, editorState.postLayoutData->surroundingContextCursorPosition,
+            editorState.postLayoutData->surroundingContextSelectionPosition);
     }
 }
 
@@ -392,6 +405,13 @@ void View::setViewState(OptionSet<WebCore::ActivityState::Flag> flags)
 
     if (changedFlags)
         m_pageProxy->activityStateDidChange(changedFlags);
+
+    if (!viewsVector().isEmpty() && viewState().contains(WebCore::ActivityState::IsVisible)) {
+        if (viewsVector().first() != this) {
+            viewsVector().removeAll(this);
+            viewsVector().insert(0, this);
+        }
+    }
 }
 
 void View::handleKeyboardEvent(struct wpe_input_keyboard_event* event)
@@ -436,6 +456,37 @@ WebKitWebViewAccessible* View::accessible() const
     if (!m_accessible)
         m_accessible = webkitWebViewAccessibleNew(const_cast<View*>(this));
     return m_accessible.get();
+}
+#endif
+
+#if ENABLE(GAMEPAD)
+WebKit::WebPageProxy* View::platformWebPageProxyForGamepadInput()
+{
+    const auto& views = viewsVector();
+    if (views.isEmpty())
+        return nullptr;
+
+    struct wpe_view_backend* viewBackend = WebCore::GamepadProviderLibWPE::singleton().inputView();
+
+    size_t index = notFound;
+
+    if (viewBackend) {
+        index = views.findIf([&](View* view) {
+            return view->backend() == viewBackend
+                && view->viewState().contains(WebCore::ActivityState::IsVisible)
+                && view->viewState().contains(WebCore::ActivityState::IsFocused);
+        });
+    } else {
+        index = views.findIf([](View* view) {
+            return view->viewState().contains(WebCore::ActivityState::IsVisible)
+                && view->viewState().contains(WebCore::ActivityState::IsFocused);
+        });
+    }
+
+    if (index != notFound)
+        return &(views[index]->page());
+
+    return nullptr;
 }
 #endif
 

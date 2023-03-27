@@ -125,9 +125,6 @@ void XMLDocumentParser::append(RefPtr<StringImpl>&& inputSource)
     }
 
     doWrite(source);
-
-    // After parsing, dispatch image beforeload events.
-    ImageLoader::dispatchPendingBeforeLoadEvents(nullptr);
 }
 
 void XMLDocumentParser::handleError(XMLErrors::ErrorType type, const char* m, TextPosition position)
@@ -268,17 +265,11 @@ static XMLParsingNamespaces findXMLParsingNamespaces(Element* contextElement)
 
     XMLParsingNamespaces result;
 
-    bool stopLookingForDefaultNamespace = false;
+    result.defaultNamespace = contextElement->lookupNamespaceURI(nullAtom());
 
     for (auto& element : lineageOfType<Element>(*contextElement)) {
-        if (is<SVGForeignObjectElement>(element))
-            stopLookingForDefaultNamespace = true;
-        else if (!stopLookingForDefaultNamespace)
-            result.defaultNamespace = element.namespaceURI();
-
         if (!element.hasAttributes())
             continue;
-
         for (auto& attribute : element.attributesIterator()) {
             if (attribute.prefix() == xmlnsAtom())
                 result.prefixNamespaces.set(attribute.localName(), attribute.value());
@@ -288,7 +279,7 @@ static XMLParsingNamespaces findXMLParsingNamespaces(Element* contextElement)
     return result;
 }
 
-bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragment& fragment, Element* contextElement, ParserContentPolicy parserContentPolicy)
+bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragment& fragment, Element* contextElement, OptionSet<ParserContentPolicy> parserContentPolicy)
 {
     if (!chunk.length())
         return true;

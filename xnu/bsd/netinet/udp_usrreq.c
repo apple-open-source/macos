@@ -151,6 +151,8 @@ static int blackhole = 0;
 SYSCTL_INT(_net_inet_udp, OID_AUTO, blackhole, CTLFLAG_RW | CTLFLAG_LOCKED,
     &blackhole, 0, "Do not send port unreachables for refused connects");
 
+static KALLOC_TYPE_DEFINE(inpcbzone, struct inpcb, NET_KT_DEFAULT);
+
 struct inpcbhead udb;           /* from udp_var.h */
 #define udb6    udb  /* for KAME src sync over BSD*'s */
 struct inpcbinfo udbinfo;
@@ -254,7 +256,7 @@ udp_init(struct protosw *pp, struct domain *dp)
 	    &udbinfo.ipi_hashmask);
 	udbinfo.ipi_porthashbase = hashinit(UDBHASHSIZE, M_PCB,
 	    &udbinfo.ipi_porthashmask);
-	udbinfo.ipi_zone = zone_create("udpcb", sizeof(struct inpcb), ZC_NONE);
+	udbinfo.ipi_zone.zov_kt_heap = inpcbzone;
 
 	pcbinfo = &udbinfo;
 	/*

@@ -124,10 +124,17 @@ inline bool operator==(const RoundedRect::Radii& a, const RoundedRect::Radii& b)
     return a.topLeft() == b.topLeft() && a.topRight() == b.topRight() && a.bottomLeft() == b.bottomLeft() && a.bottomRight() == b.bottomRight();
 }
 
+inline bool operator!=(const RoundedRect::Radii& a, const RoundedRect::Radii& b)
+{
+    return !(a == b);
+}
+
 inline bool operator==(const RoundedRect& a, const RoundedRect& b)
 {
     return a.rect() == b.rect() && a.radii() == b.radii();
 }
+
+WTF::TextStream& operator<<(WTF::TextStream&, const RoundedRect&);
 
 // Snip away rectangles from corners, roughly one per step length of arc.
 WEBCORE_EXPORT Region approximateAsRegion(const RoundedRect&, unsigned stepLength = 20);

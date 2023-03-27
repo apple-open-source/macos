@@ -285,12 +285,12 @@ static void tests(bool recKeyFirst)
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Bob's backup key should be in the backup");
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Alice is in the backup");
-    
+
     if(!recKeyFirst) registerRecoveryKeyNow(changes, alice_account, bob_account, pubKeyBytes, recKeyFirst);
-    
-    ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Recovery Key is also in the backup");
+
+    // We used to test for the RK getting into the kTestView1 backup ring.  That will only happen regularly with legacy circles.  Testing with the kSOSViewiCloudIdentity
+    // backup ring instead makes sure we do RK pubkey proliferation correctly.
     ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kSOSViewiCloudIdentity), "Recovery Key is also in the backup");
-    ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Recovery Key is also in the backup");
     ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kSOSViewiCloudIdentity), "Recovery Key is also in the backup");
 
     SOSBackupSliceKeyBagRef bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kSOSViewiCloudIdentity, &error);
@@ -311,9 +311,7 @@ static void tests(bool recKeyFirst)
 
     registerRecoveryKeyNow(changes, alice_account, bob_account, NULL, recKeyFirst);
     
-    ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Recovery Key is not in the backup");
     ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kSOSViewiCloudIdentity), "Recovery Key is not in the backup");
-    ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Recovery Key is not in the backup");
     ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kSOSViewiCloudIdentity), "Recovery Key is not in the backup");
 
     bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kSOSViewiCloudIdentity, &error);
@@ -336,6 +334,7 @@ static void tests(bool recKeyFirst)
 
     CFReleaseNull(cfpassword);
     CFReleaseNull(wrappingKey);
+    CFReleaseNull(changes);
     bob_account = nil;
     alice_account = nil;
 
@@ -345,7 +344,7 @@ static void tests(bool recKeyFirst)
 
 int secd_66_account_recovery(int argc, char *const *argv) {
 #if SOS_ENABLED
-    plan_tests(281);
+    plan_tests(376);
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests(true);
     tests(false);

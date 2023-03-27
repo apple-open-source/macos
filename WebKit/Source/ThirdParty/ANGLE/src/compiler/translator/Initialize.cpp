@@ -53,6 +53,10 @@ void InitExtensionBehavior(const ShBuiltInResources &resources, TExtensionBehavi
     {
         extBehavior[TExtension::OES_primitive_bounding_box] = EBhUndefined;
     }
+    if (resources.EXT_separate_shader_objects)
+    {
+        extBehavior[TExtension::EXT_separate_shader_objects] = EBhUndefined;
+    }
     if (resources.EXT_shader_texture_lod)
     {
         extBehavior[TExtension::EXT_shader_texture_lod] = EBhUndefined;
@@ -121,6 +125,10 @@ void InitExtensionBehavior(const ShBuiltInResources &resources, TExtensionBehavi
     {
         extBehavior[TExtension::OES_texture_3D] = EBhUndefined;
     }
+    if (resources.ANGLE_shader_pixel_local_storage)
+    {
+        extBehavior[TExtension::ANGLE_shader_pixel_local_storage] = EBhUndefined;
+    }
     if (resources.ANGLE_texture_multisample)
     {
         extBehavior[TExtension::ANGLE_texture_multisample] = EBhUndefined;
@@ -181,6 +189,10 @@ void InitExtensionBehavior(const ShBuiltInResources &resources, TExtensionBehavi
     {
         extBehavior[TExtension::EXT_clip_cull_distance] = EBhUndefined;
     }
+    if (resources.ANGLE_clip_cull_distance)
+    {
+        extBehavior[TExtension::ANGLE_clip_cull_distance] = EBhUndefined;
+    }
     if (resources.ANDROID_extension_pack_es31a)
     {
         extBehavior[TExtension::ANDROID_extension_pack_es31a] = EBhUndefined;
@@ -193,7 +205,7 @@ void InitExtensionBehavior(const ShBuiltInResources &resources, TExtensionBehavi
 
 void ResetExtensionBehavior(const ShBuiltInResources &resources,
                             TExtensionBehavior &extBehavior,
-                            const ShCompileOptions compileOptions)
+                            const ShCompileOptions &compileOptions)
 {
     for (auto &ext : extBehavior)
     {
@@ -201,7 +213,7 @@ void ResetExtensionBehavior(const ShBuiltInResources &resources,
     }
     if (resources.ARB_texture_rectangle)
     {
-        if ((compileOptions & SH_DISABLE_ARB_TEXTURE_RECTANGLE) != 0)
+        if (compileOptions.disableARBTextureRectangle)
         {
             // Remove ARB_texture_rectangle so it can't be enabled by extension directives.
             extBehavior.erase(TExtension::ARB_texture_rectangle);

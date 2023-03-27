@@ -22,7 +22,9 @@ class TCompiler;
 class TOutputGLSLBase : public TIntermTraverser
 {
   public:
-    TOutputGLSLBase(TCompiler *compiler, TInfoSinkBase &objSink, ShCompileOptions compileOptions);
+    TOutputGLSLBase(TCompiler *compiler,
+                    TInfoSinkBase &objSink,
+                    const ShCompileOptions &compileOptions);
 
     ShShaderOutput getShaderOutput() const { return mOutput; }
 
@@ -91,6 +93,8 @@ class TOutputGLSLBase : public TIntermTraverser
     bool isHighPrecisionSupported() const { return mHighPrecisionSupported; }
     const char *getIndentPrefix(int extraIndentDepth = 0);
 
+    bool needsToWriteLayoutQualifier(const TType &type);
+
   private:
     void declareInterfaceBlockLayout(const TType &type);
     void declareInterfaceBlock(const TType &type);
@@ -112,10 +116,16 @@ class TOutputGLSLBase : public TIntermTraverser
 
     bool mHighPrecisionSupported;
 
-    ShCompileOptions mCompileOptions;
+    // Emit "layout(locaton = 0)" for fragment outputs whose location is unspecified. This is for
+    // transformations like pixel local storage, where new outputs are introduced to the shader, and
+    // previously valid fragment outputs with an implicit location of 0 are now required to specify
+    // their location.
+    bool mAlwaysSpecifyFragOutLocation;
+
+    const ShCompileOptions &mCompileOptions;
 };
 
-void WritePragma(TInfoSinkBase &out, ShCompileOptions compileOptions, const TPragma &pragma);
+void WritePragma(TInfoSinkBase &out, const ShCompileOptions &compileOptions, const TPragma &pragma);
 
 void WriteGeometryShaderLayoutQualifiers(TInfoSinkBase &out,
                                          sh::TLayoutPrimitiveType inputPrimitive,
@@ -130,8 +140,6 @@ void WriteTessEvaluationShaderLayoutQualifiers(TInfoSinkBase &out,
                                                sh::TLayoutTessEvaluationType inputVertexSpacing,
                                                sh::TLayoutTessEvaluationType inputOrdering,
                                                sh::TLayoutTessEvaluationType inputPoint);
-
-bool NeedsToWriteLayoutQualifier(const TType &type);
 
 void EmitEarlyFragmentTestsGLSL(const TCompiler &, TInfoSinkBase &sink);
 void EmitWorkGroupSizeGLSL(const TCompiler &, TInfoSinkBase &sink);

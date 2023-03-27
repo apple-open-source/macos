@@ -31,6 +31,7 @@
 #include "JSDOMConvertInterface.h"
 #include "JSDOMConvertNumbers.h"
 #include "JSDOMConvertStrings.h"
+#include "JSDOMConvertUnion.h"
 #include "JSDOMConvertVariadic.h"
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMGlobalObjectInlines.h"
@@ -302,9 +303,9 @@ JSC::GCClient::IsoSubspace* JSTestOverloadedConstructors::subspaceForImpl(JSC::V
 {
     return WebCore::subspaceForImpl<JSTestOverloadedConstructors, UseCustomHeapCellType::No>(vm,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestOverloadedConstructors.get(); },
-        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestOverloadedConstructors = WTFMove(space); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestOverloadedConstructors = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestOverloadedConstructors.get(); },
-        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestOverloadedConstructors = WTFMove(space); }
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestOverloadedConstructors = std::forward<decltype(space)>(space); }
     );
 }
 

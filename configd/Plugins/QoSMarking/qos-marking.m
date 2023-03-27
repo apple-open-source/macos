@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -52,6 +52,10 @@
 #import <NetworkExtension/NEProcessInfo.h>
 #import <NEHelperClient.h>
 
+#define __SYSCONFIG	"com.apple.SystemConfiguration"
+#define __QOS_MARKING 	"QoSMarking"
+#define QOS_MARKING	__SYSCONFIG "." __QOS_MARKING
+
 // define the QoSMarking.bundle Info.plist key containing [application] bundleIDs to be white-listed
 #define kQoSMarkingBundleIdentifiersAppleAudioVideoCallsKey	CFSTR("QoSMarking_AppleAudioVideoCalls_BundleIDs")
 
@@ -79,10 +83,21 @@ __log_QoSMarking(void)
 	static os_log_t	log	= NULL;
 
 	if (log == NULL) {
-		log = os_log_create("com.apple.SystemConfiguration", "QoSMarking");
+		log = os_log_create(__SYSCONFIG, __QOS_MARKING);
 	}
 
 	return log;
+}
+
+static inline dispatch_queue_t
+qos_marking_queue(void)
+{
+	static dispatch_queue_t q;
+
+	if (q == NULL) {
+		q = dispatch_queue_create(QOS_MARKING, NULL);
+	}
+	return (q);
 }
 
 
@@ -885,7 +900,7 @@ qosMarkingConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys,
 
 
 static Boolean
-haveNetworkExtensionFramework()
+haveNetworkExtensionFramework(void)
 {
 	Boolean	haveFramework;
 
@@ -904,7 +919,6 @@ load_QoSMarking(CFBundleRef bundle, Boolean bundleVerbose)
 	CFMutableArrayRef	keys;
 	Boolean			ok;
 	CFMutableArrayRef	patterns;
-	CFRunLoopSourceRef	rls;
 	SCDynamicStoreRef	store;
 
 	SC_log(LOG_DEBUG, "load() called");
@@ -967,15 +981,15 @@ load_QoSMarking(CFBundleRef bundle, Boolean bundleVerbose)
 		goto error;
 	}
 
-	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-	if (rls == NULL) {
-		SC_log(LOG_NOTICE, "SCDynamicStoreCreateRunLoopSource() failed: %s",
+	// sets the work queue for the callback function
+	ok = SCDynamicStoreSetDispatchQueue(store, qos_marking_queue());
+	if (!ok) {
+		SC_log(LOG_NOTICE, "SCDynamicStoreSetDispatchQueue() failed: %s",
 		       SCErrorString(SCError()));
 		goto error;
 	}
 
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-	CFRelease(rls);
+	return;
 
     error :
 

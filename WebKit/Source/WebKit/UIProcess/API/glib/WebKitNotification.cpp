@@ -51,17 +51,16 @@ enum {
 };
 
 struct _WebKitNotificationPrivate {
+    RefPtr<WebKit::WebNotification> notification;
     CString title;
     CString body;
     CString tag;
     guint64 id;
-
-    WebKitWebView* webView;
 };
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitNotification, webkit_notification, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitNotification, webkit_notification, G_TYPE_OBJECT)
 
 static void webkitNotificationGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -100,8 +99,7 @@ static void webkit_notification_class_init(WebKitNotificationClass* notification
     g_object_class_install_property(objectClass,
         PROP_ID,
         g_param_spec_uint64("id",
-            _("ID"),
-            _("The unique id for the notification"),
+            nullptr, nullptr,
             0, G_MAXUINT64, 0,
             WEBKIT_PARAM_READABLE));
 
@@ -115,8 +113,7 @@ static void webkit_notification_class_init(WebKitNotificationClass* notification
     g_object_class_install_property(objectClass,
         PROP_TITLE,
         g_param_spec_string("title",
-            _("Title"),
-            _("The title for the notification"),
+            nullptr, nullptr,
             nullptr,
             WEBKIT_PARAM_READABLE));
 
@@ -130,8 +127,7 @@ static void webkit_notification_class_init(WebKitNotificationClass* notification
     g_object_class_install_property(objectClass,
         PROP_BODY,
         g_param_spec_string("body",
-            _("Body"),
-            _("The body for the notification"),
+            nullptr, nullptr,
             nullptr,
             WEBKIT_PARAM_READABLE));
 
@@ -145,8 +141,7 @@ static void webkit_notification_class_init(WebKitNotificationClass* notification
     g_object_class_install_property(objectClass,
         PROP_TAG,
         g_param_spec_string("tag",
-            _("Tag"),
-            _("The tag identifier for the notification"),
+            nullptr, nullptr,
             nullptr,
             WEBKIT_PARAM_READABLE));
 
@@ -190,20 +185,16 @@ static void webkit_notification_class_init(WebKitNotificationClass* notification
             G_TYPE_NONE, 0);
 }
 
-WebKitNotification* webkitNotificationCreate(WebKitWebView* webView, const WebKit::WebNotification& webNotification)
+WebKitNotification* webkitNotificationCreate(WebKit::WebNotification& webNotification)
 {
     WebKitNotification* notification = WEBKIT_NOTIFICATION(g_object_new(WEBKIT_TYPE_NOTIFICATION, nullptr));
-    notification->priv->id = webNotification.notificationID();
-    notification->priv->title = webNotification.title().utf8();
-    notification->priv->body = webNotification.body().utf8();
-    notification->priv->tag = webNotification.tag().utf8();
-    notification->priv->webView = webView;
+    notification->priv->notification = &webNotification;
     return notification;
 }
 
-WebKitWebView* webkitNotificationGetWebView(WebKitNotification* notification)
+const WebKit::WebNotification& webkitNotificationGetWebNotification(WebKitNotification* notification)
 {
-    return notification->priv->webView;
+    return *notification->priv->notification;
 }
 
 /**
@@ -220,7 +211,7 @@ guint64 webkit_notification_get_id(WebKitNotification* notification)
 {
     g_return_val_if_fail(WEBKIT_IS_NOTIFICATION(notification), 0);
 
-    return notification->priv->id;
+    return notification->priv->notification->notificationID();
 }
 
 /**
@@ -236,6 +227,9 @@ guint64 webkit_notification_get_id(WebKitNotification* notification)
 const gchar* webkit_notification_get_title(WebKitNotification* notification)
 {
     g_return_val_if_fail(WEBKIT_IS_NOTIFICATION(notification), nullptr);
+
+    if (notification->priv->title.isNull())
+        notification->priv->title = notification->priv->notification->title().utf8();
 
     return notification->priv->title.data();
 }
@@ -254,6 +248,9 @@ const gchar* webkit_notification_get_body(WebKitNotification* notification)
 {
     g_return_val_if_fail(WEBKIT_IS_NOTIFICATION(notification), nullptr);
 
+    if (notification->priv->body.isNull())
+        notification->priv->body = notification->priv->notification->body().utf8();
+
     return notification->priv->body.data();
 }
 
@@ -271,8 +268,10 @@ const gchar* webkit_notification_get_tag(WebKitNotification* notification)
 {
     g_return_val_if_fail(WEBKIT_IS_NOTIFICATION(notification), nullptr);
 
-    const gchar* tag = notification->priv->tag.data();
-    return notification->priv->tag.length() ? tag : nullptr;
+    if (notification->priv->tag.isNull())
+        notification->priv->tag = notification->priv->notification->tag().utf8();
+
+    return notification->priv->tag.length() ? notification->priv->tag.data() : nullptr;
 }
 
 /**
@@ -294,7 +293,9 @@ void webkit_notification_close(WebKitNotification* notification)
  * webkit_notification_clicked:
  * @notification: a #WebKitNotification
  *
- * Tells WebKit the notification has been clicked. This will emit the
+ * Tells WebKit the notification has been clicked.
+ *
+ * This will emit the
  * #WebKitNotification::clicked signal.
  *
  * Since: 2.12

@@ -45,19 +45,16 @@ public:
 private:
     ScrollingTreeFrameScrollingNodeRemoteIOS(WebCore::ScrollingTree&, WebCore::ScrollingNodeType, WebCore::ScrollingNodeID);
 
-    void commitStateBeforeChildren(const WebCore::ScrollingStateNode&) override;
-    void commitStateAfterChildren(const WebCore::ScrollingStateNode&) override;
+    ScrollingTreeScrollingNodeDelegateIOS* delegate() const;
+
+    bool commitStateBeforeChildren(const WebCore::ScrollingStateNode&) override;
+    bool commitStateAfterChildren(const WebCore::ScrollingStateNode&) override;
 
     WebCore::FloatPoint minimumScrollPosition() const override;
     WebCore::FloatPoint maximumScrollPosition() const override;
 
     void repositionScrollingLayers() override;
     void repositionRelatedLayers() override;
-
-    bool startAnimatedScrollToPosition(WebCore::FloatPoint) final;
-    void stopAnimatedScroll() final;
-
-    std::unique_ptr<ScrollingTreeScrollingNodeDelegateIOS> m_scrollingNodeDelegate;
 
     RetainPtr<CALayer> m_counterScrollingLayer;
     RetainPtr<CALayer> m_headerLayer;

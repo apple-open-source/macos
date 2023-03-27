@@ -68,7 +68,7 @@ private:
 
     void drawImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destination, const WebCore::FloatRect& source, const WebCore::ImagePaintingOptions&) override;
     void drawFilteredImageBuffer(WebCore::ImageBuffer*, const WebCore::FloatRect&, WebCore::Filter&, WebCore::FilterResults&) override;
-    void drawNativeImage(WebCore::NativeImage&, const WebCore::FloatSize&, const WebCore::FloatRect&, const WebCore::FloatRect&, const WebCore::ImagePaintingOptions&) override;
+    void drawNativeImageInternal(WebCore::NativeImage&, const WebCore::FloatSize&, const WebCore::FloatRect&, const WebCore::FloatRect&, const WebCore::ImagePaintingOptions&) override;
     void drawPattern(WebCore::NativeImage&, const WebCore::FloatRect&, const WebCore::FloatRect&, const WebCore::AffineTransform&, const WebCore::FloatPoint&, const WebCore::FloatSize&, const WebCore::ImagePaintingOptions&) override;
 
     void drawRect(const WebCore::FloatRect&, float) override;
@@ -77,8 +77,8 @@ private:
     void drawDotsForDocumentMarker(const WebCore::FloatRect&, WebCore::DocumentMarkerLineStyle) override;
     void drawEllipse(const WebCore::FloatRect&) override;
 
-    void drawFocusRing(const WebCore::Path&, float, float, const WebCore::Color&) override;
-    void drawFocusRing(const Vector<WebCore::FloatRect>&, float, float, const WebCore::Color&) override;
+    void drawFocusRing(const WebCore::Path&, float outlineWidth, const WebCore::Color&) override;
+    void drawFocusRing(const Vector<WebCore::FloatRect>&, float outlineOffset, float outlineWidth, const WebCore::Color&) override;
 
     void save() override;
     void restore() override;
@@ -104,8 +104,6 @@ private:
 #endif
 
     void applyDeviceScaleFactor(float) override;
-
-    WebCore::FloatRect roundToDevicePixels(const WebCore::FloatRect&, WebCore::GraphicsContext::RoundingMode) override;
 
     void append(std::unique_ptr<PaintingOperation>&&);
     PaintingOperations& m_commandList;

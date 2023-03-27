@@ -27,18 +27,25 @@
 #include "VideoFrameMetadataGStreamer.h"
 #include <gst/rtp/rtp.h>
 
+GST_DEBUG_CATEGORY_EXTERN(webkit_webrtc_endpoint_debug);
+#define GST_CAT_DEFAULT webkit_webrtc_endpoint_debug
+
 namespace WebCore {
 
 RealtimeIncomingVideoSourceGStreamer::RealtimeIncomingVideoSourceGStreamer(AtomString&& videoTrackId)
     : RealtimeIncomingSourceGStreamer(CaptureDevice { WTFMove(videoTrackId), CaptureDevice::DeviceType::Camera, emptyString() })
 {
+    static Atomic<uint64_t> sourceCounter = 0;
+    gst_element_set_name(bin(), makeString("incoming-video-source-", sourceCounter.exchangeAdd(1)).ascii().data());
+    GST_DEBUG_OBJECT(bin(), "New incoming video source created");
+
     RealtimeMediaSourceSupportedConstraints constraints;
     constraints.setSupportsWidth(true);
     constraints.setSupportsHeight(true);
     m_currentSettings = RealtimeMediaSourceSettings { };
     m_currentSettings->setSupportedConstraints(WTFMove(constraints));
 
-    auto sinkPad = adoptGRef(gst_element_get_static_pad(m_valve.get(), "sink"));
+    auto sinkPad = adoptGRef(gst_element_get_static_pad(bin(), "sink"));
     gst_pad_add_probe(sinkPad.get(), static_cast<GstPadProbeType>(GST_PAD_PROBE_TYPE_BUFFER), [](GstPad*, GstPadProbeInfo* info, gpointer) -> GstPadProbeReturn {
         auto videoFrameTimeMetadata = std::make_optional<VideoFrameTimeMetadata>({ });
         videoFrameTimeMetadata->receiveTime = MonotonicTime::now().secondsSinceEpoch();
@@ -82,10 +89,27 @@ void RealtimeIncomingVideoSourceGStreamer::settingsDidChange(OptionSet<RealtimeM
         m_currentSettings = std::nullopt;
 }
 
-void RealtimeIncomingVideoSourceGStreamer::dispatchSample(GRefPtr<GstSample>&& gstSample)
+void RealtimeIncomingVideoSourceGStreamer::dispatchSample(GRefPtr<GstSample>&& sample)
 {
-    auto* buffer = gst_sample_get_buffer(gstSample.get());
-    videoFrameAvailable(VideoFrameGStreamer::createWrappedSample(gstSample, fromGstClockTime(GST_BUFFER_PTS(buffer))), { });
+    auto* buffer = gst_sample_get_buffer(sample.get());
+    videoFrameAvailable(VideoFrameGStreamer::create(WTFMove(sample), size(), fromGstClockTime(GST_BUFFER_PTS(buffer))), { });
+}
+
+const GstStructure* RealtimeIncomingVideoSourceGStreamer::stats()
+{
+    m_stats.reset(gst_structure_new_empty("incoming-video-stats"));
+    forEachVideoFrameObserver([&](auto& observer) {
+        auto stats = observer.queryAdditionalStats();
+        if (!stats)
+            return;
+
+        gst_structure_foreach(stats.get(), reinterpret_cast<GstStructureForeachFunc>(+[](GQuark fieldId, const GValue* value, gpointer userData) -> gboolean {
+            auto* source = reinterpret_cast<RealtimeIncomingVideoSourceGStreamer*>(userData);
+            gst_structure_set_value(source->m_stats.get(), g_quark_to_string(fieldId), value);
+            return TRUE;
+        }), this);
+    });
+    return m_stats.get();
 }
 
 } // namespace WebCore

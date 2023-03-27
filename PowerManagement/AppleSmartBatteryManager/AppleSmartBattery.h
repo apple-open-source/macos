@@ -28,8 +28,8 @@
 #include <IOKit/pwr_mgt/IOPMPowerSource.h>
 #include <IOKit/IOReporter.h>
 
-#include "AppleSmartBatteryManager.h"
-#include "AppleSmartBatteryCommands.h"
+#define TARGET_OS_OSX_X86   (TARGET_OS_OSX && !TARGET_CPU_ARM64)    // Non-Apple Silicon Mac platforms
+#define TARGET_OS_OSX_AS    (TARGET_OS_OSX && TARGET_CPU_ARM64)     // Apple Silicon Mac platforms
 
 #if TARGET_OS_OSX_X86
 #include <IOKit/smbus/IOSMBusController.h>
@@ -37,21 +37,13 @@
 #endif
 
 
-
 #define kBatteryPollingDebugKey     "BatteryPollingPeriodOverride"
 
 class AppleSmartBatteryManager;
+class AppleSmartBatteryHFDataClient;
 
-typedef struct {
-    uint32_t cmd;
-    int addr;
-    ASBMgrOpType opType;
-    uint32_t smcKey;
-    int nbytes;
-    const OSSymbol *setItAndForgetItSym;
-    int pathBits;
-    bool supportDesktops;
-} CommandStruct;
+struct CommandStruct_s;
+typedef CommandStruct_s CommandStruct;
 
 typedef struct {
     CommandStruct   *table;
@@ -79,9 +71,12 @@ typedef struct {
 
 typedef struct {
     IOSharedDataQueue *queue;
+    AppleSmartBatteryHFDataClient *client;
     AbsoluteTime periodTime;
     AbsoluteTime wakeupTime;
 } streamQueueCollect;
+
+typedef void (*hfdata_callback_t) (OSDictionary* dict, void* arg);
 
 class AppleSmartBattery : public IOPMPowerSource {
     OSDeclareDefaultStructors(AppleSmartBattery)

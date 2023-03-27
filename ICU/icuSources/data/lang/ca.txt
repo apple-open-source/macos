@@ -45,6 +45,7 @@ ca{
         ang{"anglès antic"}
         anp{"angika"}
         apw{"apatxe occidental"}
+        apw_Latn{"apatxe occidental"}
         ar{"àrab"}
         ar_001{"àrab estàndard modern"}
         arc{"arameu"}
@@ -113,9 +114,12 @@ ca{
         chm{"mari"}
         chn{"pidgin chinook"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"xeiene"}
+        cic{"chickasaw"}
+        cic_Latn{"chickasaw"}
         ckb{"kurd sorani"}
         co{"cors"}
         cop{"copte"}

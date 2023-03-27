@@ -157,6 +157,7 @@
                 "Meta",
                 "MetaRight",
                 "Command",
+                "CommandRight",
                 "Cancel",
                 "Help",
                 "Backspace",
@@ -643,6 +644,32 @@
             "async": true
         },
         {
+            "name": "getComputedRole",
+            "description": "Get the computed WAI-ARIA role of the element.",
+            "parameters": [
+                { "name": "browsingContextHandle", "$ref": "BrowsingContextHandle", "description": "The handle for the browsing context." },
+                { "name": "frameHandle", "$ref": "FrameHandle", "description": "The handle for the frame that contains the element. The main frame is used if this parameter is empty string." },
+                { "name": "nodeHandle", "$ref": "NodeHandle", "description": "The handle of the element to get the role of." }
+            ],
+            "returns": [
+                { "name": "role", "type": "string", "description": "The computed WAI-ARIA role of the element." }
+            ],
+            "async": true
+        },
+        {
+            "name": "getComputedLabel",
+            "description": "Get the Accessible Name and Description Computation computed accessible name of the element.",
+            "parameters": [
+                { "name": "browsingContextHandle", "$ref": "BrowsingContextHandle", "description": "The handle for the browsing context." },
+                { "name": "frameHandle", "$ref": "FrameHandle", "description": "The handle for the frame that contains the element. The main frame is used if this parameter is empty string." },
+                { "name": "nodeHandle", "$ref": "NodeHandle", "description": "The handle of the element to get the label of." }
+            ],
+            "returns": [
+                { "name": "label", "type": "string", "description": "The computed label for the element." }
+            ],
+            "async": true
+        },
+        {
             "name": "selectOptionElement",
             "description": "Selects the given option element. In case of container with multiple options enabled, the element selectedness is toggled.",
             "parameters": [
@@ -827,6 +854,15 @@
                 { "name": "browsingContextHandle", "$ref": "BrowsingContextHandle", "description": "The handle for the browsing context." },
                 { "name": "authenticatorId", "type": "string", "description": "The virtual authenticator id to fetch all credentials for." },
                 { "name": "isUserVerified", "type": "boolean", "description": "The isUserVerified value to set on the given virtual authenticator"}
+            ]
+        },
+        {
+            "name": "generateTestReport",
+            "description": "generate a test report for the specified browsing context",
+            "parameters": [
+                { "name": "browsingContextHandle", "$ref": "BrowsingContextHandle", "description": "The handle for the browsing context." },
+                { "name": "message", "type": "string", "description": "The body message for the generated test report." },
+                { "name": "group", "type": "string", "description": "The group value to use when sending a test report."}
             ]
         }
     ],

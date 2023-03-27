@@ -14,7 +14,7 @@ extension Container {
             reply($0, $1, $2)
         }
 
-        self.fetchAndPersistChangesIfNeeded { fetchError in
+        self.fetchAndPersistChanges { fetchError in
             guard fetchError == nil else {
                 logger.info("preflightRecoveryKey unable to fetch current peers: \(String(describing: fetchError), privacy: .public)")
                 reply(nil, nil, fetchError)

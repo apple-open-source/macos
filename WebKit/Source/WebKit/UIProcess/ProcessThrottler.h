@@ -39,6 +39,10 @@
 #define PROCESSTHROTTLER_RELEASE_LOG_WITH_PID(msg, ...) RELEASE_LOG(ProcessSuspension, "%p - [PID=%d] ProcessThrottler::" msg, this, ##__VA_ARGS__)
 #define PROCESSTHROTTLER_ACTIVITY_RELEASE_LOG(msg, ...) RELEASE_LOG(ProcessSuspension, "%p - [PID=%d, throttler=%p] ProcessThrottler::Activity::" msg, this, m_throttler->m_processIdentifier, m_throttler, ##__VA_ARGS__)
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebKit {
     
 enum UserObservablePageCounterType { };
@@ -48,6 +52,11 @@ typedef RefCounter<ProcessSuppressionDisabledCounterType> ProcessSuppressionDisa
 typedef ProcessSuppressionDisabledCounter::Token ProcessSuppressionDisabledToken;
 
 enum class IsSuspensionImminent : bool { No, Yes };
+enum class ProcessThrottleState : uint8_t {
+    Suspended,
+    Background,
+    Foreground,
+};
 
 class ProcessThrottlerClient;
 
@@ -124,7 +133,7 @@ public:
         void activityTimedOut();
         void updateTimer();
 
-        RunLoop::Timer<TimedActivity> m_timer;
+        RunLoop::Timer m_timer;
         Seconds m_timeout;
         ActivityVariant m_activity;
     };
@@ -132,12 +141,16 @@ public:
     void didConnectToProcess(ProcessID);
     bool shouldBeRunnable() const { return m_foregroundActivities.size() || m_backgroundActivities.size(); }
     void setAllowsActivities(bool);
+    void setShouldTakeSuspendedAssertion(bool);
 
 private:
-    ProcessAssertionType expectedAssertionType();
-    void updateAssertionIfNeeded();
-    void updateAssertionTypeNow();
+    friend WTF::TextStream& operator<<(WTF::TextStream&, const ProcessThrottler&);
+
+    ProcessThrottleState expectedThrottleState();
+    void updateThrottleStateIfNeeded();
+    void updateThrottleStateNow();
     void setAssertionType(ProcessAssertionType);
+    void setThrottleState(ProcessThrottleState);
     void prepareToSuspendTimeoutTimerFired();
     void sendPrepareToSuspendIPC(IsSuspensionImminent);
     void processReadyToSuspend();
@@ -148,6 +161,7 @@ private:
     void removeActivity(BackgroundActivity&);
     void invalidateAllActivities();
     String assertionName(ProcessAssertionType) const;
+    std::optional<ProcessAssertionType> assertionTypeForState(ProcessThrottleState);
 
     void uiAssertionWillExpireImminently();
     void assertionWasInvalidated();
@@ -157,11 +171,13 @@ private:
     ProcessThrottlerClient& m_process;
     ProcessID m_processIdentifier { 0 };
     RefPtr<ProcessAssertion> m_assertion;
-    RunLoop::Timer<ProcessThrottler> m_prepareToSuspendTimeoutTimer;
+    RunLoop::Timer m_prepareToSuspendTimeoutTimer;
     HashSet<ForegroundActivity*> m_foregroundActivities;
     HashSet<BackgroundActivity*> m_backgroundActivities;
     std::optional<uint64_t> m_pendingRequestToSuspendID;
+    ProcessThrottleState m_state { ProcessThrottleState::Suspended };
     bool m_shouldTakeUIBackgroundAssertion;
+    bool m_shouldTakeSuspendedAssertion { true };
     bool m_allowsActivities { true };
 };
 
@@ -174,6 +190,8 @@ inline auto ProcessThrottler::backgroundActivity(ASCIILiteral name) -> UniqueRef
 {
     return makeUniqueRef<BackgroundActivity>(*this, name);
 }
+
+WTF::TextStream& operator<<(WTF::TextStream&, const ProcessThrottler&);
 
 } // namespace WebKit
 

@@ -355,14 +355,12 @@ static NSInteger _reporterWrites;
     NSString *sosPath = [_path stringByAppendingFormat:@"/sos_%ld.db", (long)_testnum];
     NSString *pcsPath = [_path stringByAppendingFormat:@"/pcs_%ld.db", (long)_testnum];
     NSString *tlsPath = [_path stringByAppendingFormat:@"/tls_%ld.db", (long)_testnum];
-    NSString *signInPath = [_path stringByAppendingFormat:@"/signin_%ld.db", (long)_testnum];
     NSString *cloudServicesPath = [_path stringByAppendingFormat:@"/cloudServices_%ld.db", (long)_testnum];
     NSString *transparencyPath = [_path stringByAppendingFormat:@"/transparency_%ld.db", (long)_testnum];
     OCMStub([mockTopic databasePathForCKKS]).andReturn(ckksPath);
     OCMStub([mockTopic databasePathForSOS]).andReturn(sosPath);
     OCMStub([mockTopic databasePathForPCS]).andReturn(pcsPath);
     OCMStub([mockTopic databasePathForTrust]).andReturn(tlsPath);
-    OCMStub([mockTopic databasePathForSignIn]).andReturn(signInPath);
     OCMStub([mockTopic databasePathForCloudServices]).andReturn(cloudServicesPath);
     OCMStub([mockTopic databasePathForTransparency]).andReturn(transparencyPath);
 

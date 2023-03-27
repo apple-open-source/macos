@@ -187,9 +187,10 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         this._createExperimentalSettingsView();
 
-        if (WI.isEngineeringBuild) {
+        if (WI.engineeringSettingsAllowed())
             this._createEngineeringSettingsView();
 
+        if (WI.isEngineeringBuild) {
             WI.showDebugUISetting.addEventListener(WI.Setting.Event.Changed, this._updateDebugSettingsViewVisibility, this);
             this._updateDebugSettingsViewVisibility();
         }
@@ -279,6 +280,14 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         let elementsSettingsView = new WI.SettingsView("elements", WI.UIString("Elements"));
 
+        // COMPATIBILITY (macOS 13.0, iOS 16.0): CSS.LayoutFlag.Rendered did not exist yet.
+        console.log(InspectorBackend.Enum.CSS);
+        if (InspectorBackend.Enum.CSS?.LayoutFlag?.Rendered) {
+            elementsSettingsView.addSetting(WI.UIString("DOM Tree:"), WI.settings.domTreeDeemphasizesNodesThatAreNotRendered, WI.UIString("De-emphasize nodes that are not rendered"));
+
+            elementsSettingsView.addSeparator();
+        }
+
         if (InspectorBackend.hasCommand("DOM.setInspectModeEnabled", "showRulers")) {
             elementsSettingsView.addSetting(WI.UIString("Element Selection:"), WI.settings.showRulersDuringElementSelection, WI.UIString("Show page rulers and node border lines"));
 
@@ -345,6 +354,7 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         }
 
         consoleSettingsView.addSetting(WI.UIString("Traces:"), WI.settings.consoleAutoExpandTrace, WI.UIString("Auto-expand"));
+        consoleSettingsView.addSetting(WI.UIString("Show:"), WI.settings.showConsoleMessageTimestamps, WI.UIString("Timestamps"));
 
         if (WI.ConsoleManager.supportsLogChannels()) {
             consoleSettingsView.addSeparator();
@@ -396,6 +406,19 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             experimentalSettingsView.addSeparator();
         }
 
+        let hasNetworkEmulatedCondition = InspectorBackend.hasCommand("Network.setEmulatedConditions");
+        if (hasNetworkEmulatedCondition) {
+            let networkGroup = experimentalSettingsView.addGroup(WI.UIString("Network:"));
+            networkGroup.addSetting(WI.settings.experimentalEnableNetworkEmulatedCondition, WI.UIString("Allow throttling", "Label for checkbox that controls whether network throttling functionality is enabled."));
+
+            experimentalSettingsView.addSeparator();
+        }
+
+        let sourcesGroup = experimentalSettingsView.addGroup(WI.UIString("Sources:"));
+        sourcesGroup.addSetting(WI.settings.experimentalLimitSourceCodeHighlighting, WI.UIString("Limit syntax highlighting on long lines of code"));
+
+        experimentalSettingsView.addSeparator();
+
         let diagnosticsGroup = experimentalSettingsView.addGroup(WI.UIString("Diagnostics:", "Diagnostics: @ Experimental Settings", "Category label for experimental settings related to Web Inspector diagnostics."));
         diagnosticsGroup.addSetting(WI.settings.experimentalAllowInspectingInspector, WI.UIString("Allow Inspecting Web Inspector", "Allow Inspecting Web Inspector @ Experimental Settings", "Label for setting that allows the user to inspect the Web Inspector user interface."));
         experimentalSettingsView.addSeparator();
@@ -421,6 +444,11 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             listenForChange(WI.settings.experimentalEnableStylesJumpToVariableDeclaration);
         }
 
+        if (hasNetworkEmulatedCondition)
+            listenForChange(WI.settings.experimentalEnableNetworkEmulatedCondition);
+
+        listenForChange(WI.settings.experimentalLimitSourceCodeHighlighting);
+
         this._createReferenceLink(experimentalSettingsView);
 
         this.addSettingsView(experimentalSettingsView);
@@ -428,7 +456,7 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
     _createEngineeringSettingsView()
     {
-        // These settings are only ever shown in engineering builds, so the strings are unlocalized.
+        // These settings are only ever shown when engineering tools are enabled or in engineering builds, so the strings are unlocalized.
 
         let engineeringSettingsView = new WI.SettingsView("engineering", WI.unlocalizedString("Engineering"));
 
@@ -447,9 +475,6 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         let heapSnapshotGroup = engineeringSettingsView.addGroup(WI.unlocalizedString("Heap Snapshot:"));
         heapSnapshotGroup.addSetting(WI.settings.engineeringShowInternalObjectsInHeapSnapshot, WI.unlocalizedString("Show Internal Objects"));
         heapSnapshotGroup.addSetting(WI.settings.engineeringShowPrivateSymbolsInHeapSnapshot, WI.unlocalizedString("Show Private Symbols"));
-
-        let extensionsGroup = engineeringSettingsView.addGroup(WI.unlocalizedString("Web Extensions:"));
-        extensionsGroup.addSetting(WI.settings.engineeringShowMockWebExtensionTab, WI.unlocalizedString("Show Mock Web Extension tab"));
 
         this.addSettingsView(engineeringSettingsView);
     }
@@ -507,6 +532,11 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         layoutDirectionEditor.addEventListener(WI.SettingEditor.Event.ValueDidChange, function(event) {
             WI.setLayoutDirection(this.value);
         }, layoutDirectionEditor);
+
+        this._debugSettingsView.addSeparator();
+
+        let extensionsGroup = this._debugSettingsView.addGroup(WI.unlocalizedString("Web Extensions:"));
+        extensionsGroup.addSetting(WI.settings.debugShowMockWebExtensionTab, WI.unlocalizedString("Show Mock Web Extension tab"));
 
         this._debugSettingsView.addSeparator();
 

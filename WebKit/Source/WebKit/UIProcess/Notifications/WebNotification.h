@@ -66,7 +66,7 @@ public:
     uint64_t notificationID() const { return identifier(); }
 
     WebPageProxyIdentifier pageIdentifier() const { return m_pageIdentifier; }
-    IPC::Connection* sourceConnection() const { return m_sourceConnection.get(); }
+    RefPtr<IPC::Connection> sourceConnection() const { return m_sourceConnection.get(); }
 
 private:
     WebNotification(const WebCore::NotificationData&, WebPageProxyIdentifier, IPC::Connection&);
@@ -74,7 +74,7 @@ private:
     WebCore::NotificationData m_data;
     RefPtr<API::SecurityOrigin> m_origin;
     WebPageProxyIdentifier m_pageIdentifier;
-    WeakPtr<IPC::Connection> m_sourceConnection;
+    ThreadSafeWeakPtr<IPC::Connection> m_sourceConnection;
 };
 
 inline bool isNotificationIDValid(uint64_t id)

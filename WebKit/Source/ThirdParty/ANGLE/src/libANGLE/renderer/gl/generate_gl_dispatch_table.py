@@ -116,11 +116,11 @@ DispatchTableGL::DispatchTableGL() = default;
 
 void DispatchTableGL::initProcsDesktopGL(const gl::Version &version, const std::set<std::string> &extensions)
 {{
-#if defined(ANGLE_ENABLE_OPENGL_DESKTOP)
+#if defined(ANGLE_ENABLE_GL_DESKTOP_BACKEND)
 {gl_extensions_data}
 
 {gl_data}
-#endif  // defined(ANGLE_ENABLE_OPENGL_DESKTOP)
+#endif  // defined(ANGLE_ENABLE_GL_DESKTOP_BACKEND)
 }}
 
 void DispatchTableGL::initProcsGLES(const gl::Version &version, const std::set<std::string> &extensions)
@@ -138,11 +138,11 @@ void DispatchTableGL::initProcsSharedExtensions(const std::set<std::string> &ext
 #if defined(ANGLE_ENABLE_OPENGL_NULL)
 void DispatchTableGL::initProcsDesktopGLNULL(const gl::Version &version, const std::set<std::string> &extensions)
 {{
-#if defined(ANGLE_ENABLE_OPENGL_DESKTOP)
+#if defined(ANGLE_ENABLE_GL_DESKTOP_BACKEND)
 {gl_null_extensions_data}
 
 {gl_null_data}
-#endif  // defined(ANGLE_ENABLE_OPENGL_DESKTOP)
+#endif  // defined(ANGLE_ENABLE_GL_DESKTOP_BACKEND)
 }}
 
 void DispatchTableGL::initProcsGLESNULL(const gl::Version &version, const std::set<std::string> &extensions)
@@ -249,7 +249,7 @@ def main():
     # auto_script parameters.
     if len(sys.argv) > 1:
         inputs = [
-            '../../../../scripts/gl.xml',
+            '../../../../third_party/OpenGL-Registry/src/xml/gl.xml',
             '../angle_format.py',
             'gl_bindings_data.json',
         ]
@@ -269,7 +269,8 @@ def main():
             return 1
         return 0
 
-    gl_xml_path = os.path.join('..', '..', '..', '..', 'scripts', 'gl.xml')
+    gl_xml_path = os.path.join('..', '..', '..', '..', 'third_party', 'OpenGL-Registry', 'src',
+                               'xml', 'gl.xml')
     dispatch_header_path = 'DispatchTableGL_autogen.h'
     dispatch_source_path = 'DispatchTableGL_autogen.cpp'
     null_functions_header_path = 'null_functions.h'

@@ -26,6 +26,8 @@
 #include "config.h"
 #include "DrawingAreaWC.h"
 
+#if USE(GRAPHICS_LAYER_WC)
+
 #include "DrawingAreaProxyMessages.h"
 #include "GraphicsLayerWC.h"
 #include "PlatformImageBufferShareableBackend.h"
@@ -99,7 +101,8 @@ void DrawingAreaWC::updatePreferences(const WebPreferencesStore&)
 
 bool DrawingAreaWC::shouldUseTiledBackingForFrameView(const WebCore::FrameView& frameView) const
 {
-    return frameView.frame().isMainFrame();
+    auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(frameView.frame());
+    return localFrame && localFrame->isMainFrame();
 }
 
 void DrawingAreaWC::setLayerTreeStateIsFrozen(bool isFrozen)
@@ -122,14 +125,10 @@ void DrawingAreaWC::updateGeometry(uint64_t backingStoreStateID, IntSize viewSiz
 
 void DrawingAreaWC::setNeedsDisplay()
 {
-    if (isCompositingMode()) {
-        triggerRenderingUpdate();
-        return;
-    }
-    m_dirtyRegion = { };
+    m_dirtyRegion = m_webPage.bounds();
     m_scrollRect = { };
     m_scrollOffset = { };
-    setNeedsDisplayInRect(m_webPage.bounds());
+    triggerRenderingUpdate();
 }
 
 void DrawingAreaWC::setNeedsDisplayInRect(const IntRect& rect)
@@ -231,6 +230,8 @@ void DrawingAreaWC::updateRendering()
     m_webPage.finalizeRenderingUpdate(flags);
     m_webPage.didUpdateRendering();
 
+    willStartRenderingUpdateDisplay();
+
     if (isCompositingMode())
         sendUpdateAC();
     else
@@ -261,7 +262,7 @@ void DrawingAreaWC::sendUpdateAC()
                     send(Messages::DrawingAreaProxy::Update(m_backingStoreStateID, WTFMove(*updateInfo)));
                     return;
                 }
-                didUpdate();
+                displayDidRefresh();
             });
         });
     });
@@ -289,7 +290,7 @@ static bool shouldPaintBoundsRect(const IntRect& bounds, const Vector<IntRect, 1
 void DrawingAreaWC::sendUpdateNonAC()
 {
     if (m_dirtyRegion.isEmpty()) {
-        didUpdate();
+        displayDidRefresh();
         return;
     }
     IntRect bounds = m_dirtyRegion.bounds();
@@ -323,14 +324,14 @@ void DrawingAreaWC::sendUpdateNonAC()
         m_webPage.drawRect(image->context(), rect);
     image->flushDrawingContextAsync();
 
-    m_commitQueue->dispatch([this, weakThis = WeakPtr(*this), stateID = m_backingStoreStateID, updateInfo = WTFMove(updateInfo), image]() mutable {
+    m_commitQueue->dispatch([this, weakThis = WeakPtr(*this), stateID = m_backingStoreStateID, updateInfo = WTFMove(updateInfo), image = WTFMove(image)]() mutable {
         if (auto flusher = image->createFlusher())
             flusher->flush();
-        RunLoop::main().dispatch([this, weakThis = WTFMove(weakThis), stateID, updateInfo = WTFMove(updateInfo), image]() mutable {
+        RunLoop::main().dispatch([this, weakThis = WTFMove(weakThis), stateID, updateInfo = WTFMove(updateInfo), image = WTFMove(image)]() mutable {
             if (!weakThis)
                 return;
             if (stateID != m_backingStoreStateID) {
-                didUpdate();
+                displayDidRefresh();
                 return;
             }
 
@@ -340,7 +341,7 @@ void DrawingAreaWC::sendUpdateNonAC()
                 if (is<ImageBufferBackendHandleSharing>(sharing))
                     handle = downcast<ImageBufferBackendHandleSharing>(*sharing).createBackendHandle();
             }
-            updateInfo.bitmapHandle = std::get<ShareableBitmap::Handle>(WTFMove(handle));
+            updateInfo.bitmapHandle = std::get<ShareableBitmapHandle>(WTFMove(handle));
             send(Messages::DrawingAreaProxy::Update(stateID, WTFMove(updateInfo)));
         });
     });
@@ -370,9 +371,11 @@ RefPtr<ImageBuffer> DrawingAreaWC::createImageBuffer(FloatSize size)
     return ImageBuffer::create<UnacceleratedImageBufferShareableBackend>(size, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8, RenderingPurpose::DOM, nullptr);
 }
 
-void DrawingAreaWC::didUpdate()
+void DrawingAreaWC::displayDidRefresh()
 {
     m_waitDidUpdate = false;
+    didCompleteRenderingUpdateDisplay();
+    didCompleteRenderingFrame();
     if (m_forceRepaintCompletionHandler) {
         if (m_isForceRepaintCompletionHandlerDeferred)
             m_isForceRepaintCompletionHandlerDeferred = false;
@@ -386,3 +389,5 @@ void DrawingAreaWC::didUpdate()
 }
 
 } // namespace WebKit
+
+#endif // USE(GRAPHICS_LAYER_WC)

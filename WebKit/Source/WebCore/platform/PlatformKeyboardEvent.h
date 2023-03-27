@@ -47,7 +47,7 @@ namespace WebCore {
         WTF_MAKE_FAST_ALLOCATED;
     public:
         PlatformKeyboardEvent()
-            : PlatformEvent(PlatformEvent::KeyDown)
+            : PlatformEvent(PlatformEvent::Type::KeyDown)
         {
         }
 
@@ -125,7 +125,7 @@ namespace WebCore {
 #endif
 
 #if PLATFORM(WIN)
-        PlatformKeyboardEvent(HWND, WPARAM, LPARAM, Type, bool);
+        WEBCORE_EXPORT PlatformKeyboardEvent(HWND, WPARAM, LPARAM, Type, bool);
 #endif
 
 #if PLATFORM(GTK)

@@ -85,6 +85,17 @@
 }
 @end
 
+static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const SecDbSchema *schema))
+{
+    int index = 0;
+    for (const SecDbSchema *const *schema = all_schemas(); *schema != NULL; schema++) {
+        if (predicate(*schema)) {
+            return index;
+        }
+        index++;
+    }
+    return -1;
+}
 
 @implementation secdmockaks
 
@@ -171,6 +182,8 @@
     
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test key to keychain");
+    CFReleaseNull(ref);
+    CFReleaseNull(key);
 }
 
 - (void)createManyACLKeyItems
@@ -826,6 +839,7 @@
     
     result = SecItemDelete((__bridge CFDictionaryRef)refQuery);
     XCTAssertEqual(result, 0, @"failed to delete key");
+    CFReleaseNull(key);
 }
 
 - (bool)isLockedSoon:(keyclass_t)key_class
@@ -1170,6 +1184,7 @@
     
     XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)canaryQuery, NULL), errSecSuccess,
                    "should successfully get canaryItem final %d", (int)counter);
+    CFReleaseNull(ref);
 }
 #endif /* !TARGET_OS_WATCH */
 
@@ -1205,6 +1220,7 @@
     XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecInteractionNotAllowed, "should successfully get item");
     
     XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecSuccess, "should successfully get item");
+    CFReleaseNull(ref);
 }
 
 // This test fails before rdar://problem/60028419 because the keystore fails to check for errSecInteractionNotAllowed,
@@ -1298,6 +1314,7 @@
     
     XCTAssertNotNil((__bridge id)output, "Should have received something back from keychain");
     CFReleaseNull(output);
+    CFReleaseNull(access);
 }
 #endif // TARGET_OS_OSX || TARGET_OS_SIMULATOR
 
@@ -4001,6 +4018,7 @@
 
     result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
     XCTAssertEqual(result, 0, @"failed to delete item");
+    CFReleaseNull(acRef);
 }
 #endif
 

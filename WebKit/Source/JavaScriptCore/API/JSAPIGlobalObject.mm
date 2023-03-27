@@ -34,11 +34,14 @@
 #import "Completion.h"
 #import "Error.h"
 #import "Exception.h"
+#import "IdentifierInlines.h"
 #import "JSContextInternal.h"
 #import "JSInternalPromise.h"
 #import "JSModuleLoader.h"
 #import "JSNativeStdFunction.h"
+#import "JSObjectInlines.h"
 #import "JSPromise.h"
+#import "JSScriptFetchParameters.h"
 #import "JSScriptInternal.h"
 #import "JSSourceCode.h"
 #import "JSValueInternal.h"
@@ -46,6 +49,7 @@
 #import "JavaScriptCore.h"
 #import "ObjectConstructor.h"
 #import "SourceOrigin.h"
+#import "StrongInlines.h"
 #import <wtf/URL.h>
 
 namespace JSC {
@@ -120,9 +124,9 @@ Identifier JSAPIGlobalObject::moduleLoaderResolve(JSGlobalObject* globalObject, 
     if (JSString* referrerString = jsDynamicCast<JSString*>(referrer)) {
         String value = referrerString->value(globalObject);
         RETURN_IF_EXCEPTION(scope, { });
-        URL referrerURL({ }, value);
-        RELEASE_ASSERT(referrerURL.isValid());
-        base = WTFMove(referrerURL);
+        // It can be invalid URL because dynamic-import will be resolved with caller's source origin (this becomes referrer), and it can be non valid URL.
+        // But this is handled well in computeValidImportSpecifier.
+        base = URL { { }, value };
     }
 
     auto result = computeValidImportSpecifier(base, name);
@@ -133,7 +137,7 @@ Identifier JSAPIGlobalObject::moduleLoaderResolve(JSGlobalObject* globalObject, 
     return { };
 }
 
-JSInternalPromise* JSAPIGlobalObject::moduleLoaderImportModule(JSGlobalObject* globalObject, JSModuleLoader*, JSString* specifierValue, JSValue, const SourceOrigin& sourceOrigin)
+JSInternalPromise* JSAPIGlobalObject::moduleLoaderImportModule(JSGlobalObject* globalObject, JSModuleLoader*, JSString* specifierValue, JSValue parameters, const SourceOrigin& sourceOrigin)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -142,8 +146,8 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderImportModule(JSGlobalObject* g
         return promise->rejectWithCaughtException(globalObject, scope);
     };
 
-    auto import = [&] (URL& url) {
-        auto result = importModule(globalObject, Identifier::fromString(vm, url.string()), jsUndefined(), jsUndefined());
+    auto import = [&] (const String& specifier, JSValue parameters) {
+        auto result = importModule(globalObject, Identifier::fromString(vm, specifier), jsString(vm, sourceOrigin.url().string()), parameters, jsUndefined());
         RETURN_IF_EXCEPTION(scope, reject(scope));
         return result;
     };
@@ -151,15 +155,17 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderImportModule(JSGlobalObject* g
     auto specifier = specifierValue->value(globalObject);
     RETURN_IF_EXCEPTION(scope, reject(scope));
 
-    auto result = computeValidImportSpecifier(sourceOrigin.url(), specifier);
-    if (result)
-        return import(result.value());
-    scope.release();
-    auto* promise = JSInternalPromise::create(vm, globalObject->internalPromiseStructure());
-    // FIXME: We could have error since any JS call can throw stack-overflow errors.
-    // https://bugs.webkit.org/show_bug.cgi?id=203402
-    promise->reject(globalObject, createError(globalObject, result.error()));
-    return promise;
+    auto assertions = JSC::retrieveAssertionsFromDynamicImportOptions(globalObject, parameters, { vm.propertyNames->type.impl() });
+    RETURN_IF_EXCEPTION(scope, reject(scope));
+
+    auto type = JSC::retrieveTypeAssertion(globalObject, assertions);
+    RETURN_IF_EXCEPTION(scope, reject(scope));
+
+    parameters = jsUndefined();
+    if (type)
+        parameters = JSScriptFetchParameters::create(vm, ScriptFetchParameters::create(type.value()));
+
+    return import(specifier, parameters);
 }
 
 JSInternalPromise* JSAPIGlobalObject::moduleLoaderFetch(JSGlobalObject* globalObject, JSModuleLoader*, JSValue key, JSValue, JSValue)
@@ -274,7 +280,7 @@ JSValue JSAPIGlobalObject::loadAndEvaluateJSScriptModule(const JSLockHolder&, JS
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     Identifier key = Identifier::fromString(vm, String { [[script sourceURL] absoluteString] });
-    JSInternalPromise* promise = importModule(this, key, jsUndefined(), jsUndefined());
+    JSInternalPromise* promise = importModule(this, key, jsUndefined(), jsUndefined(), jsUndefined());
     RETURN_IF_EXCEPTION(scope, { });
     auto* result = JSPromise::create(vm, this->promiseStructure());
     result->resolve(this, promise);

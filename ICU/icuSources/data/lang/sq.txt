@@ -67,6 +67,7 @@ sq{
         chk{"çukezisht"}
         chm{"marisht"}
         cho{"çoktauisht"}
+        cho_Latn{"çoktauisht"}
         chr{"çerokisht"}
         chy{"çejenisht"}
         ckb{"kurdishte qendrore"}

@@ -86,7 +86,7 @@ struct WebProcessCreationParameters {
     UserData initializationUserData;
 
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
-    SandboxExtension::Handle enableRemoteWebInspectorExtensionHandle;
+    Vector<SandboxExtension::Handle> enableRemoteWebInspectorExtensionHandles;
 #endif
 #if ENABLE(MEDIA_STREAM)
     SandboxExtension::Handle audioCaptureExtensionHandle;
@@ -118,7 +118,7 @@ struct WebProcessCreationParameters {
     bool shouldAlwaysUseComplexTextCodePath { false };
     bool shouldEnableMemoryPressureReliefLogging { false };
     bool shouldSuppressMemoryPressureHandler { false };
-    bool shouldUseFontSmoothing { true };
+    bool disableFontSubpixelAntialiasingForTesting { false };
     bool fullKeyboardAccessEnabled { false };
 #if HAVE(MOUSE_DEVICE_OBSERVATION)
     bool hasMouseDevice { false };
@@ -130,7 +130,7 @@ struct WebProcessCreationParameters {
     bool attrStyleEnabled { false };
     bool shouldThrowExceptionForGlobalConstantRedeclaration { true };
     WebCore::CrossOriginMode crossOriginMode { WebCore::CrossOriginMode::Shared }; // Cross-origin isolation via COOP+COEP headers.
-    bool isCaptivePortalModeEnabled { false };
+    bool isLockdownModeEnabled { false };
 
 #if ENABLE(SERVICE_CONTROLS)
     bool hasImageServices { false };
@@ -179,7 +179,7 @@ struct WebProcessCreationParameters {
     WebCore::ScreenProperties screenProperties;
 #endif
 
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
+#if ENABLE(TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     bool shouldLogUserInteraction { false };
 #endif
 
@@ -189,7 +189,7 @@ struct WebProcessCreationParameters {
 
 #if USE(WPE_RENDERER)
     bool isServiceWorkerProcess { false };
-    IPC::Attachment hostClientFileDescriptor;
+    UnixFileDescriptor hostClientFileDescriptor;
     CString implementationLibraryName;
 #endif
 

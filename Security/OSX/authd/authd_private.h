@@ -53,6 +53,7 @@ extern "C" {
 #define AUTH_XPC_OUT_ITEMS  "_out_items"
 #define AUTH_XPC_EXTERNAL   "_external"
 #define AUTH_XPC_DATA       "_data"
+#define AUTH_XPC_BOOL       "_bool"
 #define AUTH_XPC_BOOTSTRAP  "_bootstrap"
 
 #define AUTH_XPC_ITEM_NAME  "_item_name"

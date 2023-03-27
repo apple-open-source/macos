@@ -31,6 +31,7 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/RunLoop.h>
 
+OBJC_CLASS NSArray;
 OBJC_CLASS TKSmartCardSlot;
 OBJC_CLASS TKSmartCard;
 
@@ -56,7 +57,7 @@ private:
 
     virtual void platformStartDiscovery();
 
-    RunLoop::Timer<CcidService> m_restartTimer;
+    RunLoop::Timer m_restartTimer;
     RefPtr<CcidConnection> m_connection;
     HashSet<String> m_slotNames;
 };

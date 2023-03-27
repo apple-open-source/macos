@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2014 Google Inc. All rights reserved.
+ * Copyright (C) 2011-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,7 +33,6 @@
 #include "RangeInputType.h"
 
 #include "Decimal.h"
-#include "DeprecatedGlobalSettings.h"
 #include "DocumentInlines.h"
 #include "ElementChildIterator.h"
 #include "ElementRareData.h"
@@ -47,6 +46,7 @@
 #include "PlatformMouseEvent.h"
 #include "RenderSlider.h"
 #include "ScopedEventQueue.h"
+#include "ScriptDisallowedScope.h"
 #include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
 #include "SliderThumbElement.h"
@@ -120,12 +120,6 @@ StepRange RangeInputType::createStepRange(AnyStepHandling anyStepHandling) const
     ASSERT(element());
     const Decimal minimum = parseToNumber(element()->attributeWithoutSynchronization(minAttr), rangeDefaultMinimum);
     const Decimal maximum = ensureMaximum(parseToNumber(element()->attributeWithoutSynchronization(maxAttr), rangeDefaultMaximum), minimum);
-
-    const AtomString& precisionValue = element()->attributeWithoutSynchronization(precisionAttr);
-    if (!precisionValue.isNull()) {
-        const Decimal step = equalLettersIgnoringASCIICase(precisionValue, "float"_s) ? Decimal::nan() : 1;
-        return StepRange(minimum, RangeLimitations::Valid, minimum, maximum, step, rangeStepDescription);
-    }
 
     const Decimal step = StepRange::parseStep(anyStepHandling, rangeStepDescription, element()->attributeWithoutSynchronization(stepAttr));
     return StepRange(minimum, RangeLimitations::Valid, minimum, maximum, step, rangeStepDescription);
@@ -219,7 +213,7 @@ auto RangeInputType::handleKeydownEvent(KeyboardEvent& event) -> ShouldCallBaseE
 
     bool isVertical = false;
     if (auto* renderer = element()->renderer())
-        isVertical = renderer->style().effectiveAppearance() == SliderVerticalPart;
+        isVertical = renderer->style().effectiveAppearance() == StyleAppearance::SliderVertical;
 
     Decimal newValue;
     if (key == "Up"_s)
@@ -259,12 +253,16 @@ void RangeInputType::createShadowSubtree()
     ASSERT(element()->userAgentShadowRoot());
 
     Document& document = element()->document();
+
+    ScriptDisallowedScope::EventAllowedScope eventAllowedScope { *element()->userAgentShadowRoot() };
+
     auto track = HTMLDivElement::create(document);
+    auto container = SliderContainerElement::create(document);
+    element()->userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, container);
+    container->appendChild(ContainerNode::ChildChange::Source::Parser, track);
+
     track->setPseudo(ShadowPseudoIds::webkitSliderRunnableTrack());
     track->appendChild(ContainerNode::ChildChange::Source::Parser, SliderThumbElement::create(document));
-    auto container = SliderContainerElement::create(document);
-    container->appendChild(ContainerNode::ChildChange::Source::Parser, track);
-    element()->userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, container);
 }
 
 HTMLElement* RangeInputType::sliderTrackElement() const
@@ -331,7 +329,6 @@ bool RangeInputType::accessKeyAction(bool sendMouseEvents)
 
 void RangeInputType::attributeChanged(const QualifiedName& name)
 {
-    // FIXME: Don't we need to do this work for precisionAttr too?
     if (name == maxAttr || name == minAttr || name == valueAttr) {
         // Sanitize the value.
         if (auto* element = this->element()) {
@@ -375,7 +372,7 @@ String RangeInputType::sanitizeValue(const String& proposedValue) const
 bool RangeInputType::shouldRespectListAttribute()
 {
 #if ENABLE(DATALIST_ELEMENT)
-    return DeprecatedGlobalSettings::dataListElementEnabled();
+    return element() && element()->document().settings().dataListElementEnabled();
 #else
     return InputType::themeSupportsDataListUI(this);
 #endif

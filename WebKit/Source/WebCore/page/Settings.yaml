@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Apple Inc. All rights reserved.
+# Copyright (c) 2020-2023 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -33,13 +33,6 @@ AnimatedImageDebugCanvasDrawingEnabled:
   type: bool
   defaultValue:
     WebCore:
-      default: false
-
-AudioPlaybackRequiresUserGesture:
-  type: bool
-  defaultValue:
-    WebCore:
-      PLATFORM(IOS_FAMILY): true
       default: false
 
 AutoscrollForDragAndDropEnabled:
@@ -82,14 +75,6 @@ CrossOriginCheckInGetMatchedCSSRulesDisabled:
     WebCore:
       default: false
 
-DataDetectorTypes:
-  type: uint32_t
-  refinedType: DataDetectorType
-  condition: ENABLE(DATA_DETECTION)
-  defaultValue:
-    WebCore:
-      default: DataDetectorType::None
-
 DefaultVideoPosterURL:
   comment: >-
     Some apps could have a default video poster if it is not set.
@@ -98,28 +83,16 @@ DefaultVideoPosterURL:
     WebCore:
       default: '{ }'
 
-DisableScreenSizeOverride:
-  type: bool
-  defaultValue:
-    WebCore:
-      default: false
-
-DownloadableBinaryFontsEnabled:
+DownloadableBinaryFontAllowedTypes:
   comment: >-
     FIXME: This should really be disabled by default as it makes platforms that don't support the
     feature download files they can't use by. Leaving enabled for now to not change existing behavior.
-  type: bool
-  defaultValue:
-    WebCore:
-      PLATFORM(WATCHOS): false
-      default: true
-
-EditableLinkBehavior:
   type: uint32_t
-  refinedType: EditableLinkBehavior
+  refinedType: DownloadableBinaryFontAllowedTypes
   defaultValue:
     WebCore:
-      default: EditableLinkBehavior::Default
+      PLATFORM(WATCHOS): DownloadableBinaryFontAllowedTypes::None
+      default: DownloadableBinaryFontAllowedTypes::Any
 
 EditingBehaviorType:
   type: uint32_t
@@ -172,20 +145,6 @@ ForceCompositingMode:
     WebCore:
       default: false
 
-ForcePendingWebGLPolicy:
-  type: bool
-  webcoreGetter: isForcePendingWebGLPolicy
-  defaultValue:
-    WebCore:
-      default: false
-
-ForcedPrefersContrastAccessibilityValue:
-  type: uint32_t
-  refinedType: ForcedAccessibilityValue
-  defaultValue:
-    WebCore:
-      default: ForcedAccessibilityValue::System
-
 ForcedColorsAreInvertedAccessibilityValue:
   type: uint32_t
   refinedType: ForcedAccessibilityValue
@@ -194,6 +153,13 @@ ForcedColorsAreInvertedAccessibilityValue:
       default: ForcedAccessibilityValue::System
 
 ForcedDisplayIsMonochromeAccessibilityValue:
+  type: uint32_t
+  refinedType: ForcedAccessibilityValue
+  defaultValue:
+    WebCore:
+      default: ForcedAccessibilityValue::System
+
+ForcedPrefersContrastAccessibilityValue:
   type: uint32_t
   refinedType: ForcedAccessibilityValue
   defaultValue:
@@ -259,12 +225,6 @@ ImagesEnabled:
     WebCore:
       default: true
 
-IsAccessibilityIsolatedTreeEnabled:
-  type: bool
-  defaultValue:
-    WebCore:
-      default: false
-
 IsPerActivityStateCPUUsageMeasurementEnabled:
   type: bool
   defaultValue:
@@ -300,13 +260,6 @@ IsPostLoadMemoryUsageMeasurementEnabled:
       PLATFORM(COCOA): true
       default: false
 
-JavaScriptRuntimeFlags:
-  type: uint32_t
-  refinedType: JSC::RuntimeFlags
-  defaultValue:
-    WebCore:
-      default: '{ }'
-
 LangAttributeAwareFormControlUIEnabled:
   type: bool
   defaultValue:
@@ -340,13 +293,6 @@ MaximumSourceBufferSize:
   defaultValue:
     WebCore:
       default: 318767104
-
-MediaDeviceIdentifierStorageDirectory:
-  type: String
-  condition: ENABLE(MEDIA_STREAM)
-  defaultValue:
-    WebCore:
-      default: '{ }'
 
 MediaKeysStorageDirectory:
   type: String
@@ -389,6 +335,14 @@ NeedsDeferKeyDownAndKeyPressTimersUntilNextEditingCommandQuirk:
     WebCore:
       default: false
 
+PDFImageCachingPolicy:
+  type: uint32_t
+  refinedType: PDFImageCachingPolicy
+  defaultValue:
+    WebCore:
+      PLATFORM(IOS_FAMILY): PDFImageCachingPolicy::BelowMemoryLimit
+      default: PDFImageCachingPolicy::Enabled
+
 PaymentRequestEnabled:
   type: bool
   condition: ENABLE(PAYMENT_REQUEST)
@@ -403,14 +357,6 @@ PitchCorrectionAlgorithm:
     WebCore:
       default: MediaPlayerEnums::PitchCorrectionAlgorithm::BestAllAround
 
-PDFImageCachingPolicy:
-  type: uint32_t
-  refinedType: PDFImageCachingPolicy
-  defaultValue:
-    WebCore:
-      PLATFORM(IOS_FAMILY): PDFImageCachingPolicy::BelowMemoryLimit
-      default: PDFImageCachingPolicy::Enabled
-
 PreferMIMETypeForImages:
   type: bool
   defaultValue:
@@ -421,13 +367,6 @@ PreventKeyboardDOMEventDispatch:
   type: bool
   defaultValue:
     WebCore:
-      default: false
-
-PrivateClickMeasurementFraudPreventionEnabled:
-  type: bool
-  defaultValue:
-    WebCore:
-      "HAVE(RSA_BSSA)": true
       default: false
 
 RepaintOutsideLayoutEnabled:
@@ -496,13 +435,6 @@ StorageBlockingPolicy:
     WebCore:
       default: StorageBlockingPolicy::AllowAll
 
-SystemLayoutDirection:
-  type: uint32_t
-  refinedType: TextDirection
-  defaultValue:
-    WebCore:
-      default: TextDirection::LTR
-
 TextAutosizingWindowSizeOverrideHeight:
   type: uint32_t
   webcoreOnChange: setNeedsRecalcStyleInAllFrames
@@ -566,13 +498,6 @@ UseAnonymousModeWhenFetchingMaskImages:
     WebCore:
       default: true
 
-UserInterfaceDirectionPolicy:
-  type: uint32_t
-  refinedType: UserInterfaceDirectionPolicy
-  defaultValue:
-    WebCore:
-      default: UserInterfaceDirectionPolicy::Content
-
 UserStyleSheetLocation:
   type: String
   refinedType: URL
@@ -591,13 +516,6 @@ ValidationMessageTimerMagnification:
   defaultValue:
     WebCore:
       default: 50
-
-VideoPlaybackRequiresUserGesture:
-  type: bool
-  defaultValue:
-    WebCore:
-      PLATFORM(IOS_FAMILY): true
-      default: false
 
 WebGLErrorsToConsoleEnabled:
   type: bool

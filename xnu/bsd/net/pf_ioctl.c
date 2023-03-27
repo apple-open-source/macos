@@ -187,6 +187,9 @@ static int pf_delete_rule_by_ticket(struct pfioc_rule *, u_int32_t);
 static void pf_ruleset_cleanup(struct pf_ruleset *, int);
 static void pf_deleterule_anchor_step_out(struct pf_ruleset **,
     int, struct pf_rule **);
+#if SKYWALK && defined(XNU_TARGET_OS_OSX)
+static void pf_process_compatibilities(void);
+#endif // SKYWALK && defined(XNU_TARGET_OS_OSX)
 
 #define PF_CDEV_MAJOR   (-1)
 
@@ -1367,8 +1370,7 @@ pf_start(void)
 	}
 	wakeup(pf_purge_thread_fn);
 #if SKYWALK && defined(XNU_TARGET_OS_OSX)
-	net_filter_event_mark(NET_FILTER_EVENT_PF,
-	    pf_check_compatible_rules());
+	pf_process_compatibilities();
 #endif // SKYWALK && defined(XNU_TARGET_OS_OSX)
 	DPFPRINTF(PF_DEBUG_MISC, ("pf: started\n"));
 }
@@ -1385,8 +1387,7 @@ pf_stop(void)
 	pf_status.since = pf_calendar_time_second();
 	wakeup(pf_purge_thread_fn);
 #if SKYWALK && defined(XNU_TARGET_OS_OSX)
-	net_filter_event_mark(NET_FILTER_EVENT_PF,
-	    pf_check_compatible_rules());
+	pf_process_compatibilities();
 #endif // SKYWALK && defined(XNU_TARGET_OS_OSX)
 	DPFPRINTF(PF_DEBUG_MISC, ("pf: stopped\n"));
 }
@@ -2601,9 +2602,7 @@ pf_delete_rule_by_owner(char *owner, u_int32_t req_dev)
 			 */
 			if ((rule->rule_flag & PFRULE_PFM) ^ req_dev) {
 				rule = next;
-				continue;
-			}
-			if (rule->anchor) {
+			} else if (rule->anchor) {
 				if (((strcmp(rule->owner, owner)) == 0) ||
 				    ((strcmp(rule->owner, "")) == 0)) {
 					if (rule->anchor->ruleset.rules[rs].active.rcount > 0) {
@@ -3179,8 +3178,7 @@ pfioctl_ioc_rule(u_long cmd, int minordev, struct pfioc_rule *pr, struct proc *p
 
 		pf_calc_skip_steps(ruleset->rules[rs_num].active.ptr);
 #if SKYWALK && defined(XNU_TARGET_OS_OSX)
-		net_filter_event_mark(NET_FILTER_EVENT_PF,
-		    pf_check_compatible_rules());
+		pf_process_compatibilities();
 #endif // SKYWALK && defined(XNU_TARGET_OS_OSX)
 		break;
 	}
@@ -3305,8 +3303,7 @@ pfioctl_ioc_rule(u_long cmd, int minordev, struct pfioc_rule *pr, struct proc *p
 			}
 		}
 #if SKYWALK && defined(XNU_TARGET_OS_OSX)
-		net_filter_event_mark(NET_FILTER_EVENT_PF,
-		    pf_check_compatible_rules());
+		pf_process_compatibilities();
 #endif // SKYWALK && defined(XNU_TARGET_OS_OSX)
 		break;
 	}
@@ -3338,8 +3335,7 @@ pfioctl_ioc_rule(u_long cmd, int minordev, struct pfioc_rule *pr, struct proc *p
 			atomic_add_16(&pf_nat64_configured, -1);
 		}
 #if SKYWALK && defined(XNU_TARGET_OS_OSX)
-		net_filter_event_mark(NET_FILTER_EVENT_PF,
-		    pf_check_compatible_rules());
+		pf_process_compatibilities();
 #endif // SKYWALK && defined(XNU_TARGET_OS_OSX)
 		break;
 	}
@@ -4316,8 +4312,7 @@ pfioctl_ioc_trans(u_long cmd, struct pfioc_trans_32 *io32,
 		kfree_type(struct pfr_table, table);
 		kfree_type(struct pfioc_trans_e, ioe);
 #if SKYWALK && defined(XNU_TARGET_OS_OSX)
-		net_filter_event_mark(NET_FILTER_EVENT_PF,
-		    pf_check_compatible_rules());
+		pf_process_compatibilities();
 #endif // SKYWALK && defined(XNU_TARGET_OS_OSX)
 		break;
 	}
@@ -4686,7 +4681,7 @@ pf_inet_hook(struct ifnet *ifp, struct mbuf **mp, int input,
 			*mp = NULL;
 			error = EHOSTUNREACH;
 		} else {
-			error = ENOBUFS;
+			error = EJUSTRETURN;
 		}
 	}
 #if BYTE_ORDER != BIG_ENDIAN
@@ -4736,7 +4731,7 @@ pf_inet6_hook(struct ifnet *ifp, struct mbuf **mp, int input,
 			*mp = NULL;
 			error = EHOSTUNREACH;
 		} else {
-			error = ENOBUFS;
+			error = EJUSTRETURN;
 		}
 	}
 	return error;
@@ -4913,3 +4908,20 @@ pfioctl_cassert(void)
 		;
 	}
 }
+
+#if SKYWALK && defined(XNU_TARGET_OS_OSX)
+static void
+pf_process_compatibilities(void)
+{
+	uint32_t compat_bitmap = pf_check_compatible_rules();
+
+	net_filter_event_mark(NET_FILTER_EVENT_PF,
+	    (compat_bitmap &
+	    (PF_COMPATIBLE_FLAGS_CUSTOM_ANCHORS_PRESENT |
+	    PF_COMPATIBLE_FLAGS_CUSTOM_RULES_PRESENT)) == 0);
+
+	net_filter_event_mark(NET_FILTER_EVENT_PF_PRIVATE_PROXY,
+	    ((compat_bitmap & PF_COMPATIBLE_FLAGS_PF_ENABLED) == 0) ||
+	    (compat_bitmap & PF_COMPATIBLE_FLAGS_CUSTOM_RULES_PRESENT) == 0);
+}
+#endif // SKYWALK && defined(XNU_TARGET_OS_OSX)

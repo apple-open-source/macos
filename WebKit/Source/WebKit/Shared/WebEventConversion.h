@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #ifndef WebEventConversion_h
 #define WebEventConversion_h
 
+#include "WebEventModifier.h"
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PlatformMouseEvent.h>
 #include <WebCore/PlatformWheelEvent.h>
@@ -55,6 +56,8 @@ class WebTouchPoint;
 #if ENABLE(MAC_GESTURE_EVENTS)
 class WebGestureEvent;
 #endif
+
+OptionSet<WebCore::PlatformEvent::Modifier> platform(OptionSet<WebEventModifier>);
 
 WebCore::PlatformMouseEvent platform(const WebMouseEvent&);
 WebCore::PlatformWheelEvent platform(const WebWheelEvent&);

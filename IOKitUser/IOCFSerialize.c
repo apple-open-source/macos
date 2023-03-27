@@ -968,40 +968,81 @@ DoCFSerializeBinary(IOCFSerializeBinaryState * state, CFTypeRef o, Boolean isKey
 	}
     else if (type == CFNumberGetTypeID())
 	{
-		long long value;
+		union {
+			long long value;
+			double fpValue;
+		} value;
 		int		  size;
 
-		ok = CFNumberGetValue(o, kCFNumberLongLongType, &value);
+		switch(CFNumberGetType(o))
+		{
+			case kCFNumberFloatType:
+			case kCFNumberDoubleType:
+			case kCFNumberFloat32Type:
+			case kCFNumberFloat64Type:
+			case kCFNumberCGFloatType:
+				ok = CFNumberGetValue(o, kCFNumberDoubleType, &value.fpValue);
+				break;
+			case kCFNumberSInt8Type:
+			case kCFNumberCharType:
+			case kCFNumberSInt16Type:
+			case kCFNumberShortType:
+			case kCFNumberSInt32Type:
+			case kCFNumberIntType:
+			case kCFNumberLongType:
+			case kCFNumberSInt64Type:
+			case kCFNumberLongLongType:
+			default:
+				ok = CFNumberGetValue(o, kCFNumberLongLongType, &value.value);
+				break;
+		}
+
 		if (ok)
 		{
 			switch(CFNumberGetType(o))
 			{
+				case kCFNumberFloatType:
+				case kCFNumberFloat32Type:
+#if !__LP64__
+				case kCFNumberCGFloatType:
+#endif
+					size = 31;
+					break;
+
+				case kCFNumberDoubleType:
+				case kCFNumberFloat64Type:
+#if __LP64__
+				case kCFNumberCGFloatType:
+#endif
+					size = 63;
+					break;
+
 				case kCFNumberSInt8Type:
 				case kCFNumberCharType:
-					size = sizeof(SInt8);
+					size = 8 * sizeof(SInt8);
 					break;
 
 				case kCFNumberSInt16Type:
 				case kCFNumberShortType:
-					size = sizeof(SInt16);
+					size = 8 * sizeof(SInt16);
 					break;
 
 				case kCFNumberSInt32Type:
 				case kCFNumberIntType:
-					size = sizeof(SInt32);
+					size = 8 * sizeof(SInt32);
 					break;
 
 				case kCFNumberLongType:
-					size = sizeof(long);
+					size = 8 * sizeof(long);
 					break;
 
 				case kCFNumberSInt64Type:
 				case kCFNumberLongLongType:
 				default:
-					size = sizeof(SInt64);
+					size = 8 * sizeof(SInt64);
 					break;
 			}
-			key = (kOSSerializeNumber | (size * 8));
+			key = (kOSSerializeNumber | size);
 			ok = IOCFSerializeBinaryAddObject(state, o, key, &value, sizeof(value), 0);
 		}
 	}
@@ -1187,7 +1228,6 @@ IOCFUnserializeBinary(const char	* buffer,
     bool             end, newCollect, isRef;
     bool             ok, hasLength;
 
-	CFNumberType 	numType;
     CFTypeID	    type;
 	const UInt8 *	bytes;
 
@@ -1270,12 +1310,17 @@ IOCFUnserializeBinary(const char	* buffer,
 				bufferPos += sizeof(long long);
 				if (bufferPos > bufferSize) break;
 				bytes = (const UInt8 *) &next[0];
-				if (len <= 32) {
-					numType = kCFNumberSInt32Type;
+				if (len == 31) {
+					double doubleValue = *((const double *) bytes);
+					float floatValue = (float) doubleValue;
+					o = CFNumberCreate(allocator, kCFNumberFloat32Type, &floatValue);
+				} else if (len == 63) {
+					o = CFNumberCreate(allocator, kCFNumberFloat64Type, (const void *) bytes);
+				} else if (len <= 32) {
+					o = CFNumberCreate(allocator, kCFNumberSInt32Type, (const void *) bytes);
 				} else {
-					numType = kCFNumberSInt64Type;
+					o = CFNumberCreate(allocator, kCFNumberSInt64Type, (const void *) bytes);
 				}
-				o = CFNumberCreate(allocator, numType, (const void *) bytes);
 		    	next += 2;
 		        break;
 

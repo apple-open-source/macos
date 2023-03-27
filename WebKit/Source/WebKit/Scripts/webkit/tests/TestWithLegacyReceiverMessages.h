@@ -33,7 +33,6 @@
 #endif
 #include "MessageNames.h"
 #include "Plugin.h"
-#include "TestWithLegacyReceiverMessagesReplies.h"
 #include <WebCore/GraphicsLayer.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/PluginData.h>
@@ -65,7 +64,7 @@ static inline IPC::ReceiverName messageReceiverName()
 
 class LoadURL {
 public:
-    using Arguments = std::tuple<const String&>;
+    using Arguments = std::tuple<String>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_LoadURL; }
     static constexpr bool isSync = false;
@@ -75,19 +74,19 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const String&> m_arguments;
 };
 
 #if ENABLE(TOUCH_EVENTS)
 class LoadSomething {
 public:
-    using Arguments = std::tuple<const String&>;
+    using Arguments = std::tuple<String>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_LoadSomething; }
     static constexpr bool isSync = false;
@@ -97,20 +96,20 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const String&> m_arguments;
 };
 #endif
 
 #if (ENABLE(TOUCH_EVENTS) && (NESTED_MESSAGE_CONDITION || SOME_OTHER_MESSAGE_CONDITION))
 class TouchEvent {
 public:
-    using Arguments = std::tuple<const WebKit::WebTouchEvent&>;
+    using Arguments = std::tuple<WebKit::WebTouchEvent>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_TouchEvent; }
     static constexpr bool isSync = false;
@@ -120,20 +119,20 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const WebKit::WebTouchEvent&> m_arguments;
 };
 #endif
 
 #if (ENABLE(TOUCH_EVENTS) && (NESTED_MESSAGE_CONDITION && SOME_OTHER_MESSAGE_CONDITION))
 class AddEvent {
 public:
-    using Arguments = std::tuple<const WebKit::WebTouchEvent&>;
+    using Arguments = std::tuple<WebKit::WebTouchEvent>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_AddEvent; }
     static constexpr bool isSync = false;
@@ -143,20 +142,20 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const WebKit::WebTouchEvent&> m_arguments;
 };
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
 class LoadSomethingElse {
 public:
-    using Arguments = std::tuple<const String&>;
+    using Arguments = std::tuple<String>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_LoadSomethingElse; }
     static constexpr bool isSync = false;
@@ -166,13 +165,13 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const String&> m_arguments;
 };
 #endif
 
@@ -188,13 +187,13 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<uint64_t, uint64_t, uint32_t> m_arguments;
 };
 
 class Close {
@@ -204,18 +203,18 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_Close; }
     static constexpr bool isSync = false;
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<> m_arguments;
 };
 
 class PreferencesDidChange {
 public:
-    using Arguments = std::tuple<const WebKit::WebPreferencesStore&>;
+    using Arguments = std::tuple<WebKit::WebPreferencesStore>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_PreferencesDidChange; }
     static constexpr bool isSync = false;
@@ -225,13 +224,13 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const WebKit::WebPreferencesStore&> m_arguments;
 };
 
 class SendDoubleAndFloat {
@@ -246,18 +245,18 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<double, float> m_arguments;
 };
 
 class SendInts {
 public:
-    using Arguments = std::tuple<const Vector<uint64_t>&, const Vector<Vector<uint64_t>>&>;
+    using Arguments = std::tuple<Vector<uint64_t>, Vector<Vector<uint64_t>>>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_SendInts; }
     static constexpr bool isSync = false;
@@ -267,69 +266,61 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const Vector<uint64_t>&, const Vector<Vector<uint64_t>>&> m_arguments;
 };
 
 class CreatePlugin {
 public:
-    using Arguments = std::tuple<uint64_t, const WebKit::Plugin::Parameters&>;
+    using Arguments = std::tuple<uint64_t, WebKit::Plugin::Parameters>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_CreatePlugin; }
     static constexpr bool isSync = false;
 
-    static void callReply(IPC::Decoder&, CompletionHandler<void(bool&&)>&&);
-    static void cancelReply(CompletionHandler<void(bool&&)>&&);
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithLegacyReceiver_CreatePluginReply; }
-    using AsyncReply = CreatePluginAsyncReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<bool&>;
     using ReplyArguments = std::tuple<bool>;
     CreatePlugin(uint64_t pluginInstanceID, const WebKit::Plugin::Parameters& parameters)
         : m_arguments(pluginInstanceID, parameters)
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<uint64_t, const WebKit::Plugin::Parameters&> m_arguments;
 };
 
 class RunJavaScriptAlert {
 public:
-    using Arguments = std::tuple<uint64_t, const String&>;
+    using Arguments = std::tuple<uint64_t, String>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_RunJavaScriptAlert; }
     static constexpr bool isSync = false;
 
-    static void callReply(IPC::Decoder&, CompletionHandler<void()>&&);
-    static void cancelReply(CompletionHandler<void()>&&);
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithLegacyReceiver_RunJavaScriptAlertReply; }
-    using AsyncReply = RunJavaScriptAlertAsyncReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<>;
     using ReplyArguments = std::tuple<>;
     RunJavaScriptAlert(uint64_t frameID, const String& message)
         : m_arguments(frameID, message)
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<uint64_t, const String&> m_arguments;
 };
 
 class GetPlugins {
@@ -339,50 +330,44 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_GetPlugins; }
     static constexpr bool isSync = false;
 
-    static void callReply(IPC::Decoder&, CompletionHandler<void(Vector<WebCore::PluginInfo>&&)>&&);
-    static void cancelReply(CompletionHandler<void(Vector<WebCore::PluginInfo>&&)>&&);
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithLegacyReceiver_GetPluginsReply; }
-    using AsyncReply = GetPluginsAsyncReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<Vector<WebCore::PluginInfo>&>;
     using ReplyArguments = std::tuple<Vector<WebCore::PluginInfo>>;
     explicit GetPlugins(bool refresh)
         : m_arguments(refresh)
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<bool> m_arguments;
 };
 
 class GetPluginProcessConnection {
 public:
-    using Arguments = std::tuple<const String&>;
+    using Arguments = std::tuple<String>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_GetPluginProcessConnection; }
     static constexpr bool isSync = true;
 
-    using DelayedReply = GetPluginProcessConnectionDelayedReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<IPC::Connection::Handle&>;
     using ReplyArguments = std::tuple<IPC::Connection::Handle>;
     explicit GetPluginProcessConnection(const String& pluginPath)
         : m_arguments(pluginPath)
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const String&> m_arguments;
 };
 
 class TestMultipleAttributes {
@@ -392,17 +377,15 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_TestMultipleAttributes; }
     static constexpr bool isSync = true;
 
-    using DelayedReply = TestMultipleAttributesDelayedReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<>;
     using ReplyArguments = std::tuple<>;
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<> m_arguments;
 };
 
 class TestParameterAttributes {
@@ -417,18 +400,18 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<uint64_t, double, double> m_arguments;
 };
 
 class TemplateTest {
 public:
-    using Arguments = std::tuple<const HashMap<String, std::pair<String, uint64_t>>&>;
+    using Arguments = std::tuple<HashMap<String, std::pair<String, uint64_t>>>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_TemplateTest; }
     static constexpr bool isSync = false;
@@ -438,18 +421,18 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const HashMap<String, std::pair<String, uint64_t>>&> m_arguments;
 };
 
 class SetVideoLayerID {
 public:
-    using Arguments = std::tuple<const WebCore::GraphicsLayer::PlatformLayerID&>;
+    using Arguments = std::tuple<WebCore::GraphicsLayer::PlatformLayerID>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_SetVideoLayerID; }
     static constexpr bool isSync = false;
@@ -459,19 +442,19 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const WebCore::GraphicsLayer::PlatformLayerID&> m_arguments;
 };
 
 #if PLATFORM(MAC)
 class DidCreateWebProcessConnection {
 public:
-    using Arguments = std::tuple<const MachSendRight&, const OptionSet<WebKit::SelectionFlags>&>;
+    using Arguments = std::tuple<MachSendRight, OptionSet<WebKit::SelectionFlags>>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_DidCreateWebProcessConnection; }
     static constexpr bool isSync = false;
@@ -481,13 +464,13 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const MachSendRight&, const OptionSet<WebKit::SelectionFlags>&> m_arguments;
 };
 #endif
 
@@ -499,32 +482,28 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_InterpretKeyEvent; }
     static constexpr bool isSync = false;
 
-    static void callReply(IPC::Decoder&, CompletionHandler<void(Vector<WebCore::KeypressCommand>&&)>&&);
-    static void cancelReply(CompletionHandler<void(Vector<WebCore::KeypressCommand>&&)>&&);
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithLegacyReceiver_InterpretKeyEventReply; }
-    using AsyncReply = InterpretKeyEventAsyncReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<Vector<WebCore::KeypressCommand>&>;
     using ReplyArguments = std::tuple<Vector<WebCore::KeypressCommand>>;
     explicit InterpretKeyEvent(uint32_t type)
         : m_arguments(type)
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<uint32_t> m_arguments;
 };
 #endif
 
 #if ENABLE(DEPRECATED_FEATURE)
 class DeprecatedOperation {
 public:
-    using Arguments = std::tuple<const IPC::DummyType&>;
+    using Arguments = std::tuple<IPC::DummyType>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_DeprecatedOperation; }
     static constexpr bool isSync = false;
@@ -534,20 +513,20 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const IPC::DummyType&> m_arguments;
 };
 #endif
 
 #if ENABLE(FEATURE_FOR_TESTING)
 class ExperimentalOperation {
 public:
-    using Arguments = std::tuple<const IPC::DummyType&>;
+    using Arguments = std::tuple<IPC::DummyType>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_ExperimentalOperation; }
     static constexpr bool isSync = false;
@@ -557,13 +536,13 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const IPC::DummyType&> m_arguments;
 };
 #endif
 

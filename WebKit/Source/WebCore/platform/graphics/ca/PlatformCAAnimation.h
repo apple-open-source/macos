@@ -28,6 +28,8 @@
 #include "Color.h"
 #include "FilterOperation.h"
 #include "FloatPoint3D.h"
+#include "GraphicsLayerClient.h"
+#include "PlatformCAFilters.h"
 #include "TransformationMatrix.h"
 #include <wtf/EnumTraits.h>
 #include <wtf/Forward.h>
@@ -95,14 +97,14 @@ public:
     virtual void setFromValue(const WebCore::TransformationMatrix&) = 0;
     virtual void setFromValue(const FloatPoint3D&) = 0;
     virtual void setFromValue(const WebCore::Color&) = 0;
-    virtual void setFromValue(const FilterOperation*, int internalFilterPropertyIndex) = 0;
+    virtual void setFromValue(const FilterOperation*) = 0;
     virtual void copyFromValueFrom(const PlatformCAAnimation&) = 0;
 
     virtual void setToValue(float) = 0;
     virtual void setToValue(const WebCore::TransformationMatrix&) = 0;
     virtual void setToValue(const FloatPoint3D&) = 0;
     virtual void setToValue(const WebCore::Color&) = 0;
-    virtual void setToValue(const FilterOperation*, int internalFilterPropertyIndex) = 0;
+    virtual void setToValue(const FilterOperation*) = 0;
     virtual void copyToValueFrom(const PlatformCAAnimation&) = 0;
 
     // Keyframe-animation properties.
@@ -110,13 +112,13 @@ public:
     virtual void setValues(const Vector<WebCore::TransformationMatrix>&) = 0;
     virtual void setValues(const Vector<FloatPoint3D>&) = 0;
     virtual void setValues(const Vector<WebCore::Color>&) = 0;
-    virtual void setValues(const Vector<RefPtr<FilterOperation>>&, int internalFilterPropertyIndex) = 0;
+    virtual void setValues(const Vector<RefPtr<FilterOperation>>&) = 0;
     virtual void copyValuesFrom(const PlatformCAAnimation&) = 0;
 
     virtual void setKeyTimes(const Vector<float>&) = 0;
     virtual void copyKeyTimesFrom(const PlatformCAAnimation&) = 0;
 
-    virtual void setTimingFunctions(const Vector<const TimingFunction*>&, bool reverse = false) = 0;
+    virtual void setTimingFunctions(const Vector<Ref<const TimingFunction>>&, bool reverse) = 0;
     virtual void copyTimingFunctionsFrom(const PlatformCAAnimation&) = 0;
 
     // Animation group properties.
@@ -130,6 +132,10 @@ public:
     }
 
     bool isBasicAnimation() const;
+
+    WEBCORE_EXPORT static String makeGroupKeyPath();
+    WEBCORE_EXPORT static String makeKeyPath(AnimatedProperty, FilterOperation::Type = FilterOperation::Type::None, int = 0);
+    WEBCORE_EXPORT static bool isValidKeyPath(const String&, AnimationType = AnimationType::Basic);
 
 protected:
     PlatformCAAnimation(AnimationType type = Basic)

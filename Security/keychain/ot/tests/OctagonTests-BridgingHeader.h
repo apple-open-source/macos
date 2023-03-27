@@ -6,13 +6,14 @@
 #import "KeychainCircle/KCJoiningAcceptSession+Internal.h"
 #import <KeychainCircle/KCJoiningMessages.h>
 
-#import <TrustedPeers/TrustedPeers.h>
 #import <TrustedPeers/TPHash.h>
+#import <TrustedPeers/TPLog.h>
 #import <TrustedPeers/TPPBPeerStableInfoSetting.h>
+#import <TrustedPeers/TPPBPolicyCategoriesByView.h>
 #import <TrustedPeers/TPPBPolicyDocument.h>
 #import <TrustedPeers/TPPBPolicyIntroducersByCategory.h>
-#import <TrustedPeers/TPPBPolicyCategoriesByView.h>
 #import <TrustedPeers/TPPBPolicyModelToCategory.h>
+#import <TrustedPeers/TrustedPeers.h>
 
 #import "utilities/SecFileLocations.h"
 #import "utilities/SecCFError.h"
@@ -67,7 +68,9 @@
 
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 
-
+#import "keychain/ot/proto/generated_source/OTWalrus.h"
+#import "keychain/ot/proto/generated_source/OTWebAccess.h"
+#import "keychain/ot/proto/generated_source/OTAccountSettings.h"
 
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ot/categories/OctagonEscrowRecoverer.h"

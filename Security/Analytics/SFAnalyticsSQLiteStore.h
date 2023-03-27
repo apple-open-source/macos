@@ -26,16 +26,18 @@
 #import <Security/SFSQLite.h>
 #import <Security/SFAnalytics.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface SFAnalyticsSQLiteStore : SFSQLite
 
 @property (readonly, strong) NSArray* hardFailures;
 @property (readonly, strong) NSArray* softFailures;
 @property (readonly, strong) NSArray* allEvents;
 @property (readonly, strong) NSArray* samples;
-@property (readwrite, strong) NSDate* uploadDate;
-@property (readwrite, strong) NSString* metricsAccountID;
+@property (readwrite, strong, nullable) NSDate* uploadDate;
+@property (readwrite, strong, nullable) NSString* metricsAccountID;
 
-+ (instancetype)storeWithPath:(NSString*)path schema:(NSString*)schema;
++ (nullable instancetype)storeWithPath:(NSString*)path schema:(NSString*)schema;
 
 - (BOOL)tryToOpenDatabase;
 - (void)incrementSuccessCountForEventType:(NSString*)eventType;
@@ -53,5 +55,7 @@
 - (NSDictionary*)summaryCounts;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif

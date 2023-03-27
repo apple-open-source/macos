@@ -84,15 +84,27 @@ static bool xpc_dictionary_entry_is_type(xpc_object_t dictionary, const char *ke
     return value && (xpc_get_type(value) == type);
 }
 
-static bool setSOSDisabledError(CFErrorRef *error) {
-    return SecCFCreateErrorWithFormat(0, kSOSErrorDomain, NULL, error, NULL, CFSTR("SOS Disabled for this platform"));
+static CFErrorRef staticSOSDisabledError(void) {
+    static CFErrorRef sosIsDisabledError = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+         SecCFCreateErrorWithFormat(kSOSErrorPlatformNoSOS, kSOSErrorDomain, NULL, &sosIsDisabledError, NULL, CFSTR("SOS Disabled for this platform"));
+    });
+    return sosIsDisabledError;
+}
+
+bool SOSCCSetSOSDisabledError(CFErrorRef *error) {
+    secdebug("circleOps", "SOS disabled for this platform");
+    if(error) {
+        *error = (CFErrorRef) CFRetain(staticSOSDisabledError());
+    }
+    return true;
 }
 
 SOSCCStatus SOSCCThisDeviceIsInCircle(CFErrorRef *error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return kSOSCCError;
     }
     
@@ -108,8 +120,7 @@ SOSCCStatus SOSCCThisDeviceIsInCircle(CFErrorRef *error)
 SOSCCStatus SOSCCThisDeviceIsInCircleNonCached(CFErrorRef *error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return kSOSCCError;
     }
 
@@ -519,8 +530,7 @@ static CFDataRef cfdata_error_request_returns_cfdata(enum SecXPCOperation op, CF
 bool SOSCCRequestToJoinCircle(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -535,8 +545,7 @@ bool SOSCCRequestToJoinCircle(CFErrorRef* error)
 bool SOSCCRequestToJoinCircleAfterRestore(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -551,8 +560,7 @@ bool SOSCCRequestToJoinCircleAfterRestore(CFErrorRef* error)
 bool SOSCCAccountHasPublicKey(CFErrorRef *error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
     
@@ -568,8 +576,7 @@ bool SOSCCAccountHasPublicKey(CFErrorRef *error)
 bool SOSCCWaitForInitialSync(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -584,8 +591,7 @@ bool SOSCCWaitForInitialSync(CFErrorRef* error)
 bool SOSCCAccountSetToNew(CFErrorRef *error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -600,8 +606,7 @@ bool SOSCCAccountSetToNew(CFErrorRef *error)
 bool SOSCCResetToOffering(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -617,8 +622,7 @@ bool SOSCCResetToOffering(CFErrorRef* error)
 bool SOSCCResetToEmpty(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -634,8 +638,7 @@ bool SOSCCResetToEmpty(CFErrorRef* error)
 bool SOSCCRemovePeersFromCircle(CFArrayRef peers, CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -650,8 +653,7 @@ bool SOSCCRemovePeersFromCircle(CFArrayRef peers, CFErrorRef* error)
 bool SOSCCRemoveThisDeviceFromCircle(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -664,6 +666,10 @@ bool SOSCCRemoveThisDeviceFromCircle(CFErrorRef* error)
 }
 
 bool SOSCCLoggedIntoAccount(CFErrorRef* error) {
+    IF_SOS_DISABLED {
+        SOSCCSetSOSDisabledError(error);
+        return false;
+    }
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_LoggedIntoAccount, error);
@@ -675,8 +681,7 @@ bool SOSCCLoggedIntoAccount(CFErrorRef* error) {
 bool SOSCCLoggedOutOfAccount(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -691,8 +696,7 @@ bool SOSCCLoggedOutOfAccount(CFErrorRef* error)
 bool SOSCCBailFromCircle_BestEffort(uint64_t limit_in_seconds, CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -707,8 +711,7 @@ bool SOSCCBailFromCircle_BestEffort(uint64_t limit_in_seconds, CFErrorRef* error
 CFArrayRef SOSCCCopyPeerPeerInfo(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -723,8 +726,7 @@ CFArrayRef SOSCCCopyPeerPeerInfo(CFErrorRef* error)
 CFArrayRef SOSCCCopyConcurringPeerPeerInfo(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -739,8 +741,7 @@ CFArrayRef SOSCCCopyConcurringPeerPeerInfo(CFErrorRef* error)
 CFArrayRef SOSCCCopyGenerationPeerInfo(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -755,8 +756,7 @@ CFArrayRef SOSCCCopyGenerationPeerInfo(CFErrorRef* error)
 CFArrayRef SOSCCCopyApplicantPeerInfo(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -770,8 +770,7 @@ CFArrayRef SOSCCCopyApplicantPeerInfo(CFErrorRef* error)
 
 bool SOSCCValidateUserPublic(CFErrorRef* error){
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -786,8 +785,7 @@ bool SOSCCValidateUserPublic(CFErrorRef* error){
 CFArrayRef SOSCCCopyValidPeerPeerInfo(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -802,8 +800,7 @@ CFArrayRef SOSCCCopyValidPeerPeerInfo(CFErrorRef* error)
 CFArrayRef SOSCCCopyNotValidPeerPeerInfo(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -818,8 +815,7 @@ CFArrayRef SOSCCCopyNotValidPeerPeerInfo(CFErrorRef* error)
 CFArrayRef SOSCCCopyRetirementPeerInfo(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -834,8 +830,7 @@ CFArrayRef SOSCCCopyRetirementPeerInfo(CFErrorRef* error)
 CFArrayRef SOSCCCopyViewUnawarePeerInfo(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -850,8 +845,7 @@ CFArrayRef SOSCCCopyViewUnawarePeerInfo(CFErrorRef* error)
 SOSPeerInfoRef SOSCCCopyMyPeerInfo(CFErrorRef *error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -866,8 +860,7 @@ SOSPeerInfoRef SOSCCCopyMyPeerInfo(CFErrorRef *error)
 static CFArrayRef SOSCCCopyEngineState(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -939,8 +932,7 @@ void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(C
 
 bool SOSCCForEachEngineStateAsString(CFErrorRef* error, void (^block)(CFStringRef oneStateString)) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -959,8 +951,7 @@ bool SOSCCForEachEngineStateAsString(CFErrorRef* error, void (^block)(CFStringRe
 bool SOSCCAcceptApplicants(CFArrayRef applicants, CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -975,8 +966,7 @@ bool SOSCCAcceptApplicants(CFArrayRef applicants, CFErrorRef* error)
 bool SOSCCRejectApplicants(CFArrayRef applicants, CFErrorRef *error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -990,6 +980,11 @@ bool SOSCCRejectApplicants(CFArrayRef applicants, CFErrorRef *error)
 
 static CF_RETURNS_RETAINED SOSPeerInfoRef SOSSetNewPublicBackupKey(CFDataRef pubKey, CFErrorRef *error)
 {
+    IF_SOS_DISABLED {
+        SOSCCSetSOSDisabledError(error);
+        return NULL;
+    }
+    
     sec_trace_enter_api(NULL);
     sec_trace_return_api(SOSPeerInfoRef, ^{
         do_if_registered(soscc_SetNewPublicBackupKey, pubKey, error);
@@ -1000,8 +995,7 @@ static CF_RETURNS_RETAINED SOSPeerInfoRef SOSSetNewPublicBackupKey(CFDataRef pub
 
 SOSPeerInfoRef SOSCCCopyMyPeerWithNewDeviceRecoverySecret(CFDataRef secret, CFErrorRef *error){
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -1016,8 +1010,7 @@ SOSPeerInfoRef SOSCCCopyMyPeerWithNewDeviceRecoverySecret(CFDataRef secret, CFEr
 
 bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErrorRef *error){
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1031,8 +1024,7 @@ bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErro
 
 bool SOSCCRegisterRecoveryPublicKey(CFDataRef recovery_key, CFErrorRef *error){
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1048,8 +1040,7 @@ bool SOSCCRegisterRecoveryPublicKey(CFDataRef recovery_key, CFErrorRef *error){
 
 CFDataRef SOSCCCopyRecoveryPublicKey(CFErrorRef *error){
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -1105,20 +1096,18 @@ static bool label_and_password_and_dsid_to_bool_error_request(enum SecXPCOperati
 bool SOSCCRegisterUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
-   secnotice("circleOps", "SOSCCRegisterUserCredentials - calling SOSCCSetUserCredentials for %@\n", user_label);
+    secnotice("circleOps", "SOSCCRegisterUserCredentials - calling SOSCCSetUserCredentials for %@\n", user_label);
     return SOSCCSetUserCredentials(user_label, user_password, error);
 }
 
 bool SOSCCSetUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1134,8 +1123,7 @@ bool SOSCCSetUserCredentials(CFStringRef user_label, CFDataRef user_password, CF
 bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1161,6 +1149,11 @@ bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_passw
 }
 
 static bool SOSCCTryUserCredentialsAndDSID_internal(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        SOSCCSetSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_TryUserCredentials, user_label, user_password, dsid, error);
         
@@ -1185,8 +1178,7 @@ static bool SOSCCTryUserCredentialsAndDSID_internal(CFStringRef user_label, CFDa
 bool SOSCCTryUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1201,8 +1193,7 @@ out:
 
 bool SOSCCTryUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1212,8 +1203,7 @@ bool SOSCCTryUserCredentials(CFStringRef user_label, CFDataRef user_password, CF
 
 bool SOSCCCanAuthenticate(CFErrorRef* error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1227,8 +1217,7 @@ bool SOSCCCanAuthenticate(CFErrorRef* error) {
 
 bool SOSCCPurgeUserCredentials(CFErrorRef* error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1242,8 +1231,7 @@ bool SOSCCPurgeUserCredentials(CFErrorRef* error) {
 
 enum DepartureReason SOSCCGetLastDepartureReason(CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return kSOSDepartureReasonError;
     }
 
@@ -1257,8 +1245,7 @@ enum DepartureReason SOSCCGetLastDepartureReason(CFErrorRef *error) {
 
 bool SOSCCSetLastDepartureReason(enum DepartureReason reason, CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1279,8 +1266,7 @@ bool SOSCCSetLastDepartureReason(enum DepartureReason reason, CFErrorRef *error)
 
 bool SOSCCProcessEnsurePeerRegistration(CFErrorRef* error){
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1297,8 +1283,7 @@ bool SOSCCProcessEnsurePeerRegistration(CFErrorRef* error){
 CFSetRef /* CFString */ SOSCCProcessSyncWithPeers(CFSetRef peers, CFSetRef backupPeers, CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -1314,8 +1299,7 @@ CFSetRef /* CFString */ SOSCCProcessSyncWithPeers(CFSetRef peers, CFSetRef backu
 SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers(CFErrorRef* error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return kSyncWithAllPeersOtherFail;
     }
 
@@ -1387,8 +1371,7 @@ static int64_t name_action_to_code_request(enum SecXPCOperation op, uint16_t err
 
 SOSViewResultCode SOSCCView(CFStringRef view, SOSViewActionCode actionCode, CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return kSOSCCGeneralViewError;
     }
     
@@ -1573,8 +1556,7 @@ bool SOSCCIsContinuityUnlockSyncing(void) {
 
 SOSPeerInfoRef SOSCCCopyApplication(CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -1589,8 +1571,7 @@ SOSPeerInfoRef SOSCCCopyApplication(CFErrorRef *error) {
 
 bool SOSCCCleanupKVSKeys(CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1607,8 +1588,7 @@ bool SOSCCCleanupKVSKeys(CFErrorRef *error) {
 
 CFDataRef SOSCCCopyCircleJoiningBlob(SOSPeerInfoRef applicant, CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -1627,8 +1607,7 @@ CFDataRef SOSCCCopyCircleJoiningBlob(SOSPeerInfoRef applicant, CFErrorRef *error
 
 CFDataRef SOSCCCopyInitialSyncData(SOSInitialSyncFlags flags, CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return NULL;
     }
 
@@ -1643,8 +1622,7 @@ CFDataRef SOSCCCopyInitialSyncData(SOSInitialSyncFlags flags, CFErrorRef *error)
 
 bool SOSCCJoinWithCircleJoiningBlob(CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1659,8 +1637,7 @@ bool SOSCCJoinWithCircleJoiningBlob(CFDataRef joiningBlob, PiggyBackProtocolVers
 
 CFBooleanRef SOSCCPeersHaveViewsEnabled(CFArrayRef viewNames, CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return FALSE;
     }
 
@@ -1675,8 +1652,7 @@ CFBooleanRef SOSCCPeersHaveViewsEnabled(CFArrayRef viewNames, CFErrorRef *error)
 
 bool SOSCCMessageFromPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1692,8 +1668,7 @@ bool SOSCCMessageFromPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
 
 bool SOSCCSendToPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return false;
     }
 
@@ -1742,8 +1717,7 @@ static id<SOSControlProtocol>
 SOSCCGetStatusObject(CFErrorRef *error)
 {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(error);
+        SOSCCSetSOSDisabledError(error);
         return nil;
     }
 
@@ -1758,12 +1732,10 @@ SOSCCGetStatusObject(CFErrorRef *error)
     return control.connection.remoteObjectProxy;
 }
 
-
 static id<SOSControlProtocol>
 SOSCCGetSynchronousStatusObject(CFErrorRef *cferror) {
     IF_SOS_DISABLED {
-        secdebug("circleOps", "SOS disabled for this platform");
-        setSOSDisabledError(cferror);
+        SOSCCSetSOSDisabledError(cferror);
         return nil;
     }
     if (gSecurityd && gSecurityd->soscc_status)
@@ -1788,11 +1760,19 @@ SOSCCGetSynchronousStatusObject(CFErrorRef *cferror) {
     return synchronousRemoteObject;
 }
 
-
+static NSError* sosDisabledNSError(void) {
+    secdebug("circleOps", "SOS disabled for this platform");
+    return (__bridge NSError*)staticSOSDisabledError();
+}
 
 void
 SOSCCAccountGetPublicKey(void (^reply)(BOOL trusted, NSData *data, NSError *error))
 {
+    IF_SOS_DISABLED {
+        reply(false, NULL, sosDisabledNSError());
+        return;
+    }
+
     CFErrorRef error = NULL;
     id<SOSControlProtocol> status = SOSCCGetStatusObject(&error);
     if (status == NULL) {
@@ -1807,6 +1787,10 @@ SOSCCAccountGetPublicKey(void (^reply)(BOOL trusted, NSData *data, NSError *erro
 void
 SOSCCAccountGetAccountPrivateCredential(void (^complete)(NSData *data, NSError *error))
 {
+    IF_SOS_DISABLED {
+        complete(NULL, sosDisabledNSError());
+        return;
+    }
     CFErrorRef error = NULL;
     id<SOSControlProtocol> status = SOSCCGetStatusObject(&error);
     if (status == NULL) {
@@ -1821,6 +1805,11 @@ SOSCCAccountGetAccountPrivateCredential(void (^complete)(NSData *data, NSError *
 void
 SOSCCAccountGetKeyCircleGeneration(void (^reply)(NSData *data, NSError *error))
 {
+    IF_SOS_DISABLED {
+        reply(nil, sosDisabledNSError());
+        return;
+    }
+
     SOSCCAccountGetPublicKey(^(BOOL __unused trusted, NSData *data, NSError *error){
         if (data == NULL) {
             reply(data, error);
@@ -1835,6 +1824,13 @@ SOSCCAccountGetKeyCircleGeneration(void (^reply)(NSData *data, NSError *error))
 NSString *
 SOSCCCircleHash(NSError **error)
 {
+    IF_SOS_DISABLED {
+        if(error) {
+            *error = sosDisabledNSError();
+        }
+        return nil;
+    }
+    
     CFErrorRef cferror = NULL;
     id<SOSControlProtocol> status = SOSCCGetSynchronousStatusObject(&cferror);
     if (status == NULL) {
@@ -1842,7 +1838,7 @@ SOSCCCircleHash(NSError **error)
             *error = (__bridge NSError *)cferror;
         }
         CFReleaseNull(cferror);
-        return NULL;
+        return nil;
     }
     __block NSString *hash = NULL;
     [status circleHash:^(NSString *circleHash, NSError *error) {
@@ -1851,10 +1847,13 @@ SOSCCCircleHash(NSError **error)
      return hash;
 }
 
-
-
 void
 SOSCCGhostBust(SOSAccountGhostBustingOptions options, void (^complete)(bool ghostsBusted, NSError *error)) {
+    IF_SOS_DISABLED {
+        complete(false, sosDisabledNSError());
+        return;
+    }
+
     CFErrorRef error = NULL;
     id<SOSControlProtocol> status = SOSCCGetSynchronousStatusObject(&error);
     if (status == NULL) {
@@ -1870,6 +1869,11 @@ SOSCCGhostBust(SOSAccountGhostBustingOptions options, void (^complete)(bool ghos
 }
 
 void SOSCCGhostBustTriggerTimed(SOSAccountGhostBustingOptions options, void (^complete)(bool ghostsBusted, NSError *error)) {
+    IF_SOS_DISABLED {
+        complete(false, sosDisabledNSError());
+        return;
+    }
+
     CFErrorRef error = NULL;
     id<SOSControlProtocol> status = SOSCCGetSynchronousStatusObject(&error);
     if (status == NULL) {
@@ -1885,6 +1889,11 @@ void SOSCCGhostBustTriggerTimed(SOSAccountGhostBustingOptions options, void (^co
 }
 
 void SOSCCGhostBustInfo(void (^complete)(NSData *json, NSError *error)) {
+    IF_SOS_DISABLED {
+        complete(nil, sosDisabledNSError());
+        return;
+    }
+
     CFErrorRef error = NULL;
     id<SOSControlProtocol> status = SOSCCGetSynchronousStatusObject(&error);
     if (status == NULL) {

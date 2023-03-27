@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -145,7 +145,7 @@ get_sc_store_max(void)
 }
 
 static void
-add_state_handler()
+add_state_handler(void)
 {
 	os_state_block_t	state_block;
 
@@ -376,7 +376,7 @@ static const CFRuntimeClass __SCDynamicStoreClass = {
 
 
 static void
-childForkHandler()
+childForkHandler(void)
 {
 	/* the process has forked (and we are the child process) */
 

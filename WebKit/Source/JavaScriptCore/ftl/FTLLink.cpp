@@ -49,6 +49,13 @@ void link(State& state)
     
     if (!graph.m_plan.inlineCallFrames()->isEmpty())
         state.jitCode->common.inlineCallFrames = graph.m_plan.inlineCallFrames();
+    if (!graph.m_stringSearchTable8.isEmpty()) {
+        FixedVector<std::unique_ptr<BoyerMooreHorspoolTable<uint8_t>>> tables(graph.m_stringSearchTable8.size());
+        unsigned index = 0;
+        for (auto& entry : graph.m_stringSearchTable8)
+            tables[index++] = WTFMove(entry.value);
+        state.jitCode->common.m_stringSearchTable8 = WTFMove(tables);
+    }
 
     graph.registerFrozenValues();
 
@@ -97,9 +104,9 @@ void link(State& state)
                 state.allocationFailed = true;
                 return;
             }
-            linkBuffer->link(throwStackOverflow, FunctionPtr<OperationPtrTag>(operationThrowStackOverflowError));
+            linkBuffer->link<OperationPtrTag>(throwStackOverflow, operationThrowStackOverflowError);
             linkBuffer->link(jumpToExceptionHandler, CodeLocationLabel(vm.getCTIStub(handleExceptionWithCallFrameRollbackGenerator).retaggedCode<NoPtrTag>()));
-            linkBuffer->link(callArityFixup, vm.getCTIStub(arityFixupGenerator).code().toFunctionPtr());
+            linkBuffer->link(callArityFixup, vm.getCTIStub(arityFixupGenerator).code());
             linkBuffer->link(mainPathJumps, state.generatedFunction);
         }
 

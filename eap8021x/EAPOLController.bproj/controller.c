@@ -2873,7 +2873,10 @@ register_system_ethernet_prefs_change(void)
     if (cfg != NULL) {
 	EAPOLClientProfileRef profile = EAPOLClientConfigurationGetSystemEthernetProfile(cfg);
 	if (profile != NULL) {
-	    S_global_system_profile_id = EAPOLClientProfileGetID(profile);
+	    CFStringRef profile_id = EAPOLClientProfileGetID(profile);
+	    if (profile_id != NULL){
+		S_global_system_profile_id = CFStringCreateCopy(NULL, profile_id);
+	    }
 	}
 	my_CFRelease(&cfg);
     }

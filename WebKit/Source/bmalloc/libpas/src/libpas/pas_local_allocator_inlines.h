@@ -34,6 +34,7 @@
 #include "pas_debug_heap.h"
 #include "pas_epoch.h"
 #include "pas_full_alloc_bits_inlines.h"
+#include "pas_malloc_stack_logging.h"
 #include "pas_scavenger.h"
 #include "pas_segregated_exclusive_view_inlines.h"
 #include "pas_segregated_size_directory_inlines.h"
@@ -1683,7 +1684,7 @@ pas_local_allocator_try_allocate_slow_impl(pas_local_allocator* allocator,
     for (;;) {
         pas_fast_path_allocation_result fast_result;
         pas_allocation_result result;
-        pas_segregated_page_config* page_config;
+        const pas_segregated_page_config* page_config;
 
         fast_result = pas_local_allocator_try_allocate_out_of_line_cases(
             allocator, size, alignment, config);

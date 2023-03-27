@@ -172,8 +172,8 @@ DLDbListCFPref::loadPropertyList(bool force)
 		MacOSError::throwMe(errSecInvalidPrefsDomain);
 	}
 
-	secinfo("secpref", "force=%s mForceReloadEmptyFile=%s prefsPath=%s", force ? "true" : "false",
-		mForceReloadEmptyFile ? "true" : "false", prefsPath.c_str());
+	secinfo("secpref", "force=%{bool}d mForceReloadEmptyFile=%{bool}d prefsPath=%s", force,
+		mForceReloadEmptyFile, prefsPath.c_str());
 
 	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
 

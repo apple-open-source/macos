@@ -63,7 +63,7 @@ angle::Result FenceNV::finish(const Context *context)
     return angle::Result::Continue;
 }
 
-Sync::Sync(rx::GLImplFactory *factory, GLuint id)
+Sync::Sync(rx::GLImplFactory *factory, SyncID id)
     : RefCountObject(factory->generateSerial(), id),
       mFence(factory->createSync()),
       mLabel(),
@@ -82,9 +82,10 @@ Sync::~Sync()
     SafeDelete(mFence);
 }
 
-void Sync::setLabel(const Context *context, const std::string &label)
+angle::Result Sync::setLabel(const Context *context, const std::string &label)
 {
     mLabel = label;
+    return angle::Result::Continue;
 }
 
 const std::string &Sync::getLabel() const

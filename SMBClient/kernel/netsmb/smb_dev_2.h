@@ -229,6 +229,7 @@ int smb_usr_read_write(struct smb_share *share,
                        u_long cmd, 
                        struct smb2ioc_rw *rw_ioc, 
                        vfs_context_t context);
+void smb_iod_start_reconnect(struct smbiod *iod);
 
 #endif /* _KERNEL */
 

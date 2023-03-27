@@ -427,6 +427,125 @@ T_DECL(cond_signal_thread_np_not_waiting, "signal a specific thread that isn't w
 	pthread_join(other, NULL);
 }
 
+static struct signal_wrong_thread_ctx_s {
+	pthread_mutex_t mutex;
+	pthread_cond_t cond1;
+	pthread_cond_t cond2;
+	bool signaled1;
+	bool signaled2;
+	bool woken1;
+	bool woken2;
+} signal_wrong_thread_ctx = {
+	.mutex = PTHREAD_MUTEX_INITIALIZER,
+	.cond1 = PTHREAD_COND_INITIALIZER,
+	.cond2 = PTHREAD_COND_INITIALIZER,
+};
+
+static void *
+chosen_waiter_cond1(void *arg __unused)
+{
+	struct signal_wrong_thread_ctx_s *ctx = &signal_wrong_thread_ctx;
+
+	int rc = pthread_mutex_lock(&ctx->mutex);
+	T_ASSERT_POSIX_ZERO(rc, "chosen waiter lock");
+
+	rc = pthread_cond_wait(&ctx->cond1, &ctx->mutex);
+	T_ASSERT_POSIX_ZERO(rc, "chosen waiter cond_wait");
+	T_ASSERT_TRUE(ctx->signaled1, NULL);
+	ctx->woken1 = true;
+
+	T_PASS("chosen waiter woke");
+	T_END;
+}
+
+static void *
+other_waiter_cond2(void *arg __unused)
+{
+	struct signal_wrong_thread_ctx_s *ctx = &signal_wrong_thread_ctx;
+
+	int rc = pthread_mutex_lock(&ctx->mutex);
+	T_ASSERT_POSIX_ZERO(rc, "other waiter lock");
+
+	while (true) {
+		rc = pthread_cond_wait(&ctx->cond2, &ctx->mutex);
+		T_ASSERT_POSIX_ZERO(rc, "other waiter cond_wait");
+		T_ASSERT_TRUE(ctx->signaled2, NULL);
+		ctx->woken2 = true;
+		// Go back to sleep
+	}
+
+	T_ASSERT_FAIL("Not reached");
+	return NULL;
+}
+
+// The goal of this test is to park two threads waiting on
+// different condition variables. Then we use signal thread1
+// which is waiting on cond1, but pass in cond2. We expect
+// that cond2's signal is promoted to a broadcast and thread1
+// remains sleeping
+T_DECL(cond_signal_thread_np_waiting_different_cond,
+		"signal a specific thread that's waiting on a different cv")
+{
+	int rc;
+	struct signal_wrong_thread_ctx_s *ctx = &signal_wrong_thread_ctx;
+
+	pthread_attr_t other_attr;
+	rc = pthread_attr_init(&other_attr);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "pthread_attr_init");
+
+	rc = pthread_attr_set_qos_class_np(&other_attr,
+			QOS_CLASS_USER_INTERACTIVE, 0);
+	T_ASSERT_POSIX_ZERO(rc, "pthread_attr_set_qos_class_np");
+
+	pthread_t other;
+	rc = pthread_create(&other, &other_attr, other_waiter_cond2, NULL);
+	T_ASSERT_POSIX_ZERO(rc, "create other thread");
+
+	pthread_t chosen;
+	rc = pthread_create(&chosen, NULL, chosen_waiter_cond1, NULL);
+	T_ASSERT_POSIX_ZERO(rc, "create chosen thread");
+
+	T_LOG("Waiting for threads to wait");
+	sleep(5);
+
+	rc = pthread_mutex_lock(&ctx->mutex);
+	T_ASSERT_POSIX_ZERO(rc, "lock mutex");
+
+	ctx->signaled2 = true;
+
+	rc = pthread_mutex_unlock(&ctx->mutex);
+	T_ASSERT_POSIX_ZERO(rc, "unlock mutex");
+
+	// chosen is waiting on cond1, but signal cond2
+	rc = pthread_cond_signal_thread_np(&ctx->cond2, chosen);
+	T_ASSERT_POSIX_ZERO(rc, "cond_signal_thread_np");
+
+	// Give the threads a chance to wakeup
+	sleep(1);
+
+	rc = pthread_mutex_lock(&ctx->mutex);
+	T_ASSERT_POSIX_ZERO(rc, "lock mutex");
+
+	// Sanity check that chosen didn't wake up from the wrong signal
+	T_ASSERT_FALSE(ctx->woken1, NULL);
+
+	// Verify that the signal to the wrong thread was promoted to broadcast
+	T_ASSERT_TRUE(ctx->woken2, NULL);
+
+
+	ctx->signaled1 = true;
+
+	rc = pthread_cond_signal_thread_np(&ctx->cond1, chosen);
+
+	T_ASSERT_POSIX_ZERO(rc, "cond_signal_thread_np");
+
+	rc = pthread_mutex_unlock(&ctx->mutex);
+	T_ASSERT_POSIX_ZERO(rc, "unlock mutex");
+
+	pthread_join(chosen, NULL);
+	T_FAIL("not reached");
+}
+
 #pragma mark cancel signal race test
 
 static struct cancel_signal_race_context_s {

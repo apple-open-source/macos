@@ -839,6 +839,9 @@ AppleVTD::init(IOWorkLoop * wl, const OSData * data)
 		VTLOG("x2APIC mode enabled on at least one IRE, but disabled on other(s)!\n");
 	}
 
+	fNumMemoryRanges = 0;
+	fSpace = 0;
+
 	return (unitIdx != 0);
 }
 
@@ -1265,11 +1268,12 @@ AppleVTD::space_free(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 }
 
 void 
-AppleVTD::space_alloc_fixed(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
+AppleVTD::space_alloc_fixed(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size, bool fault)
 {
 	vtd_balloc_fixed(bf, addr, size);
 	vtd_rballoc_fixed(bf, addr, size);
-	vtd_space_fault(bf, addr, size);
+	if (fault)
+		vtd_space_fault(bf, addr, size);
 }
 
 static page_entry_t __unused
@@ -1293,6 +1297,86 @@ vtd_tree_read(page_entry_t root, uint32_t width, addr64_t addr)
 	}
 
 	return (entry);
+}
+
+void
+AppleVTD::addMemoryRange(IOPhysicalAddress start, IOPhysicalLength length)
+{
+	AppleVTD   * vtd;
+
+	if (!(vtd = OSDynamicCast(AppleVTD, IOMapper::gSystem)))
+	{
+		IOLog("[%s()] AppleVTD is not yet installed as gSystem\n", __func__);
+		return;
+	}
+
+	if (vtd->fNumMemoryRanges == kMaxMemRegions)
+	{
+		IOLog("[%s()] Mem regions limit reached\n", __func__);
+		return;
+	}
+
+	vtd->fMemoryRangeBase[vtd->fNumMemoryRanges] = start;
+	vtd->fMemoryRangeLen[vtd->fNumMemoryRanges] = length;
+
+	if (vtd->fSpace)
+	{
+		uint64_t idx = vtd->fNumMemoryRanges;
+		uint64_t addr = vtd->fMemoryRangeBase[idx];
+		uint32_t count = atop_32(vtd->fMemoryRangeLen[idx]);
+
+		VTLOG("[%s(%p)] Freeing 0x%llx->0x%llx\n", __func__, vtd->fSpace, vtd->fMemoryRangeBase[idx], vtd->fMemoryRangeBase[idx] + vtd->fMemoryRangeLen[idx]);
+		vtd->space_alloc_fixed(vtd->fSpace, static_cast<vtd_baddr_t>(atop_64(vtd->fMemoryRangeBase[idx])), count, false);
+	}
+
+	vtd->fNumMemoryRanges++;
+}
+
+void
+AppleVTD::reserveRanges(vtd_space_t * bf, bool systemMapper)
+{
+	uint32_t idx;
+
+	space_alloc_fixed(bf, atop_64(0xfee00000), atop_64(0xfef00000-0xfee00000), systemMapper);
+	bf->tables[0][atop_64(0xfee00000)].bits = 0xfee00000 | kPageAccess;
+
+	ACPI_TABLE_DMAR *           dmar = (typeof(dmar))      fDMARData->getBytesNoCopy();
+	ACPI_DMAR_HEADER *          dmarEnd = (typeof(dmarEnd))(((uintptr_t) dmar) + fDMARData->getLength());
+	ACPI_DMAR_HEADER *          hdr = (typeof(hdr))      (dmar + 1);
+	ACPI_DMAR_RESERVED_MEMORY * mem;
+
+	for (; hdr < dmarEnd;
+			hdr = (typeof(hdr))(((uintptr_t) hdr) + hdr->Length))
+	{
+		uint64_t addr;
+		uint32_t count;
+		switch (hdr->Type)
+		{
+			case ACPI_DMAR_TYPE_RESERVED_MEMORY:
+				mem = (typeof(mem)) hdr;
+				VTLOG("ACPI_DMAR_TYPE_RESERVED_MEMORY 0x%llx, 0x%llx\n",
+					mem->BaseAddress, mem->EndAddress);
+
+				addr = mem->BaseAddress;
+				count = atop_32(mem->EndAddress - addr);
+
+				space_alloc_fixed(bf, static_cast<vtd_baddr_t>(atop_64(addr)), count, systemMapper);
+				for (; count; addr += page_size, count--)
+				{
+					bf->tables[0][atop_64(addr)].bits = (addr | kPageAccess);
+				}
+				break;
+		}
+	}
+
+	for (idx = 0; idx < fNumMemoryRanges; idx++)
+	{
+		uint64_t addr = fMemoryRangeBase[idx];
+		uint32_t count = atop_32(fMemoryRangeLen[idx]);
+
+		VTLOG("[%s(%p)] Freeing 0x%llx->0x%llx\n", __func__, bf, fMemoryRangeBase[idx], fMemoryRangeBase[idx] + fMemoryRangeLen[idx]);
+		space_alloc_fixed(bf, static_cast<vtd_baddr_t>(atop_64(fMemoryRangeBase[idx])), count, false);
+	}
 }
 
 bool
@@ -1372,37 +1456,7 @@ AppleVTD::initHardware(IOService *provider)
 		data->release();
 	}
 
-	space_alloc_fixed(fSpace, atop_64(0xfee00000), atop_64(0xfef00000-0xfee00000));
-	fSpace->tables[0][atop_64(0xfee00000)].bits = 0xfee00000 | kPageAccess;
-
-	ACPI_TABLE_DMAR *           dmar = (typeof(dmar))      fDMARData->getBytesNoCopy();
-	ACPI_DMAR_HEADER *          dmarEnd = (typeof(dmarEnd))(((uintptr_t) dmar) + fDMARData->getLength());
-	ACPI_DMAR_HEADER *          hdr = (typeof(hdr))      (dmar + 1);
-	ACPI_DMAR_RESERVED_MEMORY * mem;
-
-	for (; hdr < dmarEnd;
-			hdr = (typeof(hdr))(((uintptr_t) hdr) + hdr->Length))
-	{
-		uint64_t addr;
-		uint32_t count;
-		switch (hdr->Type)
-		{
-			case ACPI_DMAR_TYPE_RESERVED_MEMORY:
-				mem = (typeof(mem)) hdr;
-				VTLOG("ACPI_DMAR_TYPE_RESERVED_MEMORY 0x%llx, 0x%llx\n", 
-					mem->BaseAddress, mem->EndAddress);
-
-				addr = mem->BaseAddress;
-				count = atop_32(mem->EndAddress - addr);
-		
-				space_alloc_fixed(fSpace, static_cast<vtd_baddr_t>(atop_64(addr)), count);
-				for (; count; addr += page_size, count--)
-				{
-					fSpace->tables[0][atop_64(addr)].bits = (addr | kPageAccess);
-				}
-				break;
-		}
-	}
+	reserveRanges(fSpace, true);
 
 	md = IOBufferMemoryDescriptor::inTaskWithOptions(TASK_NULL,
 						kIOMemoryPageable |
@@ -2493,6 +2547,7 @@ AppleVTD::deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options)
 		if (!mapper->fSpace) mapper->fSpace = space_create(mapper->vsize, 0, 1);
 		space = mapper->fSpace;
 		if (!space) ret = kIOReturnNoMemory;
+		mapper->fVTD->reserveRanges(space, false);
 	}
 	if (!space) space = fSpace;
 

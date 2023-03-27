@@ -461,6 +461,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
 @implementation FakeCKFetchRecordsOperation
 @synthesize database = _database;
+@synthesize group = _group;
 @synthesize recordIDs = _recordIDs;
 @synthesize desiredKeys = _desiredKeys;
 @synthesize configuration = _configuration;
@@ -874,6 +875,25 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         [[NSNotificationCenter defaultCenter] postNotificationName:notification object:nil];
     }
 }
+@end
+
+@implementation FakeCKAccountInfo
+
+- (NSUInteger)hash {
+    return self.accountStatus ^ self.accountPartition ^ self.hasValidCredentials;
+}
+
+- (BOOL)isEqual:(id)object {
+    if (self == object) return YES;
+    if (![object isKindOfClass:[self class]]) return NO;
+    
+    FakeCKAccountInfo *other = (FakeCKAccountInfo *)object;
+    
+    return ((self.accountStatus == other.accountStatus) &&
+            (self.accountPartition == other.accountPartition) &&
+            (self.hasValidCredentials == other.hasValidCredentials));
+}
+
 @end
 
 #endif // OCTAGON

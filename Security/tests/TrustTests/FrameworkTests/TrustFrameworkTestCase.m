@@ -23,6 +23,7 @@
  */
 
 #import <XCTest/XCTest.h>
+#import <Security/SecCertificatePriv.h>
 #import "TrustFrameworkTestCase.h"
 #include "../../../OSX/sec/ipc/securityd_client.h"
 
@@ -32,6 +33,37 @@
 + (void)setUp {
     /* XPC to trustd instead of using trustd built-in */
     gTrustd = NULL;
+}
+
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromResource:(NSString *)name
+                                                         subdirectory:(NSString *)dir
+{
+    NSURL *url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".cer"
+                                                           subdirectory:dir];
+    if (!url) {
+        url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".crt"
+                                                        subdirectory:dir];
+    }
+    NSData *certData = [NSData dataWithContentsOfURL:url];
+    if (!certData) {
+        return nil;
+    }
+    SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, (__bridge CFDataRef)certData);
+    return (__bridge id)cert;
+}
+
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromPEMResource:(NSString *)name
+                                                            subdirectory:(NSString *)dir
+{
+    NSURL *url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".pem"
+                                                           subdirectory:dir];
+    NSData *certData = [NSData dataWithContentsOfURL:url];
+    if (!certData) {
+        return nil;
+    }
+
+    SecCertificateRef cert = SecCertificateCreateWithPEM(kCFAllocatorDefault, (__bridge CFDataRef)certData);
+    return (__bridge id)cert;
 }
 
 @end

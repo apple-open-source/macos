@@ -229,6 +229,8 @@ simpleroutine _notify_server_monitor_file_2
 	ServerAuditToken audit : audit_token_t
 );
 
+MsgOption MACH_SEND_FILTER_NONFATAL;
+
 routine _notify_server_regenerate
 (
 	server : mach_port_t;
@@ -247,9 +249,6 @@ routine _notify_server_regenerate
 	out status : int;
 	ServerAuditToken audit : audit_token_t
 );
-
-
-MsgOption MACH_SEND_FILTER_NONFATAL;
 
 routine _notify_server_checkin
 (

@@ -43,6 +43,7 @@
 #include <stdbool.h>
 #include <sys/cdefs.h>
 #include <uuid/uuid.h>
+#include <apfs/apfs_fsctl.h>
 
 __BEGIN_DECLS 
 
@@ -541,7 +542,24 @@ int BLGetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uui
  */
 int BLCreateAndSetSnapshotBoot(BLContextPtr context, const char *mountpoint, char *snapName, int nameLen);
 
-
+/*!
+ * @function BLGetAPFSSnapshotData
+ * @abstract Get snapshot data for an APFS volume
+ * @discussion Make the necessary calls to
+ *    to extract snapshot information
+ *    from the volume mounted at <b>mountpoint</b>.
+ * @param context Bless Library context
+ * @param mountpoint Mountpoint of volume
+ * @param snap_data UUID of snapshot/name of snapshot to be blessed, or an empty
+ *      string to bless the live file system.
+ * @param is_name - if true find snapshot by name, else by UUID
+ * @param snap_lookup_data - struct contains snapshot information
+ */
+int BLGetAPFSSnapshotData(BLContextPtr context,
+					  const char *mountpoint,
+					  uuid_string_t snap_data,
+					  bool is_name,
+					  apfs_snap_name_lookup_t *snap_lookup_data);
 
 
 /*!
@@ -552,10 +570,11 @@ int BLCreateAndSetSnapshotBoot(BLContextPtr context, const char *mountpoint, cha
  *    from the volume mounted at <b>mountpoint</b>.
  * @param context Bless Library context
  * @param mountpoint Mountpoint of volume
- * @param snap_uuid UUID of snapshot to be blessed, or an empty
+ * @param snap_data UUID of snapshot/name of snapshot to be blessed, or an empty
  *      string to bless the live file system.
+ * @param is_name - if true find snapshot by name, else by UUID
  */
-int BLSetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uuid_string_t snap_uuid);
+int BLSetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uuid_string_t snap_data, bool is_name);
 
 
 

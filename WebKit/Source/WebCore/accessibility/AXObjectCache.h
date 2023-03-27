@@ -26,7 +26,9 @@
 #pragma once
 
 #include "AXIsolatedTree.h"
+#include "AXTextMarker.h"
 #include "AXTextStateChangeIntent.h"
+#include "AXTreeStore.h"
 #include "AccessibilityObject.h"
 #include "SimpleRange.h"
 #include "Timer.h"
@@ -55,19 +57,6 @@ class RenderText;
 class ScrollView;
 class VisiblePosition;
 class Widget;
-
-struct TextMarkerData {
-    AXID axID;
-
-    Node* node { nullptr };
-    unsigned offset { 0 };
-    Position::AnchorType anchorType { Position::PositionIsOffsetInAnchor };
-    Affinity affinity { Affinity::Downstream };
-
-    int characterStartIndex { 0 };
-    int characterOffset { 0 };
-    bool ignored { false };
-};
 
 struct CharacterOffset {
     Node* node;
@@ -143,8 +132,10 @@ enum AXTextChange { AXTextInserted, AXTextDeleted, AXTextAttributesChanged };
 
 enum class PostTarget { Element, ObservableParent };
 
-class AXObjectCache : public CanMakeWeakPtr<AXObjectCache> {
-    WTF_MAKE_NONCOPYABLE(AXObjectCache); WTF_MAKE_FAST_ALLOCATED;
+class AXObjectCache : public CanMakeWeakPtr<AXObjectCache>
+    , public AXTreeStore<AXObjectCache> {
+    WTF_MAKE_NONCOPYABLE(AXObjectCache);
+    WTF_MAKE_FAST_ALLOCATED;
     friend class AXIsolatedTree;
     friend WTF::TextStream& operator<<(WTF::TextStream&, AXObjectCache&);
 public:
@@ -192,12 +183,30 @@ public:
     void checkedStateChanged(Node*);
     void autofillTypeChanged(Node*);
     void handleRoleChanged(AccessibilityObject*);
-    // Called when a node has just been attached, so we can make sure we have the right subclass of AccessibilityObject.
-    void updateCacheAfterNodeIsAttached(Node*);
+    // Called when a RenderObject is created for an Element. Depending on the
+    // presence of a RenderObject, we may have instatiated an AXRenderObject or
+    // an AXNodeObject. This occurs when an Element with no renderer is
+    // re-parented into a subtree that does have a renderer.
+    void onRendererCreated(Element&);
+
     void updateLoadingProgress(double);
     void loadingFinished() { updateLoadingProgress(1); }
     double loadingProgress() const { return m_loadingProgress; }
 
+    struct AttributeChange {
+        Element* element { nullptr };
+        QualifiedName attrName;
+        AtomString oldValue;
+        AtomString newValue;
+    };
+    using DeferredCollection = std::variant<HashMap<Element*, String>
+        , HashSet<AXID>
+        , ListHashSet<Node*>
+        , ListHashSet<RefPtr<AccessibilityObject>>
+        , Vector<AttributeChange>
+        , Vector<std::pair<Node*, Node*>>
+        , WeakHashSet<Element, WeakPtrImplWithEventTargetData>
+        , WeakHashSet<HTMLTableElement, WeakPtrImplWithEventTargetData>>;
     void deferFocusedUIElementChangeIfNeeded(Node* oldFocusedNode, Node* newFocusedNode);
     void deferModalChange(Element*);
     void deferMenuListValueChange(Element*);
@@ -227,22 +236,23 @@ public:
     const Element* rootAXEditableElement(const Node*);
     bool nodeIsTextControl(const Node*);
 
-    AXID platformGenerateAXID() const;
-    AccessibilityObject* objectForID(const AXID& id) const { return m_objects.get(id); }
+    AccessibilityObject* objectForID(const AXID id) const { return m_objects.get(id); }
     Vector<RefPtr<AXCoreObject>> objectsForIDs(const Vector<AXID>&) const;
 
     // Text marker utilities.
     std::optional<TextMarkerData> textMarkerDataForVisiblePosition(const VisiblePosition&);
     std::optional<TextMarkerData> textMarkerDataForFirstPositionInTextControl(HTMLTextFormControlElement&);
-    void textMarkerDataForCharacterOffset(TextMarkerData&, const CharacterOffset&);
-    void textMarkerDataForNextCharacterOffset(TextMarkerData&, const CharacterOffset&);
-    void textMarkerDataForPreviousCharacterOffset(TextMarkerData&, const CharacterOffset&);
-    VisiblePosition visiblePositionForTextMarkerData(TextMarkerData&);
+    TextMarkerData textMarkerDataForCharacterOffset(const CharacterOffset&);
+    TextMarkerData textMarkerDataForNextCharacterOffset(const CharacterOffset&);
+    AXTextMarker nextTextMarker(const AXTextMarker&);
+    TextMarkerData textMarkerDataForPreviousCharacterOffset(const CharacterOffset&);
+    AXTextMarker previousTextMarker(const AXTextMarker&);
+    VisiblePosition visiblePositionForTextMarkerData(const TextMarkerData&);
     CharacterOffset characterOffsetForTextMarkerData(TextMarkerData&);
-    // Use ignoreNextNodeStart/ignorePreviousNodeEnd to determine the behavior when we are at node boundary. 
+    // Use ignoreNextNodeStart/ignorePreviousNodeEnd to determine the behavior when we are at node boundary.
     CharacterOffset nextCharacterOffset(const CharacterOffset&, bool ignoreNextNodeStart = true);
     CharacterOffset previousCharacterOffset(const CharacterOffset&, bool ignorePreviousNodeEnd = true);
-    void startOrEndTextMarkerDataForRange(TextMarkerData&, const SimpleRange&, bool);
+    TextMarkerData startOrEndTextMarkerDataForRange(const SimpleRange&, bool);
     CharacterOffset startOrEndCharacterOffsetForRange(const SimpleRange&, bool, bool enterTextControls = false);
     AccessibilityObject* accessibilityObjectForTextMarkerData(TextMarkerData&);
     std::optional<SimpleRange> rangeForUnorderedCharacterOffsets(const CharacterOffset&, const CharacterOffset&);
@@ -279,7 +289,6 @@ public:
 
     enum AXNotification {
         AXActiveDescendantChanged,
-        AXAriaRoleChanged,
         AXAutocorrectionOccured,
         AXAutofillTypeChanged,
         AXCheckedStateChanged,
@@ -287,6 +296,7 @@ public:
         AXColumnCountChanged,
         AXColumnIndexChanged,
         AXColumnSpanChanged,
+        AXControlledObjectsChanged,
         AXCurrentStateChanged,
         AXDescribedByChanged,
         AXDisabledStateChanged,
@@ -299,6 +309,7 @@ public:
         AXIdAttributeChanged,
         AXImageOverlayChanged,
         AXIsAtomicChanged,
+        AXKeyShortcutsChanged,
         AXLanguageChanged,
         AXLayoutComplete,
         AXLevelChanged,
@@ -307,6 +318,8 @@ public:
         AXPageScrolled,
         AXPlaceholderChanged,
         AXPositionInSetChanged,
+        AXRoleChanged,
+        AXRoleDescriptionChanged,
         AXRowIndexChanged,
         AXRowSpanChanged,
         AXSelectedChildrenChanged,
@@ -450,9 +463,10 @@ protected:
     Node* nextNode(Node*) const;
     Node* previousNode(Node*) const;
     CharacterOffset traverseToOffsetInRange(const SimpleRange&, int, TraverseOption = TraverseOptionDefault, bool stayWithinRange = false);
+public:
     VisiblePosition visiblePositionFromCharacterOffset(const CharacterOffset&);
+protected:
     CharacterOffset characterOffsetFromVisiblePosition(const VisiblePosition&);
-    void setTextMarkerDataWithCharacterOffset(TextMarkerData&, const CharacterOffset&);
     UChar32 characterAfter(const CharacterOffset&);
     UChar32 characterBefore(const CharacterOffset&);
     CharacterOffset characterOffsetForNodeAndOffset(Node&, int, TraverseOption = TraverseOptionDefault);
@@ -474,6 +488,7 @@ private:
     static AccessibilityObject* focusedImageMapUIElement(HTMLAreaElement*);
 
     AXID getAXID(AccessibilityObject*);
+    AXID generateNewObjectID() const;
 
     void notificationPostTimerFired();
 
@@ -488,9 +503,9 @@ private:
     bool enqueuePasswordValueChangeNotification(AccessibilityObject*);
     void passwordNotificationPostTimerFired();
 
-    void processDeferredChildrenChangedList();
     void handleChildrenChanged(AccessibilityObject&);
     void handleRoleChanged(Element*, const AtomString&, const AtomString&);
+    void handleRoleDescriptionChanged(Element*);
     void handleMenuOpened(Node*);
     void handleLiveRegionCreated(Node*);
     void handleMenuItemSelected(Node*);
@@ -523,7 +538,12 @@ private:
     static AXRelationType symmetricRelation(AXRelationType);
     void addRelation(Element*, Element*, AXRelationType);
     void addRelation(AccessibilityObject*, AccessibilityObject*, AXRelationType, AddingSymmetricRelation = AddingSymmetricRelation::No);
+    void removeRelationByID(AXID originID, AXID targetID, AXRelationType);
+    void addRelations(Element&, const QualifiedName&);
+    void updateRelations(Element&, const QualifiedName&);
+    void removeRelations(Element&, AXRelationType);
     void updateRelationsIfNeeded();
+    void updateRelationsForTree(ContainerNode&);
     void relationsNeedUpdate(bool);
     HashMap<AXID, AXRelations> relations();
     const HashSet<AXID>& relationTargetIDs();
@@ -569,6 +589,7 @@ private:
     Timer m_performCacheUpdateTimer;
 
     AXTextStateChangeIntent m_textSelectionIntent;
+    HashSet<AXID> m_deferredRemovedObjects;
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_deferredRecomputeIsIgnoredList;
     WeakHashSet<HTMLTableElement, WeakPtrImplWithEventTargetData> m_deferredRecomputeTableIsExposedList;
     ListHashSet<Node*> m_deferredTextChangedList;
@@ -578,15 +599,7 @@ private:
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_deferredModalChangedList;
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_deferredMenuListChange;
     HashMap<Element*, String> m_deferredTextFormControlValue;
-
-    struct AttributeChange {
-        Element* element { nullptr };
-        QualifiedName attrName;
-        AtomString oldValue;
-        AtomString newValue;
-    };
     Vector<AttributeChange> m_deferredAttributeChange;
-
     Vector<std::pair<Node*, Node*>> m_deferredFocusedNodeChange;
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     bool m_deferredRegenerateIsolatedTree { false };
@@ -653,6 +666,7 @@ inline void AXObjectCache::autofillTypeChanged(Node*) { }
 inline void AXObjectCache::childrenChanged(Node*, Node*) { }
 inline void AXObjectCache::childrenChanged(RenderObject*, RenderObject*) { }
 inline void AXObjectCache::childrenChanged(AccessibilityObject*) { }
+inline void AXObjectCache::onSelectedChanged(Node*) { }
 inline void AXObjectCache::onTitleChange(Document&) { }
 inline void AXObjectCache::valueChanged(Element*) { }
 inline void AXObjectCache::deferFocusedUIElementChangeIfNeeded(Node*, Node*) { }
@@ -684,7 +698,7 @@ inline Vector<RefPtr<AXCoreObject>> AXObjectCache::objectsForIDs(const Vector<AX
 inline void AXObjectCache::passwordNotificationPostTimerFired() { }
 inline void AXObjectCache::performDeferredCacheUpdate() { }
 inline void AXObjectCache::postLiveRegionChangeNotification(AccessibilityObject*) { }
-inline void AXObjectCache::postNotification(AXCoreObject*, Document*, AXNotification, PostTarget) { }
+inline void AXObjectCache::postNotification(AccessibilityObject*, Document*, AXNotification, PostTarget) { }
 inline void AXObjectCache::postNotification(Node*, AXNotification, PostTarget) { }
 inline void AXObjectCache::postNotification(RenderObject*, AXNotification, PostTarget) { }
 inline void AXObjectCache::postPlatformNotification(AXCoreObject*, AXNotification) { }
@@ -694,7 +708,7 @@ inline void AXObjectCache::postTextStateChangeNotification(Node*, AXTextEditType
 inline void AXObjectCache::postTextStateChangeNotification(Node*, const AXTextStateChangeIntent&, const VisibleSelection&) { }
 inline void AXObjectCache::recomputeIsIgnored(RenderObject*) { }
 inline void AXObjectCache::handleTextChanged(AccessibilityObject*) { }
-inline void AXObjectCache::updateCacheAfterNodeIsAttached(Node*) { }
+inline void AXObjectCache::onRendererCreated(Element&) { }
 inline void AXObjectCache::updateLoadingProgress(double) { }
 inline SimpleRange AXObjectCache::rangeForNodeContents(Node& node) { return makeRangeSelectingNodeContents(node); }
 inline std::optional<Vector<AXID>> AXObjectCache::relatedObjectIDsFor(const AXCoreObject&, AXRelationType) { return std::nullopt; }
@@ -713,6 +727,10 @@ inline CharacterOffset AXObjectCache::startOrEndCharacterOffsetForRange(const Si
 inline CharacterOffset AXObjectCache::endCharacterOffsetOfLine(const CharacterOffset&) { return CharacterOffset(); }
 inline CharacterOffset AXObjectCache::nextCharacterOffset(const CharacterOffset&, bool) { return CharacterOffset(); }
 inline CharacterOffset AXObjectCache::previousCharacterOffset(const CharacterOffset&, bool) { return CharacterOffset(); }
+inline std::optional<TextMarkerData> AXObjectCache::textMarkerDataForVisiblePosition(const VisiblePosition&) { return std::nullopt; }
+inline TextMarkerData AXObjectCache::textMarkerDataForCharacterOffset(const CharacterOffset&) { return { }; }
+inline VisiblePosition AXObjectCache::visiblePositionForTextMarkerData(const TextMarkerData&) { return { }; }
+inline VisiblePosition AXObjectCache::visiblePositionFromCharacterOffset(const CharacterOffset&) { return { }; }
 #if PLATFORM(COCOA)
 inline void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject*, const AXTextStateChangeIntent&, const VisibleSelection&) { }
 inline void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject*, AXTextEditType, const String&, const VisiblePosition&) { }

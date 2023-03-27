@@ -80,7 +80,7 @@ struct _WebKitFindControllerPrivate {
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitFindController, webkit_find_controller, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitFindController, webkit_find_controller, G_TYPE_OBJECT)
 
 static inline OptionSet<WebKit::FindOptions> toWebFindOptions(uint32_t findOptions)
 {
@@ -196,8 +196,7 @@ static void webkit_find_controller_class_init(WebKitFindControllerClass* findCla
     g_object_class_install_property(gObjectClass,
                                     PROP_TEXT,
                                     g_param_spec_string("text",
-                                                        _("Search text"),
-                                                        _("Text to search for in the view"),
+                                                        nullptr, nullptr,
                                                         0,
                                                         WEBKIT_PARAM_READABLE));
 
@@ -209,8 +208,7 @@ static void webkit_find_controller_class_init(WebKitFindControllerClass* findCla
     g_object_class_install_property(gObjectClass,
                                     PROP_OPTIONS,
                                     g_param_spec_flags("options",
-                                                       _("Search Options"),
-                                                       _("Search options to be used in the search operation"),
+                                                       nullptr, nullptr,
                                                        WEBKIT_TYPE_FIND_OPTIONS,
                                                        WEBKIT_FIND_OPTIONS_NONE,
                                                        WEBKIT_PARAM_READABLE));
@@ -223,8 +221,7 @@ static void webkit_find_controller_class_init(WebKitFindControllerClass* findCla
     g_object_class_install_property(gObjectClass,
                                     PROP_MAX_MATCH_COUNT,
                                     g_param_spec_uint("max-match-count",
-                                                      _("Maximum matches count"),
-                                                      _("The maximum number of matches in a given text to report"),
+                                                      nullptr, nullptr,
                                                       0, G_MAXUINT, 0,
                                                       WEBKIT_PARAM_READABLE));
 
@@ -236,8 +233,7 @@ static void webkit_find_controller_class_init(WebKitFindControllerClass* findCla
     g_object_class_install_property(gObjectClass,
                                     PROP_WEB_VIEW,
                                     g_param_spec_object("web-view",
-                                                        _("WebView"),
-                                                        _("The WebView associated with this find controller"),
+                                                        nullptr, nullptr,
                                                         WEBKIT_TYPE_WEB_VIEW,
                                                         static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 
@@ -300,6 +296,8 @@ static void webkit_find_controller_class_init(WebKitFindControllerClass* findCla
  * webkit_find_controller_get_search_text:
  * @find_controller: the #WebKitFindController
  *
+ * Gets the text that @find_controller is searching for.
+ *
  * Gets the text that @find_controller is currently searching
  * for. This text is passed to either
  * webkit_find_controller_search() or
@@ -318,6 +316,8 @@ const char* webkit_find_controller_get_search_text(WebKitFindController* findCon
  * webkit_find_controller_get_options:
  * @find_controller: the #WebKitFindController
  *
+ * Gets the #WebKitFindOptions for the current search.
+ *
  * Gets a bitmask containing the #WebKitFindOptions associated with
  * the current search.
  *
@@ -334,6 +334,8 @@ guint32 webkit_find_controller_get_options(WebKitFindController* findController)
 /**
  * webkit_find_controller_get_max_match_count:
  * @find_controller: the #WebKitFindController
+ *
+ * Gets the maximum number of matches to report.
  *
  * Gets the maximum number of matches to report during a text
  * lookup. This number is passed as the last argument of
@@ -353,7 +355,9 @@ guint webkit_find_controller_get_max_match_count(WebKitFindController* findContr
  * webkit_find_controller_get_web_view:
  * @find_controller: the #WebKitFindController
  *
- * Gets the #WebKitWebView this find controller is associated to. Do
+ * Gets the #WebKitWebView this find controller is associated to.
+ *
+ * Do
  * not dereference the returned instance as it belongs to the
  * #WebKitFindController.
  *
@@ -402,6 +406,8 @@ static inline void webKitFindControllerSetSearchData(WebKitFindController* findC
  * @search_text: the text to look for
  * @find_options: a bitmask with the #WebKitFindOptions used in the search
  * @max_match_count: the maximum number of matches allowed in the search
+ *
+ * Looks for @search_text associated with @find_controller.
  *
  * Looks for @search_text in the #WebKitWebView associated with
  * @find_controller since the beginning of the document highlighting
@@ -474,6 +480,8 @@ void webkit_find_controller_search_previous(WebKitFindController* findController
  * @find_options: a bitmask with the #WebKitFindOptions used in the search
  * @max_match_count: the maximum number of matches allowed in the search
  *
+ * Counts the number of matches for @search_text.
+ *
  * Counts the number of matches for @search_text found in the
  * #WebKitWebView with the provided @find_options. The number of
  * matches will be provided by the
@@ -491,6 +499,8 @@ void webkit_find_controller_count_matches(WebKitFindController* findController, 
 /**
  * webkit_find_controller_search_finish:
  * @find_controller: a #WebKitFindController
+ *
+ * Finishes a find operation.
  *
  * Finishes a find operation started by
  * webkit_find_controller_search(). It will basically unhighlight

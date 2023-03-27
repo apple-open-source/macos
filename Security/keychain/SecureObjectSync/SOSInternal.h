@@ -89,6 +89,7 @@ enum {
     kSOSErrorNoAccount          = 1048,
     
     kSOSErrorNoOTMHandle        = 1049,
+    kSOSErrorPlatformNoSOS      = 1050,
 };
 
 extern const CFStringRef SOSTransportMessageTypeIDSV2;

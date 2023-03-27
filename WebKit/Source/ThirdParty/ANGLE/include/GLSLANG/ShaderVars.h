@@ -12,11 +12,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
-
-// This type is defined here to simplify ANGLE's integration with glslang for SPIR-V.
-using ShCompileOptions = uint64_t;
 
 namespace sh
 {
@@ -55,6 +53,7 @@ enum class BlockType
 {
     BLOCK_UNIFORM,
     BLOCK_BUFFER,
+    PIXEL_LOCAL_EXT,  // GL_EXT_shader_pixel_local_storage.
 };
 
 const char *BlockTypeToString(BlockType type);
@@ -216,6 +215,7 @@ struct ShaderVariable
     int binding;
     GLenum imageUnitFormat;
     int offset;
+    bool rasterOrdered;
     bool readonly;
     bool writeonly;
 

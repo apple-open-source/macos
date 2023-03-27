@@ -116,14 +116,14 @@ void RemoteImageDecoderAVFProxy::setData(ImageDecoderIdentifier identifier, cons
     completionHandler(frameCount, imageDecoder->size(), imageDecoder->hasTrack(), WTFMove(frameInfos));
 }
 
-void RemoteImageDecoderAVFProxy::createFrameImageAtIndex(ImageDecoderIdentifier identifier, size_t index, CompletionHandler<void(std::optional<WebKit::ShareableBitmap::Handle>&&)>&& completionHandler)
+void RemoteImageDecoderAVFProxy::createFrameImageAtIndex(ImageDecoderIdentifier identifier, size_t index, CompletionHandler<void(std::optional<WebKit::ShareableBitmapHandle>&&)>&& completionHandler)
 {
     ASSERT(m_imageDecoders.contains(identifier));
 
-    ShareableBitmap::Handle imageHandle;
+    ShareableBitmapHandle imageHandle;
 
     auto invokeCallbackAtScopeExit = makeScopeExit([&] {
-        auto handle = !imageHandle.isNull() ? WTFMove(imageHandle) : std::optional<ShareableBitmap::Handle> { };
+        auto handle = !imageHandle.isNull() ? WTFMove(imageHandle) : std::optional<ShareableBitmapHandle> { };
         completionHandler(WTFMove(handle));
     });
 
@@ -152,7 +152,8 @@ void RemoteImageDecoderAVFProxy::createFrameImageAtIndex(ImageDecoderIdentifier 
     FloatSize imageSize { float(width), float(height) };
     FloatRect imageRect { { }, imageSize };
     context->drawNativeImage(*nativeImage, imageSize, imageRect, imageRect, { CompositeOperator::Copy });
-    bitmap->createHandle(imageHandle);
+    if (auto handle = bitmap->createHandle())
+        imageHandle = WTFMove(*handle);
 }
 
 void RemoteImageDecoderAVFProxy::clearFrameBufferCache(ImageDecoderIdentifier identifier, size_t index)

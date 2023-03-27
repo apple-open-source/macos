@@ -42,6 +42,7 @@
 #include "EventTarget.h"
 #include "FormData.h"
 #include "Frame.h"
+#include "FrameView.h"
 #include "HitTestResult.h"
 #include "InspectorInstrumentationPublic.h"
 #include "Page.h"
@@ -123,7 +124,9 @@ public:
     static void willRemoveDOMNode(Document&, Node&);
     static void didRemoveDOMNode(Document&, Node&);
     static void willDestroyDOMNode(Node&);
-    static void nodeLayoutContextChanged(Node&, RenderObject*);
+    static void didChangeRendererForDOMNode(Node&);
+    static void didAddOrRemoveScrollbars(FrameView&);
+    static void didAddOrRemoveScrollbars(RenderObject&);
     static void willModifyDOMAttr(Document&, Element&, const AtomString& oldValue, const AtomString& newValue);
     static void didModifyDOMAttr(Document&, Element&, const AtomString& name, const AtomString& value);
     static void didRemoveDOMAttr(Document&, Element&, const AtomString& name);
@@ -189,7 +192,7 @@ public:
     static void didRecalculateStyle(Document&);
     static void didScheduleStyleRecalculation(Document&);
     static void applyUserAgentOverride(Frame&, String&);
-    static void applyEmulatedMedia(Frame&, String&);
+    static void applyEmulatedMedia(Frame&, AtomString&);
 
     static void flexibleBoxRendererBeganLayout(const RenderObject&);
     static void flexibleBoxRendererWrappedToNextLine(const RenderObject&, size_t lineStartItemIndex);
@@ -232,8 +235,9 @@ public:
     static void frameStoppedLoading(Frame&);
     static void frameScheduledNavigation(Frame&, Seconds delay);
     static void frameClearedScheduledNavigation(Frame&);
+    static void accessibilitySettingsDidChange(Page&);
 #if ENABLE(DARK_MODE_CSS) || HAVE(OS_DARK_MODE_SUPPORT)
-    static void defaultAppearanceDidChange(Page&, bool useDarkAppearance);
+    static void defaultAppearanceDidChange(Page&);
 #endif
     static void willDestroyCachedResource(CachedResource&);
 
@@ -267,7 +271,7 @@ public:
     static void didRequestAnimationFrame(Document&, int callbackId);
     static void didCancelAnimationFrame(Document&, int callbackId);
     static void willFireAnimationFrame(Document&, int callbackId);
-    static void didFireAnimationFrame(Document&);
+    static void didFireAnimationFrame(Document&, int callbackId);
 
     static void willFireObserverCallback(ScriptExecutionContext&, const String& callbackType);
     static void didFireObserverCallback(ScriptExecutionContext&);
@@ -304,7 +308,7 @@ public:
     static bool isWebGLProgramHighlighted(WebGLRenderingContextBase&, WebGLProgram&);
 #endif
 
-    static void willApplyKeyframeEffect(const Styleable&, KeyframeEffect&, ComputedEffectTiming);
+    static void willApplyKeyframeEffect(const Styleable&, KeyframeEffect&, const ComputedEffectTiming&);
     static void didChangeWebAnimationName(WebAnimation&);
     static void didSetWebAnimationEffect(WebAnimation&);
     static void didChangeWebAnimationEffectTiming(WebAnimation&);
@@ -345,7 +349,9 @@ private:
     static void willRemoveDOMNodeImpl(InstrumentingAgents&, Node&);
     static void didRemoveDOMNodeImpl(InstrumentingAgents&, Node&);
     static void willDestroyDOMNodeImpl(InstrumentingAgents&, Node&);
-    static void nodeLayoutContextChangedImpl(InstrumentingAgents&, Node&, RenderObject*);
+    static void didChangeRendererForDOMNodeImpl(InstrumentingAgents&, Node&);
+    static void didAddOrRemoveScrollbarsImpl(InstrumentingAgents&, FrameView&);
+    static void didAddOrRemoveScrollbarsImpl(InstrumentingAgents&, RenderObject&);
     static void willModifyDOMAttrImpl(InstrumentingAgents&, Element&, const AtomString& oldValue, const AtomString& newValue);
     static void didModifyDOMAttrImpl(InstrumentingAgents&, Element&, const AtomString& name, const AtomString& value);
     static void didRemoveDOMAttrImpl(InstrumentingAgents&, Element&, const AtomString& name);
@@ -411,7 +417,7 @@ private:
     static void didRecalculateStyleImpl(InstrumentingAgents&);
     static void didScheduleStyleRecalculationImpl(InstrumentingAgents&, Document&);
     static void applyUserAgentOverrideImpl(InstrumentingAgents&, String&);
-    static void applyEmulatedMediaImpl(InstrumentingAgents&, String&);
+    static void applyEmulatedMediaImpl(InstrumentingAgents&, AtomString&);
 
     static void flexibleBoxRendererBeganLayoutImpl(InstrumentingAgents&, const RenderObject&);
     static void flexibleBoxRendererWrappedToNextLineImpl(InstrumentingAgents&, const RenderObject&, size_t lineStartItemIndex);
@@ -440,8 +446,9 @@ private:
     static void frameStoppedLoadingImpl(InstrumentingAgents&, Frame&);
     static void frameScheduledNavigationImpl(InstrumentingAgents&, Frame&, Seconds delay);
     static void frameClearedScheduledNavigationImpl(InstrumentingAgents&, Frame&);
+    static void accessibilitySettingsDidChangeImpl(InstrumentingAgents&);
 #if ENABLE(DARK_MODE_CSS) || HAVE(OS_DARK_MODE_SUPPORT)
-    static void defaultAppearanceDidChangeImpl(InstrumentingAgents&, bool useDarkAppearance);
+    static void defaultAppearanceDidChangeImpl(InstrumentingAgents&);
 #endif
     static void willDestroyCachedResourceImpl(CachedResource&);
 
@@ -470,7 +477,7 @@ private:
     static void didRequestAnimationFrameImpl(InstrumentingAgents&, int callbackId, Document&);
     static void didCancelAnimationFrameImpl(InstrumentingAgents&, int callbackId, Document&);
     static void willFireAnimationFrameImpl(InstrumentingAgents&, int callbackId, Document&);
-    static void didFireAnimationFrameImpl(InstrumentingAgents&);
+    static void didFireAnimationFrameImpl(InstrumentingAgents&, int callbackId);
 
     static void willFireObserverCallbackImpl(InstrumentingAgents&, const String&, ScriptExecutionContext&);
     static void didFireObserverCallbackImpl(InstrumentingAgents&);
@@ -510,7 +517,7 @@ private:
     static bool isWebGLProgramHighlightedImpl(InstrumentingAgents&, WebGLProgram&);
 #endif
 
-    static void willApplyKeyframeEffectImpl(InstrumentingAgents&, const Styleable&, KeyframeEffect&, ComputedEffectTiming);
+    static void willApplyKeyframeEffectImpl(InstrumentingAgents&, const Styleable&, KeyframeEffect&, const ComputedEffectTiming&);
     static void didChangeWebAnimationNameImpl(InstrumentingAgents&, WebAnimation&);
     static void didSetWebAnimationEffectImpl(InstrumentingAgents&, WebAnimation&);
     static void didChangeWebAnimationEffectTimingImpl(InstrumentingAgents&, WebAnimation&);
@@ -598,11 +605,26 @@ inline void InspectorInstrumentation::willDestroyDOMNode(Node& node)
         willDestroyDOMNodeImpl(*agents, node);
 }
 
-inline void InspectorInstrumentation::nodeLayoutContextChanged(Node& node, RenderObject* newRenderer)
+inline void InspectorInstrumentation::didChangeRendererForDOMNode(Node& node)
+{
+    ASSERT(InspectorInstrumentationPublic::hasFrontends());
+    if (auto* agents = instrumentingAgents(node.document()))
+        didChangeRendererForDOMNodeImpl(*agents, node);
+}
+
+inline void InspectorInstrumentation::didAddOrRemoveScrollbars(FrameView& frameView)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (auto* agents = instrumentingAgents(node.document()))
-        nodeLayoutContextChangedImpl(*agents, node, newRenderer);
+    auto* localFrame = dynamicDowncast<LocalFrame>(frameView.frame());
+    if (auto* agents = localFrame ? instrumentingAgents(localFrame->document()) : nullptr)
+        didAddOrRemoveScrollbarsImpl(*agents, frameView);
+}
+
+inline void InspectorInstrumentation::didAddOrRemoveScrollbars(RenderObject& renderer)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    if (auto* agents = instrumentingAgents(renderer))
+        didAddOrRemoveScrollbarsImpl(*agents, renderer);
 }
 
 inline void InspectorInstrumentation::willModifyDOMAttr(Document& document, Element& element, const AtomString& oldValue, const AtomString& newValue)
@@ -1039,7 +1061,7 @@ inline void InspectorInstrumentation::applyUserAgentOverride(Frame& frame, Strin
         applyUserAgentOverrideImpl(*agents, userAgent);
 }
 
-inline void InspectorInstrumentation::applyEmulatedMedia(Frame& frame, String& media)
+inline void InspectorInstrumentation::applyEmulatedMedia(Frame& frame, AtomString& media)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
     if (auto* agents = instrumentingAgents(frame))
@@ -1266,11 +1288,17 @@ inline void InspectorInstrumentation::frameClearedScheduledNavigation(Frame& fra
         frameClearedScheduledNavigationImpl(*agents, frame);
 }
 
-#if ENABLE(DARK_MODE_CSS) || HAVE(OS_DARK_MODE_SUPPORT)
-inline void InspectorInstrumentation::defaultAppearanceDidChange(Page& page, bool useDarkAppearance)
+inline void InspectorInstrumentation::accessibilitySettingsDidChange(Page& page)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    defaultAppearanceDidChangeImpl(instrumentingAgents(page), useDarkAppearance);
+    accessibilitySettingsDidChangeImpl(instrumentingAgents(page));
+}
+
+#if ENABLE(DARK_MODE_CSS) || HAVE(OS_DARK_MODE_SUPPORT)
+inline void InspectorInstrumentation::defaultAppearanceDidChange(Page& page)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    defaultAppearanceDidChangeImpl(instrumentingAgents(page));
 }
 #endif
 
@@ -1477,7 +1505,7 @@ inline bool InspectorInstrumentation::isWebGLProgramHighlighted(WebGLRenderingCo
 }
 #endif
 
-inline void InspectorInstrumentation::willApplyKeyframeEffect(const Styleable& target, KeyframeEffect& effect, ComputedEffectTiming computedTiming)
+inline void InspectorInstrumentation::willApplyKeyframeEffect(const Styleable& target, KeyframeEffect& effect, const ComputedEffectTiming& computedTiming)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
     if (auto* agents = instrumentingAgents(target.element.document()))
@@ -1661,11 +1689,11 @@ inline void InspectorInstrumentation::willFireAnimationFrame(Document& document,
         willFireAnimationFrameImpl(*agents, callbackId, document);
 }
 
-inline void InspectorInstrumentation::didFireAnimationFrame(Document& document)
+inline void InspectorInstrumentation::didFireAnimationFrame(Document& document, int callbackId)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
     if (auto* agents = instrumentingAgents(document))
-        didFireAnimationFrameImpl(*agents);
+        didFireAnimationFrameImpl(*agents, callbackId);
 }
 
 inline void InspectorInstrumentation::willFireObserverCallback(ScriptExecutionContext& context, const String& callbackType)

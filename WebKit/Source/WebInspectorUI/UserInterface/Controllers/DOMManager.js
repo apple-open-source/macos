@@ -73,7 +73,7 @@ WI.DOMManager = class DOMManager extends WI.Object
                 this.ensureDocument();
             });
 
-            if (WI.isEngineeringBuild) {
+            if (WI.engineeringSettingsAllowed()) {
                 if (DOMManager.supportsEditingUserAgentShadowTrees({target}))
                     target.DOMAgent.setAllowEditingUserAgentShadowTrees(WI.settings.engineeringAllowEditingUserAgentShadowTrees.value);
             }
@@ -118,11 +118,6 @@ WI.DOMManager = class DOMManager extends WI.Object
                 console.error("Error during DOMAgent operation: " + error);
             callback(error ? null : result);
         };
-    }
-
-    static supportsDisablingEventListeners()
-    {
-        return InspectorBackend.hasCommand("DOM.setEventListenerDisabled");
     }
 
     static supportsEventListenerBreakpoints()
@@ -273,14 +268,16 @@ WI.DOMManager = class DOMManager extends WI.Object
         node.powerEfficientPlaybackStateChanged(timestamp, isPowerEfficient);
     }
 
-    nodeLayoutContextTypeChanged(nodeId, layoutContextType)
+    // CSSObserver
+
+    nodeLayoutFlagsChanged(nodeId, layoutFlags)
     {
         let domNode = this._idToDOMNode[nodeId];
         console.assert(domNode instanceof WI.DOMNode, domNode, nodeId);
         if (!domNode)
             return;
 
-        domNode.layoutContextType = layoutContextType;
+        domNode.layoutFlags = layoutFlags;
     }
 
     // Private
@@ -602,9 +599,7 @@ WI.DOMManager = class DOMManager extends WI.Object
             // Re-resolve the node in the console's object group when adding to the console.
             let domNode = this.nodeForId(nodeId);
             WI.RemoteObject.resolveNode(domNode, WI.RuntimeManager.ConsoleObjectGroup).then((remoteObject) => {
-                const specialLogStyles = true;
-                const shouldRevealConsole = false;
-                WI.consoleLogViewController.appendImmediateExecutionWithResult(WI.UIString("Selected Element"), remoteObject, specialLogStyles, shouldRevealConsole);
+                WI.consoleLogViewController.appendImmediateExecutionWithResult(WI.UIString("Selected Element"), remoteObject, {addSpecialUserLogClass: true});
             });
         }
 
@@ -613,12 +608,6 @@ WI.DOMManager = class DOMManager extends WI.Object
 
     highlightDOMNodeList(nodes, mode)
     {
-        let target = WI.assumingMainTarget();
-
-        // COMPATIBILITY (iOS 11): DOM.highlightNodeList did not exist.
-        if (!target.hasCommand("DOM.highlightNodeList"))
-            return;
-
         if (this._hideDOMNodeHighlightTimeout) {
             clearTimeout(this._hideDOMNodeHighlightTimeout);
             this._hideDOMNodeHighlightTimeout = undefined;
@@ -633,6 +622,7 @@ WI.DOMManager = class DOMManager extends WI.Object
             nodeIds.push(node.id);
         }
 
+        let target = WI.assumingMainTarget();
         target.DOMAgent.highlightNodeList(nodeIds, DOMManager.buildHighlightConfig(mode));
     }
 
@@ -729,14 +719,6 @@ WI.DOMManager = class DOMManager extends WI.Object
         };
 
         let target = WI.assumingMainTarget();
-
-        // COMPATIBILITY (iOS 11): DOM.setInspectedNode did not exist.
-        if (!target.hasCommand("DOM.setInspectedNode")) {
-            if (target.hasCommand("Console.addInspectedNode"))
-                target.ConsoleAgent.addInspectedNode(node.id, callback);
-            return;
-        }
-
         target.DOMAgent.setInspectedNode(node.id, callback);
     }
 

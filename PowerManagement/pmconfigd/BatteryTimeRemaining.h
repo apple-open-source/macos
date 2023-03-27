@@ -146,6 +146,7 @@ __private_extern__ int getActivePSType(void);
 __private_extern__ bool getPowerState(PowerSources *source, uint32_t *percentage);
 __private_extern__ PowerSources _getPowerSource(void);
 __private_extern__ CFDictionaryRef CF_RETURNS_RETAINED getActiveUPSDictionary(void);
+__private_extern__ CFDictionaryRef CF_RETURNS_RETAINED getActiveBatteryDictionary(void);
 __private_extern__ void batteryTimeRemaining_setCustomBatteryProps(CFDictionaryRef batteryProps);
 __private_extern__ void batteryTimeRemaining_resetCustomBatteryProps(void);
 

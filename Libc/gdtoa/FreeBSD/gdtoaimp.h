@@ -225,10 +225,6 @@ THIS SOFTWARE.
 #define	diff		__diff_D2A
 #define	dtoa_result	__dtoa_result_D2A
 #define	g__fmt		__g__fmt_D2A
-#define	gethex		__gethex_D2A
-#define	hexdig		__hexdig_D2A
-#define	hexdig_init_D2A	__hexdig_init_D2A
-#define	hexnan		__hexnan_D2A
 #define	hi0bits		__hi0bits_D2A
 #define	hi0bits_D2A	__hi0bits_D2A
 #define	i2b		__i2b_D2A
@@ -570,7 +566,6 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
 
  extern char *dtoa_result;
  extern CONST double bigtens[], tens[], tinytens[];
- extern CONST unsigned char hexdig[];
 
  extern Bigint *Balloc ANSI((int));
  extern void Bfree ANSI((Bigint*));
@@ -590,9 +585,6 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
  extern char *dtoa ANSI((double d, int mode, int ndigits,
 			int *decpt, int *sign, char **rve));
  extern char *g__fmt ANSI((char*, char*, char*, int, ULong, size_t));
- extern int gethex ANSI((CONST char**, CONST FPI*, Long*, Bigint**, int, locale_t));
- extern void hexdig_init_D2A(Void);
- extern int hexnan ANSI((CONST char**, CONST FPI*, ULong*));
  extern int hi0bits_D2A ANSI((ULong));
  extern Bigint *i2b ANSI((int));
  extern Bigint *increment ANSI((Bigint*));

@@ -29,6 +29,7 @@
 #include "WebKitMediaKeySystemPermissionRequestPrivate.h"
 #include "WebKitNavigationActionPrivate.h"
 #include "WebKitNotificationPermissionRequestPrivate.h"
+#include "WebKitPermissionStateQueryPrivate.h"
 #include "WebKitPointerLockPermissionRequestPrivate.h"
 #include "WebKitURIRequestPrivate.h"
 #include "WebKitUserMediaPermissionRequestPrivate.h"
@@ -40,6 +41,7 @@
 #include "WebsiteDataStore.h"
 #include <WebCore/PlatformDisplay.h>
 #include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GWeakPtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
 
 #if PLATFORM(GTK)
@@ -54,14 +56,6 @@ public:
     explicit UIClient(WebKitWebView* webView)
         : m_webView(webView)
     {
-    }
-
-    ~UIClient()
-    {
-#if ENABLE(POINTER_LOCK)
-        if (m_pointerLockPermissionRequest)
-            g_object_remove_weak_pointer(G_OBJECT(m_pointerLockPermissionRequest), reinterpret_cast<void**>(&m_pointerLockPermissionRequest));
-#endif
     }
 
 private:
@@ -106,7 +100,7 @@ private:
         webkitWebViewRunJavaScriptBeforeUnloadConfirm(m_webView, message.utf8(), WTFMove(completionHandler));
     }
 
-    void mouseDidMoveOverElement(WebPageProxy&, const WebHitTestResultData& data, OptionSet<WebEvent::Modifier> modifiers, API::Object*) final
+    void mouseDidMoveOverElement(WebPageProxy&, const WebHitTestResultData& data, OptionSet<WebEventModifier> modifiers, API::Object*) final
     {
         webkitWebViewMouseTargetChanged(m_webView, data, modifiers);
     }
@@ -222,7 +216,7 @@ private:
 
             // We need the move/resize to happen synchronously in automation mode, so we use a nested RunLoop
             // to wait, up top 200 milliseconds, for the configure events.
-            auto timer = makeUnique<RunLoop::Timer<UIClient>>(RunLoop::main(), this, &UIClient::setWindowFrameTimerFired);
+            auto timer = makeUnique<RunLoop::Timer>(RunLoop::main(), this, &UIClient::setWindowFrameTimerFired);
             timer->setPriority(RunLoopSourcePriority::RunLoopTimer);
             timer->startOneShot(200_ms);
             RunLoop::run();
@@ -362,25 +356,30 @@ private:
     {
         GRefPtr<WebKitPointerLockPermissionRequest> permissionRequest = adoptGRef(webkitPointerLockPermissionRequestCreate(m_webView));
         RELEASE_ASSERT(!m_pointerLockPermissionRequest);
-        m_pointerLockPermissionRequest = permissionRequest.get();
-        g_object_add_weak_pointer(G_OBJECT(m_pointerLockPermissionRequest), reinterpret_cast<void**>(&m_pointerLockPermissionRequest));
+        m_pointerLockPermissionRequest.reset(permissionRequest.get());
         webkitWebViewMakePermissionRequest(m_webView, WEBKIT_PERMISSION_REQUEST(permissionRequest.get()));
     }
 
     void didLosePointerLock(WebPageProxy*) final
     {
         if (m_pointerLockPermissionRequest) {
-            webkitPointerLockPermissionRequestDidLosePointerLock(m_pointerLockPermissionRequest);
-            g_object_remove_weak_pointer(G_OBJECT(m_pointerLockPermissionRequest), reinterpret_cast<void**>(&m_pointerLockPermissionRequest));
+            webkitPointerLockPermissionRequestDidLosePointerLock(m_pointerLockPermissionRequest.get());
             m_pointerLockPermissionRequest = nullptr;
         }
         webkitWebViewDidLosePointerLock(m_webView);
     }
 #endif
 
+    void queryPermission(const WTF::String& permissionName, API::SecurityOrigin& origin, CompletionHandler<void(std::optional<WebCore::PermissionState>)>&& completionHandler) final
+    {
+        auto* query = webkitPermissionStateQueryCreate(permissionName, origin, WTFMove(completionHandler));
+        webkitWebViewPermissionStateQuery(m_webView, query);
+        webkit_permission_state_query_unref(query);
+    }
+
     WebKitWebView* m_webView;
 #if ENABLE(POINTER_LOCK)
-    WebKitPointerLockPermissionRequest* m_pointerLockPermissionRequest { nullptr };
+    GWeakPtr<WebKitPointerLockPermissionRequest> m_pointerLockPermissionRequest { nullptr };
 #endif
 };
 

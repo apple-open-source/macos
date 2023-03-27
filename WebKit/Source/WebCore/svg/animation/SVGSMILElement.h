@@ -43,7 +43,7 @@ using SMILEventSender = EventSender<SVGSMILElement, WeakPtrImplWithEventTargetDa
 class SVGSMILElement : public SVGElement {
     WTF_MAKE_ISO_ALLOCATED(SVGSMILElement);
 public:
-    SVGSMILElement(const QualifiedName&, Document&);
+    SVGSMILElement(const QualifiedName&, Document&, UniqueRef<SVGPropertyRegistry>&&);
     virtual ~SVGSMILElement();
 
     void parseAttribute(const QualifiedName&, const AtomString&) override;
@@ -57,7 +57,7 @@ public:
 
     SMILTimeContainer* timeContainer() { return m_timeContainer.get(); }
 
-    SVGElement* targetElement() const { return m_targetElement; }
+    SVGElement* targetElement() const { return m_targetElement.get(); }
     const QualifiedName& attributeName() const { return m_attributeName; }
 
     void beginByLinkActivation();
@@ -105,7 +105,7 @@ public:
     void connectConditions();
     bool hasConditionsConnected() const { return m_conditionsConnected; }
     
-    void dispatchPendingEvent(SMILEventSender*);
+    void dispatchPendingEvent(SMILEventSender*, const AtomString& eventType);
 
 protected:
     void addBeginTime(SMILTime eventTime, SMILTime endTime, SMILTimeWithOrigin::Origin = SMILTimeWithOrigin::ParserOrigin);
@@ -185,7 +185,7 @@ private:
 
     QualifiedName m_attributeName;
 
-    SVGElement* m_targetElement;
+    WeakPtr<SVGElement, WeakPtrImplWithEventTargetData> m_targetElement;
 
     Vector<Condition> m_conditions;
     bool m_conditionsConnected;
@@ -193,7 +193,7 @@ private:
 
     bool m_isWaitingForFirstInterval;
 
-    HashSet<SVGSMILElement*> m_timeDependents;
+    WeakHashSet<SVGSMILElement, WeakPtrImplWithEventTargetData> m_timeDependents;
 
     // Instance time lists
     Vector<SMILTimeWithOrigin> m_beginTimes;

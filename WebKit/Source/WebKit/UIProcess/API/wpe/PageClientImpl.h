@@ -84,7 +84,6 @@ private:
     void toolTipChanged(const String&, const String&) override;
 
     void didCommitLoadForMainFrame(const String&, bool) override;
-    void handleDownloadRequest(DownloadProxy&) override;
 
     void didChangeContentSize(const WebCore::IntSize&) override;
 
@@ -141,10 +140,6 @@ private:
     void refView() override;
     void derefView() override;
 
-#if ENABLE(VIDEO) && USE(GSTREAMER)
-    bool decidePolicyForInstallMissingMediaPluginsPermissionRequest(InstallMissingMediaPluginsPermissionRequest&) override;
-#endif
-
     void didRestoreScrollPosition() override;
 
 #if ENABLE(FULLSCREEN_API)
@@ -158,7 +153,7 @@ private:
     void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
 #endif
 
-    IPC::Attachment hostFileDescriptor() final;
+    UnixFileDescriptor hostFileDescriptor() final;
     void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
 
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() override;
@@ -166,6 +161,8 @@ private:
     void didChangeWebPageID() const override;
 
     void selectionDidChange() override;
+
+    WebKitWebResourceLoadManager* webResourceLoadManager() override;
 
     WKWPE::View& m_view;
 };

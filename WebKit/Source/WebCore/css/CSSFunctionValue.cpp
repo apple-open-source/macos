@@ -25,12 +25,13 @@
 
 #include "config.h"
 #include "CSSFunctionValue.h"
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
     
 String CSSFunctionValue::customCSSText() const
 {
-    return makeString(getValueName(m_name), '(', CSSValueList::customCSSText(), ')');
+    return makeString(nameLiteral(m_name), '(', CSSValueList::customCSSText(), ')');
 }
 
 }

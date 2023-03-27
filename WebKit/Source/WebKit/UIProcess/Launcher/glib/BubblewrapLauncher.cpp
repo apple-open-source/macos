@@ -38,10 +38,6 @@
 
 #include "Syscalls.h"
 
-#if PLATFORM(GTK)
-#include "WaylandCompositor.h"
-#endif
-
 #if !defined(MFD_ALLOW_SEALING) && HAVE(LINUX_MEMFD_H)
 
 // These defines were added in glibc 2.27, the same release that added memfd_create.
@@ -62,6 +58,12 @@ static int memfd_create(const char* name, unsigned flags)
     return syscall(__NR_memfd_create, name, flags);
 }
 #endif // #if !defined(MFD_ALLOW_SEALING) && HAVE(LINUX_MEMFD_H)
+
+#if PLATFORM(GTK)
+#define BASE_DIRECTORY "webkitgtk"
+#elif PLATFORM(WPE)
+#define BASE_DIRECTORY "wpe"
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -197,15 +199,24 @@ static void bindIfExists(Vector<CString>& args, const char* path, BindFlags bind
         args.appendVector(Vector<CString>({ bindType, path, path }));
 }
 
-static void bindDBusSession(Vector<CString>& args, bool allowPortals)
+static const char* dbusProxyDirectory()
 {
-    static std::unique_ptr<XDGDBusProxy> proxy = makeUnique<XDGDBusProxy>(XDGDBusProxy::Type::SessionBus, allowPortals);
+    static GUniquePtr<char> path(g_build_filename(g_get_user_runtime_dir(), BASE_DIRECTORY, nullptr));
+    return path.get();
+}
 
-    if (!proxy->proxyPath().isNull() && !proxy->path().isNull()) {
-        args.appendVector(Vector<CString>({
-            "--bind", proxy->proxyPath(), proxy->path(),
-        }));
-    }
+static void bindDBusSession(Vector<CString>& args, XDGDBusProxy& dbusProxy, bool allowPortals)
+{
+    auto dbusSessionProxyPath = dbusProxy.dbusSessionProxy(BASE_DIRECTORY, allowPortals ? XDGDBusProxy::AllowPortals::Yes : XDGDBusProxy::AllowPortals::No);
+    if (!dbusSessionProxyPath)
+        return;
+
+    GUniquePtr<char> sandboxedSessionBusPath(g_build_filename(dbusProxyDirectory(), "bus", nullptr));
+    GUniquePtr<char> proxyAddress(g_strdup_printf("unix:path=%s", sandboxedSessionBusPath.get()));
+    args.appendVector(Vector<CString> {
+        "--ro-bind", *dbusSessionProxyPath, sandboxedSessionBusPath.get(),
+        "--setenv", "DBUS_SESSION_BUS_ADDRESS", proxyAddress.get()
+    });
 }
 
 #if PLATFORM(X11)
@@ -233,7 +244,7 @@ static void bindX11(Vector<CString>& args)
 }
 #endif
 
-#if PLATFORM(WAYLAND) && USE(EGL)
+#if PLATFORM(WAYLAND)
 static void bindWayland(Vector<CString>& args)
 {
     const char* display = g_getenv("WAYLAND_DISPLAY");
@@ -243,14 +254,6 @@ static void bindWayland(Vector<CString>& args)
     const char* runtimeDir = g_get_user_runtime_dir();
     GUniquePtr<char> waylandRuntimeFile(g_build_filename(runtimeDir, display, nullptr));
     bindIfExists(args, waylandRuntimeFile.get(), BindFlags::ReadWrite);
-
-#if !USE(WPE_RENDERER)
-    if (WaylandCompositor::singleton().isRunning()) {
-        String displayName = WaylandCompositor::singleton().displayName();
-        waylandRuntimeFile.reset(g_build_filename(runtimeDir, displayName.utf8().data(), nullptr));
-        bindIfExists(args, waylandRuntimeFile.get(), BindFlags::ReadWrite);
-    }
-#endif
 }
 #endif
 
@@ -348,17 +351,18 @@ static void bindGtkData(Vector<CString>& args)
 #endif
 
 #if ENABLE(ACCESSIBILITY)
-static void bindA11y(Vector<CString>& args)
+static void bindA11y(Vector<CString>& args, XDGDBusProxy& dbusProxy)
 {
-    static std::unique_ptr<XDGDBusProxy> proxy = makeUnique<XDGDBusProxy>(XDGDBusProxy::Type::AccessibilityBus);
+    GUniquePtr<char> sandboxedAccessibilityBusPath(g_build_filename(dbusProxyDirectory(), "at-spi-bus", nullptr));
+    auto accessibilityProxyPath = dbusProxy.accessibilityProxy(BASE_DIRECTORY, sandboxedAccessibilityBusPath.get());
+    if (!accessibilityProxyPath)
+        return;
 
-    if (!proxy->proxyPath().isNull()) {
-        GUniquePtr<char> proxyAddress(g_strdup_printf("unix:path=%s", proxy->proxyPath().data()));
-        args.appendVector(Vector<CString> {
-            "--ro-bind", proxy->proxyPath(), proxy->proxyPath(),
-            "--setenv", "AT_SPI_BUS_ADDRESS", proxyAddress.get(),
-        });
-    }
+    GUniquePtr<char> proxyAddress(g_strdup_printf("unix:path=%s", sandboxedAccessibilityBusPath.get()));
+    args.appendVector(Vector<CString> {
+        "--ro-bind", *accessibilityProxyPath, sandboxedAccessibilityBusPath.get(),
+        "--setenv", "AT_SPI_BUS_ADDRESS", proxyAddress.get()
+    });
 }
 #endif
 
@@ -622,6 +626,30 @@ static bool shouldUnshareNetwork(ProcessLauncher::ProcessType processType)
     return true;
 }
 
+static std::optional<CString> directoryContainingDBusSocket(const char* dbusAddress)
+{
+    if (!dbusAddress || !g_str_has_prefix(dbusAddress, "unix:"))
+        return std::nullopt;
+
+    if (const char* pathStart = strstr(dbusAddress, "path=")) {
+        pathStart += strlen("path=");
+
+        const char* pathEnd = pathStart;
+        while (*pathEnd && *pathEnd != ',')
+            pathEnd++;
+
+        CString path(pathStart, pathEnd - pathStart);
+        GRefPtr<GFile> file = adoptGRef(g_file_new_for_path(path.data()));
+        GRefPtr<GFile> parent = adoptGRef(g_file_get_parent(file.get()));
+        if (!parent)
+            return std::nullopt;
+
+        return { g_file_peek_path(parent.get()) };
+    }
+
+    return std::nullopt;
+}
+
 static void addExtraPaths(const HashMap<CString, SandboxPermission>& paths, Vector<CString>& args)
 {
     for (const auto& pathAndPermission : paths) {
@@ -688,16 +716,31 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
         "--ro-bind-try", PKGLIBEXECDIR, PKGLIBEXECDIR,
     };
 
+    addExtraPaths(launchOptions.extraSandboxPaths, sandboxArgs);
+
     if (launchOptions.processType == ProcessLauncher::ProcessType::DBusProxy) {
         sandboxArgs.appendVector(Vector<CString>({
             "--ro-bind", DBUS_PROXY_EXECUTABLE, DBUS_PROXY_EXECUTABLE,
-            // This is a lot of access, but xdg-dbus-proxy is trusted so that's OK. It's sandboxed
-            // only because we have to mount .flatpak-info in its mount namespace. The user rundir
-            // is where we mount our proxy socket.
-            "--bind", runDir, runDir,
+            "--bind", dbusProxyDirectory(), dbusProxyDirectory(),
         }));
 
-        addExtraPaths(launchOptions.extraSandboxPaths, sandboxArgs);
+        // xdg-dbus-proxy is trusted, so it's OK to mount the directories that contain the session
+        // bus and a11y bus sockets wherever they may be. xdg-dbus-proxy is sandboxed only because
+        // we have to mount .flatpak-info in its mount namespace so that portals may use it as a
+        // trusted way to get the app ID of the process that is using it.
+        if (auto sessionBusDirectory = directoryContainingDBusSocket(g_getenv("DBUS_SESSION_BUS_ADDRESS"))) {
+            sandboxArgs.appendVector(Vector<CString>({
+                "--bind", *sessionBusDirectory, *sessionBusDirectory,
+            }));
+        }
+
+#if ENABLE(ACCESSIBILITY)
+        if (auto a11yBusDirectory = directoryContainingDBusSocket(PlatformDisplay::sharedDisplay().accessibilityBusAddress().utf8().data())) {
+            sandboxArgs.appendVector(Vector<CString>({
+                "--bind", *a11yBusDirectory, *a11yBusDirectory,
+            }));
+        }
+#endif
     }
 
     if (shouldUnshareNetwork(launchOptions.processType))
@@ -733,7 +776,7 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
     }
 
     if (launchOptions.processType == ProcessLauncher::ProcessType::Web) {
-#if PLATFORM(WAYLAND) && USE(EGL)
+#if PLATFORM(WAYLAND)
         if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland) {
             bindWayland(sandboxArgs);
             sandboxArgs.append("--unshare-ipc");
@@ -744,8 +787,6 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
             bindX11(sandboxArgs);
 #endif
 
-        addExtraPaths(launchOptions.extraSandboxPaths, sandboxArgs);
-
         Vector<String> extraPaths = { "applicationCacheDirectory"_s, "mediaKeysDirectory"_s, "waylandSocket"_s };
         for (const auto& path : extraPaths) {
             String extraPath = launchOptions.extraInitializationData.get(path);
@@ -753,7 +794,9 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
                 sandboxArgs.appendVector(Vector<CString>({ "--bind-try", extraPath.utf8(), extraPath.utf8() }));
         }
 
-        bindDBusSession(sandboxArgs, flatpakInfoFd != -1);
+        static std::unique_ptr<XDGDBusProxy> dbusProxy = makeUnique<XDGDBusProxy>();
+        if (dbusProxy)
+            bindDBusSession(sandboxArgs, *dbusProxy, flatpakInfoFd != -1);
         // FIXME: We should move to Pipewire as soon as viable, Pulse doesn't restrict clients atm.
         bindPulse(sandboxArgs);
         bindSndio(sandboxArgs);
@@ -763,11 +806,14 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
         // FIXME: This is also fixed by Pipewire once in use.
         bindV4l(sandboxArgs);
 #if ENABLE(ACCESSIBILITY)
-        bindA11y(sandboxArgs);
+        if (dbusProxy)
+            bindA11y(sandboxArgs, *dbusProxy);
 #endif
 #if PLATFORM(GTK)
         bindGtkData(sandboxArgs);
 #endif
+        if (dbusProxy && !dbusProxy->launch())
+            dbusProxy = nullptr;
     } else {
         // Only X11 users need this for XShm which is only the Web process.
         sandboxArgs.append("--unshare-ipc");

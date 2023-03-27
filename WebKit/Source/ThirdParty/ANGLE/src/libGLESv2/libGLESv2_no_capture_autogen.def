@@ -481,6 +481,8 @@ EXPORTS
     glMultiDrawArraysInstancedBaseInstanceANGLE
     glMultiDrawElementsInstancedBaseVertexBaseInstanceANGLE
 
+    ; GL_ANGLE_clip_cull_distance
+
     ; GL_ANGLE_copy_texture_3d
     glCopySubTexture3DANGLE
     glCopyTexture3DANGLE
@@ -506,6 +508,9 @@ EXPORTS
     glDrawArraysInstancedANGLE
     glDrawElementsInstancedANGLE
     glVertexAttribDivisorANGLE
+
+    ; GL_ANGLE_logic_op
+    glLogicOpANGLE
 
     ; GL_ANGLE_memory_object_flags
     glTexStorageMemFlags2DANGLE
@@ -604,6 +609,18 @@ EXPORTS
     ; GL_ANGLE_semaphore_fuchsia
     glImportSemaphoreZirconHandleANGLE
 
+    ; GL_ANGLE_shader_pixel_local_storage
+    glBeginPixelLocalStorageANGLE
+    glEndPixelLocalStorageANGLE
+    glFramebufferMemorylessPixelLocalStorageANGLE
+    glFramebufferPixelLocalClearValuefvANGLE
+    glFramebufferPixelLocalClearValueivANGLE
+    glFramebufferPixelLocalClearValueuivANGLE
+    glFramebufferTexturePixelLocalStorageANGLE
+    glGetFramebufferPixelLocalStorageParameterfvANGLE
+    glGetFramebufferPixelLocalStorageParameterivANGLE
+    glPixelLocalStorageBarrierANGLE
+
     ; GL_ANGLE_texture_compression_dxt3
 
     ; GL_ANGLE_texture_compression_dxt5
@@ -629,6 +646,8 @@ EXPORTS
     ; GL_APPLE_clip_distance
 
     ; GL_ARB_sync
+
+    ; GL_ARM_shader_framebuffer_fetch
 
     ; GL_CHROMIUM_bind_uniform_location
     glBindUniformLocationCHROMIUM
@@ -772,7 +791,12 @@ EXPORTS
     glFramebufferTexture2DMultisampleEXT
     glRenderbufferStorageMultisampleEXT
 
+    ; GL_EXT_multisampled_render_to_texture2
+
     ; GL_EXT_occlusion_query_boolean
+
+    ; GL_EXT_polygon_offset_clamp
+    glPolygonOffsetClampEXT
 
     ; GL_EXT_primitive_bounding_box
     glPrimitiveBoundingBoxEXT
@@ -988,6 +1012,8 @@ EXPORTS
     ; GL_OES_EGL_image_external_essl3
 
     ; GL_OES_compressed_ETC1_RGB8_texture
+
+    ; GL_OES_compressed_paletted_texture
 
     ; GL_OES_copy_image
     glCopyImageSubDataOES
@@ -1246,6 +1272,9 @@ EXPORTS
     EGL_QueryDisplayAttribANGLE
     EGL_QueryStringiANGLE
 
+    ; EGL_ANGLE_metal_shared_event_sync
+    EGL_CopyMetalSharedEventANGLE
+
     ; EGL_ANGLE_power_preference
     EGL_ForceGPUSwitchANGLE
     EGL_HandleGPUSwitchANGLE
@@ -1276,6 +1305,9 @@ EXPORTS
 
     ; EGL_ANGLE_vulkan_image
     EGL_ExportVkImageANGLE
+
+    ; EGL_ANGLE_wait_until_work_scheduled
+    EGL_WaitUntilWorkScheduledANGLE
 
     ; EGL_CHROMIUM_sync_control
     EGL_GetSyncValuesCHROMIUM

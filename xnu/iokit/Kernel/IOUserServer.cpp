@@ -630,7 +630,7 @@ IOService::RequireMaxBusStall_Impl(
 	}
 	ret = requireMaxBusStall(ns);
 
-	return kIOReturnSuccess;
+	return ret;
 }
 
 #if PRIVATE_WIFI_ONLY
@@ -1002,6 +1002,8 @@ IODMACommand::Create_Impl(
 	return ret;
 }
 
+#define fInternalState reserved
+
 kern_return_t
 IODMACommand::PrepareForDMA_Impl(
 	uint64_t options,
@@ -1026,23 +1028,26 @@ IODMACommand::PrepareForDMA_Impl(
 		return kIOReturnBadArgument;
 	}
 
+	assert(fInternalState->fDextLock);
+	IOLockLock(fInternalState->fDextLock);
+
 	// uses IOMD direction
 	ret = memory->prepare();
 	if (kIOReturnSuccess != ret) {
-		return ret;
+		goto exit;
 	}
 
 	ret = setMemoryDescriptor(memory, false);
 	if (kIOReturnSuccess != ret) {
 		memory->complete();
-		return ret;
+		goto exit;
 	}
 
 	ret = prepare(offset, length);
 	if (kIOReturnSuccess != ret) {
 		clearMemoryDescriptor(false);
 		memory->complete();
-		return ret;
+		goto exit;
 	}
 
 	static_assert(sizeof(IODMACommand::Segment64) == sizeof(IOAddressSegment));
@@ -1051,18 +1056,25 @@ IODMACommand::PrepareForDMA_Impl(
 	genOffset   = 0;
 	ret = genIOVMSegments(&genOffset, segments, &numSegments);
 
-	if (kIOReturnSuccess == ret) {
-		mdFlags = fMemory->getFlags();
-		lflags  = 0;
-		if (kIODirectionOut & mdFlags) {
-			lflags |= kIOMemoryDirectionOut;
-		}
-		if (kIODirectionIn & mdFlags) {
-			lflags |= kIOMemoryDirectionIn;
-		}
-		*flags = lflags;
-		*segmentsCount = numSegments;
+	if (kIOReturnSuccess != ret) {
+		clearMemoryDescriptor(true);
+		memory->complete();
+		goto exit;
 	}
+
+	mdFlags = fMemory->getFlags();
+	lflags  = 0;
+	if (kIODirectionOut & mdFlags) {
+		lflags |= kIOMemoryDirectionOut;
+	}
+	if (kIODirectionIn & mdFlags) {
+		lflags |= kIOMemoryDirectionIn;
+	}
+	*flags = lflags;
+	*segmentsCount = numSegments;
+
+exit:
+	IOLockUnlock(fInternalState->fDextLock);
 
 	return ret;
 }
@@ -1078,8 +1090,13 @@ IODMACommand::CompleteDMA_Impl(
 		// no other options currently defined
 		return kIOReturnBadArgument;
 	}
-	if (!fActive) {
-		return kIOReturnNotReady;
+
+	assert(fInternalState->fDextLock);
+	IOLockLock(fInternalState->fDextLock);
+
+	if (!fInternalState->fPrepared) {
+		ret = kIOReturnNotReady;
+		goto exit;
 	}
 
 	md = __DECONST(IOMemoryDescriptor *, fMemory);
@@ -1096,6 +1113,8 @@ IODMACommand::CompleteDMA_Impl(
 			ret = completeRet;
 		}
 	}
+exit:
+	IOLockUnlock(fInternalState->fDextLock);
 
 	return ret;
 }
@@ -4555,8 +4574,6 @@ IOUserServer::serviceAttach(IOService * service, IOService * provider)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define kDriverKitUCPrefix "com.apple.developer.driverkit.userclient-access."
-
 IOReturn
 IOUserServer::serviceNewUserClient(IOService * service, task_t owningTask, void * securityID,
     uint32_t type, OSDictionary * properties, IOUserClient ** handler)
@@ -6249,7 +6266,15 @@ IOUserServerCheckInToken::init(const OSSymbol * serverName, OSNumber * serverTag
 	fKextBundleID = NULL;
 	fNeedDextDec = false;
 
+	fExecutableName = NULL;
+
 	if (driverKext) {
+		fExecutableName = OSDynamicCast(OSSymbol, driverKext->getBundleExecutable());
+
+		if (fExecutableName) {
+			fExecutableName->retain();
+		}
+
 		/*
 		 * We need to keep track of how many dexts we have started.
 		 * For every new dext we are going to create a new token, and
@@ -6305,6 +6330,7 @@ IOUserServerCheckInToken::free()
 {
 	OSSafeReleaseNULL(fServerName);
 	OSSafeReleaseNULL(fServerTag);
+	OSSafeReleaseNULL(fExecutableName);
 	OSSafeReleaseNULL(fHandlers);
 	if (fKextBundleID != NULL) {
 		dextTerminate();

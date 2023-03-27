@@ -19,8 +19,9 @@
 
 #pragma once
 
+#include "MutableStyleProperties.h"
 #include "SVGResourceElementClient.h"
-#include "StyleProperties.h"
+#include "SVGTests.h"
 #include "StyleResolver.h"
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
@@ -77,7 +78,7 @@ public:
             return nullptr;
         if (!m_overrideComputedStyle || m_needsOverrideComputedStyleUpdate) {
             // The style computed here contains no CSS Animations/Transitions or SMIL induced rules - this is needed to compute the "base value" for the SMIL animation sandwhich model.
-            m_overrideComputedStyle = element.styleResolver().styleForElement(element, { parentStyle }, RuleMatchingBehavior::MatchAllRulesExcludingSMIL).renderStyle;
+            m_overrideComputedStyle = element.styleResolver().styleForElement(element, { parentStyle }, RuleMatchingBehavior::MatchAllRulesExcludingSMIL).style;
             m_needsOverrideComputedStyleUpdate = false;
         }
         ASSERT(m_overrideComputedStyle);
@@ -87,6 +88,14 @@ public:
     bool useOverrideComputedStyle() const { return m_useOverrideComputedStyle; }
     void setUseOverrideComputedStyle(bool value) { m_useOverrideComputedStyle = value; }
     void setNeedsOverrideComputedStyleUpdate() { m_needsOverrideComputedStyleUpdate = true; }
+
+    SVGConditionalProcessingAttributes* conditionalProcessingAttributesIfExists() const { return m_conditionalProcessingAttributes.get(); }
+    SVGConditionalProcessingAttributes& conditionalProcessingAttributes(SVGElement& contextElement)
+    {
+        if (!m_conditionalProcessingAttributes)
+            m_conditionalProcessingAttributes = makeUnique<SVGConditionalProcessingAttributes>(contextElement);
+        return *m_conditionalProcessingAttributes;
+    }
 
 private:
     WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData> m_referencingElements;
@@ -101,6 +110,7 @@ private:
     bool m_needsOverrideComputedStyleUpdate : 1;
     RefPtr<MutableStyleProperties> m_animatedSMILStyleProperties;
     std::unique_ptr<RenderStyle> m_overrideComputedStyle;
+    std::unique_ptr<SVGConditionalProcessingAttributes> m_conditionalProcessingAttributes;
 };
 
 } // namespace WebCore

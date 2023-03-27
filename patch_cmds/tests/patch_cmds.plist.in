@@ -512,6 +512,31 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>patch_cmds.diff.diff_test.side_by_side_tabbed</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff/diff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff</string>
+				<string>-r</string>
+				<string>diff_test.sh.side_by_side_tabbed.results.txt</string>
+				<string>side_by_side_tabbed</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>patch_cmds.diff.diff_test.brief_format</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -1617,6 +1642,33 @@
 			</array>
 			<key>Description</key>
 			<string>Checks correct handling of lines ended with tabs</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.sdiff_test.sh.mb</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/sdiff/sdiff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/sdiff</string>
+				<string>-r</string>
+				<string>sdiff_test.sh.mb.results.txt</string>
+				<string>mb</string>
+			</array>
+			<key>Description</key>
+			<string>rdar://problem/100627590 - handling of multibyte sequences</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>

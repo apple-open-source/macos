@@ -14,6 +14,8 @@
 
 #include "common/PackedEnums.h"
 #include "common/angleutils.h"
+#include "test_utils/ANGLETest.h"
+#include "test_utils/MultiThreadSteps.h"
 #include "test_utils/gl_raii.h"
 #include "util/EGLWindow.h"
 
@@ -73,7 +75,15 @@ EGLsizeiANDROID GetBlob(const void *key,
     auto entry = gApplicationCache.find(keyVec);
     if (entry == gApplicationCache.end())
     {
-        gLastCacheOpResult = CacheOpResult::GetNotFound;
+        // A compile+link operation can generate multiple queries to the cache; one per shader, one
+        // for link, and in the Vulkan backend, potentially also one for the pipeline cache.  For
+        // the purposes of the test, make sure that any of these hitting the cache is considered a
+        // success, particularly because it's valid for the pipeline cache entry not to exist in the
+        // cache.
+        if (gLastCacheOpResult != CacheOpResult::GetSuccess)
+        {
+            gLastCacheOpResult = CacheOpResult::GetNotFound;
+        }
         return 0;
     }
 
@@ -279,6 +289,112 @@ void main() {
         EXPECT_EQ(CacheOpResult::SetSuccess, gLastCacheOpResult);
         gLastCacheOpResult = CacheOpResult::ValueNotSet;
     }
+}
+
+// Checks that the shader cache, which is used when this extension is available, is working
+// properly.
+TEST_P(EGLBlobCacheTest, ShaderCacheFunctional)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    EGLDisplay display = getEGLWindow()->getDisplay();
+
+    EXPECT_TRUE(mHasBlobCache);
+    eglSetBlobCacheFuncsANDROID(display, SetBlob, GetBlob);
+    ASSERT_EGL_SUCCESS();
+
+    constexpr char kVertexShaderSrc[] = R"(attribute vec4 aTest;
+attribute vec2 aPosition;
+varying vec4 vTest;
+void main()
+{
+    vTest        = aTest;
+    gl_Position  = vec4(aPosition, 0.0, 1.0);
+    gl_PointSize = 1.0;
+})";
+
+    constexpr char kFragmentShaderSrc[] = R"(precision mediump float;
+varying vec4 vTest;
+void main()
+{
+    gl_FragColor = vTest;
+})";
+
+    // Compile a shader so it puts something in the cache
+    GLuint shaderID = CompileShader(GL_VERTEX_SHADER, kVertexShaderSrc);
+    ASSERT_TRUE(shaderID != 0);
+    EXPECT_EQ(CacheOpResult::SetSuccess, gLastCacheOpResult);
+    gLastCacheOpResult = CacheOpResult::ValueNotSet;
+    glDeleteShader(shaderID);
+
+    // Compile the same shader again, so it would try to retrieve it from the cache
+    shaderID = CompileShader(GL_VERTEX_SHADER, kVertexShaderSrc);
+    ASSERT_TRUE(shaderID != 0);
+    EXPECT_EQ(CacheOpResult::GetSuccess, gLastCacheOpResult);
+    gLastCacheOpResult = CacheOpResult::ValueNotSet;
+    glDeleteShader(shaderID);
+
+    // Compile another shader, which should create a new entry
+    shaderID = CompileShader(GL_FRAGMENT_SHADER, kFragmentShaderSrc);
+    ASSERT_TRUE(shaderID != 0);
+    EXPECT_EQ(CacheOpResult::SetSuccess, gLastCacheOpResult);
+    gLastCacheOpResult = CacheOpResult::ValueNotSet;
+    glDeleteShader(shaderID);
+
+    // Compile the first shader again, which should still reside in the cache
+    shaderID = CompileShader(GL_VERTEX_SHADER, kVertexShaderSrc);
+    ASSERT_TRUE(shaderID != 0);
+    EXPECT_EQ(CacheOpResult::GetSuccess, gLastCacheOpResult);
+    gLastCacheOpResult = CacheOpResult::ValueNotSet;
+    glDeleteShader(shaderID);
+}
+
+// Tests compiling a program in multiple threads, then fetching the compiled program/shaders from
+// the cache. We then perform a draw call and test the result to ensure nothing was corrupted.
+TEST_P(EGLBlobCacheTest, ThreadSafety)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    EGLDisplay display = getEGLWindow()->getDisplay();
+
+    EXPECT_TRUE(mHasBlobCache);
+    eglSetBlobCacheFuncsANDROID(display, SetBlob, GetBlob);
+    ASSERT_EGL_SUCCESS();
+
+    auto threadFunc = [&](int threadID, EGLDisplay dpy, EGLSurface surface, EGLContext context) {
+        EXPECT_EGL_TRUE(eglMakeCurrent(dpy, surface, surface, context));
+
+        ANGLE_GL_PROGRAM(unusedProgramTemp1, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+
+        // Insert a new entry into the cache unique to this thread.
+        std::stringstream ss;
+        ss << essl1_shaders::vs::Simple() << "//" << threadID;
+        std::string newEntryVSSource = ss.str().c_str();
+        ANGLE_GL_PROGRAM(unusedProgramTemp2, newEntryVSSource.c_str(), essl1_shaders::fs::Red());
+    };
+
+    constexpr int kNumThreads = 32;
+
+    std::vector<LockStepThreadFunc> threadFuncs(kNumThreads);
+    for (int i = 0; i < kNumThreads; ++i)
+    {
+        threadFuncs[i] = [=](EGLDisplay dpy, EGLSurface surface, EGLContext context) {
+            return threadFunc(i, dpy, surface, context);
+        };
+    }
+
+    gLastCacheOpResult = CacheOpResult::ValueNotSet;
+
+    RunLockStepThreads(getEGLWindow(), threadFuncs.size(), threadFuncs.data());
+
+    EXPECT_GL_NO_ERROR();
+
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    EXPECT_EQ(CacheOpResult::GetSuccess, gLastCacheOpResult);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
 }
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(EGLBlobCacheTest);

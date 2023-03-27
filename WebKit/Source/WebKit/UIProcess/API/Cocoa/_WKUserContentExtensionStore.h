@@ -27,7 +27,8 @@
 
 @class _WKUserContentFilter;
 
-WK_CLASS_AVAILABLE(macos(10.11), ios(9.0))
+// FIXME: Remove this once rdar://100785999 is unblocked.
+WK_CLASS_DEPRECATED_WITH_REPLACEMENT("WKContentRuleListStore", macos(10.11, 13.3), ios(9.0, 16.4))
 @interface _WKUserContentExtensionStore : NSObject
 
 + (instancetype)defaultStore;

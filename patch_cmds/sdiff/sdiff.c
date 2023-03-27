@@ -20,12 +20,18 @@ __FBSDID("$FreeBSD$");
 #include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
+#ifdef __APPLE__
+#include <locale.h>
+#endif
 #include <paths.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <wchar.h>
+#endif
 
 #include "extern.h"
 
@@ -221,6 +227,10 @@ main(int argc, char **argv)
 	int i;
 	char I_arg[] = "-I";
 	char speed_lf[] = "--speed-large-files";
+
+#ifdef __APPLE__
+	setlocale(LC_ALL, "");
+#endif
 
 	/*
 	 * Process diff flags.
@@ -509,6 +519,10 @@ istextfile(FILE *f)
 static void
 printcol(const char *s, size_t *col, const size_t col_max)
 {
+#ifdef __APPLE__
+	wchar_t mb;
+	int nbytes, width;
+#endif
 
 	for (; *s && *col < col_max; ++s) {
 		size_t new_col;
@@ -532,10 +546,42 @@ printcol(const char *s, size_t *col, const size_t col_max)
 			if (new_col > col_max)
 				return;
 			*col = new_col;
+#ifdef __APPLE__
+			nbytes = 1;
+#endif
 			break;
 		default:
+#ifdef __APPLE__
+			nbytes = mbtowc(&mb, s, MB_CUR_MAX);
+			if (nbytes < 0)
+				err(2, "mbtowc");
+
+			/*
+			 * Count the width of the character we're about to
+			 * output towards our column count.  We may still get
+			 * the width wrong if the locale is set wrong and the
+			 * terminal interprets it differently, but there isn't
+			 * much we can do there.
+			 */
+			width = wcwidth(mb);
+			if (width > 0)
+				*col += width;
+#else
 			++(*col);
+#endif
 		}
+#ifdef __APPLE__
+		/*
+		 * Print all but the last byte, so that we don't advance one
+		 * past where we're supposed to be printing and require a weird
+		 * step back one byte.
+		 */
+		while (nbytes > 1) {
+			nbytes--;
+			putchar(*s++);
+		}
+#endif
+
 		putchar(*s);
 	}
 }

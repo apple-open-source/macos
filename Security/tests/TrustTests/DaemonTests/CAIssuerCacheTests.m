@@ -85,9 +85,11 @@ static void Callback(void *context, CFArrayRef certs) {
 
     /* set up the context */
     dispatch_queue_t queue = dispatch_queue_create("testQueue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
-    SecPathBuilderRef builder = SecPathBuilderCreate(queue, SecTrustServerCopySelfAuditToken(),
+    CFDataRef auditToken = SecTrustServerCopySelfAuditToken();
+    SecPathBuilderRef builder = SecPathBuilderCreate(queue, auditToken,
                                                      (__bridge CFArrayRef)@[(__bridge id)apple_leaf],
                                                      NULL, false, false, NULL, NULL, NULL, NULL, 0.0, NULL, NULL, 0, NULL, NULL);
+    CFReleaseNull(auditToken);
 
     // Call SecCAIssuerCopyParents and verify we get cert(s) in the callback
     static_expectation = [self expectationWithDescription:@"callback occurs"];
@@ -120,9 +122,11 @@ static void Callback(void *context, CFArrayRef certs) {
 
     /* set up the context */
     dispatch_queue_t queue = dispatch_queue_create("testQueue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
-    SecPathBuilderRef builder = SecPathBuilderCreate(queue, SecTrustServerCopySelfAuditToken(),
+    CFDataRef auditToken = SecTrustServerCopySelfAuditToken();
+    SecPathBuilderRef builder = SecPathBuilderCreate(queue, auditToken,
                                                      (__bridge CFArrayRef)@[(__bridge id)apple_leaf],
                                                      NULL, false, false, NULL, NULL, NULL, NULL, 0.0, NULL, NULL, 0, NULL, NULL);
+    CFReleaseNull(auditToken);
 
     // Call SecCAIssuerCopyParents and verify we get cert(s) in the callback
     static_expectation = [self expectationWithDescription:@"callback occurs"];
@@ -156,9 +160,11 @@ static void Callback(void *context, CFArrayRef certs) {
 
     /* set up the context */
     dispatch_queue_t queue = dispatch_queue_create("testQueue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
-    SecPathBuilderRef builder = SecPathBuilderCreate(queue, SecTrustServerCopySelfAuditToken(),
+    CFDataRef auditToken = SecTrustServerCopySelfAuditToken();
+    SecPathBuilderRef builder = SecPathBuilderCreate(queue, auditToken,
                                                      (__bridge CFArrayRef)@[(__bridge id)badAppleCert],
                                                      NULL, false, false, NULL, NULL, NULL, NULL, 0.0, NULL, NULL, 0, NULL, NULL);
+    CFReleaseNull(auditToken);
 
     // Call SecCAIssuerCopyParents and verify we still get cert in the callback
     static_expectation = [self expectationWithDescription:@"callback occurs"];

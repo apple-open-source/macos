@@ -774,6 +774,9 @@ class DispatchTableGL : angle::NonCopyable
     PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC framebufferTexture2DMultisampleEXT = nullptr;
     PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC renderbufferStorageMultisampleEXT = nullptr;
 
+    // GL_EXT_polygon_offset_clamp
+    PFNGLPOLYGONOFFSETCLAMPEXTPROC polygonOffsetClampEXT = nullptr;
+
     // GL_EXT_semaphore
     PFNGLDELETESEMAPHORESEXTPROC deleteSemaphoresEXT = nullptr;
     PFNGLGENSEMAPHORESEXTPROC genSemaphoresEXT = nullptr;
@@ -789,6 +792,9 @@ class DispatchTableGL : angle::NonCopyable
     // GL_EXT_semaphore_win32
     PFNGLIMPORTSEMAPHOREWIN32HANDLEEXTPROC importSemaphoreWin32HandleEXT = nullptr;
     PFNGLIMPORTSEMAPHOREWIN32NAMEEXTPROC importSemaphoreWin32NameEXT = nullptr;
+
+    // GL_EXT_shader_framebuffer_fetch_non_coherent
+    PFNGLFRAMEBUFFERFETCHBARRIEREXTPROC framebufferFetchBarrierEXT = nullptr;
 
     // GL_EXT_texture_buffer
     PFNGLTEXBUFFEREXTPROC texBufferEXT = nullptr;

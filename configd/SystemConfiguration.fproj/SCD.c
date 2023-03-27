@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -80,7 +80,7 @@ __SCThreadSpecificDataFinalize(void *arg)
 
 
 static void
-__SCThreadSpecificKeyInitialize()
+__SCThreadSpecificKeyInitialize(void)
 {
 	static dispatch_once_t  tsKeyInitialized;
 
@@ -94,7 +94,7 @@ __SCThreadSpecificKeyInitialize()
 
 __private_extern__
 __SCThreadSpecificDataRef
-__SCGetThreadSpecificData()
+__SCGetThreadSpecificData(void)
 {
 	__SCThreadSpecificDataRef	tsd;
 
@@ -416,7 +416,7 @@ _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 Boolean
-_SC_isInstallEnvironment() {
+_SC_isInstallEnvironment(void) {
 	static dispatch_once_t	once;
 	static Boolean		is_install;
 

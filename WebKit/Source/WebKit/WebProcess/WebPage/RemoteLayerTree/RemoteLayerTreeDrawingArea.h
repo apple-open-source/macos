@@ -57,6 +57,9 @@ public:
     TransactionID nextTransactionID() const { return m_currentTransactionID.next(); }
     TransactionID lastCommittedTransactionID() const { return m_currentTransactionID; }
 
+protected:
+    void updateRendering();
+
 private:
     // DrawingArea
     void setNeedsDisplay() override;
@@ -71,6 +74,7 @@ private:
     void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) override;
 
     void addTransactionCallbackID(CallbackID) override;
+    virtual void willCommitLayerTree(RemoteLayerTreeTransaction&) { };
 
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) final;
     void willDestroyDisplayRefreshMonitor(WebCore::DisplayRefreshMonitor*);
@@ -81,8 +85,8 @@ private:
     void updatePreferences(const WebPreferencesStore&) override;
 
     bool supportsAsyncScrolling() const override { return true; }
-    bool usesDelegatedScrolling() const override { return true; }
     bool usesDelegatedPageScaling() const override { return true; }
+    WebCore::DelegatedScrollingMode delegatedScrollingMode() const override;
 
     void setLayerTreeStateIsFrozen(bool) override;
     bool layerTreeStateIsFrozen() const override { return m_isRenderingSuspended; }
@@ -93,17 +97,15 @@ private:
     void setViewExposedRect(std::optional<WebCore::FloatRect>) override;
     std::optional<WebCore::FloatRect> viewExposedRect() const override { return m_viewExposedRect; }
 
-    void acceleratedAnimationDidStart(uint64_t layerID, const String& key, MonotonicTime startTime) override;
-    void acceleratedAnimationDidEnd(uint64_t layerID, const String& key) override;
+    void acceleratedAnimationDidStart(WebCore::GraphicsLayer::PlatformLayerID, const String& key, MonotonicTime startTime) override;
+    void acceleratedAnimationDidEnd(WebCore::GraphicsLayer::PlatformLayerID, const String& key) override;
 
     WebCore::FloatRect exposedContentRect() const override;
     void setExposedContentRect(const WebCore::FloatRect&) override;
 
-    void didUpdate() override;
+    void displayDidRefresh() override;
 
-#if PLATFORM(IOS_FAMILY)
     void setDeviceScaleFactor(float) override;
-#endif
 
     void mainFrameContentSizeChanged(const WebCore::IntSize&) override;
 
@@ -114,10 +116,8 @@ private:
     void updateRootLayers();
 
     void addCommitHandlers();
-    void updateRendering();
     void startRenderingUpdateTimer();
-
-    WebCore::TiledBacking* mainFrameTiledBacking() const;
+    void didCompleteRenderingUpdateDisplay() override;
 
     TransactionID takeNextTransactionID() { return m_currentTransactionID.increment(); }
 
@@ -144,8 +144,6 @@ private:
 
     std::unique_ptr<RemoteLayerTreeContext> m_remoteLayerTreeContext;
     Ref<WebCore::GraphicsLayer> m_rootLayer;
-
-    WebCore::IntSize m_viewSize;
 
     std::optional<WebCore::FloatRect> m_viewExposedRect;
 

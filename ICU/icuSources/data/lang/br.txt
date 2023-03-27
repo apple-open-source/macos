@@ -94,6 +94,7 @@ br{
         chk{"chuuk"}
         chm{"marieg"}
         cho{"choktaw"}
+        cho_Latn{"choktaw"}
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"cheyenne"}

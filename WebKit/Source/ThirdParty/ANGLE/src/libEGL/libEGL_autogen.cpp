@@ -25,9 +25,9 @@ namespace
 bool gLoaded          = false;
 void *gEntryPointsLib = nullptr;
 
-angle::GenericProc KHRONOS_APIENTRY GlobalLoad(const char *symbol)
+GenericProc KHRONOS_APIENTRY GlobalLoad(const char *symbol)
 {
-    return reinterpret_cast<angle::GenericProc>(angle::GetLibrarySymbol(gEntryPointsLib, symbol));
+    return reinterpret_cast<GenericProc>(angle::GetLibrarySymbol(gEntryPointsLib, symbol));
 }
 
 void EnsureEGLLoaded()
@@ -38,11 +38,11 @@ void EnsureEGLLoaded()
     }
 
     std::string errorOut;
-    gEntryPointsLib = OpenSystemLibraryAndGetError(ANGLE_GLESV2_LIBRARY_NAME,
+    gEntryPointsLib = OpenSystemLibraryAndGetError(ANGLE_DISPATCH_LIBRARY,
                                                    angle::SearchType::ModuleDir, &errorOut);
     if (gEntryPointsLib)
     {
-        angle::LoadEGL_EGL(GlobalLoad);
+        LoadLibEGL_EGL(GlobalLoad);
         gLoaded = true;
     }
     else
@@ -495,6 +495,13 @@ EGLBoolean EGLAPIENTRY eglQueryDisplayAttribANGLE(EGLDisplay dpy,
     return EGL_QueryDisplayAttribANGLE(dpy, attribute, value);
 }
 
+// EGL_ANGLE_metal_shared_event_sync
+void *EGLAPIENTRY eglCopyMetalSharedEventANGLE(EGLDisplay dpy, EGLSyncKHR sync)
+{
+    EnsureEGLLoaded();
+    return EGL_CopyMetalSharedEventANGLE(dpy, sync);
+}
+
 // EGL_ANGLE_power_preference
 void EGLAPIENTRY eglReleaseHighPowerGPUANGLE(EGLDisplay dpy, EGLContext ctx)
 {
@@ -616,6 +623,13 @@ EGLBoolean EGLAPIENTRY eglExportVkImageANGLE(EGLDisplay dpy,
 {
     EnsureEGLLoaded();
     return EGL_ExportVkImageANGLE(dpy, image, vk_image, vk_image_create_info);
+}
+
+// EGL_ANGLE_wait_until_work_scheduled
+void EGLAPIENTRY eglWaitUntilWorkScheduledANGLE(EGLDisplay dpy)
+{
+    EnsureEGLLoaded();
+    return EGL_WaitUntilWorkScheduledANGLE(dpy);
 }
 
 // EGL_CHROMIUM_sync_control

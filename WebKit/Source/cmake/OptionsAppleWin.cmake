@@ -3,7 +3,11 @@
 # is no longer used, but we keep building with static runtime for backward
 # compatibility. But if someone decides that it's OK to require existing
 # projects to build with the runtime DLLs, that's now technically possible.
-set(MSVC_STATIC_RUNTIME ON)
+if (NOT DEBUG_SUFFIX)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
+else ()
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif ()
 
 if (DEFINED ENV{AppleApplicationSupportSDK})
     file(TO_CMAKE_PATH "$ENV{AppleApplicationSupportSDK}/AppleInternal" WEBKIT_LIBRARIES_DIR)
@@ -32,14 +36,22 @@ SET_AND_EXPOSE_TO_BUILD(USE_CFURLCONNECTION ON)
 
 set(SQLite3_NAMES SQLite3${DEBUG_SUFFIX})
 
+find_package(Apple REQUIRED COMPONENTS
+    AVFoundationCF
+    ApplicationServices
+    CFNetwork
+    CoreFoundation
+    CoreGraphics
+    CoreText
+    QuartzCore
+    libdispatch
+)
+
 find_package(ICU 61.2 REQUIRED COMPONENTS data i18n uc)
 find_package(LibXml2 REQUIRED)
 find_package(LibXslt REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_package(ZLIB REQUIRED)
-
-# Libraries where find_package does not work
-set(COREFOUNDATION_LIBRARY CoreFoundation${DEBUG_SUFFIX})
 
 SET_AND_EXPOSE_TO_BUILD(USE_CA ON)
 SET_AND_EXPOSE_TO_BUILD(USE_CG ON)

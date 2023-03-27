@@ -10,11 +10,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // Set this to what it normally is. Each test can muck with it, if they like
 #if os(macOS) || os(iOS)
-        OctagonSetPlatformSupportsSOS(true)
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 #else
-        self.manager.setSOSEnabledForPlatformFlag(false)
-        OctagonSetPlatformSupportsSOS(false)
+       OctagonSetSOSFeatureEnabled(false)
 #endif
     }
 
@@ -236,7 +234,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
     func createEstablishContext(contextID: String) -> OTCuttlefishContext {
         return self.manager.context(forContainerName: OTCKContainerName,
                                     contextID: contextID,
-                                    sosAdapter: self.mockSOSAdapter,
+                                    sosAdapter: self.mockSOSAdapter!,
                                     accountsAdapter: self.mockAuthKit2,
                                     authKitAdapter: self.mockAuthKit2,
                                     tooManyPeersAdapter: self.mockTooManyPeers,
@@ -273,13 +271,14 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testCreateInheritanceTLKSharesDuringCreation() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         self.assertResetAndBecomeTrustedInDefaultContext()
 
         // This flag gates whether or not we'll error while setting the recovery key
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (_, irk) = try self.createAndSetInheritanceRecoveryKey(context: self.cuttlefishContext)
 
@@ -290,10 +289,11 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testResetAndEstablishClearsAccountMetadata() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         let contextName = OTDefaultContext
         let containerName = OTCKContainerName
 
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -328,7 +328,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
 
@@ -385,7 +385,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // let's ensure the inheritance bit is set.
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertTrue(accountState.isInheritedAccount, "isInheritedAccount should be YES")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -406,7 +406,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // now let's ensure the inheritance bit is gone.
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertFalse(accountState.isInheritedAccount, "isInheritedAccount should be NO")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -414,10 +414,11 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testAccountNoLongerAvailableClearsInheritanceBit() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         let contextName = OTDefaultContext
         let containerName = OTCKContainerName
 
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -452,7 +453,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
 
@@ -509,7 +510,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // let's ensure the inheritance bit is set.
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertTrue(accountState.isInheritedAccount, "isInheritedAccount should be YES")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -523,7 +524,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // now let's ensure the inheritance bit is gone.
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertFalse(accountState.isInheritedAccount, "isInheritedAccount should be NO")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -531,18 +532,16 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testJoinWithInheritanceKeyWithCKKSConflict() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let remote = self.createEstablishContext(contextID: "remote")
         self.assertResetAndBecomeTrusted(context: remote)
 
-#if os(tvOS) || os(watchOS)
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: remote)
-        self.manager.setSOSEnabledForPlatformFlag(false)
-#else
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: remote)
-#endif
+        OctagonSetSOSFeatureEnabled(false)
         self.sendContainerChangeWaitForFetch(context: remote)
 
         self.silentFetchesAllowed = false
@@ -591,18 +590,16 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testirkRecoveryRecoversCKKSCreatedShares() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let remote = self.createEstablishContext(contextID: "remote")
         self.assertResetAndBecomeTrusted(context: remote)
 
-#if os(tvOS) || os(watchOS)
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: remote)
-        self.manager.setSOSEnabledForPlatformFlag(false)
-#else
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: remote)
-#endif
+        OctagonSetSOSFeatureEnabled(false)
 
         // And TLKShares for the RK are sent from the Octagon peer
         self.putFakeKeyHierarchiesInCloudKit()
@@ -650,7 +647,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testRecoverTLKSharesSentToirkBeforeCKKSFetchCompletes() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let remote = self.createEstablishContext(contextID: "remote")
@@ -661,7 +659,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: remote)
         self.assertSelfTLKSharesInCloudKit(context: remote)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: remote)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
@@ -681,11 +679,11 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         // device succeeds joining after restore
-        self.mockSOSAdapter.joinAfterRestoreResult = true
+        self.mockSOSAdapter!.joinAfterRestoreResult = true
         // reset to offering on the mock adapter is by default set to false so this should cause cascading failures resulting in a cfu
-        self.mockSOSAdapter.joinAfterRestoreCircleStatusOverride = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCRequestPending)
-        self.mockSOSAdapter.resetToOfferingCircleStatusOverride = true
+        self.mockSOSAdapter!.joinAfterRestoreCircleStatusOverride = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCRequestPending)
+        self.mockSOSAdapter!.resetToOfferingCircleStatusOverride = true
 
         let joinWithInheritanceKeyExpectation = self.expectation(description: "joinWithInheritanceKey callback occurs")
         self.cuttlefishContext.join(with: otirk) {error in
@@ -712,10 +710,12 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let remotePeerID = try remote.accountMetadataStore.getEgoPeerID()
         XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: irk.peerID, senderPeerID: remotePeerID), "Should be no shares from peer to irk; as irk has self-shares")
         XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: remotePeerID, senderPeerID: irk.peerID), "Should be no shares from irk to peer")
-        XCTAssertEqual(self.mockSOSAdapter.circleStatus, SOSCCStatus(kSOSCCRequestPending), "SOS should be Request Pending")
+        XCTAssertEqual(self.mockSOSAdapter!.circleStatus, SOSCCStatus(kSOSCCRequestPending), "SOS should be Request Pending")
     }
 
     func testAddInheritanceKey() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         self.putFakeKeyHierarchiesInCloudKit()
@@ -740,7 +740,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         XCTAssertEqual(self.cuttlefishContext.currentMemoizedTrustState(), .TRUSTED, "Trust state should be trusted")
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKeyExpectation returns")
         self.manager.createInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: UUID()) { irk, error in
@@ -759,7 +759,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
         throw XCTSkip("Apple TVs and watches will not set recovery key")
 #else
-
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         // To get into a state where we don't upload the TLKShares to each RK on RK creation, put Octagon into a waitfortlk state
@@ -821,7 +821,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testAddInheritanceKeyUUID() throws {
-
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         self.putFakeKeyHierarchiesInCloudKit()
@@ -847,7 +848,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let uuid = UUID()
 
@@ -865,6 +866,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testInheritanceKeyTrust() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -887,7 +890,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let uuid = UUID()
 
@@ -906,7 +909,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testJoinWithInheritanceKey() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -941,7 +945,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
 
@@ -1005,7 +1009,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testJoinWithInheritanceKeyAltdsid() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1040,7 +1045,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
 
@@ -1106,7 +1111,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testJoinWithInheritanceKeyWithClique() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1141,7 +1147,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
 
@@ -1202,7 +1208,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testJoinWithInheritanceRecoveryKeyBadUUID() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1235,7 +1242,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         var retirk: OTInheritanceKey?
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKeyExpectation returns")
@@ -1297,7 +1304,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testJoinWithInheritanceKeyBadKey() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1330,7 +1338,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         var retirk: OTInheritanceKey?
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKeyExpectation returns")
@@ -1392,9 +1400,10 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testJoinWithInheritanceKeyThenLoadToInheritedOnRestart() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         let startDate = Date()
 
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1427,7 +1436,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
 
@@ -1510,7 +1519,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testJoinWithInheritanceNoCKKSWrites() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1543,7 +1553,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
 
@@ -1604,7 +1614,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testJoinWithInheritanceDownloadCKKSItemsAndDoesntWrite() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1638,7 +1649,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
 
@@ -1696,8 +1707,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
     }
 
     func testSetUserControllableViewsInheritedAccount() throws {
+        try self.skipOnRecoveryKeyNotSupported()
 
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1730,7 +1742,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
 

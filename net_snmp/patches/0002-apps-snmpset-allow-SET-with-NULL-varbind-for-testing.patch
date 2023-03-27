@@ -1,0 +1,24 @@
+From 6f944980b840b32184bfc3772d33c1ed3f734cbd Mon Sep 17 00:00:00 2001
+From: Bill Fenner <fenner@gmail.com>
+Date: Fri, 25 Nov 2022 08:41:46 -0800
+Subject: [PATCH 2/3] apps: snmpset: allow SET with NULL varbind for testing
+
+---
+ apps/snmpset.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/apps/snmpset.c b/apps/snmpset.c
+index 1b29a6c..0229c3c 100644
+--- a/apps/snmpset.c
++++ b/apps/snmpset.c
+@@ -179,6 +179,7 @@ main(int argc, char *argv[])
+             case 'x':
+             case 'd':
+             case 'b':
++            case 'n': /* undocumented */
+ #ifdef NETSNMP_WITH_OPAQUE_SPECIAL_TYPES
+             case 'I':
+             case 'U':
+-- 
+2.38.1 (Apple Git-138)
+

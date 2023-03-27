@@ -51,7 +51,7 @@ static const AtomString& summarySlotName()
     return summarySlot;
 }
 
-class DetailsSlotAssignment final : public SlotAssignment {
+class DetailsSlotAssignment final : public NamedSlotAssignment {
 private:
     void hostChildElementDidChange(const Element&, ShadowRoot&) override;
     const AtomString& slotNameForHostChild(const Node&) const override;
@@ -64,7 +64,7 @@ void DetailsSlotAssignment::hostChildElementDidChange(const Element& childElemen
         // since we don't know the answer when this function is called inside Element::removedFrom.
         didChangeSlot(summarySlotName(), shadowRoot);
     } else
-        didChangeSlot(SlotAssignment::defaultSlotName(), shadowRoot);
+        didChangeSlot(NamedSlotAssignment::defaultSlotName(), shadowRoot);
 }
 
 const AtomString& DetailsSlotAssignment::slotNameForHostChild(const Node& child) const
@@ -78,7 +78,7 @@ const AtomString& DetailsSlotAssignment::slotNameForHostChild(const Node& child)
         if (&child == childrenOfType<HTMLSummaryElement>(details).first())
             return summarySlotName();
     }
-    return SlotAssignment::defaultSlotName();
+    return NamedSlotAssignment::defaultSlotName();
 }
 
 Ref<HTMLDetailsElement> HTMLDetailsElement::create(const QualifiedName& tagName, Document& document)
@@ -103,11 +103,11 @@ void HTMLDetailsElement::didAddUserAgentShadowRoot(ShadowRoot& root)
 {
     auto summarySlot = HTMLSlotElement::create(slotTag, document());
     summarySlot->setAttributeWithoutSynchronization(nameAttr, summarySlotName());
-    m_summarySlot = summarySlot.ptr();
+    m_summarySlot = summarySlot.get();
 
     auto defaultSummary = HTMLSummaryElement::create(summaryTag, document());
     defaultSummary->appendChild(Text::create(document(), defaultDetailsSummaryText()));
-    m_defaultSummary = defaultSummary.ptr();
+    m_defaultSummary = defaultSummary.get();
 
     summarySlot->appendChild(defaultSummary);
     root.appendChild(summarySlot);
@@ -127,7 +127,7 @@ bool HTMLDetailsElement::isActiveSummary(const HTMLSummaryElement& summary) cons
     RefPtr slot = shadowRoot()->findAssignedSlot(summary);
     if (!slot)
         return false;
-    return slot == m_summarySlot;
+    return slot == m_summarySlot.get();
 }
 
 void HTMLDetailsElement::parseAttribute(const QualifiedName& name, const AtomString& value)

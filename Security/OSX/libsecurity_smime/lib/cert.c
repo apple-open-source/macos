@@ -27,6 +27,7 @@
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecIdentitySearch.h>
+#include <Security/SecItem.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
 #include <Security/SecKeychainSearch.h>
@@ -139,10 +140,59 @@ void CERT_NormalizeX509NameNSS(NSS_Name* nssName)
     }
 }
 
+static bool
+_is_apple_mail_bundle(void)
+{
+    static dispatch_once_t onceToken;
+    static bool result = false;
+    dispatch_once(&onceToken, ^{
+        CFBundleRef bundle = CFBundleGetMainBundle();
+        if (bundle) {
+            CFStringRef bundleID = CFBundleGetIdentifier(bundle);
+            result = (bundleID != NULL) && (CFStringHasPrefix(bundleID, CFSTR("com.apple.mail"))
+                                            || CFStringHasPrefix(bundleID, CFSTR("com.apple.mobilemail"))
+                                            || CFStringHasPrefix(bundleID, CFSTR("com.apple.email")));
+        }
+    });
+    return result;
+}
+
+static OSStatus
+_SecCertificateFindByEmail(CFTypeRef keychainOrArray, const char *emailAddress, SecCertificateRef *certificate)
+{
+    if (_is_apple_mail_bundle() && emailAddress) {
+        CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
+        CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecAttrSynchronizable, kSecAttrSynchronizableAny);
+
+        CFStringRef emailAddressString = CFStringCreateWithCString(kCFAllocatorDefault, emailAddress, kCFStringEncodingUTF8);
+        CFTypeRef keys[] = { kSecPolicyName };
+        CFTypeRef values[] = { emailAddressString };
+        CFDictionaryRef properties = CFDictionaryCreate(kCFAllocatorDefault, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        SecPolicyRef policy = SecPolicyCreateWithProperties(kSecPolicyAppleSMIME, properties);
+        CFDictionarySetValue(query, kSecMatchPolicy, policy);
+
+        OSStatus status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+
+        CFReleaseNull(policy);
+        CFReleaseNull(properties);
+        CFReleaseNull(emailAddressString);
+        CFReleaseNull(query);
+
+        if (status == errSecSuccess) {
+            return status;
+        }
+    }
+
+    return SecCertificateFindByEmail(keychainOrArray, emailAddress, certificate);
+}
+
 SecCertificateRef CERT_FindCertByNicknameOrEmailAddr(SecKeychainRef keychainOrArray, char* name)
 {
     SecCertificateRef certificate;
-    OSStatus status = SecCertificateFindByEmail(keychainOrArray, name, &certificate);
+    OSStatus status = _SecCertificateFindByEmail(keychainOrArray, name, &certificate);
     return status == noErr ? certificate : NULL;
 }
 
@@ -179,6 +229,44 @@ SecCertificateRef CERT_DupCertificate(SecCertificateRef cert)
     return cert;
 }
 
+static OSStatus
+_SecIdentityFindByIssuerAndSN(SecCertificateRef certificate, SecIdentityRef *ident)
+{
+    OSStatus status = errSecItemNotFound;
+
+    CFMutableDictionaryRef query = NULL;
+    CFDataRef issuerData = NULL;
+    CFDataRef serialNumberData = NULL;
+    CFTypeRef item = NULL;
+
+    if (certificate) {
+        issuerData = SecCertificateCopyIssuerSequence(certificate);
+        serialNumberData = SecCertificateCopySerialNumberData(certificate, NULL);
+    }
+
+    if (issuerData && serialNumberData) {
+        query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecClass, kSecClassIdentity);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecAttrSynchronizable, kSecAttrSynchronizableAny);
+        CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+
+        CFDictionarySetValue(query, kSecAttrIssuer, issuerData);
+        CFDictionarySetValue(query, kSecAttrSerialNumber, serialNumberData);
+
+        status = SecItemCopyMatching(query, &item);
+        if (status == errSecSuccess && ident != NULL) {
+            *ident = (SecIdentityRef)item;
+        }
+    }
+
+    CFReleaseNull(serialNumberData);
+    CFReleaseNull(issuerData);
+    CFReleaseNull(query);
+
+    return status;
+}
+
 SecIdentityRef CERT_FindIdentityByUsage(SecKeychainRef keychainOrArray,
                                         char* nickname,
                                         SECCertUsage usage,
@@ -191,7 +279,18 @@ SecIdentityRef CERT_FindIdentityByUsage(SecKeychainRef keychainOrArray,
         return NULL;
     }
 
-    SecIdentityCreateWithCertificate(keychainOrArray, cert, &identityRef);
+    if (_is_apple_mail_bundle()) {
+        SecIdentityRef item;
+        OSStatus status = _SecIdentityFindByIssuerAndSN(cert, &item);
+        if (status == errSecSuccess) {
+            identityRef = item;
+        }
+    }
+
+    if (identityRef == NULL) {
+        SecIdentityCreateWithCertificate(keychainOrArray, cert, &identityRef);
+    }
+
     CFReleaseNull(cert);
 
     return identityRef;
@@ -380,6 +479,38 @@ int CERT_CompareCssmData(const CSSM_DATA* d1, const CSSM_DATA* d2)
     return 1;
 }
 
+static OSStatus
+_SecCertificateFindByIssuerAndSN(CFTypeRef keychainOrArray,const CSSM_DATA *issuer,
+	const CSSM_DATA *serialNumber, SecCertificateRef *certificate)
+{
+    if (_is_apple_mail_bundle() && issuer && issuer->Data && issuer->Length > 0 &&
+        serialNumber && serialNumber->Data && serialNumber->Length > 0) {
+        CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
+        CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecAttrSynchronizable, kSecAttrSynchronizableAny);
+
+        CFDataRef issuerData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)issuer->Data, (CFIndex)issuer->Length, kCFAllocatorNull);
+        CFDictionarySetValue(query, kSecAttrIssuer, issuerData);
+
+        CFDataRef serialNumberData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)serialNumber->Data, (CFIndex)serialNumber->Length, kCFAllocatorNull);
+        CFDictionarySetValue(query, kSecAttrSerialNumber, serialNumberData);
+
+        OSStatus status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+
+        CFReleaseNull(serialNumberData);
+        CFReleaseNull(issuerData);
+        CFReleaseNull(query);
+
+        if (status == errSecSuccess) {
+            return status;
+        }
+    }
+
+    return SecCertificateFindByIssuerAndSN(keychainOrArray, issuer, serialNumber, certificate);
+}
+
 // Generate a certificate key from the issuer and serialnumber, then look it up in the database.
 // Return the cert if found. "issuerAndSN" is the issuer and serial number to look for
 SecCertificateRef CERT_FindCertByIssuerAndSN(CFTypeRef keychainOrArray,
@@ -444,7 +575,7 @@ SecCertificateRef CERT_FindCertByIssuerAndSN(CFTypeRef keychainOrArray,
     }
 
     /* now search keychain(s) */
-    OSStatus status = SecCertificateFindByIssuerAndSN(
+    OSStatus status = _SecCertificateFindByIssuerAndSN(
         keychainOrArray, &issuerAndSN->derIssuer, &issuerAndSN->serialNumber, &certificate);
     if (status) {
         PORT_SetError(SEC_ERROR_NO_EMAIL_CERT);
@@ -452,6 +583,33 @@ SecCertificateRef CERT_FindCertByIssuerAndSN(CFTypeRef keychainOrArray,
     }
 
     return certificate;
+}
+
+static OSStatus
+_SecCertificateFindBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *subjectKeyID,
+	SecCertificateRef *certificate)
+{
+    if (_is_apple_mail_bundle() && subjectKeyID) {
+        CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
+        CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecAttrSynchronizable, kSecAttrSynchronizableAny);
+
+        CFDataRef subjectKeyIDData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)subjectKeyID->Data, (CFIndex)subjectKeyID->Length, kCFAllocatorNull);
+        CFDictionarySetValue(query, kSecAttrSubjectKeyID, subjectKeyIDData);
+
+        OSStatus status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+
+        CFReleaseNull(subjectKeyIDData);
+        CFReleaseNull(query);
+
+        if (status == errSecSuccess) {
+            return status;
+        }
+    }
+
+    return SecCertificateFindBySubjectKeyID(keychainOrArray, subjectKeyID, certificate);
 }
 
 SecCertificateRef CERT_FindCertBySubjectKeyID(CFTypeRef keychainOrArray,
@@ -515,7 +673,7 @@ SecCertificateRef CERT_FindCertBySubjectKeyID(CFTypeRef keychainOrArray,
     }
 
     /* now search keychain(s) */
-    OSStatus status = SecCertificateFindBySubjectKeyID(keychainOrArray, subjKeyID, &certificate);
+    OSStatus status = _SecCertificateFindBySubjectKeyID(keychainOrArray, subjKeyID, &certificate);
     if (status) {
         PORT_SetError(SEC_ERROR_NO_EMAIL_CERT);
         certificate = NULL;
@@ -545,6 +703,14 @@ SecIdentityRef CERT_FindIdentityByIssuerAndSN(CFTypeRef keychainOrArray, const S
         return NULL;
     }
 
+    if (_is_apple_mail_bundle()) {
+        SecIdentityRef identity;
+        OSStatus status = _SecIdentityFindByIssuerAndSN(certificate, &identity);
+        if (status == errSecSuccess) {
+            return identity;
+        }
+    }
+
     return CERT_FindIdentityByCertificate(keychainOrArray, certificate);
 }
 
@@ -554,6 +720,14 @@ SecIdentityRef CERT_FindIdentityBySubjectKeyID(CFTypeRef keychainOrArray, const 
         CERT_FindCertBySubjectKeyID(keychainOrArray, NULL, NULL, subjKeyID);
     if (!certificate) {
         return NULL;
+    }
+
+    if (_is_apple_mail_bundle()) {
+        SecIdentityRef identity;
+        OSStatus status = _SecIdentityFindByIssuerAndSN(certificate, &identity);
+        if (status == errSecSuccess) {
+            return identity;
+        }
     }
 
     return CERT_FindIdentityByCertificate(keychainOrArray, certificate);

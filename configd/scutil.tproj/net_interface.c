@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011, 2013-2017, 2019-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -45,7 +45,7 @@
 
 
 static CFArrayRef
-_copy_interfaces()
+_copy_interfaces(void)
 {
 	CFMutableArrayRef	interfaces;
 	CFArrayRef		real_interfaces;

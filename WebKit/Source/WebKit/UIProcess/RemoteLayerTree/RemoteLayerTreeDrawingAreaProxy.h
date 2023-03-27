@@ -33,62 +33,66 @@
 #include <WebCore/IntPoint.h>
 #include <WebCore/IntSize.h>
 
-OBJC_CLASS WKOneShotDisplayLinkHandler;
-
 namespace WebKit {
 
+class RemoteScrollingCoordinatorProxy;
 class RemoteLayerTreeTransaction;
+class RemoteScrollingCoordinatorProxy;
 class RemoteScrollingCoordinatorTransaction;
 
-class RemoteLayerTreeDrawingAreaProxy final : public DrawingAreaProxy {
+class RemoteLayerTreeDrawingAreaProxy : public DrawingAreaProxy {
 public:
     RemoteLayerTreeDrawingAreaProxy(WebPageProxy&, WebProcessProxy&);
     virtual ~RemoteLayerTreeDrawingAreaProxy();
 
     const RemoteLayerTreeHost& remoteLayerTreeHost() const { return *m_remoteLayerTreeHost; }
     std::unique_ptr<RemoteLayerTreeHost> detachRemoteLayerTreeHost();
+    
+    virtual std::unique_ptr<RemoteScrollingCoordinatorProxy> createScrollingCoordinatorProxy() const = 0;
 
-    void acceleratedAnimationDidStart(uint64_t layerID, const String& key, MonotonicTime startTime);
-    void acceleratedAnimationDidEnd(uint64_t layerID, const String& key);
+    void acceleratedAnimationDidStart(WebCore::GraphicsLayer::PlatformLayerID, const String& key, MonotonicTime startTime);
+    void acceleratedAnimationDidEnd(WebCore::GraphicsLayer::PlatformLayerID, const String& key);
 
     TransactionID nextLayerTreeTransactionID() const { return m_pendingLayerTreeTransactionID.next(); }
     TransactionID lastCommittedLayerTreeTransactionID() const { return m_transactionIDForPendingCACommit; }
 
-    void didRefreshDisplay();
+    virtual void didRefreshDisplay();
+    virtual void setDisplayLinkWantsFullSpeedUpdates(bool) { }
     
     bool hasDebugIndicator() const { return !!m_debugIndicatorLayerTreeHost; }
 
-    CALayer *layerWithIDForTesting(uint64_t) const;
+    CALayer *layerWithIDForTesting(WebCore::GraphicsLayer::PlatformLayerID) const;
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    void updateOverlayRegionsWithIDs(const HashMap<WebCore::GraphicsLayer::PlatformLayerID, CGRect> &overlayRegions) { m_remoteLayerTreeHost->updateOverlayRegionsWithIDs(overlayRegions); }
+    void updateOverlayRegionIDs(const HashSet<WebCore::GraphicsLayer::PlatformLayerID> &overlayRegionIDs) { m_remoteLayerTreeHost->updateOverlayRegionIDs(overlayRegionIDs); }
 #endif
+
+protected:
+    void updateDebugIndicatorPosition();
+
+    bool shouldCoalesceVisualEditorStateUpdates() const override { return true; }
 
 private:
     void sizeDidChange() final;
     void deviceScaleFactorDidChange() final;
     void windowKindDidChange() final;
     void didUpdateGeometry() final;
-    
+    void attachToProvisionalFrameProcess(WebProcessProxy&) final;
+    void startReceivingRemoteLayerTreeDrawingAreaProxyMessages(WebProcessProxy&);
+
     // For now, all callbacks are called before committing changes, because that's what the only client requires.
     // Once we have other callbacks, it may make sense to have a before-commit/after-commit option.
     void dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&&) final;
-
-#if PLATFORM(MAC)
-    void didChangeViewExposedRect() final;
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-    WKOneShotDisplayLinkHandler *displayLinkHandler();
-#endif
+    
+    virtual void scheduleDisplayRefreshCallbacks() { }
+    virtual void pauseDisplayRefreshCallbacks() { }
 
     float indicatorScale(WebCore::IntSize contentsSize) const;
     void updateDebugIndicator() final;
     void updateDebugIndicator(WebCore::IntSize contentsSize, bool rootLayerChanged, float scale, const WebCore::IntPoint& scrollPosition);
-    void updateDebugIndicatorPosition();
     void initializeDebugIndicator();
 
-    void waitForDidUpdateActivityState(ActivityStateChangeID) final;
+    void waitForDidUpdateActivityState(ActivityStateChangeID, WebProcessProxy&) final;
     void hideContentUntilPendingUpdate() final;
     void hideContentUntilAnyUpdate() final;
     bool hasVisibleContent() const final;
@@ -101,10 +105,13 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
     // Message handlers
-    void setPreferredFramesPerSecond(WebCore::FramesPerSecond);
+    virtual void setPreferredFramesPerSecond(WebCore::FramesPerSecond) { }
     void willCommitLayerTree(TransactionID);
     void commitLayerTree(const RemoteLayerTreeTransaction&, const RemoteScrollingCoordinatorTransaction&);
-    
+    virtual void didCommitLayerTree(const RemoteLayerTreeTransaction&, const RemoteScrollingCoordinatorTransaction&) { }
+
+    void asyncSetLayerContents(WebCore::GraphicsLayer::PlatformLayerID, ImageBufferBackendHandle&&);
+
     void sendUpdateGeometry();
 
     std::unique_ptr<RemoteLayerTreeHost> m_remoteLayerTreeHost;
@@ -125,8 +132,7 @@ private:
     ActivityStateChangeID m_activityStateChangeID { ActivityStateChangeAsynchronous };
 
     CallbackMap m_callbacks;
-
-    RetainPtr<WKOneShotDisplayLinkHandler> m_displayLinkHandler;
+    Vector<Ref<WebProcessProxy>> m_processesWithRegisteredRemoteLayerTreeDrawingAreaProxyMessageReceiver;
 };
 
 } // namespace WebKit

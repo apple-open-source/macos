@@ -61,8 +61,6 @@ public:
     using GraphicsContext::fillRect;
     void fillRect(const FloatRect&) final;
     void fillRect(const FloatRect&, const Color&) final;
-    void fillRect(const FloatRect&, Gradient&) final;
-    void fillRect(const FloatRect&, const Color&, CompositeOperator, BlendMode = BlendMode::Normal) final;
     void fillRoundedRectImpl(const FloatRoundedRect&, const Color&) final;
     void fillRectWithRoundedHole(const FloatRect&, const FloatRoundedRect&, const Color&) final;
     void fillPath(const Path&) final;
@@ -73,7 +71,7 @@ public:
     void drawGlyphs(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned numGlyphs, const FloatPoint&, FontSmoothingMode) final;
     void drawDecomposedGlyphs(const Font&, const DecomposedGlyphs&) final;
 
-    void drawNativeImage(NativeImage&, const FloatSize&, const FloatRect&, const FloatRect&, const ImagePaintingOptions&) final;
+    void drawNativeImageInternal(NativeImage&, const FloatSize&, const FloatRect&, const FloatRect&, const ImagePaintingOptions&) final;
     void drawPattern(NativeImage&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform&, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions&) final;
 
     void drawRect(const FloatRect&, float) final;
@@ -82,8 +80,8 @@ public:
     void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) final;
     void drawEllipse(const FloatRect&) final;
 
-    void drawFocusRing(const Path&, float, float, const Color&) final;
-    void drawFocusRing(const Vector<FloatRect>&, float, float, const Color&) final;
+    void drawFocusRing(const Path&, float outlineWidth, const Color&) final;
+    void drawFocusRing(const Vector<FloatRect>&, float outlineOffset, float outlineWidth, const Color&) final;
 
     void save() final;
     void restore() final;
@@ -107,8 +105,6 @@ public:
     void clipToImageBuffer(ImageBuffer&, const FloatRect&) final;
     
     RenderingMode renderingMode() const final;
-
-    FloatRect roundToDevicePixels(const FloatRect&, GraphicsContext::RoundingMode) final;
 
     cairo_t* cr() const;
     Vector<float>& layers();

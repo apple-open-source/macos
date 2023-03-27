@@ -26,10 +26,13 @@
 #include "config.h"
 #include "NetworkProcess.h"
 
+#include "NetworkCache.h"
 #include "NetworkProcessCreationParameters.h"
+#include "NetworkSessionCurl.h"
 #include <WebCore/CurlContext.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NotImplemented.h>
+#include <wtf/CallbackAggregator.h>
 
 namespace WebKit {
 
@@ -39,15 +42,18 @@ void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreati
 {
 }
 
-void NetworkProcess::allowSpecificHTTPSCertificateForHost(const CertificateInfo& certificateInfo, const String& host)
+void NetworkProcess::allowSpecificHTTPSCertificateForHost(PAL::SessionID, const CertificateInfo& certificateInfo, const String& host)
 {
     notImplemented();
 }
 
-void NetworkProcess::clearDiskCache(WallTime, CompletionHandler<void()>&& completionHandler)
+void NetworkProcess::clearDiskCache(WallTime modifiedSince, CompletionHandler<void()>&& completionHandler)
 {
-    notImplemented();
-    completionHandler();
+    auto aggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    forEachNetworkSession([modifiedSince, &aggregator](NetworkSession& session) {
+        if (auto* cache = session.cache())
+            cache->clear(modifiedSince, [aggregator] () { });
+    });
 }
 
 void NetworkProcess::platformTerminate()

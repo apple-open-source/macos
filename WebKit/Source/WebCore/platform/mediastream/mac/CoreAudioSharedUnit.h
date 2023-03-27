@@ -42,6 +42,10 @@ struct AudioTimeStamp;
 
 namespace WebCore {
 
+#if PLATFORM(IOS_FAMILY)
+class MediaCaptureStatusBarManager;
+#endif
+
 class CoreAudioSpeakerSamplesProducer;
 
 class CoreAudioSharedUnit final : public BaseAudioSharedUnit {
@@ -59,14 +63,15 @@ public:
         virtual OSStatus defaultInputDevice(uint32_t*) = 0;
         virtual OSStatus defaultOutputDevice(uint32_t*) = 0;
         virtual void delaySamples(Seconds) { }
-        virtual Seconds verifyCaptureInterval(bool isProducingSamples) const { return isProducingSamples ? 10_s : 2_s; }
+        virtual Seconds verifyCaptureInterval(bool isProducingSamples) const { return isProducingSamples ? 20_s : 2_s; }
     };
 
     WEBCORE_EXPORT static CoreAudioSharedUnit& unit();
     static BaseAudioSharedUnit& singleton()  { return unit(); }
     CoreAudioSharedUnit();
+    ~CoreAudioSharedUnit();
 
-    using CreationCallback = Function<Expected<UniqueRef<InternalUnit>, OSStatus>()>;
+    using CreationCallback = Function<Expected<UniqueRef<InternalUnit>, OSStatus>(bool enableEchoCancellation)>;
     void setInternalUnitCreationCallback(CreationCallback&& callback) { m_creationCallback = WTFMove(callback); }
     using GetSampleRateCallback = Function<int()>;
     void setInternalUnitGetSampleRateCallback(GetSampleRateCallback&& callback) { m_getSampleRateCallback = WTFMove(callback); }
@@ -76,11 +81,17 @@ public:
     bool isRunning() const { return m_ioUnitStarted; }
     void setSampleRateRange(CapabilityValueOrRange range) { m_sampleRateCapabilities = range; }
 
+#if PLATFORM(IOS_FAMILY)
+    void setIsInBackground(bool);
+    void setStatusBarWasTappedCallback(Function<void(CompletionHandler<void()>&&)>&& callback) { m_statusBarWasTappedCallback = WTFMove(callback); }
+#endif
+
+    bool isUsingVPIO() const { return m_shouldUseVPIO; }
+
 private:
     static size_t preferredIOBufferSize();
 
     CapabilityValueOrRange sampleRateCapacities() const final { return m_sampleRateCapabilities; }
-    const CAAudioStreamDescription& microphoneFormat() const { return m_microphoneProcFormat; }
 
     bool hasAudioUnit() const final { return !!m_ioUnit; }
     void captureDeviceChanged() final;
@@ -118,11 +129,11 @@ private:
     // Only read/modified from the IO thread.
     Vector<Ref<AudioSampleDataSource>> m_activeSources;
 
-    CAAudioStreamDescription m_microphoneProcFormat;
+    std::optional<CAAudioStreamDescription> m_microphoneProcFormat;
     RefPtr<AudioSampleBufferList> m_microphoneSampleBuffer;
-    uint64_t m_latestMicTimeStamp { 0 };
+    double m_latestMicTimeStamp { 0 };
 
-    CAAudioStreamDescription m_speakerProcFormat;
+    std::optional<CAAudioStreamDescription> m_speakerProcFormat;
 
     double m_DTSConversionRatio { 0 };
 
@@ -133,7 +144,7 @@ private:
     mutable std::optional<RealtimeMediaSourceSettings> m_currentSettings;
 
 #if !LOG_DISABLED
-    void checkTimestamps(const AudioTimeStamp&, uint64_t, double);
+    void checkTimestamps(const AudioTimeStamp&, double);
 
     String m_ioUnitName;
 #endif
@@ -150,6 +161,13 @@ private:
     bool m_hasNotifiedSpeakerSamplesProducer { false };
     mutable Lock m_speakerSamplesProducerLock;
     CoreAudioSpeakerSamplesProducer* m_speakerSamplesProducer WTF_GUARDED_BY_LOCK(m_speakerSamplesProducerLock) { nullptr };
+
+#if PLATFORM(IOS_FAMILY)
+    std::unique_ptr<MediaCaptureStatusBarManager> m_statusBarManager;
+    Function<void(CompletionHandler<void()>&&)> m_statusBarWasTappedCallback;
+#endif
+
+    bool m_shouldUseVPIO { true };
 };
 
 } // namespace WebCore

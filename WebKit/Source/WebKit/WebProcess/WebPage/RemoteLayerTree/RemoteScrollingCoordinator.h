@@ -73,6 +73,8 @@ private:
     bool isScrollSnapInProgress(WebCore::ScrollingNodeID) const final;
 
     void setScrollPinningBehavior(WebCore::ScrollPinningBehavior) override;
+    
+    void startMonitoringWheelEvents(bool clearLatchingState) final;
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
@@ -82,11 +84,17 @@ private:
     void animatedScrollDidEndForNode(WebCore::ScrollingNodeID);
     void currentSnapPointIndicesChangedForNode(WebCore::ScrollingNodeID, std::optional<unsigned> horizontal, std::optional<unsigned> vertical);
 
+    void receivedWheelEventWithPhases(WebCore::PlatformWheelEventPhase phase, WebCore::PlatformWheelEventPhase momentumPhase);
+    void startDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason);
+    void stopDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason);
+
     WebPage* m_webPage;
 
     HashSet<WebCore::ScrollingNodeID> m_nodesWithActiveRubberBanding;
     HashSet<WebCore::ScrollingNodeID> m_nodesWithActiveScrollSnap;
     HashSet<WebCore::ScrollingNodeID> m_nodesWithActiveUserScrolls;
+    
+    bool m_clearScrollLatchingInNextTransaction { false };
 };
 
 } // namespace WebKit

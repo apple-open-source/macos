@@ -33,6 +33,7 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "LazyLoadFrameObserver.h"
+#include "Quirks.h"
 #include "RenderIFrame.h"
 #include "ScriptController.h"
 #include "ScriptableDocumentParser.h"
@@ -166,9 +167,9 @@ void HTMLIFrameElement::setLoadingForBindings(const AtomString& value)
     setAttributeWithoutSynchronization(loadingAttr, value);
 }
 
-static bool isFrameLazyLoadable(const Document& document, const URL& completeURL, const AtomString& loadingAttributeValue)
+static bool isFrameLazyLoadable(const Document& document, const URL& url, const AtomString& loadingAttributeValue)
 {
-    if (!completeURL.protocolIsInHTTPFamily())
+    if (!url.isValid() || url.isAboutBlank())
         return false;
 
     if (!document.frame() || !document.frame()->script().canExecuteScripts(NotAboutToExecuteScript))
@@ -179,7 +180,7 @@ static bool isFrameLazyLoadable(const Document& document, const URL& completeURL
 
 bool HTMLIFrameElement::shouldLoadFrameLazily()
 {
-    if (!m_lazyLoadFrameObserver && document().settings().lazyIframeLoadingEnabled()) {
+    if (!m_lazyLoadFrameObserver && document().settings().lazyIframeLoadingEnabled() && !document().quirks().shouldDisableLazyIframeLoadingQuirk()) {
         URL completeURL = document().completeURL(frameURL());
         if (isFrameLazyLoadable(document(), completeURL, attributeWithoutSynchronization(HTMLNames::loadingAttr))) {
             auto currentReferrerPolicy = referrerPolicy();

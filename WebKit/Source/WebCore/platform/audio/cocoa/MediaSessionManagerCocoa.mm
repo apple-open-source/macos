@@ -42,6 +42,7 @@
 #import <pal/SessionID.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/Function.h>
+#import <wtf/MathExtras.h>
 
 #import "MediaRemoteSoftLink.h"
 
@@ -147,7 +148,7 @@ void MediaSessionManagerCocoa::updateSessionState()
             bool isPotentiallyAudible = session.isPlayingToWirelessPlaybackTarget()
                 || ((type == PlatformMediaSession::MediaType::VideoAudio || type == PlatformMediaSession::MediaType::Audio)
                     && session.canProduceAudio()
-                    && (session.hasPlayedSinceLastInterruption() || session.preparingToPlay()));
+                    && (session.isPlaying() || session.preparingToPlay() || session.hasPlayedAudiblySinceLastInterruption()));
             if (isPotentiallyAudible) {
                 hasAudibleAudioOrVideoMediaType = true;
                 isPlayingAudio |= session.isPlaying();
@@ -169,7 +170,7 @@ void MediaSessionManagerCocoa::updateSessionState()
     else if (captureCount || audioMediaStreamTrackCount) {
         // In case of audio capture or audio MediaStreamTrack playing, we want to grab 20 ms chunks to limit the latency so that it is not noticeable by users
         // while having a large enough buffer so that the audio rendering remains stable, hence a computation based on sample rate.
-        bufferSize = AudioSession::sharedSession().sampleRate() / 50;
+        bufferSize = WTF::roundUpToPowerOfTwo(AudioSession::sharedSession().sampleRate() / 50);
     } else if (m_supportedAudioHardwareBufferSizes && DeprecatedGlobalSettings::lowPowerVideoAudioBufferSizeEnabled())
         bufferSize = m_supportedAudioHardwareBufferSizes.nearest(kLowPowerVideoBufferSize);
 
@@ -179,7 +180,9 @@ void MediaSessionManagerCocoa::updateSessionState()
         return;
 
     auto category = AudioSession::CategoryType::None;
-    if (captureCount || (isPlayingAudio && AudioSession::sharedSession().category() == AudioSession::CategoryType::PlayAndRecord))
+    if (AudioSession::sharedSession().categoryOverride() != AudioSession::CategoryType::None)
+        category = AudioSession::sharedSession().categoryOverride();
+    else if (captureCount || (isPlayingAudio && AudioSession::sharedSession().category() == AudioSession::CategoryType::PlayAndRecord))
         category = AudioSession::CategoryType::PlayAndRecord;
     else if (hasAudibleAudioOrVideoMediaType)
         category = AudioSession::CategoryType::MediaPlayback;
@@ -222,7 +225,7 @@ void MediaSessionManagerCocoa::beginInterruption(PlatformMediaSession::Interrupt
 {
     if (type == PlatformMediaSession::InterruptionType::SystemInterruption) {
         forEachSession([] (auto& session) {
-            session.clearHasPlayedSinceLastInterruption();
+            session.clearHasPlayedAudiblySinceLastInterruption();
         });
     }
 

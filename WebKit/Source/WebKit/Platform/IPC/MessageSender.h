@@ -54,56 +54,57 @@ public:
     {
         return send(WTFMove(message), destinationID.toUInt64(), sendOptions);
     }
-    using SendSyncResult = Connection::SendSyncResult;
+
+    template<typename T> using SendSyncResult = Connection::SendSyncResult<T>;
 
     template<typename T>
-    SendSyncResult sendSync(T&& message, typename T::Reply&& reply, Timeout timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
+    SendSyncResult<T> sendSync(T&& message, Timeout timeout = Timeout::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
     {
         static_assert(T::isSync, "Message is not sync!");
 
-        return sendSync(WTFMove(message), WTFMove(reply), messageSenderDestinationID(), timeout, sendSyncOptions);
+        return sendSync(std::forward<T>(message), messageSenderDestinationID(), timeout, sendSyncOptions);
     }
 
     template<typename T>
-    SendSyncResult sendSync(T&& message, typename T::Reply&& reply, uint64_t destinationID, Timeout timeout = Timeout::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
+    SendSyncResult<T> sendSync(T&& message, uint64_t destinationID, Timeout timeout = Timeout::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
     {
         if (auto* connection = messageSenderConnection())
-            return connection->sendSync(WTFMove(message), WTFMove(reply), destinationID, timeout, sendSyncOptions);
+            return connection->sendSync(WTFMove(message), destinationID, timeout, sendSyncOptions);
 
         return { };
     }
 
     template<typename T, typename U>
-    SendSyncResult sendSync(T&& message, typename T::Reply&& reply, ObjectIdentifier<U> destinationID, Timeout timeout = Timeout::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
+    SendSyncResult<T> sendSync(T&& message, ObjectIdentifier<U> destinationID, Timeout timeout = Timeout::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
     {
-        return sendSync(WTFMove(message), WTFMove(reply), destinationID.toUInt64(), timeout, sendSyncOptions);
+        return sendSync<T>(std::forward<T>(message), destinationID.toUInt64(), timeout, sendSyncOptions);
     }
 
+    using AsyncReplyID = Connection::AsyncReplyID;
+
     template<typename T, typename C>
-    uint64_t sendWithAsyncReply(T&& message, C&& completionHandler, OptionSet<SendOption> sendOptions = { })
+    AsyncReplyID sendWithAsyncReply(T&& message, C&& completionHandler, OptionSet<SendOption> sendOptions = { })
     {
         return sendWithAsyncReply(WTFMove(message), WTFMove(completionHandler), messageSenderDestinationID(), sendOptions);
     }
 
     template<typename T, typename C>
-    uint64_t sendWithAsyncReply(T&& message, C&& completionHandler, uint64_t destinationID, OptionSet<SendOption> sendOptions = { })
+    AsyncReplyID sendWithAsyncReply(T&& message, C&& completionHandler, uint64_t destinationID, OptionSet<SendOption> sendOptions = { })
     {
         static_assert(!T::isSync, "Async message expected");
 
         auto encoder = makeUniqueRef<IPC::Encoder>(T::name(), destinationID);
-        uint64_t listenerID = IPC::nextAsyncReplyHandlerID();
-        encoder.get() << listenerID;
         encoder.get() << WTFMove(message).arguments();
-        sendMessage(WTFMove(encoder), sendOptions, {{ [completionHandler = WTFMove(completionHandler)] (IPC::Decoder* decoder) mutable {
-            if (decoder && decoder->isValid())
-                T::callReply(*decoder, WTFMove(completionHandler));
-            else
-                T::cancelReply(WTFMove(completionHandler));
-        }, listenerID }});
-        return listenerID;
+        auto asyncHandler = Connection::makeAsyncReplyHandler<T>(WTFMove(completionHandler));
+        auto replyID = asyncHandler.replyID;
+        if (sendMessageWithAsyncReply(WTFMove(encoder), WTFMove(asyncHandler), sendOptions))
+            return replyID;
+        return { };
     }
 
-    virtual bool sendMessage(UniqueRef<Encoder>&&, OptionSet<SendOption>, std::optional<std::pair<CompletionHandler<void(IPC::Decoder*)>, uint64_t>>&& = std::nullopt);
+    virtual bool sendMessage(UniqueRef<Encoder>&&, OptionSet<SendOption>);
+    using AsyncReplyHandler = Connection::AsyncReplyHandler;
+    virtual bool sendMessageWithAsyncReply(UniqueRef<Encoder>&&, AsyncReplyHandler, OptionSet<SendOption>);
 
 private:
     virtual Connection* messageSenderConnection() const = 0;

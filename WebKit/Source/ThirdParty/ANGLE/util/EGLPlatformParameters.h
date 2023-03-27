@@ -27,9 +27,19 @@ struct PlatformMethods;
 enum class GLESDriverType
 {
     AngleEGL,
+    AngleVulkanSecondariesEGL,
     SystemEGL,
     SystemWGL,
+    ZinkEGL,
 };
+
+inline bool IsANGLE(angle::GLESDriverType driverType)
+{
+    return driverType == angle::GLESDriverType::AngleEGL ||
+           driverType == angle::GLESDriverType::AngleVulkanSecondariesEGL;
+}
+
+GLESDriverType GetDriverTypeFromString(const char *driverName, GLESDriverType defaultDriverType);
 }  // namespace angle
 
 struct EGLPlatformParameters

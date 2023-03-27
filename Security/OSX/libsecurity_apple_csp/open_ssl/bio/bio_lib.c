@@ -158,7 +158,7 @@ int BIO_free(BIO *a)
 int BIO_read(BIO *b, void *out, int outl)
 	{
 	int i;
-	long (*cb)();
+	long (*cb) (BIO *, int, const char *, int, long, long);
 
 	if ((b == NULL) || (b->method == NULL) || (b->method->bread == NULL))
 		{
@@ -190,7 +190,7 @@ int BIO_read(BIO *b, void *out, int outl)
 int BIO_write(BIO *b, const void *in, int inl)
 	{
 	int i;
-	long (*cb)();
+	long (*cb) (BIO *, int, const char *, int, long, long);
 
 	if (b == NULL)
 		return(0);
@@ -231,7 +231,7 @@ int BIO_write(BIO *b, const void *in, int inl)
 int BIO_puts(BIO *b, const char *in)
 	{
 	int i;
-	long (*cb)();
+	long (*cb) (BIO *, int, const char *, int, long, long);
 
 	if ((b == NULL) || (b->method == NULL) || (b->method->bputs == NULL))
 		{
@@ -262,7 +262,7 @@ int BIO_puts(BIO *b, const char *in)
 int BIO_gets(BIO *b, char *in, int inl)
 	{
 	int i;
-	long (*cb)();
+	long (*cb) (BIO *, int, const char *, int, long, long);
 
 	if ((b == NULL) || (b->method == NULL) || (b->method->bgets == NULL))
 		{
@@ -311,7 +311,7 @@ char *BIO_ptr_ctrl(BIO *b, int cmd, long larg)
 long BIO_ctrl(BIO *b, int cmd, long larg, void *parg)
 	{
 	long ret;
-	long (*cb)();
+	long (*cb) (BIO *, int, const char *, int, long, long);
 
 	if (b == NULL) return(0);
 
@@ -335,10 +335,12 @@ long BIO_ctrl(BIO *b, int cmd, long larg, void *parg)
 	return(ret);
 	}
 
-long BIO_callback_ctrl(BIO *b, int cmd, void (*fp)())
+long BIO_callback_ctrl(BIO *b, int cmd,
+                       void (*fp) (struct bio_st *, int, const char *, int,
+                                   long, long))
 	{
 	long ret;
-	long (*cb)();
+	long (*cb) (BIO *, int, const char *, int, long, long);
 
 	if (b == NULL) return(0);
 

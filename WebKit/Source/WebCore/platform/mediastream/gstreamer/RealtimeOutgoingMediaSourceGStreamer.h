@@ -23,9 +23,13 @@
 
 #include "GRefPtrGStreamer.h"
 #include "MediaStreamTrackPrivate.h"
+#include "RTCRtpCapabilities.h"
+
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
+
+class MediaStreamTrack;
 
 class RealtimeOutgoingMediaSourceGStreamer : public ThreadSafeRefCounted<RealtimeOutgoingMediaSourceGStreamer>, public MediaStreamTrackPrivate::Observer {
 public:
@@ -36,7 +40,8 @@ public:
     void setSource(Ref<MediaStreamTrackPrivate>&&);
     MediaStreamTrackPrivate& source() const { return m_source->get(); }
 
-    const GRefPtr<GstCaps>& allowedCaps() const { return m_allowedCaps; }
+    const String& mediaStreamID() const { return m_mediaStreamId; }
+    const GRefPtr<GstCaps>& allowedCaps() const;
 
     void link();
     const GRefPtr<GstPad>& pad() const { return m_webrtcSinkPad; }
@@ -48,9 +53,12 @@ public:
     virtual bool setPayloadType(const GRefPtr<GstCaps>&) { return false; }
 
 protected:
-    explicit RealtimeOutgoingMediaSourceGStreamer();
+    explicit RealtimeOutgoingMediaSourceGStreamer(const String& mediaStreamId, MediaStreamTrack&);
 
     void initializeFromTrack();
+
+    String m_mediaStreamId;
+    String m_trackId;
 
     bool m_enabled { true };
     bool m_muted { false };
@@ -65,13 +73,17 @@ protected:
     GRefPtr<GstElement> m_payloader;
     GRefPtr<GstElement> m_postEncoderQueue;
     GRefPtr<GstElement> m_capsFilter;
-    GRefPtr<GstCaps> m_allowedCaps;
+    mutable GRefPtr<GstCaps> m_allowedCaps;
+    GRefPtr<GstWebRTCRTPTransceiver> m_transceiver;
     GRefPtr<GstWebRTCRTPSender> m_sender;
     GRefPtr<GstPad> m_webrtcSinkPad;
 
 private:
     void sourceMutedChanged();
     void sourceEnabledChanged();
+
+    virtual RTCRtpCapabilities rtpCapabilities() const = 0;
+    virtual void codecPreferencesChanged(const GRefPtr<GstCaps>&) { }
 
     // MediaStreamTrackPrivate::Observer API
     void trackMutedChanged(MediaStreamTrackPrivate&) override { sourceMutedChanged(); }

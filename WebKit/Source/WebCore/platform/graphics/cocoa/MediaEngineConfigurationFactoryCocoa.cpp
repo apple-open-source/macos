@@ -37,6 +37,10 @@
 #include <pal/avfoundation/OutputDevice.h>
 #include <wtf/Algorithms.h>
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/MediaCapabilitiesAdditions.h>
+#endif
+
 #include "VideoToolboxSoftLink.h"
 
 namespace WebCore {
@@ -89,8 +93,6 @@ static std::optional<MediaCapabilitiesInfo> computeMediaCapabilitiesInfo(const M
         info.supported = true;
         auto& codec = codecs[0];
         auto videoCodecType = videoCodecTypeFromRFC4281Type(codec);
-        if (!videoCodecType && !(codec.startsWith("dvh1"_s) || codec.startsWith("dvhe"_s)))
-            return std::nullopt;
 
         bool hdrSupported = videoConfiguration.colorGamut || videoConfiguration.hdrMetadataType || videoConfiguration.transferFunction;
         bool alphaChannel = videoConfiguration.alphaChannel && videoConfiguration.alphaChannel.value();
@@ -123,7 +125,10 @@ static std::optional<MediaCapabilitiesInfo> computeMediaCapabilitiesInfo(const M
                 return std::nullopt;
             info = *parsedInfo;
 #endif
-        } else {
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/MediaCapabilitiesAdditions.cpp>
+#endif
+        } else if (videoCodecType) {
             if (alphaChannel || hdrSupported)
                 return std::nullopt;
 
@@ -131,7 +136,8 @@ static std::optional<MediaCapabilitiesInfo> computeMediaCapabilitiesInfo(const M
                 info.powerEfficient = VTIsHardwareDecodeSupported(videoCodecType);
                 info.smooth = true;
             }
-        }
+        } else
+            return std::nullopt;
     }
 
     if (configuration.audio) {

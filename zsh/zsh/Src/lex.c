@@ -270,7 +270,7 @@ zshlex(void)
     do {
 	if (inrepeat_)
 	    ++inrepeat_;
-	if (inrepeat_ == 3 && isset(SHORTLOOPS))
+	if (inrepeat_ == 3 && (isset(SHORTLOOPS) || isset(SHORTREPEAT)))
 	    incmdpos = 1;
 	tok = gettok();
     } while (tok != ENDINPUT && exalias());
@@ -540,6 +540,17 @@ static int
 cmd_or_math_sub(void)
 {
     int c = hgetc(), ret;
+
+    if (c == '\\') {
+	c = hgetc();
+	if (c != '\n') {
+	    hungetc(c);
+	    hungetc('\\');
+	    lexstop = 0;
+	    return skipcomm() ? CMD_OR_MATH_ERR : CMD_OR_MATH_CMD;
+	}
+	c = hgetc();
+    }
 
     if (c == '(') {
 	int lexpos = (int)(lexbuf.ptr - tokstr);
@@ -998,6 +1009,16 @@ gettokstr(int c, int sub)
 	    break;
 	case LX2_STRING:
 	    e = hgetc();
+	    if (e == '\\') {
+		e = hgetc();
+		if (e != '\n') {
+		    hungetc(e);
+		    hungetc('\\');
+		    lexstop = 0;
+		    break;
+		}
+		e = hgetc();
+	    }
 	    if (e == '[') {
 		cmdpush(CS_MATHSUBST);
 		add(String);
@@ -1868,6 +1889,7 @@ exalias(void)
     hwend();
     if (interact && isset(SHINSTDIN) && !strin && incasepat <= 0 &&
 	tok == STRING && !nocorrect && !(inbufflags & INP_ALIAS) &&
+	!hist_is_in_word()  &&
 	(isset(CORRECTALL) || (isset(CORRECT) && incmdpos)))
 	spckword(&tokstr, 1, incmdpos, 1);
 

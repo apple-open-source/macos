@@ -88,6 +88,8 @@ public:
     bool eglCheckVersion(int major, int minor) const;
 
     struct EGLExtensions {
+        bool KHR_image_base { false };
+        bool EXT_image_dma_buf_import { false };
         bool EXT_image_dma_buf_import_modifiers { false };
     };
     const EGLExtensions& eglExtensions() const { return m_eglExtensions; }
@@ -103,7 +105,6 @@ public:
 #endif
 
 #if USE(ATSPI)
-    void setAccessibilityBusAddress(String&& address) { m_accessibilityBusAddress = WTFMove(address); }
     const String& accessibilityBusAddress() const;
 #endif
 
@@ -136,7 +137,7 @@ protected:
 #endif
 
 #if USE(ATSPI)
-    virtual String plartformAccessibilityBusAddress() const { return { }; }
+    virtual String platformAccessibilityBusAddress() const { return { }; }
 
     mutable std::optional<String> m_accessibilityBusAddress;
 #endif

@@ -90,6 +90,7 @@
 #import <algorithm>
 #import <dispatch/dispatch.h>
 #import <mach/mach.h>
+#import <malloc/malloc.h>
 #import <objc/runtime.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cf/CFUtilitiesSPI.h>
@@ -106,12 +107,14 @@
 #import <wtf/FileSystem.h>
 #import <wtf/Language.h>
 #import <wtf/LogInitialization.h>
+#import <wtf/MemoryPressureHandler.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/cocoa/NSURLExtras.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/spi/cocoa/OSLogSPI.h>
 
 #if ENABLE(REMOTE_INSPECTOR)
 #import <JavaScriptCore/RemoteInspector.h>
@@ -224,7 +227,8 @@ static Boolean isAXAuthenticatedCallback(audit_token_t auditToken)
     bool authenticated = false;
     // IPC must be done on the main runloop, so dispatch it to avoid crashes when the secondary AX thread handles this callback.
     callOnMainRunLoopAndWait([&authenticated, auditToken] {
-        WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebProcessProxy::IsAXAuthenticated(auditToken), Messages::WebProcessProxy::IsAXAuthenticated::Reply(authenticated), 0);
+        auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebProcessProxy::IsAXAuthenticated(auditToken), 0);
+        std::tie(authenticated) = sendResult.takeReplyOr(false);
     });
     return authenticated;
 }
@@ -240,20 +244,24 @@ static void softlinkDataDetectorsFrameworks()
 #endif // ENABLE(DATA_DETECTION)
 }
 
-static void initializeXPCConnectionToLogd()
+static void initializeLogd()
 {
+    os_trace_set_mode(OS_TRACE_MODE_INFO | OS_TRACE_MODE_DEBUG);
+
     // Log a long message to make sure the XPC connection to the log daemon for oversized messages is opened.
     // This is needed to block launchd after the WebContent process has launched, since access to launchd is
     // required when opening new XPC connections.
     char stringWithSpaces[1024];
     memset(stringWithSpaces, ' ', sizeof(stringWithSpaces));
     stringWithSpaces[sizeof(stringWithSpaces) - 1] = 0;
-    RELEASE_LOG(Process, "WebProcess::platformInitializeWebProcess %s", stringWithSpaces);
+    RELEASE_LOG(Process, "Initialized logd %s", stringWithSpaces);
 }
 
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
-    initializeXPCConnectionToLogd();
+    WEBPROCESS_RELEASE_LOG(Process, "WebProcess::platformInitializeWebProcess");
+
+    initializeLogd();
     
     applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
 
@@ -278,7 +286,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     SandboxExtension::consumePermanently(parameters.audioCaptureExtensionHandle);
 #endif
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
-    Inspector::RemoteInspector::setNeedMachSandboxExtension(!SandboxExtension::consumePermanently(parameters.enableRemoteWebInspectorExtensionHandle));
+    Inspector::RemoteInspector::setNeedMachSandboxExtension(!SandboxExtension::consumePermanently(parameters.enableRemoteWebInspectorExtensionHandles));
 #endif
 #endif
 
@@ -334,7 +342,10 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     // We don't need to talk to the Dock.
     [NSApplication _preventDockConnections];
 
-    [[NSUserDefaults standardUserDefaults] registerDefaults:@{ @"NSApplicationCrashOnExceptions" : @YES, @"ApplePersistence" : @NO }];
+    [[NSUserDefaults standardUserDefaults] registerDefaults:@{
+        @"NSApplicationCrashOnExceptions": @YES,
+        @"ApplePersistence": @(-1) // Number -1 means NO + no logging to log and console. See <rdar://7749927>.
+    }];
 
     // rdar://9118639 accessibilityFocusedUIElement in NSApplication defaults to use the keyWindow. Since there's
     // no window in WK2, NSApplication needs to use the focused page's focused element.
@@ -451,11 +462,11 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     if (canLoad_HIServices__AXSetAuditTokenIsAuthenticatedCallback())
         softLink_HIServices__AXSetAuditTokenIsAuthenticatedCallback(isAXAuthenticatedCallback);
 #endif
-    
-    if (!parameters.maximumIOSurfaceSize.isEmpty())
-        WebCore::IOSurface::setMaximumSize(parameters.maximumIOSurfaceSize);
 
+#if HAVE(IOSURFACE)
+    WebCore::IOSurface::setMaximumSize(parameters.maximumIOSurfaceSize);
     WebCore::IOSurface::setBytesPerRowAlignment(parameters.bytesPerRowIOSurfaceAlignment);
+#endif
 
     accessibilityPreferencesDidChange(parameters.accessibilityPreferences);
 #if PLATFORM(IOS_FAMILY)
@@ -623,6 +634,8 @@ RetainPtr<NSDictionary> WebProcess::additionalStateForDiagnosticReport() const
 
         return [NSDate dateWithTimeIntervalSince1970:page->loadCommitTime().secondsSinceEpoch().seconds()];
     });
+    auto websamStateDescription = MemoryPressureHandler::processStateDescription().createNSString();
+    [stateDictionary setObject:websamStateDescription.get() forKey:@"Websam State"];
 
     // Adding an empty array to the process state may provide an
     // indication of the existance of private sessions, which we'd like
@@ -747,10 +760,10 @@ static NSURL *origin(WebPage& page)
     URL mainFrameURL = mainFrame.url();
     Ref<SecurityOrigin> mainFrameOrigin = SecurityOrigin::create(mainFrameURL);
     String mainFrameOriginString;
-    if (!mainFrameOrigin->isUnique())
+    if (!mainFrameOrigin->isOpaque())
         mainFrameOriginString = mainFrameOrigin->toRawString();
     else
-        mainFrameOriginString = makeString(mainFrameURL.protocol(), ':'); // toRawString() is not supposed to work with unique origins, and would just return "://".
+        mainFrameOriginString = makeString(mainFrameURL.protocol(), ':'); // toRawString() is not supposed to work with opaque origins, and would just return "://".
 
     // +[NSURL URLWithString:] returns nil when its argument is malformed. It's unclear when we would have a malformed URL here,
     // but it happens in practice according to <rdar://problem/14173389>. Leaving an assertion in to catch a reproducible case.
@@ -962,6 +975,22 @@ void WebProcess::destroyRenderingResources()
     WEBPROCESS_RELEASE_LOG(ProcessSuspension, "destroyRenderingResources: took %.2fms", (endTime - startTime).milliseconds());
 }
 
+void WebProcess::releaseSystemMallocMemory()
+{
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+#if !RELEASE_LOG_DISABLED
+        MonotonicTime startTime = MonotonicTime::now();
+#endif
+        malloc_zone_pressure_relief(NULL, 0);
+#if !RELEASE_LOG_DISABLED
+        MonotonicTime endTime = MonotonicTime::now();
+#endif
+        WEBPROCESS_RELEASE_LOG(ProcessSuspension, "releaseSystemMallocMemory: took %.2fms", (endTime - startTime).milliseconds());
+    });
+#endif
+}
+
 #if PLATFORM(IOS_FAMILY)
 
 void WebProcess::userInterfaceIdiomDidChange(bool isSmallScreen)
@@ -1065,6 +1094,11 @@ void WebProcess::accessibilityPreferencesDidChange(const AccessibilityPreference
 #endif
     setOverrideEnhanceTextLegibility(preferences.enhanceTextLegibilityOverall);
     FontCache::invalidateAllFontCaches();
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+    m_imageAnimationEnabled = preferences.imageAnimationEnabled;
+    for (auto& page : m_pageMap.values())
+        page->updateImageAnimationEnabled();
+#endif
 }
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
@@ -1183,20 +1217,24 @@ void WebProcess::notifyPreferencesChanged(const String& domain, const String& ke
 }
 #endif
 
-void WebProcess::grantAccessToAssetServices(WebKit::SandboxExtension::Handle&& mobileAssetV2Handle)
+void WebProcess::grantAccessToAssetServices(Vector<WebKit::SandboxExtension::Handle>&& assetServicesHandles)
 {
-    if (m_assetServiceV2Extension)
+    if (m_assetServicesExtensions.size())
         return;
-    m_assetServiceV2Extension = SandboxExtension::create(WTFMove(mobileAssetV2Handle));
-    m_assetServiceV2Extension->consume();
+    for (auto& handle : assetServicesHandles) {
+        auto extension = SandboxExtension::create(WTFMove(handle));
+        if (!extension)
+            continue;
+        extension->consume();
+        m_assetServicesExtensions.append(extension);
+    }
 }
 
 void WebProcess::revokeAccessToAssetServices()
 {
-    if (!m_assetServiceV2Extension)
-        return;
-    m_assetServiceV2Extension->revoke();
-    m_assetServiceV2Extension = nullptr;
+    for (auto extension : m_assetServicesExtensions)
+        extension->revoke();
+    m_assetServicesExtensions.clear();
 }
 
 void WebProcess::disableURLSchemeCheckInDataDetectors() const
@@ -1207,15 +1245,15 @@ void WebProcess::disableURLSchemeCheckInDataDetectors() const
 #endif
 }
 
-void WebProcess::switchFromStaticFontRegistryToUserFontRegistry(WebKit::SandboxExtension::Handle&& fontMachExtensionHandle)
+void WebProcess::switchFromStaticFontRegistryToUserFontRegistry(Vector<WebKit::SandboxExtension::Handle>&& fontMachExtensionHandles)
 {
-    SandboxExtension::consumePermanently(fontMachExtensionHandle);
+    SandboxExtension::consumePermanently(fontMachExtensionHandles);
 #if HAVE(STATIC_FONT_REGISTRY)
     CTFontManagerEnableAllUserFonts(true);
 #endif
 }
 
-void WebProcess::setScreenProperties(const ScreenProperties& properties)
+void WebProcess::setScreenProperties(const WebCore::ScreenProperties& properties)
 {
     WebCore::setScreenProperties(properties);
     for (auto& page : m_pageMap.values())
@@ -1298,9 +1336,17 @@ void WebProcess::systemDidWake()
 #endif
 
 #if PLATFORM(MAC)
-void WebProcess::openDirectoryCacheInvalidated(SandboxExtension::Handle&& handle)
+void WebProcess::openDirectoryCacheInvalidated(SandboxExtension::Handle&& handle, SandboxExtension::Handle&& machBootstrapHandle)
 {
+    auto bootstrapExtension = SandboxExtension::create(WTFMove(machBootstrapHandle));
+
+    if (bootstrapExtension)
+        bootstrapExtension->consume();
+    
     AuxiliaryProcess::openDirectoryCacheInvalidated(WTFMove(handle));
+    
+    if (bootstrapExtension)
+        bootstrapExtension->revoke();
 }
 #endif
 

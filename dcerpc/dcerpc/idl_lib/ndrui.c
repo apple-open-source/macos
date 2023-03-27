@@ -199,6 +199,9 @@ void rpc_ss_ndr_alloc_storage
             DCETHREAD_RAISE(rpc_x_no_memory);
     }
 
+    if (tmp) {
+        memset(tmp, 0, allocation_size);
+    }
 }
 
 /******************************************************************************/
@@ -2391,11 +2394,7 @@ void rpc_ss_ndr_unmar_interp
 
     if (IDL_msp->IDL_pickling_handle == NULL)
     {
-        if (IDL_msp->IDL_elt_p->buff_dealloc
-                    && IDL_msp->IDL_elt_p->data_len != 0)
-            (*(IDL_msp->IDL_elt_p->buff_dealloc))
-                                                (IDL_msp->IDL_elt_p->buff_addr);
-        IDL_msp->IDL_elt_p = NULL;
+        idl_es_dealloc_elt_buffer(IDL_msp);
     }
     else
     {

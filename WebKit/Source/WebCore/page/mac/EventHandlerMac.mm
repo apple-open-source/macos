@@ -401,6 +401,7 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
         if (subframe.page()->dragController().didInitiateDrag())
             return false;
 #endif
+        FALLTHROUGH;
     case NSEventTypeMouseMoved:
         // Since we're passing in currentNSEvent() here, we can call
         // handleMouseMoveEvent() directly, since the save/restore of
@@ -482,10 +483,13 @@ bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& wheelEvent, 
     NSView* nodeView = widget.platformWidget();
     if (!nodeView) {
         // WebKit2 code path.
-        if (!is<FrameView>(widget))
+        auto* frameView = dynamicDowncast<FrameView>(widget);
+        if (!frameView)
             return false;
-
-        return downcast<FrameView>(widget).frame().eventHandler().handleWheelEvent(wheelEvent, processingSteps);
+        auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
+        if (!localFrame)
+            return false;
+        return localFrame->eventHandler().handleWheelEvent(wheelEvent, processingSteps);
     }
 
     if ([currentNSEvent() type] != NSEventTypeScrollWheel || m_sendingEventToSubview)

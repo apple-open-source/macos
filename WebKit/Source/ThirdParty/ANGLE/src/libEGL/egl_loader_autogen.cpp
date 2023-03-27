@@ -10,6 +10,7 @@
 
 #include "egl_loader_autogen.h"
 
+extern "C" {
 PFNEGLCHOOSECONFIGPROC l_EGL_ChooseConfig;
 PFNEGLCOPYBUFFERSPROC l_EGL_CopyBuffers;
 PFNEGLCREATECONTEXTPROC l_EGL_CreateContext;
@@ -68,6 +69,7 @@ PFNEGLCREATEDEVICEANGLEPROC l_EGL_CreateDeviceANGLE;
 PFNEGLRELEASEDEVICEANGLEPROC l_EGL_ReleaseDeviceANGLE;
 PFNEGLQUERYDISPLAYATTRIBANGLEPROC l_EGL_QueryDisplayAttribANGLE;
 PFNEGLQUERYSTRINGIANGLEPROC l_EGL_QueryStringiANGLE;
+PFNEGLCOPYMETALSHAREDEVENTANGLEPROC l_EGL_CopyMetalSharedEventANGLE;
 PFNEGLFORCEGPUSWITCHANGLEPROC l_EGL_ForceGPUSwitchANGLE;
 PFNEGLHANDLEGPUSWITCHANGLEPROC l_EGL_HandleGPUSwitchANGLE;
 PFNEGLREACQUIREHIGHPOWERGPUANGLEPROC l_EGL_ReacquireHighPowerGPUANGLE;
@@ -83,6 +85,7 @@ PFNEGLSTREAMPOSTD3DTEXTUREANGLEPROC l_EGL_StreamPostD3DTextureANGLE;
 PFNEGLSWAPBUFFERSWITHFRAMETOKENANGLEPROC l_EGL_SwapBuffersWithFrameTokenANGLE;
 PFNEGLGETMSCRATEANGLEPROC l_EGL_GetMscRateANGLE;
 PFNEGLEXPORTVKIMAGEANGLEPROC l_EGL_ExportVkImageANGLE;
+PFNEGLWAITUNTILWORKSCHEDULEDANGLEPROC l_EGL_WaitUntilWorkScheduledANGLE;
 PFNEGLGETSYNCVALUESCHROMIUMPROC l_EGL_GetSyncValuesCHROMIUM;
 PFNEGLQUERYDEVICEATTRIBEXTPROC l_EGL_QueryDeviceAttribEXT;
 PFNEGLQUERYDEVICESTRINGEXTPROC l_EGL_QueryDeviceStringEXT;
@@ -119,9 +122,7 @@ PFNEGLWAITSYNCKHRPROC l_EGL_WaitSyncKHR;
 PFNEGLPOSTSUBBUFFERNVPROC l_EGL_PostSubBufferNV;
 PFNEGLSTREAMCONSUMERGLTEXTUREEXTERNALATTRIBSNVPROC l_EGL_StreamConsumerGLTextureExternalAttribsNV;
 
-namespace angle
-{
-void LoadEGL_EGL(LoadProc loadProc)
+void LoadLibEGL_EGL(LoadProc loadProc)
 {
     l_EGL_ChooseConfig  = reinterpret_cast<PFNEGLCHOOSECONFIGPROC>(loadProc("EGL_ChooseConfig"));
     l_EGL_CopyBuffers   = reinterpret_cast<PFNEGLCOPYBUFFERSPROC>(loadProc("EGL_CopyBuffers"));
@@ -214,6 +215,8 @@ void LoadEGL_EGL(LoadProc loadProc)
         loadProc("EGL_QueryDisplayAttribANGLE"));
     l_EGL_QueryStringiANGLE =
         reinterpret_cast<PFNEGLQUERYSTRINGIANGLEPROC>(loadProc("EGL_QueryStringiANGLE"));
+    l_EGL_CopyMetalSharedEventANGLE = reinterpret_cast<PFNEGLCOPYMETALSHAREDEVENTANGLEPROC>(
+        loadProc("EGL_CopyMetalSharedEventANGLE"));
     l_EGL_ForceGPUSwitchANGLE =
         reinterpret_cast<PFNEGLFORCEGPUSWITCHANGLEPROC>(loadProc("EGL_ForceGPUSwitchANGLE"));
     l_EGL_HandleGPUSwitchANGLE =
@@ -246,6 +249,8 @@ void LoadEGL_EGL(LoadProc loadProc)
         reinterpret_cast<PFNEGLGETMSCRATEANGLEPROC>(loadProc("EGL_GetMscRateANGLE"));
     l_EGL_ExportVkImageANGLE =
         reinterpret_cast<PFNEGLEXPORTVKIMAGEANGLEPROC>(loadProc("EGL_ExportVkImageANGLE"));
+    l_EGL_WaitUntilWorkScheduledANGLE = reinterpret_cast<PFNEGLWAITUNTILWORKSCHEDULEDANGLEPROC>(
+        loadProc("EGL_WaitUntilWorkScheduledANGLE"));
     l_EGL_GetSyncValuesCHROMIUM =
         reinterpret_cast<PFNEGLGETSYNCVALUESCHROMIUMPROC>(loadProc("EGL_GetSyncValuesCHROMIUM"));
     l_EGL_QueryDeviceAttribEXT =
@@ -317,4 +322,4 @@ void LoadEGL_EGL(LoadProc loadProc)
         reinterpret_cast<PFNEGLSTREAMCONSUMERGLTEXTUREEXTERNALATTRIBSNVPROC>(
             loadProc("EGL_StreamConsumerGLTextureExternalAttribsNV"));
 }
-}  // namespace angle
+}  // extern "C"

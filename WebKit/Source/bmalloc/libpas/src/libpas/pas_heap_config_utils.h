@@ -26,6 +26,8 @@
 #ifndef PAS_HEAP_CONFIG_UTILS_H
 #define PAS_HEAP_CONFIG_UTILS_H
 
+PAS_IGNORE_WARNINGS_BEGIN("cast-align")
+
 #include "pas_basic_heap_config_root_data.h"
 #include "pas_basic_heap_page_caches.h"
 #include "pas_basic_heap_runtime_config.h"
@@ -421,25 +423,25 @@ typedef struct {
     \
     PAS_BASIC_SEGREGATED_PAGE_CONFIG_DECLARATIONS( \
         name ## _small_segregated, (upcase_name ## _HEAP_CONFIG).small_segregated_config, \
-        .header_placement_mode = pas_page_header_at_head_of_page, \
-        .header_table = NULL); \
+        pas_page_header_at_head_of_page, \
+        NULL); \
     PAS_BASIC_SEGREGATED_PAGE_CONFIG_DECLARATIONS( \
         name ## _medium_segregated, (upcase_name ## _HEAP_CONFIG).medium_segregated_config, \
-        .header_placement_mode = pas_page_header_in_table, \
-        .header_table = &name ## _medium_page_header_table); \
+        pas_page_header_in_table, \
+        &name ## _medium_page_header_table); \
     \
     PAS_BASIC_BITFIT_PAGE_CONFIG_DECLARATIONS( \
         name ## _small_bitfit, (upcase_name ## _HEAP_CONFIG).small_bitfit_config, \
-        .header_placement_mode = pas_page_header_at_head_of_page, \
-        .header_table = NULL); \
+        pas_page_header_at_head_of_page, \
+        NULL); \
     PAS_BASIC_BITFIT_PAGE_CONFIG_DECLARATIONS( \
         name ## _medium_bitfit, (upcase_name ## _HEAP_CONFIG).medium_bitfit_config, \
-        .header_placement_mode = pas_page_header_in_table, \
-        .header_table = &name ## _medium_page_header_table); \
+        pas_page_header_in_table, \
+        &name ## _medium_page_header_table); \
     PAS_BASIC_BITFIT_PAGE_CONFIG_DECLARATIONS( \
         name ## _marge_bitfit, (upcase_name ## _HEAP_CONFIG).marge_bitfit_config, \
-        .header_placement_mode = pas_page_header_in_table, \
-        .header_table = &name ## _marge_page_header_table); \
+        pas_page_header_in_table, \
+        &name ## _marge_page_header_table); \
     \
     struct pas_dummy
 
@@ -448,10 +450,12 @@ typedef struct {
         size_t size, \
         pas_alignment alignment, \
         pas_large_heap* large_heap, \
-        pas_heap_config* config); \
+        const pas_heap_config* config); \
     PAS_HEAP_CONFIG_SPECIALIZATION_DECLARATIONS(name ## _heap_config); \
     PAS_BASIC_HEAP_CONFIG_SEGREGATED_HEAP_DECLARATIONS(name, upcase_name)
 
 PAS_END_EXTERN_C;
+
+PAS_IGNORE_WARNINGS_END
 
 #endif /* PAS_HEAP_CONFIG_UTILS_H */

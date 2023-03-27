@@ -1,7 +1,8 @@
 /*
  * (C) 1999 Lars Knoll (knoll@kde.org)
  * (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Google Inc. All rights reserved.
  * Copyright (C) 2006 Andrew Wellington (proton@wiretapped.net)
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
@@ -48,6 +49,7 @@
 #include "RenderCombineText.h"
 #include "RenderInline.h"
 #include "RenderLayer.h"
+#include "RenderRubyText.h"
 #include "RenderTextInlines.h"
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
@@ -84,7 +86,9 @@ struct SameSizeAsRenderText : public RenderObject {
 #if ENABLE(TEXT_AUTOSIZING)
     float candidateTextSize;
 #endif
-    float widths[4];
+    float widths[2];
+    std::optional<float> minWidth;
+    std::optional<float> maxWidth;
     String text;
 };
 
@@ -344,9 +348,9 @@ void RenderText::collectSelectionGeometries(Vector<SelectionGeometry>& rects, un
 
         if (run->lineBox()->isFirstAfterPageBreak()) {
             if (run->isHorizontal())
-                rect.shiftYEdgeTo(run->lineBox()->top());
+                rect.shiftYEdgeTo(run->lineBox()->logicalTop());
             else
-                rect.shiftXEdgeTo(run->lineBox()->top());
+                rect.shiftXEdgeTo(run->lineBox()->logicalTop());
         }
 
         RenderBlock* containingBlock = this->containingBlock();
@@ -399,32 +403,25 @@ static FloatRect boundariesForTextRun(const InlineIterator::TextBox& run)
     return run.visualRectIgnoringBlockDirection();
 }
 
-static IntRect ellipsisRectForTextRun(const InlineIterator::TextBox& run, unsigned start, unsigned end)
+static std::optional<IntRect> ellipsisRectForTextRun(const InlineIterator::TextBox& run, unsigned start, unsigned end)
 {
-    // FIXME: No ellipsis support in modern path yet.
-    if (!run.legacyInlineBox())
+    auto lineBox = run.lineBox();
+    if (!lineBox->hasEllipsis())
         return { };
 
-    auto& box = *run.legacyInlineBox();
-
-    auto truncation = box.truncation();
-    if (!truncation)
+    auto selectableRange = run.selectableRange();
+    if (!selectableRange.truncation)
         return { };
 
-    auto ellipsis = box.root().ellipsisBox();
-    if (!ellipsis)
-        return { };
-
-    int ellipsisStartPosition = std::max<int>(start - box.start(), 0);
-    int ellipsisEndPosition = std::min<int>(end - box.start(), box.len());
-
+    auto ellipsisStartPosition = std::max<unsigned>(start - selectableRange.start, 0);
+    auto ellipsisEndPosition = std::min<unsigned>(end - selectableRange.start, selectableRange.length);
     // The ellipsis should be considered to be selected if the end of
     // the selection is past the beginning of the truncation and the
     // beginning of the selection is before or at the beginning of the truncation.
-    if (ellipsisEndPosition < *truncation && ellipsisStartPosition > *truncation)
+    if (ellipsisEndPosition < *selectableRange.truncation && ellipsisStartPosition > *selectableRange.truncation)
         return { };
 
-    return ellipsis->selectionRect();
+    return IntRect { lineBox->ellipsisVisualRect(InlineIterator::LineBox::AdjustedForSelection::Yes) };
 }
 
 enum class ClippingOption { NoClipping, ClipToEllipsis };
@@ -438,12 +435,11 @@ static Vector<FloatQuad> collectAbsoluteQuads(const RenderText& textRenderer, bo
 
         // Shorten the width of this text box if it ends in an ellipsis.
         if (clipping == ClippingOption::ClipToEllipsis) {
-            auto ellipsisRect = ellipsisRectForTextRun(run, 0, textRenderer.text().length());
-            if (!ellipsisRect.isEmpty()) {
+            if (auto ellipsisRect = ellipsisRectForTextRun(run, 0, textRenderer.text().length())) {
                 if (textRenderer.style().isHorizontalWritingMode())
-                    boundaries.setWidth(ellipsisRect.maxX() - boundaries.x());
+                    boundaries.setWidth(ellipsisRect->maxX() - boundaries.x());
                 else
-                    boundaries.setHeight(ellipsisRect.maxY() - boundaries.y());
+                    boundaries.setHeight(ellipsisRect->maxY() - boundaries.y());
             }
         }
         
@@ -493,6 +489,14 @@ Vector<FloatQuad> RenderText::absoluteQuadsForRange(unsigned start, unsigned end
     start = std::min(start, static_cast<unsigned>(INT_MAX));
     end = std::min(end, static_cast<unsigned>(INT_MAX));
 
+    const unsigned caretMinOffset = static_cast<unsigned>(this->caretMinOffset());
+    const unsigned caretMaxOffset = static_cast<unsigned>(this->caretMaxOffset());
+
+    // Narrows |start| and |end| into |caretMinOffset| and |caretMaxOffset| to ignore unrendered leading 
+    // and trailing whitespaces.
+    start = std::min(std::max(caretMinOffset, start), caretMaxOffset);
+    end = std::min(std::max(caretMinOffset, end), caretMaxOffset);
+
     Vector<FloatQuad> quads;
     for (auto& run : InlineIterator::textBoxesFor(*this)) {
         if (ignoreEmptyTextSelections && !run.selectableRange().intersects(start, end))
@@ -534,7 +538,7 @@ static bool lineDirectionPointFitsInBox(int pointLineDirection, const InlineIter
     // the x coordinate is equal to the left edge of this box
     // the affinity must be downstream so the position doesn't jump back to the previous line
     // except when box is the first box in the line
-    if (pointLineDirection <= textRun->logicalLeft()) {
+    if (pointLineDirection <= textRun->logicalLeftIgnoringInlineDirection()) {
         shouldAffinityBeDownstream = !textRun->previousOnLine() ? UpstreamIfPositionIsNotAtStart : AlwaysDownstream;
         return true;
     }
@@ -542,7 +546,7 @@ static bool lineDirectionPointFitsInBox(int pointLineDirection, const InlineIter
 #if !PLATFORM(IOS_FAMILY)
     // and the x coordinate is to the left of the right edge of this box
     // check to see if position goes in this box
-    if (pointLineDirection < textRun->logicalRight()) {
+    if (pointLineDirection < textRun->logicalRightIgnoringInlineDirection()) {
         shouldAffinityBeDownstream = UpstreamIfPositionIsNotAtStart;
         return true;
     }
@@ -550,7 +554,7 @@ static bool lineDirectionPointFitsInBox(int pointLineDirection, const InlineIter
 
     // box is first on line
     // and the x coordinate is to the left of the first text box left edge
-    if (!textRun->previousOnLineIgnoringLineBreak() && pointLineDirection < textRun->logicalLeft())
+    if (!textRun->previousOnLineIgnoringLineBreak() && pointLineDirection < textRun->logicalLeftIgnoringInlineDirection())
         return true;
 
     if (!textRun->nextOnLineIgnoringLineBreak()) {
@@ -682,7 +686,7 @@ VisiblePosition RenderText::positionForPoint(const LayoutPoint& point, const Ren
             if (pointBlockDirection < bottom || (blocksAreFlipped && pointBlockDirection == bottom)) {
                 ShouldAffinityBeDownstream shouldAffinityBeDownstream;
 #if PLATFORM(IOS_FAMILY)
-                if (pointLineDirection != run->logicalLeft() && point.x() < run->visualRectIgnoringBlockDirection().x() + run->logicalWidth()) {
+                if (pointLineDirection != run->logicalLeftIgnoringInlineDirection() && point.x() < run->visualRectIgnoringBlockDirection().x() + run->logicalWidth()) {
                     int half = run->visualRectIgnoringBlockDirection().x() + run->logicalWidth() / 2;
                     auto affinity = point.x() < half ? Affinity::Downstream : Affinity::Upstream;
                     return createVisiblePosition(run->offsetForPosition(pointLineDirection) + run->start(), affinity);
@@ -823,8 +827,8 @@ RenderText::Widths RenderText::trimmedPreferredWidths(float leadWidth, bool& str
     if (!length || (stripFrontSpaces && text().isAllSpecialCharacters<isHTMLSpace>()))
         return widths;
 
-    widths.min = m_minWidth;
-    widths.max = m_maxWidth;
+    widths.min = m_minWidth.value_or(-1);
+    widths.max = m_maxWidth.value_or(-1);
 
     widths.beginMin = m_beginMinWidth;
     widths.endMin = m_endMinWidth;
@@ -889,18 +893,18 @@ static inline bool isSpaceAccordingToStyle(UChar c, const RenderStyle& style)
 
 float RenderText::minLogicalWidth() const
 {
-    if (preferredLogicalWidthsDirty())
+    if (preferredLogicalWidthsDirty() || !m_minWidth)
         const_cast<RenderText*>(this)->computePreferredLogicalWidths(0);
-        
-    return m_minWidth;
+
+    return *m_minWidth;
 }
 
 float RenderText::maxLogicalWidth() const
 {
-    if (preferredLogicalWidthsDirty())
+    if (preferredLogicalWidthsDirty() || !m_maxWidth)
         const_cast<RenderText*>(this)->computePreferredLogicalWidths(0);
-        
-    return m_maxWidth;
+
+    return *m_maxWidth;
 }
 
 LineBreakIteratorMode mapLineBreakToIteratorMode(LineBreak lineBreak)
@@ -1163,7 +1167,7 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
             }
             m_endMinWidth = currMinWidth;
 
-            m_minWidth = std::max(currMinWidth, m_minWidth);
+            m_minWidth = std::max(currMinWidth, *m_minWidth);
 
             i += wordLen - 1;
         } else {
@@ -1180,7 +1184,7 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
                         m_beginMinWidth = currMaxWidth;
                 }
 
-                if (currMaxWidth > m_maxWidth)
+                if (currMaxWidth > *m_maxWidth)
                     m_maxWidth = currMaxWidth;
                 currMaxWidth = 0;
             } else {
@@ -1202,14 +1206,14 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
     if ((needsWordSpacing && length > 1) || (ignoringSpaces && !firstWord))
         currMaxWidth += wordSpacing;
 
-    m_maxWidth = std::max(currMaxWidth, m_maxWidth);
+    m_maxWidth = std::max(currMaxWidth, *m_maxWidth);
 
     if (!style.autoWrap())
         m_minWidth = m_maxWidth;
 
     if (style.whiteSpace() == WhiteSpace::Pre) {
         if (firstLine)
-            m_beginMinWidth = m_maxWidth;
+            m_beginMinWidth = *m_maxWidth;
         m_endMinWidth = currMaxWidth;
     }
 
@@ -1482,10 +1486,8 @@ void RenderText::setText(const String& text, bool force)
     setNeedsLayoutAndPrefWidthsRecalc();
     m_knownToHaveNoOverflowAndNoFallbackFonts = false;
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
     if (auto* container = LayoutIntegration::LineLayout::blockContainer(*this))
         container->invalidateLineLayoutPath();
-#endif
 
     if (AXObjectCache* cache = document().existingAXObjectCache())
         cache->deferTextChangedIfNeeded(textNode());
@@ -1530,11 +1532,7 @@ void RenderText::positionLineBox(LegacyInlineTextBox& textBox)
 
 bool RenderText::usesLegacyLineLayoutPath() const
 {
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
     return !LayoutIntegration::LineLayout::containing(*this);
-#else
-    return true;
-#endif
 }
 
 float RenderText::width(unsigned from, unsigned len, float xPos, bool firstLine, HashSet<const Font*>* fallbackFonts, GlyphOverflow* glyphOverflow) const
@@ -1572,7 +1570,7 @@ float RenderText::width(unsigned from, unsigned length, const FontCascade& fontC
                     if (fallbackFonts->isEmpty() && !glyphOverflow->left && !glyphOverflow->right && !glyphOverflow->top && !glyphOverflow->bottom)
                         m_knownToHaveNoOverflowAndNoFallbackFonts = true;
                 }
-                width = m_maxWidth;
+                width = *m_maxWidth;
             } else
                 width = maxLogicalWidth();
         } else
@@ -1652,7 +1650,7 @@ LayoutRect RenderText::collectSelectionGeometriesForLineBoxes(const RenderLayerM
     for (auto& run : InlineIterator::textBoxesFor(*this)) {
         LayoutRect rect;
         rect.unite(run.selectionRect(startOffset, endOffset));
-        rect.unite(ellipsisRectForTextRun(run, startOffset, endOffset));
+        rect.unite(ellipsisRectForTextRun(run, startOffset, endOffset).value_or(IntRect { }));
         if (rect.isEmpty())
             continue;
 
@@ -1833,6 +1831,47 @@ void RenderText::setInlineWrapperForDisplayContents(RenderInline* wrapper)
     }
     inlineWrapperForDisplayContentsMap().add(this, wrapper);
     m_hasInlineWrapperForDisplayContents = true;
+}
+
+std::optional<bool> RenderText::emphasisMarkExistsAndIsAbove(const RenderText& renderer, const RenderStyle& style)
+{
+    // This function returns true if there are text emphasis marks and they are suppressed by ruby text.
+    if (style.textEmphasisMark() == TextEmphasisMark::None)
+        return std::nullopt;
+
+    const OptionSet<TextEmphasisPosition> horizontalMask { TextEmphasisPosition::Left, TextEmphasisPosition::Right };
+
+    auto emphasisPosition = style.textEmphasisPosition();
+    auto emphasisPositionHorizontalValue = emphasisPosition & horizontalMask;
+    ASSERT(!((emphasisPosition & TextEmphasisPosition::Over) && (emphasisPosition & TextEmphasisPosition::Under)));
+    ASSERT(emphasisPositionHorizontalValue != horizontalMask);
+
+    bool isAbove = false;
+    if (!emphasisPositionHorizontalValue)
+        isAbove = emphasisPosition.contains(TextEmphasisPosition::Over);
+    else if (style.isHorizontalWritingMode())
+        isAbove = emphasisPosition.contains(TextEmphasisPosition::Over);
+    else
+        isAbove = emphasisPositionHorizontalValue == TextEmphasisPosition::Right;
+
+    if ((style.isHorizontalWritingMode() && (emphasisPosition & TextEmphasisPosition::Under))
+        || (!style.isHorizontalWritingMode() && (emphasisPosition & TextEmphasisPosition::Left)))
+        return isAbove; // Ruby text is always over, so it cannot suppress emphasis marks under.
+
+    RenderBlock* containingBlock = renderer.containingBlock();
+    if (!containingBlock || !containingBlock->isRubyBase())
+        return isAbove; // This text is not inside a ruby base, so it does not have ruby text over it.
+
+    if (!is<RenderRubyRun>(*containingBlock->parent()))
+        return isAbove; // Cannot get the ruby text.
+
+    RenderRubyText* rubyText = downcast<RenderRubyRun>(*containingBlock->parent()).rubyText();
+
+    // The emphasis marks over are suppressed only if there is a ruby text box and it not empty.
+    if (rubyText && rubyText->hasLines())
+        return std::nullopt;
+
+    return isAbove;
 }
 
 } // namespace WebCore

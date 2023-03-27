@@ -56,8 +56,10 @@
 #include <WebCore/DOMException.h>
 #include <WebCore/DocumentInlines.h>
 #include <WebCore/FullscreenManager.h>
+#include <WebCore/JSDOMPromiseDeferred.h>
 #include <WebCore/JSExecState.h>
 #include <WebCore/SecurityOrigin.h>
+#include <WebCore/VisibilityState.h>
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
 
@@ -1320,7 +1322,7 @@ void webkit_dom_document_webkit_exit_fullscreen(WebKitDOMDocument* self)
     g_return_if_fail(WEBKIT_DOM_IS_DOCUMENT(self));
 #if ENABLE(FULLSCREEN_API)
     WebCore::Document* item = WebKit::core(self);
-    item->fullscreenManager().exitFullscreen();
+    item->fullscreenManager().exitFullscreen(nullptr);
 #endif
 }
 

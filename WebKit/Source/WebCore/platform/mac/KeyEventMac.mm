@@ -167,7 +167,7 @@ int windowsKeyCodeForKeyCode(uint16_t keyCode)
         /* 0x7D */ VK_DOWN, // Down Arrow
         /* 0x7E */ VK_UP, // Up Arrow
     };
-    if (keyCode < WTF_ARRAY_LENGTH(windowsKeyCode))
+    if (keyCode < std::size(windowsKeyCode))
         return windowsKeyCode[keyCode];
     return 0;
 }
@@ -235,13 +235,13 @@ int windowsKeyCodeForCharCode(unichar charCode)
 void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCompatibilityMode)
 {
     // Can only change type from KeyDown to RawKeyDown or Char, as we lack information for other conversions.
-    ASSERT(m_type == KeyDown);
-    ASSERT(type == RawKeyDown || type == Char);
+    ASSERT(m_type == Type::KeyDown);
+    ASSERT(type == Type::RawKeyDown || type == Type::Char);
     m_type = type;
     if (backwardCompatibilityMode)
         return;
 
-    if (type == RawKeyDown) {
+    if (type == Type::RawKeyDown) {
         m_text = String();
         m_unmodifiedText = String();
     } else {

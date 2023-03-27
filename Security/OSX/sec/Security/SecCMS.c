@@ -148,6 +148,8 @@ static bool secTrustsEqual(SecTrustRef trust1, SecTrustRef trust2) {
         CFReleaseNull(policies2);
         return false;
     }
+    CFReleaseNull(policies1);
+    CFReleaseNull(policies2);
 
     CFAbsoluteTime verifyDate1 = SecTrustGetVerifyTime(trust1);
     CFAbsoluteTime verifyDate2 = SecTrustGetVerifyTime(trust2);

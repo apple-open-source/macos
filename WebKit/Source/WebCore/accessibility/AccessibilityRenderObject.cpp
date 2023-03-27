@@ -125,7 +125,7 @@ AccessibilityRenderObject::AccessibilityRenderObject(RenderObject* renderer)
     : AccessibilityNodeObject(renderer->node())
     , m_renderer(renderer)
 {
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     m_renderer->setHasAXObject(true);
 #endif
 }
@@ -146,7 +146,7 @@ void AccessibilityRenderObject::detachRemoteParts(AccessibilityDetachmentType de
     
     detachRemoteSVGRoot();
     
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     if (m_renderer)
         m_renderer->setHasAXObject(false);
 #endif
@@ -158,12 +158,6 @@ RenderBoxModelObject* AccessibilityRenderObject::renderBoxModelObject() const
     if (!is<RenderBoxModelObject>(renderer()))
         return nullptr;
     return downcast<RenderBoxModelObject>(renderer());
-}
-
-void AccessibilityRenderObject::setRenderer(RenderObject* renderer)
-{
-    m_renderer = renderer;
-    setNode(renderer->node());
 }
 
 static inline bool isInlineWithContinuation(RenderObject& object)
@@ -405,13 +399,6 @@ AccessibilityObject* AccessibilityRenderObject::nextSibling() const
         // Case 5b: continuation is an inline - in this case the inline's first child is the next sibling
         else
             nextSibling = firstChildConsideringContinuation(continuation);
-        
-        // After case 4, there are chances that nextSibling has the same node as the current renderer,
-        // which might lead to adding the same child repeatedly.
-        if (nextSibling && nextSibling->node() == m_renderer->node()) {
-            if (AccessibilityObject* nextObj = axObjectCache()->getOrCreate(nextSibling))
-                return nextObj->nextSibling();
-        }
     }
 
     if (!nextSibling)
@@ -420,6 +407,13 @@ AccessibilityObject* AccessibilityRenderObject::nextSibling() const
     auto* objectCache = axObjectCache();
     if (!objectCache)
         return nullptr;
+
+    // After case 4, there are chances that nextSibling has the same node as the current renderer,
+    // which might lead to adding the same child repeatedly.
+    if (nextSibling->node() && nextSibling->node() == m_renderer->node()) {
+        if (auto* nextObject = objectCache->getOrCreate(nextSibling))
+            return nextObject->nextSibling();
+    }
 
     auto* nextObject = objectCache->getOrCreate(nextSibling);
     auto* nextObjectParent = nextObject ? nextObject->parentObject() : nullptr;
@@ -521,6 +515,17 @@ AccessibilityObject* AccessibilityRenderObject::parentObject() const
             return parent;
     }
 
+#if USE(ATSPI)
+    // Expose markers that are not direct children of a list item too.
+    if (m_renderer->isListMarker()) {
+        if (auto* listItem = ancestorsOfType<RenderListItem>(*m_renderer).first()) {
+            AccessibilityObject* parent = axObjectCache()->getOrCreate(listItem);
+            if (downcast<AccessibilityRenderObject>(*parent).markerRenderer() == m_renderer)
+                return parent;
+        }
+    }
+#endif
+
     AXObjectCache* cache = axObjectCache();
     if (!cache)
         return nullptr;
@@ -533,22 +538,6 @@ AccessibilityObject* AccessibilityRenderObject::parentObject() const
         return cache->getOrCreate(&m_renderer->view().frameView());
     
     return nullptr;
-}
-
-AccessibilityObject* AccessibilityRenderObject::parentObjectUnignored() const
-{
-#if USE(ATSPI)
-    // Expose markers that are not direct children of a list item too.
-    if (m_renderer && m_renderer->isListMarker()) {
-        if (auto* listItem = ancestorsOfType<RenderListItem>(*m_renderer).first()) {
-            AccessibilityObject* parent = axObjectCache()->getOrCreate(listItem);
-            if (downcast<AccessibilityRenderObject>(*parent).markerRenderer() == m_renderer)
-                return parent;
-        }
-    }
-#endif
-
-    return AccessibilityObject::parentObjectUnignored();
 }
 
 bool AccessibilityRenderObject::isAttachment() const
@@ -696,12 +685,6 @@ String AccessibilityRenderObject::textUnderElement(AccessibilityTextUnderElement
                 if (frame->document() != nodeDocument)
                     return { };
 
-                // Renderers referenced by accessibility objects could get destroyed if TextIterator ends up triggering
-                // a style update or layout here. See also AXObjectCache::deferTextChangedIfNeeded().
-                if (nodeDocument->childNeedsStyleRecalc())
-                    return { };
-                ASSERT_WITH_SECURITY_IMPLICATION(!nodeDocument->view()->layoutContext().isInRenderTreeLayout());
-
                 return plainText(*textRange, textIteratorBehaviorForTextRange());
             }
         }
@@ -785,9 +768,11 @@ String AccessibilityRenderObject::stringValue() const
         int selectedIndex = selectElement.selectedIndex();
         const auto& listItems = selectElement.listItems();
         if (selectedIndex >= 0 && static_cast<size_t>(selectedIndex) < listItems.size()) {
-            const AtomString& overriddenDescription = listItems[selectedIndex]->attributeWithoutSynchronization(aria_labelAttr);
-            if (!overriddenDescription.isNull())
-                return overriddenDescription;
+            if (RefPtr selectedItem = listItems[selectedIndex].get()) {
+                const AtomString& overriddenDescription = selectedItem->attributeWithoutSynchronization(aria_labelAttr);
+                if (!overriddenDescription.isNull())
+                    return overriddenDescription;
+            }
         }
         return renderMenuList->text();
     }
@@ -1081,8 +1066,6 @@ void AccessibilityRenderObject::addRadioButtonGroupMembers(AccessibilityChildren
     }
 }
 
-// Linked ui elements could be all the related radio buttons in a group
-// or an internal anchor connection.
 AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::linkedObjects() const
 {
     auto linkedObjects = flowToObjects();
@@ -1095,6 +1078,8 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::linkedObjec
 
     if (roleValue() == AccessibilityRole::RadioButton)
         addRadioButtonGroupMembers(linkedObjects);
+
+    linkedObjects.appendVector(controlledObjects());
 
     return linkedObjects;
 }
@@ -2342,10 +2327,17 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForPoint(const IntPoin
 
         // descend into widget (FRAME, IFRAME, OBJECT...)
         Widget* widget = downcast<RenderWidget>(*renderer).widget();
-        if (!is<FrameView>(widget))
+        auto* frameView = dynamicDowncast<FrameView>(widget);
+        if (!frameView)
             break;
-        Frame& frame = downcast<FrameView>(*widget).frame();
-        renderView = frame.document()->renderView();
+        auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
+        if (!localFrame)
+            break;
+        auto* document = localFrame->document();
+        if (!document)
+            break;
+
+        renderView = document->renderView();
 #if PLATFORM(MAC)
         frameView = downcast<FrameView>(widget);
 #endif
@@ -2932,7 +2924,11 @@ AccessibilitySVGRoot* AccessibilityRenderObject::remoteSVGRootElement(CreationCh
     if (!frameView)
         return nullptr;
 
-    Document* document = frameView->frame().document();
+    auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
+    if (!localFrame)
+        return nullptr;
+
+    auto* document = localFrame->document();
     if (!is<SVGDocument>(document))
         return nullptr;
 
@@ -3401,7 +3397,7 @@ bool AccessibilityRenderObject::isApplePayButton() const
 {
     if (!m_renderer)
         return false;
-    return m_renderer->style().effectiveAppearance() == ApplePayButtonPart;
+    return m_renderer->style().effectiveAppearance() == StyleAppearance::ApplePayButton;
 }
 
 ApplePayButtonType AccessibilityRenderObject::applePayButtonType() const

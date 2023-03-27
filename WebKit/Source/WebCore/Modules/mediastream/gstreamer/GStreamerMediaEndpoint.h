@@ -62,7 +62,7 @@ public:
     void doCreateOffer(const RTCOfferOptions&);
     void doCreateAnswer();
 
-    void getStats(GstPad*, Ref<DeferredPromise>&&);
+    void getStats(GstPad*, const GstStructure*, Ref<DeferredPromise>&&);
 
     std::unique_ptr<RTCDataChannelHandler> createDataChannel(const String&, const RTCDataChannelInit&);
 
@@ -118,7 +118,12 @@ private:
     void teardownPipeline();
     void disposeElementChain(GstElement*);
 
-    void setDescription(const RTCSessionDescription*, bool isLocal, Function<void()>&& successCallback, Function<void(const GError*)>&& failureCallback);
+    enum class DescriptionType {
+        Local,
+        Remote
+    };
+
+    void setDescription(const RTCSessionDescription*, DescriptionType, Function<void(const GstSDPMessage&)>&& preProcessCallback, Function<void(const GstSDPMessage&)>&& successCallback, Function<void(const GError*)>&& failureCallback);
     void initiate(bool isInitiator, GstStructure*);
 
     void onNegotiationNeeded();
@@ -129,7 +134,9 @@ private:
     void prepareDataChannel(GstWebRTCDataChannel*, gboolean isLocal);
     void onDataChannel(GstWebRTCDataChannel*);
 
-    MediaStream& mediaStreamFromRTCStream(String label);
+    WARN_UNUSED_RETURN GstElement* requestAuxiliarySender();
+
+    MediaStream& mediaStreamFromRTCStream(String mediaStreamId);
 
     void addRemoteStream(GstPad*);
     void removeRemoteStream(GstPad*);
@@ -137,9 +144,9 @@ private:
     std::optional<Backends> createTransceiverBackends(const String& kind, const RTCRtpTransceiverInit&, GStreamerRtpSenderBackend::Source&&);
     GStreamerRtpSenderBackend::Source createSourceForTrack(MediaStreamTrack&);
 
-    void storeRemoteMLineInfo(GstSDPMessage*);
+    void processSDPMessage(const GstSDPMessage*, Function<void(unsigned index, const char* mid, const GstSDPMedia*)>);
 
-    GRefPtr<GstPad> requestPad(unsigned mlineIndex, const GRefPtr<GstCaps>&);
+    GRefPtr<GstPad> requestPad(unsigned mlineIndex, const GRefPtr<GstCaps>&, const String& mediaStreamID);
 
 #if !RELEASE_LOG_DISABLED
     void gatherStatsForLogging();
@@ -163,19 +170,10 @@ private:
 
     HashMap<String, RefPtr<MediaStream>> m_remoteStreamsById;
 
-    struct PendingMLineInfo {
-        GRefPtr<GstCaps> caps;
-        bool isUsed;
-        Vector<int> payloadTypes;
-    };
-    Vector<PendingMLineInfo> m_remoteMLineInfos;
-
     Ref<GStreamerStatsCollector> m_statsCollector;
 
     unsigned m_requestPadCounter { 0 };
     int m_ptCounter { 96 };
-    unsigned m_mlineIndex { 0 };
-    Vector<Ref<RealtimeOutgoingMediaSourceGStreamer>> m_sources;
     unsigned m_pendingIncomingStreams { 0 };
     bool m_isInitiator { false };
     bool m_isNegotiationNeeded { false };

@@ -1536,7 +1536,7 @@ _SCNetworkConfigurationCreateBuiltinInterfaceServices(SCPreferencesRef pref,
 	for (CFIndex idx = 0; idx < missingServiceCount; idx++) {
 		interface = CFArrayGetValueAtIndex(interfacesWithoutService, idx);
 
-		if (__SCNetworkInterfaceIsMember(pref, interface)) {
+		if (__SCNetworkInterfaceIsBusyMember(pref, interface, FALSE)) {
 			// if the interface is a member of a bond or bridge
 			continue;
 		}
@@ -1662,7 +1662,8 @@ create_bsd_name_service_protocol_mapping(const void *value, void *context)
 				CFMutableArrayRef protocolArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 				CFIndex protocolCount = CFArrayGetCount(protocols);
 
-				for (CFIndex idx = 0; idx < protocolCount; idx++) {
+                for (CFIndex idx = 0; idx < protocolCount; idx++) {
+                    CFMutableDictionaryRef	protocolInfo				= NULL;
 					SCNetworkProtocolRef protocol = CFArrayGetValueAtIndex(protocols, idx);
 					CFDictionaryRef configuration = SCNetworkProtocolGetConfiguration(protocol);
 					CFStringRef protocolType = SCNetworkProtocolGetProtocolType(protocol);
@@ -1671,7 +1672,7 @@ create_bsd_name_service_protocol_mapping(const void *value, void *context)
 					if (configuration == NULL ||  protocolType == NULL) {
 						continue;
 					}
-					CFMutableDictionaryRef protocolInfo = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+					protocolInfo = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 					CFDictionaryAddValue(protocolInfo, kProtocolType, protocolType);
 					CFDictionaryAddValue(protocolInfo, kProtocolConfiguration, configuration);
@@ -1974,6 +1975,11 @@ _SCNetworkConfigurationCheckValidityWithPreferences(SCPreferencesRef	prefs,
 	Boolean			revertBypassSystemInterfaces		= FALSE;
 	CFArrayRef		setServiceOrder				= NULL;
 	CFArrayRef		setServices				= NULL;
+	CFArrayRef		bridges					= NULL;
+	CFArrayRef		vlans					= NULL;
+#if	!TARGET_OS_IPHONE
+	CFArrayRef		bonds					= NULL;
+#endif	// !TARGET_OS_IPHONE
 
 	if  ((isA_CFDictionary(options) != NULL)) {
 		CFBooleanRef val;
@@ -2209,19 +2215,19 @@ _SCNetworkConfigurationCheckValidityWithPreferences(SCPreferencesRef	prefs,
 	/*
 	 - Check if the virtual network interfaces have valid member interfaces
 	 */
-	CFArrayRef bridges = SCBridgeInterfaceCopyAll(prefs);
+	bridges = SCBridgeInterfaceCopyAll(prefs);
 	if (bridges != NULL) {
 		CFArrayApplyFunction(bridges, CFRangeMake(0, CFArrayGetCount(bridges)), validate_bridge, (void*)ni_prefs);
 		CFRelease(bridges);
 	}
 #if	!TARGET_OS_IPHONE
-	CFArrayRef bonds = SCBondInterfaceCopyAll(prefs);
+	bonds = SCBondInterfaceCopyAll(prefs);
 	if (bonds != NULL) {
 		CFArrayApplyFunction(bonds, CFRangeMake(0, CFArrayGetCount(bonds)), validate_bond, (void*)ni_prefs);
 		CFRelease(bonds);
 	}
 #endif	// !TARGET_OS_IPHONE
-	CFArrayRef vlans = SCVLANInterfaceCopyAll(prefs);
+	vlans = SCVLANInterfaceCopyAll(prefs);
 	if (vlans != NULL) {
 		validate_prefs_context	*validate_prefs;
 
@@ -3163,6 +3169,7 @@ _SCNetworkMigrationDoBridgeMigration(SCPreferencesRef	sourcePrefs,
 	virtualInterfaceContext	context;
 	CFIndex			count			= 0;
 	Boolean			success			= FALSE;
+	CFMutableArrayRef	interfaceList		= NULL;
 
 	allSourceBridges = SCBridgeInterfaceCopyAll(sourcePrefs);
 	allTargetBridges = SCBridgeInterfaceCopyAll(targetPrefs);
@@ -3174,9 +3181,10 @@ _SCNetworkMigrationDoBridgeMigration(SCPreferencesRef	sourcePrefs,
 
 	// Create Bridge Interface Mapping
 	for (CFIndex idx = 0; idx < CFArrayGetCount(allSourceBridges); idx++) {
+        CFArrayRef		bridgeMembers		= NULL;
+
 		bridge = CFArrayGetValueAtIndex(allSourceBridges, idx);
-		CFArrayRef bridgeMembers = SCBridgeInterfaceGetMemberInterfaces(bridge);
-		CFMutableArrayRef interfaceList;
+		bridgeMembers = SCBridgeInterfaceGetMemberInterfaces(bridge);
 
 		interfaceList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		for (CFIndex idx2 = 0; idx2 < CFArrayGetCount(bridgeMembers); idx2++) {
@@ -3376,18 +3384,17 @@ _SCNetworkMigrationDoBondMigration(SCPreferencesRef	sourcePrefs,
 	bondInterfaceMapping = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	bondMapping = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	// Create Bond Interface mapping
-	for (CFIndex idx = 0; idx < CFArrayGetCount(allSourceBonds); idx++) {
+    for (CFIndex idx = 0; idx < CFArrayGetCount(allSourceBonds); idx++) {
+        CFArrayRef		bondMembers		= NULL;
+	CFMutableArrayRef	interfaceList		= NULL;
+        
 		bond = CFArrayGetValueAtIndex(allSourceBonds, idx);
-		CFArrayRef bondMembers = SCBondInterfaceGetMemberInterfaces(bond);
-		CFMutableArrayRef interfaceList;
+        bondMembers = SCBondInterfaceGetMemberInterfaces(bond);
 
 		interfaceList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		for (CFIndex idx2 = 0; idx2 < CFArrayGetCount(bondMembers); idx2++) {
-			CFStringRef interfaceName;
-			SCNetworkInterfaceRef interface;
-
-			interface = CFArrayGetValueAtIndex(bondMembers, idx2);
-			interfaceName = SCNetworkInterfaceGetBSDName(interface);
+        for (CFIndex idx2 = 0; idx2 < CFArrayGetCount(bondMembers); idx2++) {
+		SCNetworkInterfaceRef	interface   = CFArrayGetValueAtIndex(bondMembers, idx2);
+            CFStringRef		interfaceName = SCNetworkInterfaceGetBSDName(interface);
 
 			if (CFDictionaryContainsKey(bsdNameMapping, interfaceName)) {
 				CFStringRef bondNewName = CFStringCreateWithFormat(NULL, NULL, CFSTR("bond%ld"), count);
@@ -3606,11 +3613,15 @@ _SCNetworkMigrationDoVLANMigration(SCPreferencesRef	sourcePrefs,
 	vlanList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	vlanMapping = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-	for (CFIndex idx = 0; idx < CFArrayGetCount(allSourceVLAN); idx++) {
+    for (CFIndex idx = 0; idx < CFArrayGetCount(allSourceVLAN); idx++) {
+        CFStringRef		vlanBSDName	= NULL;
+        SCNetworkInterfaceRef	physicalInterface = NULL;
+        CFStringRef		physicalInterfaceName = NULL;
+        
 		vlan = CFArrayGetValueAtIndex(allSourceVLAN, idx);
-		CFStringRef vlanBSDName = SCNetworkInterfaceGetBSDName(vlan);
-		SCNetworkInterfaceRef physicalInterface = SCVLANInterfaceGetPhysicalInterface(vlan);
-		CFStringRef physicalInterfaceName = SCNetworkInterfaceGetBSDName(physicalInterface);
+		vlanBSDName = SCNetworkInterfaceGetBSDName(vlan);
+		physicalInterface = SCVLANInterfaceGetPhysicalInterface(vlan);
+		physicalInterfaceName = SCNetworkInterfaceGetBSDName(physicalInterface);
 
 		// Add VLAN to be migrated if the mapping between interfaces exists
 		if (CFDictionaryContainsKey(bsdNameMapping, physicalInterfaceName)) {
@@ -4116,6 +4127,10 @@ _SCNetworkConfigurationMigrateConfiguration(CFURLRef sourceDir, CFURLRef targetD
 	// Upgrade scenario, source and target models match
 	if (isUpgradeScenario) {
 		Boolean foundNewInterfaces = FALSE;
+        CFDictionaryRef targetPrefsContent = NULL;
+        CFDictionaryRef targetNIPrefsContent = NULL;
+        CFDictionaryRef sourcePrefsContent = NULL;
+        CFDictionaryRef sourceNIPreferencesContent= NULL;
 
 		// Create SCPreferences to copy the target prefs
 		SCPreferencesRef upgradeSourcePrefs	= __SCPreferencesCreateForMigration(NULL, CFSTR("Upgrade Source Prefs"), NULL);
@@ -4133,16 +4148,16 @@ _SCNetworkConfigurationMigrateConfiguration(CFURLRef sourceDir, CFURLRef targetD
 		       upgradeSourceNIPrefs);
 
 		// Content of target prefs
-		CFDictionaryRef targetPrefsContent = SCPreferencesPathGetValue(targetPrefs, CFSTR("/"));
-		CFDictionaryRef targetNIPrefsContent  = SCPreferencesPathGetValue(targetNetworkInterfacePrefs, CFSTR("/"));
+		targetPrefsContent = SCPreferencesPathGetValue(targetPrefs, CFSTR("/"));
+		targetNIPrefsContent  = SCPreferencesPathGetValue(targetNetworkInterfacePrefs, CFSTR("/"));
 
 		// Backing up the target prefs into source prefs
 		SCPreferencesPathSetValue(upgradeSourcePrefs, CFSTR("/"), targetPrefsContent);
 		SCPreferencesPathSetValue(upgradeSourceNIPrefs, CFSTR("/"), targetNIPrefsContent);
 
 		// Copying content from the source prefs
-		CFDictionaryRef sourcePrefsContent = SCPreferencesPathGetValue(sourcePrefs, CFSTR("/"));
-		CFDictionaryRef sourceNIPreferencesContent = SCPreferencesPathGetValue(sourceNetworkInterfacePrefs, CFSTR("/"));
+		sourcePrefsContent = SCPreferencesPathGetValue(sourcePrefs, CFSTR("/"));
+		sourceNIPreferencesContent = SCPreferencesPathGetValue(sourceNetworkInterfacePrefs, CFSTR("/"));
 
 		// Setting the contents of the source prefs into the target prefs
 		SCPreferencesPathSetValue(targetPrefs, CFSTR("/"), sourcePrefsContent);

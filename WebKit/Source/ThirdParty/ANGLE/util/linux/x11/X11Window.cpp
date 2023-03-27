@@ -250,6 +250,22 @@ static void AddX11KeyStateToEvent(Event *event, unsigned int state)
     event->Key.System  = state & Mod4Mask;
 }
 
+void setWindowSizeHints(Display *display, Window window, int width, int height)
+{
+    // Set PMinSize and PMaxSize on XSizeHints so windows larger than the screen do not get adjusted
+    // to screen size
+    XSizeHints *sizeHints = XAllocSizeHints();
+    sizeHints->flags      = PMinSize | PMaxSize;
+    sizeHints->min_width  = width;
+    sizeHints->min_height = height;
+    sizeHints->max_width  = width;
+    sizeHints->max_height = height;
+
+    XSetWMNormalHints(display, window, sizeHints);
+
+    XFree(sizeHints);
+}
+
 }  // namespace
 
 X11Window::X11Window()
@@ -361,6 +377,8 @@ bool X11Window::initializeImpl(const std::string &name, int width, int height)
         return false;
     }
 
+    setWindowSizeHints(mDisplay, mWindow, width, height);
+
     XFlush(mDisplay);
 
     mX      = 0;
@@ -378,7 +396,15 @@ void X11Window::destroy()
     if (mWindow)
     {
         XDestroyWindow(mDisplay, mWindow);
-        mWindow = 0;
+        // There appears to be a race condition where XDestroyWindow+XCreateWindow ignores
+        // the new size (the same window normally gets reused but this only happens sometimes on
+        // some X11 versions). Wait until we get the destroy notification.
+        mWindow = 0;  // Set before messageLoop() to avoid a race in processEvent().
+        while (!mDestroyed)
+        {
+            messageLoop();
+            angle::Sleep(10);
+        }
     }
     if (mDisplay)
     {
@@ -438,7 +464,9 @@ bool X11Window::setPosition(int x, int y)
 
 bool X11Window::resize(int width, int height)
 {
+    setWindowSizeHints(mDisplay, mWindow, width, height);
     XResizeWindow(mDisplay, mWindow, width, height);
+
     XFlush(mDisplay);
 
     Timer timer;
@@ -481,6 +509,15 @@ void X11Window::setVisible(bool isVisible)
         XUnmapWindow(mDisplay, mWindow);
         XFlush(mDisplay);
     }
+
+    // Block until we get ConfigureNotify to set up fully before returning.
+    mConfigured = false;
+    while (!mConfigured)
+    {
+        messageLoop();
+        angle::Sleep(10);
+    }
+
     mVisible = isVisible;
 }
 
@@ -649,6 +686,11 @@ void X11Window::processEvent(const XEvent &xEvent)
 
         case ConfigureNotify:
         {
+            mConfigured = true;
+            if (mWindow == 0)
+            {
+                break;
+            }
             if (xEvent.xconfigure.width != mWidth || xEvent.xconfigure.height != mHeight)
             {
                 Event event;
@@ -701,7 +743,8 @@ void X11Window::processEvent(const XEvent &xEvent)
             break;
 
         case DestroyNotify:
-            // We already received WM_DELETE_WINDOW
+            // Note: we already received WM_DELETE_WINDOW
+            mDestroyed = true;
             break;
 
         case ClientMessage:

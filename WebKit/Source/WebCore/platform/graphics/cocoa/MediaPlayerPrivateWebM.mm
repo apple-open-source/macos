@@ -59,6 +59,7 @@
 #import <wtf/MainThread.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/WeakPtr.h>
+#import <wtf/WorkQueue.h>
 
 #pragma mark - Soft Linking
 
@@ -82,6 +83,7 @@ MediaPlayerPrivateWebM::MediaPlayerPrivateWebM(MediaPlayer* player)
     : m_player(player)
     , m_synchronizer(adoptNS([PAL::allocAVSampleBufferRenderSynchronizerInstance() init]))
     , m_parser(adoptRef(*new SourceBufferParserWebM()))
+    , m_appendQueue(WorkQueue::create("MediaPlayerPrivateWebM data parser queue"))
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
     , m_videoLayerManager(makeUnique<VideoLayerManagerObjC>(m_logger, m_logIdentifier))
@@ -106,6 +108,7 @@ MediaPlayerPrivateWebM::~MediaPlayerPrivateWebM()
 
     cancelLoad();
     abort();
+    resetParserState();
 }
 
 #if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
@@ -137,7 +140,7 @@ void MediaPlayerPrivateWebM::getSupportedTypes(HashSet<String, ASCIICaseInsensit
 
 MediaPlayer::SupportsType MediaPlayerPrivateWebM::supportsType(const MediaEngineSupportParameters& parameters)
 {
-    if (parameters.isMediaSource || parameters.isMediaStream)
+    if (parameters.isMediaSource || parameters.isMediaStream || parameters.requiresRemotePlayback)
         return MediaPlayer::SupportsType::IsNotSupported;
     
     return SourceBufferParserWebM::isContentTypeSupported(parameters.type);
@@ -160,22 +163,6 @@ void MediaPlayerPrivateWebM::load(const String& url)
     ResourceRequest request(url);
     request.setAllowCookies(true);
     request.setFirstPartyForCookies(URL(url));
-
-    ResourceLoaderOptions loaderOptions(
-        SendCallbackPolicy::SendCallbacks,
-        ContentSniffingPolicy::DoNotSniffContent,
-        DataBufferingPolicy::BufferData,
-        StoredCredentialsPolicy::DoNotUse,
-        ClientCredentialPolicy::CannotAskClientForCredentials,
-        FetchOptions::Credentials::Omit,
-        SecurityCheckPolicy::DoSecurityCheck,
-        FetchOptions::Mode::NoCors,
-        CertificateInfoPolicy::DoNotIncludeCertificateInfo,
-        ContentSecurityPolicyImposition::DoPolicyCheck,
-        DefersLoadingPolicy::AllowDefersLoading,
-        CachingPolicy::DisallowCaching
-    );
-    loaderOptions.destination = FetchOptions::Destination::Video;
 
     auto loader = m_player->createResourceLoader();
     m_resourceClient = WebMResourceClient::create(*this, *loader, WTFMove(request));
@@ -206,9 +193,11 @@ void MediaPlayerPrivateWebM::load(MediaStreamPrivate&)
 }
 #endif
 
-void MediaPlayerPrivateWebM::dataReceived(const SharedBuffer&)
+void MediaPlayerPrivateWebM::dataReceived(const SharedBuffer& buffer)
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    INFO_LOG(LOGIDENTIFIER);
+    // FIXME: Remove const_cast once https://bugs.webkit.org/show_bug.cgi?id=243370 is fixed.
+    append(const_cast<SharedBuffer&>(buffer));
 }
 
 void MediaPlayerPrivateWebM::loadFailed(const ResourceError& error)
@@ -217,23 +206,11 @@ void MediaPlayerPrivateWebM::loadFailed(const ResourceError& error)
     setNetworkState(MediaPlayer::NetworkState::NetworkError);
 }
 
-void MediaPlayerPrivateWebM::loadFinished(const FragmentedSharedBuffer& fragmentedBuffer)
+void MediaPlayerPrivateWebM::loadFinished(const FragmentedSharedBuffer&)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-
-    auto buffer = fragmentedBuffer.makeContiguous();
-    append(buffer);
-
-    if (!m_hasVideo && !m_hasAudio) {
-        ERROR_LOG(LOGIDENTIFIER, "could not load audio or video tracks");
-        setNetworkState(MediaPlayer::NetworkState::FormatError);
-        setReadyState(MediaPlayer::ReadyState::HaveNothing);
-        return;
-    }
-    
-    updateBufferedFromTrackBuffers(true);
-    updateDurationFromTrackBuffers();
     setNetworkState(MediaPlayer::NetworkState::Idle);
+    m_loadFinished = true;
 }
 
 void MediaPlayerPrivateWebM::cancelLoad()
@@ -297,6 +274,7 @@ void MediaPlayerPrivateWebM::seek(const MediaTime& time)
 {
     ALWAYS_LOG(LOGIDENTIFIER, "time = ", time);
 
+    [m_synchronizer setRate:0 time:PAL::toCMTime(time)];
     for (auto& trackBufferPair : m_trackBufferMap) {
         TrackBuffer& trackBuffer = trackBufferPair.value;
         auto trackId = trackBufferPair.key;
@@ -304,7 +282,7 @@ void MediaPlayerPrivateWebM::seek(const MediaTime& time)
         trackBuffer.setNeedsReenqueueing(true);
         reenqueueMediaForTime(trackBuffer, trackId, time);
     }
-    [m_synchronizer setRate:effectiveRate() time:PAL::toCMTime(time)];
+    [m_synchronizer setRate:m_rate];
     m_player->timeChanged();
 }
 
@@ -360,9 +338,9 @@ void MediaPlayerPrivateWebM::updateBufferedFromTrackBuffers(bool ended)
 {
     MediaTime highestEndTime = MediaTime::negativeInfiniteTime();
     for (auto& trackBuffer : m_trackBufferMap.values()) {
-        if (!trackBuffer.get().buffered().length())
+        if (!trackBuffer->buffered().length())
             continue;
-        highestEndTime = std::max(highestEndTime, trackBuffer.get().maximumBufferedTime());
+        highestEndTime = std::max(highestEndTime, trackBuffer->maximumBufferedTime());
     }
 
     // NOTE: Short circuit the following if none of the TrackBuffers have buffered ranges to avoid generating
@@ -375,10 +353,10 @@ void MediaPlayerPrivateWebM::updateBufferedFromTrackBuffers(bool ended)
     PlatformTimeRanges intersectionRanges { MediaTime::zeroTime(), highestEndTime };
 
     for (auto& trackBuffer : m_trackBufferMap.values()) {
-        if (!trackBuffer.get().buffered().length())
+        if (!trackBuffer->buffered().length())
             continue;
 
-        PlatformTimeRanges trackRanges = trackBuffer.get().buffered();
+        PlatformTimeRanges trackRanges = trackBuffer->buffered();
 
         if (ended)
             trackRanges.add(trackRanges.maximumBufferedTime(), highestEndTime);
@@ -401,9 +379,15 @@ void MediaPlayerPrivateWebM::updateDurationFromTrackBuffers()
     setDuration(WTFMove(highestEndTime));
 }
 
+void MediaPlayerPrivateWebM::setLoadingProgresssed(bool loadingProgressed)
+{
+    INFO_LOG(LOGIDENTIFIER, loadingProgressed);
+    m_loadingProgressed = loadingProgressed;
+}
+
 bool MediaPlayerPrivateWebM::didLoadingProgress() const
 {
-    return false;
+    return m_loadingProgressed;
 }
 
 RefPtr<NativeImage> MediaPlayerPrivateWebM::nativeImageForCurrentTime()
@@ -417,7 +401,7 @@ bool MediaPlayerPrivateWebM::updateLastPixelBuffer()
 #if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
     if (isCopyDisplayedPixelBufferAvailable()) {
         if (auto pixelBuffer = adoptCF([m_displayLayer copyDisplayedPixelBuffer])) {
-            ALWAYS_LOG(LOGIDENTIFIER, "displayed pixelbuffer copied for time ", currentMediaTime());
+            INFO_LOG(LOGIDENTIFIER, "displayed pixelbuffer copied for time ", currentMediaTime());
             m_lastPixelBuffer = WTFMove(pixelBuffer);
             return true;
         }
@@ -500,8 +484,15 @@ void MediaPlayerPrivateWebM::willBeAskedToPaintGL()
 
 RefPtr<VideoFrame> MediaPlayerPrivateWebM::videoFrameForCurrentTime()
 {
-    if (!m_isGatheringVideoFrameMetadata)
+    if (!m_isGatheringVideoFrameMetadata) {
+        // FIXME: This method is synchronous in order to
+        // work around https://bugs.webkit.org/show_bug.cgi?id=228997
+        // on builds without AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER
+        const auto shouldWaitForFrame = m_hasAvailableVideoFrameSemaphore && m_decompressionSession;
+        if (shouldWaitForFrame)
+            m_hasAvailableVideoFrameSemaphore->waitFor(100_ms);
         updateLastPixelBuffer();
+    }
     if (!m_lastPixelBuffer)
         return nullptr;
     return VideoFrameCV::create(currentMediaTime(), false, VideoFrame::Rotation::None, RetainPtr { m_lastPixelBuffer });
@@ -626,7 +617,7 @@ bool MediaPlayerPrivateWebM::shouldEnsureLayer() const
         && ((m_displayLayer && !CGRectIsEmpty([m_displayLayer bounds]))
             || !m_player->presentationSize().isEmpty());
 #else
-    return !m_hasBeenAskedToPaintGL;
+    return !m_hasBeenAskedToPaintGL && !m_isGatheringVideoFrameMetadata;
 #endif
 }
 
@@ -880,6 +871,25 @@ void MediaPlayerPrivateWebM::didBecomeReadyForMoreSamples(uint64_t trackId)
     provideMediaData(trackId);
 }
 
+void MediaPlayerPrivateWebM::appendCompleted()
+{
+    ASSERT(m_pendingAppends > 0);
+    m_pendingAppends--;
+    INFO_LOG(LOGIDENTIFIER, "pending appends = ", m_pendingAppends);
+    setLoadingProgresssed(true);
+    updateBufferedFromTrackBuffers(true);
+    if (m_loadFinished && !m_pendingAppends) {
+        if (!m_hasVideo && !m_hasAudio) {
+            ERROR_LOG(LOGIDENTIFIER, "could not load audio or video tracks");
+            setNetworkState(MediaPlayer::NetworkState::FormatError);
+            setReadyState(MediaPlayer::ReadyState::HaveNothing);
+            return;
+        }
+        
+        updateDurationFromTrackBuffers();
+    }
+}
+
 void MediaPlayerPrivateWebM::provideMediaData(uint64_t trackId)
 {
     auto it = m_trackBufferMap.find(trackId);
@@ -1109,39 +1119,60 @@ void MediaPlayerPrivateWebM::append(SharedBuffer& buffer)
 {
     ALWAYS_LOG(LOGIDENTIFIER, "data length = ", buffer.size());
 
-    m_parser->setDidParseInitializationDataCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled] (InitializationSegment&& segment) {
+    m_parser->setDidParseInitializationDataCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled.load()] (InitializationSegment&& segment) {
         if (!weakThis || abortCalled != weakThis->m_abortCalled)
             return;
 
         weakThis->didParseInitializationData(WTFMove(segment));
     });
 
-    m_parser->setDidEncounterErrorDuringParsingCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled] (int32_t errorCode) {
+    m_parser->setDidEncounterErrorDuringParsingCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled.load()] (int32_t errorCode) {
         if (!weakThis || abortCalled != weakThis->m_abortCalled)
             return;
         weakThis->didEncounterErrorDuringParsing(errorCode);
     });
 
-    m_parser->setDidProvideMediaDataCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled] (Ref<MediaSampleAVFObjC>&& sample, uint64_t trackId, const String& mediaType) {
+    m_parser->setDidProvideMediaDataCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled.load()] (Ref<MediaSampleAVFObjC>&& sample, uint64_t trackId, const String& mediaType) {
         if (!weakThis || abortCalled != weakThis->m_abortCalled)
             return;
         weakThis->didProvideMediaDataForTrackId(WTFMove(sample), trackId, mediaType);
     });
-    m_parser->setCallOnClientThreadCallback([](auto&& function) {
-        function();
-    });
 
     m_parsingSucceeded = true;
+    m_pendingAppends++;
 
     SourceBufferParser::Segment segment(Ref { buffer });
-    m_parser->appendData(WTFMove(segment));
+    m_appendQueue->dispatch([weakThis = WeakPtr { *this }, this, segment = WTFMove(segment), parser = m_parser, abortCalled = m_abortCalled.load()]() mutable {
+        // Our destructor ensures all dispatched lambdas are executed before destruction
+        ASSERT(weakThis);
+        if (abortCalled != m_abortCalled)
+            return;
+        parser->appendData(WTFMove(segment), [weakThis = WTFMove(weakThis), abortCalled]() mutable {
+            callOnMainThread([weakThis = WTFMove(weakThis), abortCalled] {
+                if (!weakThis || abortCalled != weakThis->m_abortCalled)
+                    return;
+
+                weakThis->appendCompleted();
+            });
+        });
+    });
 }
 
 void MediaPlayerPrivateWebM::abort()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    ERROR_LOG(LOGIDENTIFIER);
 
     m_abortCalled++;
+}
+
+void MediaPlayerPrivateWebM::resetParserState()
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
+
+    // Wait until all tasks in the workqueue have run.
+    m_appendQueue->dispatchSync([] { });
+    m_processingInitializationSegment = false;
+    m_parser->resetParserState();
 }
 
 void MediaPlayerPrivateWebM::flush()
@@ -1198,10 +1229,9 @@ void MediaPlayerPrivateWebM::flushVideo()
     
     if (m_decompressionSession) {
         m_decompressionSession->flush();
-        m_decompressionSession->notifyWhenHasAvailableVideoFrame([weakThis = WeakPtr { *this }, this] {
-            if (weakThis)
-                setHasAvailableVideoFrame(true);
-        });
+        if (!m_hasAvailableVideoFrameSemaphore)
+            m_hasAvailableVideoFrameSemaphore = makeUnique<BinarySemaphore>();
+        registerNotifyWhenHasAvailableVideoFrame();
     }
     setHasAvailableVideoFrame(false);
 }
@@ -1268,6 +1298,8 @@ void MediaPlayerPrivateWebM::ensureDecompressionSession()
 {
     if (m_decompressionSession)
         return;
+    
+    m_hasAvailableVideoFrameSemaphore = makeUnique<BinarySemaphore>();
 
     m_decompressionSession = WebCoreDecompressionSession::createOpenGL();
     m_decompressionSession->setTimebase([m_synchronizer timebase]);
@@ -1276,10 +1308,10 @@ void MediaPlayerPrivateWebM::ensureDecompressionSession()
         if (weakThis)
             didBecomeReadyForMoreSamples(m_enabledVideoTrackID);
     });
-    m_decompressionSession->notifyWhenHasAvailableVideoFrame([weakThis = WeakPtr { *this }, this] {
-        if (weakThis)
-            setHasAvailableVideoFrame(true);
-    });
+    registerNotifyWhenHasAvailableVideoFrame();
+    
+    if (m_enabledVideoTrackID != notFound)
+        reenqueSamples(m_enabledVideoTrackID);
     
     m_player->renderingModeChanged();
 }
@@ -1366,6 +1398,7 @@ void MediaPlayerPrivateWebM::destroyDecompressionSession()
     
     m_decompressionSession->invalidate();
     m_decompressionSession = nullptr;
+    m_hasAvailableVideoFrameSemaphore = nullptr;
     setHasAvailableVideoFrame(false);
 }
 
@@ -1403,10 +1436,29 @@ void MediaPlayerPrivateWebM::clearTracks()
     m_audioTracks.clear();
 }
 
+void MediaPlayerPrivateWebM::registerNotifyWhenHasAvailableVideoFrame()
+{
+    if (!m_decompressionSession)
+        return;
+    
+    m_decompressionSession->notifyWhenHasAvailableVideoFrame([weakThis = WeakPtr { *this }, this] {
+        if (weakThis) {
+            setHasAvailableVideoFrame(true);
+            if (m_hasAvailableVideoFrameSemaphore) {
+                m_hasAvailableVideoFrameSemaphore->signal();
+                m_hasAvailableVideoFrameSemaphore = nullptr;
+            }
+        }
+    });
+}
+
 void MediaPlayerPrivateWebM::startVideoFrameMetadataGathering()
 {
-    ASSERT(!m_videoFrameMetadataGatheringObserver || m_synchronizer);
+    if (m_videoFrameMetadataGatheringObserver)
+        return;
+    ASSERT(m_synchronizer);
     m_isGatheringVideoFrameMetadata = true;
+    acceleratedRenderingStateChanged();
 
     // FIXME: We should use a CADisplayLink to get updates on rendering, for now we emulate with addPeriodicTimeObserverForInterval.
     m_videoFrameMetadataGatheringObserver = [m_synchronizer addPeriodicTimeObserverForInterval:PAL::CMTimeMake(1, 60) queue:dispatch_get_main_queue() usingBlock:[weakThis = WeakPtr { *this }](CMTime currentTime) {
@@ -1420,6 +1472,7 @@ void MediaPlayerPrivateWebM::startVideoFrameMetadataGathering()
 void MediaPlayerPrivateWebM::stopVideoFrameMetadataGathering()
 {
     m_isGatheringVideoFrameMetadata = false;
+    acceleratedRenderingStateChanged();
     m_videoFrameMetadata = { };
 
     ASSERT(m_videoFrameMetadataGatheringObserver);

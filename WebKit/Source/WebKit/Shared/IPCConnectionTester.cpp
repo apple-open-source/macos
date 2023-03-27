@@ -28,35 +28,20 @@
 
 #if ENABLE(IPC_TESTING_API)
 #include "IPCConnectionTesterMessages.h"
-#include "IPCTester.h"
+#include "IPCUtilities.h"
 
 namespace WebKit {
 
-// FIXME(https://webkit.org/b/239487): These ifdefs are error prone, duplicated and the lack of move semantics causes leaks.
-static IPC::Connection::Identifier asIdentifier(IPC::Attachment&& connectionIdentifier)
+Ref<IPCConnectionTester> IPCConnectionTester::create(IPC::Connection& connection, IPCConnectionTesterIdentifier identifier, IPC::Connection::Handle&& handle)
 {
-#if USE(UNIX_DOMAIN_SOCKETS)
-    return { connectionIdentifier.release().release() };
-#elif OS(DARWIN)
-    return { connectionIdentifier.leakSendRight() };
-#elif OS(WINDOWS)
-    return { connectionIdentifier.handle() };
-#else
-    notImplemented();
-    return { };
-#endif
-}
-
-Ref<IPCConnectionTester> IPCConnectionTester::create(IPC::Connection& connection, IPCConnectionTesterIdentifier identifier, IPC::Attachment&& testedConnectionIdentifier)
-{
-    auto tester = adoptRef(*new IPCConnectionTester(connection, identifier, WTFMove(testedConnectionIdentifier)));
+    auto tester = adoptRef(*new IPCConnectionTester(connection, identifier, WTFMove(handle)));
     tester->initialize();
     return tester;
 }
 
-IPCConnectionTester::IPCConnectionTester(Ref<IPC::Connection>&& connection, IPCConnectionTesterIdentifier identifier, IPC::Attachment&& testedConnectionIdentifier)
+IPCConnectionTester::IPCConnectionTester(Ref<IPC::Connection>&& connection, IPCConnectionTesterIdentifier identifier, IPC::Connection::Handle&& handle)
     : m_connection(WTFMove(connection))
-    , m_testedConnection(IPC::Connection::createClientConnection(asIdentifier(WTFMove(testedConnectionIdentifier)), *this))
+    , m_testedConnection(IPC::Connection::createClientConnection(IPC::Connection::Identifier { WTFMove(handle) }))
     , m_identifier(identifier)
 {
 }
@@ -65,7 +50,7 @@ IPCConnectionTester::~IPCConnectionTester() = default;
 
 void IPCConnectionTester::initialize()
 {
-    m_testedConnection->open();
+    m_testedConnection->open(*this);
 }
 
 void IPCConnectionTester::stopListeningForIPC(Ref<IPCConnectionTester>&& refFromConnection)

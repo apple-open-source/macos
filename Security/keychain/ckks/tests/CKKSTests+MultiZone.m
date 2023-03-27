@@ -187,6 +187,13 @@
     [self.ckksViews addObject:self.passwordsView];
     [self.ckksZones addObject:self.passwordsZoneID];
 
+    self.contactsZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Contacts" ownerName:CKCurrentUserDefaultName];
+    self.contactsZone = [[FakeCKZone alloc] initZone: self.contactsZoneID];
+    self.contactsView = [self.defaultCKKS.operationDependencies viewStateForName:@"Contacts"];
+    XCTAssertNotNil(self.contactsView, "CKKS created the Contacts view");
+    [self.ckksViews addObject:self.contactsView];
+    [self.ckksZones addObject:self.contactsZoneID];
+
     self.ptaZoneID = [[CKRecordZoneID alloc] initWithZoneName:CKKSSEViewPTA ownerName:CKCurrentUserDefaultName];
     self.ptaZone = [[FakeCKZone alloc] initZone:self.ptaZoneID];
     self.ptaView = [self.defaultCKKS.operationDependencies viewStateForName:CKKSSEViewPTA];
@@ -226,6 +233,7 @@
     self.mailView = nil;
     self.limitedView = nil;
     self.passwordsView = nil;
+    self.contactsView = nil;
     self.ptaView = nil;
 
     [super tearDown];
@@ -351,6 +359,18 @@
     self.zones[self.passwordsZoneID] = zone;
 }
 
+- (ZoneKeys*)contactsZoneKeys {
+    return self.keys[self.contactsZoneID];
+}
+
+- (FakeCKZone*)contactsZone {
+    return self.zones[self.contactsZoneID];
+}
+
+- (void)setContactsZone:(FakeCKZone*)zone {
+    self.zones[self.contactsZoneID] = zone;
+}
+
 - (FakeCKZone*)ptaZone {
     return self.zones[self.ptaZoneID];
 }
@@ -379,6 +399,7 @@
     [self putFakeDeviceStatusInCloudKit: self.mailZoneID];
     [self putFakeDeviceStatusInCloudKit: self.limitedZoneID];
     [self putFakeDeviceStatusInCloudKit: self.passwordsZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.contactsZoneID];
 }
 
 - (void)putFakeKeyHierachiesInCloudKit{
@@ -392,6 +413,7 @@
     [self putFakeKeyHierarchyInCloudKit: self.mailZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.limitedZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.passwordsZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.contactsZoneID];
 }
 
 - (void)saveTLKsToKeychain{
@@ -405,6 +427,7 @@
     [self saveTLKMaterialToKeychain:self.mailZoneID];
     [self saveTLKMaterialToKeychain:self.limitedZoneID];
     [self saveTLKMaterialToKeychain:self.passwordsZoneID];
+    [self saveTLKMaterialToKeychain:self.contactsZoneID];
 }
 
 - (void)deleteTLKMaterialsFromKeychain{
@@ -418,6 +441,7 @@
     [self deleteTLKMaterialFromKeychain:self.mailZoneID];
     [self deleteTLKMaterialFromKeychain:self.limitedZoneID];
     [self deleteTLKMaterialFromKeychain:self.passwordsZoneID];
+    [self deleteTLKMaterialFromKeychain:self.contactsZoneID];
 }
 
 - (void)putAllFakeDeviceStatusesInCloudKit
@@ -432,6 +456,7 @@
     [self putFakeDeviceStatusInCloudKit:self.mfiZoneID];
     [self putFakeDeviceStatusInCloudKit:self.limitedZoneID];
     [self putFakeDeviceStatusInCloudKit:self.passwordsZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.contactsZoneID];
 }
 
 - (void)putAllSelfTLKSharesInCloudKit:(id<CKKSSelfPeer>)sharingPeer
@@ -451,6 +476,7 @@
     [self putTLKShareInCloudKit:self.mailZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.mailZoneID];
     [self putTLKShareInCloudKit:self.limitedZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.limitedZoneID];
     [self putTLKShareInCloudKit:self.passwordsZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.passwordsZoneID];
+    [self putTLKShareInCloudKit:self.contactsZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.contactsZoneID];
 }
 
 - (void)waitForKeyHierarchyReadinesses {
@@ -464,6 +490,7 @@
     XCTAssertEqual([self.mfiView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "MFi should enter key state ready");
     XCTAssertEqual([self.mailView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Mail should enter key state ready");
     XCTAssertEqual([self.passwordsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Passwords should enter key state ready");
+    XCTAssertEqual([self.contactsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Contacts should enter key state ready");
 }
 
 - (void)expectCKKSTLKSelfShareUploads {
@@ -728,6 +755,9 @@
         }
     }
     XCTAssertNotNil(itemRecord, "Should have found the item in the password zone");
+    if (itemRecord == nil) {
+        return;
+    }
 
     NSDictionary *query = @{(id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecAttrAccessGroup : @"com.apple.sbd",

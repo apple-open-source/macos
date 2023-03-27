@@ -42,6 +42,7 @@ class ShaderConstants11 : angle::NonCopyable
     void setMultiviewWriteToViewportIndex(GLfloat index);
     void onViewportChange(const gl::Rectangle &glViewport,
                           const D3D11_VIEWPORT &dxViewport,
+                          const gl::Offset &glFragCoordOffset,
                           bool is9_3,
                           bool presentPathFast);
     bool onFirstVertexChange(GLint firstVertex);
@@ -54,6 +55,7 @@ class ShaderConstants11 : angle::NonCopyable
                        unsigned int imageIndex,
                        const gl::ImageUnit &imageUnit);
     void onClipControlChange(bool lowerLeft, bool zeroToOne);
+    bool onClipDistancesEnabledChange(const uint32_t value);
 
     angle::Result updateBuffer(const gl::Context *context,
                                Renderer11 *renderer,
@@ -73,7 +75,8 @@ class ShaderConstants11 : angle::NonCopyable
               clipControlOrigin{-1.0f},
               clipControlZeroToOne{.0f},
               firstVertex{0},
-              padding{.0f, .0f}
+              clipDistancesEnabled{0},
+              padding{.0f}
         {}
 
         float depthRange[4];
@@ -93,8 +96,10 @@ class ShaderConstants11 : angle::NonCopyable
 
         uint32_t firstVertex;
 
+        uint32_t clipDistancesEnabled;
+
         // Added here to manually pad the struct to 16 byte boundary
-        float padding[2];
+        float padding[1];
     };
     static_assert(sizeof(Vertex) % 16u == 0,
                   "D3D11 constant buffers must be multiples of 16 bytes");
@@ -105,6 +110,7 @@ class ShaderConstants11 : angle::NonCopyable
             : depthRange{.0f},
               viewCoords{.0f},
               depthFront{.0f},
+              fragCoordOffset{.0f},
               viewScale{.0f},
               multiviewWriteToViewportIndex{.0f},
               padding{.0f}
@@ -113,6 +119,7 @@ class ShaderConstants11 : angle::NonCopyable
         float depthRange[4];
         float viewCoords[4];
         float depthFront[4];
+        float fragCoordOffset[2];
         float viewScale[2];
         // multiviewWriteToViewportIndex is used to select either the side-by-side or layered
         // code-path in the GS. It's value, if set, is either 0.0f or 1.0f. The value is updated
@@ -120,7 +127,7 @@ class ShaderConstants11 : angle::NonCopyable
         float multiviewWriteToViewportIndex;
 
         // Added here to manually pad the struct.
-        float padding;
+        float padding[3];
     };
     static_assert(sizeof(Pixel) % 16u == 0, "D3D11 constant buffers must be multiples of 16 bytes");
 
@@ -675,9 +682,9 @@ class StateManager11 final : angle::NonCopyable
     ComputeConstantBufferArray<GLsizeiptr> mCurrentConstantBufferCSSize;
 
     // Currently applied transform feedback buffers
-    Serial mAppliedTFSerial;
+    UniqueSerial mAppliedTFSerial;
 
-    Serial mEmptySerial;
+    UniqueSerial mEmptySerial;
 
     // These objects are cached to avoid having to query the impls.
     ProgramD3D *mProgramD3D;

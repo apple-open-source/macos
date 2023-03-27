@@ -970,7 +970,7 @@ bool IOHIDLibUserClient::serializeDebugState(void *ref __unused, OSSerialize *se
 
     require(debugDict, exit);
     
-    debugDict->setObject("Privileged", _privilegedClient ? kOSBooleanTrue : kOSBooleanFalse);
+    debugDict->setObject(kIOHIDDevicePrivilegedKey, _privilegedClient ? kOSBooleanTrue : kOSBooleanFalse);
 
     num = OSNumber::withNumber(fReportLimit, 32);
     if (num) {

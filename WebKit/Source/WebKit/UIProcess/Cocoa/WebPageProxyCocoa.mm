@@ -36,22 +36,26 @@
 #import "InsertTextOptions.h"
 #import "LoadParameters.h"
 #import "ModalContainerControlClassifier.h"
+#import "NetworkConnectionIntegrityHelpers.h"
 #import "PageClient.h"
 #import "PlaybackSessionManagerProxy.h"
 #import "QuickLookThumbnailLoader.h"
+#import "RemoteLayerTreeTransaction.h"
 #import "SafeBrowsingSPI.h"
 #import "SafeBrowsingWarning.h"
 #import "SharedBufferReference.h"
 #import "SynapseSPI.h"
 #import "VideoFullscreenManagerProxy.h"
+#import "WKErrorInternal.h"
+#import "WKWebView.h"
 #import "WebContextMenuProxy.h"
 #import "WebPage.h"
 #import "WebPageMessages.h"
 #import "WebPasteboardProxy.h"
 #import "WebProcessMessages.h"
 #import "WebProcessProxy.h"
+#import "WebScreenOrientationManagerProxy.h"
 #import "WebsiteDataStore.h"
-#import "WKErrorInternal.h"
 #import <Foundation/NSURLRequest.h>
 #import <WebCore/ApplePayAMSUIRequest.h>
 #import <WebCore/DragItem.h>
@@ -87,6 +91,7 @@ SOFT_LINK_CLASS_OPTIONAL(Synapse, SYNotesActivationObserver)
 
 #if PLATFORM(IOS_FAMILY)
 #import <WebCore/RenderThemeIOS.h>
+#import "UIKitSPI.h"
 #else
 #import <WebCore/RenderThemeMac.h>
 #endif
@@ -119,6 +124,41 @@ namespace WebKit {
 using namespace WebCore;
 
 constexpr IntSize iconSize = IntSize(400, 400);
+
+static bool exceedsRenderTreeSizeSizeThreshold(uint64_t thresholdSize, uint64_t committedSize)
+{
+    const double thesholdSizeFraction = 0.5; // Empirically-derived.
+    return committedSize > thresholdSize * thesholdSizeFraction;
+}
+
+void WebPageProxy::didCommitLayerTree(const WebKit::RemoteLayerTreeTransaction& layerTreeTransaction)
+{
+    themeColorChanged(layerTreeTransaction.themeColor());
+    pageExtendedBackgroundColorDidChange(layerTreeTransaction.pageExtendedBackgroundColor());
+    sampledPageTopColorChanged(layerTreeTransaction.sampledPageTopColor());
+
+    if (!m_hasUpdatedRenderingAfterDidCommitLoad) {
+        if (layerTreeTransaction.transactionID() >= m_firstLayerTreeTransactionIdAfterDidCommitLoad) {
+            m_hasUpdatedRenderingAfterDidCommitLoad = true;
+            stopMakingViewBlankDueToLackOfRenderingUpdateIfNecessary();
+            m_lastVisibleContentRectUpdate = VisibleContentRectUpdateInfo();
+        }
+    }
+
+    pageClient().didCommitLayerTree(layerTreeTransaction);
+
+    // FIXME: Remove this special mechanism and fold it into the transaction's layout milestones.
+    if (m_observedLayoutMilestones.contains(WebCore::ReachedSessionRestorationRenderTreeSizeThreshold) && !m_hitRenderTreeSizeThreshold
+        && exceedsRenderTreeSizeSizeThreshold(m_sessionRestorationRenderTreeSize, layerTreeTransaction.renderTreeSize())) {
+        m_hitRenderTreeSizeThreshold = true;
+        didReachLayoutMilestone(WebCore::ReachedSessionRestorationRenderTreeSizeThreshold);
+    }
+}
+
+void WebPageProxy::layerTreeCommitComplete()
+{
+    pageClient().layerTreeCommitComplete();
+}
 
 #if ENABLE(DATA_DETECTION)
 
@@ -191,7 +231,7 @@ void WebPageProxy::contentFilterDidBlockLoadForFrame(const WebCore::ContentFilte
 
 void WebPageProxy::contentFilterDidBlockLoadForFrameShared(Ref<WebProcessProxy>&& process, const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
 {
-    if (WebFrameProxy* frame = process->webFrame(frameID))
+    if (RefPtr frame = WebFrameProxy::webFrame(frameID))
         frame->contentFilterDidBlockLoad(unblockHandler);
 }
 #endif
@@ -250,7 +290,7 @@ bool WebPageProxy::scrollingUpdatesDisabledForTesting()
 
 #if ENABLE(DRAG_SUPPORT)
 
-void WebPageProxy::startDrag(const DragItem& dragItem, const ShareableBitmap::Handle& dragImageHandle)
+void WebPageProxy::startDrag(const DragItem& dragItem, const ShareableBitmapHandle& dragImageHandle)
 {
     pageClient().startDrag(dragItem, dragImageHandle);
 }
@@ -311,7 +351,7 @@ static RefPtr<WebKit::ShareableBitmap> convertPlatformImageToBitmap(CocoaImage *
     auto resultRect = roundedIntRect(largestRectWithAspectRatioInsideRect(originalThumbnailSize.aspectRatio(), { { }, fittingSize }));
     resultRect.setLocation({ });
 
-    WebKit::ShareableBitmap::Configuration bitmapConfiguration;
+    WebKit::ShareableBitmapConfiguration bitmapConfiguration;
     auto bitmap = WebKit::ShareableBitmap::create(resultRect.size(), bitmapConfiguration);
     if (!bitmap)
         return nullptr;
@@ -321,11 +361,7 @@ static RefPtr<WebKit::ShareableBitmap> convertPlatformImageToBitmap(CocoaImage *
         return nullptr;
 
     LocalCurrentGraphicsContext savedContext(*graphicsContext);
-#if PLATFORM(IOS_FAMILY)
     [image drawInRect:resultRect];
-#elif USE(APPKIT)
-    [image drawInRect:resultRect fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
-#endif
 
     return bitmap;
 }
@@ -628,26 +664,23 @@ void WebPageProxy::requestThumbnailWithPath(const String& filePath, const String
 
 #endif // HAVE(QUICKLOOK_THUMBNAILING)
 
-#if PLATFORM(MAC)
+#if ENABLE(ATTACHMENT_ELEMENT) && PLATFORM(MAC)
 
-void WebPageProxy::updateIconForDirectory(NSFileWrapper *fileWrapper, const String& identifier)
+bool WebPageProxy::updateIconForDirectory(NSFileWrapper *fileWrapper, const String& identifier)
 {
     auto image = [fileWrapper icon];
     if (!image)
-        return;
+        return false;
 
-    auto flippedIcon = [NSImage imageWithSize:iconSize flipped:YES drawingHandler:^BOOL(NSRect destinationRect) {
-        [image drawInRect:destinationRect fromRect:NSMakeRect(0, 0, [image size].width, [image size].height) operation:NSCompositingOperationSourceOver fraction:1.0f];
-        return YES;
-    }];
-
-    auto convertedImage = convertPlatformImageToBitmap(flippedIcon, iconSize);
+    auto convertedImage = convertPlatformImageToBitmap(image, iconSize);
     if (!convertedImage)
-        return;
+        return false;
 
-    ShareableBitmap::Handle handle;
-    convertedImage->createHandle(handle);
-    send(Messages::WebPage::UpdateAttachmentIcon(identifier, handle, iconSize));
+    auto handle = convertedImage->createHandle();
+    if (!handle)
+        return false;
+    send(Messages::WebPage::UpdateAttachmentIcon(identifier, *handle, iconSize));
+    return true;
 }
 
 #endif
@@ -716,11 +749,8 @@ void WebPageProxy::restoreAppHighlightsAndScrollToIndex(const Vector<Ref<SharedM
     if (!hasRunningProcess())
         return;
 
-    auto memoryHandles = WTF::compactMap(highlights, [](auto& highlight) -> std::optional<SharedMemory::Handle> {
-        SharedMemory::Handle handle;
-        if (!highlight->createHandle(handle, SharedMemory::Protection::ReadOnly))
-            return std::nullopt;
-        return handle;
+    auto memoryHandles = WTF::compactMap(highlights, [](auto& highlight) {
+        return highlight->createHandle(SharedMemory::Protection::ReadOnly);
     });
     
     setUpHighlightsObserver();
@@ -818,7 +848,8 @@ Vector<SandboxExtension::Handle> WebPageProxy::createNetworkExtensionsSandboxExt
         process.markHasNetworkExtensionSandboxAccess();
         constexpr ASCIILiteral neHelperService { "com.apple.nehelper"_s };
         constexpr ASCIILiteral neSessionManagerService { "com.apple.nesessionmanager.content-filter"_s };
-        return SandboxExtension::createHandlesForMachLookup({ neHelperService, neSessionManagerService }, std::nullopt);
+        auto auditToken = process.hasConnection() ? process.connection()->getAuditToken();
+        return SandboxExtension::createHandlesForMachLookup({ neHelperService, neSessionManagerService }, auditToken, );
     }
 #endif
     return { };
@@ -865,10 +896,8 @@ void WebPageProxy::lastNavigationWasAppInitiated(CompletionHandler<void(bool)>&&
 
 void WebPageProxy::grantAccessToAssetServices()
 {
-    SandboxExtension::Handle mobileAssetHandleV2;
-    if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.mobileassetd.v2"_s, process().auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap))
-        mobileAssetHandleV2 = WTFMove(*handle);
-    process().send(Messages::WebProcess::GrantAccessToAssetServices(mobileAssetHandleV2), 0);
+    auto handles = SandboxExtension::createHandlesForMachLookup({ "com.apple.mobileassetd.v2"_s }, process().auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
+    process().send(Messages::WebProcess::GrantAccessToAssetServices(handles), 0);
 }
 
 void WebPageProxy::revokeAccessToAssetServices()
@@ -883,7 +912,7 @@ void WebPageProxy::disableURLSchemeCheckInDataDetectors() const
 
 void WebPageProxy::switchFromStaticFontRegistryToUserFontRegistry()
 {
-    process().send(Messages::WebProcess::SwitchFromStaticFontRegistryToUserFontRegistry(process().fontdMachExtensionHandle(SandboxExtension::MachBootstrapOptions::EnableMachBootstrap)), 0);
+    process().send(Messages::WebProcess::SwitchFromStaticFontRegistryToUserFontRegistry(process().fontdMachExtensionHandles(SandboxExtension::MachBootstrapOptions::EnableMachBootstrap)), 0);
 }
 
 NSDictionary *WebPageProxy::contentsOfUserInterfaceItem(NSString *userInterfaceItem)
@@ -937,6 +966,15 @@ void WebPageProxy::replaceSelectionWithPasteboardData(const Vector<String>& type
     send(Messages::WebPage::ReplaceSelectionWithPasteboardData(types, data));
 }
 
+void WebPageProxy::setCocoaView(WKWebView *view)
+{
+    m_cocoaView = view;
+#if PLATFORM(IOS_FAMILY)
+    if (m_screenOrientationManager)
+        m_screenOrientationManager->setWindow(view.window);
+#endif
+}
+
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 void WebPageProxy::replaceImageForRemoveBackground(const ElementContext& elementContext, const Vector<String>& types, const IPC::DataReference& data)
@@ -945,6 +983,14 @@ void WebPageProxy::replaceImageForRemoveBackground(const ElementContext& element
 }
 
 #endif
+
+bool WebPageProxy::useGPUProcessForDOMRenderingEnabled() const
+{
+    if (id useGPUProcessForDOMRendering = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2GPUProcessForDOMRendering"])
+        return [useGPUProcessForDOMRendering boolValue];
+
+    return preferences().useGPUProcessForDOMRenderingEnabled();
+}
 
 } // namespace WebKit
 

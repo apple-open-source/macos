@@ -46,13 +46,11 @@ class ResourceError : public ResourceErrorBase {
 public:
     ResourceError(Type type = Type::Null)
         : ResourceErrorBase(type)
-        , m_dataIsUpToDate(true)
     {
     }
 
     ResourceError(const String& domain, int errorCode, const URL& failingURL, const String& localizedDescription, Type type = Type::General, IsSanitized isSanitized = IsSanitized::No)
         : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription, type, isSanitized)
-        , m_dataIsUpToDate(true)
     {
 #if PLATFORM(COCOA)
         ASSERT(domain != getNSURLErrorDomain());
@@ -73,7 +71,6 @@ public:
     CFStreamError cfStreamError() const;
     operator CFStreamError() const;
     static const void* getSSLPeerCertificateDataBytePtr(CFDictionaryRef);
-
 #endif
 
 #if PLATFORM(COCOA)
@@ -81,6 +78,8 @@ public:
     WEBCORE_EXPORT NSError *nsError() const;
     WEBCORE_EXPORT operator NSError *() const;
 #endif
+
+    bool compromisedNetworkConnectionIntegrity() const { return m_compromisedNetworkConnectionIntegrity; }
 
     static bool platformCompare(const ResourceError& a, const ResourceError& b);
 
@@ -96,7 +95,9 @@ private:
 
     void doPlatformIsolatedCopy(const ResourceError&);
 
-    bool m_dataIsUpToDate;
+    bool m_dataIsUpToDate { true };
+    bool m_compromisedNetworkConnectionIntegrity { false };
+
 #if USE(CFURLCONNECTION)
     mutable RetainPtr<CFErrorRef> m_platformError;
 #if PLATFORM(WIN)

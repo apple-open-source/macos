@@ -47,17 +47,15 @@ CoordinatedGraphicsScene::CoordinatedGraphicsScene(CoordinatedGraphicsSceneClien
 
 CoordinatedGraphicsScene::~CoordinatedGraphicsScene() = default;
 
-void CoordinatedGraphicsScene::applyStateChanges(const Vector<CoordinatedGraphicsState>& states)
+void CoordinatedGraphicsScene::applyStateChanges(const Vector<RefPtr<Nicosia::Scene>>& states)
 {
-    if (!m_textureMapper) {
+    if (!m_textureMapper)
         m_textureMapper = TextureMapper::create();
-        static_cast<TextureMapperGL*>(m_textureMapper.get())->setEnableEdgeDistanceAntialiasing(true);
-    }
 
     ensureRootLayer();
 
-    for (auto& state : states)
-        commitSceneState(state.nicosia);
+    for (auto& scene : states)
+        commitSceneState(scene);
 }
 
 void CoordinatedGraphicsScene::paintToCurrentGLContext(const TransformationMatrix& matrix, const FloatRect& clipRect, TextureMapper::PaintFlags PaintFlags)
@@ -155,19 +153,27 @@ void updateImageBacking(TextureMapperLayer& layer,
         return;
     }
 
-    if (!compositionState.backingStore)
-        compositionState.backingStore = CoordinatedBackingStore::create();
-    auto& backingStore = *compositionState.backingStore;
-    layer.setContentsLayer(&backingStore);
-
-    if (!update.buffer)
+    if (!update.imageBackingStore)
         return;
 
-    backingStore.createTile(1, 1.0);
-    WebCore::IntRect rect { { }, update.buffer->size() };
-    ASSERT(2000 >= std::max(rect.width(), rect.height()));
-    backingStore.setSize(rect.size());
-    backingStore.updateTile(1, rect, rect, WTFMove(update.buffer), rect.location());
+    compositionState.imageBackingStore = update.imageBackingStore;
+
+    auto& imageBackingStore = *compositionState.imageBackingStore;
+    auto& backingStore = imageBackingStore.compositionState().backingStoreContainer->backingStore;
+    if (!backingStore) {
+        backingStore = CoordinatedBackingStore::create();
+
+        auto buffer = WTFMove(imageBackingStore.backingStoreState().buffer);
+        if (buffer) {
+            backingStore->createTile(1, 1.0);
+            WebCore::IntRect rect { { }, buffer->size() };
+            ASSERT(2000 >= std::max(rect.width(), rect.height()));
+            backingStore->setSize(rect.size());
+            backingStore->updateTile(1, rect, rect, WTFMove(buffer), rect.location());
+        }
+    }
+
+    layer.setContentsLayer(backingStore.get());
 }
 
 void removeLayer(Nicosia::CompositionLayer& layer)
@@ -182,23 +188,18 @@ void removeLayer(Nicosia::CompositionLayer& layer)
 
             if (committed.contentLayer)
                 contentLayerImpl(*committed.contentLayer).proxy().invalidate();
-
-            if (committed.imageBacking) {
-                auto& compositionState = imageBackingImpl(*committed.imageBacking).compositionState();
-                compositionState.backingStore = nullptr;
-            }
         });
 
     auto& compositionState = compositionLayerImpl(layer).compositionState();
     compositionState.layer = nullptr;
 }
 
-void CoordinatedGraphicsScene::commitSceneState(const CoordinatedGraphicsState::NicosiaState& state)
+void CoordinatedGraphicsScene::commitSceneState(const RefPtr<Nicosia::Scene>& scene)
 {
     if (!m_client)
         return;
 
-    m_nicosia.scene = state.scene;
+    m_nicosia.scene = scene;
 }
 
 void CoordinatedGraphicsScene::updateSceneState()
@@ -394,6 +395,14 @@ void CoordinatedGraphicsScene::updateSceneState()
         layersByBacking.backingStore = { };
     }
 
+    // Invalidate the proxies that are not used anymore before activating the new ones:
+    // a layer's proxy can be replaced with a new one. If we don't invalidate the old proxy
+    // before activating the new one, the contentLayer set to the layer by the activation of
+    // the new proxy will be removed by the invalidation of the old one.
+    for (auto& proxy : replacedProxiesToInvalidate)
+        proxy->invalidate();
+    replacedProxiesToInvalidate = { };
+
     {
         for (auto& entry : layersByBacking.contentLayer) {
             auto& proxy = entry.proxy.get();
@@ -410,8 +419,14 @@ void CoordinatedGraphicsScene::updateSceneState()
             auto& compositionState = entry.imageBacking.get().compositionState();
             updateImageBacking(entry.layer.get(), compositionState, entry.update);
 
-            if (compositionState.backingStore)
-                backingStoresWithPendingBuffers.add(*compositionState.backingStore);
+            if (compositionState.imageBackingStore) {
+                auto& container = compositionState.imageBackingStore->compositionState().backingStoreContainer;
+                m_imageBackingStoreContainers.add(container);
+
+                auto& backingStore = container->backingStore;
+                if (backingStore)
+                    backingStoresWithPendingBuffers.add(*backingStore);
+            }
         }
 
         layersByBacking.imageBacking = { };
@@ -423,9 +438,11 @@ void CoordinatedGraphicsScene::updateSceneState()
     for (auto& proxy : proxiesForSwapping)
         proxy->swapBuffer();
 
-    for (auto& proxy : replacedProxiesToInvalidate)
-        proxy->invalidate();
-    replacedProxiesToInvalidate = { };
+    // Eject any backing store container whose only reference is held in this scene's HashSet cache.
+    m_imageBackingStoreContainers.removeIf(
+        [](auto& container) {
+            return container->hasOneRef();
+        });
 }
 
 void CoordinatedGraphicsScene::ensureRootLayer()
@@ -457,6 +474,8 @@ void CoordinatedGraphicsScene::purgeGLResources()
             });
         m_nicosia.scene = nullptr;
     }
+
+    m_imageBackingStoreContainers = { };
 
     m_rootLayer = nullptr;
     m_rootLayerID = 0;

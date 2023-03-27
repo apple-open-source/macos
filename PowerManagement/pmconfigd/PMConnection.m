@@ -1384,7 +1384,7 @@ static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms)
     }
 }
 
-static void updateCapabilitiesToAllowBackgroundTasks()
+static void updateCapabilitiesToAllowBackgroundTasks(void)
 {
     /* Its been kPMSleepDurationForBT since sleep. We can allow background task if not already
      * allowed in Dark Wake
@@ -1674,7 +1674,7 @@ getPlatformSleepType(uint32_t *sleepType, uint32_t *standbyTimer)
 
 }
 
-static void startAutoPowerOffSleep( )
+static void startAutoPowerOffSleep(void)
 {
     uint32_t sleepType = kIOPMSleepTypeInvalid;
     CFTimeInterval nextAutoWake = 0.0;

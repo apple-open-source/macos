@@ -114,6 +114,7 @@ static struct option longopts[] = {
 { "verbose",        no_argument,            0,              kverbose },
 { "version",        no_argument,            0,              kversion },
 { "snapshot",       required_argument,      0,              ksnapshot },
+{ "snapshotname",   required_argument,      0,              ksnapshotname },
 { 0,            0,                      0,              0 }
 };
 

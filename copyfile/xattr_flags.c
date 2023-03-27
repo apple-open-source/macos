@@ -55,6 +55,11 @@ static const struct defaultList
 defaultUnboxedPropertyTable[] = {
 	{ "com.apple.quarantine", "PCS", 0 },	// not public
 	{ "com.apple.TextEncoding", "CS", 0 },	// Content-dependent, public
+	{ "com.apple.metadata:kMDItemCollaborationIdentifier", "B", 0 },	// Keep only for backup
+	{ "com.apple.metadata:kMDItemIsShared", "B", 0 },	// Keep only for backup
+	{ "com.apple.metadata:kMDItemSharedItemCurrentUserRole", "B", 0 },	// Keep only for backup
+	{ "com.apple.metadata:kMDItemOwnerName", "B", 0 },	// Keep only for backup
+	{ "com.apple.metadata:kMDItemFavoriteRank", "B", 0 }, // Keep only for backup
 	{ "com.apple.metadata:", "PS", propFlagsPrefix },	// Don't export, keep for copy & safe save
 	{ "com.apple.security.", "S", propFlagsPrefix },
 	{ XATTR_RESOURCEFORK_NAME, "PCS", 0 },	// Don't keep for safe save
@@ -67,6 +72,11 @@ static const struct defaultList
 defaultSandboxedPropertyTable[] = {
     { "com.apple.quarantine", "PCS", 0 },	// not public
     { "com.apple.TextEncoding", "CS", 0 },	// Content-dependent, public
+    { "com.apple.metadata:kMDItemCollaborationIdentifier", "B", 0 },	// Keep only for backup
+    { "com.apple.metadata:kMDItemIsShared", "B", 0 },	// Keep only for backup
+    { "com.apple.metadata:kMDItemSharedItemCurrentUserRole", "B", 0 },	// Keep only for backup
+    { "com.apple.metadata:kMDItemOwnerName", "B", 0 },	// Keep only for backup
+    { "com.apple.metadata:kMDItemFavoriteRank", "B", 0 }, // Keep only for backup
     { "com.apple.metadata:", "PS", propFlagsPrefix },	// Don't export, keep for copy & safe save
     { "com.apple.security.", "N", propFlagsPrefix },
     { XATTR_RESOURCEFORK_NAME, "PCS", 0 },	// Don't keep for safe save

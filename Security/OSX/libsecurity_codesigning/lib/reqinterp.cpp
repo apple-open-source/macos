@@ -131,9 +131,17 @@ bool Requirement::Interpreter::eval(int depth)
 			return infoKeyValue(key, Match(CFTempString(getString()), matchEqual));
 		}
 	case opAnd:
-		return eval(depth) & eval(depth);
+		{
+			bool left = eval(depth);
+			bool right = eval(depth);
+			return left && right;
+		}
 	case opOr:
-		return eval(depth) | eval(depth);
+		{
+			bool left = eval(depth);
+			bool right = eval(depth);
+			return left || right;
+		}
 	case opCDHash:
 		if (mContext->directory) {
 			CFRef<CFDataRef> cdhash = mContext->directory->cdhash();

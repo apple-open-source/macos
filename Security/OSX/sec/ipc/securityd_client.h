@@ -61,7 +61,7 @@ typedef struct __SecTrustStore *SecTrustStoreRef;
 
 #if TARGET_OS_OSX
 #define kSecuritydXPCServiceName "com.apple.securityd.xpc"
-#define kSecuritydSystemXPCServiceName "com.apple.securityd.system.xpc"
+#define kSecuritydSystemXPCServiceName "com.apple.securityd.systemkeychain"
 #define kTrustdAgentXPCServiceName "com.apple.trustd.agent"
 #define kTrustdXPCServiceName "com.apple.trustd"
 #else
@@ -305,8 +305,8 @@ enum SecXPCOperation {
 
 #define KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
 #define KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER (TARGET_OS_IOS)
-#define KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN (TARGET_OS_IOS || TARGET_OS_TV)
-#define KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN (TARGET_OS_IOS)
+#define KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
+#define KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN (TARGET_OS_IOS || TARGET_OS_OSX)
 
 #define KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER (KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER || KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER)
 
@@ -532,7 +532,7 @@ typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
                                     identifier:(NSString*)identifier
                                       viewHint:(NSString*)viewHint
                                fetchCloudValue:(bool)fetchCloudValue
-                                      complete:(void (^) (NSData* persistentref, NSError* operror)) complete;
+                                      complete:(void (^) (NSData* persistentref, NSDate* cipModificationTime, NSError* operror)) complete;
 
 
 // For each item in the keychainClass, return a persistant reference and the digest of the value

@@ -26,6 +26,9 @@
 #import <AuthKit/AKError.h>
 #import <os/feature_private.h>
 
+#import "keychain/ot/proto/generated_source/OTAccountSettings.h"
+#import "keychain/ot/proto/generated_source/OTWalrus.h"
+#import "keychain/ot/proto/generated_source/OTWebAccess.h"
 
 @interface OTSOSUpgradeOperation ()
 @property OTOperationDependencies* deps;
@@ -173,33 +176,6 @@
 
     TPPBSecureElementIdentity* existingSecureElementIdentity = [account parsedSecureElementIdentity];
    
-    OTAccountSettings* settings = nil;
-    
-    if (account.hasSettings) {
-        settings = [[OTAccountSettings alloc]init];
-        
-#if APPLE_FEATURE_WALRUS
-        if ([account.settings hasW]) {
-            OTWalrus* walrus = [[OTWalrus alloc]init];
-            walrus.enabled = account.settings.w ? YES : NO;
-            settings.walrus = walrus;
-        }
-#else
-        if ([account.settings hasW]) {
-            OTTag1* w = [[OTTag1 alloc]init];
-            w.enabled = account.settings.w ? YES : NO;
-            settings.tag1 = w;
-        }
-#endif
-#if APPLE_FEATURE_WALRUS_UI
-        if ([account.settings hasWebAccess]) {
-            OTWebAccess* webAccess = [[OTWebAccess alloc]init];
-            webAccess.enabled = account.settings.webAccess ? YES : NO;
-            settings.webAccess = webAccess;
-        }
-#endif
-    }
-    
     secnotice("octagon-sos", "Fetching trusted peers from SOS");
 
     NSError* sosPreapprovalError = nil;
@@ -249,7 +225,7 @@
       TPPBPeerStableInfoUserControllableViewStatus_ENABLED :
      TPPBPeerStableInfoUserControllableViewStatus_DISABLED
                                       secureElementIdentity:existingSecureElementIdentity
-                                                    setting:settings
+                                                    setting:nil
                                 signingPrivKeyPersistentRef:signingKeyPersistRef
                                     encPrivKeyPersistentRef:encryptionKeyPersistRef
                                                       reply:^(NSString * _Nullable peerID,

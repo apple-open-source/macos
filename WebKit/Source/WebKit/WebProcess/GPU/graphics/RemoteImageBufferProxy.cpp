@@ -29,15 +29,43 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "Logging.h"
+#include "PlatformImageBufferShareableBackend.h"
 #include "RemoteRenderingBackendProxy.h"
-#include "ThreadSafeRemoteImageBufferFlusher.h"
+#include "WebPage.h"
+#include "WebWorkerClient.h"
+#include <WebCore/Document.h>
+#include <WebCore/WorkerGlobalScope.h>
 #include <wtf/SystemTracing.h>
 
 namespace WebKit {
 using namespace WebCore;
 
-RemoteImageBufferProxy::RemoteImageBufferProxy(const ImageBufferBackend::Parameters& parameters, const ImageBufferBackend::Info& info, RemoteRenderingBackendProxy& remoteRenderingBackendProxy)
-    : ImageBuffer(parameters, info)
+namespace {
+
+class RemoteImageBufferProxyFlusher final : public ThreadSafeImageBufferFlusher {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    RemoteImageBufferProxyFlusher(RemoteImageBufferProxyFlushState& flushState, DisplayListRecorderFlushIdentifier identifier)
+        : m_flushState(flushState)
+        , m_targetFlushIdentifier(identifier)
+    {
+    }
+
+    void flush() final
+    {
+        m_flushState->waitForDidFlushOnSecondaryThread(m_targetFlushIdentifier);
+    }
+
+private:
+    Ref<RemoteImageBufferProxyFlushState> m_flushState;
+    DisplayListRecorderFlushIdentifier m_targetFlushIdentifier;
+};
+
+}
+
+RemoteImageBufferProxy::RemoteImageBufferProxy(const ImageBufferBackend::Parameters& parameters, const ImageBufferBackend::Info& info, RemoteRenderingBackendProxy& remoteRenderingBackendProxy, std::unique_ptr<ImageBufferBackend>&& backend, RenderingResourceIdentifier identifier)
+    : ImageBuffer(parameters, info, WTFMove(backend), identifier)
+    , m_flushState(adoptRef(*new RemoteImageBufferProxyFlushState))
     , m_remoteRenderingBackendProxy(remoteRenderingBackendProxy)
     , m_remoteDisplayList(*this, remoteRenderingBackendProxy, { { }, ImageBuffer::logicalSize() }, ImageBuffer::baseTransform())
 {
@@ -53,37 +81,19 @@ RemoteImageBufferProxy::~RemoteImageBufferProxy()
     }
 
     flushDrawingContextAsync();
-    m_remoteRenderingBackendProxy->remoteResourceCacheProxy().releaseImageBuffer(m_renderingResourceIdentifier);
+    m_remoteRenderingBackendProxy->remoteResourceCacheProxy().releaseImageBuffer(*this);
 }
 
-void RemoteImageBufferProxy::waitForDidFlushOnSecondaryThread(GraphicsContextFlushIdentifier targetFlushIdentifier)
+void RemoteImageBufferProxy::assertDispatcherIsCurrent() const
 {
-    ASSERT(!isMainRunLoop());
-    Locker locker { m_receivedFlushIdentifierLock };
-    m_receivedFlushIdentifierChangedCondition.wait(m_receivedFlushIdentifierLock, [&] {
-        assertIsHeld(m_receivedFlushIdentifierLock);
-        return m_receivedFlushIdentifier == targetFlushIdentifier;
-    });
-
-    // Nothing should have sent more drawing commands to the GPU process
-    // while waiting for this ImageBuffer to be flushed.
-    ASSERT(m_sentFlushIdentifier == targetFlushIdentifier);
+    if (m_remoteRenderingBackendProxy)
+        assertIsCurrent(m_remoteRenderingBackendProxy->dispatcher());
 }
 
 bool RemoteImageBufferProxy::hasPendingFlush() const
 {
-    // It is safe to access m_receivedFlushIdentifier from the main thread without locking since it
-    // only gets modified on the main thread.
-    ASSERT(isMainRunLoop());
-    return m_sentFlushIdentifier != m_receivedFlushIdentifier;
-}
-
-void RemoteImageBufferProxy::didFlush(GraphicsContextFlushIdentifier flushIdentifier)
-{
-    ASSERT(isMainRunLoop());
-    Locker locker { m_receivedFlushIdentifierLock };
-    m_receivedFlushIdentifier = flushIdentifier;
-    m_receivedFlushIdentifierChangedCondition.notifyAll();
+    assertDispatcherIsCurrent();
+    return m_sentFlushIdentifier != m_flushState->identifierForCompletedFlush();
 }
 
 void RemoteImageBufferProxy::backingStoreWillChange()
@@ -103,6 +113,20 @@ void RemoteImageBufferProxy::backingStoreWillChange()
         return;
 
     prepareForBackingStoreChange();
+}
+
+void RemoteImageBufferProxy::didCreateImageBufferBackend(ImageBufferBackendHandle&& handle)
+{
+    ASSERT(!m_backend);
+    if (renderingMode() == RenderingMode::Accelerated && std::holds_alternative<ShareableBitmapHandle>(handle))
+        m_backendInfo = ImageBuffer::populateBackendInfo<UnacceleratedImageBufferShareableBackend>(parameters());
+    
+    if (renderingMode() == RenderingMode::Unaccelerated)
+        m_backend = UnacceleratedImageBufferShareableBackend::create(parameters(), WTFMove(handle));
+    else if (canMapBackingStore())
+        m_backend = AcceleratedImageBufferShareableMappedBackend::create(parameters(), WTFMove(handle));
+    else
+        m_backend = AcceleratedImageBufferRemoteBackend::create(parameters(), WTFMove(handle));
 }
 
 void RemoteImageBufferProxy::waitForDidFlushWithTimeout()
@@ -179,6 +203,23 @@ RefPtr<NativeImage> RemoteImageBufferProxy::sinkIntoNativeImage()
     return copyNativeImage();
 }
 
+RefPtr<ImageBuffer> RemoteImageBufferProxy::sinkIntoBufferForDifferentThread()
+{
+    ASSERT(hasOneRef());
+    // We can't use these on a different thread, so make a local clone instead.
+    return cloneForDifferentThread();
+}
+
+RefPtr<ImageBuffer> RemoteImageBufferProxy::cloneForDifferentThread()
+{
+    auto copyBuffer = ImageBuffer::create(logicalSize(), renderingPurpose(), resolutionScale(), colorSpace(), pixelFormat());
+    if (!copyBuffer)
+        return nullptr;
+
+    copyBuffer->context().drawImageBuffer(*this, FloatPoint { }, CompositeOperator::Copy);
+    return copyBuffer;
+}
+
 RefPtr<Image> RemoteImageBufferProxy::filteredImage(Filter& filter)
 {
     if (UNLIKELY(!m_remoteRenderingBackendProxy))
@@ -206,19 +247,15 @@ RefPtr<PixelBuffer> RemoteImageBufferProxy::getPixelBuffer(const PixelBufferForm
 void RemoteImageBufferProxy::clearBackend()
 {
     m_needsFlush = false;
-    didFlush(m_sentFlushIdentifier);
+    m_sentFlushIdentifier = { };
+    m_flushState->cancel();
     prepareForBackingStoreChange();
-    ImageBuffer::clearBackend();
+    m_backend = nullptr;
 }
 
 GraphicsContext& RemoteImageBufferProxy::context() const
 {
     return const_cast<RemoteImageBufferProxy*>(this)->m_remoteDisplayList;
-}
-
-GraphicsContext* RemoteImageBufferProxy::drawingContext()
-{
-    return &m_remoteDisplayList;
 }
 
 void RemoteImageBufferProxy::putPixelBuffer(const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
@@ -271,16 +308,19 @@ bool RemoteImageBufferProxy::flushDrawingContextAsync()
     if (!m_needsFlush)
         return hasPendingFlush();
 
-    m_sentFlushIdentifier = GraphicsContextFlushIdentifier::generate();
+    m_sentFlushIdentifier = DisplayListRecorderFlushIdentifier::generate();
     LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " flushDrawingContextAsync - flush " << m_sentFlushIdentifier);
     m_remoteDisplayList.flushContext(m_sentFlushIdentifier);
+    m_remoteRenderingBackendProxy->addPendingFlush(m_flushState, m_sentFlushIdentifier);
     m_needsFlush = false;
     return true;
 }
 
 std::unique_ptr<ThreadSafeImageBufferFlusher> RemoteImageBufferProxy::createFlusher()
 {
-    return WTF::makeUnique<ThreadSafeRemoteImageBufferFlusher>(*this);
+    if (UNLIKELY(!m_remoteRenderingBackendProxy))
+        return nullptr;
+    return makeUnique<RemoteImageBufferProxyFlusher>(m_flushState, lastSentFlushIdentifier());
 }
 
 void RemoteImageBufferProxy::prepareForBackingStoreChange()
@@ -292,6 +332,90 @@ void RemoteImageBufferProxy::prepareForBackingStoreChange()
         return;
     if (auto* backend = ensureBackendCreated())
         backend->ensureNativeImagesHaveCopiedBackingStore();
+}
+
+void RemoteImageBufferProxyFlushState::waitForDidFlushOnSecondaryThread(DisplayListRecorderFlushIdentifier targetFlushIdentifier)
+{
+    Locker locker { m_lock };
+    if (m_identifier >= targetFlushIdentifier)
+        return;
+    m_condition.wait(m_lock, [&] {
+        assertIsHeld(m_lock);
+        return m_identifier >= targetFlushIdentifier;
+    });
+}
+
+void RemoteImageBufferProxyFlushState::markCompletedFlush(DisplayListRecorderFlushIdentifier flushIdentifier)
+{
+    Locker locker { m_lock };
+    if (m_identifier >= flushIdentifier && flushIdentifier)
+        return;
+    m_identifier = flushIdentifier;
+    m_condition.notifyAll();
+}
+
+DisplayListRecorderFlushIdentifier RemoteImageBufferProxyFlushState::identifierForCompletedFlush() const
+{
+    Locker locker { m_lock };
+    return m_identifier;
+}
+
+void RemoteImageBufferProxyFlushState::cancel()
+{
+    markCompletedFlush({ });
+}
+
+std::unique_ptr<SerializedImageBuffer> RemoteImageBufferProxy::sinkIntoSerializedImageBuffer()
+{
+    ASSERT(hasOneRef());
+
+    flushDrawingContext();
+    m_remoteDisplayList.disconnect();
+
+    if (!m_remoteRenderingBackendProxy)
+        return nullptr;
+
+    prepareForBackingStoreChange();
+
+    if (!ensureBackendCreated())
+        return nullptr;
+
+    auto result = makeUnique<RemoteSerializedImageBufferProxy>(backend()->parameters(), backendInfo(), m_renderingResourceIdentifier, *m_remoteRenderingBackendProxy);
+
+    clearBackend();
+    m_remoteRenderingBackendProxy = nullptr;
+
+    std::unique_ptr<SerializedImageBuffer> ret = WTFMove(result);
+    return ret;
+}
+
+RemoteSerializedImageBufferProxy::RemoteSerializedImageBufferProxy(const WebCore::ImageBufferBackend::Parameters& parameters, const WebCore::ImageBufferBackend::Info& info, const WebCore::RenderingResourceIdentifier& renderingResourceIdentifier, RemoteRenderingBackendProxy& backend)
+    : m_referenceTracker(RemoteSerializedImageBufferIdentifier::generateThreadSafe())
+    , m_parameters(parameters)
+    , m_info(info)
+    , m_renderingResourceIdentifier(renderingResourceIdentifier)
+    , m_connection(backend.connection())
+{
+    backend.remoteResourceCacheProxy().forgetImageBuffer(m_renderingResourceIdentifier);
+    backend.moveToSerializedBuffer(m_renderingResourceIdentifier, m_referenceTracker.write());
+
+    // Record an implicit read, since we always do a read+write (to get+remove) as a single
+    // operation.
+    m_referenceTracker.read();
+}
+
+RefPtr<ImageBuffer> RemoteSerializedImageBufferProxy::sinkIntoImageBuffer(std::unique_ptr<RemoteSerializedImageBufferProxy> buffer, RemoteRenderingBackendProxy& backend)
+{
+    auto result = adoptRef(new RemoteImageBufferProxy(buffer->m_parameters, buffer->m_info, backend, nullptr, buffer->m_renderingResourceIdentifier));
+    backend.moveToImageBuffer(buffer->m_referenceTracker.write(), result->renderingResourceIdentifier());
+    buffer->m_connection = nullptr;
+    return result;
+}
+
+RemoteSerializedImageBufferProxy::~RemoteSerializedImageBufferProxy()
+{
+    if (m_connection)
+        m_connection->send(Messages::GPUConnectionToWebProcess::ReleaseSerializedImageBuffer(m_referenceTracker.write()), 0);
 }
 
 } // namespace WebKit

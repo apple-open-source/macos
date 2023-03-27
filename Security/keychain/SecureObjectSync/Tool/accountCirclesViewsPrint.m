@@ -45,6 +45,7 @@
 
 #include <utilities/SecCFWrappers.h>
 #include <utilities/debugging.h>
+#include <utilities/SecXPCError.h>
 
 #include "SecurityTool/sharedTool/readline.h"
 
@@ -162,7 +163,7 @@ static void printPeerInfos(char *label, CFStringRef mypeerID, CFArrayRef (^copyP
     CFReleaseNull(error);
 }
 
-void SOSCCDumpCircleInformation(void)
+bool SOSCCDumpCircleInformation(void)
 {
     CFErrorRef error = NULL;
     CFArrayRef generations = NULL;
@@ -171,6 +172,23 @@ void SOSCCDumpCircleInformation(void)
 
     
     SOSCCStatus ccstatus = SOSCCThisDeviceIsInCircle(&error);
+    if(ccstatus == kSOSCCError) {
+        switch(CFErrorGetCode(error)) {
+            case kSOSErrorPlatformNoSOS:
+                printmsg(CFSTR("SOS is not supported on this platform\n"));
+                break;
+            default:
+                if(CFEqual(sSecXPCErrorDomain, CFErrorGetDomain(error))) {
+                    printmsg(CFSTR("SOS status is kSOSCCError due to XPC error\n"));
+                } else {
+                    printmsg(CFSTR("SOS status is kSOSCCError (%@)\n"), error);
+                }
+                break;
+        }
+        printmsg(CFSTR("\n"));
+        return false;
+    }
+    
     printmsg(CFSTR("ccstatus: %s (%d)\n"), getSOSCCStatusDescription(ccstatus), ccstatus);
     if (error != NULL) {
         printmsg(CFSTR("Error checking circle status: %@\n"), error);
@@ -222,6 +240,7 @@ void SOSCCDumpCircleInformation(void)
     
     CFReleaseNull(me);
     CFReleaseNull(error);
+    return true;
 }
 
 void
@@ -426,7 +445,7 @@ static void decodeForKeyType(CFTypeRef key, CFTypeRef value, SOSKVSKeyType type)
             displayLastCircle(key, value);
             break;
         case kInitialSyncKey:
-        case kAccountChangedKey:
+        case kDSIDKey:
         case kDebugInfoKey:
         case kRingKey:
         default:

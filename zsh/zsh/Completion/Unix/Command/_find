@@ -89,7 +89,7 @@ case $variant in
       '-X[warn if filename contains characters special to xargs]'
       '-f[specify file hierarchy to traverse]:path:_directories'
       "-x[don't span filesystems]"
-      '*-flags:flags:_chflags'
+      '*-flags:flag:_chflags'
     )
   ;|
   freebsd*|dragonfly*) args+=( '*-sparse' ) ;|
@@ -156,11 +156,11 @@ if [[ $state = times ]]; then
     if zstyle -t ":completion:${curcontext}:senses" verbose; then
       zstyle -s ":completion:${curcontext}:senses" list-separator sep || sep=--
       default=" [default exactly]"
-      disp=( "- $sep before" "+ $sep since" )
+      disp=( "+ $sep before (older files)" "- $sep since (newer files)" )
       smatch=( - + )
     else
       disp=( before exactly since )
-      smatch=( - '' + )
+      smatch=( + '' - )
     fi
     alts=( "senses:sense${default}:compadd -V times -S '' -d disp -a smatch" )
   fi

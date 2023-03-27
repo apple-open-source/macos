@@ -5,21 +5,22 @@
 	<key>OpenSourceProject</key>
 	<string>curl</string>
 	<key>OpenSourceVersion</key>
-	<string>7.84.0</string>
+	<string>7.87.0</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://curl.se/</string>
 	<key>OpenSourceURL</key>
-	<string>https://curl.se/download/curl-7.85.0.tar.xz</string>
+	<string>https://curl.se/download/curl-7.87.0.tar.xz</string>
 	<key>OpenSourceSHA256</key>
-	<string>88b54a6d4b9a48cb4d873c7056dcba997ddd5b7be5a2d537a4acb55c20b04be6</string>
+	<string>ee5f1a1955b0ed413435ef79db28b834ea5f0fb7c8cfb1ce47175cc3bee08fff</string>
 	<key>OpenSourceImportDate</key>
-	<string>2022-09-30</string>
+	<string>2023-02-01</string>
 	<key>OpenSourceModifications</key>
 	<array>
 	  <string>include/curl/curl.h: Moved CURLE_SSL_CACERT back to being an enum value instead of a macro. (#43091584)</string>
 	  <string>lib/curl_gssapi.c: Address pointer alignment issue in gss_OID_desc structs. (#27287483)</string>
 	  <string>lib/vtls: On macOS, use openssl if present, secure-transport if not. (#43091584)</string>
 	  <string>lib/vtls/sectransp.c: Support finding identities by public key to support Yubikey auth on Big Sur. (#72186096)</string>
+	  <string>lib/easy_lock.h: include sched.h (98886899)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

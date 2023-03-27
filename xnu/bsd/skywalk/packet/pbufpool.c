@@ -81,13 +81,14 @@ pp_alloc_buflet_common(struct kern_pbufpool *pp, uint64_t *array,
 	(&(_pp)->pp_u_bft_hash_table[KERN_PBUFPOOL_U_HASH_INDEX(_i, \
 	KERN_PBUFPOOL_U_HASH_SIZE - 1)])
 
-static ZONE_DEFINE(pp_zone, SKMEM_ZONE_PREFIX ".mem.pp",
-    sizeof(struct kern_pbufpool), ZC_ZFREE_CLEARMEM);
+static SKMEM_TYPE_DEFINE(pp_zone, struct kern_pbufpool);
 
-#define PP_U_HTBL_SIZE  \
-	(sizeof(struct kern_pbufpool_u_bkt) * KERN_PBUFPOOL_U_HASH_SIZE)
-static ZONE_DEFINE(pp_u_htbl_zone, SKMEM_ZONE_PREFIX ".mem.pp.htbl",
-    PP_U_HTBL_SIZE, ZC_ZFREE_CLEARMEM);
+struct kern_pbufpool_u_htbl {
+	struct kern_pbufpool_u_bkt upp_hash[KERN_PBUFPOOL_U_HASH_SIZE];
+};
+
+#define PP_U_HTBL_SIZE  sizeof(struct kern_pbufpool_u_htbl)
+static SKMEM_TYPE_DEFINE(pp_u_htbl_zone, struct kern_pbufpool_u_htbl);
 
 static struct skmem_cache *pp_opt_cache;        /* cache for __packet_opt */
 static struct skmem_cache *pp_flow_cache;       /* cache for __flow */

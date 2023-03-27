@@ -70,6 +70,22 @@ public:
         return presenceWithoutBarrier(object, uid, offset, attributes);
     }
 
+    static ObjectPropertyCondition replacementWithoutBarrier(JSObject* object, UniquedStringImpl* uid, PropertyOffset offset, unsigned attributes)
+    {
+        ObjectPropertyCondition result;
+        result.m_object = object;
+        result.m_condition = PropertyCondition::replacementWithoutBarrier(uid, offset, attributes);
+        return result;
+    }
+
+    static ObjectPropertyCondition replacement(VM& vm, JSCell* owner, JSObject* object, UniquedStringImpl* uid, PropertyOffset offset,
+        unsigned attributes)
+    {
+        if (owner)
+            vm.writeBarrier(owner);
+        return replacementWithoutBarrier(object, uid, offset, attributes);
+    }
+
     // NOTE: The prototype is the storedPrototype, not the prototypeForLookup.
     static ObjectPropertyCondition absenceWithoutBarrier(
         JSObject* object, UniquedStringImpl* uid, JSObject* prototype)
@@ -104,7 +120,22 @@ public:
             vm.writeBarrier(owner);
         return absenceOfSetEffectWithoutBarrier(object, uid, prototype);
     }
-    
+
+    static ObjectPropertyCondition absenceOfIndexedPropertiesWithoutBarrier(JSObject* object, JSObject* prototype)
+    {
+        ObjectPropertyCondition result;
+        result.m_object = object;
+        result.m_condition = PropertyCondition::absenceOfIndexedPropertiesWithoutBarrier(prototype);
+        return result;
+    }
+
+    static ObjectPropertyCondition absenceOfIndexedProperties(VM& vm, JSCell* owner, JSObject* object, JSObject* prototype)
+    {
+        if (owner)
+            vm.writeBarrier(owner);
+        return absenceOfIndexedPropertiesWithoutBarrier(object, prototype);
+    }
+
     static ObjectPropertyCondition equivalenceWithoutBarrier(
         JSObject* object, UniquedStringImpl* uid, JSValue value)
     {
@@ -271,6 +302,7 @@ public:
     }
 
     ObjectPropertyCondition attemptToMakeEquivalenceWithoutBarrier() const;
+    ObjectPropertyCondition attemptToMakeReplacementWithoutBarrier() const;
 
 private:
     JSObject* m_object;

@@ -44,6 +44,9 @@
 - (instancetype)init:(NSString*)containerName
            contextID:(NSString*)contextID
               reason:(CuttlefishResetReason)reason
+   idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+          notifyIdMS:(bool)notifyIdMS
        intendedState:(OctagonState*)intendedState
         dependencies:(OTOperationDependencies *)deps
           errorState:(OctagonState*)errorState
@@ -57,6 +60,9 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
         _contextID = contextID;
         _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
         _resetReason = reason;
+        _idmsTargetContext = idmsTargetContext;
+        _idmsCuttlefishPassword = idmsCuttlefishPassword;
+        _notifyIdMS = notifyIdMS;
         _deps = deps;
     }
     return self;
@@ -72,6 +78,9 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
     WEAKIFY(self);
     [self.cuttlefishXPCWrapper resetWithSpecificUser:self.deps.activeAccount
                                          resetReason:self.resetReason
+                                   idmsTargetContext:self.idmsTargetContext
+                              idmsCuttlefishPassword:self.idmsCuttlefishPassword
+                                          notifyIdMS:self.notifyIdMS
                                                reply:^(NSError * _Nullable error) {
             STRONGIFY(self);
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventReset hardFailure:true result:error];

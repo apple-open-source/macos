@@ -1033,7 +1033,11 @@ in6ctl_alifetime(struct in6_ifaddr *ia, u_long cmd, struct in6_ifreq *ifr,
 			lt.ia6t_preferred = (uint32_t)ia6_lt.ia6t_preferred;
 			lt.ia6t_vltime = (uint32_t)ia6_lt.ia6t_vltime;
 			lt.ia6t_pltime = (uint32_t)ia6_lt.ia6t_pltime;
-			bcopy(&lt, &ifr->ifr_ifru.ifru_lifetime, sizeof(ifr->ifr_ifru.ifru_lifetime));
+			/*
+			 * 32-bit userland expects a 32-bit in6_addrlifetime to
+			 * come back:
+			 */
+			bcopy(&lt, &ifr->ifr_ifru.ifru_lifetime, sizeof(lt));
 		}
 		IFA_UNLOCK(&ia->ia_ifa);
 		break;

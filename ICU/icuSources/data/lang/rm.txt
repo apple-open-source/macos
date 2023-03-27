@@ -83,6 +83,7 @@ rm{
         chm{"mari"}
         chn{"patuà chinook"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"cheyenne"}

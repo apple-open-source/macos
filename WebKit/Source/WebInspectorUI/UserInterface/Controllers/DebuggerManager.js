@@ -36,6 +36,12 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         WI.JavaScriptBreakpoint.addEventListener(WI.Breakpoint.Event.ActionsDidChange, this._handleBreakpointActionsDidChange, this);
         WI.JavaScriptBreakpoint.addEventListener(WI.JavaScriptBreakpoint.Event.DisplayLocationDidChange, this._breakpointDisplayLocationDidChange, this);
 
+        WI.SymbolicBreakpoint.addEventListener(WI.Breakpoint.Event.DisabledStateDidChange, this._handleSymbolicBreakpointDisabledStateChanged, this);
+        WI.SymbolicBreakpoint.addEventListener(WI.Breakpoint.Event.ConditionDidChange, this._handleSymbolicBreakpointEditablePropertyChanged, this);
+        WI.SymbolicBreakpoint.addEventListener(WI.Breakpoint.Event.IgnoreCountDidChange, this._handleSymbolicBreakpointEditablePropertyChanged, this);
+        WI.SymbolicBreakpoint.addEventListener(WI.Breakpoint.Event.AutoContinueDidChange, this._handleSymbolicBreakpointEditablePropertyChanged, this);
+        WI.SymbolicBreakpoint.addEventListener(WI.Breakpoint.Event.ActionsDidChange, this._handleSymbolicBreakpointActionsChanged, this);
+
         WI.timelineManager.addEventListener(WI.TimelineManager.Event.CapturingStateChanged, this._handleTimelineCapturingStateChanged, this);
 
         WI.auditManager.addEventListener(WI.AuditManager.Event.TestScheduled, this._handleAuditManagerTestScheduled, this);
@@ -45,7 +51,7 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
         WI.settings.blackboxBreakpointEvaluations.addEventListener(WI.Setting.Event.Changed, this._handleBlackboxBreakpointEvaluationsChange, this);
 
-        if (WI.isEngineeringBuild) {
+        if (WI.engineeringSettingsAllowed()) {
             WI.settings.engineeringShowInternalScripts.addEventListener(WI.Setting.Event.Changed, this._handleEngineeringShowInternalScriptsSettingChanged, this);
             WI.settings.engineeringPauseForInternalScripts.addEventListener(WI.Setting.Event.Changed, this._handleEngineeringPauseForInternalScriptsSettingChanged, this);
         }
@@ -76,6 +82,8 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         this._breakpointContentIdentifierMap = new Multimap;
         this._breakpointScriptIdentifierMap = new Multimap;
         this._breakpointIdMap = new Map;
+
+        this._symbolicBreakpoints = [];
 
         this._nextBreakpointActionIdentifier = 1;
 
@@ -127,6 +135,23 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
             }
             this._restoringBreakpoints = false;
         })());
+
+        if (WI.SymbolicBreakpoint.supported()) {
+            WI.Target.registerInitializationPromise((async () => {
+                let serializedSymbolicBreakpoints = await WI.objectStores.symbolicBreakpoints.getAll();
+
+                this._restoringBreakpoints = true;
+                for (let serializedSymbolicBreakpoint of serializedSymbolicBreakpoints) {
+                    let symbolicBreakpoint = WI.SymbolicBreakpoint.fromJSON(serializedSymbolicBreakpoint);
+
+                    const key = null;
+                    WI.objectStores.symbolicBreakpoints.associateObject(symbolicBreakpoint, key, serializedSymbolicBreakpoint);
+
+                    this.addSymbolicBreakpoint(symbolicBreakpoint);
+                }
+                this._restoringBreakpoints = false;
+            })());
+        }
 
         WI.Target.registerInitializationPromise((async () => {
             // Wait one microtask so that `WI.debuggerManager` can be initialized.
@@ -193,6 +218,13 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         target.DebuggerAgent.enable();
         target.DebuggerAgent.setBreakpointsActive(this._breakpointsEnabledSetting.value);
 
+        if (WI.SymbolicBreakpoint.supported(target)) {
+            for (let breakpoint of this._symbolicBreakpoints) {
+                if (!breakpoint.disabled)
+                    this._setSymbolicBreakpoint(breakpoint, target);
+            }
+        }
+
         if (this._debuggerStatementsBreakpoint)
             this._updateSpecialBreakpoint(this._debuggerStatementsBreakpoint, target);
 
@@ -227,7 +259,7 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
         this._setBlackboxBreakpointEvaluations(target);
 
-        if (WI.isEngineeringBuild) {
+        if (WI.engineeringSettingsAllowed()) {
             // COMPATIBILITY (iOS 12): DebuggerAgent.setPauseForInternalScripts did not exist yet.
             if (target.hasCommand("Debugger.setPauseForInternalScripts"))
                 target.DebuggerAgent.setPauseForInternalScripts(WI.settings.engineeringPauseForInternalScripts.value);
@@ -258,7 +290,7 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
     static supportsBlackboxingBreakpointEvaluations()
     {
-        // COMPATIBILITY (iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
+        // COMPATIBILITY (macOS 12.3, iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
         return InspectorBackend.hasCommand("Debugger.setBlackboxBreakpointEvaluations");
     }
 
@@ -283,8 +315,8 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
             return WI.DebuggerManager.PauseReason.EventListener;
         case InspectorBackend.Enum.Debugger.PausedReason.Exception:
             return WI.DebuggerManager.PauseReason.Exception;
-        case InspectorBackend.Enum.Debugger.PausedReason.Fetch:
-            return WI.DebuggerManager.PauseReason.Fetch;
+        case InspectorBackend.Enum.Debugger.PausedReason.FunctionCall:
+            return WI.DebuggerManager.PauseReason.FunctionCall;
         case InspectorBackend.Enum.Debugger.PausedReason.Interval:
             return WI.DebuggerManager.PauseReason.Interval;
         case InspectorBackend.Enum.Debugger.PausedReason.Listener:
@@ -297,8 +329,10 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
             return WI.DebuggerManager.PauseReason.Timeout;
         case InspectorBackend.Enum.Debugger.PausedReason.Timer:
             return WI.DebuggerManager.PauseReason.Timer;
-        case InspectorBackend.Enum.Debugger.PausedReason.XHR:
-            return WI.DebuggerManager.PauseReason.XHR;
+        case InspectorBackend.Enum.Debugger.PausedReason.URL:
+        case InspectorBackend.Enum.Debugger.PausedReason.Fetch: // COMPATIBILITY (macOS 13.0, iOS 16.0): Debugger.paused.reason.Fetch was replaced by Debugger.paused.reason.URL
+        case InspectorBackend.Enum.Debugger.PausedReason.XHR: // COMPATIBILITY (macOS 13.0, iOS 16.0): Debugger.paused.reason.XHR was replaced by Debugger.paused.reason.URL
+            return WI.DebuggerManager.PauseReason.URL;
         default:
             return WI.DebuggerManager.PauseReason.Other;
         }
@@ -394,6 +428,14 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         return [];
     }
 
+    breakpointsForSourceCodeLocation(sourceCodeLocation)
+    {
+        console.assert(sourceCodeLocation instanceof WI.SourceCodeLocation, sourceCodeLocation);
+
+        return this.breakpointsForSourceCode(sourceCodeLocation.sourceCode)
+            .filter((breakpoint) => breakpoint.hasResolvedLocation(sourceCodeLocation));
+    }
+
     breakpointForSourceCodeLocation(sourceCodeLocation)
     {
         console.assert(sourceCodeLocation instanceof WI.SourceCodeLocation);
@@ -404,6 +446,27 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         }
 
         return null;
+    }
+
+    symbolicBreakpointsForSymbol(symbol)
+    {
+        console.assert(WI.SymbolicBreakpoint.supported());
+
+        // Order symbolic breakpoints based on how closely they match the given symbol. As an example,
+        // a regular expression is likely going to match more symbols than a case-insensitive string.
+        const rankFunctions = [
+            (breakpoint) => breakpoint.caseSensitive && !breakpoint.isRegex,  // exact match
+            (breakpoint) => !breakpoint.caseSensitive && !breakpoint.isRegex, // case-insensitive
+            (breakpoint) => breakpoint.caseSensitive && breakpoint.isRegex,   // case-sensitive regex
+            (breakpoint) => !breakpoint.caseSensitive && breakpoint.isRegex,  // case-insensitive regex
+        ];
+        return this._symbolicBreakpoints
+            .filter((breakpoint) => breakpoint.matches(symbol))
+            .sort((a, b) => {
+                let aRank = rankFunctions.findIndex((rankFunction) => rankFunction(a));
+                let bRank = rankFunctions.findIndex((rankFunction) => rankFunction(b));
+                return aRank - bRank;
+            });
     }
 
     get breakpointsEnabled()
@@ -743,6 +806,53 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         this.dispatchEventToListeners(WI.DebuggerManager.Event.BreakpointRemoved, {breakpoint});
     }
 
+    addSymbolicBreakpoint(breakpoint)
+    {
+        console.assert(WI.SymbolicBreakpoint.supported());
+        console.assert(breakpoint instanceof WI.SymbolicBreakpoint, breakpoint);
+        console.assert(!breakpoint.special, breakpoint);
+
+        if (this._symbolicBreakpoints.some((existingBreakpoint) => existingBreakpoint.equals(breakpoint)))
+            return false;
+
+        this._symbolicBreakpoints.push(breakpoint);
+
+        if (!breakpoint.disabled) {
+            for (let target of WI.targets)
+                this._setSymbolicBreakpoint(breakpoint, target);
+        }
+
+        if (!this._restoringBreakpoints)
+            WI.objectStores.symbolicBreakpoints.putObject(breakpoint);
+
+        this.addProbesForBreakpoint(breakpoint);
+
+        this.dispatchEventToListeners(WI.DebuggerManager.Event.SymbolicBreakpointAdded, {breakpoint});
+
+        return true;
+    }
+
+    removeSymbolicBreakpoint(breakpoint)
+    {
+        console.assert(WI.SymbolicBreakpoint.supported());
+        console.assert(breakpoint instanceof WI.SymbolicBreakpoint, breakpoint);
+        console.assert(breakpoint.removable, breakpoint);
+        console.assert(!breakpoint.special, breakpoint);
+
+        // Disable the breakpoint first, so removing actions doesn't re-add the breakpoint.
+        breakpoint.disabled = true;
+        breakpoint.clearActions();
+
+        this._symbolicBreakpoints.remove(breakpoint);
+
+        if (!this._restoringBreakpoints)
+            WI.objectStores.symbolicBreakpoints.deleteObject(breakpoint);
+
+        this.removeProbesForBreakpoint(breakpoint);
+
+        this.dispatchEventToListeners(WI.DebuggerManager.Event.SymbolicBreakpointRemoved, {breakpoint});
+    }
+
     nextBreakpointActionIdentifier()
     {
         return this._nextBreakpointActionIdentifier++;
@@ -830,12 +940,12 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
         console.assert(breakpoint.identifier === breakpointIdentifier);
 
-        if (!breakpoint.sourceCodeLocation.sourceCode) {
-            let sourceCodeLocation = this._sourceCodeLocationFromPayload(target, location);
-            breakpoint.sourceCodeLocation.sourceCode = sourceCodeLocation.sourceCode;
-        }
+        let sourceCodeLocation = this._sourceCodeLocationFromPayload(target, location);
 
-        breakpoint.resolved = true;
+        if (!breakpoint.sourceCodeLocation.sourceCode)
+            breakpoint.sourceCodeLocation.sourceCode = sourceCodeLocation.sourceCode;
+
+        breakpoint.addResolvedLocation(sourceCodeLocation);
     }
 
     globalObjectCleared(target)
@@ -852,7 +962,8 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         // Mark all the breakpoints as unresolved. They will be reported as resolved when
         // breakpointResolved is called as the page loads.
         for (let breakpoint of this._breakpoints) {
-            breakpoint.resolved = false;
+            breakpoint.clearResolvedLocations();
+
             if (breakpoint.sourceCodeLocation.sourceCode)
                 breakpoint.sourceCodeLocation.sourceCode = null;
         }
@@ -912,8 +1023,10 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
             return;
         }
 
-        let asyncStackTrace = WI.StackTrace.fromPayload(target, asyncStackTracePayload);
-        targetData.updateForPause(callFrames, pauseReason, pauseData, asyncStackTrace);
+        let stackTrace = new WI.StackTrace(callFrames, {
+            parentStackTrace: WI.StackTrace.fromPayload(target, asyncStackTracePayload),
+        });
+        targetData.updateForPause(stackTrace, pauseReason, pauseData);
 
         // Pause other targets because at least one target has paused.
         // FIXME: Should this be done on the backend?
@@ -1120,7 +1233,7 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         // If something goes wrong it will stay unresolved and show up as such in the user interface.
         // When setting for a new target, don't change the resolved target.
         if (!specificTarget)
-            breakpoint.resolved = false;
+            breakpoint.clearResolvedLocations();
 
         if (breakpoint.contentIdentifier) {
             let targets = specificTarget ? [specificTarget] : WI.targets;
@@ -1173,6 +1286,35 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
             let target = breakpoint.target;
             target.DebuggerAgent.removeBreakpoint(breakpoint.identifier, didRemoveBreakpoint.bind(this, target));
         }
+    }
+
+    _setSymbolicBreakpoint(breakpoint, target)
+    {
+        console.assert(breakpoint instanceof WI.SymbolicBreakpoint, breakpoint);
+        console.assert(!breakpoint.disabled, breakpoint);
+        console.assert(WI.SymbolicBreakpoint.supported(target), target);
+
+        if (!this._restoringBreakpoints && !this.breakpointsDisabledTemporarily)
+            this.breakpointsEnabled = true;
+
+        target.DebuggerAgent.addSymbolicBreakpoint.invoke({
+            symbol: breakpoint.symbol,
+            caseSensitive: breakpoint.caseSensitive,
+            isRegex: breakpoint.isRegex,
+            options: breakpoint.optionsToProtocol(),
+        });
+    }
+
+    _removeSymbolicBreakpoint(breakpoint, target)
+    {
+        console.assert(breakpoint instanceof WI.SymbolicBreakpoint, breakpoint);
+        console.assert(WI.SymbolicBreakpoint.supported(target), target);
+
+        target.DebuggerAgent.removeSymbolicBreakpoint.invoke({
+            symbol: breakpoint.symbol,
+            caseSensitive: breakpoint.caseSensitive,
+            isRegex: breakpoint.isRegex,
+        });
     }
 
     _setPauseOnExceptions(target)
@@ -1268,7 +1410,7 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
     _setBlackboxBreakpointEvaluations(target)
     {
-        // COMPATIBILITY (iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
+        // COMPATIBILITY (macOS 12.3, iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
         if (target.hasCommand("Debugger.setBlackboxBreakpointEvaluations"))
             target.DebuggerAgent.setBlackboxBreakpointEvaluations(WI.settings.blackboxBreakpointEvaluations.value);
     }
@@ -1346,6 +1488,49 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         this._breakpointEditablePropertyDidChange(event);
 
         this.updateProbesForBreakpoint(event.target);
+    }
+
+    _handleSymbolicBreakpointDisabledStateChanged(event)
+    {
+        let breakpoint = event.target;
+
+        for (let target of WI.targets) {
+            if (breakpoint.disabled)
+                this._removeSymbolicBreakpoint(breakpoint, target);
+            else
+                this._setSymbolicBreakpoint(breakpoint, target);
+        }
+
+        if (!this._restoringBreakpoints)
+            WI.objectStores.symbolicBreakpoints.putObject(breakpoint);
+    }
+
+    _handleSymbolicBreakpointEditablePropertyChanged(event)
+    {
+        let breakpoint = event.target;
+
+        if (!this._restoringBreakpoints)
+            WI.objectStores.symbolicBreakpoints.putObject(breakpoint);
+
+        if (breakpoint.disabled)
+            return;
+
+        this._restoringBreakpoints = true;
+        for (let target of WI.targets) {
+            // Clear the old breakpoint from the backend before setting the new one.
+            this._removeSymbolicBreakpoint(breakpoint, target);
+            this._setSymbolicBreakpoint(breakpoint, target);
+        }
+        this._restoringBreakpoints = false;
+    }
+
+    _handleSymbolicBreakpointActionsChanged(event)
+    {
+        let breakpoint = event.target;
+
+        this._handleSymbolicBreakpointEditablePropertyChanged(event);
+
+        this.updateProbesForBreakpoint(breakpoint);
     }
 
     _startDisablingBreakpointsTemporarily()
@@ -1505,6 +1690,8 @@ WI.DebuggerManager.Event = {
     BreakpointAdded: "debugger-manager-breakpoint-added",
     BreakpointRemoved: "debugger-manager-breakpoint-removed",
     BreakpointMoved: "debugger-manager-breakpoint-moved",
+    SymbolicBreakpointAdded: "debugger-manager-symbolic-breakpoint-added",
+    SymbolicBreakpointRemoved: "debugger-manager-symbolic-breakpoint-removed",
     WaitingToPause: "debugger-manager-waiting-to-pause",
     Paused: "debugger-manager-paused",
     Resumed: "debugger-manager-resumed",
@@ -1528,13 +1715,13 @@ WI.DebuggerManager.PauseReason = {
     DebuggerStatement: "debugger-statement",
     DOM: "DOM",
     Exception: "exception",
-    Fetch: "fetch",
+    FunctionCall: "function-call",
     Interval: "interval",
     Listener: "listener",
     Microtask: "microtask",
     PauseOnNextStatement: "pause-on-next-statement",
     Timeout: "timeout",
-    XHR: "xhr",
+    URL: "url",
     Other: "other",
 
     // COMPATIBILITY (iOS 13): DOMDebugger.EventBreakpointType.Timer was replaced by DOMDebugger.EventBreakpointType.Interval and DOMDebugger.EventBreakpointType.Timeout.

@@ -29,36 +29,44 @@
 #include "WebEventFactory.h"
 #include <WebCore/GtkVersioning.h>
 
+#if USE(GTK4)
+#define constructNativeEvent(event) event
+#else
+#define constructNativeEvent(event) gdk_event_copy(event)
+#endif
+
 namespace WebKit {
 
 NativeWebWheelEvent::NativeWebWheelEvent(GdkEvent* event)
     : WebWheelEvent(WebEventFactory::createWebWheelEvent(event))
-    , m_nativeEvent(gdk_event_copy(event))
+    , m_nativeEvent(constructNativeEvent(event))
 {
 }
 
 NativeWebWheelEvent::NativeWebWheelEvent(GdkEvent* event, WebWheelEvent::Phase phase, WebWheelEvent::Phase momentumPhase)
     : WebWheelEvent(WebEventFactory::createWebWheelEvent(event, phase, momentumPhase))
-    , m_nativeEvent(gdk_event_copy(event))
+    , m_nativeEvent(constructNativeEvent(event))
 {
 }
 
 NativeWebWheelEvent::NativeWebWheelEvent(GdkEvent* event, const WebCore::IntPoint& position, const WebCore::FloatSize& wheelTicks)
     : WebWheelEvent(WebEventFactory::createWebWheelEvent(event, position, position, wheelTicks))
-    , m_nativeEvent(gdk_event_copy(event))
+    , m_nativeEvent(constructNativeEvent(event))
 {
 }
 
 NativeWebWheelEvent::NativeWebWheelEvent(GdkEvent *event, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, const WebCore::FloatSize& delta, const WebCore::FloatSize& wheelTicks, WebWheelEvent::Phase phase, WebWheelEvent::Phase momentumPhase, bool hasPreciseDeltas)
-    : WebWheelEvent(WebEvent::Wheel, position, globalPosition, delta, wheelTicks, phase, momentumPhase, WebWheelEvent::ScrollByPixelWheelEvent, hasPreciseDeltas, { }, WallTime::now())
-    , m_nativeEvent(event ? gdk_event_copy(event) : nullptr)
+    : WebWheelEvent({ WebEventType::Wheel, { }, WallTime::now() }, position, globalPosition, delta, wheelTicks, WebWheelEvent::ScrollByPixelWheelEvent, phase, momentumPhase, hasPreciseDeltas)
+    , m_nativeEvent(event ? constructNativeEvent(event) : nullptr)
 {
 }
 
 NativeWebWheelEvent::NativeWebWheelEvent(const NativeWebWheelEvent& event)
-    : WebWheelEvent(event.type(), event.position(), event.globalPosition(), event.delta(), event.wheelTicks(), event.phase(), event.momentumPhase(), event.granularity(), event.hasPreciseScrollingDeltas(), event.modifiers(), event.timestamp())
-    , m_nativeEvent(event.nativeEvent() ? gdk_event_copy(event.nativeEvent()) : nullptr)
+    : WebWheelEvent({ event.type(), event.modifiers(), event.timestamp() }, event.position(), event.globalPosition(), event.delta(), event.wheelTicks(), event.granularity(), event.phase(), event.momentumPhase(), event.hasPreciseScrollingDeltas())
+    , m_nativeEvent(event.nativeEvent() ? constructNativeEvent(event.nativeEvent()) : nullptr)
 {
 }
 
 } // namespace WebKit
+
+#undef constructNativeEvent

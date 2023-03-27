@@ -248,8 +248,7 @@ static int nd6_sysctl_prlist SYSCTL_HANDLER_ARGS;
 	(_ln)->ln_flags |= ND6_LNF_IN_USE;                              \
 } while (0)
 
-static ZONE_DEFINE(llinfo_nd6_zone, "llinfo_nd6",
-    sizeof(struct llinfo_nd6), ZC_ZFREE_CLEARMEM);
+static KALLOC_TYPE_DEFINE(llinfo_nd6_zone, struct llinfo_nd6, NET_KT_DEFAULT);
 
 extern int tvtohz(struct timeval *);
 

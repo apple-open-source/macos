@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnablePressuredExit</key>
+	<true/>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>DEBUGSCOPE</key>
+		<string>-policy-node,policy-set,policy,alloc,trust,bind,profile,trace,dbconn,OTR,serverxpc,sqlite3,error_thee_well, ringSigning</string>
+		<key>WAIT4DEBUGGER</key>
+		<string>NO</string>
+	</dict>
+	<key>Label</key>
+	<string>com.apple.securityd.system</string>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.securityd.systemkeychain</key>
+		<true/>
+	</dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/securityd_system</string>
+	</array>
+	<key>Umask</key>
+	<integer>54</integer>
+	<key>ProcessType</key>
+	<string>Adaptive</string>
+	<key>MinimalBootProfile</key>
+	<true/>
+	<key>LimitLoadToSessionType</key>
+	<string>System</string>
+	<key>_LimitLoadFromVariant</key>
+	<string>IsRecovery</string>
+	<key>_LimitLoadToVariant</key>
+	<string>IsDarwinOS</string>
+</dict>
+</plist>

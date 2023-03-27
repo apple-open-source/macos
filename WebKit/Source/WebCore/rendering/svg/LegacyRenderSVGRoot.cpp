@@ -179,11 +179,11 @@ void LegacyRenderSVGRoot::layout()
     m_isLayoutSizeChanged = needsLayout || (svgSVGElement().hasRelativeLengths() && oldSize != size());
     SVGRenderSupport::layoutChildren(*this, needsLayout || SVGRenderSupport::filtersForceContainerLayout(*this));
 
-    if (!m_resourcesNeedingToInvalidateClients.isEmpty()) {
+    if (!m_resourcesNeedingToInvalidateClients.isEmptyIgnoringNullReferences()) {
         // Invalidate resource clients, which may mark some nodes for layout.
         for (auto& resource :  m_resourcesNeedingToInvalidateClients) {
-            resource->removeAllClientsFromCache();
-            SVGResourcesCache::clientStyleChanged(*resource, StyleDifference::Layout, resource->style());
+            resource.removeAllClientsFromCache();
+            SVGResourcesCache::clientStyleChanged(resource, StyleDifference::Layout, nullptr, resource.style());
         }
 
         m_isLayoutSizeChanged = false;
@@ -218,10 +218,7 @@ bool LegacyRenderSVGRoot::shouldApplyViewportClip() const
     // the outermost svg is clipped if auto, and svg document roots are always clipped
     // When the svg is stand-alone (isDocumentElement() == true) the viewport clipping should always
     // be applied, noting that the window scrollbars should be hidden if overflow=hidden.
-    return effectiveOverflowX() == Overflow::Hidden
-        || style().overflowX() == Overflow::Auto
-        || style().overflowX() == Overflow::Scroll
-        || this->isDocumentElementRenderer();
+    return isNonVisibleOverflow(effectiveOverflowX()) || style().overflowX() == Overflow::Auto || this->isDocumentElementRenderer();
 }
 
 void LegacyRenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
@@ -247,7 +244,7 @@ void LegacyRenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint&
     GraphicsContext& context = paintInfo.context();
     if (context.detectingContentfulPaint()) {
         for (auto& current : childrenOfType<RenderObject>(*this)) {
-            if (!current.isSVGHiddenContainer()) {
+            if (!current.isLegacySVGHiddenContainer()) {
                 context.setContentfulPaintDetected();
                 return;
             }
@@ -331,7 +328,7 @@ void LegacyRenderSVGRoot::styleDidChange(StyleDifference diff, const RenderStyle
         m_hasBoxDecorations = hasVisibleBoxDecorationStyle();
 
     RenderReplaced::styleDidChange(diff, oldStyle);
-    SVGResourcesCache::clientStyleChanged(*this, diff, style());
+    SVGResourcesCache::clientStyleChanged(*this, diff, oldStyle, style());
 }
 
 // RenderBox methods will expect coordinates w/o any transforms in coordinates
@@ -405,9 +402,6 @@ std::optional<FloatRect> LegacyRenderSVGRoot::computeFloatVisibleRectInContainer
 // to convert from SVG viewport coordinates to local CSS box coordinates.
 void LegacyRenderSVGRoot::mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const
 {
-    ASSERT(!mode.contains(IsFixed)); // We should have no fixed content in the SVG rendering tree.
-    ASSERT(mode.contains(UseTransforms)); // mapping a point through SVG w/o respecting transforms is useless.
-
     RenderReplaced::mapLocalToContainer(ancestorContainer, transformState, mode | ApplyContainerFlip, wasFixed);
 }
 
@@ -476,7 +470,7 @@ void LegacyRenderSVGRoot::addResourceForClientInvalidation(RenderSVGResourceCont
     LegacyRenderSVGRoot* svgRoot = SVGRenderSupport::findTreeRootObject(*resource);
     if (!svgRoot)
         return;
-    svgRoot->m_resourcesNeedingToInvalidateClients.add(resource);
+    svgRoot->m_resourcesNeedingToInvalidateClients.add(*resource);
 }
 
 }

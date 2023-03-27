@@ -491,7 +491,7 @@ bool SecTrustSettingsCopyData(uid_t uid,
     return result;
 }
 
-bool _SecTrustResetSettings(SecTrustResetFlags flags, CFErrorRef* error)
+bool _SecTrustResetSettings(SecTrustResetFlags flags, CFErrorRef _Nonnull * _Nullable error)
 {
     if (flags & kSecTrustResetOCSPCache) {
         secnotice("trustsettings", "_SecTrustResetSettings: kSecTrustResetOCSPCache");

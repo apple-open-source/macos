@@ -26,6 +26,9 @@ AUTH_NONNULL_ALL
 auth_rights_t engine_get_granted_rights(engine_t);
 
 AUTH_NONNULL_ALL
+auth_token_t engine_get_auth_token(engine_t);
+
+AUTH_NONNULL_ALL
 CFAbsoluteTime engine_get_time(engine_t);
     
 AUTH_NONNULL_ALL

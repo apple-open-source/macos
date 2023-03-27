@@ -30,13 +30,20 @@
 #include <stdlib.h>
 #include <uuid/uuid.h>
 #include "execinfo.h"
+#include "libc_private.h"
 
 extern void _thread_stack_pcs(vm_address_t *buffer, unsigned max,
 		unsigned *nb, unsigned skip, void *startfp);
 
+static backtrace_get_pcs_func_t backtrace_get_pcs_func = _thread_stack_pcs;
+
+void backtrace_set_pcs_func(backtrace_get_pcs_func_t func) {
+	backtrace_get_pcs_func = func ? func : _thread_stack_pcs;
+}
+
 int backtrace(void** buffer, int size) {
 	unsigned int num_frames;
-	_thread_stack_pcs((vm_address_t*)buffer, size, &num_frames, 1, NULL);
+	backtrace_get_pcs_func((vm_address_t*)buffer, size, &num_frames, 1, NULL);
 	while (num_frames >= 1 && buffer[num_frames-1] == NULL) num_frames -= 1;
 	return num_frames;
 }

@@ -30,6 +30,7 @@
 #include "CSSValue.h"
 
 #include "CSSAspectRatioValue.h"
+#include "CSSBackgroundRepeatValue.h"
 #include "CSSBorderImageSliceValue.h"
 #include "CSSBorderImageWidthValue.h"
 #include "CSSCalcValue.h"
@@ -43,7 +44,7 @@
 #include "CSSFontFeatureValue.h"
 #include "CSSFontPaletteValuesOverrideColorsValue.h"
 #include "CSSFontStyleRangeValue.h"
-#include "CSSFontStyleValue.h"
+#include "CSSFontStyleWithAngleValue.h"
 #include "CSSFontValue.h"
 #include "CSSFontVariantAlternatesValue.h"
 #include "CSSFontVariationValue.h"
@@ -67,12 +68,15 @@
 #include "CSSShadowValue.h"
 #include "CSSSubgridValue.h"
 #include "CSSTimingFunctionValue.h"
+#include "CSSTransformListValue.h"
 #include "CSSUnicodeRangeValue.h"
 #include "CSSValueList.h"
 #include "CSSValuePair.h"
 #include "CSSVariableReferenceValue.h"
 #include "DeprecatedCSSOMPrimitiveValue.h"
 #include "DeprecatedCSSOMValueList.h"
+#include "EventTarget.h"
+#include "Rect.h"
 
 namespace WebCore {
 
@@ -90,6 +94,8 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
     switch (classType()) {
     case AspectRatioClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSAspectRatioValue>(*this));
+    case BackgroundRepeatClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSBackgroundRepeatValue>(*this));
     case BorderImageSliceClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSBorderImageSliceValue>(*this));
     case BorderImageWidthClass:
@@ -110,18 +116,24 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSCursorImageValue>(*this));
     case CustomPropertyClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSCustomPropertyValue>(*this));
+    case DeprecatedLinearGradientClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSDeprecatedLinearGradientValue>(*this));
+    case DeprecatedRadialGradientClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSDeprecatedRadialGradientValue>(*this));
     case FilterImageClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFilterImageValue>(*this));
     case FontClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFontValue>(*this));
-    case FontFaceSrcClass:
-        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFontFaceSrcValue>(*this));
+    case FontFaceSrcLocalClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFontFaceSrcLocalValue>(*this));
+    case FontFaceSrcResourceClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFontFaceSrcResourceValue>(*this));
     case FontFeatureClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFontFeatureValue>(*this));
     case FontPaletteValuesOverrideColorsClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFontPaletteValuesOverrideColorsValue>(*this));
-    case FontStyleClass:
-        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFontStyleValue>(*this));
+    case FontStyleWithAngleClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFontStyleWithAngleValue>(*this));
     case FontStyleRangeClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSFontStyleRangeValue>(*this));
     case FontVariantAlternatesClass:
@@ -148,6 +160,10 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSLinearGradientValue>(*this));
     case NamedImageClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSNamedImageValue>(*this));
+    case PrefixedLinearGradientClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSPrefixedLinearGradientValue>(*this));
+    case PrefixedRadialGradientClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSPrefixedRadialGradientValue>(*this));
     case RadialGradientClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSRadialGradientValue>(*this));
     case OffsetRotateClass:
@@ -168,6 +184,8 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSStepsTimingFunctionValue>(*this));
     case SpringTimingFunctionClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSSpringTimingFunctionValue>(*this));
+    case TransformListClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSTransformListValue>(*this));
     case UnicodeRangeClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSUnicodeRangeValue>(*this));
     case ValueListClass:
@@ -181,7 +199,8 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSPaintImageValue>(*this));
 #endif
     }
-    ASSERT_NOT_REACHED();
+
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visitor&& visitor) const
@@ -203,16 +222,27 @@ bool CSSValue::traverseSubresources(const Function<bool(const CachedResource&)>&
     });
 }
 
-void CSSValue::collectDirectComputationalDependencies(HashSet<CSSPropertyID>& values) const
+ComputedStyleDependencies CSSValue::computedStyleDependencies() const
 {
-    if (is<CSSPrimitiveValue>(*this))
-        downcast<CSSPrimitiveValue>(*this).collectDirectComputationalDependencies(values);
+    ComputedStyleDependencies dependencies;
+    collectComputedStyleDependencies(dependencies);
+    return dependencies;
 }
 
-void CSSValue::collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>& values) const
+void CSSValue::collectComputedStyleDependencies(ComputedStyleDependencies& dependencies) const
 {
-    if (is<CSSPrimitiveValue>(*this))
-        downcast<CSSPrimitiveValue>(*this).collectDirectRootComputationalDependencies(values);
+    if (auto* asList = dynamicDowncast<CSSValueList>(*this)) {
+        for (auto& listValue : *asList)
+            listValue->collectComputedStyleDependencies(dependencies);
+        return;
+    }
+    if (auto* asFunction = dynamicDowncast<CSSFunctionValue>(*this)) {
+        for (auto& argument : *asFunction)
+            argument->collectComputedStyleDependencies(dependencies);
+        return;
+    }
+    if (auto* asPrimitiveValue = dynamicDowncast<CSSPrimitiveValue>(*this))
+        asPrimitiveValue->collectComputedStyleDependencies(dependencies);
 }
 
 bool CSSValue::equals(const CSSValue& other) const
@@ -259,8 +289,8 @@ void CSSValue::operator delete(CSSValue* value, std::destroying_delete_t)
 {
     value->visitDerived([](auto& value) {
         std::destroy_at(&value);
+        std::decay_t<decltype(value)>::freeAfterDestruction(&value);
     });
-    freeAfterDestruction(value);
 }
 
 Ref<DeprecatedCSSOMValue> CSSValue::createDeprecatedCSSOMWrapper(CSSStyleDeclaration& styleDeclaration) const
@@ -273,51 +303,5 @@ Ref<DeprecatedCSSOMValue> CSSValue::createDeprecatedCSSOMWrapper(CSSStyleDeclara
         return DeprecatedCSSOMValueList::create(downcast<CSSValueList>(*this), styleDeclaration);
     return DeprecatedCSSOMComplexValue::create(*this, styleDeclaration);
 }
-
-bool CSSValue::treatAsInheritedValue(CSSPropertyID propertyID) const
-{
-    return isInheritValue() || (isUnsetValue() && CSSProperty::isInheritedProperty(propertyID));
-}
-
-bool CSSValue::treatAsInitialValue(CSSPropertyID propertyID) const
-{
-    return isInitialValue() || (isUnsetValue() && !CSSProperty::isInheritedProperty(propertyID));
-}
-
-bool CSSValue::isInitialValue() const
-{
-    return is<CSSPrimitiveValue>(*this) && downcast<CSSPrimitiveValue>(*this).isInitialValue();
-}
-
-bool CSSValue::isImplicitInitialValue() const
-{
-    return is<CSSPrimitiveValue>(*this) && downcast<CSSPrimitiveValue>(*this).isImplicitInitialValue();
-}
-
-bool CSSValue::isInheritValue() const
-{
-    return is<CSSPrimitiveValue>(*this) && downcast<CSSPrimitiveValue>(*this).isInheritValue();
-}
-
-bool CSSValue::isUnsetValue() const
-{
-    return is<CSSPrimitiveValue>(*this) && downcast<CSSPrimitiveValue>(*this).isUnsetValue();
-}
-
-bool CSSValue::isRevertValue() const
-{
-    return is<CSSPrimitiveValue>(*this) && downcast<CSSPrimitiveValue>(*this).isRevertValue();
-}
-
-bool CSSValue::isRevertLayerValue() const
-{
-    return is<CSSPrimitiveValue>(*this) && downcast<CSSPrimitiveValue>(*this).isRevertLayerValue();
-}
-
-bool CSSValue::isCSSWideKeyword() const
-{
-    return is<CSSPrimitiveValue>(*this) && downcast<CSSPrimitiveValue>(*this).isCSSWideKeyword();
-}
-
 
 }

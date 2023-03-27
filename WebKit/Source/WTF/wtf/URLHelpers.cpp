@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2018 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,7 +48,8 @@ constexpr unsigned urlBytesBufferLength = 2048;
 //    WebKit was compiled.
 // This is only really important for platforms that load an external IDN allowed script list.
 // Not important for the compiled-in one.
-constexpr auto scriptCodeLimit = static_cast<UScriptCode>(256);
+constexpr auto scriptCodeLimit = static_cast<UScriptCode>(255);
+
 
 static uint32_t allowedIDNScriptBits[(scriptCodeLimit + 31) / 32];
 
@@ -210,7 +211,6 @@ static bool isLookalikeCharacter(const std::optional<UChar32>& previousCodePoint
     case 0x00BC: /* VULGAR FRACTION ONE QUARTER */
     case 0x00BD: /* VULGAR FRACTION ONE HALF */
     case 0x00BE: /* VULGAR FRACTION THREE QUARTERS */
-    case 0x00ED: /* LATIN SMALL LETTER I WITH ACUTE */
     /* 0x0131 LATIN SMALL LETTER DOTLESS I is intentionally not considered a lookalike character because it is visually distinguishable from i and it has legitimate use in the Turkish language. */
     case 0x01C0: /* LATIN LETTER DENTAL CLICK */
     case 0x01C3: /* LATIN LETTER RETROFLEX CLICK */
@@ -650,7 +650,7 @@ std::optional<String> mapHostName(const String& hostName, URLDecodeFunction deco
     if (length && (U_FAILURE(uerror) || processingDetails.errors & ~allowedErrors))
         return std::nullopt;
     
-    if (numCharactersConverted == static_cast<int32_t>(length) && !memcmp(sourceBuffer.data(), destinationBuffer, length * sizeof(UChar)))
+    if (numCharactersConverted == static_cast<int32_t>(length) && equal(sourceBuffer.data(), destinationBuffer, length))
         return String();
 
     if (!decodeFunction && !allCharactersInAllowedIDNScriptList(destinationBuffer, numCharactersConverted) && !allCharactersAllowedByTLDRules(destinationBuffer, numCharactersConverted))

@@ -462,7 +462,9 @@ aks_unwrap_key(const void * wrapped_key, int wrapped_key_size, keyclass_t key_cl
             uint8_t *der = (uint8_t *)params.externalData.bytes;
             der_decode_plist(NULL, &cf, &cferror, der, der + params.externalData.length);
             if (cf == NULL) {
-                *error = [NSError errorWithDomain:@"foo" code:kAKSReturnBadArgument userInfo:nil];
+                if (error != nil) {
+                    *error = [NSError errorWithDomain:@"foo" code:kAKSReturnBadArgument userInfo:nil];
+                }
                 return NULL;
             }
             CFReleaseNull(cf);

@@ -33,7 +33,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Before resetAndEstablish, there shouldn't be any stored account state
-        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Before doing anything, loading a non-existent account state should fail")
+        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "Before doing anything, loading a non-existent account state should fail")
 
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish callback occurs")
 
@@ -50,7 +50,7 @@ class OctagonAccountTests: OctagonTestsBase {
 
         // After resetAndEstablish, you should be able to see the persisted account state
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(selfPeerID, accountState.peerID, "Saved account state should have the same peer ID that prepare returned")
             XCTAssertEqual(accountState.cdpState, .ENABLED, "Saved CDP status should be 'enabled' after a resetAndEstablish")
         } catch {
@@ -67,7 +67,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         let asyncExpectation = self.expectation(description: "dispatch works")
         let quiescentExpectation = self.expectation(description: "quiescence has been determined")
@@ -102,7 +102,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
@@ -127,7 +127,7 @@ class OctagonAccountTests: OctagonTestsBase {
 
     func testSignIn() throws {
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Device is signed out
         self.mockAuthKit.removePrimaryAccount()
@@ -194,12 +194,12 @@ class OctagonAccountTests: OctagonTestsBase {
         self.mockTooManyPeers.limit = 2
 
         // Octagon only examines the JoinState if SOS is enabled
-        self.mockSOSAdapter.sosEnabled = false
+        self.mockSOSAdapter!.sosEnabled = false
 
         // First peer
         let peer1 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: "peer1",
-                                         sosAdapter: self.mockSOSAdapter,
+                                         sosAdapter: self.mockSOSAdapter!,
                                          accountsAdapter: self.mockAuthKit,
                                          authKitAdapter: self.mockAuthKit,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
@@ -214,7 +214,7 @@ class OctagonAccountTests: OctagonTestsBase {
         // Second peer
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: "peer2",
-                                         sosAdapter: self.mockSOSAdapter,
+                                         sosAdapter: self.mockSOSAdapter!,
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
@@ -227,7 +227,7 @@ class OctagonAccountTests: OctagonTestsBase {
         // Third peer
         let peer3 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: "peer3",
-                                         sosAdapter: self.mockSOSAdapter,
+                                         sosAdapter: self.mockSOSAdapter!,
                                          accountsAdapter: self.mockAuthKit3,
                                          authKitAdapter: self.mockAuthKit3,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
@@ -279,7 +279,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.mockTooManyPeers.shouldPop = false
 
         // Octagon only examines the JoinState if SOS is enabled
-        self.mockSOSAdapter.sosEnabled = false
+        self.mockSOSAdapter!.sosEnabled = false
 
         // Sign in the peer
         self.assertResetAndBecomeTrusted(context: self.cuttlefishContext)
@@ -292,7 +292,7 @@ class OctagonAccountTests: OctagonTestsBase {
 
     func testSignInWithDelayedHSA2Status() throws {
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Device is signed out
         self.mockAuthKit.removePrimaryAccount()
@@ -374,7 +374,7 @@ class OctagonAccountTests: OctagonTestsBase {
 
     func testSetCDPStateWithUnconfiguredArguments() throws {
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Device is signed out
         self.mockAuthKit.removePrimaryAccount()
@@ -422,7 +422,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // signing in to an account with pre-existing Octagon data should turn on the CDP bit by default:
         // no setting needed.
@@ -447,7 +447,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // default context comes up, but CDP is not enabled
         self.cuttlefishContext.startOctagonStateMachine()
@@ -468,8 +468,8 @@ class OctagonAccountTests: OctagonTestsBase {
         self.assertResetAndBecomeTrusted(context: remote)
 
         // And some SOS operations. SOS now returns "error" when asked its state
-        self.mockSOSAdapter.circleStatusError = NSError(domain: kSOSErrorDomain as String, code: kSOSErrorPublicKeyAbsent, userInfo: nil)
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCError)
+        self.mockSOSAdapter!.circleStatusError = NSError(domain: kSOSErrorDomain as String, code: kSOSErrorPublicKeyAbsent, userInfo: nil)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCError)
 
         // And after the update, the context should go into 'untrusted'
         self.sendContainerChangeWaitForFetchForStates(context: self.cuttlefishContext, states: [OctagonStateWaitForCDPUpdated, OctagonStateDetermineCDPState])
@@ -487,7 +487,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // default context comes up, but CDP is not enabled
         self.cuttlefishContext.startOctagonStateMachine()
@@ -526,7 +526,7 @@ class OctagonAccountTests: OctagonTestsBase {
         // Octagon should respect the API call
 
         // SOS is absent
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.startCKAccountStatusMock()
 
@@ -554,8 +554,8 @@ class OctagonAccountTests: OctagonTestsBase {
 
     func testDetermineCDPStateFromSOSError() throws {
         // If SOS reports that it doesn't have the user key, a circle might exist and it might not
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCError)
-        self.mockSOSAdapter.circleStatusError = NSError(domain: kSOSErrorDomain as String, code: kSOSErrorPublicKeyAbsent, userInfo: nil)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCError)
+        self.mockSOSAdapter!.circleStatusError = NSError(domain: kSOSErrorDomain as String, code: kSOSErrorPublicKeyAbsent, userInfo: nil)
 
         self.startCKAccountStatusMock()
 
@@ -569,7 +569,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
@@ -666,7 +666,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
@@ -683,7 +683,7 @@ class OctagonAccountTests: OctagonTestsBase {
 
     func testNoAccountTimeoutTransitionWatcher() throws {
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // With no identity and Accounts reporting no iCloud account, Octagon should go directly into 'no account'
         self.mockAuthKit.removePrimaryAccount()

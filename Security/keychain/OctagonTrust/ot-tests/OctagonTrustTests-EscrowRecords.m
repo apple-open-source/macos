@@ -48,6 +48,7 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "OctagonTrustTests.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 @implementation ProxyXPCConnection
 
@@ -108,6 +109,8 @@
 @interface OTMockSecureBackup : NSObject <OctagonEscrowRecovererPrococol>
 @property (nonatomic) NSString * bottleID;
 @property (nonatomic) NSData* entropy;
+@property (nonatomic) BOOL failRecoveryKeySet;
+@property (nonatomic) BOOL failSecureBackupRestore;
 
 @end
 
@@ -117,6 +120,8 @@
     if(self = [super init]) {
         self.bottleID = b;
         self.entropy = e;
+        self.failRecoveryKeySet = NO;
+        self.failSecureBackupRestore = NO;
     }
     return self;
 }
@@ -150,6 +155,36 @@
 - (void)restoreKeychainAsyncWithPassword:(id)password keybagDigest:(NSData *)keybagDigest haveBottledPeer:(BOOL)haveBottledPeer viewsNotToBeRestored:(NSMutableSet<NSString *> *)viewsNotToBeRestored error:(NSError *__autoreleasing *)error {
 }
 
+- (bool)isRecoveryKeySet:(NSError *__autoreleasing *)error {
+    if (self.failRecoveryKeySet) {
+        return false;
+    }
+    return true;
+}
+
+- (bool)restoreKeychainWithBackupPassword:(NSData *)password error:(NSError *__autoreleasing *)error {
+    if (self.failSecureBackupRestore) {
+        if (error != nil) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecoveryKeyMalformed description:@"Restore SecureBackup failed, invalid recovery key"];
+        }
+        return false;
+    }
+    return true;
+}
+
+- (NSError *)backupWithInfo:(NSDictionary *)info {
+    return nil;
+}
+
+- (void)setExpectRecoveryKeySetFail:(BOOL)shouldFail
+{
+    self.failRecoveryKeySet = shouldFail;
+}
+
+- (void)setExpectSecureBackupRestoreFail:(BOOL)shouldFail
+{
+    self.failSecureBackupRestore = shouldFail;
+}
 
 @end
 
@@ -341,7 +376,10 @@
 
     NSArray *testVectorICDPRecords = testVectorPlist[@"SecureBackupAlliCDPRecords"];
     XCTAssertNotNil(testVectorICDPRecords, "should not be nil");
-
+    if (testVectorICDPRecords == nil) {
+        return nil;
+    }
+    
     NSDictionary *testVectorRecord = testVectorICDPRecords[0];
 
     OTEscrowRecord *record = [OTEscrowTranslation dictionaryToEscrowRecord:testVectorRecord];
@@ -360,6 +398,9 @@
 
     NSArray *testVectorICDPRecords = testVectorPlist[@"SecureBackupAlliCDPRecords"];
     XCTAssertNotNil(testVectorICDPRecords, "should not be nil");
+    if (testVectorICDPRecords == nil) {
+        return nil;
+    }
 
     NSDictionary *testVectorRecord = testVectorICDPRecords[0];
 
@@ -582,7 +623,7 @@
     NSArray* escrowRecords = [OTClique fetchEscrowRecords:cliqueContextConfiguration error:&localErrror];
     XCTAssertNil(localErrror, "error should be nil");
 
-    if (OctagonPlatformSupportsSOS()) {
+    if (OctagonIsSOSFeatureEnabled()) {
         XCTAssertEqual(escrowRecords.count, 2, "should only return 2 records");
         OTEscrowRecord *firstRecord = escrowRecords[0];
         XCTAssertTrue([firstRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"invalid"], "bottle validity should be invalid");

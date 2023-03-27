@@ -38,9 +38,9 @@
 
 // <rdar://problem/12596555>
 #if MALLOC_TARGET_IOS
-# define CONFIG_MADVISE_PRESSURE_RELIEF 0
+#define CONFIG_MADVISE_PRESSURE_RELIEF 0
 #else // MALLOC_TARGET_IOS
-# define CONFIG_MADVISE_PRESSURE_RELIEF 1
+#define CONFIG_MADVISE_PRESSURE_RELIEF 1
 #endif // MALLOC_TARGET_IOS
 
 // <rdar://problem/12596555>
@@ -48,9 +48,9 @@
 #define CONFIG_AGGRESSIVE_MADVISE 1
 
 #if MALLOC_TARGET_IOS
-# define DEFAULT_AGGRESSIVE_MADVISE_ENABLED true
+#define DEFAULT_AGGRESSIVE_MADVISE_ENABLED true
 #else // MALLOC_TARGET_IOS
-# define DEFAULT_AGGRESSIVE_MADVISE_ENABLED false
+#define DEFAULT_AGGRESSIVE_MADVISE_ENABLED false
 #endif // MALLOC_TARGET_IOS
 
 // <rdar://problem/10397726>
@@ -78,6 +78,9 @@
 #define NANOV2_DEFAULT_MODE NANO_CONDITIONAL
 #endif
 
+// whether to pre-reserve all available nano regions during initialization
+#define CONFIG_NANO_RESERVE_REGIONS 0
+
 
 // This governs a last-free cache of 1 that bypasses the free-list for each region size
 #define CONFIG_TINY_CACHE 1
@@ -94,6 +97,14 @@
 #else // MALLOC_TARGET_64BIT
 #define CONFIG_MEDIUM_ALLOCATOR 0
 #endif // MALLOC_TARGET_64BIT
+
+
+#if CONFIG_MEDIUM_ALLOCATOR
+#define DEFAULT_MEDIUM_ALLOCATOR_ENABLED 1
+#else // CONFIG_MEDIUM_ALLOCATOR
+#define DEFAULT_MEDIUM_ALLOCATOR_ENABLED 0
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 
 // The large last-free cache (aka. death row cache)
 #if TARGET_OS_IOS || TARGET_OS_SIMULATOR || TARGET_OS_DRIVERKIT
@@ -171,9 +182,6 @@
 #define CONFIG_PGM_WRAP_CUSTOM_ZONES 0
 #endif
 
-
-#ifndef MALLOC_ZERO_POLICY_DEFAULT
 #define MALLOC_ZERO_POLICY_DEFAULT MALLOC_ZERO_ON_FREE
-#endif
 
 #endif // __PLATFORM_H

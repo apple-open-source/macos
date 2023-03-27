@@ -1354,7 +1354,7 @@ _perforce_fstat_fields() {
     ${${${${(M)${(f)"$(_perforce_call_p4 help-fstat help fstat)"}:#[[:blank:]]#[a-zA-Z]##(|\#)[[:blank:]]##--*}##[[:blank:]]#}:#fstat *}//[[:blank:]]##--[[:blank:]]##/:}
   )
   compset -P '*[,[:blank:]]'
-  _describe -t fstat-fields 'Perforce fstat fields' values -S, -q
+  _describe -t fstat-fields 'Perforce fstat field' values -S, -q
 }
 
 
@@ -2551,7 +2551,7 @@ _perforce_cmd_logstat() {
 (( $+functions[_perforce_cmd_logtail] )) ||
 _perforce_cmd_logtail() {
   _arguments -s : \
-    '-b[specify block size, default 8192]:block size: ' \
+    '-b[specify block size]:block size [8192]' \
     '-s[specify start offset]:offset: ' \
     '-m[specify max blocks]:max blocks: '
 }
@@ -2668,12 +2668,12 @@ _perforce_cmd_passwd() {
 _perforce_cmd_ping() {
   _arguments -s : \
     '-c[specify count of messages]:count of messages: ' \
-    '-t[specify total time of test]:time in seconds: ' \
+    '-t[specify total time of test]:time (seconds)' \
     '-i[specify iterations for test]:number of iterations: ' \
     '-f[transmit continuously without waiting for responses]' \
-    '-p[specify pause between tests]:pause in seconds: ' \
-    '-s[specify send size]:send size in octets: ' \
-    '-r[specify receive size]:receive size in octets: '
+    '-p[specify pause between tests]:pause (seconds)' \
+    '-s[specify send size]:send size (octets)' \
+    '-r[specify receive size]:receive size (octets)'
 }
 
 
@@ -2942,7 +2942,7 @@ _perforce_cmd_status() {
 _perforce_cmd_sizes() {
   _arguments -s : \
     '-a[list all revisions in range]' \
-    '-b[specify blocksize]:blocksize in bytes: ' \
+    '-b[specify blocksize]:blocksize (bytes)' \
     '(-H)-h[print sizes in human-readable form (GiB)]' \
     '(-h)-H[print sizes in human-readable form (GB)]' \
     '-m[limit max files]:max files: ' \

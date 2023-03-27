@@ -26,6 +26,8 @@
 #import "config.h"
 #import "RemoteGraphicsContextGLProxy.h"
 
+#import "RemoteRenderingBackendProxy.h"
+
 #if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
 #import "GPUConnectionToWebProcess.h"
 #import "GPUProcessConnection.h"
@@ -99,8 +101,8 @@ public:
     WebCore::GraphicsContextGLCV* asCV() final { return nullptr; }
 #endif
 private:
-    RemoteGraphicsContextGLProxyCocoa(GPUProcessConnection& gpuProcessConnection, const WebCore::GraphicsContextGLAttributes& attributes, RenderingBackendIdentifier renderingBackend)
-        : RemoteGraphicsContextGLProxy(gpuProcessConnection, attributes, renderingBackend)
+    RemoteGraphicsContextGLProxyCocoa(IPC::Connection& connection,  Ref<IPC::StreamClientConnection> streamConnection, const WebCore::GraphicsContextGLAttributes& attributes, Ref<RemoteVideoFrameObjectHeapProxy>&& videoFrameObjectHeapProxy)
+        : RemoteGraphicsContextGLProxy(connection, WTFMove(streamConnection), attributes, WTFMove(videoFrameObjectHeapProxy))
         , m_layerContentsDisplayDelegate(DisplayBufferDisplayDelegate::create(!attributes.alpha, attributes.devicePixelRatio))
     {
     }
@@ -114,12 +116,12 @@ void RemoteGraphicsContextGLProxyCocoa::prepareForDisplay()
 {
     if (isContextLost())
         return;
-    MachSendRight displayBufferSendRight;
-    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PrepareForDisplay(), Messages::RemoteGraphicsContextGL::PrepareForDisplay::Reply(displayBufferSendRight));
+    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PrepareForDisplay());
     if (!sendResult) {
         markContextLost();
         return;
     }
+    auto [displayBufferSendRight] = sendResult.takeReply();
     if (!displayBufferSendRight)
         return;
     m_displayBuffer = WTFMove(displayBufferSendRight);
@@ -129,9 +131,9 @@ void RemoteGraphicsContextGLProxyCocoa::prepareForDisplay()
 
 }
 
-RefPtr<RemoteGraphicsContextGLProxy> RemoteGraphicsContextGLProxy::create(const WebCore::GraphicsContextGLAttributes& attributes, RenderingBackendIdentifier renderingBackend)
+Ref<RemoteGraphicsContextGLProxy> RemoteGraphicsContextGLProxy::platformCreate(IPC::Connection& connection,  Ref<IPC::StreamClientConnection> streamConnection, const WebCore::GraphicsContextGLAttributes& attributes, Ref<RemoteVideoFrameObjectHeapProxy>&& videoFrameObjectHeapProxy)
 {
-    return adoptRef(new RemoteGraphicsContextGLProxyCocoa(WebProcess::singleton().ensureGPUProcessConnection(), attributes, renderingBackend));
+    return adoptRef(*new RemoteGraphicsContextGLProxyCocoa(connection, WTFMove(streamConnection), attributes, WTFMove(videoFrameObjectHeapProxy)));
 }
 
 }

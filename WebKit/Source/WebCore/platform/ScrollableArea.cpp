@@ -45,11 +45,9 @@
 
 namespace WebCore {
 
-struct SameSizeAsScrollableArea {
-    virtual ~SameSizeAsScrollableArea();
-#if ASSERT_ENABLED
-    bool weakPtrFactorWasConstructedOnMainThread;
-#endif
+struct SameSizeAsScrollableArea : public CanMakeWeakPtr<SameSizeAsScrollableArea>, public CanMakeCheckedPtr {
+    ~SameSizeAsScrollableArea() { }
+    SameSizeAsScrollableArea() { }
     void* pointer[3];
     IntPoint origin;
     bool bytes[9];
@@ -130,6 +128,22 @@ bool ScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granula
         scrollDelta = -scrollDelta;
 
     return scrollAnimator().singleAxisScroll(axis, scrollDelta, ScrollAnimator::ScrollBehavior::RespectScrollSnap);
+}
+
+void ScrollableArea::beginKeyboardScroll(const KeyboardScroll& scrollData)
+{
+    bool startedAnimation = requestStartKeyboardScrollAnimation(scrollData);
+
+    if (startedAnimation)
+        setScrollAnimationStatus(ScrollAnimationStatus::Animating);
+}
+
+void ScrollableArea::endKeyboardScroll(bool immediate)
+{
+    bool finishedAnimation = requestStopKeyboardScrollAnimation(immediate);
+
+    if (finishedAnimation)
+        setScrollAnimationStatus(ScrollAnimationStatus::NotAnimating);
 }
 
 void ScrollableArea::scrollToPositionWithoutAnimation(const FloatPoint& position, ScrollClamping clamping)
@@ -551,7 +565,6 @@ void ScrollableArea::resnapAfterLayout()
     }
 
     if (correctedOffset != currentOffset) {
-        LOG_WITH_STREAM(ScrollSnap, stream << " adjusting offset from " << currentOffset << " to " << correctedOffset);
         auto position = scrollPositionFromOffset(correctedOffset);
         if (scrollAnimationStatus() == ScrollAnimationStatus::NotAnimating)
             scrollToOffsetWithoutAnimation(correctedOffset);

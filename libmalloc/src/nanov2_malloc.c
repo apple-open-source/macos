@@ -2292,21 +2292,42 @@ nanov2_madvise_block(nanozonev2_t *nanozone, nanov2_block_meta_t *block_metap,
 
 #if OS_VARIANT_NOTRESOLVED
 
-#if NANOV2_MULTIPLE_REGIONS
-static nanov2_addr_t nanov2_max_region_base = {
-	.fields.nano_signature = NANOZONE_SIGNATURE,
-	.fields.nano_region = NANOV2_MAX_REGION_NUMBER
-};
-#endif // NANOV2_MULTIPLE_REGIONS
+// Update protection for region to DEFAULT
+static bool
+nanov2_unprotect_region(nanov2_region_t *region)
+{
+	MALLOC_TRACE(TRACE_nanov2_region_protection | DBG_FUNC_START,
+			(uint64_t)region, 0, 0, 0);
+	bool result = nano_common_unprotect_vm_space((mach_vm_address_t)region,
+			NANOV2_REGION_SIZE);
+	MALLOC_TRACE(TRACE_nanov2_region_protection | DBG_FUNC_END,
+			(uint64_t)region, result, 0, 0);
+	return result;
+}
+
+// Reserve VA at [base, base+num_regions*REGION_SIZE].
+// Note: permissions must still be granted on reserved region with `nanov2_unprotect_region`
+static bool
+nanov2_reserve_regions(nanov2_region_t *base, unsigned int num_regions)
+{
+	MALLOC_TRACE(TRACE_nanov2_region_reservation | DBG_FUNC_START,
+			(uint64_t)base, num_regions, 0, 0);
+	bool result = nano_common_reserve_vm_space((mach_vm_address_t)base,
+			(NANOV2_REGION_SIZE * (mach_vm_size_t)num_regions));
+	MALLOC_TRACE(TRACE_nanov2_region_reservation | DBG_FUNC_END,
+			(uint64_t)base, num_regions, result, 0);
+
+	return result;
+}
 
 // Attempts to allocate VM space for a region at a given address and returns
 // whether the allocation succeeded.
-static boolean_t
+static bool
 nanov2_allocate_region(nanov2_region_t *region)
 {
 	MALLOC_TRACE(TRACE_nanov2_region_allocation | DBG_FUNC_START,
 			(uint64_t)region, 0, 0, 0);
-	boolean_t result = nano_common_allocate_vm_space((mach_vm_address_t)region,
+	bool result = nano_common_allocate_vm_space((mach_vm_address_t)region,
 			NANOV2_REGION_SIZE);
 	MALLOC_TRACE(TRACE_nanov2_region_allocation | DBG_FUNC_END,
 			(uint64_t)region, result, 0, 0);
@@ -2323,11 +2344,26 @@ nanov2_allocate_new_region(nanozonev2_t *nanozone)
 #if NANOV2_MULTIPLE_REGIONS
 	bool allocated = false;
 
+	nanov2_addr_t nanov2_max_region_base = {
+		.fields.nano_signature = NANOZONE_SIGNATURE,
+		.fields.nano_region = nano_max_region,
+	};
+
 	_malloc_lock_assert_owner(&nanozone->regions_lock);
 	nanov2_region_t *current_region = nanov2_current_region_base(
 			os_atomic_load(&nanozone->current_region_next_arena, relaxed));
 	nanov2_region_t *next_region = current_region + 1;
+
 	while ((void *)next_region <= nanov2_max_region_base.addr) {
+#if CONFIG_NANO_RESERVE_REGIONS
+		if (!nanov2_unprotect_region(next_region)) {
+			MALLOC_REPORT_FATAL_ERROR(next_region,
+					"Nano: Unable to raise protection on pre-allocated region");
+		}
+		nanozone->statistics.allocated_regions++;
+		allocated = true;
+		break;
+#else // CONFIG_NANO_RESERVE_REGIONS
 		if (nanov2_allocate_region(next_region)) {
 			nanozone->statistics.allocated_regions++;
 			allocated = true;
@@ -2340,6 +2376,7 @@ nanov2_allocate_new_region(nanozonev2_t *nanozone)
 		// atomically here. Published by the store-release of
 		// current_region_next_arena.
 		os_atomic_inc(&nanozone->statistics.region_address_clashes, relaxed);
+#endif // CONFIG_NANO_RESERVE_REGIONS
 	}
 
 	if (!allocated) {
@@ -3135,14 +3172,30 @@ nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	_malloc_lock_init(&nanozone->madvise_lock);
 
 	// Allocate the initial region. If this does not succeed, we disable Nano.
-	nanov2_addr_t p = {.fields.nano_signature = NANOZONE_SIGNATURE};
-	nanov2_region_t *region = (nanov2_region_t *)p.addr;
-	boolean_t result = nanov2_allocate_region(region);
+	nanov2_region_t *region = (nanov2_region_t *)NANOZONE_BASE_REGION_ADDRESS;
+
+	bool result;
+#if CONFIG_NANO_RESERVE_REGIONS
+	unsigned int num_regions = (nano_max_region + 1);
+	result = nanov2_reserve_regions(region, num_regions);
+	if (result) {
+		result = nanov2_unprotect_region(region);
+		if (!result) {
+			malloc_report(ASL_LEVEL_ERR,
+					"unable to protect initial region\n");
+			nano_common_deallocate_pages((void *)region,
+					num_regions * (size_t)NANOV2_REGION_SIZE, 0);
+		}
+	}
+#else // CONFIG_NANO_RESERVE_REGIONS
+	result = nanov2_allocate_region(region);
+#endif // CONFIG_NANO_RESERVE_REGIONS
 	if (!result) {
-		nano_common_deallocate_pages(nanozone, NANOZONEV2_ZONE_PAGED_SIZE, 0);
+		nano_common_deallocate_pages((void *)nanozone,
+				NANOZONEV2_ZONE_PAGED_SIZE, 0);
 		_malloc_engaged_nano = NANO_NONE;
 		malloc_report(ASL_LEVEL_NOTICE, "nano zone abandoned due to inability "
-				"to preallocate reserved vm space.\n");
+				"to reserve vm space.\n");
 		return NULL;
 	}
 	nanov2_region_linkage_t *region_linkage =
@@ -3154,7 +3207,6 @@ nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	os_atomic_store(&nanozone->current_region_next_arena,
 			((nanov2_arena_t *)region) + 1, release);
 	nanozone->statistics.allocated_regions = 1;
-
 	// Set up the guard blocks for the initial arena, if requested
 	nanov2_init_guard_blocks(nanozone, (nanov2_arena_t *)region);
 

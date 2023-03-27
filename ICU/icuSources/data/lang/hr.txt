@@ -43,6 +43,7 @@ hr{
         ang{"staroengleski"}
         anp{"angika"}
         apw{"apache, zapadno"}
+        apw_Latn{"apache, zapadno"}
         ar{"arapski"}
         ar_001{"moderni standardni arapski"}
         arc{"aramejski"}
@@ -106,9 +107,12 @@ hr{
         chm{"marijski"}
         chn{"chinook žargon"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"čerokijski"}
         chy{"čejenski"}
+        cic{"čikaso"}
+        cic_Latn{"čikaso"}
         ckb{"kurdski, sorani"}
         co{"korzički"}
         cop{"koptski"}

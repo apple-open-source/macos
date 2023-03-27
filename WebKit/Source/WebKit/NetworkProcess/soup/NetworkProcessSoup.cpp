@@ -33,6 +33,7 @@
 #include "NetworkSessionSoup.h"
 #include "WebCookieManager.h"
 #include "WebKitCachedResolver.h"
+#include "WebKitOverridingResolver.h"
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NotImplemented.h>
@@ -128,6 +129,11 @@ void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreati
     GRefPtr<GResolver> cachedResolver = adoptGRef(webkitCachedResolverNew(adoptGRef(g_resolver_get_default())));
     g_resolver_set_default(cachedResolver.get());
 
+    if (!parameters.localhostAliasesForTesting.isEmpty()) {
+        auto overridingResolver = adoptGRef(webkitOverridingResolverNew(cachedResolver.get(), parameters.localhostAliasesForTesting));
+        g_resolver_set_default(overridingResolver.get());
+    }
+
     m_cacheOptions = { NetworkCache::CacheOption::RegisterNotify };
     supplement<WebCookieManager>()->setHTTPCookieAcceptPolicy(parameters.cookieAcceptPolicy, []() { });
 
@@ -155,9 +161,10 @@ void NetworkProcess::setIgnoreTLSErrors(PAL::SessionID sessionID, bool ignoreTLS
         static_cast<NetworkSessionSoup&>(*session).setIgnoreTLSErrors(ignoreTLSErrors);
 }
 
-void NetworkProcess::allowSpecificHTTPSCertificateForHost(const CertificateInfo& certificateInfo, const String& host)
+void NetworkProcess::allowSpecificHTTPSCertificateForHost(PAL::SessionID sessionID, const CertificateInfo& certificateInfo, const String& host)
 {
-    SoupNetworkSession::allowSpecificHTTPSCertificateForHost(certificateInfo, host);
+    if (auto* session = networkSession(sessionID))
+        static_cast<NetworkSessionSoup&>(*session).allowSpecificHTTPSCertificateForHost(certificateInfo, host);
 }
 
 void NetworkProcess::clearDiskCache(WallTime modifiedSince, CompletionHandler<void()>&& completionHandler)

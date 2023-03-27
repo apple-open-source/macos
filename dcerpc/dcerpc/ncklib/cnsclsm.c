@@ -1503,6 +1503,7 @@ INTERNAL unsigned32     handle_first_frag_action_rtn
          * There is no response packet for a maybe call.
          */
         (RPC_CN_CREP_IOV (call_rep)[0]).data_len = 0;
+        RPC_CN_CREP_IOVLEN (call_rep) = 0;
 
         /*
          * Even though there is no response for a maybe call,

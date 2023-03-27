@@ -25,11 +25,34 @@
 
 #pragma once
 
-#include "AST/ShaderModule.h"
-#include "AST/Statements/ReturnStatement.h"
+#include "ASTAttribute.h"
+#include "ASTExpression.h"
+#include "CompilationMessage.h"
 #include "Lexer.h"
+#include <wtf/Ref.h>
 
 namespace WGSL {
+
+namespace AST {
+class ArrayType;
+class CompoundStatement;
+class Decl;
+class FunctionDecl;
+class Parameter;
+class ReturnStatement;
+class ShaderModule;
+class Statement;
+class StructDecl;
+class StructMember;
+class TypeDecl;
+class VariableDecl;
+class VariableQualifier;
+
+enum class AccessMode : uint8_t;
+enum class StorageClass : uint8_t;
+}
+
+struct Configuration;
 
 template<typename Lexer>
 class Parser {
@@ -40,30 +63,31 @@ public:
     {
     }
 
-    Expected<AST::ShaderModule, Error> parseShader();
+    Expected<AST::ShaderModule, Error> parseShader(const String& source, const Configuration&);
 
     // UniqueRef whenever it can return multiple types.
-    Expected<UniqueRef<AST::GlobalDecl>, Error> parseGlobalDecl();
-    Expected<AST::Attributes, Error> parseAttributes();
-    Expected<UniqueRef<AST::Attribute>, Error> parseAttribute();
-    Expected<AST::StructDecl, Error> parseStructDecl(AST::Attributes&&);
+    Expected<UniqueRef<AST::Decl>, Error> parseGlobalDecl();
+    Expected<AST::Attribute::List, Error> parseAttributes();
+    Expected<Ref<AST::Attribute>, Error> parseAttribute();
+    Expected<AST::StructDecl, Error> parseStructDecl(AST::Attribute::List&&);
     Expected<AST::StructMember, Error> parseStructMember();
-    Expected<UniqueRef<AST::TypeDecl>, Error> parseTypeDecl();
-    Expected<UniqueRef<AST::TypeDecl>, Error> parseTypeDeclAfterIdentifier(StringView&&, SourcePosition start);
-    Expected<AST::GlobalVariableDecl, Error> parseGlobalVariableDecl(AST::Attributes&&);
+    Expected<Ref<AST::TypeDecl>, Error> parseTypeDecl();
+    Expected<Ref<AST::TypeDecl>, Error> parseTypeDeclAfterIdentifier(String&&, SourcePosition start);
+    Expected<Ref<AST::TypeDecl>, Error> parseArrayType();
+    Expected<AST::VariableDecl, Error> parseVariableDecl();
+    Expected<AST::VariableDecl, Error> parseVariableDeclWithAttributes(AST::Attribute::List&&);
     Expected<AST::VariableQualifier, Error> parseVariableQualifier();
     Expected<AST::StorageClass, Error> parseStorageClass();
     Expected<AST::AccessMode, Error> parseAccessMode();
-    Expected<AST::FunctionDecl, Error> parseFunctionDecl(AST::Attributes&&);
+    Expected<AST::FunctionDecl, Error> parseFunctionDecl(AST::Attribute::List&&);
     Expected<AST::Parameter, Error> parseParameter();
     Expected<UniqueRef<AST::Statement>, Error> parseStatement();
     Expected<AST::CompoundStatement, Error> parseCompoundStatement();
     Expected<AST::ReturnStatement, Error> parseReturnStatement();
-    Expected<UniqueRef<AST::Expression>, Error> parseShortCircuitOrExpression();
-    Expected<UniqueRef<AST::Expression>, Error> parseRelationalExpression();
-    Expected<UniqueRef<AST::Expression>, Error> parseShiftExpression();
-    Expected<UniqueRef<AST::Expression>, Error> parseAdditiveExpression();
-    Expected<UniqueRef<AST::Expression>, Error> parseMultiplicativeExpression();
+    Expected<UniqueRef<AST::Expression>, Error> parseRelationalExpression(UniqueRef<AST::Expression>&&);
+    Expected<UniqueRef<AST::Expression>, Error> parseShiftExpression(UniqueRef<AST::Expression>&&);
+    Expected<UniqueRef<AST::Expression>, Error> parseAdditiveExpression(UniqueRef<AST::Expression>&&);
+    Expected<UniqueRef<AST::Expression>, Error> parseMultiplicativeExpression(UniqueRef<AST::Expression>&&);
     Expected<UniqueRef<AST::Expression>, Error> parseUnaryExpression();
     Expected<UniqueRef<AST::Expression>, Error> parseSingularExpression();
     Expected<UniqueRef<AST::Expression>, Error> parsePostfixExpression(UniqueRef<AST::Expression>&& base, SourcePosition startPosition);
@@ -71,7 +95,7 @@ public:
     Expected<UniqueRef<AST::Expression>, Error> parseExpression();
     Expected<UniqueRef<AST::Expression>, Error> parseLHSExpression();
     Expected<UniqueRef<AST::Expression>, Error> parseCoreLHSExpression();
-    Expected<Vector<UniqueRef<AST::Expression>>, Error> parseArgumentExpressionList();
+    Expected<AST::Expression::List, Error> parseArgumentExpressionList();
 
 private:
     Expected<Token, TokenType> consumeType(TokenType);

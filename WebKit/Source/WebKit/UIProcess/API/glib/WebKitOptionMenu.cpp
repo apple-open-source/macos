@@ -41,6 +41,13 @@ using namespace WebKit;
 struct _WebKitOptionMenuPrivate {
     Vector<WebKitOptionMenuItem> items;
     RefPtr<WebKitPopupMenu> popupMenu;
+#if PLATFORM(GTK)
+#if USE(GTK4)
+    GRefPtr<GdkEvent> event;
+#else
+    GUniquePtr<GdkEvent> event;
+#endif
+#endif
 };
 
 enum {
@@ -51,7 +58,7 @@ enum {
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitOptionMenu, webkit_option_menu, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitOptionMenu, webkit_option_menu, G_TYPE_OBJECT)
 
 static void webkit_option_menu_class_init(WebKitOptionMenuClass* optionMenuClass)
 {
@@ -87,6 +94,17 @@ WebKitOptionMenu* webkitOptionMenuCreate(WebKitPopupMenu& popupMenu, const Vecto
     }
     return menu;
 }
+
+#if PLATFORM(GTK)
+void webkitOptionMenuSetEvent(WebKitOptionMenu* menu, GdkEvent* event)
+{
+#if USE(GTK4)
+    menu->priv->event = event;
+#else
+    menu->priv->event.reset(event ? gdk_event_copy(event) : nullptr);
+#endif
+}
+#endif
 
 /**
  * webkit_option_menu_get_n_items:
@@ -129,7 +147,9 @@ WebKitOptionMenuItem* webkit_option_menu_get_item(WebKitOptionMenu* menu, guint 
  * @menu: a #WebKitOptionMenu
  * @index: the index of the item
  *
- * Selects the #WebKitOptionMenuItem at @index in @menu. Selecting an item changes the
+ * Selects the #WebKitOptionMenuItem at @index in @menu.
+ *
+ * Selecting an item changes the
  * text shown by the combo button, but it doesn't change the value of the element. You need to
  * explicitly activate the item with webkit_option_menu_select_item() or close the menu with
  * webkit_option_menu_close() in which case the currently selected item will be activated.
@@ -149,7 +169,9 @@ void webkit_option_menu_select_item(WebKitOptionMenu* menu, guint index)
  * @menu: a #WebKitOptionMenu
  * @index: the index of the item
  *
- * Activates the #WebKitOptionMenuItem at @index in @menu. Activating an item changes the value
+ * Activates the #WebKitOptionMenuItem at @index in @menu.
+ *
+ * Activating an item changes the value
  * of the element making the item the active one. You are expected to close the menu with
  * webkit_option_menu_close() after activating an item, calling this function again will have no
  * effect.
@@ -168,7 +190,9 @@ void webkit_option_menu_activate_item(WebKitOptionMenu* menu, guint index)
  * webkit_option_menu_close:
  * @menu: a #WebKitOptionMenu
  *
- * Request to close a #WebKitOptionMenu. This emits WebKitOptionMenu::close signal.
+ * Request to close a #WebKitOptionMenu.
+ *
+ * This emits WebKitOptionMenu::close signal.
  * This function should always be called to notify WebKit that the associated
  * menu has been closed. If the menu is closed and neither webkit_option_menu_select_item()
  * nor webkit_option_menu_activate_item() have been called, the element value remains
@@ -182,3 +206,24 @@ void webkit_option_menu_close(WebKitOptionMenu* menu)
 
     g_signal_emit(menu, signals[CLOSE], 0, nullptr);
 }
+
+#if PLATFORM(GTK)
+/**
+ * webkit_option_menu_get_event:
+ * @menu: a #WebKitOptionMenu
+ *
+ * Gets the #GdkEvent that triggered the dropdown menu.
+ * If @menu was not triggered by a user interaction, like a mouse click,
+ * %NULL is returned.
+ *
+ * Returns: (transfer none): the menu event or %NULL.
+ *
+ * Since: 2.40
+ */
+GdkEvent* webkit_option_menu_get_event(WebKitOptionMenu* menu)
+{
+    g_return_val_if_fail(WEBKIT_IS_OPTION_MENU(menu), nullptr);
+
+    return menu->priv->event.get();
+}
+#endif

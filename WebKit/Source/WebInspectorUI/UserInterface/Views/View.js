@@ -157,6 +157,7 @@ WI.View = class View extends WI.Object
     {
         this._setLayoutReason(layoutReason);
         this._layoutSubtree();
+        this._parentView?.didLayoutSubtree();
     }
 
     updateLayoutIfNeeded(layoutReason)
@@ -170,9 +171,6 @@ WI.View = class View extends WI.Object
     needsLayout(layoutReason)
     {
         this._setLayoutReason(layoutReason);
-
-        if (this._dirty)
-            return;
 
         WI.View._scheduleLayoutForView(this);
     }
@@ -214,6 +212,7 @@ WI.View = class View extends WI.Object
         // Implemented by subclasses.
 
         // Called after the view and its entire subtree have finished layout.
+        // Also called on the immediate parent view that did not layout because it wasn't dirty.
     }
 
     sizeDidChange()
@@ -242,8 +241,6 @@ WI.View = class View extends WI.Object
     {
         if (this._parentView === parentView)
             return;
-
-        console.assert(this._parentView || !(this._isDirty || this._dirtyDescendantsCount));
 
         let dirtyDescendantsCount = this._dirtyDescendantsCount;
         if (this._dirty)
@@ -285,7 +282,6 @@ WI.View = class View extends WI.Object
     {
         this._setDirty(false);
         let isInitialLayout = !this._didInitialLayout;
-
         if (isInitialLayout) {
             console.assert(WI.setReentrantCheck(this, "initialLayout"), "ERROR: calling `initialLayout` while already in it", this);
             this.initialLayout();
@@ -354,10 +350,10 @@ WI.View = class View extends WI.Object
 
     static _scheduleLayoutForView(view)
     {
+        view._setDirty(true);
+
         if (!view._isAttachedToRoot)
             return;
-
-        view._setDirty(true);
 
         if (WI.View._scheduledLayoutUpdateIdentifier)
             return;
@@ -372,12 +368,37 @@ WI.View = class View extends WI.Object
         WI.View._scheduledLayoutUpdateIdentifier = undefined;
 
         let views = [WI.View._rootView];
+        let cleanViews = new Set;
         for (let i = 0; i < views.length; ++i) {
             let view = views[i];
-            if (view.layoutPending)
+
+            if (cleanViews.has(view)) {
+                console.assert(WI.setReentrantCheck(view, "didLayoutSubtree"), "ERROR: calling `didLayoutSubtree` while already in it", view);
+                view.didLayoutSubtree();
+                console.assert(WI.clearReentrantCheck(view, "didLayoutSubtree"), "ERROR: missing return from `didLayoutSubtree`", view);
+                continue;
+            }
+
+            if (view.layoutPending) {
                 view._layoutSubtree();
-            else if (view._dirtyDescendantsCount)
-                views.pushAll(view.subviews);
+                continue;
+            }
+
+            if (view._dirtyDescendantsCount) {
+                cleanViews.add(view);
+
+                let hasDirtySubview = false;
+                for (let subview of view.subviews) {
+                    hasDirtySubview ||= subview.layoutPending;
+                    views.push(subview);
+                }
+
+                // Add again the parent view to the list we're iterating over, right after its subviews.
+                // By the time it is encountered again, all its subviews will have done _layoutSubtree() and then we can call didLayoutSubtree() on it.
+                if (hasDirtySubview)
+                    views.push(view);
+                continue;
+            }
         }
     }
 };

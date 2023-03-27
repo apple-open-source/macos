@@ -101,6 +101,7 @@ typedef struct _node {
 #define F_ACL		0x08000000		/* digest of access control list */
 #define F_SIBLINGID	0x10000000		/* sibling id */
 #define F_NXATTR	0x20000000		/* number of xattrs (includes decmpfs)*/
+#define F_DATALESS	0x40000000		/* dataless */
 	u_int	flags;				/* items set */
 
 #define	F_BLOCK	0x001				/* block special */

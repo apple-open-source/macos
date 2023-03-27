@@ -79,6 +79,9 @@ WI.ReferencePage.DOMBreakpoints.Configuration = new WI.ReferencePage(WI.Referenc
 WI.ReferencePage.DeviceSettings = new WI.ReferencePage("device-settings");
 WI.ReferencePage.DeviceSettings.Configuration = new WI.ReferencePage(WI.ReferencePage.DeviceSettings, {topic: "configuration"});
 
+WI.ReferencePage.ElementsTab = new WI.ReferencePage("elements-tab");
+WI.ReferencePage.ElementsTab.DOMTree = new WI.ReferencePage(WI.ReferencePage.ElementsTab, {topic: "dom-tree"});
+
 WI.ReferencePage.EventBreakpoints = new WI.ReferencePage("event-breakpoints");
 WI.ReferencePage.EventBreakpoints.Configuration = new WI.ReferencePage(WI.ReferencePage.EventBreakpoints, {topic: "configuration"});
 
@@ -89,6 +92,17 @@ WI.ReferencePage.LayersTab = new WI.ReferencePage("layers-tab");
 
 WI.ReferencePage.LocalOverrides = new WI.ReferencePage("local-overrides");
 WI.ReferencePage.LocalOverrides.ConfiguringLocalOverrides = new WI.ReferencePage(WI.ReferencePage.LocalOverrides, {topic: "configuring-local-overrides"});
+
+WI.ReferencePage.NetworkTab = new WI.ReferencePage("network-tab");
+WI.ReferencePage.NetworkTab.CookiesPane = new WI.ReferencePage(WI.ReferencePage.NetworkTab, {topic: "cookies-pane"});
+WI.ReferencePage.NetworkTab.HeadersPane = new WI.ReferencePage(WI.ReferencePage.NetworkTab, {topic: "headers-pane"});
+WI.ReferencePage.NetworkTab.PreviewPane = new WI.ReferencePage(WI.ReferencePage.NetworkTab, {topic: "preview-pane"});
+WI.ReferencePage.NetworkTab.SecurityPane = new WI.ReferencePage(WI.ReferencePage.NetworkTab, {topic: "security-pane"});
+WI.ReferencePage.NetworkTab.SizesPane = new WI.ReferencePage(WI.ReferencePage.NetworkTab, {topic: "sizes-pane"});
+WI.ReferencePage.NetworkTab.TimingPane = new WI.ReferencePage(WI.ReferencePage.NetworkTab, {topic: "timing-pane"});
+
+WI.ReferencePage.SymbolicBreakpoints = new WI.ReferencePage("symbolic-breakpoints");
+WI.ReferencePage.SymbolicBreakpoints.Configuration = new WI.ReferencePage(WI.ReferencePage.SymbolicBreakpoints, {topic: "configuration"});
 
 WI.ReferencePage.TimelinesTab = new WI.ReferencePage("timelines-tab");
 WI.ReferencePage.TimelinesTab.CPUTimeline = new WI.ReferencePage(WI.ReferencePage.TimelinesTab, {topic: "cpu-timeline"});

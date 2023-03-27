@@ -23,11 +23,17 @@
 #include "APIAutomationSessionClient.h"
 #include "WebKitApplicationInfo.h"
 #include "WebKitAutomationSessionPrivate.h"
+#include "WebKitNetworkProxySettingsPrivate.h"
 #include "WebKitWebContextPrivate.h"
 #include "WebKitWebViewPrivate.h"
+#include "WebKitWebsiteDataManagerPrivate.h"
 #include <glib/gi18n-lib.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
+
+#if ENABLE(2022_GLIB_API)
+#include "WebKitNetworkSession.h"
+#endif
 
 using namespace WebKit;
 
@@ -67,7 +73,7 @@ struct _WebKitAutomationSessionPrivate {
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitAutomationSession, webkit_automation_session, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitAutomationSession, webkit_automation_session, G_TYPE_OBJECT)
 
 class AutomationSessionClient final : public API::AutomationSessionClient {
     WTF_MAKE_FAST_ALLOCATED;
@@ -278,8 +284,7 @@ static void webkit_automation_session_class_init(WebKitAutomationSessionClass* s
         PROP_ID,
         g_param_spec_string(
             "id",
-            _("Identifier"),
-            _("The automation session identifier"),
+            nullptr, nullptr,
             nullptr,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 
@@ -318,7 +323,7 @@ static void webkit_automation_session_class_init(WebKitAutomationSessionClass* s
 #if ENABLE(REMOTE_INSPECTOR)
 static WebKitNetworkProxyMode parseProxyCapabilities(const Inspector::RemoteInspector::Client::SessionCapabilities::Proxy& proxy, WebKitNetworkProxySettings** settings)
 {
-    if (proxy.type == "system"_s)
+    if (proxy.type == "system"_s || proxy.type == "autodetect"_s)
         return WEBKIT_NETWORK_PROXY_MODE_DEFAULT;
 
     if (proxy.type == "direct"_s)
@@ -349,20 +354,53 @@ WebKitAutomationSession* webkitAutomationSessionCreate(WebKitWebContext* webCont
 {
     auto* session = WEBKIT_AUTOMATION_SESSION(g_object_new(WEBKIT_TYPE_AUTOMATION_SESSION, "id", sessionID, nullptr));
     session->priv->webContext = webContext;
-    if (capabilities.acceptInsecureCertificates)
+#if ENABLE(2022_GLIB_API)
+    WebKitNetworkSession* networkSession = webkitWebContextGetNetworkSessionForAutomation(webContext);
+#endif
+
+    if (capabilities.acceptInsecureCertificates) {
+#if ENABLE(2022_GLIB_API)
+        webkit_network_session_set_tls_errors_policy(networkSession, WEBKIT_TLS_ERRORS_POLICY_IGNORE);
+#else
         webkit_website_data_manager_set_tls_errors_policy(webkit_web_context_get_website_data_manager(webContext), WEBKIT_TLS_ERRORS_POLICY_IGNORE);
+#endif
+    }
 
     for (auto& certificate : capabilities.certificates) {
         GRefPtr<GTlsCertificate> tlsCertificate = adoptGRef(g_tls_certificate_new_from_file(certificate.second.utf8().data(), nullptr));
-        if (tlsCertificate)
+        if (tlsCertificate) {
+#if ENABLE(2022_GLIB_API)
+            webkit_network_session_allow_tls_certificate_for_host(networkSession, tlsCertificate.get(), certificate.first.utf8().data());
+#else
             webkit_web_context_allow_tls_certificate_for_host(webContext, tlsCertificate.get(), certificate.first.utf8().data());
+#endif
+        }
     }
     if (capabilities.proxy) {
-        WebKitNetworkProxySettings* proxySettings = nullptr;
-        auto proxyMode = parseProxyCapabilities(*capabilities.proxy, &proxySettings);
-        webkit_website_data_manager_set_network_proxy_settings(webkit_web_context_get_website_data_manager(webContext), proxyMode, proxySettings);
-        if (proxySettings)
-            webkit_network_proxy_settings_free(proxySettings);
+        if (capabilities.proxy->type == "pac"_s) {
+            // FIXME: expose pac proxy in public API.
+            auto settings = WebCore::SoupNetworkProxySettings(WebCore::SoupNetworkProxySettings::Mode::Auto);
+            if (capabilities.proxy->autoconfigURL)
+                settings.defaultProxyURL = capabilities.proxy->autoconfigURL->utf8();
+            if (!settings.isEmpty()) {
+#if ENABLE(2022_GLIB_API)
+                auto& dataStore = webkitWebsiteDataManagerGetDataStore(webkit_network_session_get_website_data_manager(networkSession));
+#else
+                auto& dataStore = webkitWebsiteDataManagerGetDataStore(webkit_web_context_get_website_data_manager(webContext));
+#endif
+                dataStore.setNetworkProxySettings(WTFMove(settings));
+            }
+        } else {
+            WebKitNetworkProxySettings* proxySettings = nullptr;
+            auto proxyMode = parseProxyCapabilities(*capabilities.proxy, &proxySettings);
+#if ENABLE(2022_GLIB_API)
+            webkit_network_session_set_proxy_settings(networkSession, proxyMode, proxySettings);
+#else
+            webkit_website_data_manager_set_network_proxy_settings(webkit_web_context_get_website_data_manager(webContext), proxyMode, proxySettings);
+#endif
+            if (proxySettings)
+                webkit_network_proxy_settings_free(proxySettings);
+        }
     }
     return session;
 }
@@ -419,7 +457,9 @@ const char* webkit_automation_session_get_id(WebKitAutomationSession* session)
  * @session: a #WebKitAutomationSession
  * @info: a #WebKitApplicationInfo
  *
- * Set the application information to @session. This information will be used by the driver service
+ * Set the application information to @session.
+ *
+ * This information will be used by the driver service
  * to match the requested capabilities with the actual application information. If this information
  * is not provided to the session when a new automation session is requested, the creation might fail
  * if the client requested a specific browser name or version. This will not have any effect when called
@@ -444,6 +484,8 @@ void webkit_automation_session_set_application_info(WebKitAutomationSession* ses
 /**
  * webkit_automation_session_get_application_info:
  * @session: a #WebKitAutomationSession
+ *
+ * Get the the previously set #WebKitAutomationSession.
  *
  * Get the #WebKitAutomationSession previously set with webkit_automation_session_set_application_info().
  *

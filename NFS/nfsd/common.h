@@ -76,7 +76,15 @@ void mountd(void);
 int get_exportlist(void);
 int check_for_mount_changes(void);
 int clear_export_errors(uint32_t);
+
 pid_t get_nfsd_pid(void);
+int nfsd_is_enabled(void);
+int nfsd_is_loaded(void);
+
+int nfsd_imp(int argc, char *argv[], const char *conf_path);
+
+#define MAX_NFSD_THREADS_SOFT   192
+#define MAX_NFSD_THREADS_HARD   512
 
 /* globals */
 extern pthread_attr_t pattr;

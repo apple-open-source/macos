@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,13 +33,13 @@
 #include <WebCore/NativeImage.h>
 #include <WebCore/PlatformScreen.h>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
-#include <pal/spi/cocoa/IOSurfaceSPI.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/spi/cocoa/IOSurfaceSPI.h>
 
 namespace WebKit {
 using namespace WebCore;
 
-void ShareableBitmap::validateConfiguration(Configuration& configuration)
+void ShareableBitmap::validateConfiguration(ShareableBitmapConfiguration& configuration)
 {
     if (!configuration.colorSpace)
         return;
@@ -55,17 +55,17 @@ void ShareableBitmap::validateConfiguration(Configuration& configuration)
     }
 }
 
-static CGColorSpaceRef colorSpace(const ShareableBitmap::Configuration& configuration)
+static CGColorSpaceRef colorSpace(const ShareableBitmapConfiguration& configuration)
 {
     return configuration.colorSpace ? configuration.colorSpace->platformColorSpace() : sRGBColorSpaceRef();
 }
 
-static bool wantsExtendedRange(const ShareableBitmap::Configuration& configuration)
+static bool wantsExtendedRange(const ShareableBitmapConfiguration& configuration)
 {
     return CGColorSpaceUsesExtendedRange(colorSpace(configuration));
 }
 
-static CGBitmapInfo bitmapInfo(const ShareableBitmap::Configuration& configuration)
+static CGBitmapInfo bitmapInfo(const ShareableBitmapConfiguration& configuration)
 {
     CGBitmapInfo info = 0;
     if (wantsExtendedRange(configuration)) {
@@ -87,7 +87,7 @@ static CGBitmapInfo bitmapInfo(const ShareableBitmap::Configuration& configurati
     return info;
 }
 
-CheckedUint32 ShareableBitmap::calculateBytesPerRow(WebCore::IntSize size, const Configuration& configuration)
+CheckedUint32 ShareableBitmap::calculateBytesPerRow(WebCore::IntSize size, const ShareableBitmapConfiguration& configuration)
 {
     CheckedUint32 bytesPerRow = calculateBytesPerPixel(configuration) * size.width();
 #if HAVE(IOSURFACE)
@@ -100,7 +100,7 @@ CheckedUint32 ShareableBitmap::calculateBytesPerRow(WebCore::IntSize size, const
 #endif
 }
 
-CheckedUint32 ShareableBitmap::calculateBytesPerPixel(const Configuration& configuration)
+CheckedUint32 ShareableBitmap::calculateBytesPerPixel(const ShareableBitmapConfiguration& configuration)
 {
     return wantsExtendedRange(configuration) ? 8 : 4;
 }

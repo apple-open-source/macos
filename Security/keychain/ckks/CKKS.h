@@ -79,6 +79,13 @@ extern CKKSKeyClass* const SecCKKSKeyClassTLK;
 extern CKKSKeyClass* const SecCKKSKeyClassA;
 extern CKKSKeyClass* const SecCKKSKeyClassC;
 
+@interface CKKSCurrentItemData: NSData
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithUUID:(NSString *)uuid;
+@property (strong) NSString* uuid;
+@property (strong, nullable) NSDate *modificationDate;
+@end
+
 /* Useful CloudKit configuration */
 extern NSString* SecCKKSContainerName;
 extern NSString* const SecCKKSSubscriptionID;

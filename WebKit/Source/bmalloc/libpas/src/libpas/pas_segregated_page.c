@@ -127,7 +127,7 @@ void pas_segregated_page_switch_lock_and_rebias_while_ineligible_impl(
         page_lock = page->lock_ptr;
         PAS_TESTING_ASSERT(page_lock);
 
-        if (*held_lock == page_lock && *held_lock == &cache_node->page_lock) {
+        if (*held_lock == page_lock && cache_node && *held_lock == &cache_node->page_lock) {
             pas_compiler_fence();
             return;
         }
@@ -191,7 +191,7 @@ void pas_segregated_page_switch_lock_and_rebias_while_ineligible_impl(
 void pas_segregated_page_construct(pas_segregated_page* page,
                                    pas_segregated_view owner,
                                    bool was_stolen,
-                                   pas_segregated_page_config* page_config_ptr)
+                                   const pas_segregated_page_config* page_config_ptr)
 {
     static const bool verbose = false;
     
@@ -339,7 +339,7 @@ bool pas_segregated_page_take_empty_granules(
     
     pas_page_granule_use_count* use_counts;
     pas_segregated_view owner;
-    pas_segregated_page_config* page_config_ptr;
+    const pas_segregated_page_config* page_config_ptr;
     pas_segregated_page_config page_config;
     uintptr_t num_granules;
     char* boundary;
@@ -436,7 +436,7 @@ void pas_segregated_page_commit_fully(
 {
     static const bool verbose = false;
     
-    pas_segregated_page_config* page_config_ptr;
+    const pas_segregated_page_config* page_config_ptr;
     pas_segregated_page_config page_config;
     pas_page_granule_use_count* use_counts;
     uintptr_t num_granules;
@@ -663,7 +663,7 @@ void pas_segregated_page_deallocation_did_fail(uintptr_t begin)
 
 size_t pas_segregated_page_get_num_empty_granules(pas_segregated_page* page)
 {
-    pas_segregated_page_config* page_config_ptr;
+    const pas_segregated_page_config* page_config_ptr;
     pas_segregated_page_config page_config;
     size_t result;
     
@@ -691,7 +691,7 @@ size_t pas_segregated_page_get_num_empty_granules(pas_segregated_page* page)
 
 size_t pas_segregated_page_get_num_committed_granules(pas_segregated_page* page)
 {
-    pas_segregated_page_config* page_config_ptr;
+    const pas_segregated_page_config* page_config_ptr;
     pas_segregated_page_config page_config;
     size_t result;
     pas_page_granule_use_count* use_counts;
@@ -716,7 +716,7 @@ size_t pas_segregated_page_get_num_committed_granules(pas_segregated_page* page)
     return result;
 }
 
-pas_segregated_page_config* pas_segregated_page_get_config(pas_segregated_page* page)
+const pas_segregated_page_config* pas_segregated_page_get_config(pas_segregated_page* page)
 {
     return pas_segregated_view_get_page_config(page->owner);
 }
@@ -725,7 +725,7 @@ void pas_segregated_page_add_commit_range(pas_segregated_page* page,
                                           pas_heap_summary* result,
                                           pas_range range)
 {
-    pas_segregated_page_config* page_config_ptr;
+    const pas_segregated_page_config* page_config_ptr;
     pas_segregated_page_config page_config;
     pas_page_granule_use_count* use_counts;
     uintptr_t first_granule_index;
@@ -776,7 +776,7 @@ void pas_segregated_page_add_commit_range(pas_segregated_page* page,
 
 pas_segregated_page_and_config
 pas_segregated_page_and_config_for_address_and_heap_config(uintptr_t begin,
-                                                           pas_heap_config* config)
+                                                           const pas_heap_config* config)
 {
     switch (config->fast_megapage_kind_func(begin)) {
     case pas_small_exclusive_segregated_fast_megapage_kind:

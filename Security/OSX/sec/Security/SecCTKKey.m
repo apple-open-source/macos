@@ -68,8 +68,20 @@ const CFStringRef kSecUseTokenSession = CFSTR("u_TokenSession");
             if (session == nil) {
                 // Get new session.
                 if (isCryptoTokenKitAvailable()) {
+                    NSDictionary *params = @{};
+#if TARGET_OS_OSX || TARGET_OS_IOS
+#if TARGET_OS_OSX
+                    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS;
+#elif TARGET_OS_IOS
+                    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlways;
+#endif
+                    NSNumber *systemKeychainAlways = [attributes objectForKey:(__bridge id)localSecUseSystemKeychainAlways];
+                    if ([systemKeychainAlways isKindOfClass:NSNumber.class] && [systemKeychainAlways boolValue]) {
+                        params = @{ @"forceSystemSession" /* TKClientTokenParameterForceSystemSession */ : @YES };
+                    }
+#endif
                     TKClientToken *token = [[getTKClientTokenClass() alloc] initWithTokenID:attributes[(id)kSecAttrTokenID]];
-                    session = [token sessionWithLAContext:attributes[(id)kSecUseAuthenticationContext] error:error];
+                    session = [[getTKClientTokenSessionClass() alloc] initWithToken:token LAContext:attributes[(id)kSecUseAuthenticationContext] parameters:params error:error];
                 } else {
                     if (error != nil) {
                         *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:@{NSDebugDescriptionErrorKey: @"CryptoTokenKit is not available"}];

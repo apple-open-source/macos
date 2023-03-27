@@ -53,7 +53,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << additionalSandboxExtensionHandles;
     encoder << initializationUserData;
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
-    encoder << enableRemoteWebInspectorExtensionHandle;
+    encoder << enableRemoteWebInspectorExtensionHandles;
 #endif
 #if ENABLE(MEDIA_STREAM)
     encoder << audioCaptureExtensionHandle;
@@ -73,7 +73,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << shouldAlwaysUseComplexTextCodePath;
     encoder << shouldEnableMemoryPressureReliefLogging;
     encoder << shouldSuppressMemoryPressureHandler;
-    encoder << shouldUseFontSmoothing;
+    encoder << disableFontSubpixelAntialiasingForTesting;
     encoder << fontAllowList;
     encoder << overrideLanguages;
 #if USE(GSTREAMER)
@@ -116,7 +116,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << attrStyleEnabled;
     encoder << shouldThrowExceptionForGlobalConstantRedeclaration;
     encoder << crossOriginMode;
-    encoder << isCaptivePortalModeEnabled;
+    encoder << isLockdownModeEnabled;
 
 #if ENABLE(SERVICE_CONTROLS)
     encoder << hasImageServices;
@@ -132,7 +132,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << waylandCompositorDisplayName;
 #endif
 
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
+#if ENABLE(TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     encoder << shouldLogUserInteraction;
 #endif
 
@@ -245,11 +245,11 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!decoder.decode(parameters.initializationUserData))
         return false;
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
-    std::optional<SandboxExtension::Handle> enableRemoteWebInspectorExtensionHandle;
-    decoder >> enableRemoteWebInspectorExtensionHandle;
-    if (!enableRemoteWebInspectorExtensionHandle)
+    std::optional<Vector<SandboxExtension::Handle>> enableRemoteWebInspectorExtensionHandles;
+    decoder >> enableRemoteWebInspectorExtensionHandles;
+    if (!enableRemoteWebInspectorExtensionHandles)
         return false;
-    parameters.enableRemoteWebInspectorExtensionHandle = WTFMove(*enableRemoteWebInspectorExtensionHandle);
+    parameters.enableRemoteWebInspectorExtensionHandles = WTFMove(*enableRemoteWebInspectorExtensionHandles);
 #endif
 #if ENABLE(MEDIA_STREAM)
     std::optional<SandboxExtension::Handle> audioCaptureExtensionHandle;
@@ -288,7 +288,7 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.shouldSuppressMemoryPressureHandler))
         return false;
-    if (!decoder.decode(parameters.shouldUseFontSmoothing))
+    if (!decoder.decode(parameters.disableFontSubpixelAntialiasingForTesting))
         return false;
     if (!decoder.decode(parameters.fontAllowList))
         return false;
@@ -371,7 +371,7 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.crossOriginMode))
         return false;
-    if (!decoder.decode(parameters.isCaptivePortalModeEnabled))
+    if (!decoder.decode(parameters.isLockdownModeEnabled))
         return false;
 
 #if ENABLE(SERVICE_CONTROLS)
@@ -393,7 +393,7 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
 #endif
 
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
+#if ENABLE(TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     if (!decoder.decode(parameters.shouldLogUserInteraction))
         return false;
 #endif

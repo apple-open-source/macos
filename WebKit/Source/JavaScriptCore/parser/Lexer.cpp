@@ -849,7 +849,7 @@ static inline bool isASCIIOctalDigitOrSeparator(CharacterType character)
 static inline LChar singleEscape(int c)
 {
     if (c < 128) {
-        ASSERT(static_cast<size_t>(c) < WTF_ARRAY_LENGTH(singleCharacterEscapeValuesForASCII));
+        ASSERT(static_cast<size_t>(c) < std::size(singleCharacterEscapeValuesForASCII));
         return singleCharacterEscapeValuesForASCII[c];
     }
     return 0;
@@ -1839,36 +1839,30 @@ ALWAYS_INLINE void Lexer<T>::parseCommentDirective()
     }
 }
 
-template <typename T>
-ALWAYS_INLINE String Lexer<T>::parseCommentDirectiveValue()
+IGNORE_WARNINGS_BEGIN("unused-but-set-variable")
+template<typename CharacterType> ALWAYS_INLINE String Lexer<CharacterType>::parseCommentDirectiveValue()
 {
     skipWhitespace();
-    bool hasNonLatin1 = false;
-    const T* stringStart = currentSourcePtr();
+    UChar mergedCharacterBits = 0;
+    auto stringStart = currentSourcePtr();
     while (!isWhiteSpace(m_current) && !isLineTerminator(m_current) && m_current != '"' && m_current != '\'' && !atEnd()) {
-        if (!isLatin1(m_current))
-            hasNonLatin1 = true;
+        if constexpr (std::is_same_v<CharacterType, UChar>)
+            mergedCharacterBits |= m_current;
         shift();
     }
-    const T* stringEnd = currentSourcePtr();
-    skipWhitespace();
+    unsigned length = currentSourcePtr() - stringStart;
 
+    skipWhitespace();
     if (!isLineTerminator(m_current) && !atEnd())
         return String();
 
-    unsigned length = stringEnd - stringStart;
-    if (hasNonLatin1) {
-        UChar* buffer = nullptr;
-        String result = StringImpl::createUninitialized(length, buffer);
-        StringImpl::copyCharacters(buffer, stringStart, length);
-        return result;
+    if constexpr (std::is_same_v<CharacterType, UChar>) {
+        if (isLatin1(mergedCharacterBits))
+            return String::make8Bit(stringStart, length);
     }
-
-    LChar* buffer = nullptr;
-    String result = StringImpl::createUninitialized(length, buffer);
-    StringImpl::copyCharacters(buffer, stringStart, length);
-    return result;
+    return { stringStart, length };
 }
+IGNORE_WARNINGS_END
 
 template <typename T>
 template <unsigned length>

@@ -433,7 +433,8 @@ out:
     for (size_t i = 0; i < num_ciphers; i++) {
         sslmin = SSLCiphersuiteMinimumTLSVersion(ciphers[i]);
         XCTAssertNotEqual(kSSLProtocolUnknown, sslmin);
-        sslmax = SSLCiphersuiteMaximumTLSVersion(ciphers[i]);        
+        sslmax = SSLCiphersuiteMaximumTLSVersion(ciphers[i]);
+        XCTAssertNotEqual(kSSLProtocolUnknown, sslmax);
     }
     free(ciphers);
     CFReleaseNull(ctx);

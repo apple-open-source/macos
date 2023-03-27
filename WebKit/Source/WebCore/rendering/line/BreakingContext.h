@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2003-2021 Apple Inc. All right reserved.
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2003-2022 Apple Inc. All right reserved.
+ * Copyright (C) 2010-2015 Google Inc. All rights reserved.
  * Copyright (C) 2013 ChangSeok Oh <shivamidow@gmail.com>
  * Copyright (C) 2013 Adobe Systems Inc. All right reserved.
  *
@@ -221,10 +221,11 @@ inline void BreakingContext::initializeForCurrentObject()
     m_currWS = renderer.isReplacedOrInlineBlock() ? renderer.parent()->style().whiteSpace() : renderer.style().whiteSpace();
     m_lastWS = m_lastObject->isReplacedOrInlineBlock() ? m_lastObject->parent()->style().whiteSpace() : m_lastObject->style().whiteSpace();
 
-    m_autoWrap = RenderStyle::autoWrap(m_currWS);
+    bool isSVGText = renderer.isSVGInlineText();
+    m_autoWrap = !isSVGText && RenderStyle::autoWrap(m_currWS);
     m_autoWrapWasEverTrueOnLine = m_autoWrapWasEverTrueOnLine || m_autoWrap;
 
-    m_preservesNewline = renderer.isSVGInlineText() ? false : RenderStyle::preserveNewline(m_currWS);
+    m_preservesNewline = !isSVGText && RenderStyle::preserveNewline(m_currWS);
 
     m_collapseWhiteSpace = RenderStyle::collapseWhiteSpace(m_currWS);
 }
@@ -363,7 +364,26 @@ inline void BreakingContext::handleOutOfFlowPositioned(Vector<RenderBox*>& posit
 inline void BreakingContext::handleFloat()
 {
     auto& floatBox = downcast<RenderBox>(*m_current.renderer());
-    const auto& floatingObject = *m_lineBreaker.insertFloatingObject(floatBox);
+    auto& floatingObject = *m_lineBreaker.insertFloatingObject(floatBox);
+
+    auto wouldFitWithTrimmedMargin = [&](MarginTrimType marginTrimType) {
+        auto widthWitoutMargin = floatingObject.width();
+        widthWitoutMargin -= marginTrimType == MarginTrimType::InlineStart ? floatBox.marginStart(&m_blockStyle) : floatBox.marginEnd(&m_blockStyle);
+        return m_width.fitsOnLineExcludingTrailingWhitespace(widthWitoutMargin.toFloat());
+    };
+    auto hasFloatsOnSideAtVerticalPosition = [&](UsedFloat floatPosition) {
+        return (floatPosition == UsedFloat::Left) ? m_block.logicalLeftOffsetForLine(m_block.logicalHeight(), DoNotIndentText)  != m_block.logicalLeftOffsetForContent(m_block.logicalHeight()) :  m_block.logicalRightOffsetForLine(m_block.logicalHeight(), DoNotIndentText) != m_block.logicalRightOffsetForContent(m_block.logicalHeight());
+    };
+
+    // We should trim a float's margin early at a particular vertical position if the following are true:
+    // 1.) The float's candidate position is adjacent to the containing block's inner edge
+    // 2.) margin-trim is set for that edge (e.g. margin-trim: inline/inline-start for a left positioned float)
+    // 3.) The float overconstrains a line box or intersects with another float at that vertical position
+    //     but would not overconstrain a line box/intersect a float if that margin were trimmed
+    if (m_blockStyle.marginTrim().contains(MarginTrimType::InlineStart) && RenderStyle::usedFloat(floatBox) == UsedFloat::Left && !hasFloatsOnSideAtVerticalPosition(UsedFloat::Left) && wouldFitWithTrimmedMargin(MarginTrimType::InlineStart))
+        m_block.trimMarginForFloat(floatingObject, MarginTrimType::InlineStart);
+    else if (m_blockStyle.marginTrim().contains(MarginTrimType::InlineEnd) && RenderStyle::usedFloat(floatBox) == UsedFloat::Right && !hasFloatsOnSideAtVerticalPosition(UsedFloat::Right) && wouldFitWithTrimmedMargin(MarginTrimType::InlineEnd))
+        m_block.trimMarginForFloat(floatingObject, MarginTrimType::InlineEnd);
     // check if it fits in the current line.
     // If it does, position it now, otherwise, position
     // it after moving to next line (in clearFloats() func)

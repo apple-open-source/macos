@@ -26,6 +26,7 @@
 #pragma once
 
 #include <optional>
+#include <wtf/UUID.h>
 #include <wtf/Vector.h>
 
 namespace WebKit::WebPushD {
@@ -36,12 +37,14 @@ struct WebPushDaemonConnectionConfiguration {
 
     bool useMockBundlesForTesting { false };
     std::optional<Vector<uint8_t>> hostAppAuditTokenData;
+    String pushPartitionString;
+    std::optional<UUID> dataStoreIdentifier;
 };
 
 template<class Encoder>
 void WebPushDaemonConnectionConfiguration::encode(Encoder& encoder) const
 {
-    encoder << useMockBundlesForTesting << hostAppAuditTokenData;
+    encoder << useMockBundlesForTesting << hostAppAuditTokenData << pushPartitionString << dataStoreIdentifier;
 }
 
 template<class Decoder>
@@ -57,9 +60,21 @@ std::optional<WebPushDaemonConnectionConfiguration> WebPushDaemonConnectionConfi
     if (!hostAppAuditTokenData)
         return std::nullopt;
 
+    std::optional<String> pushPartitionString;
+    decoder >> pushPartitionString;
+    if (!pushPartitionString)
+        return std::nullopt;
+
+    std::optional<std::optional<UUID>> dataStoreIdentifier;
+    decoder >> dataStoreIdentifier;
+    if (!dataStoreIdentifier)
+        return std::nullopt;
+
     return { {
         WTFMove(*useMockBundlesForTesting),
-        WTFMove(*hostAppAuditTokenData)
+        WTFMove(*hostAppAuditTokenData),
+        WTFMove(*pushPartitionString),
+        WTFMove(*dataStoreIdentifier)
     } };
 }
 

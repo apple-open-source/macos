@@ -26,15 +26,35 @@
 #include "config.h"
 #include "WKProtectionSpaceCurl.h"
 
+#include "APIArray.h"
+#include "APIData.h"
 #include "WKAPICast.h"
-#include "WebCertificateInfo.h"
 #include "WebCredential.h"
 #include "WebProtectionSpace.h"
-
-using namespace WebKit;
+#include <WebCore/CertificateInfo.h>
 
 WKCertificateInfoRef WKProtectionSpaceCopyCertificateInfo(WKProtectionSpaceRef protectionSpaceRef)
 {
-    RefPtr<WebCertificateInfo> certificateInfo = WebCertificateInfo::create(toImpl(protectionSpaceRef)->protectionSpace().certificateInfo());
-    return toAPI(certificateInfo.leakRef());
+    return nullptr;
+}
+
+WKArrayRef WKProtectionSpaceCopyCertificateChain(WKProtectionSpaceRef protectionSpace)
+{
+    auto& certificateChain = WebKit::toImpl(protectionSpace)->protectionSpace().certificateInfo().certificateChain();
+    auto certs = WTF::map(certificateChain, [](auto&& certificate) -> RefPtr<API::Object> {
+        return API::Data::create(reinterpret_cast<const unsigned char*>(certificate.data()), certificate.size());
+    });
+    return WebKit::toAPI(API::Array::create(WTFMove(certs)).leakRef());
+}
+
+int WKProtectionSpaceGetCertificateVerificationError(WKProtectionSpaceRef protectionSpace)
+{
+    auto& certificateInfo = WebKit::toImpl(protectionSpace)->protectionSpace().certificateInfo();
+    return certificateInfo.verificationError();
+}
+
+WKStringRef WKProtectionSpaceCopyCertificateVerificationErrorDescription(WKProtectionSpaceRef protectionSpace)
+{
+    auto& certificateInfo = WebKit::toImpl(protectionSpace)->protectionSpace().certificateInfo();
+    return WebKit::toCopiedAPI(certificateInfo.verificationErrorDescription());
 }

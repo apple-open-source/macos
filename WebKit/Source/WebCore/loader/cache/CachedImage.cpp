@@ -99,6 +99,10 @@ CachedImage::~CachedImage()
 void CachedImage::load(CachedResourceLoader& loader)
 {
     m_skippingRevalidationDocument = loader.document();
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    m_layerBasedSVGEngineEnabled = loader.document() ? loader.document()->settings().layerBasedSVGEngineEnabled() : false;
+#endif
+
     if (loader.shouldPerformImageLoad(url()))
         CachedResource::load(loader);
     else
@@ -153,9 +157,9 @@ void CachedImage::didRemoveClient(CachedResourceClient& client)
     downcast<CachedImageClient>(client).didRemoveCachedImageClient(*this);
 }
 
-bool CachedImage::isClientWaitingForAsyncDecoding(CachedImageClient& client) const
+bool CachedImage::isClientWaitingForAsyncDecoding(const CachedImageClient& client) const
 {
-    return m_clientsWaitingForAsyncDecoding.contains(&client);
+    return m_clientsWaitingForAsyncDecoding.contains(const_cast<CachedImageClient*>(&client));
 }
 
 void CachedImage::addClientWaitingForAsyncDecoding(CachedImageClient& client)
@@ -447,6 +451,15 @@ void CachedImage::CachedImageObserver::scheduleRenderingUpdate(const Image& imag
         cachedImage->scheduleRenderingUpdate(image);
 }
 
+bool CachedImage::CachedImageObserver::allowsAnimation(const Image& image) const
+{
+    for (auto cachedImage : m_cachedImages) {
+        if (cachedImage->allowsAnimation(image))
+            return true;
+    }
+    return false;
+}
+
 inline void CachedImage::clearImage()
 {
     if (!m_image)
@@ -698,6 +711,19 @@ void CachedImage::scheduleRenderingUpdate(const Image& image)
     CachedResourceClientWalker<CachedImageClient> walker(*this);
     while (auto* client = walker.next())
         client->scheduleRenderingUpdateForImage(*this);
+}
+
+bool CachedImage::allowsAnimation(const Image& image) const
+{
+    if (&image != m_image)
+        return false;
+
+    CachedResourceClientWalker<CachedImageClient> walker(*this);
+    while (auto* client = walker.next()) {
+        if (!client->allowsAnimation())
+            return false;
+    }
+    return true;
 }
 
 bool CachedImage::currentFrameKnownToBeOpaque(const RenderElement* renderer)

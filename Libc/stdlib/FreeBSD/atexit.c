@@ -208,6 +208,12 @@ __cxa_in_range(const struct __cxa_range_t ranges[],
 {
 	uintptr_t addr = (uintptr_t)fn;
 
+#if __has_feature(ptrauth_calls)
+	// Strip the pointer so that range checks work.  If we call the pointer, it will
+	// still be signed though.
+	addr = (uintptr_t)__builtin_ptrauth_strip((void*)addr, ptrauth_key_function_pointer);
+#endif
+
 	unsigned int i;
 	for (i = 0; i < count; ++i) {
 		const struct __cxa_range_t *r = &ranges[i];

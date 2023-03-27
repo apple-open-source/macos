@@ -51,7 +51,7 @@ struct _WebKitResponsePolicyDecisionPrivate {
     GRefPtr<WebKitURIResponse> response;
 };
 
-WEBKIT_DEFINE_TYPE(WebKitResponsePolicyDecision, webkit_response_policy_decision, WEBKIT_TYPE_POLICY_DECISION)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitResponsePolicyDecision, webkit_response_policy_decision, WEBKIT_TYPE_POLICY_DECISION)
 
 enum {
     PROP_0,
@@ -89,8 +89,7 @@ static void webkit_response_policy_decision_class_init(WebKitResponsePolicyDecis
     g_object_class_install_property(objectClass,
         PROP_REQUEST,
         g_param_spec_object("request",
-            _("Response URI request"),
-            _("The URI request that is associated with this policy decision"),
+            nullptr, nullptr,
             WEBKIT_TYPE_URI_REQUEST,
             WEBKIT_PARAM_READABLE));
 
@@ -103,8 +102,7 @@ static void webkit_response_policy_decision_class_init(WebKitResponsePolicyDecis
     g_object_class_install_property(objectClass,
         PROP_RESPONSE,
         g_param_spec_object("response",
-            _("URI response"),
-            _("The URI response that is associated with this policy decision"),
+            nullptr, nullptr,
             WEBKIT_TYPE_URI_RESPONSE,
             WEBKIT_PARAM_READABLE));
 
@@ -115,6 +113,7 @@ static void webkit_response_policy_decision_class_init(WebKitResponsePolicyDecis
  * @decision: a #WebKitResponsePolicyDecision
  *
  * Return the #WebKitURIRequest associated with the response decision.
+ *
  * Modifications to the returned object are <emphasis>not</emphasis> taken
  * into account when the request is sent over the network, and is intended
  * only to aid in evaluating whether a response decision should be taken or
@@ -151,6 +150,8 @@ WebKitURIResponse* webkit_response_policy_decision_get_response(WebKitResponsePo
  * webkit_response_policy_decision_is_mime_type_supported:
  * @decision: a #WebKitResponsePolicyDecision
  *
+ * Gets whether the MIME type of the response can be displayed in the #WebKitWebView.
+ *
  * Gets whether the MIME type of the response can be displayed in the #WebKitWebView
  * that triggered this policy decision request. See also webkit_web_view_can_show_mime_type().
  *
@@ -162,6 +163,26 @@ gboolean webkit_response_policy_decision_is_mime_type_supported(WebKitResponsePo
 {
     g_return_val_if_fail(WEBKIT_IS_RESPONSE_POLICY_DECISION(decision), FALSE);
     return decision->priv->navigationResponse->canShowMIMEType();
+}
+
+/**
+ * webkit_response_policy_decision_is_main_frame_main_resource:
+ * @decision: a #WebKitResponsePolicyDecision
+ *
+ * Gets whether the request is the main frame main resource
+ *
+ * Returns: %TRUE if the request is the main frame main resouce or %FALSE otherwise
+ *
+ * Since: 2.40
+ */
+gboolean webkit_response_policy_decision_is_main_frame_main_resource(WebKitResponsePolicyDecision* decision)
+{
+    g_return_val_if_fail(WEBKIT_IS_RESPONSE_POLICY_DECISION(decision), FALSE);
+
+    if (!decision->priv->navigationResponse->frame().isMainFrame())
+        return FALSE;
+
+    return decision->priv->navigationResponse->request().requester() == ResourceRequestRequester::Main;
 }
 
 WebKitPolicyDecision* webkitResponsePolicyDecisionCreate(Ref<API::NavigationResponse>&& response, Ref<WebKit::WebFramePolicyListenerProxy>&& listener)

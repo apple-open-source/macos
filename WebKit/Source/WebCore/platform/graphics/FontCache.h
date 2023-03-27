@@ -47,6 +47,7 @@
 #include <wtf/ListHashSet.h>
 #include <wtf/PointerComparison.h>
 #include <wtf/RefPtr.h>
+#include <wtf/RobinHoodHashSet.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 #include <wtf/WorkQueue.h>
@@ -55,6 +56,9 @@
 
 #if PLATFORM(COCOA)
 #include "FontCacheCoreText.h"
+#include "FontDatabase.h"
+#include "FontFamilySpecificationCoreTextCache.h"
+#include "SystemFontDatabaseCoreText.h"
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -66,6 +70,10 @@
 #include <windows.h>
 #include <objidl.h>
 #include <mlang.h>
+#endif
+
+#if USE(FREETYPE)
+#include "FontSetCache.h"
 #endif
 
 namespace WebCore {
@@ -88,6 +96,7 @@ class FontCache {
     WTF_MAKE_NONCOPYABLE(FontCache); WTF_MAKE_FAST_ALLOCATED;
 public:
     WEBCORE_EXPORT static FontCache& forCurrentThread();
+    static FontCache* forCurrentThreadIfExists();
     static FontCache* forCurrentThreadIfNotDestroyed();
 
     FontCache();
@@ -144,6 +153,8 @@ public:
     WEBCORE_EXPORT void purgeInactiveFontData(unsigned count = UINT_MAX);
     void platformPurgeInactiveFontData();
 
+    static void releaseNoncriticalMemoryInAllFontCaches();
+
     void updateFontCascade(const FontCascade&, RefPtr<FontSelector>&&);
 
 #if PLATFORM(WIN)
@@ -173,11 +184,23 @@ public:
 
     FontCascadeCache& fontCascadeCache() { return m_fontCascadeCache; }
     SystemFallbackFontCache& systemFallbackFontCache() { return m_systemFallbackFontCache; }
+#if PLATFORM(COCOA)
+    FontFamilySpecificationCoreTextCache& fontFamilySpecificationCoreTextCache() { return m_fontFamilySpecificationCoreTextCache; }
+    SystemFontDatabaseCoreText& systemFontDatabaseCoreText() { return m_systemFontDatabaseCoreText; }
+#endif
+
+    bool useBackslashAsYenSignForFamily(const AtomString& family);
+
+#if USE(FREETYPE)
+    static bool configurePatternForFontDescription(FcPattern*, const FontDescription&);
+#endif
+
+    void invalidate();
 
 private:
-    void invalidate();
+    void releaseNoncriticalMemory();
+    void platformReleaseNoncriticalMemory();
     void platformInvalidate();
-
     WEBCORE_EXPORT void purgeInactiveFontDataIfNeeded();
 
     FontPlatformData* cachedFontPlatformData(const FontDescription&, const String& family, const FontCreationContext& = { }, bool checkingAlternateName = false);
@@ -192,13 +215,18 @@ private:
     bool shouldAutoActivateFontIfNeeded(const AtomString& family);
 #endif
 
+#if PLATFORM(COCOA)
+    FontDatabase& database(AllowUserInstalledFonts);
+#endif
+
     Timer m_purgeTimer;
 
-    HashSet<FontSelector*> m_clients;
+    WeakHashSet<FontSelector> m_clients;
     struct FontDataCaches;
     UniqueRef<FontDataCaches> m_fontDataCaches;
     FontCascadeCache m_fontCascadeCache;
     SystemFallbackFontCache m_systemFallbackFontCache;
+    MemoryCompactLookupOnlyRobinHoodHashSet<AtomString> m_familiesUsingBackslashAsYenSign;
 
     unsigned short m_generation { 0 };
 
@@ -211,11 +239,24 @@ private:
 #endif
 
 #if PLATFORM(COCOA)
+    FontDatabase m_databaseAllowingUserInstalledFonts { AllowUserInstalledFonts::Yes };
+    FontDatabase m_databaseDisallowingUserInstalledFonts { AllowUserInstalledFonts::No };
+
+    using FallbackFontSet = HashSet<RetainPtr<CTFontRef>, WTF::RetainPtrObjectHash<CTFontRef>, WTF::RetainPtrObjectHashTraits<CTFontRef>>;
+    FallbackFontSet m_fallbackFonts;
+
     ListHashSet<String> m_seenFamiliesForPrewarming;
     ListHashSet<String> m_fontNamesRequiringSystemFallbackForPrewarming;
     RefPtr<WorkQueue> m_prewarmQueue;
 
+    FontFamilySpecificationCoreTextCache m_fontFamilySpecificationCoreTextCache;
+    SystemFontDatabaseCoreText m_systemFontDatabaseCoreText;
+
     friend class ComplexTextController;
+#endif
+
+#if USE(FREETYPE)
+    FontSetCache m_fontSetCache;
 #endif
 
     friend class Font;

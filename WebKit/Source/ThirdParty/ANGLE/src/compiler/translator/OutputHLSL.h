@@ -46,12 +46,15 @@ class OutputHLSL : public TIntermTraverser
                int numRenderTargets,
                int maxDualSourceDrawBuffers,
                const std::vector<ShaderVariable> &uniforms,
-               ShCompileOptions compileOptions,
+               const ShCompileOptions &compileOptions,
                sh::WorkGroupSize workGroupSize,
                TSymbolTable *symbolTable,
                PerformanceDiagnostics *perfDiagnostics,
                const std::map<int, const TInterfaceBlock *> &uniformBlockOptimizedMap,
-               const std::vector<InterfaceBlock> &shaderStorageBlocks);
+               const std::vector<InterfaceBlock> &shaderStorageBlocks,
+               uint8_t clipDistanceSize,
+               uint8_t cullDistanceSize,
+               bool isEarlyFragmentTestsSpecified);
 
     ~OutputHLSL() override;
 
@@ -160,7 +163,7 @@ class OutputHLSL : public TIntermTraverser
     const TExtensionBehavior &mExtensionBehavior;
     const char *mSourcePath;
     const ShShaderOutput mOutputType;
-    ShCompileOptions mCompileOptions;
+    const ShCompileOptions &mCompileOptions;
 
     bool mInsideFunction;
     bool mInsideMain;
@@ -280,6 +283,9 @@ class OutputHLSL : public TIntermTraverser
     bool needStructMapping(TIntermTyped *node);
 
     ShaderStorageBlockOutputHLSL *mSSBOOutputHLSL;
+    uint8_t mClipDistanceSize;
+    uint8_t mCullDistanceSize;
+    bool mIsEarlyFragmentTestsSpecified;
     bool mNeedStructMapping;
 };
 }  // namespace sh

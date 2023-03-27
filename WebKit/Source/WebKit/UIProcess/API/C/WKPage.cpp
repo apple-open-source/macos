@@ -85,7 +85,8 @@
 #include <WebCore/ContentRuleListResults.h>
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/Page.h>
-#include <WebCore/SSLKeyGenerator.h>
+#include <WebCore/Permissions.h>
+#include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/SerializedCryptoKeyWrap.h>
 #include <WebCore/WindowFeatures.h>
@@ -128,7 +129,7 @@ template<> struct ClientTraits<WKPagePolicyClientBase> {
 };
 
 template<> struct ClientTraits<WKPageUIClientBase> {
-    typedef std::tuple<WKPageUIClientV0, WKPageUIClientV1, WKPageUIClientV2, WKPageUIClientV3, WKPageUIClientV4, WKPageUIClientV5, WKPageUIClientV6, WKPageUIClientV7, WKPageUIClientV8, WKPageUIClientV9, WKPageUIClientV10, WKPageUIClientV11, WKPageUIClientV12, WKPageUIClientV13, WKPageUIClientV14, WKPageUIClientV15, WKPageUIClientV16, WKPageUIClientV17, WKPageUIClientV18> Versions;
+    typedef std::tuple<WKPageUIClientV0, WKPageUIClientV1, WKPageUIClientV2, WKPageUIClientV3, WKPageUIClientV4, WKPageUIClientV5, WKPageUIClientV6, WKPageUIClientV7, WKPageUIClientV8, WKPageUIClientV9, WKPageUIClientV10, WKPageUIClientV11, WKPageUIClientV12, WKPageUIClientV13, WKPageUIClientV14, WKPageUIClientV15, WKPageUIClientV16, WKPageUIClientV17, WKPageUIClientV18, WKPageUIClientV19> Versions;
 };
 
 #if ENABLE(CONTEXT_MENUS)
@@ -253,6 +254,13 @@ static IPC::DataReference dataFrom(const String& string)
     return { string.characters8(), string.length() * sizeof(LChar) };
 }
 
+static Ref<WebCore::DataSegment> dataReferenceFrom(const String& string)
+{
+    if (string.isNull() || !string.is8Bit())
+        return WebCore::DataSegment::create(Vector<uint8_t>(reinterpret_cast<const uint8_t*>(string.characters16()), string.length() * sizeof(UChar)));
+    return WebCore::DataSegment::create(Vector<uint8_t>(string.characters8(), string.length() * sizeof(LChar)));
+}
+
 static void loadString(WKPageRef pageRef, WKStringRef stringRef, const String& mimeType, const String& baseURL, WKTypeRef userDataRef)
 {
     String string = toWTFString(stringRef);
@@ -281,7 +289,7 @@ void WKPageLoadAlternateHTMLStringWithUserData(WKPageRef pageRef, WKStringRef ht
 {
     CRASH_IF_SUSPENDED;
     String string = toWTFString(htmlStringRef);
-    toImpl(pageRef)->loadAlternateHTML(dataFrom(string), encodingOf(string), URL { toWTFString(baseURLRef) }, URL { toWTFString(unreachableURLRef) }, toImpl(userDataRef));
+    toImpl(pageRef)->loadAlternateHTML(dataReferenceFrom(string), encodingOf(string), URL { toWTFString(baseURLRef) }, URL { toWTFString(unreachableURLRef) }, toImpl(userDataRef));
 }
 
 void WKPageLoadPlainTextString(WKPageRef pageRef, WKStringRef plainTextStringRef)
@@ -348,6 +356,16 @@ bool WKPageTryClose(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
     return toImpl(pageRef)->tryClose();
+}
+
+void WKPagePermissionChanged(WKStringRef permissionName, WKStringRef originString)
+{
+    auto name = WebCore::Permissions::toPermissionName(toWTFString(permissionName));
+    if (!name)
+        return;
+
+    auto topOrigin = WebCore::SecurityOrigin::createFromString(toWTFString(originString))->data();
+    WebKit::WebProcessProxy::permissionChanged(*name, topOrigin);
 }
 
 void WKPageClose(WKPageRef pageRef)
@@ -860,15 +878,13 @@ double WKPageGetGapBetweenPages(WKPageRef pageRef)
     return toImpl(pageRef)->gapBetweenPages();
 }
 
-void WKPageSetPaginationLineGridEnabled(WKPageRef pageRef, bool lineGridEnabled)
+void WKPageSetPaginationLineGridEnabled(WKPageRef, bool)
 {
-    CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->setPaginationLineGridEnabled(lineGridEnabled);
 }
 
-bool WKPageGetPaginationLineGridEnabled(WKPageRef pageRef)
+bool WKPageGetPaginationLineGridEnabled(WKPageRef)
 {
-    return toImpl(pageRef)->paginationLineGridEnabled();
+    return false;
 }
 
 unsigned WKPageGetPageCount(WKPageRef pageRef)
@@ -1166,8 +1182,6 @@ void WKPageSetPageLoaderClient(WKPageRef pageRef, const WKPageLoaderClientBase* 
             RELEASE_ASSERT(!m_client.pluginLoadPolicy_deprecatedForUseWithV2);
             RELEASE_ASSERT(!m_client.pluginDidFail);
             RELEASE_ASSERT(!m_client.pluginLoadPolicy);
-            RELEASE_ASSERT(!m_client.webGLLoadPolicy);
-            RELEASE_ASSERT(!m_client.resolveWebGLLoadPolicy);
             RELEASE_ASSERT(!m_client.navigationGestureDidBegin);
             RELEASE_ASSERT(!m_client.navigationGestureWillEnd);
             RELEASE_ASSERT(!m_client.navigationGestureDidEnd);
@@ -1305,10 +1319,13 @@ void WKPageSetPagePolicyClient(WKPageRef pageRef, const WKPagePolicyClientBase* 
         explicit PolicyClient(const WKPagePolicyClientBase* client)
         {
             initialize(client);
+
+            // This callback is unused and deprecated.
+            RELEASE_ASSERT(!m_client.unableToImplementPolicy);
         }
 
     private:
-        void decidePolicyForNavigationAction(WebPageProxy& page, WebFrameProxy* frame, Ref<API::NavigationAction>&& navigationAction, WebFrameProxy* originatingFrame, const WebCore::ResourceRequest& originalResourceRequest, const WebCore::ResourceRequest& resourceRequest, Ref<WebFramePolicyListenerProxy>&& listener, API::Object* userData) override
+        void decidePolicyForNavigationAction(WebPageProxy& page, WebFrameProxy* frame, Ref<API::NavigationAction>&& navigationAction, WebFrameProxy* originatingFrame, const WebCore::ResourceRequest& originalResourceRequest, const WebCore::ResourceRequest& resourceRequest, Ref<WebFramePolicyListenerProxy>&& listener) override
         {
             if (!m_client.decidePolicyForNavigationAction_deprecatedForUseWithV0 && !m_client.decidePolicyForNavigationAction_deprecatedForUseWithV1 && !m_client.decidePolicyForNavigationAction) {
                 listener->use();
@@ -1319,14 +1336,14 @@ void WKPageSetPagePolicyClient(WKPageRef pageRef, const WKPagePolicyClientBase* 
             Ref<API::URLRequest> request = API::URLRequest::create(resourceRequest);
 
             if (m_client.decidePolicyForNavigationAction_deprecatedForUseWithV0)
-                m_client.decidePolicyForNavigationAction_deprecatedForUseWithV0(toAPI(&page), toAPI(frame), toAPI(navigationAction->data().navigationType), toAPI(navigationAction->data().modifiers), toAPI(navigationAction->data().mouseButton), toAPI(request.ptr()), toAPI(listener.ptr()), toAPI(userData), m_client.base.clientInfo);
+                m_client.decidePolicyForNavigationAction_deprecatedForUseWithV0(toAPI(&page), toAPI(frame), toAPI(navigationAction->data().navigationType), toAPI(navigationAction->data().modifiers), toAPI(navigationAction->data().mouseButton), toAPI(request.ptr()), toAPI(listener.ptr()), nullptr, m_client.base.clientInfo);
             else if (m_client.decidePolicyForNavigationAction_deprecatedForUseWithV1)
-                m_client.decidePolicyForNavigationAction_deprecatedForUseWithV1(toAPI(&page), toAPI(frame), toAPI(navigationAction->data().navigationType), toAPI(navigationAction->data().modifiers), toAPI(navigationAction->data().mouseButton), toAPI(originatingFrame), toAPI(request.ptr()), toAPI(listener.ptr()), toAPI(userData), m_client.base.clientInfo);
+                m_client.decidePolicyForNavigationAction_deprecatedForUseWithV1(toAPI(&page), toAPI(frame), toAPI(navigationAction->data().navigationType), toAPI(navigationAction->data().modifiers), toAPI(navigationAction->data().mouseButton), toAPI(originatingFrame), toAPI(request.ptr()), toAPI(listener.ptr()), nullptr, m_client.base.clientInfo);
             else
-                m_client.decidePolicyForNavigationAction(toAPI(&page), toAPI(frame), toAPI(navigationAction->data().navigationType), toAPI(navigationAction->data().modifiers), toAPI(navigationAction->data().mouseButton), toAPI(originatingFrame), toAPI(originalRequest.ptr()), toAPI(request.ptr()), toAPI(listener.ptr()), toAPI(userData), m_client.base.clientInfo);
+                m_client.decidePolicyForNavigationAction(toAPI(&page), toAPI(frame), toAPI(navigationAction->data().navigationType), toAPI(navigationAction->data().modifiers), toAPI(navigationAction->data().mouseButton), toAPI(originatingFrame), toAPI(originalRequest.ptr()), toAPI(request.ptr()), toAPI(listener.ptr()), nullptr, m_client.base.clientInfo);
         }
 
-        void decidePolicyForNewWindowAction(WebPageProxy& page, WebFrameProxy& frame, Ref<API::NavigationAction>&& navigationAction, const WebCore::ResourceRequest& resourceRequest, const String& frameName, Ref<WebFramePolicyListenerProxy>&& listener, API::Object* userData) override
+        void decidePolicyForNewWindowAction(WebPageProxy& page, WebFrameProxy& frame, Ref<API::NavigationAction>&& navigationAction, const WebCore::ResourceRequest& resourceRequest, const String& frameName, Ref<WebFramePolicyListenerProxy>&& listener) override
         {
             if (!m_client.decidePolicyForNewWindowAction) {
                 listener->use();
@@ -1335,10 +1352,10 @@ void WKPageSetPagePolicyClient(WKPageRef pageRef, const WKPagePolicyClientBase* 
 
             Ref<API::URLRequest> request = API::URLRequest::create(resourceRequest);
 
-            m_client.decidePolicyForNewWindowAction(toAPI(&page), toAPI(&frame), toAPI(navigationAction->data().navigationType), toAPI(navigationAction->data().modifiers), toAPI(navigationAction->data().mouseButton), toAPI(request.ptr()), toAPI(frameName.impl()), toAPI(listener.ptr()), toAPI(userData), m_client.base.clientInfo);
+            m_client.decidePolicyForNewWindowAction(toAPI(&page), toAPI(&frame), toAPI(navigationAction->data().navigationType), toAPI(navigationAction->data().modifiers), toAPI(navigationAction->data().mouseButton), toAPI(request.ptr()), toAPI(frameName.impl()), toAPI(listener.ptr()), nullptr, m_client.base.clientInfo);
         }
 
-        void decidePolicyForResponse(WebPageProxy& page, WebFrameProxy& frame, const WebCore::ResourceResponse& resourceResponse, const WebCore::ResourceRequest& resourceRequest, bool canShowMIMEType, Ref<WebFramePolicyListenerProxy>&& listener, API::Object* userData) override
+        void decidePolicyForResponse(WebPageProxy& page, WebFrameProxy& frame, const WebCore::ResourceResponse& resourceResponse, const WebCore::ResourceRequest& resourceRequest, bool canShowMIMEType, Ref<WebFramePolicyListenerProxy>&& listener) override
         {
             if (!m_client.decidePolicyForResponse_deprecatedForUseWithV0 && !m_client.decidePolicyForResponse) {
                 listener->use();
@@ -1349,17 +1366,9 @@ void WKPageSetPagePolicyClient(WKPageRef pageRef, const WKPagePolicyClientBase* 
             Ref<API::URLRequest> request = API::URLRequest::create(resourceRequest);
 
             if (m_client.decidePolicyForResponse_deprecatedForUseWithV0)
-                m_client.decidePolicyForResponse_deprecatedForUseWithV0(toAPI(&page), toAPI(&frame), toAPI(response.ptr()), toAPI(request.ptr()), toAPI(listener.ptr()), toAPI(userData), m_client.base.clientInfo);
+                m_client.decidePolicyForResponse_deprecatedForUseWithV0(toAPI(&page), toAPI(&frame), toAPI(response.ptr()), toAPI(request.ptr()), toAPI(listener.ptr()), nullptr, m_client.base.clientInfo);
             else
-                m_client.decidePolicyForResponse(toAPI(&page), toAPI(&frame), toAPI(response.ptr()), toAPI(request.ptr()), canShowMIMEType, toAPI(listener.ptr()), toAPI(userData), m_client.base.clientInfo);
-        }
-
-        void unableToImplementPolicy(WebPageProxy& page, WebFrameProxy& frame, const WebCore::ResourceError& error, API::Object* userData) override
-        {
-            if (!m_client.unableToImplementPolicy)
-                return;
-            
-            m_client.unableToImplementPolicy(toAPI(&page), toAPI(&frame), toAPI(error), toAPI(userData), m_client.base.clientInfo);
+                m_client.decidePolicyForResponse(toAPI(&page), toAPI(&frame), toAPI(response.ptr()), toAPI(request.ptr()), canShowMIMEType, toAPI(listener.ptr()), nullptr, m_client.base.clientInfo);
         }
     };
 
@@ -1635,14 +1644,6 @@ void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClientBase* wkClient
             m_client.hasVideoInPictureInPictureDidChange(toAPI(page), hasVideoInPictureInPicture, m_client.base.clientInfo);
         }
 
-        void didExceedBackgroundResourceLimitWhileInForeground(WebPageProxy& page, WKResourceLimit limit) final
-        {
-            if (!m_client.didExceedBackgroundResourceLimitWhileInForeground)
-                return;
-
-            m_client.didExceedBackgroundResourceLimitWhileInForeground(toAPI(&page), limit, m_client.base.clientInfo);
-        }
-
         void close(WebPageProxy* page) final
         {
             if (!m_client.close)
@@ -1770,7 +1771,7 @@ void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClientBase* wkClient
             m_client.setStatusText(toAPI(page), toAPI(text.impl()), m_client.base.clientInfo);
         }
 
-        void mouseDidMoveOverElement(WebPageProxy& page, const WebHitTestResultData& data, OptionSet<WebKit::WebEvent::Modifier> modifiers, API::Object* userData) final
+        void mouseDidMoveOverElement(WebPageProxy& page, const WebHitTestResultData& data, OptionSet<WebKit::WebEventModifier> modifiers, API::Object* userData) final
         {
             if (!m_client.mouseDidMoveOverElement && !m_client.mouseDidMoveOverElement_deprecatedForUseWithV0)
                 return;
@@ -2186,6 +2187,37 @@ void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClientBase* wkClient
             }
             m_client.queryPermission(toAPI(API::String::create(permissionName).ptr()), toAPI(&origin), toAPI(QueryPermissionResultCallback::create(WTFMove(completionHandler)).ptr()));
         }
+
+        static WKScreenOrientationType toWKScreenOrientationType(WebCore::ScreenOrientationType orientation)
+        {
+            switch (orientation) {
+            case WebCore::ScreenOrientationType::LandscapePrimary:
+                return kWKScreenOrientationTypeLandscapePrimary;
+            case WebCore::ScreenOrientationType::LandscapeSecondary:
+                return kWKScreenOrientationTypeLandscapeSecondary;
+            case WebCore::ScreenOrientationType::PortraitSecondary:
+                return kWKScreenOrientationTypePortraitSecondary;
+            case WebCore::ScreenOrientationType::PortraitPrimary:
+                return kWKScreenOrientationTypePortraitPrimary;
+            }
+            ASSERT_NOT_REACHED();
+            return kWKScreenOrientationTypePortraitPrimary;
+        }
+
+        bool lockScreenOrientation(WebPageProxy& page, WebCore::ScreenOrientationType orientation) final
+        {
+            if (!m_client.lockScreenOrientation)
+                return false;
+
+            m_client.lockScreenOrientation(toAPI(&page), toWKScreenOrientationType(orientation));
+            return true;
+        }
+
+        void unlockScreenOrientation(WebPageProxy& page) final
+        {
+            if (m_client.unlockScreenOrientation)
+                m_client.unlockScreenOrientation(toAPI(&page));
+        }
     };
 
     toImpl(pageRef)->setUIClient(makeUnique<UIClient>(wkClient));
@@ -2202,22 +2234,22 @@ void WKPageSetPageNavigationClient(WKPageRef pageRef, const WKPageNavigationClie
         }
 
     private:
-        void decidePolicyForNavigationAction(WebPageProxy& page, Ref<API::NavigationAction>&& navigationAction, Ref<WebKit::WebFramePolicyListenerProxy>&& listener, API::Object* userData) final
+        void decidePolicyForNavigationAction(WebPageProxy& page, Ref<API::NavigationAction>&& navigationAction, Ref<WebKit::WebFramePolicyListenerProxy>&& listener) final
         {
             if (!m_client.decidePolicyForNavigationAction) {
                 listener->use();
                 return;
             }
-            m_client.decidePolicyForNavigationAction(toAPI(&page), toAPI(navigationAction.ptr()), toAPI(listener.ptr()), toAPI(userData), m_client.base.clientInfo);
+            m_client.decidePolicyForNavigationAction(toAPI(&page), toAPI(navigationAction.ptr()), toAPI(listener.ptr()), nullptr, m_client.base.clientInfo);
         }
 
-        void decidePolicyForNavigationResponse(WebPageProxy& page, Ref<API::NavigationResponse>&& navigationResponse, Ref<WebKit::WebFramePolicyListenerProxy>&& listener, API::Object* userData) override
+        void decidePolicyForNavigationResponse(WebPageProxy& page, Ref<API::NavigationResponse>&& navigationResponse, Ref<WebKit::WebFramePolicyListenerProxy>&& listener) override
         {
             if (!m_client.decidePolicyForNavigationResponse) {
                 listener->use();
                 return;
             }
-            m_client.decidePolicyForNavigationResponse(toAPI(&page), toAPI(navigationResponse.ptr()), toAPI(listener.ptr()), toAPI(userData), m_client.base.clientInfo);
+            m_client.decidePolicyForNavigationResponse(toAPI(&page), toAPI(navigationResponse.ptr()), toAPI(listener.ptr()), nullptr, m_client.base.clientInfo);
         }
 
         void didStartProvisionalNavigation(WebPageProxy& page, const ResourceRequest&, API::Navigation* navigation, API::Object* userData) override
@@ -2320,13 +2352,6 @@ void WKPageSetPageNavigationClient(WKPageRef pageRef, const WKPageNavigationClie
 #else
             return API::Data::create(nullptr, 0);
 #endif
-        }
-
-        RefPtr<API::String> signedPublicKeyAndChallengeString(WebPageProxy& page, unsigned keySizeIndex, const RefPtr<API::String>& challengeString, const URL& url) override
-        {
-            if (m_client.copySignedPublicKeyAndChallengeString)
-                return adoptRef(toImpl(m_client.copySignedPublicKeyAndChallengeString(toAPI(&page), m_client.base.clientInfo)));
-            return API::String::create(WebCore::signedPublicKeyAndChallengeString(keySizeIndex, challengeString->string(), url));
         }
 
         void navigationActionDidBecomeDownload(WebKit::WebPageProxy& page, API::NavigationAction& action, WebKit::DownloadProxy& download) override
@@ -2765,7 +2790,7 @@ void WKPageSetControlledByAutomation(WKPageRef pageRef, bool controlled)
 bool WKPageGetAllowsRemoteInspection(WKPageRef page)
 {
 #if ENABLE(REMOTE_INSPECTOR)
-    return toImpl(page)->allowsRemoteInspection();
+    return toImpl(page)->inspectable();
 #else
     UNUSED_PARAM(page);
     return false;
@@ -2776,7 +2801,7 @@ void WKPageSetAllowsRemoteInspection(WKPageRef pageRef, bool allow)
 {
     CRASH_IF_SUSPENDED;
 #if ENABLE(REMOTE_INSPECTOR)
-    toImpl(pageRef)->setAllowsRemoteInspection(allow);
+    toImpl(pageRef)->setInspectable(allow);
 #else
     UNUSED_PARAM(pageRef);
     UNUSED_PARAM(allow);
@@ -2855,7 +2880,7 @@ WKArrayRef WKPageCopyRelatedPages(WKPageRef pageRef)
     Vector<RefPtr<API::Object>> relatedPages;
 
     for (auto& page : toImpl(pageRef)->process().pages()) {
-        if (page != toImpl(pageRef))
+        if (page.get() != toImpl(pageRef))
             relatedPages.append(page);
     }
 
@@ -2865,7 +2890,7 @@ WKArrayRef WKPageCopyRelatedPages(WKPageRef pageRef)
 WKFrameRef WKPageLookUpFrameFromHandle(WKPageRef pageRef, WKFrameHandleRef handleRef)
 {
     auto page = toImpl(pageRef);
-    auto frame = page->process().webFrame(toImpl(handleRef)->frameID());
+    auto frame = WebFrameProxy::webFrame(toImpl(handleRef)->frameID());
     if (!frame || frame->page() != page)
         return nullptr;
 
@@ -3163,10 +3188,10 @@ void WKPageTriggerMockMicrophoneConfigurationChange(WKPageRef pageRef)
 void WKPageLoadedSubresourceDomains(WKPageRef pageRef, WKPageLoadedSubresourceDomainsFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
     toImpl(pageRef)->getLoadedSubresourceDomains([callbackContext, callback](Vector<RegistrableDomain>&& domains) {
         Vector<RefPtr<API::Object>> apiDomains = WTF::map(domains, [](auto& domain) {
-            return RefPtr<API::Object>(API::String::create(WTFMove(domain.string())));
+            return RefPtr<API::Object>(API::String::create(String(domain.string())));
         });
         callback(toAPI(API::Array::create(WTFMove(apiDomains)).ptr()), callbackContext);
     });
@@ -3179,7 +3204,7 @@ void WKPageLoadedSubresourceDomains(WKPageRef pageRef, WKPageLoadedSubresourceDo
 void WKPageClearLoadedSubresourceDomains(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
     toImpl(pageRef)->clearLoadedSubresourceDomains();
 #else
     UNUSED_PARAM(pageRef);
@@ -3196,4 +3221,11 @@ void WKPageDispatchActivityStateUpdateForTesting(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
     toImpl(pageRef)->dispatchActivityStateUpdateForTesting();
+}
+
+void WKPageClearNotificationPermissionState(WKPageRef pageRef)
+{
+#if ENABLE(NOTIFICATIONS)
+    toImpl(pageRef)->clearNotificationPermissionState();
+#endif
 }

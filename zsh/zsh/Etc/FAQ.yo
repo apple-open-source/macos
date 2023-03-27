@@ -49,23 +49,29 @@ def(item)(2)(
 ARG1: ARG2)\
 def(nofill)(1)(ARG1)\
 def(uref)(1)(url(ARG1)(ARG1))\
-def(LPAR)(0)(CHAR(40))\
-def(RPAR)(1)(CHAR(41))
+COMMENT(TODO: make this expand to a Unicode em dash (U+2014) in HTML output)\
+def(emdash)(0)(\
+    whenlatex(---)\
+    whenhtml(---)\
+    whenman(--)whenms(--)whensgml(--)\
+    whentxt(--))\
+SUBST(_LPAR_)(CHAR(40))\
+SUBST(_RPAR_)(CHAR(41))
 myreport(Z-Shell Frequently-Asked Questions)(Peter Stephenson)(2010/02/15)
 COMMENT(-- the following are for Usenet and must appear first)\
 description(\
 mydit(Archive-Name:) unix-faq/shell/zsh
-mydit(Last-Modified:) 2015/05/31
+mydit(Last-Modified:) 2020/08/08
 mydit(Submitted-By:) email(coordinator@zsh.org (Peter Stephenson))
 mydit(Posting-Frequency:) Monthly
-mydit(Copyright:) (C) P.W. Stephenson, 1995--2016 (see end of document)
+mydit(Copyright:) (C) P.W. Stephenson, 1995--2020 (see end of document)
 )
 
 This document contains a list of frequently-asked (or otherwise
 significant) questions concerning the Z-shell, a command interpreter
 for many UNIX systems which is freely available to anyone with FTP
 access.  Zsh is among the most powerful freely available Bourne-like
-shell for interactive use.
+shells for interactive use.
 
 If you have never heard of mytt(sh), mytt(csh) or mytt(ksh), then you are
 probably better off to start by reading a general introduction to UNIX
@@ -73,7 +79,7 @@ rather than this document.
 
 If you just want to know how to get your hands on the latest version,
 skip to question link(1.6)(16); if you want to know what to do with
-insoluble problems, go to link(5.2)(52).
+insoluble problems, go to link(6.2)(62).
 
 whentxt(Notation: Quotes `like this' are ordinary textual quotation
 marks.  Other uses of quotation marks are input to the shell.)
@@ -97,6 +103,7 @@ Chapter 2:  How does zsh differ from...?
 2.5. bash?
 2.6. Shouldn't zsh be more/less like ksh/(t)csh?
 2.7. What is zsh's support for Unicode/UTF-8?
+2.8. Why does my bash script report an error when I run it under zsh?
 
 Chapter 3:  How to get various things to work
 3.1. Why does `$var' where `var="foo bar"' not do what I expect?
@@ -150,6 +157,7 @@ Chapter 6:  The future of zsh
 6.2. Where do I report bugs, get more info / who's working on zsh?
 6.3. What's on the wish-list?
 6.4. Did zsh have problems in the year 2000?
+6.5. When reporting a bug, how do I reduce my mytt(.zshrc) into a minimal reproduction recipe?
 
 Acknowledgments
 
@@ -163,20 +171,20 @@ sect(Sources of information)
 label(11)
 
   Information on zsh is available via the World Wide Web.  The URL
-  is url(http://zsh.sourceforge.net/)(http://zsh.sourceforge.net/) .
+  is url(https://zsh.sourceforge.io/)(https://zsh.sourceforge.io/) .
   The server provides this FAQ and much else and is
   now maintained by the zsh workers (email email(zsh-workers@zsh.org)).
   The FAQ is at \
-url(http://zsh.sourceforge.net/FAQ/)(http://zsh.sourceforge.net/FAQ/) .
+url(https://zsh.sourceforge.io/FAQ/)(https://zsh.sourceforge.io/FAQ/) .
   The site also contains some contributed zsh scripts and functions;
   we are delighted to add more, or simply links to your own collection.
 
   This document was originally written in YODL, allowing it to be converted
   easily into various other formats.  The master source file lives at
-  url(http://zsh.sourceforge.net/FAQ/zshfaq.yo)
-(http://zsh.sourceforge.net/FAQ/zshfaq.yo) and the plain text version
-  can be found at url(http://zsh.sourceforge.net/FAQ/zshfaq.txt)
-(http://zsh.sourceforge.net/FAQ/zshfaq.txt) .
+  url(https://zsh.sourceforge.io/FAQ/zshfaq.yo)
+(https://zsh.sourceforge.io/FAQ/zshfaq.yo) and the plain text version
+  can be found at url(https://zsh.sourceforge.io/FAQ/zshfaq.txt)
+(https://zsh.sourceforge.io/FAQ/zshfaq.txt) .
 
   Another useful source of information is the collection of FAQ articles
   posted frequently to the Usenet news groups comp.unix.questions,
@@ -205,14 +213,14 @@ email(mail-server@rtfm.mit.edu)
   I have put together a user guide to complement the manual by
   explaining the most useful features of zsh in a more easy to read way.
   This can be found at the zsh web site:
-    url(http://zsh.sourceforge.net/Guide/)(http://zsh.sourceforge.net/Guide/)
+    url(https://zsh.sourceforge.io/Guide/)(https://zsh.sourceforge.io/Guide/)
 
   (As a method of reading the following in Emacs, you can type tt(\M-2
   \C-x $) to make all the indented text vanish, then tt(\M-0 \C-x $)
   when you are on the title you want.)
 
   For any more eclectic information, you should contact the mailing
-  list:  see question link(5.2)(52).
+  list:  see question link(6.2)(62).
 
 
 sect(What is it?)
@@ -227,7 +235,7 @@ sect(What is it?)
 
   It was written by Paul Falstad when a student at Princeton; however,
   Paul doesn't maintain it any more and enquiries should be sent to
-  the mailing list (see question link(5.2)(52)).  Zsh is distributed under a
+  the mailing list (see question link(6.2)(62)).  Zsh is distributed under a
   standard Berkeley style copyright.
 
   For more information, the files Doc/intro.txt or Doc/intro.troff
@@ -292,8 +300,8 @@ sect(On what machines will it run?)
   If you need to change something to support a new machine, it would be
   appreciated if you could add any necessary preprocessor code and
   alter configure.in and acconfig.h to configure zsh automatically,
-  then send the required context diffs to the list (see question
-  link(5.2)(52)).  Please make sure you have the latest version first.
+  then send the required unified diffs to the list (see question
+  link(6.2)(62)).  Please make sure you have the latest version first.
 
   To get it to work, retrieve the source distribution (see question
   link(1.6)(16)), un-gzip it, un-tar it and read the INSTALL file in the top
@@ -308,7 +316,7 @@ sect(On what machines will it run?)
 
 sect(What's the latest version?)
 
-  Zsh 5.8.1 is the latest production version.  For details of all the
+  Zsh 5.9 is the latest production version.  For details of all the
   changes, see the NEWS file in the source distribution.
 
   A beta of the next version is sometimes available.  Development of zsh is
@@ -321,11 +329,11 @@ sect(What's the latest version?)
   tt(development) subdirectory.
 
   Note also that as the shell changes, it may become incompatible with
-  older versions; see the end of question link(5.1)(51) for a partial list.
+  older versions; see the end of question link(6.1)(61) for a partial list.
   Changes of this kind are almost always forced by an awkward or
   unnecessary feature in the original design (as perceived by current
   users), or to enhance compatibility with other Bourne shell
-  derivatives, or (mostly in the 3.0 series) to provide POSIX compliancy.
+  derivatives, or (mostly in the 3.0 series) to provide POSIX compliance.
 
 
 sect(Where do I get it?)
@@ -334,7 +342,7 @@ label(16)
   The coordinator of development is currently me; the alias
   email(coordinator@zsh.org) can be used to contact whoever is in the hot
   seat.  url(https://www.zsh.org/)(https://www.zsh.org/) is the official
-  archive site, currently in Australia.  Test versions are kept in the
+  archive site.  Test versions are kept in the
   `testing' subdirectory: such up-to-the-minute development versions should
   only be retrieved if you actually plan to help test the latest version of
   the shell.
@@ -359,8 +367,8 @@ label(16)
   link(1.1)(11)) at:
 
   description(
-    mydit()        url(http://zsh.sourceforge.net/Patches/)
-(http://zsh.sourceforge.net/Patches/)
+    mydit()        url(https://zsh.sourceforge.io/Patches/)
+(https://zsh.sourceforge.io/Patches/)
   )
 
 sect(I don't have root access: how do I make zsh my login shell?)
@@ -698,7 +706,7 @@ label(23)
     cd() { builtin cd "$@"; print -D $PWD; }
   )
   (which converts your home directory to a tt(~)).  In fact, this problem is
-  better solved by defining the special function chpwd+LPAR()RPAR() (see
+  better solved by defining the special function chpwd+_LPAR__RPAR_ (see
   the manual). Note also that the mytt(;) at the end of the function is
   optional in zsh, but not in ksh or sh (for sh's where it exists).
 
@@ -707,7 +715,8 @@ label(23)
   enumeration(
   myeit() If the csh alias references "parameters" (tt(\!:1), tt(\!*) etc.),
      then in zsh you need a function (referencing tt($1), tt($*) etc.).
-     Otherwise, you can use a zsh alias.
+     In recent versions of zsh this can be done by defining an anonymous
+     function within the alias.  Otherwise, a simple zsh alias suffices.
 
   myeit() If you use a zsh function, you need to refer _at_least_ to
      tt($*) in the body (inside the tt({ })).  Parameters don't magically
@@ -751,7 +760,7 @@ label(23)
      parameters. (E.g., in a csh alias, a reference to tt(\!:5) will
      cause an error if 4 or fewer arguments are given; in a zsh
      function, tt($5) is the empty string if there are 4 or fewer
-     parameters.)
+     parameters.  Force an error in this example by using tt(${5?}).)
 
   myeit() To begin a zsh alias with a - (dash, hyphen) character, use
      mytt(alias --):
@@ -772,9 +781,8 @@ label(23)
   )
   mytt(l) in the function definition is in command position and is expanded
   as an alias, defining mytt(/bin/ls) and mytt(-F) as functions which call
-  mytt(/bin/ls), which gets a bit recursive.  This can be avoided if you use
-  mytt(function) to define a function, which doesn't expand aliases.  It is
-  possible to argue for extra warnings somewhere in this mess.
+  mytt(/bin/ls), which gets a bit recursive.  Recent versions of zsh treat
+  this as an error, but older versions silently create the functions.
 
   One workaround for this is to use the "function" keyword instead:
   verb(
@@ -782,7 +790,7 @@ label(23)
     function l { /bin/ls -la "$@" | more }
   )
   The mytt(l) after mytt(function) is not expanded.  Note you don't need
-  the mytt(LPAR()RPAR()) in this case, although it's harmless.
+  the mytt(_LPAR__RPAR_) in this case, although it's harmless.
 
   You need to be careful if you are defining a function with multiple
   names; most people don't need to do this, so it's an unusual problem,
@@ -795,7 +803,7 @@ label(23)
   This oddity was fixed in version 5.1.
 
   The rest of this item assumes you use the (more common,
-  but equivalent) mytt(LPAR()RPAR()) definitions.
+  but equivalent) mytt(_LPAR__RPAR_) definitions.
 
   Bart Schaefer's rule is:  Define first those aliases you expect to
   use in the body of a function, but define the function first if the
@@ -857,12 +865,13 @@ mytt(compctl)
 
 
 sect(Similarities with bash)
+label(25)
 
   The Bourne-Again Shell, bash, is another enhanced Bourne-like shell;
   the most obvious difference from zsh is that it does not attempt to
   emulate the Korn shell.  Since both shells are under active
   development it is probably not sensible to be too specific here.
-  Broadly, bash has paid more attention to standards compliancy
+  Broadly, bash has paid more attention to standards compliance
   (i.e. POSIX) for longer, and has so far avoided the more abstruse
   interactive features (programmable completion, etc.) that zsh has.
 
@@ -927,6 +936,67 @@ sect(What is zsh's support for Unicode/UTF-8?)
   fully below, see `Multibyte input and output'.
 
 
+sect(Why does my bash script report an error when I run it under zsh?)
+label(28)
+
+  em(tl;dr:) bash is not the reference implementation of zsh, and zsh is not
+  a bug-for-bug compatible reimplementation of bash.
+
+  bash and zsh are different programming languages.  They are not
+  interchangeable; programs written for either of these languages will,
+  in general, not run under the other.  (The situation is similar with
+  many other pairs of closely-related languages, such as Python 2 and
+  Python 3; C and C++; and even C89 and C11.)
+
+  When bash and zsh behave differently on the same input, whether zsh's
+  behaviour is a bug does not depend on what bash does on the same
+  input; rather, it depends on what zsh's user manual specifies.
+  (By way of comparison, it's not a bug in Emacs that mytt(:q!) doesn't
+  cause it to exit.)
+
+  That being said, the bash and zsh languages do have a common subset, and it is
+  feasible to write non-trivial pieces of code that would run under either of
+  them, if one is sufficiently familiar with both of them.  However,
+  a difference between bash's behaviour and zsh's does not imply that
+  zsh has a bug.  The difference might be a bug in zsh, a bug in bash, or
+  a bug in neither shell
+  (see link(3.1)(31) for an example).
+
+  The recommended way to deal with these differences depends on what kind
+  of piece of code is in question: a myem(script) or a myem(plugin).
+  
+  For em(scripts) emdash() external commands that
+  are located in tt($PATH), or located elsewhere and are executed by
+  giving their path explicitly (as in mytt(ls), mytt(/etc/rc.d/sshd),
+  and mytt(./configure)) emdash() the answer is simple:
+
+  Don't run bash scripts under zsh.  If the scripts were written for
+  bash, run them in bash.  There's absolutely no problem with having
+  mytt(#!/usr/bin/env bash) scripts even if mytt(zsh) is your shell for
+  interactive sessions.
+  
+  In fact, if you've recently changed to zsh, we myem(recommend) that
+  you keep your scripts as mytt(#!/usr/bin/env bash), at least for
+  a while: this would make the change more gradual and flatten your
+  learning curve.  Once you're used to zsh, you can decide for each
+  script whether to port it to zsh or keep it as-is.
+
+  For myem(plugins) emdash() pieces of code
+  executed within the shell itself, loaded via the mytt(.),
+  mytt(source), or mytt(autoload) builtins, added to mytt(.zshrc), or
+  pasted interactively at the shell prompt emdash() one may consider it
+  worthwhile to invest the effort to make them runnable under either shell.
+  However, as mentioned above, doing so requires one to be familiar with both
+  shells, and either steer clear of their differences or handle them explicitly
+  with conditional code (such as mytt(if test -n "$ZSH_VERSION")).
+
+  In summary,
+  if you'd like to run a bash script or plugin under zsh, you must port the script or plugin
+  properly, reviewing it line by line for differences between the two
+  languages and adjusting it accordingly, just like you would
+  when translating a book from American English to British English.
+
+
 chapter(How to get various things to work)
 
 sect(Why does mytt($var) where mytt(var="foo bar") not do what I expect?)
@@ -959,9 +1029,9 @@ label(31)
   Unless you need strict sh/ksh compatibility, you should ask yourself
   whether you really want this behaviour, as it can produce unexpected
   effects for variables with entirely innocuous embedded spaces.  This
-  can cause horrendous quoting problems when invoking scripts from
-  other shells.  The natural way to produce word-splitting behaviour
-  in zsh is via arrays.  For example,
+  can cause horrendous quoting problems when invoking scripts written
+  for other shells (see link(2.8)(28)).  The natural way to produce
+  word-splitting behaviour in zsh is via arrays.  For example,
   verb(
     set -A array one two three twenty
   )
@@ -979,7 +1049,7 @@ label(31)
   been automatic word splitting in scalars, which is a sort of
   uncontrollable poor man's array.
 
-  Note that this happens regardless of the value of the internal field
+  Note that word splitting happens regardless of the value of the internal field
   separator, tt($IFS); in other words, with mytt(IFS=:; foo=a:b; args $foo)
   you get the answer 1.
 
@@ -1011,22 +1081,32 @@ label(31)
   or (entirely equivalent) when mytt(emulate ksh) or mytt(emulate sh) is in
   effect.
 
-  There is one other effect of word splitting which differs between ksh
+  There used to be another effect of word splitting which differed between ksh
   and zsh.  In ksh, the builtin commands that declare parameters such
   as tt(typeset) and tt(export) force word-splitting not to take place
   after on an assignment argument:
   verb(
     typeset param=`echo foo bar`
   )
-  in ksh will create a parameter with value mytt(foo bar), but in zsh will
+  in ksh will create a parameter with value mytt(foo bar).
+  
+  zsh used to
   create a parameter tt(param) with value tt(foo) and a parameter tt(bar)
-  whose value is empty.  Contrast this with a normal assignment (no
+  whose value was empty.  Contrast this with a normal assignment (no
   tt(typeset) or other command in front), which never causes a word split
-  unless you have tt(GLOB_ASSIGN) set.  From zsh version 4.0.2 the option
-  tt(KSH_TYPESET), set automatically in compatibility mode, fixes this
-  problem.  Note that in bash this behaviour occurs with all arguments that
-  look like assignments, whatever the command name; to get this behaviour
-  in zsh you have to set the option tt(MAGIC_EQUAL_SUBST).
+  unless you have tt(GLOB_ASSIGN) set.
+  
+  zsh version 4.0.2 and newer creates a single parameter with value
+  mytt(foo bar), like ksh does, when the option tt(KSH_TYPESET) is set.
+  This option gets set automatically when in ksh compatibility mode.
+
+  zsh 5.1 and newer create a single parameter with value mytt(foo bar) by
+  default, in both compatibility and native modes. The older behaviour
+  can be obtained with mytt(disable -r typeset).
+
+  If the options mytt(MAGIC_EQUAL_SUBST) and mytt(KSH_TYPESET) are both
+  set, arguments that look like assignments will not undergo word
+  splitting, whatever the command name.
 
 sect(In which startup file do I put...?)
 
@@ -1906,7 +1986,7 @@ label(327)
   mytt(something) mustn't contain tt(/) if the pattern is being used for
   globbing.
 
-  Likewise, mytt(abc+LPAR()<->~<10-100>RPAR().txt) matches a file consisting of
+  Likewise, mytt(abc+_LPAR_<->~<10-100>_RPAR_.txt) matches a file consisting of
   tt(abc), then some digits, then tt(.txt), unless the digits happen to
   match a number from 10 to 100 inclusive (remember the handy mytt(<->)
   pattern for matching integers with optional limits to the range).  So
@@ -2029,7 +2109,7 @@ sect(Why doesn't the expansion mytt(*.{tex,aux,pdf}) do what I expect?)
 
   This use of parentheses is special to zsh.  Modern Bourne-like shells
   have a syntax like this, too, but with an mytt(@) in front of the
-  parentheses: again, see link(2.1)(21), and search for mytt(@+LPAR()).
+  parentheses: again, see link(2.1)(21), and search for mytt(@_LPAR_).
   This is harder for the user to remember but easier for the shell to
   parse!
 
@@ -2419,7 +2499,7 @@ chapter(The future of zsh)
 
 sect(What bugs are currently known and unfixed? (Plus recent \
 important changes))
-label(51)
+label(61)
 
   Bugs tend to be tracked on the zsh-workers mailing list; see the
   next section.  Check the mailing list to see if a bug has been
@@ -2433,7 +2513,7 @@ label(51)
 
 
 sect(Where do I report bugs, get more info / who's working on zsh?)
-label(52)
+label(62)
 
   The shell is being maintained by various (entirely self-appointed)
   subscribers to the mailing list,
@@ -2444,11 +2524,6 @@ label(52)
   related to the development of the shell should be sent there.  If
   you want someone to mail you directly, say so.  Most patches to zsh
   appear there first.
-
-  Note that this location has just changed (January 1999), and the
-  instructions to go with it are slightly different --- in particular,
-  if you are already subscribed, the instructions about how to
-  unsubscribe are different.
 
   Please note when reporting bugs that many exist only on certain
   architectures, which the developers may not have access to.  In
@@ -2467,6 +2542,11 @@ label(52)
   )
   (posting to the last one is currently restricted).
 
+  Finally, there is a private mailing list (the general public cannot subscribe
+  to it) for discussing bug reports with security implications, i.e., potential
+  vulnerabilities: mytt(zsh-security@zsh.org).  If you find a security problem
+  in zsh itself, please mail this address.
+
   Note that you should only join one of these lists:  people on
   zsh-workers receive all the lists, and people on zsh-users will
   also receive the announcements list.
@@ -2480,16 +2560,18 @@ label(52)
     zsh-workers-subscribe@zsh.org
   )
   (the actual content is unimportant).  Replace tt(subscribe) with
-  tt(unsubscribe) to unsubscribe.  The mailing software (tt(ezlm)) has
+  tt(unsubscribe) to unsubscribe.  The mailing software (tt(Sympa)) has
   various bells and whistles: you can retrieve archived messages.
-  Mail email(zsh-workers-help@zsh.org) for detailed information.
+  Mail email(sympa@zsh.org?subject=help) for detailed information.
   Administrative matters are best sent to
   email(zsh-workers-owner@zsh.org).
-  real name is email(Geoff Wing <gcw@zsh.org>).
   
+  Note that this location changed in August 2020, and the
+  instructions to go with it are slightly different.
+
   An archive of mailings for the last few years can be found at
     url(http://www.zsh.org/mla/)(http://www.zsh.org/mla/)
-  at the main zsh archive in Australia.
+  at the main zsh archive site.
 
   Of course, you can also post zsh queries to the Usenet group
   comp.unix.shell; if all else fails, you could even e-mail me.
@@ -2527,6 +2609,98 @@ sect(Did zsh have problems in the year 2000?)
   show problems here.
 
 
+sect(When reporting a bug, how do I reduce my mytt(.zshrc) into a minimal reproduction recipe?)
+
+  When reporting a bug, the gold standard is to include with the bug
+  a myem(minimal reproduction recipe), with which anyone who reads the bug
+  report can url(reproduce the bug for themselves)
+  (https://www.chiark.greenend.org.uk/~sgtatham/bugs.html#showmehow)
+  at will.
+
+  When you run into a bug in the shell, particularly during interactive
+  use, a reproduction recipe would ideally start by running tt(zsh -f)
+  and then, within that instance of the shell, run a minimal short
+  sequence of commands that reproduces the bug.  A good way to devise
+  such recipes is the following:
+
+COMMENT(For reference, here's Vim's write-up of a similar process:
+https://github.com/chrisbra/vim_faq/blob/de424bd8e08bcf0e6b1e0563ee49514dfed926ae/vim_faq.txt#L1153-L1228)
+
+  enumeration(
+  myeit() First, ensure the bug is reproducible.  To do this, start
+  a new instance of the shell emdash() for example, open a new tab in
+  your terminal emulator emdash() and reproduce the bug there.
+
+  myeit() Start a new instance of the shell by running the
+  command mytt(zsh -f) from your regular shell prompt, and reproduce the
+  bug there.  (The mytt(-f) flag inhibits mytt(.zshenv),
+  mytt(/etc/zprofile), mytt(.zprofile), mytt(/etc/zshrc), and
+  mytt(.zshrc) from being sourced.)
+
+  If you succeeded in reproducing the bug in mytt(zsh -f), copy the
+  commands you used and their outputs (from the mytt(zsh -f) invocation
+  to the point the bug occurred) and include them in your bug report.
+  Skip the remaining steps of this procedure.
+
+  If, however, the bug happens in your regular shell but not in mytt(zsh
+  -f), read the next steps.
+
+  myeit() Make a backup of your tt(.zshrc) file.
+
+  myeit() Delete your tt(.zshrc) file, start a new instance of zsh, and confirm
+  that the problem does em(not) reproduce there.  (If the problem
+  does reproduce there, it's caused by something in mytt(.zshenv),
+  mytt(.zprofile), mytt(/etc/zprofile), or mytt(/etc/zshrc), so apply
+  this procedure from the top to those files rather than to your
+  mytt(.zshrc).)
+  COMMENT(Note that mytt(/etc/zshenv) is not mentioned, since by this
+  point we have established the bug does not occur under mytt(zsh -f),
+  which sources mytt(/etc/zshenv).)
+  COMMENT(mytt(.zlogout) and mytt(/etc/zlogout) aren't mentioned because
+  they're unlikely to be relevant to most readers.)
+
+  myeit() At this point, you know that the problem is caused by
+  something in your mytt(.zshrc) file, but not what line exactly.
+  To find the responsible line, we will use
+  a url(variation)(https://en.wikipedia.org/wiki/Delta_debugging)
+  of the url(binary search)(https://en.wikipedia.org/wiki/Binary_search)
+  algorithm, as follows:
+
+  Suppose your mytt(.zshrc) file has 200 lines.  To start, copy
+  the em(first) half of your mytt(.zshrc) emdash() that is, lines
+  1 through 100 emdash() from the backup copy to your live mytt(.zshrc)
+  file, and check whether the bug reproduces then.  Now, empty the live
+  mytt(.zshrc) file again, and copy the em(second) half of your
+  mytt(.zshrc) file from the backup to the live mytt(.zshrc) file
+  emdash() the live file should now contain lines 101 through 200, only
+  emdash() and see whether the problem reproduces.
+
+  Normally, the bug will reproduce em(either) with lines 1 through 100
+  em(or) with lines 101 through 200, but not in both cases.  To isolate
+  the specific line that causes the bug, repeat the above process on the
+  relevant half of the file: for example, if you've determined that the
+  bug reproduces when only lines 101 through 200 are installed, check
+  whether the bug reproduces (a) when only lines 101 through 150 are
+  installed, and (b) when only lines 151 through 200 are installed.
+  Repeat the process until the resulting mytt(.zshrc) is minimal.
+
+  It is not important to break the file into two halves exactly.
+  Breaking the file into two parts sized one-third and two-thirds, for
+  example, will work equally well.  You can even try restoring one line
+  at a time, but this is impractical for all but the shortest
+  mytt(.zshrc) files.
+
+  myeit() Include the minimal set of lines you devised in the previous
+  step, along with the commands you used and their outputs, in your bug
+  report.
+
+  myeit() Restore your mytt(.zshrc) from backup.
+  )
+
+  Bug reports should be emailed to the mytt(zsh-workers@zsh.org) public
+  mailing list; see link(6.2)(62) for details.
+
+
 nsect(Acknowledgments:)
 
 Thanks to zsh-list, in particular Bart Schaefer, for suggestions
@@ -2542,7 +2716,7 @@ Wischnowsky).
 nsect(Copyright Information:)
 
 This document is copyright (C) P.W. Stephenson, 1995, 1996, 1997,
-1998, 1999, 2000, 2012. This text originates in the U.K. and the author
+1998, 1999, 2000, 2012, 2020. This text originates in the U.K. and the author
 asserts his moral rights under the Copyrights, Designs and Patents Act,
 1988.
 
@@ -2553,4 +2727,4 @@ notice appears in all copies of this documentation.  Remember,
 however, that this document changes monthly and it may be more useful
 to provide a pointer to it rather than the entire text.  A suitable
 pointer is "information on the Z-shell can be obtained on the World
-Wide Web at URL http://zsh.sourceforge.net/".
+Wide Web at URL https://zsh.sourceforge.io/".

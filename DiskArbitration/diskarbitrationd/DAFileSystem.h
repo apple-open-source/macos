@@ -76,7 +76,7 @@ extern void DAFileSystemMount( DAFileSystemRef      filesystem,
                                gid_t                userGID,
                                DAFileSystemCallback callback,
                                void *               callbackContext,
-                               Boolean              userFSPreferenceEnabled );
+                               CFStringRef          preferredMountMethod  );
 
 extern void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
                                             CFURLRef             device,
@@ -84,7 +84,7 @@ extern void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
                                             CFURLRef             mountpoint,
                                             uid_t                userUID,
                                             gid_t                userGID,
-                                            Boolean              userFSPreferenceEnabled,
+                                            CFStringRef          preferredMountMethod,
                                             DAFileSystemCallback callback,
                                             void *               callbackContext,
                                             ... );

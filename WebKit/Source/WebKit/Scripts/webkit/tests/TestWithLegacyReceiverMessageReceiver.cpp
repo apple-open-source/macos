@@ -27,6 +27,9 @@
 #include "TestWithLegacyReceiver.h"
 
 #include "ArgumentCoders.h" // NOLINT
+#if PLATFORM(MAC)
+#include "ArgumentCodersDarwin.h" // NOLINT
+#endif
 #include "Connection.h" // NOLINT
 #include "Decoder.h" // NOLINT
 #if ENABLE(DEPRECATED_FEATURE) || ENABLE(FEATURE_FOR_TESTING)
@@ -62,79 +65,6 @@
 #if ENABLE(IPC_TESTING_API)
 #include "JSIPCBinding.h"
 #endif
-
-namespace Messages {
-
-namespace TestWithLegacyReceiver {
-
-void CreatePlugin::callReply(IPC::Decoder& decoder, CompletionHandler<void(bool&&)>&& completionHandler)
-{
-    std::optional<bool> result;
-    decoder >> result;
-    if (!result) {
-        ASSERT_NOT_REACHED();
-        cancelReply(WTFMove(completionHandler));
-        return;
-    }
-    completionHandler(WTFMove(*result));
-}
-
-void CreatePlugin::cancelReply(CompletionHandler<void(bool&&)>&& completionHandler)
-{
-    completionHandler(IPC::AsyncReplyError<bool>::create());
-}
-
-void RunJavaScriptAlert::callReply(IPC::Decoder& decoder, CompletionHandler<void()>&& completionHandler)
-{
-    completionHandler();
-}
-
-void RunJavaScriptAlert::cancelReply(CompletionHandler<void()>&& completionHandler)
-{
-    completionHandler();
-}
-
-void GetPlugins::callReply(IPC::Decoder& decoder, CompletionHandler<void(Vector<WebCore::PluginInfo>&&)>&& completionHandler)
-{
-    std::optional<Vector<WebCore::PluginInfo>> plugins;
-    decoder >> plugins;
-    if (!plugins) {
-        ASSERT_NOT_REACHED();
-        cancelReply(WTFMove(completionHandler));
-        return;
-    }
-    completionHandler(WTFMove(*plugins));
-}
-
-void GetPlugins::cancelReply(CompletionHandler<void(Vector<WebCore::PluginInfo>&&)>&& completionHandler)
-{
-    completionHandler(IPC::AsyncReplyError<Vector<WebCore::PluginInfo>>::create());
-}
-
-#if PLATFORM(MAC)
-
-void InterpretKeyEvent::callReply(IPC::Decoder& decoder, CompletionHandler<void(Vector<WebCore::KeypressCommand>&&)>&& completionHandler)
-{
-    std::optional<Vector<WebCore::KeypressCommand>> commandName;
-    decoder >> commandName;
-    if (!commandName) {
-        ASSERT_NOT_REACHED();
-        cancelReply(WTFMove(completionHandler));
-        return;
-    }
-    completionHandler(WTFMove(*commandName));
-}
-
-void InterpretKeyEvent::cancelReply(CompletionHandler<void(Vector<WebCore::KeypressCommand>&&)>&& completionHandler)
-{
-    completionHandler(IPC::AsyncReplyError<Vector<WebCore::KeypressCommand>>::create());
-}
-
-#endif
-
-} // namespace TestWithLegacyReceiver
-
-} // namespace Messages
 
 namespace WebKit {
 
@@ -184,8 +114,6 @@ void TestWithLegacyReceiver::didReceiveTestWithLegacyReceiverMessage(IPC::Connec
 #if PLATFORM(MAC)
     if (decoder.messageName() == Messages::TestWithLegacyReceiver::DidCreateWebProcessConnection::name())
         return IPC::handleMessage<Messages::TestWithLegacyReceiver::DidCreateWebProcessConnection>(connection, decoder, this, &TestWithLegacyReceiver::didCreateWebProcessConnection);
-#endif
-#if PLATFORM(MAC)
     if (decoder.messageName() == Messages::TestWithLegacyReceiver::InterpretKeyEvent::name())
         return IPC::handleMessageAsync<Messages::TestWithLegacyReceiver::InterpretKeyEvent>(connection, decoder, this, &TestWithLegacyReceiver::interpretKeyEvent);
 #endif
@@ -212,7 +140,7 @@ bool TestWithLegacyReceiver::didReceiveSyncTestWithLegacyReceiverMessage(IPC::Co
     if (decoder.messageName() == Messages::TestWithLegacyReceiver::GetPluginProcessConnection::name())
         return IPC::handleMessageSynchronous<Messages::TestWithLegacyReceiver::GetPluginProcessConnection>(connection, decoder, replyEncoder, this, &TestWithLegacyReceiver::getPluginProcessConnection);
     if (decoder.messageName() == Messages::TestWithLegacyReceiver::TestMultipleAttributes::name())
-        return IPC::handleMessageSynchronousWantsConnection<Messages::TestWithLegacyReceiver::TestMultipleAttributes>(connection, decoder, replyEncoder, this, &TestWithLegacyReceiver::testMultipleAttributes);
+        return IPC::handleMessageSynchronous<Messages::TestWithLegacyReceiver::TestMultipleAttributes>(connection, decoder, replyEncoder, this, &TestWithLegacyReceiver::testMultipleAttributes);
     UNUSED_PARAM(connection);
     UNUSED_PARAM(decoder);
     UNUSED_PARAM(replyEncoder);

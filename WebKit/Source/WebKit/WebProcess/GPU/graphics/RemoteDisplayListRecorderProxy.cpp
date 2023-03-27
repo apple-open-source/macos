@@ -30,6 +30,9 @@
 
 #include "FilterReference.h"
 #include "RemoteDisplayListRecorderMessages.h"
+#include "RemoteImageBufferProxy.h"
+#include "RemoteRenderingBackendProxy.h"
+#include "StreamClientConnection.h"
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/DisplayList.h>
 #include <WebCore/DisplayListDrawingContext.h>
@@ -44,8 +47,8 @@
 namespace WebKit {
 using namespace WebCore;
 
-RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(ImageBuffer& imageBuffer, RemoteRenderingBackendProxy& renderingBackend, const FloatRect& initialClip, const AffineTransform& initialCTM)
-    : DisplayList::Recorder({ }, initialClip, initialCTM, DrawGlyphsMode::DeconstructUsingDrawGlyphsCommands)
+RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(RemoteImageBufferProxy& imageBuffer, RemoteRenderingBackendProxy& renderingBackend, const FloatRect& initialClip, const AffineTransform& initialCTM)
+    : DisplayList::Recorder({ }, initialClip, initialCTM, imageBuffer.colorSpace(), DrawGlyphsMode::DeconstructUsingDrawGlyphsCommands)
     , m_destinationBufferIdentifier(imageBuffer.renderingResourceIdentifier())
     , m_imageBuffer(imageBuffer)
     , m_renderingBackend(renderingBackend)
@@ -60,6 +63,16 @@ void RemoteDisplayListRecorderProxy::convertToLuminanceMask()
 void RemoteDisplayListRecorderProxy::transformToColorSpace(const WebCore::DestinationColorSpace& colorSpace)
 {
     send(Messages::RemoteDisplayListRecorder::TransformToColorSpace(colorSpace));
+}
+
+template<typename T>
+ALWAYS_INLINE void RemoteDisplayListRecorderProxy::send(T&& message)
+{
+    if (UNLIKELY(!(m_renderingBackend && m_imageBuffer)))
+        return;
+
+    m_imageBuffer->backingStoreWillChange();
+    m_renderingBackend->streamConnection().send(WTFMove(message), m_destinationBufferIdentifier, defaultSendTimeout);
 }
 
 RenderingMode RemoteDisplayListRecorderProxy::renderingMode() const
@@ -187,7 +200,7 @@ void RemoteDisplayListRecorderProxy::recordDrawGlyphs(const Font& font, const Gl
 
 void RemoteDisplayListRecorderProxy::recordDrawDecomposedGlyphs(const Font& font, const DecomposedGlyphs& decomposedGlyphs)
 {
-    send(Messages::RemoteDisplayListRecorder::DrawDecomposedGlyphs(font.renderingResourceIdentifier(), decomposedGlyphs.renderingResourceIdentifier(), decomposedGlyphs.bounds()));
+    send(Messages::RemoteDisplayListRecorder::DrawDecomposedGlyphs(font.renderingResourceIdentifier(), decomposedGlyphs.renderingResourceIdentifier()));
 }
 
 void RemoteDisplayListRecorderProxy::recordDrawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
@@ -250,14 +263,14 @@ void RemoteDisplayListRecorderProxy::recordDrawPath(const Path& path)
     send(Messages::RemoteDisplayListRecorder::DrawPath(path));
 }
 
-void RemoteDisplayListRecorderProxy::recordDrawFocusRingPath(const Path& path, float width, float offset, const Color& color)
+void RemoteDisplayListRecorderProxy::recordDrawFocusRingPath(const Path& path, float outlineWidth, const Color& color)
 {
-    send(Messages::RemoteDisplayListRecorder::DrawFocusRingPath(path, width, offset, color));
+    send(Messages::RemoteDisplayListRecorder::DrawFocusRingPath(path, outlineWidth, color));
 }
 
-void RemoteDisplayListRecorderProxy::recordDrawFocusRingRects(const Vector<FloatRect>& rects, float width, float offset, const Color& color)
+void RemoteDisplayListRecorderProxy::recordDrawFocusRingRects(const Vector<FloatRect>& rects, float outlineOffset, float outlineWidth, const Color& color)
 {
-    send(Messages::RemoteDisplayListRecorder::DrawFocusRingRects(rects, width, offset, color));
+    send(Messages::RemoteDisplayListRecorder::DrawFocusRingRects(rects, outlineOffset, outlineWidth, color));
 }
 
 void RemoteDisplayListRecorderProxy::recordFillRect(const FloatRect& rect)
@@ -324,10 +337,26 @@ void RemoteDisplayListRecorderProxy::recordFillEllipse(const FloatRect& rect)
     send(Messages::RemoteDisplayListRecorder::FillEllipse(rect));
 }
 
+#if ENABLE(VIDEO)
 void RemoteDisplayListRecorderProxy::recordPaintFrameForMedia(MediaPlayer& player, const FloatRect& destination)
 {
     send(Messages::RemoteDisplayListRecorder::PaintFrameForMedia(player.identifier(), destination));
 }
+
+void RemoteDisplayListRecorderProxy::recordPaintVideoFrame(VideoFrame& frame, const FloatRect& destination, bool shouldDiscardAlpha)
+{
+#if PLATFORM(COCOA)
+    auto sharedVideoFrame = m_sharedVideoFrameWriter.write(frame, [&](auto& semaphore) {
+        send(Messages::RemoteDisplayListRecorder::SetSharedVideoFrameSemaphore { semaphore });
+    }, [&](auto& handle) {
+        send(Messages::RemoteDisplayListRecorder::SetSharedVideoFrameMemory { handle });
+    });
+    if (!sharedVideoFrame)
+        return;
+    send(Messages::RemoteDisplayListRecorder::PaintVideoFrame(*sharedVideoFrame, destination, shouldDiscardAlpha));
+#endif
+}
+#endif
 
 void RemoteDisplayListRecorderProxy::recordStrokeRect(const FloatRect& rect, float width)
 {
@@ -376,6 +405,11 @@ void RemoteDisplayListRecorderProxy::recordStrokeEllipse(const FloatRect& rect)
 void RemoteDisplayListRecorderProxy::recordClearRect(const FloatRect& rect)
 {
     send(Messages::RemoteDisplayListRecorder::ClearRect(rect));
+}
+
+void RemoteDisplayListRecorderProxy::recordDrawControlPart(ControlPart& part, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle& style)
+{
+    send(Messages::RemoteDisplayListRecorder::DrawControlPart(part, borderRect, deviceScaleFactor, style));
 }
 
 #if USE(CG)
@@ -455,7 +489,7 @@ bool RemoteDisplayListRecorderProxy::recordResourceUse(DecomposedGlyphs& decompo
     return true;
 }
 
-void RemoteDisplayListRecorderProxy::flushContext(GraphicsContextFlushIdentifier identifier)
+void RemoteDisplayListRecorderProxy::flushContext(DisplayListRecorderFlushIdentifier identifier)
 {
     send(Messages::RemoteDisplayListRecorder::FlushContext(identifier));
 }
@@ -485,6 +519,14 @@ RefPtr<ImageBuffer> RemoteDisplayListRecorderProxy::createAlignedImageBuffer(con
 {
     auto renderingMode = !renderingMethod ? this->renderingMode() : RenderingMode::Unaccelerated;
     return GraphicsContext::createScaledImageBuffer(rect, scaleFactor(), colorSpace, renderingMode, renderingMethod);
+}
+
+void RemoteDisplayListRecorderProxy::disconnect()
+{
+    m_renderingBackend = nullptr;
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+    m_sharedVideoFrameWriter.disable();
+#endif
 }
 
 } // namespace WebCore

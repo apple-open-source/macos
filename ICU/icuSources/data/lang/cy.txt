@@ -96,6 +96,7 @@ cy{
         chk{"Chuukaeg"}
         chm{"Marieg"}
         cho{"Siocto"}
+        cho_Latn{"Siocto"}
         chr{"Tsierocî"}
         chy{"Cheyenne"}
         ckb{"Cwrdeg Sorani"}

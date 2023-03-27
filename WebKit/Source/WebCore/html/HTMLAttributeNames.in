@@ -83,7 +83,6 @@ axis
 background
 behavior
 bgcolor
-bgproperties
 border
 bordercolor
 capture
@@ -158,7 +157,6 @@ id
 imagesizes
 imagesrcset
 incremental
-indeterminate
 inert
 inputmode
 integrity
@@ -250,6 +248,8 @@ onfocus
 onfocusin
 onfocusout
 onformdata
+onfullscreenchange
+onfullscreenerror
 ongamepadconnected
 ongamepaddisconnected
 ongesturechange
@@ -269,6 +269,7 @@ onloadedmetadata
 onloadstart
 onlostpointercapture
 onmessage
+onmessageerror
 onmousedown
 onmouseenter
 onmouseleave
@@ -362,10 +363,8 @@ playsinline
 pluginspage
 pluginurl
 poster
-precision
 preload
 primary
-profile
 progress
 prompt
 pseudo
@@ -389,6 +388,8 @@ scrolldelay
 scrolling
 select
 selected
+shadowrootmode
+shadowrootdelegatesfocus
 shape
 size
 sizes

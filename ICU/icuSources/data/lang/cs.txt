@@ -46,6 +46,7 @@ cs{
         ang{"staroangličtina"}
         anp{"angika"}
         apw{"apačská (západní)"}
+        apw_Latn{"apačská (západní)"}
         ar{"arabština"}
         ar_001{"arabština (moderní standardní)"}
         arc{"aramejština"}
@@ -122,9 +123,12 @@ cs{
         chm{"marijština"}
         chn{"činuk pidžin"}
         cho{"čoktština"}
+        cho_Latn{"čoktština"}
         chp{"čipevajština"}
         chr{"čerokézština"}
         chy{"čejenština"}
+        cic{"čikasavština"}
+        cic_Latn{"čikasavština"}
         ckb{"kurdština (sorání)"}
         co{"korsičtina"}
         cop{"koptština"}

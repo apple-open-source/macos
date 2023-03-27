@@ -46,6 +46,12 @@
 		831D5ADA122788D500E4A1EC /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC211543C0B0055083F /* runtime.cpp */; };
 		96EF759B1507C27500581A2E /* data.m in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC111543C0B0055083F /* data.m */; };
 		96EF759C1507C27500581A2E /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC211543C0B0055083F /* runtime.cpp */; };
+		D3BDF669283C131C00CDBF51 /* generic_helpers.c in Sources */ = {isa = PBXBuildFile; fileRef = 23F41967278B943A00ED9B55 /* generic_helpers.c */; };
+		D3BDF66A283C131C00CDBF51 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E354EBD233147F0007E3A42 /* data.c */; };
+		D3BDF66B283C131C00CDBF51 /* data.m in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC111543C0B0055083F /* data.m */; };
+		D3BDF66C283C131C00CDBF51 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC211543C0B0055083F /* runtime.cpp */; };
+		D3BDF66D283C134200CDBF51 /* Block_private.h in Headers */ = {isa = PBXBuildFile; fileRef = E86E1EBF11543C0B0055083F /* Block_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		D3BDF66E283C134300CDBF51 /* Block.h in Headers */ = {isa = PBXBuildFile; fileRef = E86E1EC011543C0B0055083F /* Block.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		E86E1EC311543C0B0055083F /* Block_private.h in Headers */ = {isa = PBXBuildFile; fileRef = E86E1EBF11543C0B0055083F /* Block_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E86E1EC411543C0B0055083F /* Block.h in Headers */ = {isa = PBXBuildFile; fileRef = E86E1EC011543C0B0055083F /* Block.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		E86E1EC511543C0B0055083F /* data.m in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC111543C0B0055083F /* data.m */; };
@@ -86,6 +92,7 @@
 		831D5ADF122788D500E4A1EC /* libclosure.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libclosure.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		96EF75961507C1CE00581A2E /* libclosure.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libclosure.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2AAC0C705546C1D00DB518D /* libsystem_blocks.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_blocks.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		D3BDF665283C0E1D00CDBF51 /* libblocks.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libblocks.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E86E1EBF11543C0B0055083F /* Block_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Block_private.h; sourceTree = "<group>"; };
 		E86E1EC011543C0B0055083F /* Block.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Block.h; sourceTree = "<group>"; };
 		E86E1EC111543C0B0055083F /* data.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = data.m; sourceTree = "<group>"; };
@@ -114,6 +121,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D3BDF663283C0E1D00CDBF51 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -123,6 +137,7 @@
 				D2AAC0C705546C1D00DB518D /* libsystem_blocks.dylib */,
 				831D5ADF122788D500E4A1EC /* libclosure.a */,
 				96EF75961507C1CE00581A2E /* libclosure.a */,
+				D3BDF665283C0E1D00CDBF51 /* libblocks.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -197,6 +212,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D3BDF661283C0E1D00CDBF51 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3BDF66E283C134300CDBF51 /* Block.h in Headers */,
+				D3BDF66D283C134200CDBF51 /* Block_private.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
@@ -252,6 +276,23 @@
 			productReference = D2AAC0C705546C1D00DB518D /* libsystem_blocks.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		D3BDF664283C0E1D00CDBF51 /* Blocks-static */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D3BDF666283C0E1D00CDBF51 /* Build configuration list for PBXNativeTarget "Blocks-static" */;
+			buildPhases = (
+				D3BDF661283C0E1D00CDBF51 /* Headers */,
+				D3BDF662283C0E1D00CDBF51 /* Sources */,
+				D3BDF663283C0E1D00CDBF51 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Blocks-static";
+			productName = "Blocks-static";
+			productReference = D3BDF665283C0E1D00CDBF51 /* libblocks.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -261,6 +302,9 @@
 				TargetAttributes = {
 					3F23D0731A4757F4008445C3 = {
 						CreatedOnToolsVersion = 6.3;
+					};
+					D3BDF664283C0E1D00CDBF51 = {
+						CreatedOnToolsVersion = 14.0;
 					};
 					E47E9844221EB9D0006E312E = {
 						CreatedOnToolsVersion = 11.0;
@@ -283,6 +327,7 @@
 			projectRoot = "";
 			targets = (
 				D2AAC0C605546C1D00DB518D /* Blocks */,
+				D3BDF664283C0E1D00CDBF51 /* Blocks-static */,
 				831D5AD4122788D500E4A1EC /* Blocks-bundle */,
 				96EF75951507C1CE00581A2E /* libclosure_eOS */,
 				3F23D0731A4757F4008445C3 /* Blocks-simulator */,
@@ -359,6 +404,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D3BDF662283C0E1D00CDBF51 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3BDF669283C131C00CDBF51 /* generic_helpers.c in Sources */,
+				D3BDF66A283C131C00CDBF51 /* data.c in Sources */,
+				D3BDF66B283C131C00CDBF51 /* data.m in Sources */,
+				D3BDF66C283C131C00CDBF51 /* runtime.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -386,8 +442,6 @@
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
 				HEADER_SEARCH_PATHS = (
-					"$(SYSTEM_PREFIX)/usr/include/**",
-					"$(SYSTEM_PREFIX)/usr/local/include/**",
 					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/include/**",
 					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/local/include/**",
 				);
@@ -395,7 +449,7 @@
 				PRODUCT_NAME = system_blocks;
 				SUPPORTS_TEXT_BASED_API = YES;
 				SYSTEM_HEADER_SEARCH_PATHS = "$(DSTROOT)$(SYSTEM_PREFIX)/usr/local/include $(DSTROOT)$(SYSTEM_PREFIX)/usr/include";
-				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/local/include $(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/include";
+				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)/System/DriverKit/usr/include/c++/v1 $(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/local/include $(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/include";
 				SYSTEM_LDFLAGS = "-L$(SDKROOT)$(SYSTEM_PREFIX)/usr/lib/system";
 				TAPI_VERIFY_MODE = ErrorsAndWarnings;
 			};
@@ -407,8 +461,6 @@
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
 				HEADER_SEARCH_PATHS = (
-					"$(SYSTEM_PREFIX)/usr/include/**",
-					"$(SYSTEM_PREFIX)/usr/local/include/**",
 					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/include/**",
 					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/local/include/**",
 				);
@@ -416,7 +468,7 @@
 				PRODUCT_NAME = system_blocks;
 				SUPPORTS_TEXT_BASED_API = YES;
 				SYSTEM_HEADER_SEARCH_PATHS = "$(DSTROOT)$(SYSTEM_PREFIX)/usr/local/include $(DSTROOT)$(SYSTEM_PREFIX)/usr/include";
-				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/local/include $(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/include";
+				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)/System/DriverKit/usr/include/c++/v1 $(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/local/include $(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/include";
 				SYSTEM_LDFLAGS = "-L$(SDKROOT)$(SYSTEM_PREFIX)/usr/lib/system";
 				TAPI_VERIFY_MODE = ErrorsAndWarnings;
 			};
@@ -584,6 +636,44 @@
 			};
 			name = Release;
 		};
+		D3BDF667283C0E1D00CDBF51 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6E8C74E42326F89300627AC0 /* Blocks.xcconfig */;
+			buildSettings = {
+				EXECUTABLE_PREFIX = lib;
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_PREFIX)/usr/include",
+					"$(SYSTEM_PREFIX)/usr/local/include",
+					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/include",
+					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/local/include",
+				);
+				INSTALL_PATH = "$(SYSTEM_PREFIX)/usr/lib";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = blocks;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(DSTROOT)$(SYSTEM_PREFIX)/usr/local/include $(DSTROOT)$(SYSTEM_PREFIX)/usr/include";
+			};
+			name = Debug;
+		};
+		D3BDF668283C0E1D00CDBF51 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 238D6271279E527B005902BB /* Blocks-Release.xcconfig */;
+			buildSettings = {
+				EXECUTABLE_PREFIX = lib;
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_PREFIX)/usr/include",
+					"$(SYSTEM_PREFIX)/usr/local/include",
+					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/include",
+					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/local/include",
+				);
+				INSTALL_PATH = "$(SYSTEM_PREFIX)/usr/lib";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = blocks;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(DSTROOT)$(SYSTEM_PREFIX)/usr/local/include $(DSTROOT)$(SYSTEM_PREFIX)/usr/include";
+			};
+			name = Release;
+		};
 		E47E9846221EB9D0006E312E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -646,6 +736,15 @@
 			buildConfigurations = (
 				96EF75971507C1CE00581A2E /* Debug */,
 				96EF75981507C1CE00581A2E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D3BDF666283C0E1D00CDBF51 /* Build configuration list for PBXNativeTarget "Blocks-static" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3BDF667283C0E1D00CDBF51 /* Debug */,
+				D3BDF668283C0E1D00CDBF51 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

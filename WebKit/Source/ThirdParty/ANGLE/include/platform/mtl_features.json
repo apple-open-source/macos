@@ -143,14 +143,6 @@
             ]
         },
         {
-            "name": "direct_metal_generation",
-            "category": "Features",
-            "description": [
-                "Direct translation to Metal."
-            ],
-            "issue": "http://anglebug.com/5505"
-        },
-        {
             "name": "force_non_CS_base_mipmap_generation",
             "category": "Features",
             "description": [
@@ -188,6 +180,14 @@
             ]
         },
         {
+            "name": "allow_renderpass_without_attachment",
+            "category": "Features",
+            "description": [
+                "Allow creation of render passes without any attachments"
+            ]
+        },
+
+        {
             "name": "multisample_color_format_shader_read_workaround",
             "category": "Workarounds",
             "description": [
@@ -202,7 +202,7 @@
                 "some GPUs are faster to read an IOSurface texture by first copying the texture to a ",
                 "non-IOSurface texture"
             ],
-            "issue": "http://anglebug.com/7117"
+            "issue": "http://anglebug.com/7117 http://anglebug.com/7573"
         },
         {
             "name": "copy_texture_to_buffer_for_read_optimization",
@@ -227,6 +227,54 @@
                 "Metal iOS has a limit on the number of color target bits per pixel."
             ],
             "issue": "http://anglebug.com/7280"
+        },
+        {
+            "name": "preemptively_start_provoking_vertex_command_buffer",
+            "category": "Features",
+            "description": [
+                "AMD Metal Drivers appear to have a bug this works around"
+            ],
+            "issue": "http://anglebug.com/7635"
+        },
+        {
+            "name": "upload_data_to_iosurfaces_with_staging_buffers",
+            "category": "Workarounds",
+            "description": [
+                "When uploading data to IOSurface-backed textures, use a staging buffer."
+            ],
+            "issue": "http://anglebug.com/7573"
+        },
+        {
+            "name": "disable_programmable_blending",
+            "category": "Features",
+            "description": [
+                "Disable programmable blending in order to test read_write pixel local storage textures"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "disable_r_w_texture_tier2_support",
+            "category": "Features",
+            "description": [
+                "Disable tier2 read_write textures in order to test tier1 support"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "disable_raster_order_groups",
+            "category": "Features",
+            "description": [
+                "Disable raster order groups in order to test pixel local storage memory barriers"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "enable_in_memory_mtl_library_cache",
+            "category": "Features",
+            "description": [
+                "Cache MTLLibrary objects in memory."
+            ],
+            "issue": "http://crbug.com/1385510"
         }
     ]
 }

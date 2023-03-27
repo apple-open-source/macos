@@ -135,7 +135,6 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
     _deblockRequestWriteLockCount    = 0;
     _openAssertions                  = 0;
     _openClients                     = OSSet::withCapacity(2);
-    _powerEventNotifier              = 0;
 
     for (unsigned index = 0; index < kStatisticsCount; index++)
         _statistics[index] = OSNumber::withNumber(0ULL, 64);
@@ -202,6 +201,10 @@ bool IOBlockStorageDriver::start(IOService * provider)
 
         success = handleStart(provider);
 
+        PMinit();
+
+        joinPMtree(this);
+
         // Close the block storage device.
 
         close(this);
@@ -218,6 +221,35 @@ bool IOBlockStorageDriver::start(IOService * provider)
     }
 
     return success;
+}
+
+void IOBlockStorageDriver::systemWillShutdown(IOOptionBits inOptions)
+{
+    switch (inOptions)
+    {
+    
+        case kIOMessageSystemWillPowerOff:
+        case kIOMessageSystemWillRestart:
+            if (this->open(this)) {
+                if (this->_mediaObject) {
+                    if (!this->_writeProtected) {
+                        this->getProvider()->doSynchronize(0,0);
+                	}
+                	if (!this->_removable && (inOptions == kIOMessageSystemWillPowerOff)) {
+                    	this->getProvider()->doEjectMedia();
+                	}
+            	}
+            	this->close(this);
+        	}	
+        	break;
+    	
+        default:
+        	break;
+    	
+	}
+	 
+    // Call IOService::systemWillShutdown to signal that we are all done
+    super::systemWillShutdown ( inOptions );
 }
 
 bool IOBlockStorageDriver::didTerminate(IOService *  provider,
@@ -1201,39 +1233,6 @@ IOBlockStorageDriver::getMediaState() const
     }
 }
 
-IOReturn
-IOBlockStorageDriver::handlePowerEvent(void *target,void *refCon,
-                                       UInt32 messageType,IOService *provider,
-                                       void *messageArgument,vm_size_t argSize)
-{
-    IOBlockStorageDriver *driver = (IOBlockStorageDriver *)target;
-    IOReturn result;
-
-    switch (messageType) {
-        case kIOMessageSystemWillPowerOff:
-        case kIOMessageSystemWillRestart:
-            if (driver->open(driver)) {
-                if (driver->_mediaObject) {
-                    if (!driver->_writeProtected) {
-                        driver->getProvider()->doSynchronize(0,0);
-                    }
-                    if (!driver->_removable && (messageType == kIOMessageSystemWillPowerOff)) {
-                        driver->getProvider()->doEjectMedia();
-                    }
-                }
-                driver->close(driver);
-            }
-            result = kIOReturnSuccess;
-            break;
-
-        default:
-            result = kIOReturnUnsupported;
-            break;
-    }
-
-    return(result);
-}
-
 bool
 IOBlockStorageDriver::handleStart(IOService * provider)
 {
@@ -1440,13 +1439,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
         return(false);
     }
 
-    /* Set up the power event handler for restarts and shutdowns: */
-
-    _powerEventNotifier = registerPrioritySleepWakeInterest(handlePowerEvent,this);
-    if (_powerEventNotifier) {
-        retain();
-    }
-
     return(true);
 }
 
@@ -1643,12 +1635,6 @@ IOBlockStorageDriver::rejectMedia(void)
 void
 IOBlockStorageDriver::stop(IOService * provider)
 {
-    if (_powerEventNotifier) {
-        _powerEventNotifier->remove();
-        _powerEventNotifier = NULL;
-        release();
-    }
-    
     if (_userBlockStorageDevice == NULL)
     {
         if (_perfControlClient) {
@@ -1657,6 +1643,8 @@ IOBlockStorageDriver::stop(IOService * provider)
             _perfControlClient = NULL;
         }
     }
+    
+    PMstop ( );
     
     super::stop(provider);
 }

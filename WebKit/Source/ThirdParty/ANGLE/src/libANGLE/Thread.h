@@ -17,10 +17,11 @@
 
 namespace angle
 {
+#if defined(ANGLE_USE_ANDROID_TLS_SLOT)
 extern bool gUseAndroidOpenGLTlsSlot;
-extern std::atomic_int gProcessCleanupRefCount;
+#endif
 
-void ProcessCleanupCallback(void *ptr);
+void PthreadKeyDestructorCallback(void *ptr);
 }  // namespace angle
 
 namespace gl

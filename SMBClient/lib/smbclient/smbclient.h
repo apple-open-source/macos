@@ -351,6 +351,7 @@ API_AVAILABLE(macos(11.3))
  * @param inConnection A SMBHANDLE created by SMBOpenServerEx.
  * @param outAttrs is of the type smbioc_nic_info and contains
  * information about the network interface
+ * Note: The member ioc_nic_props_buffer should be allocated and freed by the caller
  * @param inClientOrServer flag to deternime whioch interfaces to return
  * @result Returns an NTSTATUS error code.
  */

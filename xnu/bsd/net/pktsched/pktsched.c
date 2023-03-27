@@ -422,7 +422,17 @@ pktsched_get_pkt_vars(pktsched_pkt_t *pkt, volatile uint32_t **flags,
 			*flowsrc = pkth->pkt_flowsrc;
 		}
 		if (proto != NULL) {
-			*proto = pkth->pkt_proto;
+			/*
+			 * rdar://100524205 - We want to use the pkt_ext_flags
+			 * to denote QUIC packets, but AQM is already written in
+			 * such a way where IPPROTO_QUIC is used to denote QUIC
+			 * packets.
+			 */
+			if (pkth->pkt_ext_flags & PKTF_EXT_QUIC) {
+				*proto = IPPROTO_QUIC;
+			} else {
+				*proto = pkth->pkt_proto;
+			}
 		}
 		if (comp_gencnt != NULL) {
 			*comp_gencnt = pkth->comp_gencnt;

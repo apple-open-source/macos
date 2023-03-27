@@ -207,7 +207,7 @@ void SignalHandler(int sigraised) {
 extern void upsd_mach_port_callback(CFMachPortRef port, void *msg, CFIndex size,
                                     void *info);
 
-Boolean SetupMIGServer() {
+static Boolean SetupMIGServer(void) {
     Boolean         result = true;
     kern_return_t   kern_result = KERN_SUCCESS;
     CFMachPortRef   upsdMachPort = NULL;  // must release

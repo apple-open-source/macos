@@ -23,19 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef PlatformCAFilters_h
-#define PlatformCAFilters_h
+#pragma once
 
 #include "FilterOperations.h"
 #include "GraphicsTypes.h"
 #include "PlatformLayer.h"
 #include <wtf/RetainPtr.h>
-
-#if PLATFORM(COCOA)
-#define USE_CA_FILTERS 1
-#else
-#define USE_CA_FILTERS 0
-#endif
 
 OBJC_CLASS NSValue;
 
@@ -47,19 +40,14 @@ class PlatformCAFilters {
 public:
     WEBCORE_EXPORT static void setFiltersOnLayer(PlatformLayer*, const FilterOperations&);
     WEBCORE_EXPORT static void setBlendingFiltersOnLayer(PlatformLayer*, const BlendMode);
-    static int numAnimatedFilterProperties(FilterOperation::OperationType);
-    static const char* animatedFilterPropertyName(FilterOperation::OperationType, int internalFilterPropertyIndex);
+    static bool isAnimatedFilterProperty(FilterOperation::Type);
+    static String animatedFilterPropertyName(FilterOperation::Type);
+    static bool isValidAnimatedFilterPropertyName(const String&);
 
-#if PLATFORM(COCOA)
-    WEBCORE_EXPORT static RetainPtr<NSValue> filterValueForOperation(const FilterOperation*, int internalFilterPropertyIndex);
-#endif
+    WEBCORE_EXPORT static RetainPtr<NSValue> filterValueForOperation(const FilterOperation*);
 
-#ifdef USE_CA_FILTERS
     // A null operation indicates that we should make a "no-op" filter of the given type.
-    static RetainPtr<NSValue> colorMatrixValueForFilter(FilterOperation::OperationType, const FilterOperation*);
-#endif
+    static RetainPtr<NSValue> colorMatrixValueForFilter(FilterOperation::Type, const FilterOperation*);
 };
 
 }
-
-#endif // PlatformCAFilters_h

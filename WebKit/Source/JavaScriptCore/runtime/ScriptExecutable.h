@@ -26,6 +26,7 @@
 #pragma once
 
 #include "ExecutableBase.h"
+#include "ParserModes.h"
 
 namespace JSC {
 
@@ -49,6 +50,7 @@ public:
     const SourceOrigin& sourceOrigin() const { return m_source.provider()->sourceOrigin(); }
     // This is NOT the path that should be used for computing relative paths from a script. Use SourceOrigin's URL for that, the values may or may not be the same... This should only be used for `error.sourceURL` and stack traces.
     const String& sourceURL() const { return m_source.provider()->sourceURL(); }
+    const String& preRedirectURL() const { return m_source.provider()->preRedirectURL(); }
     int firstLine() const { return m_source.firstLine().oneBasedInt(); }
     JS_EXPORT_PRIVATE int lastLine() const;
     unsigned startColumn() const { return m_source.startColumn().oneBasedInt(); }
@@ -149,7 +151,7 @@ protected:
     Intrinsic m_intrinsic { NoIntrinsic };
     bool m_didTryToEnterInLoop { false };
     CodeFeatures m_features;
-    unsigned m_lexicalScopeFeatures : 4;
+    unsigned m_lexicalScopeFeatures : bitWidthOfLexicalScopeFeatures;
     OptionSet<CodeGenerationMode> m_codeGenerationModeForGeneratorBody;
     bool m_hasCapturedVariables : 1;
     bool m_neverInline : 1;

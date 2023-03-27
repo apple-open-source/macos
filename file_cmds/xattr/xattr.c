@@ -203,16 +203,19 @@ done:
 static char *
 get_printable_segment(const char *segment, size_t segment_len)
 {
-	char *printable_segment = strndup(segment, segment_len);
+	char *printable_segment = malloc((segment_len + 1) * sizeof(char));
 	if (!printable_segment) {
 		err(1, "Failed to allocate memory");
 	}
 
 	for (size_t i = 0; i < segment_len; i++) {
-		if (!isprint(printable_segment[i])) {
-			printable_segment[i] = '.';
+		char printable_char = segment[i];
+		if (!isprint(printable_char)) {
+			printable_char = '.';
 		}
+		printable_segment[i] = printable_char;
 	}
+	printable_segment[segment_len] = '\0';
 	return printable_segment;
 }
 

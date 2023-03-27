@@ -22,6 +22,8 @@
 
 #import "mockaksxcbase.h"
 
+#include "featureflags/featureflags.h"
+
 NSString* homeDirUUID;
 
 @interface mockaksxcbase ()
@@ -40,6 +42,7 @@ NSString* homeDirUUID;
     securityd_init(NULL);
 
     SecCKKSDisable();
+
     /*
      * Disable all of SOS syncing since that triggers retains of database
      * and these tests muck around with the database over and over again, so

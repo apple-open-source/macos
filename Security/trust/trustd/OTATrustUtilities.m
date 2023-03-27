@@ -321,29 +321,7 @@ static BOOL CanCheckMobileAsset(void) {
     if (!TrustdVariantAllowsMobileAsset()) {
         return NO;
     }
-    BOOL result = YES;
-#if TARGET_OS_OSX
-    /* Check the user's SU preferences to determine if "Install system data files" is off */
-    if (!CFPreferencesSynchronize(kSecSUPrefDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost)) {
-        secerror("OTATrust: unable to synchronize SoftwareUpdate prefs");
-        return NO;
-    }
-
-    id value = nil;
-    if (CFPreferencesAppValueIsForced(kSecSUScanPrefConfigDataInstallKey, kSecSUPrefDomain)) {
-        value = CFBridgingRelease(CFPreferencesCopyAppValue(kSecSUScanPrefConfigDataInstallKey, kSecSUPrefDomain));
-    } else {
-        value = CFBridgingRelease(CFPreferencesCopyValue(kSecSUScanPrefConfigDataInstallKey, kSecSUPrefDomain,
-                                                         kCFPreferencesAnyUser, kCFPreferencesCurrentHost));
-    }
-    if (isNSNumber(value)) {
-        result = [value boolValue];
-    }
-
-    if (!result) { secnotice("OTATrust", "User has disabled system data installation."); }
-
-#endif
-    return result;
+    return YES;
 }
 
 static BOOL ShouldUpdateWithAsset(NSString *assetType, NSNumber *asset_version) {
@@ -386,7 +364,11 @@ static bool verify_create_path(const char *path) {
 }
 
 static NSURL *GetAssetFileURL(NSString *filename) {
-    NSURL *directory = CFBridgingRelease(SecCopyURLForFileInProtectedTrustdDirectory(CFSTR("SupplementalsAssets")));
+    __block NSURL *directory = nil;
+    WithPathInProtectedTrustdDirectory(CFSTR("SupplementalsAssets"), ^(const char *utf8String) {
+        // Make sure we have a directory URL instead of a file URL
+        directory = [NSURL fileURLWithPath:[NSString stringWithUTF8String:utf8String] isDirectory:YES];
+    });
     if (!directory || !verify_create_path([directory fileSystemRepresentation])) {
         return nil;
     }
@@ -537,7 +519,7 @@ static void GetKillSwitchAttributes(NSDictionary *attributes) {
         NSError *error = nil;
         UpdateOTAContextOnDisk((__bridge NSString*)kOTAPKIKillSwitchCT, ctKillSwitch, &error);
         UpdateKillSwitch((__bridge NSString*)kOTAPKIKillSwitchCT, [ctKillSwitch boolValue]);
-        secnotice("OTATrust", "got CT kill switch = %d", [ctKillSwitch boolValue]);
+        secnotice("OTATrust", "got CT kill switch = %{bool}d", [ctKillSwitch boolValue]);
         killSwitchEnabled = true;
     }
 
@@ -547,7 +529,7 @@ static void GetKillSwitchAttributes(NSDictionary *attributes) {
         NSError *error = nil;
         UpdateOTAContextOnDisk((__bridge NSString*)kOTAPKIKillSwitchNonTLSCT, ctKillSwitch, &error);
         UpdateKillSwitch((__bridge NSString*)kOTAPKIKillSwitchNonTLSCT, [ctKillSwitch boolValue]);
-        secnotice("OTATrust", "got non-TLS CT kill switch = %d", [ctKillSwitch boolValue]);
+        secnotice("OTATrust", "got non-TLS CT kill switch = %{bool}d", [ctKillSwitch boolValue]);
         killSwitchEnabled = true;
     }
 
@@ -597,26 +579,16 @@ static NSNumber *UpdateAndPurgeAsset(NSString* assetType, MAAsset *asset, NSNumb
 
 #if !TARGET_OS_BRIDGE
 static MADownloadOptions *GetMADownloadOptions(BOOL wait) {
-    /* default behavior */
+    /* Asset is high-priority -- not discretionary, all available networks */
     MADownloadOptions *options = [[MADownloadOptions alloc] init];
-    options.discretionary = YES;
-    options.allowsCellularAccess = NO;
+    options.discretionary = NO;
+    options.allowsCellularAccess = YES;
 
-    /* If an XPC interface is waiting on this, all expenses allowed */
-    if (wait) {
-        options.discretionary = NO;
-        options.allowsCellularAccess = YES;
-        return options;
-    }
-
-    /* If last asset check-in was too long ago, use more expensive options */
+    /* Log for how out-of-date we are */
     if (!SecOTAPKIAssetStalenessLessThanSeconds(kSecOTAPKIAssetStalenessWarning)) {
         secnotice("OTATrust", "Asset staleness state: warning");
-        options.allowsCellularAccess = YES;
-        options.discretionary = NO;
     } else if (!SecOTAPKIAssetStalenessLessThanSeconds(kSecOTAPKIAssetStalenessAtRisk)) {
         secnotice("OTATrust", "Asset staleness state: at risk");
-        options.discretionary = NO;
     }
     return options;
 }
@@ -1006,7 +978,7 @@ static void InitializeOTASecExperimentAsset(dispatch_queue_t queue) {
 }
 
 static void TriggerPeriodicOTATrustAssetChecks(dispatch_queue_t queue) {
-    if (SecOTAPKIIsSystemTrustd() && CanCheckMobileAsset()) {
+    if (CanCheckMobileAsset()) {
         static sec_action_t action;
         static bool first_launch = true;
         static dispatch_once_t onceToken;
@@ -1016,8 +988,30 @@ static void TriggerPeriodicOTATrustAssetChecks(dispatch_queue_t queue) {
             action = sec_action_create_with_queue(queue,"OTATrust", delta);
             sec_action_set_handler(action, ^{
                 if (!first_launch) {
-                    (void)DownloadOTATrustAsset(NO, NO, OTASecExperimentMobileAssetType, nil);
-                    (void)DownloadOTATrustAsset(NO, NO, OTATrustMobileAssetType, nil);
+                    /* System trustds attempt to download the asset */
+                    if (SecOTAPKIIsSystemTrustd()) {
+                        (void)DownloadOTATrustAsset(NO, NO, OTASecExperimentMobileAssetType, nil);
+                        (void)DownloadOTATrustAsset(NO, NO, OTATrustMobileAssetType, nil);
+                    }
+
+                    /* Non-system trustds read from disk periodically in case they missed
+                     * an update notification from the system trustd */
+                    else {
+                        secnotice("OTATrust", "periodic re-read asset from disk");
+                        NSError *nserror = nil;
+                        CFErrorRef error = nil;
+                        NSNumber *asset_version = [NSNumber numberWithUnsignedLongLong:GetAssetVersion(&error)];
+                        if (error) {
+                            nserror = CFBridgingRelease(error);
+                        }
+                        if (!UpdateFromAsset(GetAssetFileURL(nil), asset_version, &nserror)) {
+                            secerror("OTATrust: failed to update from asset during periodic re-read: %@", nserror);
+                            /* Reset our last check-in time and reset the asset version to the system asset version -- even
+                             * though we may be using something newer than that (but not as new as what's on disk). On re-launch
+                             * (provided reading from disk still fails) we'd be using the system asset version anyway. */
+                            SecOTAPKIResetCurrentAssetVersion(&error);
+                        }
+                    }
                 }
                 first_launch = false;
             });
@@ -1798,15 +1792,31 @@ SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef(void) {
     return result;
 }
 
-BOOL UpdateOTACheckInDate(void) {
-    __block NSDate *checkIn = [NSDate date];
-    dispatch_sync(kOTAQueue, ^{
-        CFRetainAssign(kCurrentOTAPKIRef->_lastAssetCheckIn, (__bridge CFDateRef)checkIn);
-    });
-
+static NSDate *UpdateLocalCheckInDate(void)
+{
+    dispatch_assert_queue(kOTAQueue);
+    NSDate *checkIn = nil;
     if (SecOTAPKIIsSystemTrustd()) {
-        /* Let the other trustds know we successfully checked in */
-        notify_post(kOTATrustCheckInNotification);
+        checkIn = [NSDate date];
+        CFRetainAssign(kCurrentOTAPKIRef->_lastAssetCheckIn, (__bridge CFDateRef)checkIn);
+    } else {
+        checkIn = CFBridgingRelease(InitializeLastAssetCheckIn());
+        if (GetAssetVersion(nil) != kCurrentOTAPKIRef->_assetVersion) {
+            /* If our current asset version does not match what's on disk, then reset check-in date */
+            checkIn = NULL;
+        }
+        CFRetainAssign(kCurrentOTAPKIRef->_lastAssetCheckIn, (__bridge CFDateRef)checkIn);
+    }
+    return checkIn;
+}
+
+BOOL UpdateOTACheckInDate(void) {
+    if (SecOTAPKIIsSystemTrustd()) {
+        /* Update local check-in date */
+        __block NSDate *checkIn = nil;
+        dispatch_sync(kOTAQueue, ^{
+            checkIn = UpdateLocalCheckInDate();
+        });
 
         /* Update the on-disk check-in date, so when we re-launch we remember */
         NSError *error = nil;
@@ -1814,9 +1824,18 @@ BOOL UpdateOTACheckInDate(void) {
         if (!(result = UpdateOTAContextOnDisk(kOTATrustLastCheckInKey, checkIn, &error))) {
             secerror("OTATrust: failed to write last check-in time: %@", error);
         }
+
+        /* Let the other trustds know we checked in */
+        notify_post(kOTATrustCheckInNotification);
         return result;
     } else {
-        return NO;
+        __block BOOL result = NO;
+        dispatch_sync(kOTAQueue, ^{
+            if (UpdateLocalCheckInDate()) {
+                result = YES;
+            }
+        });
+        return result;
     }
 }
 
@@ -1884,24 +1903,27 @@ static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version, NSError **
         CFRetainAssign(kCurrentOTAPKIRef->_eventSamplingRates, (__bridge CFDictionaryRef)newAnalyticsSamplingRates);
         CFRetainAssign(kCurrentOTAPKIRef->_appleCAs, (__bridge CFArrayRef)newAppleCAs);
         kCurrentOTAPKIRef->_assetVersion = version;
+        (void)UpdateLocalCheckInDate();
     });
 
-    /* Reset the current files, version, and checkin so that in the case of write failures, we'll re-try
-     * to update the data. We don't call DeleteAssetFromDisk() here to preserve any kill switches. */
-    DeleteOldAssetData();
-    UpdateOTAContext(@(0), nil);
-    UpdateOTAContextOnDisk(kOTATrustLastCheckInKey, [NSDate dateWithTimeIntervalSince1970:0], nil);
+    if (SecOTAPKIIsSystemTrustd()) {
+        /* Reset the current files, version, and checkin so that in the case of write failures, we'll re-try
+         * to update the data. We don't call DeleteAssetFromDisk() here to preserve any kill switches. */
+        DeleteOldAssetData();
+        UpdateOTAContext(@(0), nil);
+        UpdateOTAContextOnDisk(kOTATrustLastCheckInKey, [NSDate dateWithTimeIntervalSince1970:0], nil);
 
-    /* Write the data to disk (so that we don't have to re-download the asset on re-launch). */
-    if (CopyFileToDisk(kOTATrustTrustedCTLogsFilename, TrustedCTLogsFileLoc, error) &&
-        CopyFileToDisk(kOTATrustTrustedCTLogsNonTLSFilename, nonTLSTrustedCTLogsFileLoc, error) &&
-        CopyFileToDisk(kOTATrustAnalyticsSamplingRatesFilename, AnalyticsSamplingRatesFileLoc, error) &&
-        CopyFileToDisk(kOTATrustAppleCertifcateAuthoritiesFilename, AppleCAsFileLoc, error) &&
-        UpdateOTAContext(asset_version, error)) { // Set version and check-in time last (after success)
-        /* If we successfully updated the "asset" on disk, signal the other trustds to pick up the changes */
-        notify_post(kOTATrustOnDiskAssetNotification);
-    } else {
-        return NO;
+        /* Write the data to disk (so that we don't have to re-download the asset on re-launch). */
+        if (CopyFileToDisk(kOTATrustTrustedCTLogsFilename, TrustedCTLogsFileLoc, error) &&
+            CopyFileToDisk(kOTATrustTrustedCTLogsNonTLSFilename, nonTLSTrustedCTLogsFileLoc, error) &&
+            CopyFileToDisk(kOTATrustAnalyticsSamplingRatesFilename, AnalyticsSamplingRatesFileLoc, error) &&
+            CopyFileToDisk(kOTATrustAppleCertifcateAuthoritiesFilename, AppleCAsFileLoc, error) &&
+            UpdateOTAContext(asset_version, error)) { // Set version and check-in time last (after success)
+            /* If we successfully updated the "asset" on disk, signal the other trustds to pick up the changes */
+            notify_post(kOTATrustOnDiskAssetNotification);
+        } else {
+            return NO;
+        }
     }
 
     return YES;

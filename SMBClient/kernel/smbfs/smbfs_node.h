@@ -66,6 +66,7 @@
 #define N_POLLNOTIFY	0x08000 /* Change notify is not support, poll */
 #define NO_EXTENDEDOPEN 0x10000 /* The server doesn't support the extended open reply */
 #define NHAS_POSIXMODES 0x20000 /* This node has a Windows NFS ACE that contains posix modes */
+//#define NNEEDS_UBC_INVALIDATE 0x40000 /* Need to do a UBC_INVALIDATE on this file */
 
 #define UNKNOWNUID ((uid_t)99)
 #define UNKNOWNGID ((gid_t)99)
@@ -438,9 +439,10 @@ struct smb_lease {
 /* smbfs_add_update_lease flags */
 typedef enum _SMBFS_ADD_UPDATE_LEASE_FLAGS
 {
-    SMBFS_LEASE_ADD = 1,
-    SMBFS_LEASE_REMOVE = 2,
-    SMBFS_LEASE_UPDATE = 3
+    SMBFS_LEASE_ADD =       0x00000001, /* Can only set ONE of add/remove/update! */
+    SMBFS_LEASE_REMOVE =    0x00000002,
+    SMBFS_LEASE_UPDATE =    0x00000004,
+    SMBFS_IN_RECONNECT =    0x00000008
 } _SMBFS_ADD_UPDATE_LEASE_FLAGS;
 
 #define smb_ubc_getsize(v) (vnode_vtype(v) == VREG ? ubc_getsize(v) : (off_t)0)
@@ -496,6 +498,7 @@ int smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
                  SMBFID fid, vfs_context_t context);
 int smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop, 
 				  SMBFID fid, int ioflag, vfs_context_t context);
+void smbfs_uio_update(uio_t uio, user_size_t length);
 int32_t smbfs_IObusy(struct smbmount *smp);
 void smbfs_ClearChildren(struct smbmount *smp, struct smbnode * parent);
 void smbfs_CloseChildren(struct smb_share *share,

@@ -4022,8 +4022,8 @@ de{
             }
             millimeter{
                 dnam{"mm"}
-                one{"{0} mm"}
-                other{"{0} mm"}
+                one{"{0} mm"}
+                other{"{0} mm"}
             }
             nanometer{
                 dnam{"nm"}

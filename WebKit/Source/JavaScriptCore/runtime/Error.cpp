@@ -24,6 +24,7 @@
 #include "config.h"
 #include "Error.h"
 
+#include "ExecutableBaseInlines.h"
 #include "Interpreter.h"
 #include "JSCJSValueInlines.h"
 #include "JSGlobalObject.h"
@@ -122,9 +123,6 @@ class FindFirstCallerFrameWithCodeblockFunctor {
 public:
     FindFirstCallerFrameWithCodeblockFunctor(CallFrame* startCallFrame)
         : m_startCallFrame(startCallFrame)
-        , m_foundCallFrame(nullptr)
-        , m_foundStartCallFrame(false)
-        , m_index(0)
     { }
 
     IterationStatus operator()(StackVisitor& visitor) const
@@ -132,25 +130,34 @@ public:
         if (!m_foundStartCallFrame && (visitor->callFrame() == m_startCallFrame))
             m_foundStartCallFrame = true;
 
-        if (m_foundStartCallFrame) {
-            if (!visitor->isWasmFrame() && visitor->callFrame()->codeBlock()) {
-                m_foundCallFrame = visitor->callFrame();
-                return IterationStatus::Done;
-            }
-            m_index++;
-        }
+        if (!m_foundStartCallFrame)
+            return IterationStatus::Continue;
 
-        return IterationStatus::Continue;
+        if (visitor->isWasmFrame())
+            return IterationStatus::Continue;
+
+        if (visitor->isImplementationVisibilityPrivate())
+            return IterationStatus::Continue;
+
+        auto* codeBlock = visitor->codeBlock();
+        if (!codeBlock)
+            return IterationStatus::Continue;
+
+        m_codeBlock = codeBlock;
+
+        if (!codeBlock->unlinkedCodeBlock()->isBuiltinFunction())
+            m_bytecodeIndex = visitor->bytecodeIndex();
+        return IterationStatus::Done;
     }
 
-    CallFrame* foundCallFrame() const { return m_foundCallFrame; }
-    unsigned index() const { return m_index; }
+    CodeBlock* codeBlock() const { return m_codeBlock; }
+    BytecodeIndex bytecodeIndex() const { return m_bytecodeIndex; }
 
 private:
     CallFrame* m_startCallFrame;
-    mutable CallFrame* m_foundCallFrame;
-    mutable bool m_foundStartCallFrame;
-    mutable unsigned m_index;
+    mutable CodeBlock* m_codeBlock { nullptr };
+    mutable bool m_foundStartCallFrame { false };
+    mutable BytecodeIndex m_bytecodeIndex { 0 };
 };
 
 std::unique_ptr<Vector<StackFrame>> getStackTrace(JSGlobalObject*, VM& vm, JSObject* obj, bool useCurrentFrame)
@@ -165,15 +172,11 @@ std::unique_ptr<Vector<StackFrame>> getStackTrace(JSGlobalObject*, VM& vm, JSObj
     return stackTrace;
 }
 
-void getBytecodeIndex(VM& vm, CallFrame* startCallFrame, Vector<StackFrame>* stackTrace, CallFrame*& callFrame, BytecodeIndex& bytecodeIndex)
+std::tuple<CodeBlock*, BytecodeIndex> getBytecodeIndex(VM& vm, CallFrame* startCallFrame)
 {
     FindFirstCallerFrameWithCodeblockFunctor functor(startCallFrame);
     StackVisitor::visit(vm.topCallFrame, vm, functor);
-    callFrame = functor.foundCallFrame();
-    unsigned stackIndex = functor.index();
-    bytecodeIndex = BytecodeIndex(0);
-    if (stackTrace && stackIndex < stackTrace->size() && stackTrace->at(stackIndex).hasBytecodeIndex())
-        bytecodeIndex = stackTrace->at(stackIndex).bytecodeIndex();
+    return { functor.codeBlock(), functor.bytecodeIndex() };
 }
 
 bool getLineColumnAndSource(VM& vm, Vector<StackFrame>* stackTrace, unsigned& line, unsigned& column, String& sourceURL)
@@ -189,7 +192,7 @@ bool getLineColumnAndSource(VM& vm, Vector<StackFrame>* stackTrace, unsigned& li
         StackFrame& frame = stackTrace->at(i);
         if (frame.hasLineAndColumnInfo()) {
             frame.computeLineAndColumn(line, column);
-            sourceURL = frame.sourceURL(vm);
+            sourceURL = frame.sourceURLStripped(vm);
             return true;
         }
     }
@@ -250,6 +253,35 @@ JSObject* addErrorInfo(VM& vm, JSObject* error, int line, const SourceCode& sour
     if (!sourceURL.isNull())
         error->putDirect(vm, vm.propertyNames->sourceURL, jsString(vm, sourceURL));
     return error;
+}
+
+JSObject* createTypeErrorCopy(JSGlobalObject* globalObject, JSValue error)
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_CATCH_SCOPE(vm);
+    String errorString = "Error encountered during evaluation"_s;
+
+    if (error.isPrimitive()) {
+        errorString = error.toWTFString(globalObject);
+        RETURN_IF_EXCEPTION(scope, { });
+    } else if (error.isObject()) {
+        auto structure = error.asCell()->structure();
+        if (!structure->isProxy()) {
+            auto slot = PropertySlot(error, PropertySlot::InternalMethodType::GetOwnProperty);
+            bool found = error.getOwnPropertySlot(globalObject, vm.propertyNames->message, slot);
+            RETURN_IF_EXCEPTION(scope, { });
+            if (found) {
+                if (slot.isValue()) {
+                    JSValue message = slot.getValue(globalObject, vm.propertyNames->message);
+                    RETURN_IF_EXCEPTION(scope, { });
+                    errorString = message.toWTFString(globalObject);
+                    RETURN_IF_EXCEPTION(scope, { });
+                }
+            }
+        }
+    }
+
+    return createTypeError(globalObject, errorString);
 }
 
 String makeDOMAttributeGetterTypeErrorMessage(const char* interfaceName, const String& attributeName)

@@ -262,6 +262,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		020506BA28F83F9000E11E0E /* QuickTests.Bridge_OS in Copy common test files */ = {isa = PBXBuildFile; fileRef = 020506B928F83F8C00E11E0E /* QuickTests.Bridge_OS */; };
 		02DE403E25DD396B00701E7D /* err.D_PROTO_LEN.livedump.d in Copy common/funcs */ = {isa = PBXBuildFile; fileRef = 02DE403D25DD11BB00701E7D /* err.D_PROTO_LEN.livedump.d */; };
 		180015E51FD643DB00D113F6 /* libproc_apple.h in Headers */ = {isa = PBXBuildFile; fileRef = 180015E31FD643B400D113F6 /* libproc_apple.h */; };
 		180015E61FD643E400D113F6 /* libproc.c in Sources */ = {isa = PBXBuildFile; fileRef = 180015E41FD643B400D113F6 /* libproc.c */; };
@@ -2075,10 +2076,14 @@
 		D2984F0A0C20CB3300146D06 /* iotop_example.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2984F070C20CB1900146D06 /* iotop_example.txt */; };
 		D2E5F05E09D0DC430035AE2D /* ctfconvert.c in Sources */ = {isa = PBXBuildFile; fileRef = D2E5F04209D0DC430035AE2D /* ctfconvert.c */; };
 		D340AA9127A0AEC0003730FD /* NoSafetyTests.Bridge_OS in Copy common test files */ = {isa = PBXBuildFile; fileRef = D340AA9027A0AE7B003730FD /* NoSafetyTests.Bridge_OS */; };
+		D355E780282BF1CB00E8D0F9 /* ctf_lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D355E77E282BF1CB00E8D0F9 /* ctf_lib.swift */; };
 		D366A847281B35C80077BFB6 /* tst.fork.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 189D48921C3D2A80002613B0 /* tst.fork.d */; };
 		D36EFBDC27A42B77002D30AF /* tst.preprocessor.general.d in Copy common/json */ = {isa = PBXBuildFile; fileRef = D36EFBDB27A42ACA002D30AF /* tst.preprocessor.general.d */; };
 		D36EFBDD27A42B77002D30AF /* tst.preprocessor.general.d.out in Copy common/json */ = {isa = PBXBuildFile; fileRef = D36EFBDA27A42ACA002D30AF /* tst.preprocessor.general.d.out */; };
 		D3CE09A227B3241D0028A6CD /* tst.machtrap.d in Copy common/syscall */ = {isa = PBXBuildFile; fileRef = D3CE09A127B323EE0028A6CD /* tst.machtrap.d */; };
+		D3E22A28282E3BDA00F477CF /* ctf_lookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E22A27282E3BDA00F477CF /* ctf_lookup.swift */; };
+		D3EAFFAC282BD5670069969C /* ctf_id.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3EAFFAB282BD5670069969C /* ctf_id.swift */; };
+		D3EAFFAD282BD5670069969C /* libctf.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6EBC9760099BFB2C0001019C /* libctf.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -2726,6 +2731,13 @@
 			remoteGlobalIDString = D2DF085C0A683FE100384A72;
 			remoteInfo = libdwarf;
 		};
+		D3EAFFAE282BD5670069969C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6EBC975F099BFB2C0001019C;
+			remoteInfo = libctf;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -3369,6 +3381,7 @@
 				18493F471EC66B2800736745 /* NoSafetyTests in Copy common test files */,
 				18493F481EC66B2900736745 /* NoSafetyTests.arm in Copy common test files */,
 				18493F4B1EC66B3100736745 /* SafetyTests in Copy common test files */,
+				020506BA28F83F9000E11E0E /* QuickTests.Bridge_OS in Copy common test files */,
 			);
 			name = "Copy common test files";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -5039,6 +5052,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		020506B928F83F8C00E11E0E /* QuickTests.Bridge_OS */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = QuickTests.Bridge_OS; path = test/tst/common/QuickTests.Bridge_OS; sourceTree = "<group>"; };
 		02DE403D25DD11BB00701E7D /* err.D_PROTO_LEN.livedump.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROTO_LEN.livedump.d; path = test/tst/common/funcs/err.D_PROTO_LEN.livedump.d; sourceTree = "<group>"; };
 		180015E11FD643B300D113F6 /* libproc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libproc.h; path = lib/libproc/libproc.h; sourceTree = "<group>"; };
 		180015E21FD643B400D113F6 /* procfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = procfs.h; path = lib/libproc/procfs.h; sourceTree = "<group>"; };
@@ -6977,9 +6991,14 @@
 		D2FAD5950BCC593A00EDD5A2 /* dtrace.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = dtrace.plist; sourceTree = "<group>"; };
 		D2FAD5960BCC593A00EDD5A2 /* dtrace.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = dtrace.txt; sourceTree = "<group>"; };
 		D340AA9027A0AE7B003730FD /* NoSafetyTests.Bridge_OS */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = NoSafetyTests.Bridge_OS; path = test/tst/common/NoSafetyTests.Bridge_OS; sourceTree = "<group>"; };
+		D355E77E282BF1CB00E8D0F9 /* ctf_lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ctf_lib.swift; sourceTree = "<group>"; };
 		D36EFBDA27A42ACA002D30AF /* tst.preprocessor.general.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.preprocessor.general.d.out; path = test/tst/common/json/tst.preprocessor.general.d.out; sourceTree = "<group>"; };
 		D36EFBDB27A42ACA002D30AF /* tst.preprocessor.general.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.preprocessor.general.d; path = test/tst/common/json/tst.preprocessor.general.d; sourceTree = "<group>"; };
 		D3CE09A127B323EE0028A6CD /* tst.machtrap.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.machtrap.d; path = test/tst/common/syscall/tst.machtrap.d; sourceTree = "<group>"; };
+		D3E22A27282E3BDA00F477CF /* ctf_lookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ctf_lookup.swift; sourceTree = "<group>"; };
+		D3EAFFA9282BD5670069969C /* ctf-test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ctf-test.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D3EAFFAB282BD5670069969C /* ctf_id.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ctf_id.swift; sourceTree = "<group>"; };
+		D3EAFFB3282BD5DA0069969C /* ctf_test_bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ctf_test_bridge.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -7435,6 +7454,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D3EAFFA6282BD5670069969C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3EAFFAD282BD5670069969C /* libctf.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -7450,6 +7477,7 @@
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
+				D3EAFFA4282BD5290069969C /* XCTests */,
 				189D45851C3AA81E002613B0 /* Tests */,
 				186A6DC11E4D4BA4008031ED /* Frameworks */,
 			);
@@ -9503,6 +9531,7 @@
 		189D458D1C3AA8A9002613B0 /*  common */ = {
 			isa = PBXGroup;
 			children = (
+				020506B928F83F8C00E11E0E /* QuickTests.Bridge_OS */,
 				D340AA9027A0AE7B003730FD /* NoSafetyTests.Bridge_OS */,
 				18493E891EC667B200736745 /* aggs */,
 				189D45881C3AA84F002613B0 /* AllTests */,
@@ -10028,6 +10057,7 @@
 				18FF987924452DC00049790D /* err.D_PROC_NAME.badname.exe */,
 				18FF988224452DD40049790D /* err.D_PROC_NAME.globdash.exe */,
 				18FF988B24452DE40049790D /* err.D_PROC_OFF.toobig.exe */,
+				D3EAFFA9282BD5670069969C /* ctf-test.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -10344,6 +10374,25 @@
 				D2E741E80B5F242900CC89CE /* setuids.d */,
 			);
 			name = User;
+			sourceTree = "<group>";
+		};
+		D3EAFFA4282BD5290069969C /* XCTests */ = {
+			isa = PBXGroup;
+			children = (
+				D3EAFFAA282BD5670069969C /* ctf-test */,
+			);
+			path = XCTests;
+			sourceTree = "<group>";
+		};
+		D3EAFFAA282BD5670069969C /* ctf-test */ = {
+			isa = PBXGroup;
+			children = (
+				D3EAFFAB282BD5670069969C /* ctf_id.swift */,
+				D355E77E282BF1CB00E8D0F9 /* ctf_lib.swift */,
+				D3E22A27282E3BDA00F477CF /* ctf_lookup.swift */,
+				D3EAFFB3282BD5DA0069969C /* ctf_test_bridge.h */,
+			);
+			path = "ctf-test";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -11525,6 +11574,24 @@
 			productReference = D2E5F03309D0DB2B0035AE2D /* ctfconvert */;
 			productType = "com.apple.product-type.tool";
 		};
+		D3EAFFA8282BD5670069969C /* ctf-test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D3EAFFB0282BD5670069969C /* Build configuration list for PBXNativeTarget "ctf-test" */;
+			buildPhases = (
+				D3EAFFA5282BD5670069969C /* Sources */,
+				D3EAFFA6282BD5670069969C /* Frameworks */,
+				D3EAFFA7282BD5670069969C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D3EAFFAF282BD5670069969C /* PBXTargetDependency */,
+			);
+			name = "ctf-test";
+			productName = "ctf-test";
+			productReference = D3EAFFA9282BD5670069969C /* ctf-test.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -11532,6 +11599,7 @@
 			isa = PBXProject;
 			attributes = {
 				DefaultBuildSystemTypeForWorkspace = Latest;
+				LastSwiftUpdateCheck = 1400;
 				LastUpgradeCheck = 1000;
 				TargetAttributes = {
 					187EAFE41C3A8FE900840578 = {
@@ -11540,6 +11608,12 @@
 					3096FEAB20EEBEA60025498A = {
 						CreatedOnToolsVersion = 10.0;
 						ProvisioningStyle = Automatic;
+					};
+					8DD76FA90486AB0100D96B5E = {
+						LastSwiftMigration = 1400;
+					};
+					D3EAFFA8282BD5670069969C = {
+						CreatedOnToolsVersion = 14.0;
 					};
 					D3FB4D5A27E49183003FD5B3 = {
 						CreatedOnToolsVersion = 14.0;
@@ -11629,9 +11703,20 @@
 				1884B0202040E16800EE2E4E /* baddof */,
 				18A1C7E22040E789007833A7 /* badioctl */,
 				18B054582091322D006ACD23 /* chksyms */,
+				D3EAFFA8282BD5670069969C /* ctf-test */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D3EAFFA7282BD5670069969C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		18EC69A621FB092100B4053C /* Install platform-specific files */ = {
@@ -12324,6 +12409,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D3EAFFA5282BD5670069969C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3EAFFAC282BD5670069969C /* ctf_id.swift in Sources */,
+				D3E22A28282E3BDA00F477CF /* ctf_lookup.swift in Sources */,
+				D355E780282BF1CB00E8D0F9 /* ctf_lib.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -12786,6 +12881,11 @@
 			isa = PBXTargetDependency;
 			target = D2DF085C0A683FE100384A72 /* libdwarf */;
 			targetProxy = D2DF091C0A68433700384A72 /* PBXContainerItemProxy */;
+		};
+		D3EAFFAF282BD5670069969C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6EBC975F099BFB2C0001019C /* libctf */;
+			targetProxy = D3EAFFAE282BD5670069969C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -13809,6 +13909,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 45A48B3618194C410034E526 /* ctftools.xcconfig */;
 			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
 			};
 			name = Debug;
 		};
@@ -13816,6 +13917,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 45A48B3618194C410034E526 /* ctftools.xcconfig */;
 			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
 			};
 			name = Release;
 		};
@@ -13844,6 +13946,154 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 45A48B3618194C410034E526 /* ctftools.xcconfig */;
 			buildSettings = {
+			};
+			name = Release;
+		};
+		D3EAFFB1282BD5670069969C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				EXCLUDED_ARCHS = "";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.ctf-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "XCTests/ctf-test/ctf_test_bridge.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/include",
+					"$(SRCROOT)/compat/opensolaris/**",
+				);
+			};
+			name = Debug;
+		};
+		D3EAFFB2282BD5670069969C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXCLUDED_ARCHS = "";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.ctf-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "XCTests/ctf-test/ctf_test_bridge.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/include",
+					"$(SRCROOT)/compat/opensolaris/**",
+				);
 			};
 			name = Release;
 		};
@@ -14483,6 +14733,15 @@
 			buildConfigurations = (
 				D2E5F03609D0DB4A0035AE2D /* Debug */,
 				D2E5F03709D0DB4A0035AE2D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D3EAFFB0282BD5670069969C /* Build configuration list for PBXNativeTarget "ctf-test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3EAFFB1282BD5670069969C /* Debug */,
+				D3EAFFB2282BD5670069969C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

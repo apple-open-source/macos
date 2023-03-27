@@ -109,6 +109,7 @@ gd{
         chm{"Mari"}
         chn{"Chinuk Wawa"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chp{"Chipewyan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}

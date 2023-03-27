@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -835,6 +835,7 @@ rtadv_solicit(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	rtadv->dhcpv6_complete = 0;
 	rtadv->success_report_submitted = FALSE;
 	rtadv->router_lifetime_zero = FALSE;
+	ServiceUnpublishCLAT46(service_p);
 	rtadv_remove_clat46_address(service_p);
 	rtadv_cancel_pending_events(service_p);
 	RTADVSocketEnableReceive(rtadv->sock,

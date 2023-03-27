@@ -86,7 +86,8 @@ enum {
     kverbose,
     kversion,
     ksnapshot,
-    knoapfsdriver,		/* 50 */
+    ksnapshotname,		/* 50 */
+    knoapfsdriver,
     klast
 };
 

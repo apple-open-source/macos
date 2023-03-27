@@ -171,6 +171,7 @@ ExceptionOr<void> FetchRequest::initializeWith(const String& url, Init&& init)
     m_options.credentials = Credentials::SameOrigin;
     m_referrer = "client"_s;
     m_request.setURL(requestURL);
+    m_requestURL = WTFMove(requestURL);
     m_request.setInitiatorIdentifier(scriptExecutionContext()->resourceRequestIdentifier());
 
     auto optionsResult = initializeOptions(init);
@@ -205,7 +206,7 @@ ExceptionOr<void> FetchRequest::initializeWith(const String& url, Init&& init)
 ExceptionOr<void> FetchRequest::initializeWith(FetchRequest& input, Init&& init)
 {
     m_request = input.m_request;
-    m_navigationPreloadIdentifier = input.navigationPreloadIdentifier();
+    m_requestURL = m_request.url();
 
     m_options = input.m_options;
     m_referrer = input.m_referrer;
@@ -309,9 +310,7 @@ String FetchRequest::referrer() const
 
 const String& FetchRequest::urlString() const
 {
-    if (m_requestURL.isNull())
-        m_requestURL = m_request.url().string();
-    return m_requestURL;
+    return m_requestURL.url().string();
 }
 
 ResourceRequest FetchRequest::resourceRequest() const
@@ -338,6 +337,12 @@ ExceptionOr<Ref<FetchRequest>> FetchRequest::clone()
     clone->setNavigationPreloadIdentifier(m_navigationPreloadIdentifier);
     clone->m_signal->signalFollow(m_signal);
     return clone;
+}
+
+void FetchRequest::stop()
+{
+    m_requestURL = URL { };
+    FetchBodyOwner::stop();
 }
 
 const char* FetchRequest::activeDOMObjectName() const

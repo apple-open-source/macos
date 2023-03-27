@@ -903,7 +903,12 @@ udp6_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 	 */
 	if (inp->inp_vflag & INP_V4MAPPEDV6 &&
 	    !IN6_IS_ADDR_V4MAPPED(&sin6_p->sin6_addr)) {
-		return EINVAL;
+		if (IN6_IS_ADDR_UNSPECIFIED(&sin6_p->sin6_addr)) {
+			sin6_p->sin6_addr.s6_addr[10] = 0xff;
+			sin6_p->sin6_addr.s6_addr[11] = 0xff;
+		} else {
+			return EINVAL;
+		}
 	}
 
 	if ((inp->inp_flags & IN6P_IPV6_V6ONLY) == 0) {

@@ -211,7 +211,7 @@ extern struct g_lease_hash_head *g_lease_hash;
 extern pid_t mc_notifier_pid;
 
 static void
-smbfs_lock_init()
+smbfs_lock_init(void)
 {
 	int error = 0;
 	
@@ -247,7 +247,7 @@ smbfs_lock_init()
 }
 
 static void 
-smbfs_lock_uninit()
+smbfs_lock_uninit(void)
 {
 	if (g_registered_for_low_memory == 1) {
 		/* Unregister for low memory callback */
@@ -279,7 +279,7 @@ smbfs_lock_uninit()
 }
 
 static void 
-smbnet_lock_init()
+smbnet_lock_init(void)
 {
 	co_lck_attr = lck_attr_alloc_init();
 	co_grp_attr = lck_grp_attr_alloc_init();
@@ -334,7 +334,7 @@ smbnet_lock_init()
 }
 
 static void 
-smbnet_lock_uninit()
+smbnet_lock_uninit(void)
 {
     lck_rw_free(dev_rw_lck, dev_lck_grp);
 
@@ -1094,7 +1094,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
     }
 
 	if ((SMBV_SMB3_OR_LATER(SS_TO_SESSION(share))) &&
-		(SS_TO_SESSION(share)->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING)) {
+		(SS_TO_SESSION(share)->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING)) {
 		if (smp->sm_args.altflags & SMBFS_MNT_DIR_LEASE_OFF) {
 			/* Turn off Dir Leasing */
 			SMBWARNING("Dir Leasing has been turned off for %s volume\n",
@@ -1353,8 +1353,8 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
          *  2) Supports AAPL Create Context and has
          *     a) Server capabilites of macOS copyfile, readdirattr, unix based
          */
-        if ((SS_TO_SESSION(share)->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
-            !(SS_TO_SESSION(share)->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) &&
+        if ((SS_TO_SESSION(share)->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
+            !(SS_TO_SESSION(share)->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) &&
             (SS_TO_SESSION(share)->session_misc_flags & SMBV_OSX_SERVER) &&
             (SS_TO_SESSION(share)->session_server_caps & kAAPL_SUPPORTS_READ_DIR_ATTR) &&
             (SS_TO_SESSION(share)->session_server_caps & kAAPL_SUPPORTS_OSX_COPYFILE) &&
@@ -1577,7 +1577,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
                    vfs_statfs(mp)->f_mntfromname);
     }
 
-    if (SS_TO_SESSION(share)->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) {
+    if (SS_TO_SESSION(share)->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) {
         /*
          * If the server supports persistent handles, then it must
          * support durable handle V2

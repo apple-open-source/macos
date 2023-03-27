@@ -31,6 +31,7 @@
 #include <wtf/CompletionHandler.h>
 
 namespace WebCore {
+struct NotificationData;
 struct SecurityOriginData;
 }
 
@@ -56,6 +57,20 @@ public:
     virtual void openWindowFromServiceWorker(const String&, const WebCore::SecurityOriginData&, CompletionHandler<void(WebPageProxy*)>&& completionHandler)
     {
         completionHandler(nullptr);
+    }
+
+    virtual bool showNotification(const WebCore::NotificationData&)
+    {
+        return false;
+    }
+
+    virtual HashMap<WTF::String, bool> notificationPermissions()
+    {
+        return { };
+    }
+
+    virtual void workerUpdatedAppBadge(const WebCore::SecurityOriginData&, std::optional<uint64_t>)
+    {
     }
 };
 

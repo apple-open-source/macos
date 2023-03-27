@@ -49,7 +49,7 @@ Styles modify various operations of the completion system, such as
 output formatting, but also what kinds of completers are used (and in
 what order), or which tags are examined.  Styles may accept arguments
 and are manipulated using the tt(zstyle) command described in
-ifzman(see zmanref(zshmodules))\
+ifzman(zmanref(zshmodules))\
 ifnzman(noderef(The zsh/zutil Module)).
 
 In summary, tags describe em(what) the completion objects are, and style
@@ -190,7 +190,7 @@ tt(compinit) will ask if the completion system should really be used.  To
 avoid these tests and make all files found be used without asking, use the
 option tt(-u), and to make tt(compinit) silently ignore all insecure files
 and directories use the option tt(-i).  This security check is skipped
-entirely when the tt(-C) option is given.
+entirely when the tt(-C) option is given, provided the dumpfile exists.
 
 findex(compaudit)
 The security check can be retried at any time by running the function
@@ -322,14 +322,14 @@ item(tt(-array-value-))(
 The right hand side of an array-assignment
 (`var(name)tt(=LPAR())var(...)tt(RPAR())')
 )
-kindex(-brace-parameter-, completion context)
-item(tt(-brace-parameter-))(
-The name of a parameter expansion within braces (`tt(${)var(...)tt(})')
-)
 kindex(-assign-parameter-, completion context)
 item(tt(-assign-parameter-))(
 The name of a parameter in an assignment, i.e. on the left hand side of
 an `tt(=)'
+)
+kindex(-brace-parameter-, completion context)
+item(tt(-brace-parameter-))(
+The name of a parameter expansion within braces (`tt(${)var(...)tt(})')
 )
 kindex(-command-, completion context)
 item(tt(-command-))(
@@ -658,8 +658,8 @@ ifnzman(noderef(Bindable Commands)).
 When looking up styles the completion system uses full context names,
 including the tag.  Looking up the value of a style therefore consists of
 two things: the context, which is matched to the most specific (best
-fitting) style pattern, and the name of the style itself, which must be
-matched exactly.  The following examples demonstrate that style patterns
+fitting) pattern, and the name of the style itself, which must be
+matched exactly.  The following examples demonstrate that patterns
 may be loosely defined for styles that apply broadly, or as tightly
 defined as desired for styles that apply in narrower circumstances.
 
@@ -673,7 +673,7 @@ example(zstyle ':completion:*' verbose yes)
 in a startup file (probably tt(.zshrc)).
 This gives the tt(verbose) style the value tt(yes) in every
 context inside the completion system, unless that context has a more
-specific definition.  It is best to avoid giving the context as `tt(*)'
+specific definition.  It is best to avoid giving the pattern as `tt(*)'
 in case the style has some meaning outside the completion system.
 
 Many such general purpose styles can be configured simply by using the
@@ -710,15 +710,21 @@ as tt(menu) and tt(list-rows-first).
 
 Note that the order in which styles are em(defined) does not matter; the
 style mechanism uses the most specific possible match for a particular
-style to determine the set of values.  More precisely, strings are
+style to determine the set of values.  Strings are
 preferred over patterns (for example, `tt(:completion::complete:::foo)' is
 more specific than `tt(:completion::complete:::*')), and longer patterns are
-preferred over shorter patterns.
+preferred over the pattern `tt(*)'. See 
+ifzman(zmanref(zmodules))ifnzman(noderef(The zsh/zutil Module))
+for details.
 
-A good rule of thumb is that any completion style pattern that needs to
-include more than one wildcard (tt(*)) and that does not end in a tag
-name, should include all six colons (tt(:)), possibly surrounding
-additional wildcards.
+Context patterns that use something other than a wildcard (tt(*)) to match the
+middle parts of the context DASH()- the var(completer), var(command), and
+var(argument) in
+tt(:completion:)var(function)tt(:)var(completer)tt(:)var(command)tt(:)var(argument)tt(:)var(tag)
+DASH()- should include all six colons (tt(:)) explicitly. Without this,
+a pattern such as tt(:completion:*:foo:*) could match tt(foo) against a
+component other than the intended one (for example, against var(completer) when
+a match against var(command) was intended).
 
 Style names like those of tags are arbitrary and depend on the completion
 function.  However, the following two sections list some of the most
@@ -885,13 +891,13 @@ kindex(indexes, completion tag)
 item(tt(indexes))(
 for array indexes
 )
-kindex(jobs, completion tag)
-item(tt(jobs))(
-for jobs (as listed by the `tt(jobs)' builtin)
-)
 kindex(interfaces, completion tag)
 item(tt(interfaces))(
 for network interfaces
+)
+kindex(jobs, completion tag)
+item(tt(jobs))(
+for jobs (as listed by the `tt(jobs)' builtin)
 )
 kindex(keymaps, completion tag)
 item(tt(keymaps))(
@@ -916,13 +922,13 @@ directory when completing arguments of tt(cd) and related builtin
 commands (compare tt(path-directories)) DASH()- when the tt(cdpath)
 array is unset, tt(directories) is used instead
 )
-kindex(manuals, completion tag)
-item(tt(manuals))(
-for names of manual pages
-)
 kindex(mailboxes, completion tag)
 item(tt(mailboxes))(
 for e-mail folders
+)
+kindex(manuals, completion tag)
+item(tt(manuals))(
+for names of manual pages
 )
 kindex(maps, completion tag)
 item(tt(maps))(
@@ -972,11 +978,6 @@ offering the original string as a match
 kindex(other-accounts, completion tag)
 item(tt(other-accounts))(
 used to look up the tt(users-hosts) style
-)
-kindex(other-files, completion tag)
-item(tt(other-files))(
-for the names of any non-directory files.  This is used instead
-of tt(all-files) when the tt(list-dirs-first) style is in effect.
 )
 kindex(packages, completion tag)
 item(tt(packages))(
@@ -1388,6 +1389,12 @@ components after the first ambiguous one will also be added.  This means
 that the resulting string is the longest unambiguous string possible.
 However, menu completion can be used to cycle through all matches.
 )
+kindex(extra-verbose, completion style)
+item(tt(extra-verbose))(
+If set, the completion listing is more verbose at the cost of
+a probable decrease in completion speed.  Completion performance
+will suffer if this style is set to `true'.
+)
 kindex(fake, completion style)
 item(tt(fake))(
 This style may be set for any completion context.  It
@@ -1523,9 +1530,10 @@ If no `tt(:)var(tag)' is given the `tt(files)' tag will be used.
 The var(tag) may also be followed by an optional second colon and a
 description, which will be used for the `tt(%d)' in the value of
 the tt(format) style (if that is set) instead of the default
-description supplied by the completion function.  If the description
-given here contains itself a `tt(%d)', that is replaced with the
-description supplied by the completion function.
+description supplied by the completion function.  The inclusion
+of a description also gives precedence to associated options such as
+for completion grouping so it can be used where files should be
+separated.
 
 For example, to make the tt(rm) command first complete only names of
 object files and then the names of all files if there is no matching
@@ -1546,6 +1554,15 @@ This works even where there is no special pattern: tt(_files) matches
 all files using the pattern `tt(*)' at the first step and stops when it
 sees this pattern.  Note also it will never try a pattern more than once
 for a single completion attempt.
+
+To separate directories into a separate group from the files but still
+complete them at the first attempt, a description needs to be given.
+Note that directories need to be explicitly excluded from the
+globbed-files because `tt(*)' will match directories. For grouping, it
+is also necessary to set the tt(group-name) style.
+
+example(zstyle ':completion:*' file-patterns \ 
+    '%p+LPAR()^-/RPAR():globbed-files *(-/):directories:location')
 
 During the execution of completion functions, the tt(EXTENDED_GLOB)
 option is in effect, so the characters `tt(#)', `tt(~)' and `tt(^)' have
@@ -1641,6 +1658,15 @@ ifzman(zmanref(zshmodules))\
 ifnzman(noderef(The zsh/zutil Module))\
 .
 )
+kindex(gain-privileges, completion style)
+item(tt(gain-privileges))(
+If set to tt(true), this style enables the use of commands like tt(sudo)
+or tt(doas) to gain extra privileges when retrieving information for
+completion. This is only done when a command such as tt(sudo) appears on
+the command-line. To force the use of, e.g. tt(sudo) or to override any
+prefix that might be added due to tt(gain-privileges), the tt(command)
+style can be used with a value that begins with a hyphen.
+)
 kindex(glob, completion style)
 item(tt(glob))(
 This is used by the tt(_expand) completer.  If
@@ -1679,6 +1705,9 @@ example(zstyle ':completion:*' group-name '')
 
 All matches for which no group name is defined will be put in a group
 named tt(-default-).
+
+To display the group name in the output, see the tt(format) style (q.v.)
+under the tt(descriptions) tag.
 )
 kindex(group-order, completion style)
 item(tt(group-order))(
@@ -1784,12 +1813,6 @@ Excluded values act in a similar fashion to values of the
 tt(ignored-patterns) style, so they can be restored to consideration by
 the tt(_ignored) completer.
 )
-kindex(extra-verbose, completion style)
-item(tt(extra-verbose))(
-If set, the completion listing is more verbose at the cost of
-a probable decrease in completion speed.  Completion performance
-will suffer if this style is set to `true'.
-)
 kindex(ignored-patterns, completion style)
 item(tt(ignored-patterns))(
 A list of patterns; any trial completion matching one of the patterns
@@ -1825,6 +1848,28 @@ unique before converting the name to an ID; attempts at completion will
 be unsuccessful until that point.  If the value is any other
 string, menu completion will be started when the string typed by the
 user is longer than the common prefix to the corresponding IDs.
+)
+kindex(insert-sections, completion style)
+item(tt(insert-sections))(
+This style is used with tags of the form `tt(manuals.)var(X)' when
+completing names of manual pages. If set and the var(X) in the tag name matches
+the section number of the page being completed, the section number is inserted
+along with the page name. For example, given
+
+example(zstyle ':completion:*:manuals.*' insert-sections true)
+
+tt(man ssh_<TAB>) may be completed to tt(man 5 ssh_config).
+
+The value may also be set to one of `tt(prepend)', or `tt(suffix)'.
+`tt(prepend)' behaves the same as `true' as in the above example, while
+`tt(suffix)' would complete tt(man ssh_<TAB>) as tt(man ssh_config.5).
+
+This is especially useful in conjunction with tt(separate-sections), as
+it ensures that the page requested of tt(man) corresponds to the one
+displayed in the completion listing when there are multiple pages with the
+same name (e.g., tt(printf+LPAR()1+RPAR()) and tt(printf+LPAR()3+RPAR())).
+
+The default for this style is `false'.
 )
 kindex(insert-tab, completion style)
 item(tt(insert-tab))(
@@ -1864,15 +1909,6 @@ In the case of the tt(_match) completer, the style may also be set to
 the string `tt(pattern)'.  Then the pattern on the line is left
 unchanged if it does not match unambiguously.
 )
-kindex(gain-privileges, completion style)
-item(tt(gain-privileges))(
-If set to tt(true), this style enables the use of commands like tt(sudo)
-or tt(doas) to gain extra privileges when retrieving information for
-completion. This is only done when a command such as tt(sudo) appears on
-the command-line. To force the use of, e.g. tt(sudo) or to override any
-prefix that might be added due to tt(gain-privileges), the tt(command)
-style can be used with a value that begins with a hyphen.
-)
 kindex(keep-prefix, completion style)
 item(tt(keep-prefix))(
 This style is used by the tt(_expand) completer.  If it is `true', the
@@ -1888,6 +1924,13 @@ The behaviour of tt(_expand) when this style is `true' is to cause tt(_expand)
 to give up when a single expansion with the restored prefix is the same
 as the original; hence any remaining completers may be called.
 )
+kindex(known-hosts-files)
+item(tt(known-hosts-files))(
+This style should contain a list of files to search for host names and
+(if the tt(use-ip) style is set) IP addresses in a format compatible with
+ssh tt(known_hosts) files.  If it is not set, the files
+tt(/etc/ssh/ssh_known_hosts) and tt(~/.ssh/known_hosts) are used.
+)
 kindex(last-prompt, completion style)
 item(tt(last-prompt))(
 This is a more flexible form of the tt(ALWAYS_LAST_PROMPT) option.
@@ -1898,13 +1941,6 @@ tt(default) tag.  The cursor will be moved back to the
 previous line if this style is `true' for all types of match.  Note
 that unlike the tt(ALWAYS_LAST_PROMPT) option this is independent of the
 numeric argument.
-)
-kindex(known-hosts-files)
-item(tt(known-hosts-files))(
-This style should contain a list of files to search for host names and
-(if the tt(use-ip) style is set) IP addresses in a format compatible with
-ssh tt(known_hosts) files.  If it is not set, the files
-tt(/etc/ssh/ssh_known_hosts) and tt(~/.ssh/known_hosts) are used.
 )
 kindex(list, completion style)
 item(tt(list))(
@@ -1945,11 +1981,10 @@ obtained by setting the style to an empty string (i.e. tt('')).
 )
 kindex(list-dirs-first, completion style)
 item(tt(list-dirs-first))(
-This is used by file completion.  If set, directories to be completed
-are listed separately from and before completion for other files,
-regardless of tag ordering.  In addition, the tag tt(other-files)
-is used in place of tt(all-files) for the remaining files, to indicate
-that no directories are presented with that tag.
+This is used by file completion and corresponds to a particular
+setting of the tt(file-patterns) style.
+If set, the default directories to be completed
+are listed separately from and before completion for other files.
 )
 kindex(list-grouped, completion style)
 item(tt(list-grouped))(
@@ -2004,18 +2039,18 @@ This style is tested in the same way as the tt(list-packed) style and
 determines whether matches are to be listed in a rows-first fashion as
 if the tt(LIST_ROWS_FIRST) option were set.
 )
+kindex(list-separator, completion style)
+item(tt(list-separator))(
+The value of this style is used in completion listing to separate the
+string to complete from a description when possible (e.g. when
+completing options).  It defaults to `tt(-)tt(-)' (two hyphens).
+)
 kindex(list-suffixes, completion style)
 item(tt(list-suffixes))(
 This style is used by the function that completes filenames.  If it is
 `true', and completion is attempted on a string containing multiple partially
 typed pathname components, all ambiguous components will be shown.
 Otherwise, completion stops at the first ambiguous component.
-)
-kindex(list-separator, completion style)
-item(tt(list-separator))(
-The value of this style is used in completion listing to separate the
-string to complete from a description when possible (e.g. when
-completing options).  It defaults to `tt(-)tt(-)' (two hyphens).
 )
 kindex(local, completion style)
 item(tt(local))(
@@ -2445,7 +2480,7 @@ For example,
 example(zstyle ':completion:*' recursive-files '*/zsh/*')
 
 If the current directory is tt(/home/pws/zsh/Src), then
-tt(zle_tr)em(TAB) can be completed to tt(Zle/zle_tricky.c).
+tt(zle_tr<TAB>) can be completed to tt(Zle/zle_tricky.c).
 )
 kindex(regular, completion style)
 item(tt(regular))(
@@ -2502,12 +2537,13 @@ kindex(separate-sections, completion style)
 item(tt(separate-sections))(
 This style is used with the tt(manuals) tag when completing names of
 manual pages.  If it is `true', entries for different sections are
-added separately using tag names of the form `tt(manual.)var(X)',
+added separately using tag names of the form `tt(manuals.)var(X)',
 where var(X) is the section number.  When the tt(group-name) style is
 also in effect, pages from different sections will appear separately.
 This style is also used similarly with the tt(words) style when
 completing words for the dict command. It allows words from different
-dictionary databases to be added separately.
+dictionary databases to be added separately. See also tt(insert-sections).
+
 The default for this style is `false'.
 )
 kindex(show-ambiguity, completion style)
@@ -3584,8 +3620,18 @@ described using the var(spec)s which are of the form:
 `var(tag)tt(:)var(descr)tt(:)var(action)'.  The var(tag)s are offered using
 tt(_tags) and if the tag is requested, the var(action) is executed with the
 given description var(descr).  The var(action)s are those accepted
-by the tt(_arguments) function (described below), excluding the
-`tt(->)var(state)' and `tt(=)var(...)' forms.
+by the tt(_arguments) function (described below), with the following
+exceptions:
+startitemize()
+itemiz(\
+The `tt(->)var(state)' and `tt(=)var(...)' forms are not supported.
+)
+itemiz(\
+The `tt(LPAR()LPAR()a\:bar b\:baz)tt(RPAR()RPAR())' form does not need
+the colon to be escaped, since the var(spec)s have no colon-separated fields
+after the var(action).
+)
+enditemize()
 
 For example, the var(action) may be a simple function call:
 
@@ -3714,6 +3760,12 @@ The default var(matchspec) allows partial word completion after `tt(_)' and
 `tt(-)', such as completing `tt(-f-b)' to `tt(-foo-bar)'.  The default
 var(matchspec) is:
 example(tt(r:|[_-]=* r:|=*))
+)
+item(tt(-0))(
+When populating values of the `tt(opt_args)' associative array, don't
+backslash-escape colons and backslashes and use NUL rather than colon for
+joining multiple values. This option is described in more detail below, under
+the heading em(var(spec)s: actions).
 )
 enditem()
 
@@ -3887,6 +3939,7 @@ specific contexts: on the first call `tt(_arguments $global_options)' is
 used, and on subsequent calls `tt(_arguments !$^global_options)'.
 
 em(var(spec)s: actions)
+COMMENT(If you change this section title, change the references to it in running text.)
 
 In each of the forms above the var(action) determines how
 completions should be generated.  Except for the `tt(->)var(string)'
@@ -4008,9 +4061,21 @@ the normal arguments from the command line, i.e. the words from the
 command line after the command name excluding all options and their
 arguments.  Options are stored in the associative array
 `tt(opt_args)' with option names as keys and their arguments as
-the values.  For options that have more than one argument these are
-given as one string, separated by colons.  All colons and backslashes
-in the original arguments are preceded with backslashes.
+the values.  By default, all colons and backslashes in the value are escaped
+with backslashes, and if an option has multiple arguments (for example, when
+using an var(optspec) of the form `tt(*)var(optspec)'), they are joined with
+(unescaped) colons.  However, if the tt(-0) option was passed, no backslash
+escaping is performed, and multiple values are joined with NUL bytes.  For
+example, after `tt(zsh -o foo:foo -o bar:bar -o <TAB>)', the contents of
+`tt(opt_args)' would be
+
+example(typeset -A opt_args=( [-o]='foo\:foo:bar\:bar:' ))
+
+by default, and
+
+example(typeset -A opt_args=( [-o]=$'foo:foo\x00bar:bar\x00' ))
+
+if tt(_arguments) had been called with the tt(-0) option.
 
 The parameter `tt(context)' is set when returning to the calling function
 to perform an action of the form `tt(->)var(string)'.  It is set to an
@@ -4223,7 +4288,7 @@ The last two descriptions say what should be completed as
 arguments.  The first describes the first argument as a
 `var(postscript file)' and makes files ending in `tt(ps)' or `tt(eps)' 
 be completed.  The last description gives all other arguments the
-description `var(page numbers)' but does not offer completions.
+description `var(page number)' but does not offer completions.
 )
 findex(_cache_invalid)
 item(tt(_cache_invalid) var(cache_identifier))(
@@ -4349,6 +4414,15 @@ Include the leading underscore (`tt(_)') in the matches.
 )
 enditem()
 )
+findex(_default)
+item(tt(_default))(
+This function corresponds to the tt(-default-) special context which is
+applied where no completion is defined.  It is useful to call it under
+certain error conditions such as completion after an unrecognised
+subcommand.  This applies the concept of graceful degradation to the
+completion system, allowing it to fallback on basic completion of
+commonly useful things like filenames.
+)
 findex(_describe)
 redef(SPACES)(0)(tt(ifztexi(NOTRANS(@ @ @ @ @ @ @ @ @ @ ))ifnztexi(          )))
 xitem(tt(_describe )[tt(-12JVx)] [ tt(-oO) | tt(-t) var(tag) ] var(descr) var(name1) [ var(name2) ] [ var(opt) ... ])
@@ -4422,8 +4496,22 @@ not contain an explanation string to be displayed above the matches.
 If tt(_description) is called with more than three arguments,
 the additional var(spec)s should be of the form `var(char)tt(:)var(str)'.
 These supply escape sequence replacements for the tt(format) style:
-every appearance of `tt(%)var(char)' will be
-replaced by var(string).
+every appearance of `tt(%)var(char)' will be replaced by var(string).
+If no additional var(spec)s are given but the description in var(descr)
+conforms to a common form then further escape sequences are set for
+elements of that description.  These elements correspond to a default
+value (`tt(%o)'), the units (`tt(%m)') range of acceptable values
+(`tt(%r)') and the remaining initial part of the description (`tt(%h)').
+The form the description takes consists of specifying the units and
+range in parentheses and the default value in square brackets, for
+example:
+
+example(_description times expl 'timeout (seconds) (0-60) [20]')
+
+It is possible to use tt(zformat) conditional expressions when styling
+these elements. So, for example, to add `tt(default:)' as a tag but only
+when there is a default value to show, the tt(format) style might
+include `tt(%(o.default: %o.))'.
 
 If the tt(-x) option is given, the description will be passed to
 tt(compadd) using the tt(-x) option instead of the default tt(-X).  This
@@ -4699,6 +4787,69 @@ checked.  If it is set completion is terminated at that point even if
 no matches have been found.  This is the same effect as in the
 tt(-first-) context.
 )
+findex(_numbers)
+item(tt(_numbers) [ var(option) ... ] [ var(description) ] [ var(suffix) ... ])(
+This can be used where a number is followed by a suffix to indicate the units.
+The unit suffixes are completed and can also be included in the description
+used when completion is invoked for the preceding number.
+
+In addition to common tt(compadd) options, tt(_numbers) accepts the following
+options:
+
+startitem()
+item(tt(-t) var(tag))(
+Specify a tag to use instead of the default of tt(numbers).
+)
+item(tt(-u) var(units))(
+Indicate the default units for the number, e.g. tt(bytes).
+)
+item(tt(-l) var(min))(
+Specify the lowest possible value for the number.
+)
+item(tt(-m) var(max))(
+Specify the highest possible value for the number.
+)
+item(tt(-d) var(default))(
+Specify the default value.
+)
+item(tt(-N))(
+Allow negative numbers.  This is implied if the range includes a negative.
+)
+item(tt(-f))(
+Allow decimal numbers.
+)
+enditem()
+
+Where a particular suffix represents the default units for a number, it
+should be prefixed with a colon.  Additionally, suffixes can be followed
+by a colon and a description.  So for example, the following allows the
+age of something to be specified, either in seconds or with an optional
+suffix with a longer unit of time:
+
+example(_numbers -u seconds age :s:seconds m:minutes h:hours d:days)
+
+It is typically helpful for units to be presented in order of magnitude
+when completed.  To facilitate this, the order in which they are given
+is preserved.
+
+When the tt(format) style is looked up with the tt(descriptions) tag or
+the tag specified with tt(-t), the list of suffixes is available as a
+`tt(%x)' escape sequence. This is in addition to the usual sequences
+documented under the tt(format) style. The form this list takes can also
+be configured. To this end, the tt(format) style is first looked up with
+the tag tt(unit-suffixes). The retrieved format is applied to each
+suffix in turn and the results are then concatenated to form the
+completed list. For the tt(unit-suffixes) format, `tt(%x)' expands to
+the individual suffix and `tt(%X)' to its description. tt(%d)' indicates
+a default suffix and can be used in a condition. The index and reverse
+index are set in `tt(%i)' and `tt(%r)' respectively and are useful for
+text included only with the first and last suffixes in the list. So for
+example, the following joins the suffixes together as a comma-separated
+list:
+
+example(zstyle ':completion:*:unit-suffixes' format '%x%(r::,)')
+)
+
 findex(_options)
 item(tt(_options))(
 This can be used to complete the names of shell options.  It provides a
@@ -5244,7 +5395,11 @@ matches with the given description:
 
 example(local expl
 _wanted tag expl 'description' \ 
-    compadd matches...)
+    compadd -- var(match1) var(match2)...)
+
+See also the use of tt(_wanted) in the example function in
+ifzman(the subsection `Dynamic named directories' in zmanref(zshexpn))\
+ifnzman(noderef(Dynamic named directories)).
 
 Note that, as for tt(_requested), the var(command) must be able to
 accept options to be passed down to tt(compadd).
@@ -5284,7 +5439,6 @@ in the tt(_comp_caller_options) associative array. Option names, spelled
 in lowercase without underscores, are mapped to one or other of the
 strings `tt(on)' and `tt(off)'.
 )
-
 item(tt(_comp_priv_prefix))(
 Completion functions such as tt(_sudo) can set the tt(_comp_priv_prefix)
 array to a command prefix that may then be used by tt(_call_program) to
@@ -5292,6 +5446,8 @@ match the privileges when calling programs to generate matches.
 )
 enditem()
 
+vindex(compprefuncs, use of)
+vindex(comppostfuncs, use of)
 Two more features are offered by the tt(_main_complete) function.  The
 arrays tt(compprefuncs) and tt(comppostfuncs) may contain
 names of functions that are to be called immediately before or after

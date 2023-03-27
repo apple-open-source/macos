@@ -277,19 +277,24 @@ bool IOPCIDevice::attach( IOService * provider )
 		}
 	}
 
+	IORegistryEntry* dtParent = getParentEntry(gIODTPlane);
+	if (dtParent && (dtParent->getProperty("manual-enable-s2r-ep") != NULL))
+	{
+		setProperty(kIOPMResetPowerStateOnWakeKey, kOSBooleanTrue);
+	}
+
 	// initialize superclass variables
 	PMinit();
 
 	reserved->_powerAssertion = kIOPMUndefinedDriverAssertionID;
 	reserved->_powerAssertionTimer = NULL;
 
-	IORegistryEntry* dtParent = getParentEntry(gIODTPlane);
-	if (dtParent && dtParent->getProperty("manual-enable-s2r") != nullptr)
+	if (dtParent && (dtParent->getProperty("manual-enable-s2r") != nullptr || dtParent->getProperty("manual-enable-s2r-ep") != nullptr))
 	{
 		// Temporarily prevent system sleep while the descendants match, to ensure matching occurs
 		// before the first system power transition, Use a kIOPCIDeviceManualEnableS2RMatchTimeoutMS (arbitrary)
 		// timeout in case there is no match. Restart the timer each time a descendant is published.
-		DLOG("[%s()] Device %s's parent has the manual-enable-s2r property, creating PM assertion\n", __func__, getName());
+		DLOG("[%s()] Device %s's parent has the manual-enable-s2r or manual-enable-s2r-ep property, creating PM assertion\n", __func__, getName());
 		reserved->_powerAssertionTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOPCIDevice::powerAssertionTimeout));
 		if(reserved->_powerAssertionTimer != NULL)
 		{
@@ -322,7 +327,7 @@ bool IOPCIDevice::attach( IOService * provider )
 			reserved->_matchedNotifier = addMatchingNotification(gIOMatchedNotification, matchingDictionary,
 																 OSMemberFunctionCast(IOServiceMatchingNotificationHandler,
 																					  this,
-																					  &IOPCIDevice::childPublished),
+																					  &IOPCIDevice::childMatched),
 																 this, 0, INT_MIN);
 		}
 
@@ -331,6 +336,11 @@ bool IOPCIDevice::attach( IOService * provider )
 		// rdar://95285826: Set wifi/bt's desired power before issuing a temporaryPowerClampOn()
 		if (reserved->configEntry && (reserved->configEntry->vendorProduct & 0xFFFF) == 0x14e4) {
 			changePowerStateToPriv(kIOPCIDeviceOnState);
+			if(dtParent->getProperty("manual-enable-s2r-ep") != nullptr)
+			{
+				IOPCIDevice *parentDevice = OSDynamicCast(IOPCIDevice, dtParent);
+				parentDevice->changePowerStateToPriv(kIOPCIDeviceOnState);
+			}
 		}
 	}
 
@@ -423,6 +433,7 @@ IOPCIDevice::initReserved(void)
         if (!reserved)
             return (false);
 		reserved->lock = IORecursiveLockAlloc();
+		reserved->expressMaxReadRequestSize = -1;
     }
     return (true);
 }
@@ -678,6 +689,7 @@ IOPCIDevice::releasePowerAssertion(void)
 void
 IOPCIDevice::powerAssertionTimeout(IOTimerEventSource* timer __unused)
 {
+	DLOG("[%s()] device %s's PM assertion (%p) timeout fired\n", __func__, getName(), reserved->_powerAssertion);
 	releasePowerAssertion();
 }
 
@@ -731,6 +743,13 @@ void IOPCIDevice::updateWakeReason(uint16_t pmeState)
 static bool isDescendant(IOService *newService, IOService *device)
 {
 	IORegistryEntry *entry = OSDynamicCast(IORegistryEntry, newService);
+
+	if (entry == NULL)
+	{
+		return NULL;
+	}
+
+	entry = entry->getParentEntry(gIOServicePlane);
 	while (entry && (entry != device))
 	{
 		entry = entry->getParentEntry(gIOServicePlane);
@@ -746,11 +765,14 @@ bool IOPCIDevice::childPublished(void* refcon __unused, IOService* newService, I
 		return true;
 	}
 
+	DLOG("[%s()] device %s's child %s published\n", __func__, getName(), newService->getName());
+
     parent->getConfiguratorWorkLoop()->runActionBlock(^IOReturn
 	{
 		// If the device is holding a power assertion, reset the timeout to kIOPCIDeviceManualEnableS2RMatchTimeoutMS from now
 		if(reserved->_powerAssertion != kIOPMUndefinedDriverAssertionID)
 		{
+			DLOG("[%s()] Restarting device %s's timeout\n", __func__, getName());
 			reserved->_powerAssertionTimer->cancelTimeout();
 			reserved->_powerAssertionTimer->setTimeoutMS(kIOPCIDeviceManualEnableS2RMatchTimeoutMS);
 			reserved->_powerAssertionRefCnt++;
@@ -787,6 +809,8 @@ bool IOPCIDevice::childMatched(void* refcon __unused, IOService* newService, ION
 	{
 		return true;
 	}
+
+	DLOG("[%s()] device %s's child %s matched\n", __func__, getName(), newService->getName());
 
     parent->getConfiguratorWorkLoop()->runActionBlock(^IOReturn
 	{
@@ -976,6 +1000,56 @@ IOReturn IOPCIDevice::getResources( void )
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+// Note that the filter is applied to all config writes, internal and external.
+// This works for the MRRS setting, but if the filters are extended in the
+// future we will likely need to distinguish internal accesses so they can
+// bypass the filter.
+
+uint32_t IOPCIDevice::configWrite32Filter(IOByteCount offset, uint32_t data)
+{
+	// Enforce the EP MRRS override
+	if (reserved
+		&& reserved->expressCapability != 0
+		&& offset == (reserved->expressCapability + 0x8)
+		&& reserved->expressMaxReadRequestSize != -1)
+	{
+		data &= ~(7 << 12);
+		data |= reserved->expressMaxReadRequestSize << 12;
+	}
+
+	return data;
+}
+
+uint16_t IOPCIDevice::configWrite16Filter(IOByteCount offset, uint16_t data)
+{
+	// Enforce the EP MRRS override
+	if (reserved
+		&& reserved->expressCapability != 0
+		&& offset == (reserved->expressCapability + 0x8)
+		&& reserved->expressMaxReadRequestSize != -1)
+	{
+		data &= ~(7 << 12);
+		data |= reserved->expressMaxReadRequestSize << 12;
+	}
+
+	return data;
+}
+
+uint8_t IOPCIDevice::configWrite8Filter(IOByteCount offset, uint8_t data)
+{
+	// Enforce the EP MRRS override
+	if (reserved
+		&& reserved->expressCapability != 0
+		&& offset == (reserved->expressCapability + 0x9)
+		&& reserved->expressMaxReadRequestSize != -1)
+	{
+		data &= ~(7 << 4);
+		data |= reserved->expressMaxReadRequestSize << 4;
+	}
+
+	return data;
+}
+
 UInt32 IOPCIDevice::configRead32( IOPCIAddressSpace _space,
                                   UInt8 offset )
 {
@@ -987,6 +1061,13 @@ void IOPCIDevice::configWrite32( IOPCIAddressSpace _space,
                                  UInt8 offset, UInt32 data )
 {
 	if (!parent) return;
+	// The offset is relative to space's config space layout,
+	// so only apply the filter if the operation is on this
+	// IOPCIDevice.
+	if (_space.bits == space.bits)
+	{
+		data = configWrite32Filter(offset, data);
+	}
     parent->configWrite32( _space, offset, data );
 }
 
@@ -1001,6 +1082,10 @@ void IOPCIDevice::configWrite16( IOPCIAddressSpace _space,
                                  UInt8 offset, UInt16 data )
 {
 	if (!parent) return;
+	if (_space.bits == space.bits)
+	{
+		data = configWrite16Filter(offset, data);
+	}
     parent->configWrite16( _space, offset, data );
 }
 
@@ -1015,6 +1100,10 @@ void IOPCIDevice::configWrite8( IOPCIAddressSpace _space,
                                 UInt8 offset, UInt8 data )
 {
 	if (!parent) return;
+	if (_space.bits == space.bits)
+	{
+		data = configWrite8Filter(offset, data);
+	}
     parent->configWrite8( _space, offset, data );
 }
 
@@ -1045,6 +1134,7 @@ UInt32 IOPCIDevice::configRead32( UInt8 offset )
 void IOPCIDevice::configWrite32( UInt8 offset, UInt32 data )
 {
 	if (!configAccess(true)) return;
+	data = configWrite32Filter(offset, data);
     parent->configWrite32( space, offset, data );
 }
 
@@ -1057,6 +1147,7 @@ UInt16 IOPCIDevice::configRead16( UInt8 offset )
 void IOPCIDevice::configWrite16( UInt8 offset, UInt16 data )
 {
 	if (!configAccess(true)) return;
+	data = configWrite16Filter(offset, data);
     parent->configWrite16( space, offset, data );
 }
 
@@ -1069,6 +1160,7 @@ UInt8 IOPCIDevice::configRead8( UInt8 offset )
 void IOPCIDevice::configWrite8( UInt8 offset, UInt8 data )
 {
 	if (!configAccess(true)) return;
+	data = configWrite8Filter(offset, data);
     parent->configWrite8( space, offset, data );
 }
 
@@ -1089,6 +1181,7 @@ void IOPCIDevice::extendedConfigWrite32( IOByteCount offset, UInt32 data )
 {
     // Access must be within 4KB configuration space
 	if (!configAccess(true) || offset > (0x1000 - sizeof(uint32_t))) return;
+	data = configWrite32Filter(offset, data);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     configWrite32(_space, offset, data);
@@ -1107,6 +1200,7 @@ void IOPCIDevice::extendedConfigWrite16( IOByteCount offset, UInt16 data )
 {
     // Access must be within 4KB configuration space
 	if (!configAccess(true) || offset > (0x1000 - sizeof(uint16_t))) return;
+	data = configWrite16Filter(offset, data);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     configWrite16(_space, offset, data);
@@ -1125,6 +1219,7 @@ void IOPCIDevice::extendedConfigWrite8( IOByteCount offset, UInt8 data )
 {
     // Access must be within 4KB configuration space
 	if (!configAccess(true) || offset > (0x1000 - sizeof(uint8_t))) return;
+	data = configWrite8Filter(offset, data);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     configWrite8(_space, offset, data);
@@ -1576,6 +1671,11 @@ OSObject* IOPCIDevice::getProperty(const OSSymbol * aKey) const
         {
             value = super::getProperty(aKey);
         }
+    } else if (aKey == gIOPCIExpressLinkStatusKey) {
+		// Update cached Link Status register
+		IOPCIDevice *device = (IOPCIDevice *)this; // strip 'const' qualifier
+		device->checkLink(kCheckLinkForPower);
+		value = super::getProperty(aKey);
     } else {
         value = super::getProperty(aKey);
     }
@@ -1587,7 +1687,7 @@ IOPCIDevice::configureInterrupts(UInt32 interruptType, UInt32 numRequired, UInt3
 {
     IOReturn       ret = kIOReturnBadArgument;
 
-    if ((numRequired < 1) || (numRequested < 1) || !!options) return ret;
+    if (!numRequired || !numRequested || (numRequired > numRequested) || options) return ret;
     IORecursiveLockLock(reserved->lock);
     if (reserved->interruptVectorsResolved) // TODO add cleanup support on numRequired == 0 (if needed).
     {
@@ -1609,6 +1709,12 @@ IOPCIDevice::configureInterrupts(UInt32 interruptType, UInt32 numRequired, UInt3
             reserved->msiMode &= ~kMSIX;
             reserved->msiCapability = capa;
         }
+        // Round numRequested up to the power of 2:
+        numRequested--;
+        numRequested |= numRequested >> 1;
+        numRequested |= numRequested >> 2;
+        numRequested |= numRequested >> 4;
+        numRequested++;
         ret = parent->resolveMSIInterrupts(parent->getProvider(), this, numRequired, numRequested);
         break;
     case kIOInterruptTypePCIMessagedX:

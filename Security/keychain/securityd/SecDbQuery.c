@@ -645,6 +645,11 @@ static void query_add_return(const void *key, const void *value, Query *q)
  */
 static void query_add_use(const void *key, const void *value, Query *q)
 {
+#if TARGET_OS_OSX
+    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS;
+#elif TARGET_OS_IOS
+    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlways;
+#endif
     // Gotta use a string literal because we just outlawed this symbol on iOS
     if (CFEqual(key, CFSTR("u_ItemList"))) {
         /* TODO: Add integrity checking when we start using this. */
@@ -674,7 +679,7 @@ static void query_add_use(const void *key, const void *value, Query *q)
             SecError(errSecItemInvalidValue, &q->q_error, CFSTR("add_use: value %@ for key %@ is not CFString"), value, key);
             return;
         }
-#if TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || TARGET_OS_OSX
     } else if (CFEqual(key, kSecUseSystemKeychain)) {
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
         q->q_keybag = KEYBAG_DEVICE;
@@ -687,6 +692,10 @@ static void query_add_use(const void *key, const void *value, Query *q)
         }
         q->q_system_keychain = SystemKeychainFlag_EDUMODE;
 #endif
+#if TARGET_OS_OSX
+        SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: unknown key %@"), key);
+        return;
+#endif
 #if TARGET_OS_TV
     } else if (CFEqual(key, kSecUseUserIndependentKeychain) && (CFEqual(value, kCFBooleanTrue) || (CFGetTypeID(value) == CFNumberGetTypeID() && CFBooleanGetValue(value)) || (CFGetTypeID(value) == CFStringGetTypeID() && CFStringGetIntValue(value)))) {
 #if !TARGET_OS_SIMULATOR
@@ -694,9 +703,9 @@ static void query_add_use(const void *key, const void *value, Query *q)
 #endif
         q->q_system_keychain = SystemKeychainFlag_ALWAYS;
 #else
-    } else if (_SecSystemKeychainAlwaysIsEnabled() && CFEqual(key, kSecUseSystemKeychainAlways)) {
+    } else if (_SecSystemKeychainAlwaysIsEnabled() && CFEqual(key, localSecUseSystemKeychainAlways)) {
         if (q->q_system_keychain == SystemKeychainFlag_EDUMODE) {
-            SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: can't specify both %@ and %@"), kSecUseSystemKeychain, kSecUseSystemKeychainAlways);
+            SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: can't specify both %@ and %@"), kSecUseSystemKeychain, localSecUseSystemKeychainAlways);
             return;
         }
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
@@ -716,7 +725,7 @@ static void query_add_use(const void *key, const void *value, Query *q)
             return;
         }
 #endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-#endif // TARGET_OS_IPHONE
+#endif // TARGET_OS_IPHONE || TARGET_OS_OSX
     } else {
         SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: unknown key %@"), key);
         return;
@@ -950,8 +959,10 @@ bool query_destroy(Query *q, CFErrorRef *error) {
 }
 
 bool query_notify_and_destroy(Query *q, bool ok, CFErrorRef *error) {
-    if (ok && !q->q_error && (q->q_sync_changed || (q->q_changed && !SecMUSRIsSingleUserView(q->q_musrView)))) {
-        SecKeychainChanged();
+    if (ok && !q->q_error) {
+        if (q->q_sync_changed || (q->q_changed && !SecMUSRIsSingleUserView(q->q_musrView))) {
+            SecKeychainChanged();
+        }
     }
     return query_destroy(q, error) && ok;
 }

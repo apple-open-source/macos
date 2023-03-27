@@ -219,18 +219,9 @@ fi
 	/*
 	 * Fetch filename
 	 */
-/*
-	this->filistp = curthread->t_procp->p_user.u_finfo.fi_list;
-	this->ufentryp = (uf_entry_t *)((uint64_t)this->filistp +
-	    (uint64_t)self->fd * (uint64_t)sizeof(uf_entry_t));
-	this->filep = this->ufentryp->uf_file;
-	this->vnodep = this->filep != 0 ? this->filep->f_vnode : 0;
-	self->vpath = this->vnodep ? (this->vnodep->v_path != 0 ? 
-	    cleanpath(this->vnodep->v_path) : "<unknown>") : "<unknown>";
-*/
-	this->fpp = &(curproc->p_fd->fd_ofiles[self->fd]);
-	this->fg = (struct fileglob *)((*(this->fpp))->f_fglob);
-	this->vnodep = (struct vnode *)(this->fg->fg_data);
+	this->fpp = curproc->p_fd.fd_ofiles[self->fd];
+	this->fg = this->fpp->fp_glob;
+	this->vnodep = (struct vnode *)(strip((void *)(this->fg->fg_data), 2));
 	self->vpath = this->vnodep ? (this->vnodep->v_name != 0 ? 
 	    this->vnodep->v_name : "<unknown>") : "<unknown>";
 

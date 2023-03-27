@@ -56,7 +56,12 @@ struct LoadParameters {
     void platformEncode(IPC::Encoder&) const;
     static WARN_UNUSED_RETURN bool platformDecode(IPC::Decoder&, LoadParameters&);
 
-    uint64_t navigationID;
+#if ENABLE(PUBLIC_SUFFIX_LIST)
+    String topPrivatelyControlledDomain;
+    String host;
+#endif
+
+    uint64_t navigationID { 0 };
 
     WebCore::ResourceRequest request;
     SandboxExtension::Handle sandboxExtensionHandle;
@@ -92,9 +97,6 @@ struct LoadParameters {
     std::optional<SandboxExtension::Handle> frontboardServiceExtensionHandle;
 #endif // PLATFORM(IOS)
 #endif // !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-#endif
-#if ENABLE(PUBLIC_SUFFIX_LIST)
-    String topPrivatelyControlledDomain;
 #endif
 };
 

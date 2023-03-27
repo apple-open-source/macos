@@ -34,7 +34,7 @@
 #include "WasmCallee.h"
 #include "WasmCalleeRegistry.h"
 #include "WasmCapabilities.h"
-#include "WasmContextInlines.h"
+#include "WasmContext.h"
 #include "WasmExceptionType.h"
 #include "WasmMemory.h"
 #include "WasmThunks.h"
@@ -59,7 +59,7 @@ static SignalAction trapHandler(Signal signal, SigInfo& sigInfo, PlatformRegiste
     auto instructionPointer = MachineContext::instructionPointer(context);
     if (!instructionPointer)
         return SignalAction::NotHandled;
-    void* faultingInstruction = instructionPointer->untaggedExecutableAddress();
+    void* faultingInstruction = instructionPointer->untaggedPtr();
     dataLogLnIf(WasmFaultSignalHandlerInternal::verbose, "starting handler for fault at: ", RawPointer(faultingInstruction));
 
     dataLogLnIf(WasmFaultSignalHandlerInternal::verbose, "JIT memory start: ", RawPointer(startOfFixedExecutableMemoryPool()), " end: ", RawPointer(endOfFixedExecutableMemoryPool()));
@@ -94,8 +94,7 @@ static SignalAction trapHandler(Signal signal, SigInfo& sigInfo, PlatformRegiste
             };
 
             if (didFaultInWasm(faultingInstruction)) {
-                MachineContext::setInstructionPointer(context,
-                    LLInt::getCodePtr<CFunctionPtrTag>(Wasm::Context::useFastTLS() ? wasm_throw_from_fault_handler_trampoline_fastTLS : wasm_throw_from_fault_handler_trampoline_reg_instance));
+                MachineContext::setInstructionPointer(context, LLInt::getCodePtr<CFunctionPtrTag>(wasm_throw_from_fault_handler_trampoline_reg_instance));
                 return SignalAction::Handled;
             }
         }
@@ -113,7 +112,7 @@ void activateSignalingMemory()
         if (!Wasm::isSupported())
             return;
 
-        if (!Options::useWebAssemblyFastMemory() && !Options::useSharedArrayBuffer())
+        if (!Options::useWasmFaultSignalHandler())
             return;
 
         activateSignalHandlersFor(Signal::AccessFault);
@@ -129,7 +128,7 @@ void prepareSignalingMemory()
         if (!Wasm::isSupported())
             return;
 
-        if (!Options::useWebAssemblyFastMemory() && !Options::useSharedArrayBuffer())
+        if (!Options::useWasmFaultSignalHandler())
             return;
 
         addSignalHandler(Signal::AccessFault, [] (Signal signal, SigInfo& sigInfo, PlatformRegisters& ucontext) {

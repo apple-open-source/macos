@@ -25,6 +25,7 @@ typedef void (GL_APIENTRYP PFNGLREQUESTEXTENSIONANGLEPROC) (const GLchar *name);
 typedef void (GL_APIENTRYP PFNGLDISABLEEXTENSIONANGLEPROC) (const GLchar *name);
 #ifdef GL_GLEXT_PROTOTYPES
 GL_APICALL void GL_APIENTRY glRequestExtensionANGLE (const GLchar *name);
+GL_APICALL void GL_APIENTRY glDisableExtensionANGLE (const GLchar *name);
 #endif
 #endif /* GL_ANGLE_webgl_compatibility */
 
@@ -36,14 +37,29 @@ GL_APICALL void GL_APIENTRY glRequestExtensionANGLE (const GLchar *name);
 
 #ifndef GL_ANGLE_provoking_vertex
 #define GL_ANGLE_provoking_vertex 1
-#define GL_FIRST_VERTEX_CONVENTION                   0x8E4D
-#define GL_LAST_VERTEX_CONVENTION                    0x8E4E
-#define GL_PROVOKING_VERTEX                          0x8E4F
+#define GL_FIRST_VERTEX_CONVENTION_ANGLE             0x8E4D
+#define GL_LAST_VERTEX_CONVENTION_ANGLE              0x8E4E
+#define GL_PROVOKING_VERTEX_ANGLE                    0x8E4F
 typedef void (GL_APIENTRYP PFNGLPROVOKINGVERTEXANGLEPROC) (GLenum);
 #ifdef GL_GLEXT_PROTOTYPES
-GL_APICALL void GL_APIENTRY glProvokingVertexANGLE(GLenum mode);
+GL_APICALL void GL_APIENTRY glProvokingVertexANGLE(GLenum provokeMode);
 #endif
 #endif /* GL_ANGLE_provoking_vertex */
+
+#ifndef GL_ANGLE_clip_cull_distance
+#define GL_ANGLE_clip_cull_distance 1
+#define GL_MAX_CLIP_DISTANCES_ANGLE                   0x0D32
+#define GL_MAX_CULL_DISTANCES_ANGLE                   0x82F9
+#define GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES_ANGLE 0x82FA
+#define GL_CLIP_DISTANCE0_ANGLE                       0x3000
+#define GL_CLIP_DISTANCE1_ANGLE                       0x3001
+#define GL_CLIP_DISTANCE2_ANGLE                       0x3002
+#define GL_CLIP_DISTANCE3_ANGLE                       0x3003
+#define GL_CLIP_DISTANCE4_ANGLE                       0x3004
+#define GL_CLIP_DISTANCE5_ANGLE                       0x3005
+#define GL_CLIP_DISTANCE6_ANGLE                       0x3006
+#define GL_CLIP_DISTANCE7_ANGLE                       0x3007
+#endif /* GL_ANGLE_clip_cull_distance */
 
 #ifndef GL_CHROMIUM_framebuffer_mixed_samples
 #define GL_CHROMIUM_frambuffer_mixed_samples 1
@@ -582,6 +598,48 @@ GL_APICALL void GL_APIENTRY glReleaseTexturesANGLE(GLuint numTexture, const GLui
 #define GL_ROBUST_FRAGMENT_SHADER_OUTPUT_ANGLE 0x96B9
 #endif /* GL_ANGLE_robust_fragment_shader_output */
 
+#ifndef GL_ANGLE_shader_pixel_local_storage
+#define GL_ANGLE_shader_pixel_local_storage 1
+#define GL_MAX_PIXEL_LOCAL_STORAGE_PLANES_ANGLE 0x96E0
+#define GL_MAX_COLOR_ATTACHMENTS_WITH_ACTIVE_PIXEL_LOCAL_STORAGE_ANGLE 0x96E1
+#define GL_MAX_COMBINED_DRAW_BUFFERS_AND_PIXEL_LOCAL_STORAGE_PLANES_ANGLE 0x96E2
+#define GL_PIXEL_LOCAL_STORAGE_ACTIVE_PLANES_ANGLE 0x96E3
+#define GL_LOAD_OP_ZERO_ANGLE 0x96E4
+#define GL_LOAD_OP_CLEAR_ANGLE 0x96E5
+#define GL_LOAD_OP_LOAD_ANGLE 0x96E6
+#define GL_LOAD_OP_DISABLE_ANGLE 0x96E7
+#define GL_STORE_OP_STORE_ANGLE 0x96E8
+#define GL_PIXEL_LOCAL_FORMAT_ANGLE 0x96E9
+#define GL_PIXEL_LOCAL_TEXTURE_NAME_ANGLE 0x96EA
+#define GL_PIXEL_LOCAL_TEXTURE_LEVEL_ANGLE 0x96EB
+#define GL_PIXEL_LOCAL_TEXTURE_LAYER_ANGLE 0x96EC
+#define GL_PIXEL_LOCAL_CLEAR_VALUE_FLOAT_ANGLE 0x96ED
+#define GL_PIXEL_LOCAL_CLEAR_VALUE_INT_ANGLE 0x96EE
+#define GL_PIXEL_LOCAL_CLEAR_VALUE_UNSIGNED_INT_ANGLE 0x96EF
+typedef void (GL_APIENTRYP PFNGLFRAMEBUFFERMEMORYLESSPIXELLOCALSTORAGEANGLEPROC) (GLint plane, GLenum internalformat);
+typedef void (GL_APIENTRYP PFNGLFRAMEBUFFERTEXTUREPIXELLOCALSTORAGEANGLEPROC) (GLint plane, GLuint backingtexture, GLint level, GLint layer);
+typedef void (GL_APIENTRYP PFNGLFRAMEBUFFERPIXELLOCALCLEARVALUEFVANGLEPROC) (GLint plane, const GLfloat value[4]);
+typedef void (GL_APIENTRYP PFNGLFRAMEBUFFERPIXELLOCALCLEARVALUEIVANGLEPROC) (GLint plane, const GLint value[4]);
+typedef void (GL_APIENTRYP PFNGLFRAMEBUFFERPIXELLOCALCLEARVALUEUIVANGLEPROC) (GLint plane, const GLuint value[4]);
+typedef void (GL_APIENTRYP PFNGLBEGINPIXELLOCALSTORAGEANGLEPROC) (GLsizei n, const GLenum loadops[]);
+typedef void (GL_APIENTRYP PFNGLENDPIXELLOCALSTORAGEANGLEPROC) (GLsizei n, const GLenum storeops[]);
+typedef void (GL_APIENTRYP PFNGLPIXELLOCALSTORAGEBARRIERANGLEPROC) (void);
+typedef void (GL_APIENTRYP PFNGLGETFRAMEBUFFERPIXELLOCALSTORAGEPARAMETERFVANGLEPROC) (GLint plane, GLenum pname, GLfloat* params);
+typedef void (GL_APIENTRYP PFNGLGETFRAMEBUFFERPIXELLOCALSTORAGEPARAMETERIVANGLEPROC) (GLint plane, GLenum pname, GLint* params);
+#ifdef GL_GLEXT_PROTOTYPES
+GL_APICALL void GL_APIENTRY glFramebufferMemorylessPixelLocalStorageANGLE (GLint plane, GLenum internalformat);
+GL_APICALL void GL_APIENTRY glFramebufferTexturePixelLocalStorageANGLE (GLint plane, GLuint backingtexture, GLint level, GLint layer);
+GL_APICALL void GL_APIENTRY glFramebufferPixelLocalClearValuefvANGLE (GLint plane, const GLfloat value[4]);
+GL_APICALL void GL_APIENTRY glFramebufferPixelLocalClearValueivANGLE (GLint plane, const GLint value[4]);
+GL_APICALL void GL_APIENTRY glFramebufferPixelLocalClearValueuivANGLE (GLint plane, const GLuint value[4]);
+GL_APICALL void GL_APIENTRY glBeginPixelLocalStorageANGLE (GLsizei n, const GLenum loadops[]);
+GL_APICALL void GL_APIENTRY glEndPixelLocalStorageANGLE (GLsizei n, const GLenum storeops[]);
+GL_APICALL void GL_APIENTRY glPixelLocalStorageBarrierANGLE (void);
+GL_APICALL void GL_APIENTRY glGetFramebufferPixelLocalStorageParameterfvANGLE (GLint plane, GLenum pname, GLfloat* params);
+GL_APICALL void GL_APIENTRY glGetFramebufferPixelLocalStorageParameterivANGLE (GLint plane, GLenum pname, GLint* params);
+#endif
+#endif /* GL_ANGLE_shader_pixel_local_storage */
+
 // clang-format on
 
 #ifndef GL_ANGLE_yuv_internal_format
@@ -612,5 +670,40 @@ GL_APICALL void GL_APIENTRY glReleaseTexturesANGLE(GLuint numTexture, const GLui
 #define GL_RGBX8_ANGLE 0x96BA
 
 #endif /* GL_ANGLE_rgbx_internal_format */
+
+#ifndef GL_ANGLE_shader_binary
+#define GL_ANGLE_shader_binary
+
+// General shader binary format
+#define GL_SHADER_BINARY_ANGLE 0x96BB
+
+#endif /* GL_ANGLE_shader_binary */
+
+#ifndef GL_ANGLE_logic_op
+#define GL_ANGLE_logic_op
+
+// Enums identical to GLES1 and desktop GL
+#define GL_COLOR_LOGIC_OP_ANGLE          0x0BF2
+#define GL_LOGIC_OP_CLEAR_ANGLE          0x1500
+#define GL_LOGIC_OP_AND_ANGLE            0x1501
+#define GL_LOGIC_OP_AND_REVERSE_ANGLE    0x1502
+#define GL_LOGIC_OP_COPY_ANGLE           0x1503
+#define GL_LOGIC_OP_AND_INVERTED_ANGLE   0x1504
+#define GL_LOGIC_OP_NOOP_ANGLE           0x1505
+#define GL_LOGIC_OP_XOR_ANGLE            0x1506
+#define GL_LOGIC_OP_OR_ANGLE             0x1507
+#define GL_LOGIC_OP_NOR_ANGLE            0x1508
+#define GL_LOGIC_OP_EQUIV_ANGLE          0x1509
+#define GL_LOGIC_OP_INVERT_ANGLE         0x150A
+#define GL_LOGIC_OP_OR_REVERSE_ANGLE     0x150B
+#define GL_LOGIC_OP_COPY_INVERTED_ANGLE  0x150C
+#define GL_LOGIC_OP_OR_INVERTED_ANGLE    0x150D
+#define GL_LOGIC_OP_NAND_ANGLE           0x150E
+#define GL_LOGIC_OP_SET_ANGLE            0x150F
+typedef void (GL_APIENTRYP PFNGLLOGICOPANGLEPROC) (GLenum);
+#ifdef GL_GLEXT_PROTOTYPES
+GL_APICALL void GL_APIENTRY glLogicOpANGLE (GLenum);
+#endif
+#endif /* GL_ANGLE_logic_op */
 
 #endif  // INCLUDE_GLES2_GL2EXT_ANGLE_H_

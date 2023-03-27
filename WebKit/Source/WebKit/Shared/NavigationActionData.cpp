@@ -48,6 +48,7 @@ void NavigationActionData::encode(IPC::Encoder& encoder) const
     encoder << treatAsSameOriginNavigation;
     encoder << hasOpenedFrames;
     encoder << openedByDOMWithOpener;
+    encoder << hasOpener;
     encoder << requesterOrigin;
     encoder << targetBackForwardItemIdentifier;
     encoder << sourceBackForwardItemIdentifier;
@@ -56,6 +57,9 @@ void NavigationActionData::encode(IPC::Encoder& encoder) const
     encoder << clientRedirectSourceForHistory;
     encoder << effectiveSandboxFlags;
     encoder << privateClickMeasurement;
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    encoder << webHitTestResultData;
+#endif
 }
 
 std::optional<NavigationActionData> NavigationActionData::decode(IPC::Decoder& decoder)
@@ -64,16 +68,18 @@ std::optional<NavigationActionData> NavigationActionData::decode(IPC::Decoder& d
     if (!decoder.decode(navigationType))
         return std::nullopt;
     
-    OptionSet<WebEvent::Modifier> modifiers;
+    OptionSet<WebEventModifier> modifiers;
     if (!decoder.decode(modifiers))
         return std::nullopt;
 
-    WebMouseEvent::Button mouseButton;
-    if (!decoder.decode(mouseButton))
+    std::optional<WebMouseEventButton> mouseButton;
+    decoder >> mouseButton;
+    if (!mouseButton)
         return std::nullopt;
     
-    WebMouseEvent::SyntheticClickType syntheticClickType;
-    if (!decoder.decode(syntheticClickType))
+    std::optional<WebMouseEventSyntheticClickType> syntheticClickType;
+    decoder >> syntheticClickType;
+    if (!syntheticClickType)
         return std::nullopt;
     
     std::optional<uint64_t> userGestureTokenIdentifier;
@@ -119,6 +125,11 @@ std::optional<NavigationActionData> NavigationActionData::decode(IPC::Decoder& d
     if (!openedByDOMWithOpener)
         return std::nullopt;
 
+    std::optional<bool> hasOpener;
+    decoder >> hasOpener;
+    if (!hasOpener)
+        return std::nullopt;
+
     std::optional<WebCore::SecurityOriginData> requesterOrigin;
     decoder >> requesterOrigin;
     if (!requesterOrigin)
@@ -157,10 +168,21 @@ std::optional<NavigationActionData> NavigationActionData::decode(IPC::Decoder& d
     if (!privateClickMeasurement)
         return std::nullopt;
 
-    return {{ WTFMove(navigationType), modifiers, WTFMove(mouseButton), WTFMove(syntheticClickType), WTFMove(*userGestureTokenIdentifier),
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    std::optional<std::optional<WebKit::WebHitTestResultData>> webHitTestResultData;
+    decoder >> webHitTestResultData;
+    if (!webHitTestResultData)
+        return std::nullopt;
+#endif
+
+    return { { WTFMove(navigationType), modifiers, WTFMove(*mouseButton), WTFMove(*syntheticClickType), WTFMove(*userGestureTokenIdentifier),
         WTFMove(*canHandleRequest), WTFMove(shouldOpenExternalURLsPolicy), WTFMove(*downloadAttribute), WTFMove(clickLocationInRootViewCoordinates),
-        WTFMove(*isRedirect), *treatAsSameOriginNavigation, *hasOpenedFrames, *openedByDOMWithOpener, WTFMove(*requesterOrigin),
-        WTFMove(*targetBackForwardItemIdentifier), WTFMove(*sourceBackForwardItemIdentifier), lockHistory, lockBackForwardList, WTFMove(*clientRedirectSourceForHistory), *effectiveSandboxFlags, WTFMove(*privateClickMeasurement) }};
+        WTFMove(*isRedirect), *treatAsSameOriginNavigation, *hasOpenedFrames, *openedByDOMWithOpener, *hasOpener, WTFMove(*requesterOrigin),
+        WTFMove(*targetBackForwardItemIdentifier), WTFMove(*sourceBackForwardItemIdentifier), lockHistory, lockBackForwardList, WTFMove(*clientRedirectSourceForHistory), *effectiveSandboxFlags, WTFMove(*privateClickMeasurement),
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+        WTFMove(*webHitTestResultData),
+#endif
+    } };
 }
 
 } // namespace WebKit

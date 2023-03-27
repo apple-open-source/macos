@@ -3,6 +3,15 @@
 (deny default)
 
 (import "system.sb")
+;;; Override the (param ...) function to variable-quote results
+;;; since the profile defines ENABLE_PATTERN_VARIABLES=1.
+(define (var-quote-if-string obj)
+  (if (and obj (string? obj)) (variable-quote obj) obj))
+
+(let ((orig-param param))
+  (set! param
+    (lambda(key)
+      (var-quote-if-string (orig-param key)))))
 
 (allow file-ioctl
        (literal "/dev/auditsessions"))
@@ -10,13 +19,16 @@
 (allow file-read*)
 
 (allow file-write*
-       (regex #"^(/System)?/Volumes/Preboot/.*/var/db/\.scnotenforced")
+       (literal "/System/Volumes/Preboot/${ANY_UUID}/var/db/.authdbreset")
+       (literal "/System/Volumes/Preboot/${ANY_UUID}/var/db/.scnotenforced")
+       (literal "/Volumes/Preboot/${ANY_UUID}/var/db/.authdbreset")
+       (literal "/Volumes/Preboot/${ANY_UUID}/var/db/.scnotenforced")
        (regex #"^/private/var/db/auth\.db.*$")
        (literal "/private/var/db/mds/system/mds.lock")
        (subpath (param "TMP_DIR")))
 
 (allow network-outbound
-    (literal "/private/var/run/systemkeychaincheck.socket"))
+       (literal "/private/var/run/systemkeychaincheck.socket"))
 
 (allow mach-lookup
        (global-name "com.apple.CoreAuthentication.agent")
@@ -30,7 +42,10 @@
        (global-name "com.apple.system.opendirectoryd.api")
        (global-name "com.apple.ocspd")
        (global-name "com.apple.DiskArbitration.diskarbitrationd")
-       (global-name "com.apple.diskmanagementd"))
+       (global-name "com.apple.diskmanagementd")
+       (global-name "com.apple.tccd")
+       (global-name "com.apple.tccd.system")
+       (global-name "com.apple.SystemConfiguration.configd"))
 
 (allow ipc-posix-shm
        (ipc-posix-name "apple.shm.notification_center")
@@ -48,5 +63,7 @@
        (iokit-user-client-class "AppleAPFSUserClient")
        (iokit-user-client-class "AppleKeyStoreUserClient"))
 
+(allow authorization-right-obtain
+       (right-name "com.apple.security.tcc"))
 (allow iokit-get-properties
        (iokit-property "boot-uuid"))

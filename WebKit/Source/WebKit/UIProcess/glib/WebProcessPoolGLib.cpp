@@ -34,6 +34,7 @@
 #include "WebProcessCreationParameters.h"
 #include <WebCore/PlatformDisplay.h>
 #include <wtf/FileSystem.h>
+#include <wtf/glib/Sandbox.h>
 
 #if ENABLE(REMOTE_INSPECTOR)
 #include <JavaScriptCore/RemoteInspector.h>
@@ -44,11 +45,7 @@
 #endif
 
 #if PLATFORM(WAYLAND)
-#if USE(WPE_RENDERER)
 #include "AcceleratedBackingStoreWayland.h"
-#else
-#include "WaylandCompositor.h"
-#endif
 #endif
 
 #if USE(WPE_RENDERER)
@@ -81,22 +78,18 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
     parameters.isServiceWorkerProcess = process.isRunningServiceWorkers();
 
     if (!parameters.isServiceWorkerProcess) {
-        parameters.hostClientFileDescriptor = IPC::Attachment(UnixFileDescriptor(wpe_renderer_host_create_client(), UnixFileDescriptor::Adopt));
+        parameters.hostClientFileDescriptor = UnixFileDescriptor { wpe_renderer_host_create_client(), UnixFileDescriptor::Adopt };
         parameters.implementationLibraryName = FileSystem::fileSystemRepresentation(String::fromLatin1(wpe_loader_get_loaded_implementation_library_name()));
     }
 #endif
 
 #if PLATFORM(WAYLAND)
     if (WebCore::PlatformDisplay::sharedDisplay().type() == WebCore::PlatformDisplay::Type::Wayland) {
-#if USE(WPE_RENDERER)
         wpe_loader_init("libWPEBackend-fdo-1.0.so.1");
         if (AcceleratedBackingStoreWayland::checkRequirements()) {
-            parameters.hostClientFileDescriptor = IPC::Attachment(UnixFileDescriptor(wpe_renderer_host_create_client(), UnixFileDescriptor::Adopt));
+            parameters.hostClientFileDescriptor = UnixFileDescriptor { wpe_renderer_host_create_client(), UnixFileDescriptor::Adopt };
             parameters.implementationLibraryName = FileSystem::fileSystemRepresentation(String::fromLatin1(wpe_loader_get_loaded_implementation_library_name()));
         }
-#elif USE(EGL)
-        parameters.waylandCompositorDisplayName = WaylandCompositor::singleton().displayName();
-#endif
     }
 #endif
 
@@ -127,8 +120,18 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #endif
 
 #if USE(ATSPI)
-    static const char* accessibilityBusAddress = getenv("WEBKIT_A11Y_BUS_ADDRESS");
-    parameters.accessibilityBusAddress = accessibilityBusAddress ? String::fromUTF8(accessibilityBusAddress) : WebCore::PlatformDisplay::sharedDisplay().accessibilityBusAddress();
+    parameters.accessibilityBusAddress = [this] {
+        if (auto* address = getenv("WEBKIT_A11Y_BUS_ADDRESS"))
+            return String::fromUTF8(address);
+
+        if (m_sandboxEnabled) {
+            String& address = sandboxedAccessibilityBusAddress();
+            if (!address.isNull())
+                return address;
+        }
+
+        return WebCore::PlatformDisplay::sharedDisplay().accessibilityBusAddress();
+    }();
 #endif
 
 #if PLATFORM(GTK)

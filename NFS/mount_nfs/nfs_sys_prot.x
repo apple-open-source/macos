@@ -105,9 +105,37 @@ struct nfs_mattr {
 	attrlist	attr_vals;
 };
 
+/* NFS mount version range */
+struct nfs_version_range {
+    uint32_t    min_vers;
+    uint32_t    max_vers;
+};
+
+/* Supported encryption types for kerberos session keys */
+enum nfs_supported_kerberos_etypes {
+    NFS_DES3_CBC_SHA1_KD = 16,
+    NFS_AES128_CTS_HMAC_SHA1_96 = 17,
+    NFS_AES256_CTS_HMAC_SHA1_96 = 18
+};
+
+/* Structure to hold an array of kerberos enctypes to allow on a mount */
+#define NFS_MAX_ETYPES 3
+struct nfs_etype {
+    uint32_t count;
+    uint32_t selected;  /* index in etypes that is being used. Set to count if nothing has been selected */
+    nfs_supported_kerberos_etypes etypes[NFS_MAX_ETYPES];
+};
+
+/* values for NFS_READLINK_CACHE_MODE */
+enum nfs_readlink_cache_mode {
+    NFS_READLINK_CACHE_MODE_CACHED = 0,
+    NFS_READLINK_CACHE_MODE_PARTIALLY_CACHED = 1,
+    NFS_READLINK_CACHE_MODE_FULLY_UNCACHED = 2
+};
+
 /* miscellaneous constants */
 const NFS_XDRARGS_VERSION_0 = 0;		/* nfs_mount_args version */
-const NFS_MATTR_BITMAP_LEN = 1;			/* # XDR words in mount attributes bitmap */
+const NFS_MATTR_BITMAP_LEN = 2;			/* # XDR words in mount attributes bitmap */
 const NFS_MFLAG_BITMAP_LEN = 1;			/* # XDR words in mount flags bitmap */
 
 /*
@@ -154,10 +182,16 @@ typedef nfstime32		nfs_mattr_dead_timeout;
 typedef	opaque			nfs_mattr_fh<NFS4_FHSIZE>;
 typedef nfs_fs_locations	nfs_mattr_fs_locations;
 typedef uint32_t		nfs_mattr_mntflags;
-typedef string			nfs_mattr_mntfrom<MAXPATHLEN-1>;
-typedef string			nfs_mattr_realm<MAXPATHLEN-1>;
-typedef string			nfs_mattr_principal<MAXPATHLEN-1>;
-typedef string			nfs_mattr_svcpinc<MAXPATHLEN-1>;
+typedef string			nfs_mattr_mntfrom<NFS_MAXPATHLEN>;
+typedef string			nfs_mattr_realm<NFS_MAXPATHLEN>;
+typedef string			nfs_mattr_principal<NFS_MAXPATHLEN>;
+typedef string			nfs_mattr_svcpinc<NFS_MAXPATHLEN>;
+typedef nfs_version_range	nfs_mattr_version_range;
+typedef nfs_etype		nfs_mattr_kerb_etype;
+typedef string			nfs_mattr_local_nfs_port<NFS_MAXPATHLEN>;
+typedef string			nfs_mattr_local_mount_port<NFS_MAXPATHLEN>;
+typedef uint32_t		nfs_mattr_set_mount_owner;
+typedef nfs_readlink_cache_mode	nfs_mattr_readlink_nocache;
 
 /* mount attribute bitmap indices */
 const NFS_MATTR_FLAGS			= 0;	/* mount flags bitmap (MFLAG_*) */
@@ -191,6 +225,8 @@ const NFS_MATTR_NFS_VERSION_RANGE	= 27;	/* Packed version range to try */
 const NFS_MATTR_KERB_ETYPE		= 28;	/* Enctype to use for kerberos mounts */
 const NFS_MATTR_LOCAL_NFS_PORT		= 29;	/* Local transport (socket) address for NFS protocol */
 const NFS_MATTR_LOCAL_MOUNT_PORT	= 30;	/* Local transport (socket) address for MOUNT protocol */
+const NFS_MATTR_SET_MOUNT_OWNER 	= 31;	/* Set owner of mount point */
+const NFS_MATTR_READLINK_NOCACHE	= 32;	/* Readlink nocache mode */
 
 /*
  * Mount flags

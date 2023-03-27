@@ -245,12 +245,21 @@ sec_protocol_options_contents_compare(sec_protocol_options_content_t contentA,
         return false; \
     }
 
-    CHECK_BLOCK_QUEUE(key_update_block, key_update_queue);
-    CHECK_BLOCK_QUEUE(psk_selection_block, psk_selection_queue);
-    CHECK_BLOCK_QUEUE(challenge_block, challenge_queue);
-    CHECK_BLOCK_QUEUE(verify_block, verify_queue);
-    CHECK_BLOCK_QUEUE(tls_secret_update_block, tls_secret_update_queue);
-    CHECK_BLOCK_QUEUE(tls_encryption_level_update_block, tls_encryption_level_update_queue);
+    bool nw_protocol_joining_context_opt_in = (compare_mode == sec_protocol_options_compare_mode_joining || compare_mode == sec_protocol_options_compare_mode_joining_proxy) &&
+    (optionsA->nw_protocol_joining_context != NULL || optionsB->nw_protocol_joining_context != NULL);
+
+    if (nw_protocol_joining_context_opt_in) {
+        if (optionsA->nw_protocol_joining_context != optionsB->nw_protocol_joining_context) {
+            return false;
+        }
+    } else {
+        CHECK_BLOCK_QUEUE(key_update_block, key_update_queue);
+        CHECK_BLOCK_QUEUE(psk_selection_block, psk_selection_queue);
+        CHECK_BLOCK_QUEUE(challenge_block, challenge_queue);
+        CHECK_BLOCK_QUEUE(verify_block, verify_queue);
+        CHECK_BLOCK_QUEUE(tls_secret_update_block, tls_secret_update_queue);
+        CHECK_BLOCK_QUEUE(tls_encryption_level_update_block, tls_encryption_level_update_queue);
+    }
 
 #undef CHECK_BLOCK_QUEUE
 
@@ -873,6 +882,20 @@ sec_protocol_options_set_quic_early_data_context(sec_protocol_options_t options,
         return true;
     });
 }
+
+void
+sec_protocol_options_set_nw_protocol_joining_context(sec_protocol_options_t options, const void * _Nullable context)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->nw_protocol_joining_context = context;
+        return true;
+    });
+}
+
 
 void
 sec_protocol_options_set_tls_sni_disabled(sec_protocol_options_t options, bool sni_disabled)

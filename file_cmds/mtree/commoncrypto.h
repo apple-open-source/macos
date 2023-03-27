@@ -12,6 +12,7 @@ extern const int kSHA256NullTerminatedBuffLen;
 #define SHA1_File(f, b)      Digest_File(kCCDigestSHA1, f, b)
 #define RIPEMD160_File(f, b) Digest_File(kCCDigestRMD160, f, b)
 #define SHA256_File(f, b)    Digest_File(kCCDigestSHA256, f, b)
+#define	IS_DATALESS(sp)		((sp) && ((sp)->st_flags & SF_DATALESS))
 
 typedef struct {
     char *digest;

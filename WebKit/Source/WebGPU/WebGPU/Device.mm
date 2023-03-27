@@ -26,6 +26,7 @@
 #import "config.h"
 #import "Device.h"
 
+#import "API.h"
 #import "APIConversions.h"
 #import "BindGroup.h"
 #import "BindGroupLayout.h"
@@ -33,20 +34,75 @@
 #import "CommandEncoder.h"
 #import "ComputePipeline.h"
 #import "PipelineLayout.h"
+#import "PresentationContext.h"
 #import "QuerySet.h"
 #import "Queue.h"
 #import "RenderBundleEncoder.h"
 #import "RenderPipeline.h"
 #import "Sampler.h"
 #import "ShaderModule.h"
-#import "Surface.h"
-#import "SwapChain.h"
 #import "Texture.h"
 #import <algorithm>
+#import <notify.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/WeakPtr.h>
 
 namespace WebGPU {
+
+struct GPUFrameCapture {
+    static void captureSingleFrameIfNeeded(id<MTLDevice> captureObject)
+    {
+        if (enabled) {
+            captureFrame(captureObject);
+            enabled = false;
+        }
+    }
+
+    static void registerForFrameCapture(id<MTLDevice> captureObject)
+    {
+        // Allow GPU frame capture "notifyutil -p com.apple.WebKit.WebGPU.CaptureFrame" when process is
+        // run with __XPC_METAL_CAPTURE_ENABLED=1
+        static std::once_flag onceFlag;
+        std::call_once(onceFlag, [] {
+            int captureFrameToken;
+            notify_register_dispatch("com.apple.WebKit.WebGPU.CaptureFrame", &captureFrameToken, dispatch_get_main_queue(), ^(int) {
+                enabled = true;
+            });
+
+            int captureFirstFrameToken;
+            notify_register_dispatch("com.apple.WebKit.WebGPU.ToggleCaptureFirstFrame", &captureFirstFrameToken, dispatch_get_main_queue(), ^(int) {
+                captureFirstFrame = !captureFirstFrame;
+            });
+        });
+
+        if (captureFirstFrame)
+            captureFrame(captureObject);
+    }
+private:
+    static void captureFrame(id<MTLDevice> captureObject)
+    {
+        MTLCaptureManager* captureManager = [MTLCaptureManager sharedCaptureManager];
+        if ([captureManager isCapturing])
+            return;
+
+        MTLCaptureDescriptor* captureDescriptor = [[MTLCaptureDescriptor alloc] init];
+        captureDescriptor.captureObject = captureObject;
+        captureDescriptor.destination = MTLCaptureDestinationGPUTraceDocument;
+        captureDescriptor.outputURL = [[NSFileManager.defaultManager temporaryDirectory] URLByAppendingPathComponent:[NSString stringWithFormat:@"%@.gputrace", NSUUID.UUID.UUIDString]];
+
+        NSError *error;
+        if (![captureManager startCaptureWithDescriptor:captureDescriptor error:&error])
+            WTFLogAlways("Failed to start GPU frame capture at path %@, error %@", captureDescriptor.outputURL.absoluteString, error);
+        else
+            WTFLogAlways("Success starting GPU frame capture at path %@", captureDescriptor.outputURL.absoluteString);
+    }
+
+    static bool captureFirstFrame;
+    static bool enabled;
+};
+
+bool GPUFrameCapture::captureFirstFrame = false;
+bool GPUFrameCapture::enabled = false;
 
 Ref<Device> Device::create(id<MTLDevice> device, String&& deviceLabel, HardwareCapabilities&& capabilities, Adapter& adapter)
 {
@@ -70,7 +126,7 @@ Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareC
     , m_adapter(adapter)
 {
 #if PLATFORM(MAC)
-    auto devices = MTLCopyAllDevicesWithObserver(&m_deviceObserver, [weakThis = WeakPtr { *this }](id<MTLDevice> device, MTLDeviceNotificationName) {
+    auto devices = MTLCopyAllDevicesWithObserver(&m_deviceObserver, [weakThis = ThreadSafeWeakPtr { *this }](id<MTLDevice> device, MTLDeviceNotificationName) {
         RefPtr<Device> strongThis = weakThis.get();
         if (!strongThis)
             return;
@@ -94,6 +150,8 @@ Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareC
     UNUSED_VARIABLE(devices);
 #endif
 #endif
+
+    GPUFrameCapture::registerForFrameCapture(m_device);
 }
 
 Device::Device(Adapter& adapter)
@@ -194,6 +252,23 @@ void Device::generateAValidationError(String&& message)
             protectedThis->m_uncapturedErrorCallback(WGPUErrorType_Validation, WTFMove(message));
         });
     }
+}
+
+uint32_t Device::maxBuffersPlusVertexBuffersForVertexStage() const
+{
+    // FIXME: use value in HardwareCapabilities from https://github.com/gpuweb/gpuweb/issues/2749
+    return 8;
+}
+
+uint32_t Device::vertexBufferIndexForBindGroup(uint32_t groupIndex) const
+{
+    auto maxIndex = maxBuffersPlusVertexBuffersForVertexStage();
+    return WGSL::vertexBufferIndexForBindGroup(groupIndex, maxIndex);
+}
+
+void Device::captureFrameIfNeeded() const
+{
+    GPUFrameCapture::captureSingleFrameIfNeeded(m_device);
 }
 
 bool Device::validatePopErrorScope() const
@@ -298,7 +373,7 @@ void wgpuDeviceCreateComputePipelineAsync(WGPUDevice device, const WGPUComputePi
 
 void wgpuDeviceCreateComputePipelineAsyncWithBlock(WGPUDevice device, WGPUComputePipelineDescriptor const * descriptor, WGPUCreateComputePipelineAsyncBlockCallback callback)
 {
-    WebGPU::fromAPI(device).createComputePipelineAsync(*descriptor, [callback = WTFMove(callback)](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::ComputePipeline>&& pipeline, String&& message) {
+    WebGPU::fromAPI(device).createComputePipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::ComputePipeline>&& pipeline, String&& message) {
         callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), message.utf8().data());
     });
 }
@@ -332,7 +407,7 @@ void wgpuDeviceCreateRenderPipelineAsync(WGPUDevice device, const WGPURenderPipe
 
 void wgpuDeviceCreateRenderPipelineAsyncWithBlock(WGPUDevice device, WGPURenderPipelineDescriptor const * descriptor, WGPUCreateRenderPipelineAsyncBlockCallback callback)
 {
-    WebGPU::fromAPI(device).createRenderPipelineAsync(*descriptor, [callback = WTFMove(callback)](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::RenderPipeline>&& pipeline, String&& message) {
+    WebGPU::fromAPI(device).createRenderPipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::RenderPipeline>&& pipeline, String&& message) {
         callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), message.utf8().data());
     });
 }
@@ -391,7 +466,7 @@ bool wgpuDevicePopErrorScope(WGPUDevice device, WGPUErrorCallback callback, void
 
 bool wgpuDevicePopErrorScopeWithBlock(WGPUDevice device, WGPUErrorBlockCallback callback)
 {
-    return WebGPU::fromAPI(device).popErrorScope([callback = WTFMove(callback)](WGPUErrorType type, String&& message) {
+    return WebGPU::fromAPI(device).popErrorScope([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUErrorType type, String&& message) {
         callback(type, message.utf8().data());
     });
 }
@@ -411,7 +486,7 @@ void wgpuDeviceSetDeviceLostCallback(WGPUDevice device, WGPUDeviceLostCallback c
 
 void wgpuDeviceSetDeviceLostCallbackWithBlock(WGPUDevice device, WGPUDeviceLostBlockCallback callback)
 {
-    return WebGPU::fromAPI(device).setDeviceLostCallback([callback = WTFMove(callback)](WGPUDeviceLostReason reason, String&& message) {
+    return WebGPU::fromAPI(device).setDeviceLostCallback([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUDeviceLostReason reason, String&& message) {
         if (callback)
             callback(reason, message.utf8().data());
     });
@@ -427,7 +502,7 @@ void wgpuDeviceSetUncapturedErrorCallback(WGPUDevice device, WGPUErrorCallback c
 
 void wgpuDeviceSetUncapturedErrorCallbackWithBlock(WGPUDevice device, WGPUErrorBlockCallback callback)
 {
-    return WebGPU::fromAPI(device).setUncapturedErrorCallback([callback = WTFMove(callback)](WGPUErrorType type, String&& message) {
+    return WebGPU::fromAPI(device).setUncapturedErrorCallback([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUErrorType type, String&& message) {
         if (callback)
             callback(type, message.utf8().data());
     });

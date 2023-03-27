@@ -51,7 +51,7 @@ RenderWidget* HTMLFrameOwnerElement::renderWidget() const
     return downcast<RenderWidget>(renderer());
 }
 
-void HTMLFrameOwnerElement::setContentFrame(Frame& frame)
+void HTMLFrameOwnerElement::setContentFrame(AbstractFrame& frame)
 {
     // Make sure we will not end up with two frames referencing the same owner element.
     ASSERT(!m_contentFrame || m_contentFrame->ownerElement() != this);
@@ -76,7 +76,7 @@ void HTMLFrameOwnerElement::clearContentFrame()
 
 void HTMLFrameOwnerElement::disconnectContentFrame()
 {
-    if (RefPtr<Frame> frame = m_contentFrame.get()) {
+    if (RefPtr frame = dynamicDowncast<LocalFrame>(m_contentFrame.get())) {
         frame->loader().frameDetached();
         frame->disconnectOwnerElement();
     }
@@ -90,7 +90,9 @@ HTMLFrameOwnerElement::~HTMLFrameOwnerElement()
 
 Document* HTMLFrameOwnerElement::contentDocument() const
 {
-    return m_contentFrame ? m_contentFrame->document() : nullptr;
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_contentFrame.get()))
+        return localFrame->document();
+    return nullptr;
 }
 
 WindowProxy* HTMLFrameOwnerElement::contentWindow() const
@@ -132,9 +134,11 @@ bool HTMLFrameOwnerElement::isProhibitedSelfReference(const URL& completeURL) co
 {
     // We allow one level of self-reference because some websites depend on that, but we don't allow more than one.
     bool foundOneSelfReference = false;
-    for (auto* frame = document().frame(); frame; frame = frame->tree().parent()) {
-        // Use creationURL() because url() can be changed via History.replaceState() so it's not reliable.
-        if (equalIgnoringFragmentIdentifier(frame->document()->creationURL(), completeURL)) {
+    for (AbstractFrame* frame = document().frame(); frame; frame = frame->tree().parent()) {
+        auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        if (equalIgnoringFragmentIdentifier(localFrame->document()->url(), completeURL)) {
             if (foundOneSelfReference)
                 return true;
             foundOneSelfReference = true;

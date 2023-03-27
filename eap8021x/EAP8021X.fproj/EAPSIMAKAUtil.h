@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2019, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2019, 2021, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -219,6 +219,9 @@ ATNotificationCodeGetString(uint16_t code);
 
 CFStringRef
 EAPSIMAKAPacketCopyDescription(const EAPPacketRef pkt, bool * packet_is_valid);
+
+CFDictionaryRef
+EAPSIMAKAActionInfoForNotificationCode(CFDictionaryRef properties, uint16_t notification_code);
 
 #ifdef EAPSIMAKA_PACKET_DUMP
 bool

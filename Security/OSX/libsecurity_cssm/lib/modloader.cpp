@@ -92,8 +92,8 @@ Plugin *ModuleLoader::operator () (const string &path)
         plugin = new LoadablePlugin(path.c_str());
 	}
 	else {
-		secinfo("cssm", "ModuleLoader(): FOUND plugin %s, isLoaded %s", 
-			path.c_str(), plugin->isLoaded() ? "TRUE" : "FALSE");
+		secinfo("cssm", "ModuleLoader(): FOUND plugin %s, isLoaded %{BOOL}d", 
+			path.c_str(), plugin->isLoaded());
 		if(!plugin->isLoaded()) {
 			plugin->load();
 		}

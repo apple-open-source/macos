@@ -241,7 +241,7 @@ __private_extern__ uint64_t inFlightDimRequest(void)
     return gDimRequest;
 }
 
-__private_extern__ void resetDisplayState()
+__private_extern__ void resetDisplayState(void)
 {
     if (gDisplayOn) {
         INFO_LOG("Resetting display state to off on sleep");
@@ -612,7 +612,7 @@ void displayStateDidChange(uint64_t state)
     }
 }
 
-uint32_t rootDomainClamshellState()
+uint32_t rootDomainClamshellState(void)
 {
     CFBooleanRef clamshell_state = NULL;
     uint32_t result = kPMClamshellUnknown;

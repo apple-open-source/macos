@@ -27,6 +27,7 @@
 #include "DocumentTimeline.h"
 
 #include "AnimationEventBase.h"
+#include "CSSProperty.h"
 #include "CSSTransition.h"
 #include "CustomAnimationOptions.h"
 #include "CustomEffect.h"
@@ -38,6 +39,7 @@
 #include "GraphicsLayer.h"
 #include "KeyframeEffect.h"
 #include "KeyframeEffectStack.h"
+#include "Logging.h"
 #include "Node.h"
 #include "Page.h"
 #include "RenderBoxModelObject.h"
@@ -234,8 +236,8 @@ bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
     if (!is<KeyframeEffect>(effect))
         return false;
 
-    auto* keyframeEffect = downcast<KeyframeEffect>(effect);
-    auto target = keyframeEffect->targetStyleable();
+    auto& keyframeEffect = downcast<KeyframeEffect>(*effect);
+    auto target = keyframeEffect.targetStyleable();
     if (!target || !target->element.isDescendantOf(*m_document))
         return false;
 
@@ -245,9 +247,15 @@ bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
         return RenderStyle::defaultStyle();
     }();
 
-    HashSet<CSSPropertyID> propertiesToMatch;
-    for (auto cssProperty : keyframeEffect->animatedProperties())
-        propertiesToMatch.add(CSSProperty::resolveDirectionAwareProperty(cssProperty, style.direction(), style.writingMode()));
+    auto resolvedProperty = [&] (AnimatableProperty property) -> AnimatableProperty {
+        if (std::holds_alternative<CSSPropertyID>(property))
+            return CSSProperty::resolveDirectionAwareProperty(std::get<CSSPropertyID>(property), style.direction(), style.writingMode());
+        return property;
+    };
+
+    HashSet<AnimatableProperty> propertiesToMatch;
+    for (auto property : keyframeEffect.animatedProperties())
+        propertiesToMatch.add(resolvedProperty(property));
 
     auto protectedAnimations = [&]() -> Vector<RefPtr<WebAnimation>> {
         if (auto* effectStack = target->keyframeEffectStack()) {
@@ -263,12 +271,9 @@ bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
             break;
 
         if (animationWithHigherCompositeOrder && animationWithHigherCompositeOrder->isReplaceable()) {
-            auto* effectWithHigherCompositeOrder = animationWithHigherCompositeOrder->effect();
-            if (is<KeyframeEffect>(effectWithHigherCompositeOrder)) {
-                auto* keyframeEffectWithHigherCompositeOrder = downcast<KeyframeEffect>(effectWithHigherCompositeOrder);
-                for (auto cssProperty : keyframeEffectWithHigherCompositeOrder->animatedProperties()) {
-                    auto resolvedProperty = CSSProperty::resolveDirectionAwareProperty(cssProperty, style.direction(), style.writingMode());
-                    if (propertiesToMatch.remove(resolvedProperty) && propertiesToMatch.isEmpty())
+            if (auto* keyframeEffectWithHigherCompositeOrder = dynamicDowncast<KeyframeEffect>(animationWithHigherCompositeOrder->effect())) {
+                for (auto property : keyframeEffectWithHigherCompositeOrder->animatedProperties()) {
+                    if (propertiesToMatch.remove(resolvedProperty(property)) && propertiesToMatch.isEmpty())
                         break;
                 }
             }
@@ -298,7 +303,14 @@ void DocumentTimeline::removeReplacedAnimations()
             //    event queue along with its target, animation. For the scheduled event time, use the result of applying the procedure
             //    to convert timeline time to origin-relative time to the current time of the timeline with which animation is associated.
             //    Otherwise, queue a task to dispatch removeEvent at animation. The task source for this task is the DOM manipulation task source.
-            animation->enqueueAnimationPlaybackEvent(eventNames().removeEvent, animation->currentTime(), currentTime());
+            auto scheduledTime = [&]() -> std::optional<Seconds> {
+                if (auto* documentTimeline = dynamicDowncast<DocumentTimeline>(animation->timeline())) {
+                    if (auto currentTime = documentTimeline->currentTime())
+                        return documentTimeline->convertTimelineTimeToOriginRelativeTime(*currentTime);
+                }
+                return std::nullopt;
+            }();
+            animation->enqueueAnimationPlaybackEvent(eventNames().removeEvent, animation->currentTime(), scheduledTime);
 
             animationsToRemove.append(animation.get());
         }
@@ -310,15 +322,14 @@ void DocumentTimeline::removeReplacedAnimations()
     }
 }
 
-void DocumentTimeline::transitionDidComplete(RefPtr<CSSTransition> transition)
+void DocumentTimeline::transitionDidComplete(Ref<CSSTransition>&& transition)
 {
-    ASSERT(transition);
-    removeAnimation(*transition);
-    if (is<KeyframeEffect>(transition->effect())) {
-        if (auto styleable = downcast<KeyframeEffect>(transition->effect())->targetStyleable()) {
+    removeAnimation(transition.get());
+    if (auto* keyframeEffect = dynamicDowncast<KeyframeEffect>(transition->effect())) {
+        if (auto styleable = keyframeEffect->targetStyleable()) {
             auto property = transition->property();
             if (styleable->hasRunningTransitionForProperty(property))
-                styleable->ensureCompletedTransitionsByProperty().set(property, transition);
+                styleable->ensureCompletedTransitionsByProperty().set(property, WTFMove(transition));
         }
     }
 }
@@ -401,14 +412,11 @@ void DocumentTimeline::applyPendingAcceleratedAnimations()
 
     bool hasForcedLayout = false;
     for (auto& animation : acceleratedAnimationsPendingRunningStateChange) {
-        auto* effect = animation->effect();
-        if (!is<KeyframeEffect>(effect))
-            continue;
-
-        auto& keyframeEffect = downcast<KeyframeEffect>(*effect);
-        if (!hasForcedLayout)
-            hasForcedLayout |= keyframeEffect.forceLayoutIfNeeded();
-        keyframeEffect.applyPendingAcceleratedActions();
+        if (auto* keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect())) {
+            if (!hasForcedLayout)
+                hasForcedLayout |= keyframeEffect->forceLayoutIfNeeded();
+            keyframeEffect->applyPendingAcceleratedActions();
+        }
     }
 }
 
@@ -483,6 +491,12 @@ std::optional<FramesPerSecond> DocumentTimeline::maximumFrameRate() const
     if (!m_document || !m_document->page())
         return std::nullopt;
     return m_document->page()->displayNominalFramesPerSecond();
+}
+
+Seconds DocumentTimeline::convertTimelineTimeToOriginRelativeTime(Seconds timelineTime) const
+{
+    // https://drafts.csswg.org/web-animations-1/#ref-for-timeline-time-to-origin-relative-time
+    return timelineTime + m_originTime;
 }
 
 } // namespace WebCore

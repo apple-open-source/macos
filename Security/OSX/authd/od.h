@@ -10,4 +10,7 @@ AUTH_NONNULL_ALL
 bool
 odUserHasSecureToken(const char *username);
 
+void
+analyticsSendEventLazy(CFStringRef eventName, CFDictionaryRef payload);
+
 #endif /* _SECURITY_AUTHD_OD_H_ */

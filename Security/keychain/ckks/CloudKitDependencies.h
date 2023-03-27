@@ -119,6 +119,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, nullable) CKDatabase *database;
 @property (nonatomic, copy, nullable) NSArray<CKRecordID*>* recordIDs;
 @property (nonatomic, copy, nullable) NSArray<NSString*>* desiredKeys;
+@property (nonatomic, strong, nullable) CKOperationGroup* group;
 @property (nonatomic, copy, nullable) CKOperationConfiguration* configuration;
 @property (nonatomic, copy, nullable) void (^perRecordProgressBlock)(CKRecordID* recordID, double progress);
 @property (nonatomic, copy, nullable) void (^perRecordCompletionBlock)

@@ -23,7 +23,7 @@ extension Container {
     func resetSync(resetReason: CuttlefishResetReason, test: XCTestCase) -> Error? {
         let expectation = XCTestExpectation(description: "reset replied")
         var reterr: Error?
-        self.reset(resetReason: resetReason) { error in
+        self.reset(resetReason: resetReason, idmsTargetContext: nil, idmsCuttlefishPassword: nil, notifyIdMS: false) { error in
             reterr = error
             expectation.fulfill()
         }
@@ -55,7 +55,7 @@ extension Container {
                      policySecrets: [String: Data]? = nil,
                      syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus = .UNKNOWN,
                      secureElementIdentity: TPPBSecureElementIdentity? = nil,
-                     setting: OTAccountSettingsX? = nil,
+                     setting: OTAccountSettings? = nil,
                      signingPrivateKeyPersistentRef: Data? = nil,
                      encryptionPrivateKeyPersistentRef: Data? = nil
     ) -> (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, Error?) {
@@ -90,6 +90,7 @@ extension Container {
         test.wait(for: [expectation], timeout: 10.0)
         return (reta, retb, retc, retd, rete, retpolicy, reterr)
     }
+
     func establishSync(test: XCTestCase,
                        ckksKeys: [CKKSKeychainBackedKeySet],
                        tlkShares: [CKKSTLKShare],
@@ -219,7 +220,9 @@ extension Container {
                     policyVersion: UInt64? = nil,
                     policySecrets: [String: Data]? = nil,
                     syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus? = nil,
-                    secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity? = nil) -> (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) {
+                    secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity? = nil,
+                    walrusSetting: TPPBPeerStableInfoSetting? = nil,
+                    webAccess: TPPBPeerStableInfoSetting? = nil) -> (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "update replied")
         var reterr: Error?
         var retstate: TrustedPeersHelperPeerState?
@@ -231,7 +234,9 @@ extension Container {
                     policyVersion: policyVersion,
                     policySecrets: policySecrets,
                     syncUserControllableViews: syncUserControllableViews,
-                    secureElementIdentity: secureElementIdentity) { state, policy, err in
+                    secureElementIdentity: secureElementIdentity,
+                    walrusSetting: walrusSetting,
+                    webAccess: webAccess) { state, policy, err in
                         retstate = state
                         retpolicy = policy
                         reterr = err

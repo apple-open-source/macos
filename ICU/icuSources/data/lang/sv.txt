@@ -46,6 +46,7 @@ sv{
         ang{"fornengelska"}
         anp{"angika"}
         apw{"apache, väst"}
+        apw_Latn{"apache, väst"}
         ar{"arabiska"}
         ar_001{"modern standardarabiska"}
         arc{"arameiska"}
@@ -122,9 +123,12 @@ sv{
         chm{"mariska"}
         chn{"chinook"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"cherokesiska"}
         chy{"cheyenne"}
+        cic{"chickasaw"}
+        cic_Latn{"chickasaw"}
         ckb{"kurdiska (sorani)"}
         co{"korsikanska"}
         cop{"koptiska"}

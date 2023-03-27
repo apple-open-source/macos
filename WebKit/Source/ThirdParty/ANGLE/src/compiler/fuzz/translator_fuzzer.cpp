@@ -21,48 +21,6 @@ using namespace sh;
 
 namespace
 {
-
-// Options supported by any output
-constexpr ShCompileOptions kCommonOptions =
-    SH_VALIDATE_LOOP_INDEXING | SH_INTERMEDIATE_TREE | SH_OBJECT_CODE | SH_VARIABLES |
-    SH_LINE_DIRECTIVES | SH_SOURCE_PATH | SH_REMOVE_INVARIANT_AND_CENTROID_FOR_ESSL3 |
-    SH_EMULATE_ABS_INT_FUNCTION | SH_ENFORCE_PACKING_RESTRICTIONS | SH_CLAMP_INDIRECT_ARRAY_BOUNDS |
-    SH_LIMIT_EXPRESSION_COMPLEXITY | SH_LIMIT_CALL_STACK_DEPTH | SH_INIT_GL_POSITION |
-    SH_INIT_OUTPUT_VARIABLES | SH_SCALARIZE_VEC_AND_MAT_CONSTRUCTOR_ARGS |
-    SH_FLATTEN_PRAGMA_STDGL_INVARIANT_ALL | SH_HLSL_GET_DIMENSIONS_IGNORES_BASE_LEVEL |
-    SH_REWRITE_TEXELFETCHOFFSET_TO_TEXELFETCH | SH_EMULATE_ISNAN_FLOAT_FUNCTION |
-    SH_INITIALIZE_UNINITIALIZED_LOCALS | SH_INITIALIZE_BUILTINS_FOR_INSTANCED_MULTIVIEW |
-    SH_CLAMP_POINT_SIZE | SH_DONT_USE_LOOPS_TO_INITIALIZE_VARIABLES |
-    SH_SKIP_D3D_CONSTANT_REGISTER_ZERO | SH_EMULATE_GL_DRAW_ID | SH_INIT_SHARED_VARIABLES |
-    SH_FORCE_ATOMIC_VALUE_RESOLUTION | SH_EMULATE_GL_BASE_VERTEX_BASE_INSTANCE |
-    SH_TAKE_VIDEO_TEXTURE_AS_EXTERNAL_OES | SH_VALIDATE_AST | SH_ADD_BASE_VERTEX_TO_VERTEX_ID |
-    SH_REMOVE_DYNAMIC_INDEXING_OF_SWIZZLED_VECTOR | SH_DISABLE_ARB_TEXTURE_RECTANGLE |
-    SH_IGNORE_PRECISION_QUALIFIERS | SH_FORCE_SHADER_PRECISION_HIGHP_TO_MEDIUMP;
-
-// Options supported by GLSL or ESSL only
-constexpr ShCompileOptions kGLSLOrESSLOnlyOptions =
-    SH_EMULATE_ATAN2_FLOAT_FUNCTION | SH_CLAMP_FRAG_DEPTH | SH_REGENERATE_STRUCT_NAMES |
-    SH_REWRITE_REPEATED_ASSIGN_TO_SWIZZLED | SH_USE_UNUSED_STANDARD_SHARED_BLOCKS |
-    SH_SELECT_VIEW_IN_NV_GLSL_VERTEX_SHADER;
-
-#if defined(ANGLE_PLATFORM_APPLE)
-// Options supported by GLSL only on mac
-constexpr ShCompileOptions kGLSLMacOnlyOptions =
-    SH_REWRITE_FLOAT_UNARY_MINUS_OPERATOR | SH_ADD_AND_TRUE_TO_LOOP_CONDITION |
-    SH_REWRITE_DO_WHILE_LOOPS | SH_UNFOLD_SHORT_CIRCUIT | SH_REWRITE_ROW_MAJOR_MATRICES;
-#endif
-
-// Options supported by Vulkan SPIR-V output only
-constexpr ShCompileOptions kVulkanOnlyOptions =
-    SH_EMULATE_SEAMFUL_CUBE_MAP_SAMPLING | SH_USE_SPECIALIZATION_CONSTANT |
-    SH_ADD_VULKAN_XFB_EMULATION_SUPPORT_CODE | SH_ROUND_OUTPUT_AFTER_DITHERING |
-    SH_ADD_ADVANCED_BLEND_EQUATIONS_EMULATION;
-
-// Options supported by HLSL output only
-constexpr ShCompileOptions kHLSLOnlyOptions = SH_EXPAND_SELECT_HLSL_INTEGER_POW_EXPRESSIONS |
-                                              SH_ALLOW_TRANSLATE_UNIFORM_BLOCK_TO_STRUCTUREDBUFFER |
-                                              SH_REWRITE_INTEGER_UNARY_MINUS_OPERATOR;
-
 struct TranslatorCacheKey
 {
     bool operator==(const TranslatorCacheKey &other) const
@@ -97,10 +55,8 @@ struct TCompilerDeleter
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
-    // Reserve some size for future compile options
-    const size_t kHeaderSize = 128;
-
-    if (size <= kHeaderSize)
+    ShaderDumpHeader header{};
+    if (size <= sizeof(header))
     {
         return 0;
     }
@@ -111,10 +67,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
 
-    uint32_t type    = *reinterpret_cast<const uint32_t *>(data);
-    uint32_t spec    = *reinterpret_cast<const uint32_t *>(data + 4);
-    uint32_t output  = *reinterpret_cast<const uint32_t *>(data + 8);
-    uint64_t options = *reinterpret_cast<const uint64_t *>(data + 12);
+    memcpy(&header, data, sizeof(header));
+    ShCompileOptions options{};
+    memcpy(&options, &header.basicCompileOptions, offsetof(ShCompileOptions, metal));
+    memcpy(&options.metal, &header.metalCompileOptions, sizeof(options.metal));
+    memcpy(&options.pls, &header.plsCompileOptions, sizeof(options.pls));
+    size -= sizeof(header);
+    data += sizeof(header);
+    uint32_t type = header.type;
+    uint32_t spec = header.spec;
 
     if (type != GL_FRAGMENT_SHADER && type != GL_VERTEX_SHADER)
     {
@@ -127,31 +88,55 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
 
-    ShShaderOutput shaderOutput = static_cast<ShShaderOutput>(output);
+    ShShaderOutput shaderOutput = static_cast<ShShaderOutput>(header.output);
 
-    ShCompileOptions supportedOptions = kCommonOptions;
+    bool hasUnsupportedOptions = false;
 
-    if (IsOutputGLSL(shaderOutput) || IsOutputESSL(shaderOutput))
+    const bool hasMacGLSLOptions = options.rewriteFloatUnaryMinusOperator ||
+                                   options.addAndTrueToLoopCondition ||
+                                   options.rewriteDoWhileLoops || options.unfoldShortCircuit ||
+                                   options.rewriteRowMajorMatrices;
+
+    if (!IsOutputGLSL(shaderOutput) && !IsOutputESSL(shaderOutput))
     {
-        supportedOptions |= kGLSLOrESSLOnlyOptions;
-#if defined(ANGLE_PLATFORM_APPLE)
-        supportedOptions |= kGLSLMacOnlyOptions;
+        hasUnsupportedOptions =
+            hasUnsupportedOptions || options.emulateAtan2FloatFunction || options.clampFragDepth ||
+            options.regenerateStructNames || options.rewriteRepeatedAssignToSwizzled ||
+            options.useUnusedStandardSharedBlocks || options.selectViewInNvGLSLVertexShader;
+
+        hasUnsupportedOptions = hasUnsupportedOptions || hasMacGLSLOptions;
+    }
+    else
+    {
+#if !defined(ANGLE_PLATFORM_APPLE)
+        hasUnsupportedOptions = hasUnsupportedOptions || hasMacGLSLOptions;
 #endif
     }
-    else if (IsOutputVulkan(shaderOutput))
+    if (!IsOutputVulkan(shaderOutput))
     {
-        supportedOptions |= kVulkanOnlyOptions;
+        hasUnsupportedOptions =
+            hasUnsupportedOptions || options.emulateSeamfulCubeMapSampling ||
+            options.useSpecializationConstant || options.addVulkanXfbEmulationSupportCode ||
+            options.roundOutputAfterDithering || options.addAdvancedBlendEquationsEmulation;
     }
-    else if (IsOutputHLSL(shaderOutput))
+    if (!IsOutputHLSL(shaderOutput))
     {
-        supportedOptions |= kHLSLOnlyOptions;
+        hasUnsupportedOptions = hasUnsupportedOptions ||
+                                options.expandSelectHLSLIntegerPowExpressions ||
+                                options.allowTranslateUniformBlockToStructuredBuffer ||
+                                options.rewriteIntegerUnaryMinusOperator;
     }
 
     // If there are any options not supported with this output, don't attempt to run the translator.
-    if ((options & ~supportedOptions) != 0)
+    if (hasUnsupportedOptions)
     {
         return 0;
     }
+
+    // Make sure the rest of the options are in a valid range.
+    options.pls.fragmentSyncType = static_cast<ShFragmentSynchronizationType>(
+        static_cast<uint32_t>(options.pls.fragmentSyncType) %
+        static_cast<uint32_t>(ShFragmentSynchronizationType::InvalidEnum));
 
     std::vector<uint32_t> validOutputs;
     validOutputs.push_back(SH_ESSL_OUTPUT);
@@ -166,23 +151,20 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     validOutputs.push_back(SH_GLSL_430_CORE_OUTPUT);
     validOutputs.push_back(SH_GLSL_440_CORE_OUTPUT);
     validOutputs.push_back(SH_GLSL_450_CORE_OUTPUT);
+    validOutputs.push_back(SH_SPIRV_VULKAN_OUTPUT);
     validOutputs.push_back(SH_HLSL_3_0_OUTPUT);
     validOutputs.push_back(SH_HLSL_4_1_OUTPUT);
     validOutputs.push_back(SH_HLSL_4_0_FL9_3_OUTPUT);
     bool found = false;
     for (auto valid : validOutputs)
     {
-        found = found || (valid == output);
+        found = found || (valid == shaderOutput);
     }
     if (!found)
     {
         return 0;
     }
 
-    size -= kHeaderSize;
-    data += kHeaderSize;
-
-    sh::InitializeGlslang();
     if (!sh::Initialize())
     {
         return 0;
@@ -191,7 +173,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     TranslatorCacheKey key;
     key.type   = type;
     key.spec   = spec;
-    key.output = output;
+    key.output = shaderOutput;
 
     using UniqueTCompiler = std::unique_ptr<TCompiler, TCompilerDeleter>;
     static angle::base::NoDestructor<angle::HashMap<TranslatorCacheKey, UniqueTCompiler>>
@@ -230,6 +212,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         resources.MaxClipDistances                = 1;
         resources.EXT_shadow_samplers             = 1;
         resources.EXT_clip_cull_distance          = 1;
+        resources.ANGLE_clip_cull_distance        = 1;
         resources.EXT_primitive_bounding_box      = 1;
         resources.OES_primitive_bounding_box      = 1;
 

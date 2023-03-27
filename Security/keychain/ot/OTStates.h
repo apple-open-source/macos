@@ -102,6 +102,9 @@ extern OctagonState* const OctagonStateDeviceListUpdated;
 extern OctagonState* const OctagonStateBottleJoinCreateIdentity;
 extern OctagonState* const OctagonStateBottlePreloadOctagonKeysInSOS;
 
+/* used as part of joining with recovery key */
+extern OctagonState* const OctagonStateStashAccountSettingsForRecoveryKey;
+
 /* used for join with recovery key */
 extern OctagonState* const OctagonStateCreateIdentityForRecoveryKey;
 
@@ -149,6 +152,7 @@ extern OctagonState* const OctagonStateCuttlefishTrustCheck;
 extern OctagonState* const OctagonStatePostRepairCFU;
 extern OctagonState* const OctagonStateHealthCheckReset;
 
+extern OctagonState* const OctagonStateSetAccountSettings;
 
 //Leave Clique
 extern OctagonState* const OctagonStateHealthCheckLeaveClique;

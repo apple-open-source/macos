@@ -406,7 +406,7 @@ der_get_heim_integer (const unsigned char *p, size_t len,
 
 	data->length = len;
 
-	if (p[0] == 0xff) {
+	if (p[0] == 0xff && len > 1) {
 	    p++;
 	    data->length--;
 	}
@@ -430,7 +430,7 @@ der_get_heim_integer (const unsigned char *p, size_t len,
 	data->negative = 0;
 	data->length = len;
 
-	if (p[0] == 0) {
+	if (p[0] == 0 && len > 1) {
 	    p++;
 	    data->length--;
 	}

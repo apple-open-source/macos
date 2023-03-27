@@ -102,9 +102,10 @@ public:
     virtual bool currentFrameKnownToBeOpaque() const = 0;
     virtual bool isAnimated() const { return false; }
 
-    // Derived classes should override this if they can assure that 
-    // the image contains only resources from its own security origin.
-    virtual bool hasSingleSecurityOrigin() const { return false; }
+    // Derived classes should override this if their rendering could leak
+    // cross-origin data (outside of the resource itself, which undergoes
+    // a CORS cross-origin check).
+    virtual bool renderingTaintsOrigin() const { return false; }
 
     WEBCORE_EXPORT static Image& nullImage();
     bool isNull() const { return size().isEmpty(); }
@@ -146,6 +147,8 @@ public:
     virtual void resetAnimation() {}
     virtual bool isAnimating() const { return false; }
     bool animationPending() const { return m_animationStartTimer && m_animationStartTimer->isActive(); }
+    std::optional<bool> allowsAnimation() const { return m_allowsAnimation; }
+    void setAllowsAnimation(std::optional<bool> allowsAnimation) { m_allowsAnimation = allowsAnimation; }
 
     // Typically the CachedImage that owns us.
     ImageObserver* imageObserver() const { return m_imageObserver; }
@@ -211,6 +214,9 @@ private:
     RefPtr<FragmentedSharedBuffer> m_encodedImageData;
     ImageObserver* m_imageObserver;
     std::unique_ptr<Timer> m_animationStartTimer;
+
+    // A value of true or false will override the default Page::imageAnimationEnabled state.
+    std::optional<bool> m_allowsAnimation { std::nullopt };
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, const Image&);

@@ -35,7 +35,9 @@
 
 #include "keychain/securityd/SecItemServer.h"
 
+#include <CoreFoundation/CFPriv.h>
 #include <notify.h>
+#include <os/lock_private.h>
 #include "keychain/securityd/SecItemDataSource.h"
 #include "keychain/securityd/SecItemDb.h"
 #include "keychain/securityd/SecItemSchema.h"
@@ -61,6 +63,7 @@
 #import "keychain/ot/OT.h"
 #import "keychain/ot/OTConstants.h"
 #import "keychain/escrowrequest/EscrowRequestServerHelpers.h"
+
 
 #if USE_KEYSTORE
 
@@ -111,6 +114,7 @@ void SecItemServerSetKeychainChangedNotification(const char *notification_name)
 {
     g_keychain_changed_notification = notification_name;
 }
+
 
 void SecKeychainChanged(void) {
     static dispatch_once_t once;
@@ -1524,7 +1528,11 @@ CFStringRef __SecKeychainCopyPath(void) {
 #endif // SECURITYD_SYSTEM
 
     CFStringRef kcPath = NULL;
+#if defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM
+    CFURLRef kcURL = SecCopyURLForFileInSystemKeychainDirectory(kcRelPath);
+#else
     CFURLRef kcURL = SecCopyURLForFileInKeychainDirectory(kcRelPath);
+#endif
     if (kcURL) {
         kcPath = CFURLCopyFileSystemPath(kcURL, kCFURLPOSIXPathStyle);
         CFRelease(kcURL);
@@ -1620,7 +1628,8 @@ SecDbRef SecKeychainDbInitialize(SecDbRef db) {
             EscrowRequestServerInitialize();
         });
     }
-#endif
+
+#endif  // OCTAGON
 
     return db;
 }
@@ -2122,13 +2131,6 @@ static CFStringRef CopyAccessGroupForPersistentRef(CFStringRef itemClass, CFData
     }
 }
 
-// Expand this, rdar://problem/59297616
-// Known attributes which are not API/SPI should not be permitted in queries
-static bool nonAPIAttributesInDictionary(CFDictionaryRef attrs) {
-    return CFDictionaryContainsKey(attrs, kSecAttrAppClipItem);
-}
-
-#if KCSHARING || KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 static bool
 SecItemSynchronizable(CFDictionaryRef query)
 {
@@ -2153,8 +2155,24 @@ SecItemSynchronizable(CFDictionaryRef query)
 
     return result;
 }
-#endif
 
+// Expand this, rdar://problem/59297616
+// Known attributes which are not API/SPI should not be permitted in queries
+typedef CF_ENUM(CFIndex, QueryAttributesDescriptor) {
+    QueryAttributesForAdd,
+    QueryAttributesForSearch,
+    QueryAttributesForUpdate,
+    QueryAttributesForDelete,
+};
+
+static bool queryHasValidAttributes(CFDictionaryRef attrs, QueryAttributesDescriptor desc, CFErrorRef *error) {
+    if (CFDictionaryContainsKey(attrs, kSecAttrAppClipItem)) {
+        return SecError(errSecParam, error, CFSTR("Non-API attributes present in query"));
+    }
+
+
+    return true;
+}
 
 static bool appClipHasAcceptableAccessGroups(SecurityClient* client) {
     if (!client || !client->applicationIdentifier || !client->accessGroups) {
@@ -2182,11 +2200,9 @@ static bool
 SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
     SecurityClient *client, CFErrorRef *error)
 {
-    if (nonAPIAttributesInDictionary(query)) {
-        SecError(errSecParam, error, CFSTR("Non-API attributes present in query"));
+    if (!queryHasValidAttributes(query, QueryAttributesForSearch, error)) {
         return false;
     }
-
 
     CFArrayRef accessGroups = CFRetainSafe(client->accessGroups);
 
@@ -2328,11 +2344,9 @@ SecurityClientCopyWritableAccessGroups(SecurityClient *client) {
 bool
 _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *result, CFErrorRef *error)
 {
-    if (nonAPIAttributesInDictionary(attributes)) {
-        SecError(errSecParam, error, CFSTR("Non-API attributes present"));
+    if (!queryHasValidAttributes(attributes, QueryAttributesForAdd, error)) {
         return false;
     }
-
 
     CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
@@ -2503,11 +2517,9 @@ bool
 _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
                SecurityClient *client, CFErrorRef *error)
 {
-    if (nonAPIAttributesInDictionary(query) || nonAPIAttributesInDictionary(attributesToUpdate)) {
-        SecError(errSecParam, error, CFSTR("Non-API attributes present"));
+    if (!queryHasValidAttributes(query, QueryAttributesForSearch, error) || !queryHasValidAttributes(attributesToUpdate, QueryAttributesForUpdate, error)) {
         return false;
     }
-
 
     CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
@@ -2617,11 +2629,9 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
 bool
 _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
 {
-    if (nonAPIAttributesInDictionary(query)) {
-        SecError(errSecParam, error, CFSTR("Non-API attributes present"));
+    if (!queryHasValidAttributes(query, QueryAttributesForDelete, error)) {
         return false;
     }
-
 
     CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
@@ -4155,16 +4165,18 @@ CFArrayRef _SecItemCopyParentCertificates(CFDataRef normalizedIssuer, CFArrayRef
         kSecClass,
         kSecReturnData,
         kSecMatchLimit,
-        kSecAttrSubject
-    },
-    *values[] = {
+        kSecAttrSubject,
+        kSecAttrSynchronizable
+    };
+    const void *values[] = {
         kSecClassCertificate,
         kCFBooleanTrue,
         kSecMatchLimitAll,
-        normalizedIssuer
+        normalizedIssuer,
+        kSecAttrSynchronizableAny
     };
-    CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 4,
-                                               NULL, NULL);
+    CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, sizeof(keys)/sizeof(*keys),
+                                               &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFTypeRef results = NULL;
     SecurityClient client = {
         .task = NULL,
@@ -4188,13 +4200,15 @@ bool _SecItemCertificateExists(CFDataRef normalizedIssuer, CFDataRef serialNumbe
         kSecClass,
         kSecMatchLimit,
         kSecAttrIssuer,
-        kSecAttrSerialNumber
-    },
-    *values[] = {
+        kSecAttrSerialNumber,
+        kSecAttrSynchronizable
+    };
+    const void *values[] = {
         kSecClassCertificate,
         kSecMatchLimitOne,
         normalizedIssuer,
-        serialNumber
+        serialNumber,
+        kSecAttrSynchronizableAny
     };
     SecurityClient client = {
         .task = NULL,
@@ -4207,7 +4221,8 @@ bool _SecItemCertificateExists(CFDataRef normalizedIssuer, CFDataRef serialNumbe
 #endif
         .isNetworkExtension = false,
     };
-    CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 4, NULL, NULL);
+    CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, sizeof(keys)/sizeof(*keys),
+                                               &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFTypeRef results = NULL;
     bool ok = _SecItemCopyMatching(query, &client, &results, error);
     CFReleaseSafe(query);

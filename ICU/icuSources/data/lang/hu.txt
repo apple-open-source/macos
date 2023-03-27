@@ -43,6 +43,7 @@ hu{
         ang{"óangol"}
         anp{"angika"}
         apw{"apacs (nyugati)"}
+        apw_Latn{"apacs (nyugati)"}
         ar{"arab"}
         ar_001{"modern szabványos arab"}
         arc{"arámi"}
@@ -105,9 +106,12 @@ hu{
         chm{"mari"}
         chn{"csinuk zsargon"}
         cho{"csoktó"}
+        cho_Latn{"csoktó"}
         chp{"csipevé"}
         chr{"cseroki"}
         chy{"csejen"}
+        cic{"csikaszó"}
+        cic_Latn{"csikaszó"}
         ckb{"kurd, szoráni"}
         co{"korzikai"}
         cop{"kopt"}

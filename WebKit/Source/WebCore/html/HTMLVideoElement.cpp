@@ -39,6 +39,7 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "ImageBuffer.h"
+#include "JSDOMPromiseDeferred.h"
 #include "Logging.h"
 #include "Page.h"
 #include "Performance.h"
@@ -180,10 +181,10 @@ bool HTMLVideoElement::supportsFullscreen(HTMLMediaElementEnums::VideoFullscreen
         return false;
 
 #if PLATFORM(IOS_FAMILY)
-    UNUSED_PARAM(videoFullscreenMode);
     // Fullscreen implemented by player.
-    return true;
-#else
+    if (!document().settings().videoFullscreenRequiresElementFullscreen())
+        return true;
+#endif
 
 #if ENABLE(FULLSCREEN_API)
     if (videoFullscreenMode == HTMLMediaElementEnums::VideoFullscreenModeStandard && !document().settings().fullScreenEnabled())
@@ -199,13 +200,14 @@ bool HTMLVideoElement::supportsFullscreen(HTMLMediaElementEnums::VideoFullscreen
         return false;
 
     return page->chrome().client().supportsVideoFullscreen(videoFullscreenMode);
-#endif // PLATFORM(IOS_FAMILY)
 }
 
 #if ENABLE(FULLSCREEN_API) && PLATFORM(IOS_FAMILY)
-void HTMLVideoElement::webkitRequestFullscreen()
+void HTMLVideoElement::requestFullscreen(FullscreenOptions&&, RefPtr<DeferredPromise>&& promise)
 {
     webkitSetPresentationMode(HTMLVideoElement::VideoPresentationMode::Fullscreen);
+    if (promise)
+        promise->resolve();
 }
 #endif
 
@@ -283,7 +285,7 @@ void HTMLVideoElement::mediaPlayerFirstVideoFrameAvailable()
 
 std::optional<DestinationColorSpace> HTMLVideoElement::colorSpace() const
 {
-    RefPtr<MediaPlayer> player = HTMLMediaElement::player();
+    auto player = this->player();
     if (!player)
         return std::nullopt;
 
@@ -332,10 +334,11 @@ bool HTMLVideoElement::shouldGetNativeImageForCanvasDrawing() const
 
 RefPtr<NativeImage> HTMLVideoElement::nativeImageForCurrentTime()
 {
-    if (!player())
+    auto player = this->player();
+    if (!player)
         return nullptr;
 
-    return player()->nativeImageForCurrentTime();
+    return player->nativeImageForCurrentTime();
 }
 
 ExceptionOr<void> HTMLVideoElement::webkitEnterFullscreen()
@@ -367,9 +370,6 @@ bool HTMLVideoElement::webkitSupportsFullscreen()
 
 bool HTMLVideoElement::webkitDisplayingFullscreen()
 {
-    if (document().quirks().needsAkamaiMediaPlayerQuirk(*this))
-        return isFullscreen() || isChangingVideoFullscreenMode();
-
     return isFullscreen();
 }
 

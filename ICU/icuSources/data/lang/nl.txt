@@ -122,9 +122,12 @@ nl{
         chm{"Mari"}
         chn{"Chinook Jargon"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chp{"Chipewyan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}
+        cic{"Chickasaw"}
+        cic_Latn{"Chickasaw"}
         ckb{"Koerdisch, Soranî"}
         co{"Corsicaans"}
         cop{"Koptisch"}

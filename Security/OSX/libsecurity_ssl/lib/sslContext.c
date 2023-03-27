@@ -1489,8 +1489,8 @@ SSLSetEnableCertVerify		(SSLContextRef		ctx,
 	if(ctx == NULL) {
 		return errSecParam;
 	}
-	sslCertDebug("SSLSetEnableCertVerify %s",
-		enableVerify ? "true" : "false");
+	sslCertDebug("SSLSetEnableCertVerify %{bool}d",
+		enableVerify);
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
 		return errSecBadReq;
@@ -1549,7 +1549,7 @@ OSStatus SSLSetAllowsAnyRoot(
 	if(ctx == NULL) {
 		return errSecParam;
 	}
-	sslCertDebug("SSLSetAllowsAnyRoot %s",	anyRoot ? "true" : "false");
+	sslCertDebug("SSLSetAllowsAnyRoot %{bool}d",	anyRoot);
 	ctx->allowAnyRoot = anyRoot;
 	return errSecSuccess;
 }
@@ -1597,8 +1597,8 @@ SSLSetTrustedRoots			(SSLContextRef 		ctx,
 		/* can't do this with an active session */
 		return errSecBadReq;
 	}
-	sslCertDebug("SSLSetTrustedRoot  numCerts %d  replaceExist %s",
-		(int)CFArrayGetCount(trustedRoots), replaceExisting ? "true" : "false");
+	sslCertDebug("SSLSetTrustedRoot  numCerts %d  replaceExist %{bool}d",
+		(int)CFArrayGetCount(trustedRoots), replaceExisting);
 
     if (replaceExisting) {
         ctx->trustedCertsOnly = true;

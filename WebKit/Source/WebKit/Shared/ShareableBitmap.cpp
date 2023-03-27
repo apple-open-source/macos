@@ -37,71 +37,7 @@ using namespace WebCore;
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ShareableBitmap);
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ShareableBitmap);
 
-ShareableBitmap::Handle::Handle()
-{
-}
-
-void ShareableBitmap::Handle::takeOwnershipOfMemory(MemoryLedger ledger) const
-{
-    m_handle.takeOwnershipOfMemory(ledger);
-}
-
-void ShareableBitmap::Handle::encode(IPC::Encoder& encoder) const
-{
-    encoder << m_handle;
-    encoder << m_size;
-    encoder << m_configuration;
-}
-
-bool ShareableBitmap::Handle::decode(IPC::Decoder& decoder, Handle& handle)
-{
-    SharedMemory::Handle memoryHandle;
-    if (!decoder.decode(memoryHandle))
-        return false;
-    if (!decoder.decode(handle.m_size))
-        return false;
-    if (handle.m_size.width() < 0 || handle.m_size.height() < 0)
-        return false;
-    if (!decoder.decode(handle.m_configuration))
-        return false;
-    auto numBytes = numBytesForSize(handle.m_size, handle.m_configuration);
-    if (numBytes.hasOverflowed())
-        return false;
-    if (memoryHandle.size() < numBytes)
-        return false;
-    handle.m_handle = WTFMove(memoryHandle);
-    return true;
-}
-
-void ShareableBitmap::Handle::clear()
-{
-    m_handle.clear();
-    m_size = IntSize();
-    m_configuration = { };
-}
-
-void ShareableBitmap::Configuration::encode(IPC::Encoder& encoder) const
-{
-    encoder << colorSpace << isOpaque;
-}
-
-bool ShareableBitmap::Configuration::decode(IPC::Decoder& decoder, Configuration& result)
-{
-    std::optional<std::optional<WebCore::DestinationColorSpace>> colorSpace;
-    decoder >> colorSpace;
-    if (!colorSpace)
-        return false;
-
-    std::optional<bool> isOpaque;
-    decoder >> isOpaque;
-    if (!isOpaque)
-        return false;
-
-    result = Configuration { WTFMove(*colorSpace), *isOpaque };
-    return true;
-}
-
-RefPtr<ShareableBitmap> ShareableBitmap::create(const IntSize& size, Configuration configuration)
+RefPtr<ShareableBitmap> ShareableBitmap::create(const IntSize& size, ShareableBitmapConfiguration configuration)
 {
     validateConfiguration(configuration);
     auto numBytes = numBytesForSize(size, configuration);
@@ -115,7 +51,7 @@ RefPtr<ShareableBitmap> ShareableBitmap::create(const IntSize& size, Configurati
     return adoptRef(new ShareableBitmap(size, configuration, sharedMemory.releaseNonNull()));
 }
 
-RefPtr<ShareableBitmap> ShareableBitmap::create(const IntSize& size, Configuration configuration, Ref<SharedMemory>&& sharedMemory)
+RefPtr<ShareableBitmap> ShareableBitmap::create(const IntSize& size, ShareableBitmapConfiguration configuration, Ref<SharedMemory>&& sharedMemory)
 {
     validateConfiguration(configuration);
     auto numBytes = numBytesForSize(size, configuration);
@@ -129,7 +65,7 @@ RefPtr<ShareableBitmap> ShareableBitmap::create(const IntSize& size, Configurati
     return adoptRef(new ShareableBitmap(size, configuration, WTFMove(sharedMemory)));
 }
 
-RefPtr<ShareableBitmap> ShareableBitmap::create(const Handle& handle, SharedMemory::Protection protection)
+RefPtr<ShareableBitmap> ShareableBitmap::create(const ShareableBitmapHandle& handle, SharedMemory::Protection protection)
 {
     auto sharedMemory = SharedMemory::map(handle.m_handle, protection);
     if (!sharedMemory)
@@ -138,16 +74,43 @@ RefPtr<ShareableBitmap> ShareableBitmap::create(const Handle& handle, SharedMemo
     return create(handle.m_size, handle.m_configuration, sharedMemory.releaseNonNull());
 }
 
-bool ShareableBitmap::createHandle(Handle& handle, SharedMemory::Protection protection) const
+std::optional<Ref<ShareableBitmap>> ShareableBitmap::createReadOnly(const std::optional<ShareableBitmapHandle>& handle)
 {
-    if (!m_sharedMemory->createHandle(handle.m_handle, protection))
-        return false;
-    handle.m_size = m_size;
-    handle.m_configuration = m_configuration;
-    return true;
+    if (!handle)
+        return std::nullopt;
+
+    auto sharedMemory = SharedMemory::map(handle->m_handle, SharedMemory::Protection::ReadOnly);
+    if (!sharedMemory)
+        return std::nullopt;
+    
+    return adoptRef(*new ShareableBitmap(handle->m_size, handle->m_configuration, sharedMemory.releaseNonNull()));
 }
 
-ShareableBitmap::ShareableBitmap(const IntSize& size, Configuration configuration, Ref<SharedMemory>&& sharedMemory)
+std::optional<ShareableBitmapHandle> ShareableBitmap::createHandle(SharedMemory::Protection protection) const
+{
+    auto memoryHandle = m_sharedMemory->createHandle(protection);
+    if (!memoryHandle)
+        return std::nullopt;
+    ShareableBitmapHandle handle;
+    handle.m_handle = WTFMove(*memoryHandle);
+    handle.m_size = m_size;
+    handle.m_configuration = m_configuration;
+    return { WTFMove(handle) };
+}
+
+std::optional<ShareableBitmapHandle> ShareableBitmap::createReadOnlyHandle() const
+{
+    ShareableBitmapHandle handle;
+    auto memoryHandle = m_sharedMemory->createHandle(SharedMemory::Protection::ReadOnly);
+    if (!memoryHandle)
+        return std::nullopt;
+    handle.m_handle = WTFMove(*memoryHandle);
+    handle.m_size = m_size;
+    handle.m_configuration = m_configuration;
+    return handle;
+}
+
+ShareableBitmap::ShareableBitmap(const IntSize& size, ShareableBitmapConfiguration configuration, Ref<SharedMemory>&& sharedMemory)
     : m_size(size)
     , m_configuration(configuration)
     , m_sharedMemory(WTFMove(sharedMemory))
@@ -159,7 +122,7 @@ void* ShareableBitmap::data() const
     return m_sharedMemory->data();
 }
 
-CheckedUint32 ShareableBitmap::numBytesForSize(WebCore::IntSize size, const ShareableBitmap::Configuration& configuration)
+CheckedUint32 ShareableBitmap::numBytesForSize(WebCore::IntSize size, const ShareableBitmapConfiguration& configuration)
 {
     return calculateBytesPerRow(size, configuration) * size.height();
 }

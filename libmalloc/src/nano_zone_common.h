@@ -47,6 +47,10 @@
 
 #endif // MALLOC_TARGET_IOS
 
+
+MALLOC_STATIC_ASSERT((SHIFT_NANO_SIGNATURE + NANOZONE_SIGNATURE_BITS) == 64, 
+		"Nano addresses must be 64 bits wide");
+
 static MALLOC_INLINE size_t
 _nano_common_good_size(size_t size)
 {

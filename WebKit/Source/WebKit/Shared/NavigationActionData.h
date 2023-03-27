@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "WebHitTestResultData.h"
 #include "WebMouseEvent.h"
 #include <WebCore/BackForwardItemIdentifier.h>
 #include <WebCore/FloatPoint.h>
@@ -48,9 +49,9 @@ struct NavigationActionData {
     static std::optional<NavigationActionData> decode(IPC::Decoder&);
 
     WebCore::NavigationType navigationType { WebCore::NavigationType::Other };
-    OptionSet<WebEvent::Modifier> modifiers;
-    WebMouseEvent::Button mouseButton { WebMouseEvent::NoButton };
-    WebMouseEvent::SyntheticClickType syntheticClickType { WebMouseEvent::NoTap };
+    OptionSet<WebEventModifier> modifiers;
+    WebMouseEventButton mouseButton { WebMouseEventButton::NoButton };
+    WebMouseEventSyntheticClickType syntheticClickType { WebMouseEventSyntheticClickType::NoTap };
     uint64_t userGestureTokenIdentifier { 0 };
     bool canHandleRequest { false };
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy { WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow };
@@ -60,6 +61,7 @@ struct NavigationActionData {
     bool treatAsSameOriginNavigation { false };
     bool hasOpenedFrames { false };
     bool openedByDOMWithOpener { false };
+    bool hasOpener { false };
     WebCore::SecurityOriginData requesterOrigin;
     std::optional<WebCore::BackForwardItemIdentifier> targetBackForwardItemIdentifier;
     std::optional<WebCore::BackForwardItemIdentifier> sourceBackForwardItemIdentifier;
@@ -68,6 +70,9 @@ struct NavigationActionData {
     WTF::String clientRedirectSourceForHistory;
     WebCore::SandboxFlags effectiveSandboxFlags { 0 };
     std::optional<WebCore::PrivateClickMeasurement> privateClickMeasurement;
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    std::optional<WebKit::WebHitTestResultData> webHitTestResultData;
+#endif
 };
 
 }

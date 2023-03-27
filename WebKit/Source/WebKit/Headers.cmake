@@ -49,6 +49,7 @@ set(WebKit_PUBLIC_FRAMEWORK_HEADERS
     UIProcess/API/C/WKCredentialTypes.h
     UIProcess/API/C/WKDownloadClient.h
     UIProcess/API/C/WKDownloadRef.h
+    UIProcess/API/C/WKFeature.h
     UIProcess/API/C/WKFormSubmissionListener.h
     UIProcess/API/C/WKFrame.h
     UIProcess/API/C/WKFrameHandleRef.h

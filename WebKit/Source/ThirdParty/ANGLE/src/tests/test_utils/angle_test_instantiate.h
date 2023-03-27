@@ -40,6 +40,7 @@ bool IsPixel2();
 bool IsPixel2XL();
 bool IsPixel4();
 bool IsPixel4XL();
+bool IsPixel6();
 bool IsNVIDIAShield();
 
 // GPU vendors.
@@ -53,9 +54,9 @@ bool IsQualcomm();
 // GPU devices.
 bool IsSwiftshaderDevice();
 bool IsIntelUHD630Mobile();
-bool IsIntelHD630Mobile();
 
 bool Is64Bit();
+bool HasMesa();
 
 bool IsPlatformAvailable(const PlatformParameters &param);
 
@@ -122,17 +123,30 @@ struct CombinedPrintToStringParamName
     INSTANTIATE_TEST_SUITE_P(, testName, testing::ValuesIn(::angle::FilterTestParams(valuesin)), \
                              testing::PrintToStringParamName())
 
+#if !defined(ANGLE_TEST_ENABLE_SYSTEM_EGL)
+#    define ANGLE_TEST_PLATFORMS_ES1_SYSTEM_EGL
+#    define ANGLE_TEST_PLATFORMS_ES2_SYSTEM_EGL
+#    define ANGLE_TEST_PLATFORMS_ES3_SYSTEM_EGL
+#else
+#    define ANGLE_TEST_PLATFORMS_ES1_SYSTEM_EGL ES1_EGL(),
+#    define ANGLE_TEST_PLATFORMS_ES2_SYSTEM_EGL ES2_EGL(),
+#    define ANGLE_TEST_PLATFORMS_ES3_SYSTEM_EGL ES3_EGL(),
+#endif
+
 #define ANGLE_ALL_TEST_PLATFORMS_ES1                                                   \
+    ANGLE_TEST_PLATFORMS_ES1_SYSTEM_EGL                                                \
     ES1_D3D11(), ES1_OPENGL(), ES1_OPENGLES(), ES1_VULKAN(), ES1_VULKAN_SWIFTSHADER(), \
         ES1_VULKAN().enable(Feature::AsyncCommandQueue),                               \
         ES1_VULKAN_SWIFTSHADER().enable(Feature::AsyncCommandQueue)
 
 #define ANGLE_ALL_TEST_PLATFORMS_ES2                                                               \
+    ANGLE_TEST_PLATFORMS_ES2_SYSTEM_EGL                                                            \
     ES2_D3D9(), ES2_D3D11(), ES2_OPENGL(), ES2_OPENGLES(), ES2_VULKAN(), ES2_VULKAN_SWIFTSHADER(), \
         ES2_METAL(), ES2_VULKAN().enable(Feature::AsyncCommandQueue),                              \
         ES2_VULKAN_SWIFTSHADER().enable(Feature::AsyncCommandQueue)
 
 #define ANGLE_ALL_TEST_PLATFORMS_ES3                                                   \
+    ANGLE_TEST_PLATFORMS_ES3_SYSTEM_EGL                                                \
     ES3_D3D11(), ES3_OPENGL(), ES3_OPENGLES(), ES3_VULKAN(), ES3_VULKAN_SWIFTSHADER(), \
         ES3_METAL(), ES3_VULKAN().enable(Feature::AsyncCommandQueue),                  \
         ES3_VULKAN_SWIFTSHADER().enable(Feature::AsyncCommandQueue)
@@ -144,6 +158,8 @@ struct CombinedPrintToStringParamName
 
 #define ANGLE_ALL_TEST_PLATFORMS_ES32 \
     ES32_VULKAN(), ES32_VULKAN().enable(Feature::AsyncCommandQueue)
+
+#define ANGLE_ALL_TEST_PLATFORMS_GL32_CORE GL32_CORE_VULKAN(), GL32_CORE_VULKAN_SWIFTSHADER()
 
 #define ANGLE_ALL_TEST_PLATFORMS_NULL ES2_NULL(), ES3_NULL(), ES31_NULL()
 
@@ -197,6 +213,18 @@ struct CombinedPrintToStringParamName
     INSTANTIATE_TEST_SUITE_P(, testName, ANGLE_INSTANTIATE_TEST_PLATFORMS(testName),            \
                              testing::PrintToStringParamName())
 
+// Instantiate the test once for each desktop GL 3.2 core platform
+#define ANGLE_INSTANTIATE_TEST_GL32_CORE(testName)                                      \
+    const PlatformParameters testName##params[] = {ANGLE_ALL_TEST_PLATFORMS_GL32_CORE}; \
+    INSTANTIATE_TEST_SUITE_P(, testName, ANGLE_INSTANTIATE_TEST_PLATFORMS(testName),    \
+                             testing::PrintToStringParamName())
+
+#define ANGLE_INSTANTIATE_TEST_GL32_CORE_AND(testName, ...)                            \
+    const PlatformParameters testName##params[] = {ANGLE_ALL_TEST_PLATFORMS_GL32_CORE, \
+                                                   __VA_ARGS__};                       \
+    INSTANTIATE_TEST_SUITE_P(, testName, ANGLE_INSTANTIATE_TEST_PLATFORMS(testName),   \
+                             testing::PrintToStringParamName())
+
 // Multiple ES Version macros
 #define ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(testName)                                 \
     const PlatformParameters testName##params[] = {ANGLE_ALL_TEST_PLATFORMS_ES2,     \
@@ -228,6 +256,13 @@ struct CombinedPrintToStringParamName
     const PlatformParameters testName##params[] = {                                                \
         ANGLE_ALL_TEST_PLATFORMS_ES2, ANGLE_ALL_TEST_PLATFORMS_ES3, ANGLE_ALL_TEST_PLATFORMS_ES31, \
         ANGLE_ALL_TEST_PLATFORMS_NULL};                                                            \
+    INSTANTIATE_TEST_SUITE_P(, testName, ANGLE_INSTANTIATE_TEST_PLATFORMS(testName),               \
+                             testing::PrintToStringParamName())
+
+#define ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND_ES31_AND_NULL_AND(testName, ...)                    \
+    const PlatformParameters testName##params[] = {                                                \
+        ANGLE_ALL_TEST_PLATFORMS_ES2, ANGLE_ALL_TEST_PLATFORMS_ES3, ANGLE_ALL_TEST_PLATFORMS_ES31, \
+        ANGLE_ALL_TEST_PLATFORMS_NULL, __VA_ARGS__};                                               \
     INSTANTIATE_TEST_SUITE_P(, testName, ANGLE_INSTANTIATE_TEST_PLATFORMS(testName),               \
                              testing::PrintToStringParamName())
 

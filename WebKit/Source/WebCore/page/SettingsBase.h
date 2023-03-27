@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "AllowedFonts.h"
 #include "ClipboardAccessPolicy.h"
 #include "ContentType.h"
 #include "EditableLinkBehavior.h"
@@ -164,6 +165,9 @@ protected:
 #endif
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
     void layerBasedSVGEngineEnabledChanged();
+#endif
+#if HAVE(AVCONTENTKEYSPECIFIER)
+    void sampleBufferContentKeySessionSupportEnabledChanged();
 #endif
 
     Page* m_page;

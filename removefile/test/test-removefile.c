@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#if __APPLE__
+#include <TargetConditionals.h>
+#if !TARGET_OS_SIMULATOR
+#include <apfs/apfs_fsctl.h>
+#endif // !TARGET_OS_SIMULATOR
+#endif // __APPLE__
 
 static struct timeval tv;
 static void start_timer(const char* str) {
@@ -77,7 +84,7 @@ static void mklargedir(void) {
 	free(cwd);
 }
 
-static void mkdirs(void) {
+static void mkdirs(bool mark_purgeable) {
 	start_timer("Creating directory structure");
 	assert(mkdir("/tmp/removefile-test", 0755) == 0);
 	assert(mkdir("/tmp/removefile-test/foo", 0755) == 0);
@@ -92,6 +99,13 @@ static void mkdirs(void) {
 	assert(lseek(fd, 1024*1024*30, SEEK_SET) != -1);
 	write(fd, "Goodbye Moon\n", 13);
 	close(fd);
+
+#if __APPLE__ && !TARGET_OS_SIMULATOR
+	if (mark_purgeable) {
+		uint64_t purgeable_flags = APFS_MARK_PURGEABLE | APFS_PURGEABLE_DATA_TYPE | APFS_PURGEABLE_LOW_URGENCY;
+		assert(fsctl("/tmp/removefile-test/foo/baz", APFSIOC_MARK_PURGEABLE, &purgeable_flags, 0) == 0);
+	}
+#endif
 	stop_timer();
 }
 
@@ -117,13 +131,13 @@ int main(int argc, char *argv[]) {
 		return err;
     }
 
-	mkdirs();
+	mkdirs(false);
 	start_timer("removefile(NULL)");
 	assert(removefile("/tmp/removefile-test", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
 	stop_timer();
 
 
-	mkdirs();
+	mkdirs(false);
 	assert((state = removefile_state_alloc()) != NULL);
 	assert(pthread_create(&thread, NULL, threadproc, state) == 0);
 	start_timer("removefile(state) with cancel");
@@ -136,7 +150,7 @@ int main(int argc, char *argv[]) {
 	assert(removefile("/tmp/removefile-test", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
 	stop_timer();
 
-	mkdirs();
+	mkdirs(false);
 	assert(removefile_state_set(state, 1234567, (void*)1234567) == -1 && errno == EINVAL);
 
 	assert(removefile_state_set(state, REMOVEFILE_STATE_CONFIRM_CALLBACK, removefile_confirm_callback) == 0);
@@ -168,12 +182,12 @@ int main(int argc, char *argv[]) {
 	}
 
 	int fd;
-	mkdirs();
+	mkdirs(true);
 	assert((fd = open("/tmp/removefile-test", O_RDONLY)) != -1);
 
 	start_timer("removefileat(NULL)");
 	assert(removefileat(fd, "/tmp/removefile-test/foo/baz/woot", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
-	assert(removefileat(fd, "../removefile-test/foo/baz", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
+	assert(removefileat(fd, "../removefile-test/foo/baz", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE | REMOVEFILE_CLEAR_PURGEABLE) == 0);
 	assert(removefileat(fd, "foo/bar", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
 	assert(removefileat(fd, "./foo", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
 	char path[1024];

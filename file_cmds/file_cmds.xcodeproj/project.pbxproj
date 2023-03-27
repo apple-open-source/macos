@@ -1144,7 +1144,7 @@
 		};
 		3E966CEF1FB221740019F7A1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = /AppleInternal/Tests/file_cmds;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1566,6 +1566,7 @@
 		3E59B9301D4A767600D3128C /* futimens.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = futimens.c; sourceTree = "<group>"; };
 		3E966CEB1FB2214F0019F7A1 /* chgrp.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = chgrp.sh; sourceTree = "<group>"; };
 		3E966CEC1FB2214F0019F7A1 /* file_cmds.plist.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = file_cmds.plist.in; sourceTree = "<group>"; };
+		4AB4CF8D293AA28900DE42C4 /* test05.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = test05.sh; sourceTree = "<group>"; };
 		729D06D7230B5E42000716E5 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		7D0A20E82499364700F0F6D7 /* metrics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = metrics.h; sourceTree = "<group>"; };
 		7D0A20E92499364700F0F6D7 /* metrics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = metrics.c; sourceTree = "<group>"; };
@@ -2488,6 +2489,7 @@
 				FCB1BE4514B6460C0070FACB /* test02.sh */,
 				FCB1BE4614B6460C0070FACB /* test03.sh */,
 				FCB1BE4714B6460C0070FACB /* test04.sh */,
+				4AB4CF8D293AA28900DE42C4 /* test05.sh */,
 			);
 			path = test;
 			sourceTree = "<group>";
@@ -3291,7 +3293,7 @@
 		};
 		D1AB3F1426D24BC900045278 /* Install tests plist */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			files = (
 			);
 			inputFileListPaths = (

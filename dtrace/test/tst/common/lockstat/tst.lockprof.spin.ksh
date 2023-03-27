@@ -32,7 +32,7 @@ dtrace -s /dev/stdin <<EOF
 /*
  * ASSERTION: Verify that lockprof held/miss/spin spinlock probes can be created and triggered
  */
-lockprof:::spin-held-10000
+lockprof:::spin-held-100
 {
 	held = 1;
 }
@@ -42,7 +42,7 @@ lockprof:::spin-miss-2
 	miss = 1;
 }
 
-lockprof:::spin-spin-100us
+lockprof:::spin-spin-1us
 {
 	spin = 1;
 }

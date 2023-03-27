@@ -219,7 +219,8 @@ JSC_DECLARE_JIT_OPERATION(operationPutByValDefinePrivateFieldGeneric, void, (JSG
 JSC_DECLARE_JIT_OPERATION(operationPutByValSetPrivateFieldOptimize, void, (JSGlobalObject*, EncodedJSValue, EncodedJSValue, EncodedJSValue, StructureStubInfo*, ArrayProfile*));
 JSC_DECLARE_JIT_OPERATION(operationPutByValSetPrivateFieldGeneric, void, (JSGlobalObject*, EncodedJSValue, EncodedJSValue, EncodedJSValue, StructureStubInfo*, ArrayProfile*));
 
-JSC_DECLARE_JIT_OPERATION(operationCallEval, EncodedJSValue, (JSGlobalObject*, CallFrame*, ECMAMode));
+JSC_DECLARE_JIT_OPERATION(operationCallDirectEvalSloppy, EncodedJSValue, (void*, JSScope*, EncodedJSValue));
+JSC_DECLARE_JIT_OPERATION(operationCallDirectEvalStrict, EncodedJSValue, (void*, JSScope*, EncodedJSValue));
 JSC_DECLARE_JIT_OPERATION(operationLinkCall, SlowPathReturnType, (CallFrame*, JSGlobalObject*, CallLinkInfo*));
 JSC_DECLARE_JIT_OPERATION(operationLinkPolymorphicCall, SlowPathReturnType, (CallFrame*, JSGlobalObject*, CallLinkInfo*));
 JSC_DECLARE_JIT_OPERATION(operationVirtualCall, SlowPathReturnType, (CallFrame*, JSGlobalObject*, CallLinkInfo*));
@@ -273,6 +274,10 @@ JSC_DECLARE_JIT_OPERATION(operationPutGetterSetter, void, (JSGlobalObject*, JSCe
 JSC_DECLARE_JIT_OPERATION(operationGetByValOptimize, EncodedJSValue, (JSGlobalObject*, StructureStubInfo*, ArrayProfile*, EncodedJSValue encodedBase, EncodedJSValue encodedSubscript));
 JSC_DECLARE_JIT_OPERATION(operationGetByValGeneric, EncodedJSValue, (JSGlobalObject*, StructureStubInfo*, ArrayProfile*, EncodedJSValue encodedBase, EncodedJSValue encodedSubscript));
 JSC_DECLARE_JIT_OPERATION(operationGetByVal, EncodedJSValue, (JSGlobalObject*, EncodedJSValue encodedBase, EncodedJSValue encodedProperty));
+JSC_DECLARE_JIT_OPERATION(operationGetByValWithThisOptimize, EncodedJSValue, (JSGlobalObject*, StructureStubInfo*, ArrayProfile*, EncodedJSValue encodedBase, EncodedJSValue encodedSubscript, EncodedJSValue encodedThis));
+JSC_DECLARE_JIT_OPERATION(operationGetByValWithThisGeneric, EncodedJSValue, (JSGlobalObject*, StructureStubInfo*, ArrayProfile*, EncodedJSValue encodedBase, EncodedJSValue encodedSubscript, EncodedJSValue encodedThis));
+JSC_DECLARE_JIT_OPERATION(operationGetByValWithThis, EncodedJSValue, (JSGlobalObject*, EncodedJSValue encodedBase, EncodedJSValue encodedProperty, EncodedJSValue encodedThis));
+
 JSC_DECLARE_JIT_OPERATION(operationDeleteByIdOptimize, size_t, (JSGlobalObject*, StructureStubInfo*, EncodedJSValue base, uintptr_t, ECMAMode));
 JSC_DECLARE_JIT_OPERATION(operationDeleteByIdGeneric, size_t, (JSGlobalObject*, StructureStubInfo*, EncodedJSValue base, uintptr_t, ECMAMode));
 JSC_DECLARE_JIT_OPERATION(operationDeleteByValOptimize, size_t, (JSGlobalObject*, StructureStubInfo*, EncodedJSValue base, EncodedJSValue target, ECMAMode));
@@ -333,6 +338,8 @@ JSC_DECLARE_JIT_OPERATION(operationValueSubOptimize, EncodedJSValue, (JSGlobalOb
 JSC_DECLARE_JIT_OPERATION(operationValueSubNoOptimize, EncodedJSValue, (JSGlobalObject*, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2, JITSubIC*));
 JSC_DECLARE_JIT_OPERATION(operationValueSubProfiledOptimize, EncodedJSValue, (JSGlobalObject*, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2, JITSubIC*));
 JSC_DECLARE_JIT_OPERATION(operationValueSubProfiledNoOptimize, EncodedJSValue, (JSGlobalObject*, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2, JITSubIC*));
+
+JSC_DECLARE_JIT_OPERATION(operationDebuggerWillCallNativeExecutable, void, (CallFrame*));
 
 JSC_DECLARE_JIT_OPERATION(operationProcessTypeProfilerLog, void, (VM*));
 JSC_DECLARE_JIT_OPERATION(operationProcessShadowChickenLog, void, (VM*));

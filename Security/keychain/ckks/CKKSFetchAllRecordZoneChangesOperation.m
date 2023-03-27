@@ -278,8 +278,8 @@
             ckksnotice_global("ckksfetch", "more changes pending for %@, will start a new fetch at change token %@", recordZoneID, self.changeTokens[recordZoneID]);
         }
 
-        ckksinfo("ckksfetch", recordZoneID, "Record zone fetch complete: changeToken=%@ clientChangeTokenData=%@ moreComing=%@ error=%@", serverChangeToken, clientChangeTokenData,
-                 moreComing ? @"YES" : @"NO",
+        ckksinfo("ckksfetch", recordZoneID, "Record zone fetch complete: changeToken=%@ clientChangeTokenData=%@ moreComing=%{BOOL}d error=%@", serverChangeToken, clientChangeTokenData,
+                 moreComing,
                  recordZoneError);
 
         [self sendChangesToClient:recordZoneID moreComing:moreComing];
@@ -427,9 +427,6 @@
     }];
 
     BOOL resync = [self.resyncingZones containsObject:recordZoneID];
-
-    ckksnotice("ckksfetch", recordZoneID, "Delivering fetched changes: changed=%lu deleted=%lu moreComing=%lu resync=%u changeToken=%@",
-               (unsigned long)zoneModifications.count, (unsigned long)zoneDeletions.count, (unsigned long)moreComing, resync, self.changeTokens[recordZoneID]);
 
     // Tell the client about these changes!
     [client changesFetched:zoneModifications

@@ -21,6 +21,7 @@ using VendorID       = uint32_t;
 using DeviceID       = uint32_t;
 using RevisionID     = uint32_t;
 using SystemDeviceID = uint64_t;
+using DriverID       = uint32_t;
 
 struct VersionInfo
 {
@@ -46,8 +47,10 @@ struct GPUDeviceInfo
     std::string driverVersion;
     std::string driverDate;
 
-    // Only available via GetSystemInfoVulkan currently.
+    // Fields only available via GetSystemInfoVulkan:
     VersionInfo detailedDriverVersion;
+    DriverID driverId         = 0;
+    uint32_t driverApiVersion = 0;
 };
 
 struct SystemInfo
@@ -106,20 +109,24 @@ constexpr VendorID kVendorID_ImgTec    = 0x1010;
 constexpr VendorID kVendorID_Intel     = 0x8086;
 constexpr VendorID kVendorID_NVIDIA    = 0x10DE;
 constexpr VendorID kVendorID_Qualcomm  = 0x5143;
+constexpr VendorID kVendorID_Samsung   = 0x144D;
 constexpr VendorID kVendorID_VMWare    = 0x15ad;
 constexpr VendorID kVendorID_Apple     = 0x106B;
 constexpr VendorID kVendorID_Microsoft = 0x1414;
+constexpr VendorID kVendorID_VirtIO    = 0x1AF4;
 
 // Known non-PCI (i.e. Khronos-registered) vendor IDs
 constexpr VendorID kVendorID_Vivante     = 0x10001;
 constexpr VendorID kVendorID_VeriSilicon = 0x10002;
 constexpr VendorID kVendorID_Kazan       = 0x10003;
+constexpr VendorID kVendorID_CodePlay    = 0x10004;
+constexpr VendorID kVendorID_Mesa        = 0x10005;
+constexpr VendorID kVendorID_PoCL        = 0x10006;
 
 // Known device IDs
 constexpr DeviceID kDeviceID_Swiftshader  = 0xC0DE;
 constexpr DeviceID kDeviceID_Adreno540    = 0x5040001;
 constexpr DeviceID kDeviceID_UHD630Mobile = 0x3E9B;
-constexpr DeviceID kDeviceID_HD630Mobile  = 0x5912;
 
 // Predicates on vendor IDs
 bool IsAMD(VendorID vendorId);
@@ -130,10 +137,12 @@ bool IsIntel(VendorID vendorId);
 bool IsKazan(VendorID vendorId);
 bool IsNVIDIA(VendorID vendorId);
 bool IsQualcomm(VendorID vendorId);
+bool IsSamsung(VendorID vendorId);
 bool IsGoogle(VendorID vendorId);
 bool IsSwiftshader(VendorID vendorId);
 bool IsVeriSilicon(VendorID vendorId);
 bool IsVMWare(VendorID vendorId);
+bool IsVirtIO(VendorID vendorId);
 bool IsVivante(VendorID vendorId);
 bool IsApple(VendorID vendorId);
 bool IsMicrosoft(VendorID vendorId);
@@ -150,6 +159,7 @@ void GetDualGPUInfo(SystemInfo *info);
 void PrintSystemInfo(const SystemInfo &info);
 
 VersionInfo ParseNvidiaDriverVersion(uint32_t version);
+VersionInfo ParseMesaDriverVersion(uint32_t version);
 
 #if defined(ANGLE_PLATFORM_MACOS) || defined(ANGLE_PLATFORM_MACCATALYST)
 // Helper to get the active GPU ID from a given Core Graphics display ID.

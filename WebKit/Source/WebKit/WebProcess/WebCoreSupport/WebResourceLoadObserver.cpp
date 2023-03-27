@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WebResourceLoadObserver.h"
 
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
 
 #include "Logging.h"
 #include "NetworkConnectionToWebProcessMessages.h"
@@ -34,7 +34,6 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebPage.h"
 #include "WebProcess.h"
-#include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameLoader.h>
@@ -212,7 +211,7 @@ void WebResourceLoadObserver::logCanvasWriteOrMeasure(const Document& document, 
 #endif
 }
     
-void WebResourceLoadObserver::logNavigatorAPIAccessed(const Document& document, const ResourceLoadStatistics::NavigatorAPI functionName)
+void WebResourceLoadObserver::logNavigatorAPIAccessed(const Document& document, const NavigatorAPIsAccessed functionName)
 {
     if (isEphemeral())
         return;
@@ -236,7 +235,7 @@ void WebResourceLoadObserver::logNavigatorAPIAccessed(const Document& document, 
 #endif
 }
     
-void WebResourceLoadObserver::logScreenAPIAccessed(const Document& document, const ResourceLoadStatistics::ScreenAPI functionName)
+void WebResourceLoadObserver::logScreenAPIAccessed(const Document& document, const ScreenAPIsAccessed functionName)
 {
     if (isEphemeral())
         return;
@@ -392,9 +391,9 @@ void WebResourceLoadObserver::logUserInteractionWithReducedTimeResolution(const 
         auto escapedURL = escapeForJSON(url.string());
         auto escapedDomain = escapeForJSON(topFrameDomain.string());
 
-        LOCAL_LOG(R"({ "url": "%{public}s",)", escapedURL.utf8().data());
-        LOCAL_LOG(R"(  "domain" : "%{public}s",)", escapedDomain.utf8().data());
-        LOCAL_LOG(R"(  "until" : %f })", newTime.secondsSinceEpoch().seconds());
+        LOCAL_LOG("{ \"url\": \"%" PUBLIC_LOG_STRING "\",", escapedURL.utf8().data());
+        LOCAL_LOG("  \"domain\" : \"%" PUBLIC_LOG_STRING "\",", escapedDomain.utf8().data());
+        LOCAL_LOG("  \"until\" : %f }", newTime.secondsSinceEpoch().seconds());
 
 #undef LOCAL_LOG
     }
@@ -444,4 +443,4 @@ void WebResourceLoadObserver::setDomainsWithCrossPageStorageAccess(HashMap<TopFr
 
 } // namespace WebKit
 
-#endif // ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#endif // ENABLE(TRACKING_PREVENTION)

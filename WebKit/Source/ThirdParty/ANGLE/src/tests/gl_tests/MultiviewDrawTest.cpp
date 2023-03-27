@@ -2239,48 +2239,124 @@ TEST_P(MultiviewRenderTest, FlatInterpolation2)
     EXPECT_EQ(GLColor::green, GetViewColor(0, 0, 1));
 }
 
+// Test that shader caching maintains the num_views value used in GL_OVR_multiview between shader
+// compilations.
+TEST_P(MultiviewRenderTest, ShaderCacheVertexWithOVRMultiview)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    if (!requestMultiviewExtension(true))
+    {
+        return;
+    }
+
+    constexpr char kVS[] = R"(#version 300 es
+#extension GL_OVR_multiview : enable
+
+layout (num_views = 2) in;
+
+precision mediump float;
+
+layout (location = 0) in vec4 a_position;
+
+out float redValue;
+out float greenValue;
+
+void main() {
+    gl_Position = a_position;
+    if (gl_ViewID_OVR == uint(0))
+    {
+        redValue = 1.;
+        greenValue = 0.;
+    }
+    else
+    {
+        redValue = 0.;
+        greenValue = 1.;
+    }
+})";
+
+    constexpr char kFS[] = R"(#version 300 es
+
+precision mediump float;
+
+in float redValue;
+in float greenValue;
+
+out vec4 fragColor;
+
+void main()
+{
+    fragColor = vec4(redValue, greenValue, 0., 1.);
+})";
+
+    // Only use a single 1x1 FBO
+    updateFBOs(1, 1, 2);
+
+    ANGLE_GL_PROGRAM(unusedProgram, kVS, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f, 1.0f, true);
+    ASSERT_GL_NO_ERROR();
+
+    resolveMultisampledFBO();
+    EXPECT_EQ(GLColor::red, GetViewColor(0, 0, 0));
+    EXPECT_EQ(GLColor::green, GetViewColor(0, 0, 1));
+}
+
 MultiviewRenderTestParams VertexShaderOpenGL(ExtensionName multiviewExtension)
 {
-    return MultiviewRenderTestParams(0, VertexShaderOpenGL(3, 0, multiviewExtension));
+    return MultiviewRenderTestParams(
+        0, VertexShaderOpenGL(EGL_OPENGL_ES_API, 3, 0, 0, multiviewExtension));
 }
 
 MultiviewRenderTestParams VertexShaderVulkan(ExtensionName multiviewExtension)
 {
-    return MultiviewRenderTestParams(0, VertexShaderVulkan(3, 0, multiviewExtension));
+    return MultiviewRenderTestParams(
+        0, VertexShaderVulkan(EGL_OPENGL_ES_API, 3, 0, 0, multiviewExtension));
 }
 
 MultiviewRenderTestParams GeomShaderD3D11(ExtensionName multiviewExtension)
 {
-    return MultiviewRenderTestParams(0, GeomShaderD3D11(3, 0, multiviewExtension));
+    return MultiviewRenderTestParams(
+        0, GeomShaderD3D11(EGL_OPENGL_ES_API, 3, 0, 0, multiviewExtension));
 }
 
 MultiviewRenderTestParams VertexShaderD3D11(ExtensionName multiviewExtension)
 {
-    return MultiviewRenderTestParams(0, VertexShaderD3D11(3, 0, multiviewExtension));
+    return MultiviewRenderTestParams(
+        0, VertexShaderD3D11(EGL_OPENGL_ES_API, 3, 0, 0, multiviewExtension));
 }
 
 MultiviewRenderTestParams MultisampledVertexShaderOpenGL(ExtensionName multiviewExtension)
 {
-    return MultiviewRenderTestParams(2, VertexShaderOpenGL(3, 1, multiviewExtension));
+    return MultiviewRenderTestParams(
+        2, VertexShaderOpenGL(EGL_OPENGL_ES_API, 3, 1, 0, multiviewExtension));
 }
 
 MultiviewRenderTestParams MultisampledVertexShaderVulkan(ExtensionName multiviewExtension)
 {
-    return MultiviewRenderTestParams(2, VertexShaderVulkan(3, 1, multiviewExtension));
+    return MultiviewRenderTestParams(
+        2, VertexShaderVulkan(EGL_OPENGL_ES_API, 3, 1, 0, multiviewExtension));
 }
 
 MultiviewRenderTestParams MultisampledVertexShaderD3D11(ExtensionName multiviewExtension)
 {
-    return MultiviewRenderTestParams(2, VertexShaderD3D11(3, 1, multiviewExtension));
+    return MultiviewRenderTestParams(
+        2, VertexShaderD3D11(EGL_OPENGL_ES_API, 3, 1, 0, multiviewExtension));
 }
 
-#define ALL_VERTEX_SHADER_CONFIGS(minor)                         \
-    VertexShaderOpenGL(3, minor, ExtensionName::multiview),      \
-        VertexShaderVulkan(3, minor, ExtensionName::multiview),  \
-        VertexShaderD3D11(3, minor, ExtensionName::multiview),   \
-        VertexShaderOpenGL(3, minor, ExtensionName::multiview2), \
-        VertexShaderVulkan(3, minor, ExtensionName::multiview2), \
-        VertexShaderD3D11(3, minor, ExtensionName::multiview2)
+#define ALL_VERTEX_SHADER_CONFIGS(minor)                                               \
+    VertexShaderOpenGL(EGL_OPENGL_ES_API, 3, minor, 0, ExtensionName::multiview),      \
+        VertexShaderVulkan(EGL_OPENGL_ES_API, 3, minor, 0, ExtensionName::multiview),  \
+        VertexShaderD3D11(EGL_OPENGL_ES_API, 3, minor, 0, ExtensionName::multiview),   \
+        VertexShaderOpenGL(EGL_OPENGL_ES_API, 3, minor, 0, ExtensionName::multiview2), \
+        VertexShaderVulkan(EGL_OPENGL_ES_API, 3, minor, 0, ExtensionName::multiview2), \
+        VertexShaderD3D11(EGL_OPENGL_ES_API, 3, minor, 0, ExtensionName::multiview2)
 
 #define ALL_SINGLESAMPLE_CONFIGS()                                                              \
     VertexShaderOpenGL(ExtensionName::multiview), VertexShaderVulkan(ExtensionName::multiview), \
@@ -2314,8 +2390,8 @@ ANGLE_INSTANTIATE_TEST(MultiviewOcclusionQueryTest, ALL_SINGLESAMPLE_CONFIGS());
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MultiviewProgramGenerationTest);
 ANGLE_INSTANTIATE_TEST(MultiviewProgramGenerationTest,
                        ALL_VERTEX_SHADER_CONFIGS(0),
-                       GeomShaderD3D11(3, 0, ExtensionName::multiview),
-                       GeomShaderD3D11(3, 0, ExtensionName::multiview2));
+                       GeomShaderD3D11(EGL_OPENGL_ES_API, 3, 0, 0, ExtensionName::multiview),
+                       GeomShaderD3D11(EGL_OPENGL_ES_API, 3, 0, 0, ExtensionName::multiview2));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MultiviewRenderPrimitiveTest);
 ANGLE_INSTANTIATE_TEST(MultiviewRenderPrimitiveTest, ALL_SINGLESAMPLE_CONFIGS());

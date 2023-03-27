@@ -278,7 +278,10 @@ private:
     _userContentControllerProxy->addUserScript(*userScript->_userScript, WebKit::InjectUserScriptImmediately::Yes);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 - (void)_addUserContentFilter:(_WKUserContentFilter *)userContentFilter
+#pragma clang diagnostic pop
 {
 #if ENABLE(CONTENT_EXTENSIONS)
     _userContentControllerProxy->addContentRuleList(*userContentFilter->_contentRuleList->_contentRuleList);

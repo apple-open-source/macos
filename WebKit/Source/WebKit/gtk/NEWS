@@ -1,4 +1,93 @@
 ================
+WebKitGTK 2.39.6
+================
+
+What's new in WebKitGTK 2.39.6?
+
+  - Add support for speech synthesis using Flite.
+  - Bring back WebKitConsoleMessage API implementation.
+  - Fix async scroll event propagation for GTK4.
+  - Add network session API when building with GTK4.
+  - Make most public types final when building with GTK4.
+  - Remove WebKitPrintCustomWidget when building with GTK4.
+  - Remove most of the webkit_web_view_new_with_*() constructors when building with GTK4.
+  - Remove webkit_web_context_get/set_process_model when building with GTK4.
+  - Do not allow the sandbox to mount the entire home directory.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.39.5
+================
+
+What's new in WebKitGTK 2.39.5?
+
+  - Enable WebGL2 by default again that was disabled by mistake.
+  - Fix the build with WebGL disabled.
+  - Fix the webkit.h public header causing applications to fail to build.
+
+================
+WebKitGTK 2.39.4
+================
+
+What's new in WebKitGTK 2.39.4?
+
+  - Fix WebGL when sandbox is enabled.
+  - Fix loading of media documents.
+  - Add new API disable web security.
+  - Disable support for HLS in media backend by default.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Swedish.
+
+================
+WebKitGTK 2.39.3
+================
+
+What's new in WebKitGTK 2.39.3?
+
+  - Add new API to query the permission state of web features.
+  - Deprecate all web extension DOM APIs (WebKitDOMDocument, WebKitDOMElement, WebKitDOMNode).
+  - Add webkit_web_hit_test_result_get_js_node() to get the JSCValue for the node.
+  - Add WebKitWebFormManager and deprecate WebKitWebPage form related signals.
+  - Don't perform position queries on video sink when the player is for audio only.
+  - Fix gibberish text when loading alternate data.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.39.2
+================
+
+What's new in WebKitGTK 2.39.2?
+
+  - Add API to support asynchronously returning values from user script messages.
+  - Deprecate WebKitConsoleMessage API.
+  - Deprecate event parameter of WebKitWebView::context-menu and WebKitWebView::show-option-menu signals
+    in favor of a getter in WebKitConextMenu and WebKitOptionMenu.
+  - Do not emit context-menu signals for media settings popup menu.
+  - Use async scrolling also for keyboard scrolling.
+  - Add support for client side certificates on WebSocket connections.
+  - Fix first party for cookies set on every media request.
+  - Fix a crash on authentication dialog with GTK4.
+  - Fix web process leak when webkit_download_set_destination is called with empty destination.
+  - Fix several warnings when building for ARMv7 (32-bits).
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.39.1
+================
+
+What's new in WebKitGTK 2.39.1?
+
+  - Use ANGLE for WebGL implementation and enable WebGL2.
+  - Remove internal nested wayland compositor making libwpe mandatory when building with wayland enabled.
+  - Prefer EGL over X11, intead of GLX, where available.
+  - Add support for background-repeat: space.
+  - Add API to check if a response policy decision is for the main resource.
+  - Fix rendering of checkbox and radio buttons in black backgrounds.
+  - Make checkbox, radio and inner spin button scale along by page zoom.
+  - Add support for get computed label and get computed role WebDriver commands.
+  - Fix several crashes and rendering issues.
+
+================
 WebKitGTK 2.37.1
 ================
 

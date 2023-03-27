@@ -40,26 +40,32 @@
 
 - (instancetype)init
 {
+	NSError *regexError = nil;
+	NSArray<EFLogEventMatch *> *matches = nil;
+	EFLogEventParser *parser = nil;
+
 	self = [super init];
 	if (self == nil) {
 		return nil;
 	}
 
-	NSError *regexError = nil;
 	_netChangeRegex = [[NSRegularExpression alloc] initWithPattern:@"(?<"TokenInterfaceName">\\w+)(?<"TokenAddressAction">[\\+\\-\\!\\/\\\\]?)(:(?<"TokenAddress">[:.0-9a-f]+))?" options:0 error:&regexError];
 	if (_netChangeRegex == nil) {
 		specs_log_err("Failed to create the network change regex: %@", regexError);
 		return nil;
 	}
 
-	NSArray<EFLogEventMatch *> *matches = @[
+	matches = @[
 		[[EFLogEventMatch alloc] initWithPattern:@"\\d+. (?<"TokenInterfaceName">\\w+) serviceID=(?<"TokenServiceID">[-\\w]+) addr=(?<"TokenAddress">) rank=\\w+"
 					 newEventHandler:
 		 ^EFEvent *(NSTextCheckingResult *matchResult, EFLogEvent *logEvent, BOOL *isComplete) {
+			EFNetworkControlPathEvent *newEvent = nil;
+			NSString *serviceID = nil;
+			NSString *addressString = nil;
+
 			 *isComplete = YES;
-			 EFNetworkControlPathEvent *newEvent = nil;
-			 NSString *serviceID = [logEvent substringForCaptureGroup:@TokenServiceID inMatchResult:matchResult];
-			 NSString *addressString = [logEvent substringForCaptureGroup:@TokenAddress inMatchResult:matchResult];
+			serviceID = [logEvent substringForCaptureGroup:@TokenServiceID inMatchResult:matchResult];
+			addressString = [logEvent substringForCaptureGroup:@TokenAddress inMatchResult:matchResult];
 			 if (serviceID != nil && addressString != nil) {
 				 newEvent = [self createInterfaceEventWithLogEvent:logEvent matchResult:matchResult];
 				 if (newEvent != nil) {
@@ -75,14 +81,17 @@
 			 NSMutableDictionary<NSString *, EFNetworkControlPathEvent *> *newEventsMap = nil;
 			 NSArray<NSString *> *tokens = @[ @TokenV4Changes, @TokenV6Changes ];
 			 for (NSString *token in tokens) {
+				 NSArray<NSTextCheckingResult *> *matches = nil;
+				 BOOL isPrimary = YES;
 				 BOOL isIPv4 = [token isEqualToString:@TokenV4Changes];
 				 NSString *changes = [logEvent substringForCaptureGroup:token inMatchResult:matchResult];
 				 if (changes == nil) {
 					 continue;
 				 }
-				 NSArray<NSTextCheckingResult *> *matches = [self.netChangeRegex matchesInString:changes options:0 range:NSMakeRange(0, changes.length)];
-				 BOOL isPrimary = YES;
+				 matches = [self.netChangeRegex matchesInString:changes options:0 range:NSMakeRange(0, changes.length)];
 				 for (NSTextCheckingResult *match in matches) {
+					 EFNetworkControlPathEvent *event = nil;
+
 					 NSString *interfaceName = [self substringOfString:changes forCaptureGroup:@TokenInterfaceName inMatchResult:match];
 					 NSString *addressAction = [self substringOfString:changes forCaptureGroup:@TokenAddressAction inMatchResult:match];
 					 NSString *address = [self substringOfString:changes forCaptureGroup:@TokenAddress inMatchResult:match];
@@ -91,7 +100,7 @@
 						 continue;
 					 }
 
-					 EFNetworkControlPathEvent *event = newEventsMap[interfaceName];
+					 event = newEventsMap[interfaceName];
 					 if (event == nil) {
 						 event = [self createInterfaceEventWithLogEvent:logEvent interfaceName:interfaceName];
 						 if (newEventsMap == nil) {
@@ -117,10 +126,12 @@
 								 event.primaryStateIPv6 = EFPrimaryStatePrimary;
 							 }
 							 for (NSString *otherInterfaceName in SCLogParser.interfaceMap) {
+								 EFNetworkControlPathEvent *otherEvent = nil;
+
 								 if ([otherInterfaceName isEqualToString:interfaceName]) {
 									 continue;
 								 }
-								 EFNetworkControlPathEvent *otherEvent = newEventsMap[otherInterfaceName];
+								 otherEvent = newEventsMap[otherInterfaceName];
 								 if (otherEvent == nil) {
 									 otherEvent = [self createInterfaceEventWithLogEvent:logEvent interfaceName:otherInterfaceName];
 									 if (newEventsMap == nil) {
@@ -143,7 +154,7 @@
 			 return newEventsMap.allValues;
 		 }],
 	];
-	EFLogEventParser *parser = [[EFLogEventParser alloc] initWithMatches:matches];
+	parser = [[EFLogEventParser alloc] initWithMatches:matches];
 	return [super initWithCategory:@"IPMonitor" eventParser:parser];
 }
 

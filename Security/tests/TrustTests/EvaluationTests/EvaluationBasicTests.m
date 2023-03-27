@@ -123,9 +123,7 @@ errOut:
                                          kSecClass, kSecClassCertificate,
                                          kSecValueRef, framework_cert1,
                                          kSecAttrAccessGroup, CFSTR("com.apple.trusttests"),
-#if TARGET_OS_OSX
                                          kSecUseDataProtectionKeychain, kCFBooleanTrue,
-#endif
                                          NULL);
     ok_status(SecItemAdd(query, NULL), "add cert1 to keychain");
     XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust and expect success");
@@ -136,6 +134,62 @@ errOut:
     CFReleaseNull(query);
     CFReleaseNull(framework_cert1);
     
+errOut:
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(certs);
+    CFReleaseNull(date);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
+- (void)testIntermediateFromSynchronizableKeychain {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+    SecTrustRef trust = NULL;
+    CFArrayRef certs = NULL;
+    SecCertificateRef cert0 = NULL, cert1 = NULL, framework_cert1 = NULL;
+    SecPolicyRef policy = NULL;
+    CFDateRef date = NULL;
+    CFDictionaryRef query = NULL;
+
+    /* Apr 14 2018. */
+    isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2018, 4, 14, 12, 0, 0),
+         NULL, "create verify date");
+    if (!date) { goto errOut; }
+
+    isnt(cert0 = SecCertificateCreateWithBytes(NULL, _eval_c0, sizeof(_eval_c0)),
+         NULL, "create cert0");
+    isnt(cert1 = SecCertificateCreateWithBytes(NULL, _eval_c1, sizeof(_eval_c1)),
+         NULL, "create cert1");
+    policy = SecPolicyCreateSSL(false, NULL);
+
+    /* Test cert_1 intermediate from the keychain. */
+    ok_status(SecTrustCreateWithCertificates(cert0, policy, &trust),
+              "create trust with single cert0");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
+    ok_status(SecTrustSetNetworkFetchAllowed(trust, false), "set no network fetch allowed");
+
+    // Add cert1 to the keychain
+    isnt(framework_cert1 = SecFrameworkCertificateCreate(_eval_c1, sizeof(_eval_c1)),
+         NULL, "create framework cert1");
+    query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                         kSecClass, kSecClassCertificate,
+                                         kSecValueRef, framework_cert1,
+                                         kSecAttrAccessGroup, CFSTR("com.apple.trusttests"),
+                                         kSecAttrSynchronizable, kCFBooleanTrue,
+                                         kSecUseDataProtectionKeychain, kCFBooleanTrue,
+                                         NULL);
+    ok_status(SecItemAdd(query, NULL), "add cert1 to keychain");
+    XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust and expect success");
+    is(SecTrustGetCertificateCount(trust), 3, "cert count is 3");
+
+    // Cleanup added cert1.
+    ok_status(SecItemDelete(query), "remove cert1 from keychain");
+    CFReleaseNull(query);
+    CFReleaseNull(framework_cert1);
+
 errOut:
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);

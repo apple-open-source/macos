@@ -16,7 +16,6 @@
 -(bool) SOSTransportKeyParameterPublishCloudParameters:(CKKeyParameter*) transport data:(CFDataRef)newParameters err:(CFErrorRef*) error;
 
 -(bool) SOSTransportKeyParameterHandleKeyParameterChanges:(CKKeyParameter*) transport  data:(CFDataRef) data err:(CFErrorRef) error;
--(void) SOSTransportKeyParameterHandleNewAccount:(CKKeyParameter*) transport acct:(SOSAccount*) account;
 
 -(SOSAccount*) SOSTransportKeyParameterGetAccount:(CKKeyParameter*) transport;
 -(CFIndex) SOSTransportKeyParameterGetTransportType:(CKKeyParameter*) transport err:(CFErrorRef *)error;

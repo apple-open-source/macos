@@ -87,6 +87,9 @@ PluginState agent_get_state(agent_t);
 
 AUTH_NONNULL_ALL
 mechanism_t agent_get_mechanism(agent_t);
+
+AUTH_NONNULL_ALL
+uid_t agent_get_session_uid(agent_t);
     
 AUTH_NONNULL_ALL
 void agent_receive(agent_t);
@@ -98,6 +101,10 @@ agent_notify_interrupt(agent_t agent);
 AUTH_NONNULL_ALL
 void
 agent_clear_interrupt(agent_t agent);
+
+AUTH_NONNULL_ALL
+int32_t agent_get_active_session_uid(void);
+
 
 #if defined(__cplusplus)
 }

@@ -545,7 +545,8 @@ test_heim_integer (void)
 	{NULL, 3, "\xff\x01\x00"},
 	{NULL, 1, "\x00"},
 	{NULL, 1, "\x01"},
-	{NULL, 2, "\x00\x80"}
+	{NULL, 2, "\x00\x80"},
+	{NULL, 1, "\xff"},
     };
 
     heim_integer values[] = {
@@ -553,9 +554,10 @@ test_heim_integer (void)
 	{ 2, "\x10\xff", 1 },
 	{ 2, "\xff\x01", 1 },
 	{ 2, "\xff\x00", 1 },
-	{ 0, "", 0 },
+	{ 1, "\x00", 0 },
 	{ 1, "\x01", 0 },
-	{ 1, "\x80", 0 }
+	{ 1, "\x80", 0 },
+	{ 1, "\x01", 1 },
     };
     int i, ret;
     int ntests = sizeof(tests) / sizeof(tests[0]);

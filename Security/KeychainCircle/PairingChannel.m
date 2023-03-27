@@ -165,7 +165,7 @@ typedef void(^OTNextState)(NSData *inData, OTPairingInternalCompletion complete)
         _testFailSOS = false;
 
         /* only apply to acceptor right now */
-        _sessionSupportsSOS = OctagonPlatformSupportsSOS();
+        _sessionSupportsSOS = OctagonIsSOSFeatureEnabled();
         _sessionSupportsOctagon = true;
         NSError *localError = nil;
         _otControl = [OTControl controlObject:true error:&localError];
@@ -276,7 +276,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     bool subTaskSuccess = false;
     OctagonSignpost setupPairingChannelSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelInitiatorMessage1);
 
-    if (OctagonPlatformSupportsSOS() && ![self ensureControlChannel]) {
+    if (OctagonIsSOSFeatureEnabled() && ![self ensureControlChannel]) {
         [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorNoControlChannel userInfo:NULL] complete:complete];
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage1), (int)subTaskSuccess);
         return;
@@ -333,11 +333,11 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
     NSData *credential = indata[@"c"];
 
-    if (OctagonPlatformSupportsSOS() && indata[@"d"]) {
+    if (OctagonIsSOSFeatureEnabled() && indata[@"d"]) {
         secnotice("pairing", "acceptor will send send initial credentials");
         self.acceptorWillSendInitialSyncCredentials = true;
     }
-    if(OctagonPlatformSupportsSOS()) {
+    if(OctagonIsSOSFeatureEnabled()) {
         __block bool stashSuccess = false;
         OctagonSignpost stashSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelInitiatorStashAccountCredential);
         
@@ -468,7 +468,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             prepare.stableInfo = stableInfo;
             prepare.stableInfoSig = stableInfoSig;
 
-            octagonMessage.supportsSOS.supported = OctagonPlatformSupportsSOS() ? OTSupportType_supported : OTSupportType_not_supported;
+            octagonMessage.supportsSOS.supported = OctagonIsSOSFeatureEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
             octagonMessage.supportsOctagon.supported = OTSupportType_supported;
             octagonMessage.prepare = prepare;
             if(application){
@@ -496,7 +496,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
     NSData *circleBlob = indata[@"b"];
 
-    if(circleBlob != NULL && OctagonPlatformSupportsSOS()) {
+    if(circleBlob != NULL && OctagonIsSOSFeatureEnabled()) {
         if(![circleBlob isKindOfClass:[NSData class]]) {
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
             complete(true, NULL, [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorTypeConfusion userInfo:NULL]);
@@ -533,8 +533,8 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                         [self waitForOctagonUpgrade];
                     }
                     typeof(self) strongSelf = weakSelf;
-                    secnotice("pairing", "initiator circle join complete, more data: %s: %@",
-                              strongSelf->_acceptorWillSendInitialSyncCredentials ? "yes" : "no", error);
+                    secnotice("pairing", "initiator circle join complete, more data: %{BOOL}d: %@",
+                              strongSelf->_acceptorWillSendInitialSyncCredentials, error);
                     
                     if (strongSelf->_acceptorWillSendInitialSyncCredentials) {
                         strongSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
@@ -584,7 +584,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             } else {
                 secnotice(pairingScope, "initiatorThirdPacket successfully joined Octagon");
                 typeof(self) strongSelf = weakSelf;
-                if(OctagonPlatformSupportsSOS() && strongSelf->_acceptorWillSendInitialSyncCredentials) {
+                if(OctagonIsSOSFeatureEnabled() && strongSelf->_acceptorWillSendInitialSyncCredentials) {
                     strongSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
                         [weakSelf initiatorFourthPacket:nsdata complete:kscomplete];
                     };
@@ -623,7 +623,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage4, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage4), (int)subTaskSuccess);
         complete(true, NULL, error);
     }] importInitialSyncCredentials:items complete:^(bool success, NSError *error) {
-        secnotice("pairing", "initiator importInitialSyncCredentials: %s: %@", success ? "yes" : "no", error);
+        secnotice("pairing", "initiator importInitialSyncCredentials: %{BOOL}d: %@", success, error);
         if (success) {
             self->_needInitialSync = false;
         }
@@ -680,7 +680,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
             complete(true, NULL, error);
         }] validatedStashedAccountCredential:^(NSData *credential, NSError *error) {
-            secnotice("pairing", "acceptor validatedStashedAccountCredential: %@ (%@)", credential != NULL ? @"yes" : @"no", error);
+            secnotice("pairing", "acceptor validatedStashedAccountCredential: %{BOOL}d (%@)", credential != NULL, error);
             if (credential && error == nil) {
                 fetchSubtaskSuccess = true;
             }
@@ -777,7 +777,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             response.supportsOctagon = [[OTSupportOctagonMessage alloc] init];
             response.epoch = [[OTSponsorToApplicantRound1M2 alloc] init];
             response.epoch.epoch = epoch;
-            response.supportsSOS.supported = OctagonPlatformSupportsSOS() ? OTSupportType_supported : OTSupportType_not_supported;
+            response.supportsSOS.supported = OctagonIsSOSFeatureEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
             response.supportsOctagon.supported = OTSupportType_supported;
             reply[@"o"] = response.data;
             secnotice("pairing", "acceptor reply to packet 1");
@@ -814,8 +814,8 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             OctagonSignpostEnd(joinSignPost, OctagonSignpostNamePairingChannelAcceptorCircleJoiningBlob, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorCircleJoiningBlob), (int)joinSubTaskSuccess);
 
             if (blob) {
-                secnotice("pairing", "acceptor pairing complete (will send: %s): %@",
-                          self.acceptorWillSendInitialSyncCredentials ? "YES" : "NO",
+                secnotice("pairing", "acceptor pairing complete (will send: %{BOOL}d): %@",
+                          self.acceptorWillSendInitialSyncCredentials,
                           error);
 
                 reply[@"b"] = blob;
@@ -896,7 +896,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             bool finished = true;
 
             secnotice(pairingScope, "acceptor handled octagon packet %d", self.counter);
-            if (OctagonPlatformSupportsSOS() && self.acceptorWillSendInitialSyncCredentials) {
+            if (OctagonIsSOSFeatureEnabled() && self.acceptorWillSendInitialSyncCredentials) {
                 self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
                     [weakSelf acceptorThirdPacket:nsdata complete:kscomplete];
                 };
@@ -908,7 +908,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             response.voucher = [[OTSponsorToApplicantRound2M2 alloc] init];
             response.voucher.voucher = voucher;
             response.voucher.voucherSignature = voucherSig;
-            response.supportsSOS.supported = OctagonPlatformSupportsSOS() ? OTSupportType_supported : OTSupportType_not_supported;
+            response.supportsSOS.supported = OctagonIsSOSFeatureEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
             response.supportsOctagon.supported = OTSupportType_supported;
 
             if (self.acceptorWillSendInitialSyncCredentials) {
@@ -1028,7 +1028,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                 secnotice("pairing", "pairing packet size %lu", (unsigned long)[compressedData length]);
             }
         }
-        secnotice("pairing", "Exchange packet complete data: %@: %@", outdata ? @"YES" : @"NO", error);
+        secnotice("pairing", "Exchange packet complete data: %{BOOL}d: %@", outdata != nil, error);
         complete(completed, compressedData, error);
     });
 }

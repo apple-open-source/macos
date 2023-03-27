@@ -256,6 +256,10 @@ smb_dir_cache_check(vnode_t dvp, void *in_cachep, int is_locked,
             }
         }
     }
+    else {
+       nanouptime(&ts);
+       cachep->timer = ts.tv_sec;
+   }
 
     /* If dir cache has not expired, then was there a local change? */
     smbnode_lease_lock(&dnp->n_lease, smb_dir_cache_check);
@@ -276,7 +280,7 @@ smb_dir_cache_check(vnode_t dvp, void *in_cachep, int is_locked,
     if (remove_cache == 1) {
         smbnode_lease_lock(&dnp->n_lease, smb_dir_cache_check);
         if ((SMBV_SMB3_OR_LATER(sessionp)) &&
-            (sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) &&
+            (sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) &&
             !(smp->sm_args.altflags & SMBFS_MNT_DIR_LEASE_OFF) &&
             (dnp->n_lease.flags & SMB2_LEASE_GRANTED)) {
             /* Dir has an active lease, we need close it */

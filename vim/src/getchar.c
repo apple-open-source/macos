@@ -259,11 +259,11 @@ delete_buff_tail(buffheader_T *buf, int slen)
     if (buf->bh_curr == NULL)
 	return;  // nothing to delete
     len = (int)STRLEN(buf->bh_curr->b_str);
-    if (len >= slen)
-    {
-	buf->bh_curr->b_str[len - slen] = NUL;
-	buf->bh_space += slen;
-    }
+    if (len < slen)
+	return;
+
+    buf->bh_curr->b_str[len - slen] = NUL;
+    buf->bh_space += slen;
 }
 
 /*
@@ -478,12 +478,12 @@ flush_buffers(flush_buffers_T flush_typeahead)
     void
 ResetRedobuff(void)
 {
-    if (!block_redo)
-    {
-	free_buff(&old_redobuff);
-	old_redobuff = redobuff;
-	redobuff.bh_first.b_next = NULL;
-    }
+    if (block_redo)
+	return;
+
+    free_buff(&old_redobuff);
+    old_redobuff = redobuff;
+    redobuff.bh_first.b_next = NULL;
 }
 
 /*
@@ -493,15 +493,15 @@ ResetRedobuff(void)
     void
 CancelRedo(void)
 {
-    if (!block_redo)
-    {
-	free_buff(&redobuff);
-	redobuff = old_redobuff;
-	old_redobuff.bh_first.b_next = NULL;
-	start_stuff();
-	while (read_readbuffers(TRUE) != NUL)
-	    ;
-    }
+    if (block_redo)
+	return;
+
+    free_buff(&redobuff);
+    redobuff = old_redobuff;
+    old_redobuff.bh_first.b_next = NULL;
+    start_stuff();
+    while (read_readbuffers(TRUE) != NUL)
+	;
 }
 
 /*
@@ -520,11 +520,11 @@ saveRedobuff(save_redo_T *save_redo)
 
     // Make a copy, so that ":normal ." in a function works.
     s = get_buffcont(&save_redo->sr_redobuff, FALSE);
-    if (s != NULL)
-    {
-	add_buff(&redobuff, s, -1L);
-	vim_free(s);
-    }
+    if (s == NULL)
+	return;
+
+    add_buff(&redobuff, s, -1L);
+    vim_free(s);
 }
 
 /*
@@ -944,15 +944,15 @@ stop_redo_ins(void)
     static void
 init_typebuf(void)
 {
-    if (typebuf.tb_buf == NULL)
-    {
-	typebuf.tb_buf = typebuf_init;
-	typebuf.tb_noremap = noremapbuf_init;
-	typebuf.tb_buflen = TYPELEN_INIT;
-	typebuf.tb_len = 0;
-	typebuf.tb_off = MAXMAPLEN + 4;
-	typebuf.tb_change_cnt = 1;
-    }
+    if (typebuf.tb_buf != NULL)
+	return;
+
+    typebuf.tb_buf = typebuf_init;
+    typebuf.tb_noremap = noremapbuf_init;
+    typebuf.tb_buflen = TYPELEN_INIT;
+    typebuf.tb_len = 0;
+    typebuf.tb_off = MAXMAPLEN + 4;
+    typebuf.tb_change_cnt = 1;
 }
 
 /*
@@ -1324,11 +1324,11 @@ gotchars(char_u *chars, int len)
     void
 ungetchars(int len)
 {
-    if (reg_recording != 0)
-    {
-	delete_buff_tail(&recordbuff, len);
-	last_recorded_len -= len;
-    }
+    if (reg_recording == 0)
+	return;
+
+    delete_buff_tail(&recordbuff, len);
+    last_recorded_len -= len;
 }
 
 /*
@@ -1662,7 +1662,7 @@ merge_modifyOtherKeys(int c_arg, int *modifiers)
 	    && c >= 0 && c <= 127)
     {
 	c += 0x80;
-	*modifiers &= ~(MOD_MASK_META|MOD_MASK_ALT);
+	*modifiers &= ~(MOD_MASK_META | MOD_MASK_ALT);
     }
     return c;
 }
@@ -2230,23 +2230,23 @@ f_getcharstr(typval_T *argvars, typval_T *rettv)
 {
     getchar_common(argvars, rettv);
 
-    if (rettv->v_type == VAR_NUMBER)
-    {
-	char_u		temp[7];   // mbyte-char: 6, NUL: 1
-	varnumber_T	n = rettv->vval.v_number;
-	int		i = 0;
+    if (rettv->v_type != VAR_NUMBER)
+	return;
 
-	if (n != 0)
-	{
-	    if (has_mbyte)
-		i += (*mb_char2bytes)(n, temp + i);
-	    else
-		temp[i++] = n;
-	}
-	temp[i++] = NUL;
-	rettv->v_type = VAR_STRING;
-	rettv->vval.v_string = vim_strsave(temp);
+    char_u		temp[7];   // mbyte-char: 6, NUL: 1
+    varnumber_T	n = rettv->vval.v_number;
+    int		i = 0;
+
+    if (n != 0)
+    {
+	if (has_mbyte)
+	    i += (*mb_char2bytes)(n, temp + i);
+	else
+	    temp[i++] = n;
     }
+    temp[i++] = NUL;
+    rettv->v_type = VAR_STRING;
+    rettv->vval.v_string = vim_strsave(temp);
 }
 
 /*
@@ -3328,15 +3328,15 @@ vgetorpeek(int advance)
 		    {
 			if (curwin->w_wcol > 0)
 			{
-			    if (did_ai)
+			    // After auto-indenting and no text is following,
+			    // we are expecting to truncate the trailing
+			    // white-space, so find the last non-white
+			    // character -- webb
+			    if (did_ai && *skipwhite(ml_get_curline()
+						+ curwin->w_cursor.col) == NUL)
 			    {
 				chartabsize_T cts;
 
-				/*
-				 * We are expecting to truncate the trailing
-				 * white-space, so find the last non-white
-				 * character -- webb
-				 */
 				curwin->w_wcol = 0;
 				ptr = ml_get_curline();
 				init_chartabsize_arg(&cts, curwin,
@@ -3890,7 +3890,7 @@ getcmdkeycmd(
     got_int = FALSE;
     while (c1 != NUL && !aborted)
     {
-	if (ga_grow(&line_ga, 32) != OK)
+	if (ga_grow(&line_ga, 32) == FAIL)
 	{
 	    aborted = TRUE;
 	    break;
@@ -4031,10 +4031,10 @@ do_cmdkey_command(int key UNUSED, int flags)
     void
 reset_last_used_map(mapblock_T *mp)
 {
-    if (last_used_map == mp)
-    {
-	last_used_map = NULL;
-	last_used_sid = -1;
-    }
+    if (last_used_map != mp)
+	return;
+
+    last_used_map = NULL;
+    last_used_sid = -1;
 }
 #endif

@@ -452,7 +452,7 @@ DOMWindow::~DOMWindow()
 
 #if ENABLE(GAMEPAD)
     if (m_gamepadEventListenerCount)
-        GamepadManager::singleton().unregisterDOMWindow(this);
+        GamepadManager::singleton().unregisterDOMWindow(*this);
 #endif
 
     removeLanguageChangeObserver(this);
@@ -526,7 +526,7 @@ void DOMWindow::willDetachDocumentFromFrame()
 void DOMWindow::incrementGamepadEventListenerCount()
 {
     if (++m_gamepadEventListenerCount == 1)
-        GamepadManager::singleton().registerDOMWindow(this);
+        GamepadManager::singleton().registerDOMWindow(*this);
 }
 
 void DOMWindow::decrementGamepadEventListenerCount()
@@ -534,7 +534,7 @@ void DOMWindow::decrementGamepadEventListenerCount()
     ASSERT(m_gamepadEventListenerCount);
 
     if (!--m_gamepadEventListenerCount)
-        GamepadManager::singleton().unregisterDOMWindow(this);
+        GamepadManager::singleton().unregisterDOMWindow(*this);
 }
 
 #endif
@@ -646,16 +646,13 @@ ExceptionOr<RefPtr<Element>> DOMWindow::matchingElementInFlatTree(Node& scope, c
 }
 
 #if ENABLE(ORIENTATION_EVENTS)
-
 int DOMWindow::orientation() const
 {
     auto* frame = this->frame();
     if (!frame)
         return 0;
-
     return frame->orientation();
 }
-
 #endif
 
 Screen& DOMWindow::screen()
@@ -907,14 +904,14 @@ ExceptionOr<void> DOMWindow::postMessage(JSC::JSGlobalObject& lexicalGlobalObjec
         target = &sourceDocument->securityOrigin();
     } else if (options.targetOrigin != "*"_s) {
         target = SecurityOrigin::createFromString(options.targetOrigin);
-        // It doesn't make sense target a postMessage at a unique origin
-        // because there's no way to represent a unique origin in a string.
-        if (target->isUnique())
+        // It doesn't make sense target a postMessage at an opaque origin
+        // because there's no way to represent an opaque origin in a string.
+        if (target->isOpaque())
             return Exception { SyntaxError };
     }
 
     Vector<RefPtr<MessagePort>> ports;
-    auto messageData = SerializedScriptValue::create(lexicalGlobalObject, messageValue, WTFMove(options.transfer), ports, SerializationContext::WindowPostMessage);
+    auto messageData = SerializedScriptValue::create(lexicalGlobalObject, messageValue, WTFMove(options.transfer), ports, SerializationForStorage::No, SerializationContext::WindowPostMessage);
     if (messageData.hasException())
         return messageData.releaseException();
 
@@ -962,11 +959,16 @@ ExceptionOr<void> DOMWindow::postMessage(JSC::JSGlobalObject& lexicalGlobalObjec
             }
         }
 
+        auto* globalObject = document()->globalObject();
+        if (!globalObject)
+            return;
+
         UserGestureIndicator userGestureIndicator(userGestureToForward);
         InspectorInstrumentation::willDispatchPostMessage(frame, postMessageIdentifier);
 
-        auto event = MessageEvent::create(message.message.releaseNonNull(), sourceOrigin, { }, incumbentWindowProxy ? std::make_optional(MessageEventSource(WTFMove(incumbentWindowProxy))) : std::nullopt, MessagePort::entanglePorts(*document(), WTFMove(message.transferredPorts)));
-        dispatchEvent(event);
+        auto ports = MessagePort::entanglePorts(*document(), WTFMove(message.transferredPorts));
+        auto event = MessageEvent::create(*globalObject, message.message.releaseNonNull(), sourceOrigin, { }, incumbentWindowProxy ? std::make_optional(MessageEventSource(WTFMove(incumbentWindowProxy))) : std::nullopt, WTFMove(ports));
+        dispatchEvent(event.event);
 
         InspectorInstrumentation::didDispatchPostMessage(frame, postMessageIdentifier);
     });
@@ -1556,14 +1558,25 @@ bool DOMWindow::hasTransientActivation() const
     return now >= m_lastActivationTimestamp && now < (m_lastActivationTimestamp + transientActivationDuration());
 }
 
+// When the current high resolution time given W is greater than or equal to the last activation timestamp in W,
+// W is said to have sticky activation. (https://html.spec.whatwg.org/multipage/interaction.html#sticky-activation)
+bool DOMWindow::hasStickyActivation() const
+{
+    auto now = MonotonicTime::now();
+    return now >= m_lastActivationTimestamp;
+}
+
 // https://html.spec.whatwg.org/multipage/interaction.html#consume-user-activation
 bool DOMWindow::consumeTransientActivation()
 {
     if (!hasTransientActivation())
         return false;
 
-    for (RefPtr frame = this->frame() ? &this->frame()->tree().top() : nullptr; frame; frame = frame->tree().traverseNext()) {
-        auto* window = frame->window();
+    for (RefPtr<AbstractFrame> frame = this->frame() ? &this->frame()->tree().top() : nullptr; frame; frame = frame->tree().traverseNext()) {
+        RefPtr localFrame = dynamicDowncast<LocalFrame>(frame.get());
+        if (!localFrame)
+            continue;
+        auto* window = localFrame->window();
         if (!window || window->lastActivationTimestamp() != MonotonicTime::infinity())
             window->setLastActivationTimestamp(-MonotonicTime::infinity());
     }
@@ -1579,7 +1592,10 @@ void DOMWindow::notifyActivated(MonotonicTime activationTime)
         return;
 
     for (RefPtr ancestor = frame() ? frame()->tree().parent() : nullptr; ancestor; ancestor = ancestor->tree().parent()) {
-        if (auto* window = ancestor->window())
+        RefPtr localAncestor = dynamicDowncast<LocalFrame>(ancestor.get());
+        if (!localAncestor)
+            continue;
+        if (auto* window = localAncestor->window())
             window->setLastActivationTimestamp(activationTime);
     }
 
@@ -1587,9 +1603,12 @@ void DOMWindow::notifyActivated(MonotonicTime activationTime)
     if (!securityOrigin)
         return;
 
-    RefPtr descendant = frame();
+    RefPtr<AbstractFrame> descendant = frame();
     while ((descendant = descendant->tree().traverseNext(frame()))) {
-        auto* descendantWindow = descendant->window();
+        auto* localDescendant = dynamicDowncast<LocalFrame>(descendant.get());
+        if (!localDescendant)
+            continue;
+        auto* descendantWindow = localDescendant->window();
         if (!descendantWindow)
             continue;
 
@@ -2337,7 +2356,11 @@ void DOMWindow::dispatchEvent(Event& event, EventTarget* target)
     // FIXME: It doesn't seem right to have the inspector instrumentation here since not all
     // events dispatched to the window object are guaranteed to flow through this function.
     // But the instrumentation prevents us from calling EventDispatcher::dispatchEvent here.
-    event.setTarget(target ? target : this);
+    if (target)
+        event.setTarget(target);
+    else
+        event.setTarget(Ref { *this });
+
     event.setCurrentTarget(this);
     event.setEventPhase(Event::AT_TARGET);
     event.resetBeforeDispatch();
@@ -2594,7 +2617,7 @@ ExceptionOr<RefPtr<Frame>> DOMWindow::createWindow(const String& urlString, cons
 
 ExceptionOr<RefPtr<WindowProxy>> DOMWindow::open(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& urlStringToOpen, const AtomString& frameName, const String& windowFeaturesString)
 {
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
     if (RefPtr document = this->document()) {
         if (document->settings().needsSiteSpecificQuirks() && urlStringToOpen == Quirks::BBCRadioPlayerURLString()) {
             auto radioPlayerDomain = RegistrableDomain(URL { Quirks::staticRadioPlayerURLString() });
@@ -2647,10 +2670,10 @@ ExceptionOr<RefPtr<WindowProxy>> DOMWindow::open(DOMWindow& activeWindow, DOMWin
     // In those cases, we schedule a location change right now and return early.
     RefPtr<Frame> targetFrame;
     if (isTopTargetFrameName(frameName))
-        targetFrame = &frame->tree().top();
+        targetFrame = dynamicDowncast<LocalFrame>(&frame->tree().top());
     else if (isParentTargetFrameName(frameName)) {
         if (RefPtr parent = frame->tree().parent())
-            targetFrame = parent;
+            targetFrame = dynamicDowncast<LocalFrame>(parent.get());
         else
             targetFrame = frame;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2015, 2017-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -261,7 +261,9 @@ nc_trigger(int argc, char * const argv[])
 	CFStringRef	hostName	= NULL;
 	int		port		= 80;
 
-	for (i = 0; i < 3 && i < argc; i++) {
+    for (i = 0; i < 3 && i < argc; i++) {
+        CFStringRef	str	= NULL;
+        
 		/* Parse host name. Must be first arg. */
 		if (i == 0) {
 			hostName = CFStringCreateWithCString(NULL, argv[i], kCFStringEncodingUTF8);
@@ -275,7 +277,7 @@ nc_trigger(int argc, char * const argv[])
 		}
 
 		/* Parse optional port number */
-		CFStringRef str = CFStringCreateWithCString(NULL, argv[i], kCFStringEncodingUTF8);
+		str = CFStringCreateWithCString(NULL, argv[i], kCFStringEncodingUTF8);
 		if (str) {
 			int num = CFStringGetIntValue(str);
 			if (num) {
@@ -317,7 +319,7 @@ nc_trigger(int argc, char * const argv[])
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static void
-nc_release_connection()
+nc_release_connection(void)
 {
 	my_CFRelease(&connection);
 }
@@ -331,6 +333,7 @@ nc_start(int argc, char * const argv[])
 	CFStringRef			iftype = NULL;
 	CFStringRef			ifsubtype = NULL;
 	SCNetworkServiceRef		service = NULL;
+	Boolean				isL2TP = FALSE;
 
 	nc_create_connection(argc, argv, TRUE);
 
@@ -341,7 +344,7 @@ nc_start(int argc, char * const argv[])
 						&kCFTypeDictionaryKeyCallBacks,
 						&kCFTypeDictionaryValueCallBacks);
 
-	Boolean isL2TP = (CFEqual(iftype, kSCEntNetPPP) &&
+	isL2TP = (CFEqual(iftype, kSCEntNetPPP) &&
 			  (ifsubtype != NULL) && CFEqual(ifsubtype, kSCValNetInterfaceSubTypeL2TP));
 
 	if (CFEqual(iftype, kSCEntNetPPP)) {

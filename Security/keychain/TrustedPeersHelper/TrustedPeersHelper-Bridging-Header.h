@@ -58,6 +58,9 @@
 
 #import <CoreData/CoreDataErrors.h>
 
+#import "keychain/ot/proto/generated_source/OTAccountSettings.h"
+#import "keychain/ot/proto/generated_source/OTWalrus.h"
+#import "keychain/ot/proto/generated_source/OTWebAccess.h"
 
 #if TARGET_OS_OSX
 #include <sandbox.h>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008, 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -240,7 +240,7 @@ _SCNetworkProtocolCompare(const void *val1, const void *val2, void *context)
 
 
 CFTypeID
-SCNetworkProtocolGetTypeID()
+SCNetworkProtocolGetTypeID(void)
 {
 	__SCNetworkProtocolInitialize();	/* initialize runtime */
 	return __kSCNetworkProtocolTypeID;

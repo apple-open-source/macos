@@ -329,14 +329,6 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 - (void)detachIsolatedObject:(AccessibilityDetachmentType)detachmentType
 {
-    ASSERT_WITH_MESSAGE_UNUSED(
-        detachmentType,
-        detachmentType == AccessibilityDetachmentType::ElementChanged ? _identifier.isValid() && m_axObject : true,
-        "isolated object was detached due to element change, but ID %s was invalid (%d) and/or m_axObject was nullptr (%d)",
-        _identifier.loggingString().utf8().data(),
-        !_identifier.isValid(),
-        !m_axObject
-    );
     m_isolatedObject = nullptr;
 }
 #endif
@@ -661,6 +653,11 @@ void AXAttributedStringSetFont(NSMutableAttributedString *attributedString, CTFo
     auto displayName = adoptCF(CTFontCopyDisplayName(font));
     if (displayName)
         [fontAttributes setValue:bridge_cast(displayName.get()) forKey:NSAccessibilityVisibleNameKey];
+    auto traits = CTFontGetSymbolicTraits(font);
+    if (traits & kCTFontTraitBold)
+        [fontAttributes setValue:@YES forKey:@"AXFontBold"];
+    if (traits & kCTFontTraitItalic)
+        [fontAttributes setValue:@YES forKey:@"AXFontItalic"];
 
     [attributedString addAttribute:NSAccessibilityFontTextAttribute value:fontAttributes.get() range:range];
 #endif
@@ -1098,7 +1095,7 @@ static AccessibilitySearchKeyMap* createAccessibilitySearchKeyMap()
     };
     
     AccessibilitySearchKeyMap* searchKeyMap = new AccessibilitySearchKeyMap;
-    for (size_t i = 0; i < WTF_ARRAY_LENGTH(searchKeys); i++)
+    for (size_t i = 0; i < std::size(searchKeys); i++)
         searchKeyMap->set(searchKeys[i].key, searchKeys[i].value);
     
     return searchKeyMap;

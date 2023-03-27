@@ -95,14 +95,14 @@ public:
     void setFromValue(const WebCore::TransformationMatrix&) override;
     void setFromValue(const WebCore::FloatPoint3D&) override;
     void setFromValue(const WebCore::Color&) override;
-    void setFromValue(const WebCore::FilterOperation*, int internalFilterPropertyIndex) override;
+    void setFromValue(const WebCore::FilterOperation*) override;
     void copyFromValueFrom(const WebCore::PlatformCAAnimation&) override;
 
     void setToValue(float) override;
     void setToValue(const WebCore::TransformationMatrix&) override;
     void setToValue(const WebCore::FloatPoint3D&) override;
     void setToValue(const WebCore::Color&) override;
-    void setToValue(const WebCore::FilterOperation*, int internalFilterPropertyIndex) override;
+    void setToValue(const WebCore::FilterOperation*) override;
     void copyToValueFrom(const WebCore::PlatformCAAnimation&) override;
 
     // Keyframe-animation properties.
@@ -110,13 +110,13 @@ public:
     void setValues(const Vector<WebCore::TransformationMatrix>&) override;
     void setValues(const Vector<WebCore::FloatPoint3D>&) override;
     void setValues(const Vector<WebCore::Color>&) override;
-    void setValues(const Vector<RefPtr<WebCore::FilterOperation>>&, int internalFilterPropertyIndex) override;
+    void setValues(const Vector<RefPtr<WebCore::FilterOperation>>&) override;
     void copyValuesFrom(const WebCore::PlatformCAAnimation&) override;
 
     void setKeyTimes(const Vector<float>&) override;
     void copyKeyTimesFrom(const WebCore::PlatformCAAnimation&) override;
 
-    void setTimingFunctions(const Vector<const WebCore::TimingFunction*>&, bool reverse = false) override;
+    void setTimingFunctions(const Vector<Ref<const WebCore::TimingFunction>>&, bool reverse) override;
     void copyTimingFunctionsFrom(const WebCore::PlatformCAAnimation&) override;
 
     // Animation group properties.
@@ -176,7 +176,7 @@ public:
         // timingFunctions has n-1 entries.
         Vector<KeyframeValue> keyValues;
         Vector<float> keyTimes;
-        Vector<RefPtr<WebCore::TimingFunction>> timingFunctions;
+        Vector<Ref<WebCore::TimingFunction>> timingFunctions;
 
         Vector<Properties> animations;
     };

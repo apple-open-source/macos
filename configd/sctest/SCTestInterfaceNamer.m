@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -122,11 +122,12 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 - (BOOL)unitTest
 {
+	BOOL allUnitTestsPassed = YES;
+
 	if(![self setup]) {
 		return NO;
 	}
 
-	BOOL allUnitTestsPassed = YES;
 	allUnitTestsPassed &= [self unitTestInsertRemoveOneInterface];
 	allUnitTestsPassed &= [self unitTestInsertRemoveMultipleInterfaces];
 	allUnitTestsPassed &= [self unitTestCheckIOKitQuiet];

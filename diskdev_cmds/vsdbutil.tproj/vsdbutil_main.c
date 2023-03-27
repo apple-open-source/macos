@@ -72,7 +72,7 @@ extern mountopt_t optnames[];
 #include <CommonCrypto/CommonDigest.h>
 #include <libkern/OSByteOrder.h>
 
-static const char usage[] = "Usage: %s [-a path] | [-c path ] [-d path] [-i]\n";
+static const char usage[] = "Usage: %s [-a path] | [-c path] [-d path] [-i] [-x path]\n";
 
 static char gHFSTypeName[] = "hfs";
 static char gAPFSTypeName[] = "apfs";
@@ -180,6 +180,7 @@ int main (int argc, const char *argv[])
 					printf("\t-c checks the status of the permissions usage on the specified path\n");
 					printf("\t-d disowns (deactivates) the on-disk permissions on the specified path\n");
 					printf("\t-i initializes the permissions database to include all mounted HFS/HFS+ volumes\n");
+					printf("\t-x clears the entry associated with the specified path from the database\n");
 					break;
 				
 				case 'i':

@@ -55,8 +55,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)persistOctagonJoinAttempt:(OTAccountMetadataClassC_AttemptedAJoinState)attempt error:(NSError**)error;
 
-
-
 @end
 
 NS_ASSUME_NONNULL_END

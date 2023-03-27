@@ -28,9 +28,12 @@
 
 #if PLATFORM(COCOA)
 
+#import "CGDisplayList.h"
 #import "Logging.h"
 #import "RemoteLayerTreeNode.h"
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/MachSendRight.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
 #import <WebKitAdditions/CGDisplayListImageBufferAdditions.h>
@@ -49,8 +52,10 @@
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
 
-- (void)_setWKContents:(id)contents withDisplayList:(CFDataRef)data replayForTesting:(BOOL)replay
+- (void)_setWKContents:(id)contents withDisplayList:(WebKit::CGDisplayList&&)displayList replayForTesting:(BOOL)replay
 {
+    auto data = displayList.buffer()->createCFData();
+
     if (replay) {
         _displayListDataForTesting = data;
         [self setNeedsDisplay];
@@ -58,7 +63,17 @@
     }
 
     self.contents = contents;
-    [self setValue:(id)data forKeyPath:WKCGDisplayListContentsKey];    
+
+    auto surfaces = displayList.takeSurfaces();
+    auto ports = adoptNS([[NSMutableArray alloc] initWithCapacity:surfaces.size()]);
+    for (MachSendRight& surface : surfaces) {
+        // We `leakSendRight` because CAMachPortCreate "adopts" the incoming reference.
+        RetainPtr portWrapper = adoptCF(CAMachPortCreate(surface.leakSendRight()));
+        [ports addObject:static_cast<id>(portWrapper.get())];
+    }
+
+    [self setValue:bridge_cast(data.get()) forKeyPath:WKCGDisplayListContentsKey];
+    [self setValue:ports.get() forKeyPath:WKCGDisplayListPortsKey];
     [self setNeedsDisplay];
 }
 

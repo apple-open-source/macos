@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,39 +46,39 @@ namespace WebKit {
 
 // FIXME: This is a huge copy/paste from WebCore/PlatformEventFactoryMac.mm. The code should be merged.
 
-static WebMouseEvent::Button currentMouseButton()
+static WebMouseEventButton currentMouseButton()
 {
     NSUInteger pressedMouseButtons = [NSEvent pressedMouseButtons];
     if (!pressedMouseButtons)
-        return WebMouseEvent::NoButton;
+        return WebMouseEventButton::NoButton;
     if (pressedMouseButtons == 1 << 0)
-        return WebMouseEvent::LeftButton;
+        return WebMouseEventButton::LeftButton;
     if (pressedMouseButtons == 1 << 1)
-        return WebMouseEvent::RightButton;
-    return WebMouseEvent::MiddleButton;
+        return WebMouseEventButton::RightButton;
+    return WebMouseEventButton::MiddleButton;
 }
 
-static WebMouseEvent::Button mouseButtonForEvent(NSEvent *event)
+static WebMouseEventButton mouseButtonForEvent(NSEvent *event)
 {
     switch ([event type]) {
     case NSEventTypeLeftMouseDown:
     case NSEventTypeLeftMouseUp:
     case NSEventTypeLeftMouseDragged:
-        return WebMouseEvent::LeftButton;
+        return WebMouseEventButton::LeftButton;
     case NSEventTypeRightMouseDown:
     case NSEventTypeRightMouseUp:
     case NSEventTypeRightMouseDragged:
-        return WebMouseEvent::RightButton;
+        return WebMouseEventButton::RightButton;
     case NSEventTypeOtherMouseDown:
     case NSEventTypeOtherMouseUp:
     case NSEventTypeOtherMouseDragged:
-        return WebMouseEvent::MiddleButton;
+        return WebMouseEventButton::MiddleButton;
     case NSEventTypePressure:
     case NSEventTypeMouseEntered:
     case NSEventTypeMouseExited:
         return currentMouseButton();
     default:
-        return WebMouseEvent::NoButton;
+        return WebMouseEventButton::NoButton;
     }
 }
 
@@ -87,7 +87,7 @@ static unsigned short currentlyPressedMouseButtons()
     return static_cast<unsigned short>([NSEvent pressedMouseButtons]);
 }
 
-static WebEvent::Type mouseEventTypeForEvent(NSEvent* event)
+static WebEventType mouseEventTypeForEvent(NSEvent* event)
 {
     switch ([event type]) {
     case NSEventTypeLeftMouseDragged:
@@ -96,17 +96,17 @@ static WebEvent::Type mouseEventTypeForEvent(NSEvent* event)
     case NSEventTypeMouseMoved:
     case NSEventTypeOtherMouseDragged:
     case NSEventTypeRightMouseDragged:
-        return WebEvent::MouseMove;
+        return WebEventType::MouseMove;
     case NSEventTypeLeftMouseDown:
     case NSEventTypeRightMouseDown:
     case NSEventTypeOtherMouseDown:
-        return WebEvent::MouseDown;
+        return WebEventType::MouseDown;
     case NSEventTypeLeftMouseUp:
     case NSEventTypeRightMouseUp:
     case NSEventTypeOtherMouseUp:
-        return WebEvent::MouseUp;
+        return WebEventType::MouseUp;
     default:
-        return WebEvent::MouseMove;
+        return WebEventType::MouseMove;
     }
 }
 
@@ -304,22 +304,6 @@ static inline bool isKeyUpEvent(NSEvent *event)
     return false;
 }
 
-static inline OptionSet<WebEvent::Modifier> modifiersForEvent(NSEvent *event)
-{
-    OptionSet<WebEvent::Modifier> modifiers;
-    if ([event modifierFlags] & NSEventModifierFlagCapsLock)
-        modifiers.add(WebEvent::Modifier::CapsLockKey);
-    if ([event modifierFlags] & NSEventModifierFlagShift)
-        modifiers.add(WebEvent::Modifier::ShiftKey);
-    if ([event modifierFlags] & NSEventModifierFlagControl)
-        modifiers.add(WebEvent::Modifier::ControlKey);
-    if ([event modifierFlags] & NSEventModifierFlagOption)
-        modifiers.add(WebEvent::Modifier::AltKey);
-    if ([event modifierFlags] & NSEventModifierFlagCommand)
-        modifiers.add(WebEvent::Modifier::MetaKey);
-    return modifiers;
-}
-
 static int typeForEvent(NSEvent *event)
 {
     return static_cast<int>([NSMenu menuTypeForEvent:event]);
@@ -335,25 +319,25 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(NSEvent *event, NSEvent *last
     NSPoint position = pointForEvent(event, windowView);
     NSPoint globalPosition = globalPointForEvent(event);
 
-    WebEvent::Type type = mouseEventTypeForEvent(event);
+    WebEventType type = mouseEventTypeForEvent(event);
     if ([event type] == NSEventTypePressure) {
         // Since AppKit doesn't send mouse events for force down or force up, we have to use the current pressure
         // event and lastPressureEvent to detect if this is MouseForceDown, MouseForceUp, or just MouseForceChanged.
         if (lastPressureEvent.stage == 1 && event.stage == 2)
-            type = WebEvent::MouseForceDown;
+            type = WebEventType::MouseForceDown;
         else if (lastPressureEvent.stage == 2 && event.stage == 1)
-            type = WebEvent::MouseForceUp;
+            type = WebEventType::MouseForceUp;
         else
-            type = WebEvent::MouseForceChanged;
+            type = WebEventType::MouseForceChanged;
     }
 
-    WebMouseEvent::Button button = mouseButtonForEvent(event);
+    WebMouseEventButton button = mouseButtonForEvent(event);
     unsigned short buttons = currentlyPressedMouseButtons();
     float deltaX = [event deltaX];
     float deltaY = [event deltaY];
     float deltaZ = [event deltaZ];
     int clickCount = clickCountForEvent(event);
-    auto modifiers = modifiersForEvent(event);
+    auto modifiers = webEventModifiersForNSEventModifierFlags(event.modifierFlags);
     auto timestamp = WebCore::eventTimeStampSince1970(event.timestamp);
     int eventNumber = [event eventNumber];
     int menuTypeForEvent = typeForEvent(event);
@@ -362,7 +346,7 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(NSEvent *event, NSEvent *last
     double pressure = [event type] == NSEventTypePressure ? event.pressure : lastPressureEvent.pressure;
     double force = pressure + stage;
 
-    return WebMouseEvent(type, button, buttons, WebCore::IntPoint(position), WebCore::IntPoint(globalPosition), deltaX, deltaY, deltaZ, clickCount, modifiers, timestamp, force, WebMouseEvent::SyntheticClickType::NoTap, eventNumber, menuTypeForEvent);
+    return WebMouseEvent({ type, modifiers, timestamp }, button, buttons, WebCore::IntPoint(position), WebCore::IntPoint(globalPosition), deltaX, deltaY, deltaZ, clickCount, force, WebMouseEventSyntheticClickType::NoTap, eventNumber, menuTypeForEvent);
 }
 
 WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windowView)
@@ -408,7 +392,7 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windo
         unacceleratedScrollingDelta = WebCore::FloatSize(deltaX, deltaY);
     }
 
-    auto modifiers = modifiersForEvent(event);
+    auto modifiers = webEventModifiersForNSEventModifierFlags(event.modifierFlags);
     auto timestamp = WebCore::eventTimeStampSince1970(event.timestamp);
     
     auto ioHIDEventWallTime = timestamp;
@@ -445,14 +429,14 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windo
         rawPlatformDelta = std::nullopt;
     }
 
-    return WebWheelEvent(WebEvent::Wheel, WebCore::IntPoint(position), WebCore::IntPoint(globalPosition), WebCore::FloatSize(deltaX, deltaY), WebCore::FloatSize(wheelTicksX, wheelTicksY),
+    return WebWheelEvent({ WebEventType::Wheel, modifiers, timestamp }, WebCore::IntPoint(position), WebCore::IntPoint(globalPosition), WebCore::FloatSize(deltaX, deltaY), WebCore::FloatSize(wheelTicksX, wheelTicksY),
         granularity, directionInvertedFromDevice, phase, momentumPhase, hasPreciseScrollingDeltas,
-        scrollCount, unacceleratedScrollingDelta, modifiers, timestamp, ioHIDEventWallTime, rawPlatformDelta, momentumEndType);
+        scrollCount, unacceleratedScrollingDelta, ioHIDEventWallTime, rawPlatformDelta, momentumEndType);
 }
 
 WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(NSEvent *event, bool handledByInputMethod, bool replacesSoftSpace, const Vector<WebCore::KeypressCommand>& commands)
 {
-    WebEvent::Type type             = isKeyUpEvent(event) ? WebEvent::KeyUp : WebEvent::KeyDown;
+    WebEventType type               = isKeyUpEvent(event) ? WebEventType::KeyUp : WebEventType::KeyDown;
     String text                     = textFromEvent(event, replacesSoftSpace);
     String unmodifiedText           = unmodifiedTextFromEvent(event, replacesSoftSpace);
     String key                      = WebCore::keyForKeyEvent(event);
@@ -464,7 +448,7 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(NSEvent *event, bool ha
     bool autoRepeat                 = [event type] != NSEventTypeFlagsChanged && [event isARepeat];
     bool isKeypad                   = isKeypadEvent(event);
     bool isSystemKey                = false; // SystemKey is always false on the Mac.
-    auto modifiers = modifiersForEvent(event);
+    auto modifiers = webEventModifiersForNSEventModifierFlags(event.modifierFlags);
     auto timestamp                  = WebCore::eventTimeStampSince1970(event.timestamp);
 
     // Always use 13 for Enter/Return -- we don't want to use AppKit's different character for Enter.
@@ -485,35 +469,51 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(NSEvent *event, bool ha
         unmodifiedText = text;
     }
 
-    return WebKeyboardEvent(type, text, unmodifiedText, key, code, keyIdentifier, windowsVirtualKeyCode, nativeVirtualKeyCode, macCharCode, handledByInputMethod, commands, autoRepeat, isKeypad, isSystemKey, modifiers, timestamp);
+    return WebKeyboardEvent({ type, modifiers, timestamp }, text, unmodifiedText, key, code, keyIdentifier, windowsVirtualKeyCode, nativeVirtualKeyCode, macCharCode, handledByInputMethod, commands, autoRepeat, isKeypad, isSystemKey);
 }
 
-NSEventModifierFlags WebEventFactory::toNSEventModifierFlags(OptionSet<WebKit::WebEvent::Modifier> modifiers)
+OptionSet<WebKit::WebEventModifier> WebEventFactory::webEventModifiersForNSEventModifierFlags(NSEventModifierFlags modifierFlags)
+{
+    OptionSet<WebEventModifier> modifiers;
+    if (modifierFlags & NSEventModifierFlagCapsLock)
+        modifiers.add(WebEventModifier::CapsLockKey);
+    if (modifierFlags & NSEventModifierFlagShift)
+        modifiers.add(WebEventModifier::ShiftKey);
+    if (modifierFlags & NSEventModifierFlagControl)
+        modifiers.add(WebEventModifier::ControlKey);
+    if (modifierFlags & NSEventModifierFlagOption)
+        modifiers.add(WebEventModifier::AltKey);
+    if (modifierFlags & NSEventModifierFlagCommand)
+        modifiers.add(WebEventModifier::MetaKey);
+    return modifiers;
+}
+
+NSEventModifierFlags WebEventFactory::toNSEventModifierFlags(OptionSet<WebKit::WebEventModifier> modifiers)
 {
     NSEventModifierFlags modifierFlags = 0;
-    if (modifiers.contains(WebKit::WebEvent::Modifier::CapsLockKey))
+    if (modifiers.contains(WebKit::WebEventModifier::CapsLockKey))
         modifierFlags |= NSEventModifierFlagCapsLock;
-    if (modifiers.contains(WebKit::WebEvent::Modifier::ShiftKey))
+    if (modifiers.contains(WebKit::WebEventModifier::ShiftKey))
         modifierFlags |= NSEventModifierFlagShift;
-    if (modifiers.contains(WebKit::WebEvent::Modifier::ControlKey))
+    if (modifiers.contains(WebKit::WebEventModifier::ControlKey))
         modifierFlags |= NSEventModifierFlagControl;
-    if (modifiers.contains(WebKit::WebEvent::Modifier::AltKey))
+    if (modifiers.contains(WebKit::WebEventModifier::AltKey))
         modifierFlags |= NSEventModifierFlagOption;
-    if (modifiers.contains(WebKit::WebEvent::Modifier::MetaKey))
+    if (modifiers.contains(WebKit::WebEventModifier::MetaKey))
         modifierFlags |= NSEventModifierFlagCommand;
     return modifierFlags;
 }
 
-NSInteger WebEventFactory::toNSButtonNumber(WebKit::WebMouseEvent::Button mouseButton)
+NSInteger WebEventFactory::toNSButtonNumber(WebKit::WebMouseEventButton mouseButton)
 {
     switch (mouseButton) {
-    case WebKit::WebMouseEvent::NoButton:
+    case WebKit::WebMouseEventButton::NoButton:
         return 0;
-    case WebKit::WebMouseEvent::LeftButton:
+    case WebKit::WebMouseEventButton::LeftButton:
         return 1 << 0;
-    case WebKit::WebMouseEvent::RightButton:
+    case WebKit::WebMouseEventButton::RightButton:
         return 1 << 1;
-    case WebKit::WebMouseEvent::MiddleButton:
+    case WebKit::WebMouseEventButton::MiddleButton:
         return 1 << 2;
     }
     ASSERT_NOT_REACHED();

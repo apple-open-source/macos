@@ -25,6 +25,9 @@
 #include <gio/gio.h>
 #include <@API_INCLUDE_PREFIX@/WebKitCookieManager.h>
 #include <@API_INCLUDE_PREFIX@/WebKitDefines.h>
+#if ENABLE(2022_GLIB_API)
+#include <@API_INCLUDE_PREFIX@/WebKitFaviconDatabase.h>
+#endif
 #include <@API_INCLUDE_PREFIX@/WebKitMemoryPressureSettings.h>
 #include <@API_INCLUDE_PREFIX@/WebKitNetworkProxySettings.h>
 #include <@API_INCLUDE_PREFIX@/WebKitWebsiteData.h>
@@ -77,11 +80,13 @@ struct _WebKitWebsiteDataManagerClass {
 WEBKIT_API GType
 webkit_website_data_manager_get_type                                  (void);
 
+#if !ENABLE(2022_GLIB_API)
 WEBKIT_API WebKitWebsiteDataManager *
 webkit_website_data_manager_new                                       (const gchar              *first_option_name,
                                                                        ...);
 WEBKIT_API WebKitWebsiteDataManager *
 webkit_website_data_manager_new_ephemeral                             (void);
+#endif
 
 WEBKIT_API gboolean
 webkit_website_data_manager_is_ephemeral                              (WebKitWebsiteDataManager* manager);
@@ -92,31 +97,44 @@ webkit_website_data_manager_get_base_data_directory                   (WebKitWeb
 WEBKIT_API const gchar *
 webkit_website_data_manager_get_base_cache_directory                  (WebKitWebsiteDataManager *manager);
 
-WEBKIT_API const gchar *
+#if ENABLE(2022_GLIB_API)
+WEBKIT_API void
+webkit_website_data_manager_set_favicons_enabled                      (WebKitWebsiteDataManager *manager,
+                                                                       gboolean                  enabled);
+
+WEBKIT_API gboolean
+webkit_website_data_manager_get_favicons_enabled                      (WebKitWebsiteDataManager *manager);
+
+WEBKIT_API WebKitFaviconDatabase *
+webkit_website_data_manager_get_favicon_database                      (WebKitWebsiteDataManager *manager);
+#endif
+
+#if !ENABLE(2022_GLIB_API)
+WEBKIT_DEPRECATED const gchar *
 webkit_website_data_manager_get_local_storage_directory               (WebKitWebsiteDataManager *manager);
 
-WEBKIT_API const gchar *
+WEBKIT_DEPRECATED const gchar *
 webkit_website_data_manager_get_disk_cache_directory                  (WebKitWebsiteDataManager *manager);
 
-WEBKIT_API const gchar *
+WEBKIT_DEPRECATED const gchar *
 webkit_website_data_manager_get_offline_application_cache_directory   (WebKitWebsiteDataManager *manager);
 
-WEBKIT_API const gchar *
+WEBKIT_DEPRECATED const gchar *
 webkit_website_data_manager_get_indexeddb_directory                   (WebKitWebsiteDataManager *manager);
 
 WEBKIT_DEPRECATED const gchar *
 webkit_website_data_manager_get_websql_directory                      (WebKitWebsiteDataManager *manager);
 
-WEBKIT_API const gchar *
+WEBKIT_DEPRECATED const gchar *
 webkit_website_data_manager_get_hsts_cache_directory                  (WebKitWebsiteDataManager *manager);
 
-WEBKIT_API const gchar *
+WEBKIT_DEPRECATED const gchar *
 webkit_website_data_manager_get_itp_directory                         (WebKitWebsiteDataManager *manager);
 
-WEBKIT_API const gchar *
+WEBKIT_DEPRECATED const gchar *
 webkit_website_data_manager_get_service_worker_registrations_directory(WebKitWebsiteDataManager *manager);
 
-WEBKIT_API const gchar *
+WEBKIT_DEPRECATED const gchar *
 webkit_website_data_manager_get_dom_cache_directory                   (WebKitWebsiteDataManager *manager);
 
 WEBKIT_API WebKitCookieManager *
@@ -147,6 +165,7 @@ WEBKIT_API void
 webkit_website_data_manager_set_network_proxy_settings                (WebKitWebsiteDataManager *manager,
                                                                        WebKitNetworkProxyMode    proxy_mode,
                                                                        WebKitNetworkProxySettings *proxy_settings);
+#endif
 
 WEBKIT_API void
 webkit_website_data_manager_fetch                                     (WebKitWebsiteDataManager *manager,
@@ -184,8 +203,10 @@ webkit_website_data_manager_clear_finish                               (WebKitWe
                                                                         GAsyncResult             *result,
                                                                         GError                  **error);
 
+#if !ENABLE(2022_GLIB_API)
 WEBKIT_API void
 webkit_website_data_manager_set_memory_pressure_settings               (WebKitMemoryPressureSettings *settings);
+#endif
 
 
 #define WEBKIT_TYPE_ITP_FIRST_PARTY   (webkit_itp_first_party_get_type())

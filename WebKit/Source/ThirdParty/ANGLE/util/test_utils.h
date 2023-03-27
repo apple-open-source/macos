@@ -37,17 +37,6 @@ void TerminateCrashHandler();
 // Print a stack back trace.
 void PrintStackBacktrace();
 
-// Get temporary directory.
-bool GetTempDir(char *tempDirOut, uint32_t maxDirNameLen);
-
-// Creates a temporary file. The full path is placed in |tempFileNameOut|, and the
-// function returns true if was successful in creating the file. The file will
-// be empty and all handles closed after this function returns.
-bool CreateTemporaryFile(char *tempFileNameOut, uint32_t maxFileNameLen);
-
-// Same as CreateTemporaryFile but the file is created in |dir|.
-bool CreateTemporaryFileInDir(const char *dir, char *tempFileNameOut, uint32_t maxFileNameLen);
-
 // Deletes a file or directory.
 bool DeleteSystemFile(const char *path);
 
@@ -137,6 +126,36 @@ const char *GetNativeEGLLibraryNameWithExtension();
 #if defined(ANGLE_PLATFORM_APPLE)
 void InitMetalFileAPIHooking(int argc, char **argv);
 #endif
+
+enum ArgHandling
+{
+    Delete,
+    Preserve,
+};
+
+bool ParseIntArg(const char *flag, int *argc, char **argv, int argIndex, int *valueOut);
+bool ParseFlag(const char *flag, int *argc, char **argv, int argIndex, bool *flagOut);
+bool ParseStringArg(const char *flag, int *argc, char **argv, int argIndex, std::string *valueOut);
+bool ParseCStringArg(const char *flag, int *argc, char **argv, int argIndex, const char **valueOut);
+
+// Note: return value is always false with ArgHandling::Preserve handling
+bool ParseIntArgWithHandling(const char *flag,
+                             int *argc,
+                             char **argv,
+                             int argIndex,
+                             int *valueOut,
+                             ArgHandling handling);
+bool ParseCStringArgWithHandling(const char *flag,
+                                 int *argc,
+                                 char **argv,
+                                 int argIndex,
+                                 const char **valueOut,
+                                 ArgHandling handling);
+
+void AddArg(int *argc, char **argv, const char *arg);
+
+uint32_t GetPlatformANGLETypeFromArg(const char *useANGLEArg, uint32_t defaultPlatformType);
+uint32_t GetANGLEDeviceTypeFromArg(const char *useANGLEArg, uint32_t defaultDeviceType);
 }  // namespace angle
 
 #endif  // UTIL_TEST_UTILS_H_

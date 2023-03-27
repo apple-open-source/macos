@@ -67,6 +67,7 @@ OSStatus SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, v
 #include <AssertMacros.h>
 
 #include <Security/SecCertificateRequest.h>
+#include <Security/SecCertificateOIDS.h>
 
 /* Subject Name Attribute OID constants */
 const CFStringRef kSecOidCommonName = CFSTR("CN");
@@ -75,8 +76,13 @@ const CFStringRef kSecOidStateProvinceName = CFSTR("ST");
 const CFStringRef kSecOidLocalityName = CFSTR("L");
 const CFStringRef kSecOidOrganization = CFSTR("O");
 const CFStringRef kSecOidOrganizationalUnit = CFSTR("OU");
-//CFTypeRef kSecOidEmailAddress = CFSTR("1.2.840.113549.1.9.1");
-// keep natural order: C > ST > L > O > OU > CN > Email
+const CFStringRef kSecOidEmailAddress = CFSTR("EMAIL");
+/*
+ Note: SecCertificateOIDS.h declares kSecOIDEmailAddress (OID vs. Oid),
+ where the OID value is defined in CertificateValues.cpp as follows:
+ const CFStringRef kSecOIDEmailAddress = CFSTR("1.2.840.113549.1.9.1");
+*/
+// keep natural order: C > ST > L > O > OU > CN > EMAIL
 
 /* Type constants */
 const unsigned char SecASN1PrintableString = SEC_ASN1_PRINTABLE_STRING;
@@ -183,29 +189,56 @@ ASCII ? => PrintableString subset: [A-Za-z0-9 '()+,-./:=?] ?
 
 PrintableString > IA5String > UTF8String
 
-Consider using IA5String for email address
+Consider using IA5String for email address (now done in make_nss_atv)
 */
 
-static inline bool printable_string(CFStringRef string)
+static inline bool printable_string(CFStringRef string, bool permitAtSymbol)
 {
     bool result = true;
 
+    /* Note: the PrintableString character set does not contain the @ symbol.
+       We include it here in printable_charset so that we can first eliminate
+       strings containing characters outside [PrintableString+'@'], then
+       selectively eliminate strings with '@' if permitAtSymbol is false. */
     CFCharacterSetRef printable_charset =
         CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault,
             CFSTR("ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "abcdefghijklmnopqrstuvwxyz"
-                    "0123456789 '()+,-./:=?"));
+                    "0123456789 '()+,-./:=?@"));
     CFCharacterSetRef not_printable_charset =
         CFCharacterSetCreateInvertedSet(kCFAllocatorDefault, printable_charset);
-    CFRange found;
-    if (CFStringFindCharacterFromSet(string, not_printable_charset,
-        CFRangeMake(0, CFStringGetLength(string)), 0, &found))
-            result = false;
-
+    CFCharacterSetRef at_charset = CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault, CFSTR("@"));
+    if (CFStringFindCharacterFromSet(string, not_printable_charset, CFRangeMake(0, CFStringGetLength(string)), 0, NULL)) {
+        result = false;
+    } else if (CFStringFindCharacterFromSet(string, at_charset, CFRangeMake(0, CFStringGetLength(string)), 0, NULL)) {
+        result = permitAtSymbol;
+    }
     CFReleaseSafe(printable_charset);
     CFReleaseSafe(not_printable_charset);
+    CFReleaseSafe(at_charset);
 
     return result;
+}
+
+static bool isEmailAddressOid(CFTypeRef oid) {
+    if (isString(oid)) {
+        // dotted-decimal OID string or case-insensitive "EMAIL" string
+#if TARGET_OS_OSX
+        if (CFEqual(kSecOIDEmailAddress, oid) ||
+#else
+        if (CFEqual(CFSTR("1.2.840.113549.1.9.1"), oid) ||
+#endif
+            kCFCompareEqualTo == CFStringCompare(kSecOidEmailAddress, oid, kCFCompareCaseInsensitive)) {
+            return true;
+        }
+    } else if (isData(oid)) {
+        // data representation of OID
+        if (CFDataGetLength(oid) == (CFIndex)(oidEmailAddress.length) &&
+            (!memcmp(CFDataGetBytePtr(oid), oidEmailAddress.data, oidEmailAddress.length))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 static bool make_nss_atv(PRArenaPool *poolp,
@@ -232,10 +265,16 @@ static bool make_nss_atv(PRArenaPool *poolp,
         }
         else {
             if (!type || type == SecASN1PrintableString) {
-                if (!printable_string(value)) {
-                    type = SEC_ASN1_UTF8_STRING;
+                /* According to RFC5280 (4.1.2.6. Subject), the attribute value for emailAddress
+                   is of type IA5String to permit inclusion of the character '@', which is not
+                   part of the PrintableString character set. */
+                bool useIA5String = isEmailAddressOid(oid);
+                if (!printable_string(value, useIA5String)) {
+                    type = SEC_ASN1_UTF8_STRING; /* has characters outside of allowed printable string set */
+                } else if (useIA5String) {
+                    type = SEC_ASN1_IA5_STRING; /* passed printable string + '@' check for email address oid */
                 } else {
-                    type = SEC_ASN1_PRINTABLE_STRING;
+                    type = SEC_ASN1_PRINTABLE_STRING; /* also a printable string, but not email address oid */
                 }
             }
         }
@@ -263,6 +302,8 @@ static bool make_nss_atv(PRArenaPool *poolp,
             oid_length = oidOrganizationName.length; oid_data = oidOrganizationName.data;
         } else if (CFEqual(kSecOidOrganizationalUnit, oid)) {
             oid_length = oidOrganizationalUnitName.length; oid_data = oidOrganizationalUnitName.data;
+        } else if (CFEqual(kSecOidEmailAddress, oid)) {
+            oid_length = oidEmailAddress.length; oid_data = oidEmailAddress.data;
         } else {
             oid_data = oid_der_data(poolp, oid, &oid_length);
             require_action(oid_data, out, secerror("csr: ATV OID encode failed for %@", oid));
@@ -806,7 +847,7 @@ NSS_Attribute **nss_attributes_from_parameters_dict(PRArenaPool *poolp, CFDictio
                 return NULL;
             }
             utf8 = true;
-        } else if (!printable_string(challenge)) {
+        } else if (!printable_string(challenge, false)) {
             utf8 = true;
         }
 

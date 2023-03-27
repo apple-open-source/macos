@@ -121,9 +121,9 @@ WI.DetailsSectionSimpleRow = class DetailsSectionSimpleRow extends WI.DetailsSec
         return this._valueElement.title;
     }
 
-    set tooltip(x)
+    set tooltip(tooltip)
     {
-        this._valueElement.title = x;
+        this._valueElement.title = tooltip;
     }
 };
 

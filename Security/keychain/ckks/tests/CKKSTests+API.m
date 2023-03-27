@@ -626,9 +626,6 @@
     query[(id)kSecAttrPCSPlaintextPublicKey] = nil;
     query[(id)kSecAttrPCSPlaintextPublicIdentity] = nil;
 
-    servIdentifier = @1;
-    publicKey = [@"new public key" dataUsingEncoding:NSUTF8StringEncoding];
-
     NSNumber* newServiceIdentifier = @10;
     NSData* newPublicKey = [@"new public key" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* newPublicIdentity = [@"new public identity" dataUsingEncoding:NSUTF8StringEncoding];

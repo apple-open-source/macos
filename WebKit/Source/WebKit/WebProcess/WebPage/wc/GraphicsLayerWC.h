@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if USE(GRAPHICS_LAYER_WC)
+
 #include "WCUpateInfo.h"
 #include <WebCore/GraphicsLayerContentsDisplayDelegate.h>
 #include <wtf/DoublyLinkedList.h>
@@ -62,9 +64,9 @@ public:
     void addChildBelow(Ref<GraphicsLayer>&&, GraphicsLayer* sibling) override;
     bool replaceChild(GraphicsLayer* oldChild, Ref<GraphicsLayer>&& newChild) override;
     void removeFromParent() override;
-    void setMaskLayer(RefPtr<GraphicsLayer>&&);
-    void setReplicatedLayer(GraphicsLayer*);
-    void setReplicatedByLayer(RefPtr<GraphicsLayer>&&);
+    void setMaskLayer(RefPtr<GraphicsLayer>&&) override;
+    void setReplicatedLayer(GraphicsLayer*) override;
+    void setReplicatedByLayer(RefPtr<GraphicsLayer>&&) override;
     void setPosition(const WebCore::FloatPoint&) override;
     void setAnchorPoint(const WebCore::FloatPoint3D&) override;
     void setSize(const WebCore::FloatSize&) override;
@@ -116,13 +118,11 @@ private:
     VisibleAndCoverageRects computeVisibleAndCoverageRect(WebCore::TransformState&, bool preserves3D) const;
     void recursiveCommitChanges(const WebCore::TransformState&);
 
-    static GraphicsLayer::PlatformLayerID generateLayerID();
-
     friend class WTF::DoublyLinkedListNode<GraphicsLayerWC>;
 
     GraphicsLayerWC* m_prev;
     GraphicsLayerWC* m_next;
-    WebCore::GraphicsLayer::PlatformLayerID m_layerID { generateLayerID() };
+    WebCore::GraphicsLayer::PlatformLayerID m_layerID { WebCore::GraphicsLayer::PlatformLayerID::generate() };
     Observer* m_observer;
     std::unique_ptr<WCTiledBacking> m_tiledBacking;
     PlatformLayer* m_platformLayer { nullptr };
@@ -133,3 +133,5 @@ private:
 };
 
 } // namespace WebKit
+
+#endif // USE(GRAPHICS_LAYER_WC)

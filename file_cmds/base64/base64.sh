@@ -105,25 +105,9 @@ if [ "$dodecode" = 1 ]; then
 	# if decoding, never break the output
 	bpos=0
 	decodeflag="-d"
-
-	# When we're decoding, we break the input up into smaller blocks
-	# to keep OpenSSL happy -- based on experimentation, it wants to see
-	# a newline within the first 80 bytes.  dd conv=unblock works for both
-	# short and long inputs, as it'll always output a trailing newline, even
-	# for short inputs.
-	#
-	# We avoid the -A flag to openssl because that breaks decoding
-	# multi-line base64 text.
-	inpipe="(dd if=\"$infile\" conv=unblock cbs=79 2>/dev/null || ioerr $$)"
-
-	# openssl(1) doesn't support base64url, so we'll do the necessary
-	# replacements here to shim it out.
-	inpipe="$inpipe | sed -e 's,-,+,g' -e 's,_,/,g'"
-else
-	inpipe="(cat \"$infile\" || ioerr $$)"
 fi
 
-cmd="$inpipe | openssl enc -base64 $decodeflag"
+cmd="openssl enc -base64 $decodeflag"
 if [ "$dodecode" -eq 0 ]; then
 	# Decode should never be processed through paste(1), lest we decode
 	# incorrectly if the original file had newline bytes.
@@ -132,4 +116,21 @@ fi
 if [ "$bpos" -ne 0 ]; then
 	cmd="$cmd | dd conv=unblock cbs="$bpos" 2>/dev/null | sed -e '$d'"
 fi
-eval $cmd > "$outfile"
+
+if [ "$dodecode" = 1 ]; then
+	# When we're decoding, we break the input up into smaller blocks
+	# to keep OpenSSL happy -- based on experimentation, it wants to see
+	# a newline within the first 80 bytes.  dd conv=unblock works for both
+	# short and long inputs, as it'll always output a trailing newline, even
+	# for short inputs.
+	#
+	# We avoid the -A flag to openssl because that breaks decoding
+	# multi-line base64 text.
+
+	# openssl(1) doesn't support base64url, so we'll do the necessary
+	# replacements here to shim it out.
+	(dd if="$infile" conv=unblock cbs=79 2>/dev/null || ioerr $$) | \
+	    sed -e 's,-,+,g' -e 's,_,/,g'
+else
+	cat -- "$infile" || ioerr $$
+fi | eval $cmd > "$outfile"

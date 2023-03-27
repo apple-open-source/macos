@@ -232,7 +232,8 @@ enum {
     kIONetworkFeatureTSOIPv6                    = 0x020,
     kIONetworkFeatureTransmitCompletionStatus   = 0x040,
     kIONetworkFeatureHWTimeStamp                = 0x080,
-    kIONetworkFeatureSWTimeStamp                = 0x100
+    kIONetworkFeatureSWTimeStamp                = 0x100,
+    kIONetworkFeatureLRO                        = 0x200
 };
 
 #ifdef KERNEL
@@ -1674,7 +1675,23 @@ public:
 
     OSMetaClassDeclareReservedUsed( IONetworkController,  6);
 
-    OSMetaClassDeclareReservedUnused( IONetworkController,  7);
+/*! @function setHardwareAssists
+    @abstract Allow the Controller to be notified of a Hardware acceleration
+    configuration change.
+    @discussion Allow the Controller to be notified of a Hardware acceleration
+    configuration change.
+    @param hardwareAssists The assists that have changed.
+    @param hardwareAssistsMask The mask if the hardware assists thar need
+    a hardware reconfiguration
+    @result Default implementation returns <code>kIOReturnUnsupported</code>.
+    Driver should return <code>kIOReturnSuccess</code> if the notification
+    was handled.
+*/
+
+    virtual IOReturn setHardwareAssists( UInt32 hardwareAssists, UInt32 hardwareAssistsMask )
+
+    OSMetaClassDeclareReservedUsed( IONetworkController,  7);
+
     OSMetaClassDeclareReservedUnused( IONetworkController,  8);
     OSMetaClassDeclareReservedUnused( IONetworkController,  9);
     OSMetaClassDeclareReservedUnused( IONetworkController, 10);

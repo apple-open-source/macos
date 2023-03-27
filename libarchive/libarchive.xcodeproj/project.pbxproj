@@ -1982,6 +1982,7 @@
 				3EE6CF4B1FA8D08E0018AA21 /* Frameworks */,
 			);
 			sourceTree = "<group>";
+			usesTabs = 1;
 		};
 		FD9B8962104D9F050096D791 /* Products */ = {
 			isa = PBXGroup;

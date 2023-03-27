@@ -1372,6 +1372,27 @@ void idl_es_decode_check_buffer
 
 /******************************************************************************/
 /*                                                                            */
+/*  idl_es_dealloc_elt_buffer                                                 */
+/*  Called to free the buffer in IDL_elt_p and zero relevant members          */
+/*                                                                            */
+/******************************************************************************/
+void idl_es_dealloc_elt_buffer(struct IDL_ms_t *IDL_msp) {
+    if (IDL_msp == NULL || IDL_msp->IDL_elt_p == NULL) {
+        return;
+    }
+
+    if (IDL_msp->IDL_elt_p->buff_dealloc
+        && IDL_msp->IDL_elt_p->data_len != 0) {
+        (*(IDL_msp->IDL_elt_p->buff_dealloc))(IDL_msp->IDL_elt_p->buff_addr);
+    }
+
+    IDL_msp->IDL_elt_p = NULL;
+    IDL_msp->IDL_mp = NULL;
+    IDL_msp->IDL_left_in_buff = 0;
+}
+
+/******************************************************************************/
+/*                                                                            */
 /*  idl_es_inq_encoding_id - API routine                                      */
 /*  Give interface ID and operation number to user                            */
 /*                                                                            */

@@ -693,8 +693,9 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 			alen = mp->ralen; aol = mp->lalen;
 		    }
 		    /* Give up if we don't have enough characters for the
-		     * line-string and the anchor. */
-		    if (ll < llen + alen || lw < alen)
+		     * line-string and the anchor, or for both anchors in
+		     * the case of the trial completion word. */
+		    if (ll < llen + alen || lw < alen + aol)
 			continue;
 
 		    if (mp->flags & CMF_LEFT) {
@@ -1318,7 +1319,7 @@ pattern_match_equivalence(Cpattern lp, convchar_t wind, int wmtp,
     convchar_t lchr;
     int lmtp;
 
-    if (!PATMATCHINDEX(lp->u.str, wind-1, &lchr, &lmtp)) {
+    if (!PATMATCHINDEX(lp->u.str, wind, &lchr, &lmtp)) {
 	/*
 	 * No equivalent.  No possible match; give up.
 	 */
@@ -1437,7 +1438,7 @@ pattern_match_restrict(Cpattern p, Cpattern wp, convchar_t *wsc, int wsclen,
 
 	/*
 	 * If either is "?", they match each other; no further tests.
-	 * Apply this even if the character wasn't convertable;
+	 * Apply this even if the character wasn't convertible;
 	 * there's no point trying to be clever in that case.
 	 */
 	if (p->tp != CPAT_ANY || wp->tp != CPAT_ANY)
@@ -1495,7 +1496,7 @@ pattern_match_restrict(Cpattern p, Cpattern wp, convchar_t *wsc, int wsclen,
 		 * characters.  We're matching two patterns against
 		 * one another to generate a character to insert.
 		 * This is a bit too psychedelic, so I'm going to
-		 * bale out now.  See you on the ground.
+		 * bail out now.  See you on the ground.
 		 */
 		return 0;
 	    }
@@ -1563,7 +1564,7 @@ pattern_match(Cpattern p, char *s, Cpattern wp, char *ws)
 	c = unmeta_one(s, &len);
 	/*
 	 * If either is "?", they match each other; no further tests.
-	 * Apply this even if the character wasn't convertable;
+	 * Apply this even if the character wasn't convertible;
 	 * there's no point trying to be clever in that case.
 	 */
 	if (p->tp != CPAT_ANY || wp->tp != CPAT_ANY)
@@ -1933,7 +1934,7 @@ bld_line(Cmatcher mp, ZLE_STRING_T line, char *mword, char *word,
 		 * This is the nightmare case: we have line and
 		 * and word matchers and some pattern which restricts
 		 * the value on the line without us knowing exactly
-		 * what it is.  Despatch to the special function
+		 * what it is.  Dispatch to the special function
 		 * for that.
 		 */
 		if (mp && !mp->flags && mp->wlen <= wlen &&

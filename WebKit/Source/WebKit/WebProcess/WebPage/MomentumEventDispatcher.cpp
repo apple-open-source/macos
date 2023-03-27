@@ -178,7 +178,7 @@ void MomentumEventDispatcher::dispatchSyntheticMomentumEvent(WebWheelEvent::Phas
     // FIXME: Ideally we would stick legitimate rawPlatformDeltas on the event,
     // but currently nothing will consume them, and we'd have to keep track of them separately.
     WebWheelEvent syntheticEvent(
-        WebEvent::Wheel,
+        { WebEventType::Wheel, m_lastIncomingEvent->modifiers(), time },
         m_currentGesture.initiatingEvent->position(),
         m_currentGesture.initiatingEvent->globalPosition(),
         appKitAcceleratedDelta,
@@ -190,8 +190,6 @@ void MomentumEventDispatcher::dispatchSyntheticMomentumEvent(WebWheelEvent::Phas
         true,
         m_currentGesture.initiatingEvent->scrollCount(),
         delta,
-        m_lastIncomingEvent->modifiers(),
-        time,
         time,
         { },
         WebWheelEvent::MomentumEndType::Unknown);
@@ -266,7 +264,7 @@ void MomentumEventDispatcher::setScrollingAccelerationCurve(WebCore::PageIdentif
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING)
     WTF::TextStream stream(WTF::TextStream::LineMode::SingleLine);
     stream << curve;
-    RELEASE_LOG(ScrollAnimations, "MomentumEventDispatcher set curve %{public}s", stream.release().utf8().data());
+    RELEASE_LOG(ScrollAnimations, "MomentumEventDispatcher set curve %" PUBLIC_LOG_STRING, stream.release().utf8().data());
 #endif
 }
 

@@ -49,6 +49,7 @@ NS_ASSUME_NONNULL_BEGIN
                        contextID:(NSString*)contextID;
 - (void)setFromCKRecord:(CKRecord*)record;
 - (bool)matchesCKRecord:(CKRecord*)record;
+- (bool)matchesCKRecord:(CKRecord*)record checkServerFields:(bool)checkServerFields;
 
 + (instancetype _Nullable)fromDatabase:(NSString*)uuid
                              contextID:(NSString*)contextID

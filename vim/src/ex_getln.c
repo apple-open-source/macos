@@ -368,36 +368,36 @@ finish_incsearch_highlighting(
 	incsearch_state_T *is_state,
 	int call_update_screen)
 {
-    if (is_state->did_incsearch)
+    if (!is_state->did_incsearch)
+	return;
+
+    is_state->did_incsearch = FALSE;
+    if (gotesc)
+	curwin->w_cursor = is_state->save_cursor;
+    else
     {
-	is_state->did_incsearch = FALSE;
-	if (gotesc)
-	    curwin->w_cursor = is_state->save_cursor;
-	else
+	if (!EQUAL_POS(is_state->save_cursor, is_state->search_start))
 	{
-	    if (!EQUAL_POS(is_state->save_cursor, is_state->search_start))
-	    {
-		// put the '" mark at the original position
-		curwin->w_cursor = is_state->save_cursor;
-		setpcmark();
-	    }
-	    curwin->w_cursor = is_state->search_start;
+	    // put the '" mark at the original position
+	    curwin->w_cursor = is_state->save_cursor;
+	    setpcmark();
 	}
-	restore_viewstate(&is_state->old_viewstate);
-	highlight_match = FALSE;
-
-	// by default search all lines
-	search_first_line = 0;
-	search_last_line = MAXLNUM;
-
-	magic_overruled = is_state->magic_overruled_save;
-
-	validate_cursor();	// needed for TAB
-	status_redraw_all();
-	redraw_all_later(UPD_SOME_VALID);
-	if (call_update_screen)
-	    update_screen(UPD_SOME_VALID);
+	curwin->w_cursor = is_state->search_start;
     }
+    restore_viewstate(&is_state->old_viewstate);
+    highlight_match = FALSE;
+
+    // by default search all lines
+    search_first_line = 0;
+    search_last_line = MAXLNUM;
+
+    magic_overruled = is_state->magic_overruled_save;
+
+    validate_cursor();	// needed for TAB
+    status_redraw_all();
+    redraw_all_later(UPD_SOME_VALID);
+    if (call_update_screen)
+	update_screen(UPD_SOME_VALID);
 }
 
 /*
@@ -798,12 +798,13 @@ cmdline_init(void)
 }
 
 /*
- * Handle the backslash key pressed in the command-line mode.  CTRL-\ CTRL-N
- * goes to Normal mode, CTRL-\ CTRL-G goes to Insert mode when 'insertmode' is
- * set, CTRL-\ e prompts for an expression.
+ * Handle CTRL-\ pressed in Command-line mode:
+ * - CTRL-\ CTRL-N goes to Normal mode
+ * - CTRL-\ CTRL-G goes to Insert mode when 'insertmode' is set
+ * - CTRL-\ e prompts for an expression.
  */
     static int
-cmdline_handle_backslash_key(int c, int *gotesc)
+cmdline_handle_ctrl_bsl(int c, int *gotesc)
 {
     ++no_mapping;
     ++allow_keys;
@@ -832,8 +833,7 @@ cmdline_handle_backslash_key(int c, int *gotesc)
 
 	/*
 	 * Replace the command line with the result of an expression.
-	 * Need to save and restore the current command line, to be
-	 * able to enter a new one...
+	 * This will call getcmdline() recursively in get_expr_register().
 	 */
 	if (ccline.cmdpos == ccline.cmdlen)
 	    new_cmdpos = 99999;	// keep it at the end
@@ -843,9 +843,8 @@ cmdline_handle_backslash_key(int c, int *gotesc)
 	c = get_expr_register();
 	if (c == '=')
 	{
-	    // Need to save and restore ccline.  And set "textlock"
-	    // to avoid nasty things like going to another buffer when
-	    // evaluating an expression.
+	    // Evaluate the expression.  Set "textlock" to avoid nasty things
+	    // like going to another buffer.
 	    ++textlock;
 	    p = get_expr_line();
 	    --textlock;
@@ -1184,6 +1183,7 @@ cmdline_insert_reg(int *gotesc UNUSED)
 {
     int		i;
     int		c;
+    int		literally = FALSE;
 #ifdef FEAT_EVAL
     int		save_new_cmdpos = new_cmdpos;
 #endif
@@ -1221,7 +1221,8 @@ cmdline_insert_reg(int *gotesc UNUSED)
 #endif
     if (c != ESC)	    // use ESC to cancel inserting register
     {
-	cmdline_paste(c, i == Ctrl_R, FALSE);
+	literally = i == Ctrl_R;
+	cmdline_paste(c, literally, FALSE);
 
 #ifdef FEAT_EVAL
 	// When there was a serious error abort getting the
@@ -1252,8 +1253,9 @@ cmdline_insert_reg(int *gotesc UNUSED)
     // remove the double quote
     redrawcmd();
 
-    // The text has been stuffed, the command line didn't change yet.
-    return CMDLINE_NOT_CHANGED;
+    // With "literally": the command line has already changed.
+    // Else: the text has been stuffed, but the command line didn't change yet.
+    return literally ? CMDLINE_CHANGED : CMDLINE_NOT_CHANGED;
 }
 
 /*
@@ -1787,10 +1789,15 @@ getcmdline_int(
 	if (c == K_COMMAND || c == K_SCRIPT_COMMAND)
 	{
 	    int	    clen = ccline.cmdlen;
+	    int	    cc_count = aucmd_cmdline_changed_count;
 
 	    if (do_cmdkey_command(c, DOCMD_NOWAIT) == OK)
 	    {
-		if (clen == ccline.cmdlen)
+		// Do not trigger CmdlineChanged below if:
+		// - the length of the command line didn't change
+		// - the <Cmd> mapping already triggered the event
+		if (clen == ccline.cmdlen
+				    || cc_count != aucmd_cmdline_changed_count)
 		    trigger_cmdlinechanged = FALSE;
 		goto cmdline_changed;
 	    }
@@ -1909,7 +1916,7 @@ getcmdline_int(
 	// mode when 'insertmode' is set, CTRL-\ e prompts for an expression.
 	if (c == Ctrl_BSL)
 	{
-	    res = cmdline_handle_backslash_key(c, &gotesc);
+	    res = cmdline_handle_ctrl_bsl(c, &gotesc);
 	    if (res == CMDLINE_CHANGED)
 		goto cmdline_changed;
 	    else if (res == CMDLINE_NOT_CHANGED)
@@ -1917,7 +1924,7 @@ getcmdline_int(
 	    else if (res == GOTO_NORMAL_MODE)
 		goto returncmd;		// back to cmd mode
 	    c = Ctrl_BSL;		// backslash key not processed by
-					// cmdline_handle_backslash_key()
+					// cmdline_handle_ctrl_bsl()
 	}
 
 	if (c == cedit_key || c == K_CMDWIN)
@@ -2077,11 +2084,11 @@ getcmdline_int(
 
 	case Ctrl_R:			// insert register
 		res = cmdline_insert_reg(&gotesc);
-		if (res == CMDLINE_NOT_CHANGED)
-		    goto cmdline_not_changed;
-		else if (res == GOTO_NORMAL_MODE)
+		if (res == GOTO_NORMAL_MODE)
 		    goto returncmd;
-		goto cmdline_changed;
+		if (res == CMDLINE_CHANGED)
+		    goto cmdline_changed;
+		goto cmdline_not_changed;
 
 	case Ctrl_D:
 		if (showmatches(&xpc, FALSE) == EXPAND_NOTHING)
@@ -2289,7 +2296,7 @@ getcmdline_int(
 		    wild_type = (c == Ctrl_P) ? WILD_PREV : WILD_NEXT;
 		    if (nextwild(&xpc, wild_type, 0, firstc != '@') == FAIL)
 			break;
-		    goto cmdline_not_changed;
+		    goto cmdline_changed;
 		}
 		// FALLTHROUGH
 	case K_UP:
@@ -2311,7 +2318,7 @@ getcmdline_int(
 			wild_type = WILD_PAGEDOWN;
 		    if (nextwild(&xpc, wild_type, 0, firstc != '@') == FAIL)
 			break;
-		    goto cmdline_not_changed;
+		    goto cmdline_changed;
 		}
 		else
 		{
@@ -4028,13 +4035,13 @@ escape_fname(char_u **pp)
     char_u	*p;
 
     p = alloc(STRLEN(*pp) + 2);
-    if (p != NULL)
-    {
-	p[0] = '\\';
-	STRCPY(p + 1, *pp);
-	vim_free(*pp);
-	*pp = p;
-    }
+    if (p == NULL)
+	return;
+
+    p[0] = '\\';
+    STRCPY(p + 1, *pp);
+    vim_free(*pp);
+    *pp = p;
 }
 
 /*
@@ -4142,16 +4149,16 @@ get_cmdline_completion(void)
 	return NULL;
 
     p = get_ccline_ptr();
-    if (p != NULL && p->xpc != NULL)
-    {
-	char_u *cmd_compl;
+    if (p == NULL || p->xpc == NULL)
+	return NULL;
 
-	set_expand_context(p->xpc);
+    char_u *cmd_compl;
 
-	cmd_compl = cmdcomplete_type_to_str(p->xpc->xp_context);
-	if (cmd_compl != NULL)
-	    return vim_strsave(cmd_compl);
-    }
+    set_expand_context(p->xpc);
+
+    cmd_compl = cmdcomplete_type_to_str(p->xpc->xp_context);
+    if (cmd_compl != NULL)
+	return vim_strsave(cmd_compl);
 
     return NULL;
 }
@@ -4206,11 +4213,11 @@ f_getcmdtype(typval_T *argvars UNUSED, typval_T *rettv)
 {
     rettv->v_type = VAR_STRING;
     rettv->vval.v_string = alloc(2);
-    if (rettv->vval.v_string != NULL)
-    {
-	rettv->vval.v_string[0] = get_cmdline_type();
-	rettv->vval.v_string[1] = NUL;
-    }
+    if (rettv->vval.v_string == NULL)
+	return;
+
+    rettv->vval.v_string[0] = get_cmdline_type();
+    rettv->vval.v_string[1] = NUL;
 }
 
 // Set the command line str to "str".

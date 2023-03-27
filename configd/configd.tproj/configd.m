@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -112,7 +112,7 @@ usage(const char *prog)
 
 
 __private_extern__ os_log_t
-__configd_SCDynamicStore()
+__configd_SCDynamicStore(void)
 {
 	static os_log_t	log	= NULL;
 
@@ -186,7 +186,7 @@ parent_exit(int i)
 
 
 static void
-init_fds()
+init_fds(void)
 {
 	int	fd;
 	int	i;
@@ -222,7 +222,7 @@ init_fds()
 
 
 static int
-fork_child()
+fork_child(void)
 {
 	int	child_pid;
 

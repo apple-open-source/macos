@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2004-2020 Apple Inc. All rights reserved.
- *
+ * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Google Inc. All rights reserved.
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -259,9 +260,9 @@ static UBreakIterator* wordBreakIteratorForMinOffsetBoundary(const VisiblePositi
     if (previousBox) {
         auto& previousTextBox = downcast<InlineIterator::TextBoxIterator>(previousBox);
         previousBoxLength = previousTextBox->length();
-        append(string, previousTextBox->text());
+        append(string, previousTextBox->originalText());
     }
-    append(string, textBox->text());
+    append(string, textBox->originalText());
 
     return wordBreakIterator(StringView(string.data(), string.size()));
 }
@@ -280,11 +281,11 @@ static UBreakIterator* wordBreakIteratorForMaxOffsetBoundary(const VisiblePositi
     }
 
     string.clear();
-    append(string, textBox->text());
+    append(string, textBox->originalText());
 
     if (nextBox) {
         auto& nextTextBox = downcast<InlineIterator::TextBoxIterator>(nextBox);
-        append(string, nextTextBox->text());
+        append(string, nextTextBox->originalText());
     }
 
     return wordBreakIterator(StringView(string.data(), string.size()));
@@ -354,7 +355,7 @@ static VisiblePosition visualWordPosition(const VisiblePosition& visiblePosition
         else if (offsetInBox == textBox->maximumCaretOffset())
             iter = wordBreakIteratorForMaxOffsetBoundary(adjacentCharacterPosition, textBox, nextBoxInDifferentLine, string);
         else if (movingIntoNewBox) {
-            iter = wordBreakIterator(textBox->text());
+            iter = wordBreakIterator(textBox->originalText());
             previouslyVisitedBox = box;
         }
 
@@ -570,7 +571,7 @@ static VisiblePosition previousBoundary(const VisiblePosition& position, Boundar
         return it.atEnd() ? makeDeprecatedLegacyPosition(searchRange->start) : position;
 
     auto& node = (it.atEnd() ? *searchRange : it.range()).start.container.get();
-    if ((!suffixLength && is<Text>(node) && next <= downcast<Text>(node).length()) || (node.renderer() && node.renderer()->isBR() && !next)) {
+    if (!suffixLength && is<Text>(node) && next <= downcast<Text>(node).length()) {
         // The next variable contains a usable index into a text node.
         return makeDeprecatedLegacyPosition(&node, next);
     }
@@ -938,10 +939,10 @@ bool isLogicalEndOfLine(const VisiblePosition& p)
 
 static inline IntPoint absoluteLineDirectionPointToLocalPointInBlock(InlineIterator::LineBoxIterator& lineBox, int lineDirectionPoint)
 {
-    auto& containingBlock = lineBox->containingBlock();
-    FloatPoint absoluteBlockPoint = containingBlock.localToAbsolute(FloatPoint()) - toFloatSize(containingBlock.scrollPosition());
+    auto& root = lineBox->formattingContextRoot();
+    auto absoluteBlockPoint = root.localToAbsolute(FloatPoint()) - toFloatSize(root.scrollPosition());
 
-    if (containingBlock.isHorizontalWritingMode())
+    if (root.isHorizontalWritingMode())
         return IntPoint(lineDirectionPoint - absoluteBlockPoint.x(), contentStartInBlockDirection(*lineBox));
 
     return IntPoint(contentStartInBlockDirection(*lineBox), lineDirectionPoint - absoluteBlockPoint.y());
@@ -973,7 +974,7 @@ VisiblePosition previousLinePosition(const VisiblePosition& visiblePosition, int
         lineBox = box->lineBox()->previous();
         // We want to skip zero height boxes.
         // This could happen in case it is a LegacyRootInlineBox with trailing floats.
-        if (!lineBox || !lineBox->height() || !lineBox->firstLeafBox())
+        if (!lineBox || !lineBox->logicalHeight() || !lineBox->firstLeafBox())
             lineBox = { };
     }
 
@@ -1026,7 +1027,7 @@ VisiblePosition nextLinePosition(const VisiblePosition& visiblePosition, int lin
         lineBox = box->lineBox()->next();
         // We want to skip zero height boxes.
         // This could happen in case it is a LegacyRootInlineBox with trailing floats.
-        if (!lineBox || !lineBox->height() || !lineBox->firstLeafBox())
+        if (!lineBox || !lineBox->logicalHeight() || !lineBox->firstLeafBox())
             lineBox = { };
     }
 
@@ -1117,11 +1118,12 @@ Node* findStartOfParagraph(Node* startNode, Node* highestRoot, Node* startBlock,
 {
     Node* node = startNode;
     Node* n = startNode;
+    bool startNodeIsEditable = startNode->hasEditableStyle();
     while (n) {
-        if (boundaryCrossingRule == CannotCrossEditingBoundary && !Position::nodeIsUserSelectAll(n) && n->hasEditableStyle() != startNode->hasEditableStyle())
+        if (boundaryCrossingRule == CannotCrossEditingBoundary && !Position::nodeIsUserSelectAll(n) && n->hasEditableStyle() != startNodeIsEditable)
             break;
         if (boundaryCrossingRule == CanSkipOverEditingBoundary) {
-            while (n && n->hasEditableStyle() != startNode->hasEditableStyle())
+            while (n && n->hasEditableStyle() != startNodeIsEditable)
                 n = NodeTraversal::previousPostOrder(*n, startBlock);
             if (!n || !n->isDescendantOf(highestRoot))
                 break;
@@ -1174,11 +1176,12 @@ Node* findEndOfParagraph(Node* startNode, Node* highestRoot, Node* stayInsideBlo
 {
     Node* node = startNode;
     Node* n = startNode;
+    bool startNodeIsEditable = startNode->hasEditableStyle();
     while (n) {
-        if (boundaryCrossingRule == CannotCrossEditingBoundary && !Position::nodeIsUserSelectAll(n) && n->hasEditableStyle() != startNode->hasEditableStyle())
+        if (boundaryCrossingRule == CannotCrossEditingBoundary && !Position::nodeIsUserSelectAll(n) && n->hasEditableStyle() != startNodeIsEditable)
             break;
         if (boundaryCrossingRule == CanSkipOverEditingBoundary) {
-            while (n && n->hasEditableStyle() != startNode->hasEditableStyle())
+            while (n && n->hasEditableStyle() != startNodeIsEditable)
                 n = NodeTraversal::next(*n, stayInsideBlock);
             if (!n || !n->isDescendantOf(highestRoot))
                 break;

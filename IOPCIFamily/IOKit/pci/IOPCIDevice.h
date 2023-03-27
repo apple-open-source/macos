@@ -983,6 +983,11 @@ public:
 	virtual bool setProperty(const char * aKey, bool aBoolean);
 	virtual bool setProperty(const char * aKey, unsigned long long aValue, unsigned int aNumberOfBits);
 	virtual bool setProperty(const char * aKey, void * bytes, unsigned int length);
+
+private:
+	uint32_t configWrite32Filter(IOByteCount offset, uint32_t data);
+	uint16_t configWrite16Filter(IOByteCount offset, uint16_t data);
+	uint8_t configWrite8Filter(IOByteCount offset, uint8_t data);
 };
 __exported_pop
 

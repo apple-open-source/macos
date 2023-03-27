@@ -36,6 +36,7 @@
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 #include <WebCore/IntRect.h>
+#include <WebCore/ScreenOrientationType.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -170,10 +171,27 @@ bool WebFullScreenManagerProxy::blocksReturnToFullscreenFromPictureInPicture() c
     return m_blocksReturnToFullscreenFromPictureInPicture;
 }
 
-void WebFullScreenManagerProxy::enterFullScreen(bool blocksReturnToFullscreenFromPictureInPicture)
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+bool WebFullScreenManagerProxy::isVideoElementWithControls() const
+{
+    return m_isVideoElementWithControls;
+}
+#endif
+
+void WebFullScreenManagerProxy::enterFullScreen(bool blocksReturnToFullscreenFromPictureInPicture, bool isVideoElementWithControls, FloatSize videoDimensions)
 {
     m_blocksReturnToFullscreenFromPictureInPicture = blocksReturnToFullscreenFromPictureInPicture;
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+    m_isVideoElementWithControls = isVideoElementWithControls;
+#else
+    UNUSED_PARAM(isVideoElementWithControls);
+#endif
+#if PLATFORM(IOS_FAMILY)
+    m_client.enterFullScreen(videoDimensions);
+#else
+    UNUSED_PARAM(videoDimensions);
     m_client.enterFullScreen();
+#endif
 }
 
 void WebFullScreenManagerProxy::exitFullScreen()
@@ -183,12 +201,25 @@ void WebFullScreenManagerProxy::exitFullScreen()
 
 void WebFullScreenManagerProxy::beganEnterFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
 {
-    m_client.beganEnterFullScreen(initialFrame, finalFrame);
+    m_page.callAfterNextPresentationUpdate([weakThis = WeakPtr { *this }, initialFrame = initialFrame, finalFrame = finalFrame](CallbackBase::Error) {
+        if (weakThis)
+            weakThis->m_client.beganEnterFullScreen(initialFrame, finalFrame);
+    });
 }
 
 void WebFullScreenManagerProxy::beganExitFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
 {
     m_client.beganExitFullScreen(initialFrame, finalFrame);
+}
+
+bool WebFullScreenManagerProxy::lockFullscreenOrientation(WebCore::ScreenOrientationType orientation)
+{
+    return m_client.lockFullscreenOrientation(orientation);
+}
+
+void WebFullScreenManagerProxy::unlockFullscreenOrientation()
+{
+    m_client.unlockFullscreenOrientation();
 }
 
 } // namespace WebKit

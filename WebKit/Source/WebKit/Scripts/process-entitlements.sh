@@ -113,7 +113,13 @@ function mac_process_gpu_entitlements()
             plistbuddy Add :com.apple.private.screencapturekit.sharingsession bool YES
             plistbuddy Add :com.apple.private.tcc.allow array
             plistbuddy Add :com.apple.private.tcc.allow:0 string kTCCServiceScreenCapture
+            plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
             plistbuddy Add :com.apple.mediaremote.external-artwork-validation bool YES
+        fi
+
+        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 140000 ))
+        then
+            plistbuddy add :com.apple.private.disable.screencapturekit.alert bool YES
         fi
 
         plistbuddy Add :com.apple.private.memory.ownership_transfer bool YES
@@ -144,6 +150,14 @@ function mac_process_network_entitlements()
             plistbuddy Add :com.apple.security.cs.jit-write-allowlist bool YES
         fi
 
+        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 130000 ))
+        then
+            plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
+            plistbuddy Add :com.apple.private.assets.bypass-asset-types-check bool YES
+            plistbuddy Add :com.apple.private.assets.accessible-asset-types array
+            plistbuddy Add :com.apple.private.assets.accessible-asset-types:0 string com.apple.MobileAsset.WebContentRestrictions
+        fi
+
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications array
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications:0 string LSActivePageUserVisibleOriginsKey
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications:1 string LSDisplayName
@@ -153,6 +167,23 @@ function mac_process_network_entitlements()
         plistbuddy Add :com.apple.private.webkit.adattributiond bool YES
         plistbuddy Add :com.apple.private.webkit.webpush bool YES
     fi
+}
+
+function webcontent_sandbox_entitlements()
+{
+    plistbuddy Add :com.apple.private.security.mutable-state-flags array
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string EnableMachBootstrap
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:1 string EnableExperimentalSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string EnableExperimentalSandboxWithProbability
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string BlockIOKitInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:4 string LockdownModeEnabled
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:5 string WebContentProcessLaunched
+    plistbuddy Add :com.apple.private.security.enable-state-flags array
+    plistbuddy Add :com.apple.private.security.enable-state-flags:0 string EnableExperimentalSandbox
+    plistbuddy Add :com.apple.private.security.enable-state-flags:1 string EnableExperimentalSandboxWithProbability
+    plistbuddy Add :com.apple.private.security.enable-state-flags:2 string BlockIOKitInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.enable-state-flags:3 string LockdownModeEnabled
+    plistbuddy Add :com.apple.private.security.enable-state-flags:4 string WebContentProcessLaunched
 }
 
 function mac_process_webcontent_shared_entitlements()
@@ -179,8 +210,8 @@ function mac_process_webcontent_shared_entitlements()
 
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 130000 ))
         then
-            plistbuddy Add :com.apple.private.security.mutable-state-flags array
-            plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string EnableMachBootstrap
+            webcontent_sandbox_entitlements
+            plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
         fi
 
         if [[ "${WK_WEBCONTENT_SERVICE_NEEDS_XPC_DOMAIN_EXTENSION_ENTITLEMENT}" == YES ]]
@@ -329,8 +360,6 @@ function ios_family_process_webcontent_shared_entitlements()
     plistbuddy Add :com.apple.private.network.socket-delegate bool YES
     plistbuddy Add :com.apple.private.pac.exception bool YES
     plistbuddy Add :com.apple.private.security.message-filter bool YES
-    plistbuddy Add :com.apple.private.security.mutable-state-flags array
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string EnableMachBootstrap
     plistbuddy Add :com.apple.private.webinspector.allow-remote-inspection bool YES
     plistbuddy Add :com.apple.private.webinspector.proxy-application bool YES
     plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
@@ -339,6 +368,7 @@ function ios_family_process_webcontent_shared_entitlements()
     plistbuddy Add :com.apple.tcc.delegated-services:0 string kTCCServiceCamera
     plistbuddy Add :com.apple.tcc.delegated-services:1 string kTCCServiceMicrophone
     plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.WebContent
+    webcontent_sandbox_entitlements
 }
 
 function ios_family_process_webcontent_entitlements()
@@ -369,6 +399,7 @@ function ios_family_process_gpu_entitlements()
     plistbuddy add :com.apple.QuartzCore.webkit-limited-types bool YES
     plistbuddy Add :com.apple.developer.coremedia.allow-alternate-video-decoder-selection bool YES
     plistbuddy Add :com.apple.mediaremote.set-playback-state bool YES
+    plistbuddy Add :com.apple.mediaremote.external-artwork-validation bool YES
     plistbuddy Add :com.apple.private.allow-explicit-graphics-priority bool YES
     plistbuddy Add :com.apple.private.coremedia.extensions.audiorecording.allow bool YES
     plistbuddy Add :com.apple.private.gpu-restricted bool YES
@@ -386,6 +417,11 @@ function ios_family_process_gpu_entitlements()
     plistbuddy Add :com.apple.tcc.delegated-services:0 string kTCCServiceCamera
     plistbuddy Add :com.apple.tcc.delegated-services:1 string kTCCServiceMicrophone
 
+    plistbuddy Add :com.apple.springboard.statusbarstyleoverrides bool YES
+    plistbuddy Add :com.apple.springboard.statusbarstyleoverrides.coordinator array
+    plistbuddy Add :com.apple.springboard.statusbarstyleoverrides.coordinator:0 string UIStatusBarStyleOverrideWebRTCAudioCapture
+    plistbuddy Add :com.apple.springboard.statusbarstyleoverrides.coordinator:1 string UIStatusBarStyleOverrideWebRTCCapture
+
     plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.GPU
 
     plistbuddy Add :com.apple.systemstatus.activityattribution bool YES
@@ -402,9 +438,11 @@ function ios_family_process_adattributiond_entitlements()
 
 function ios_family_process_webpushd_entitlements()
 {
-    # FIXME: Add a sandbox profile for webpushd and add it to the seatbelt-profiles array.
-    echo "webpushd sandbox has not been implemented yet"
+    plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.webpushd
     plistbuddy Add :aps-connection-initiate bool YES
+    plistbuddy Add :com.apple.private.launchservices.allowopenwithanyhandler bool YES
+    plistbuddy Add :com.apple.springboard.opensensitiveurl bool YES
+    plistbuddy Add :com.apple.private.launchservices.canspecifysourceapplication bool YES
 }
 
 function ios_family_process_network_entitlements()
@@ -429,6 +467,10 @@ function ios_family_process_network_entitlements()
 
     plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.Networking
     plistbuddy Add :com.apple.symptom_analytics.configure bool YES
+
+    plistbuddy Add :com.apple.private.assets.bypass-asset-types-check bool YES
+    plistbuddy Add :com.apple.private.assets.accessible-asset-types array
+    plistbuddy Add :com.apple.private.assets.accessible-asset-types:0 string com.apple.MobileAsset.WebContentRestrictions
 }
 
 rm -f "${WK_PROCESSED_XCENT_FILE}"

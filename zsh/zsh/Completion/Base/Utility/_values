@@ -4,7 +4,7 @@ local subopts opt usecc garbage keep
 
 subopts=()
 zparseopts -D -a garbage s+:=keep S+:=keep w+=keep C=usecc O:=subopts \
-    M: J: V: 1 2 n F: X:
+    M: J: V: 1 2 o+: n F: X:
 
 (( $#subopts )) && subopts=( "${(@P)subopts[2]}" )
 
@@ -60,7 +60,7 @@ if compvalues -i "$keep[@]" "$@"; then
       _describe "$descr" \
         noargs "$sep[@]" -M 'r:|[_-]=* r:|=*' -- \
         args -S "${argsep}" -M 'r:|[_-]=* r:|=*' -- \
-        opts -qS "${argsep}" -r "${argsep}${sep} \\t\\n\\-" -M 'r:|[_-]=* r:|=*'
+        opts -qS "${argsep}" -r "${argsep}${sep[2]} \\t\\n\\-" -M 'r:|[_-]=* r:|=*'
 
       curcontext="$oldcontext"
 

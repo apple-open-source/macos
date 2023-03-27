@@ -29,12 +29,12 @@
 #import "Logging.h"
 #import "PlatformCALayer.h"
 #import "PlatformCALayerContentsDelayedReleaser.h"
-#import "ScrollingTreeFixedNode.h"
+#import "ScrollingTreeFixedNodeCocoa.h"
 #import "ScrollingTreeFrameHostingNode.h"
 #import "ScrollingTreeFrameScrollingNodeMac.h"
-#import "ScrollingTreeOverflowScrollProxyNode.h"
+#import "ScrollingTreeOverflowScrollProxyNodeCocoa.h"
 #import "ScrollingTreeOverflowScrollingNodeMac.h"
-#import "ScrollingTreePositionedNode.h"
+#import "ScrollingTreePositionedNodeCocoa.h"
 #import "ScrollingTreeStickyNodeCocoa.h"
 #import "WebCoreCALayerExtras.h"
 #import "WebLayer.h"
@@ -67,65 +67,29 @@ Ref<ScrollingTreeNode> ScrollingTreeMac::createScrollingTreeNode(ScrollingNodeTy
     case ScrollingNodeType::Overflow:
         return ScrollingTreeOverflowScrollingNodeMac::create(*this, nodeID);
     case ScrollingNodeType::OverflowProxy:
-        return ScrollingTreeOverflowScrollProxyNode::create(*this, nodeID);
+        return ScrollingTreeOverflowScrollProxyNodeCocoa::create(*this, nodeID);
     case ScrollingNodeType::Fixed:
-        return ScrollingTreeFixedNode::create(*this, nodeID);
+        return ScrollingTreeFixedNodeCocoa::create(*this, nodeID);
     case ScrollingNodeType::Sticky:
         return ScrollingTreeStickyNodeCocoa::create(*this, nodeID);
     case ScrollingNodeType::Positioned:
-        return ScrollingTreePositionedNode::create(*this, nodeID);
+        return ScrollingTreePositionedNodeCocoa::create(*this, nodeID);
     }
     ASSERT_NOT_REACHED();
-    return ScrollingTreeFixedNode::create(*this, nodeID);
+    return ScrollingTreeFixedNodeCocoa::create(*this, nodeID);
 }
 
-using LayerAndPoint = std::pair<CALayer *, FloatPoint>;
-
-static void collectDescendantLayersAtPoint(Vector<LayerAndPoint, 16>& layersAtPoint, CALayer *parent, CGPoint point)
+static bool layerEventRegionContainsPoint(CALayer *layer, CGPoint localPoint)
 {
-    if (parent.masksToBounds && ![parent containsPoint:point])
-        return;
+    auto platformCALayer = PlatformCALayer::platformCALayerForLayer((__bridge void*)layer);
+    if (!platformCALayer)
+        return false;
 
-    if (parent.mask && ![parent _web_maskContainsPoint:point])
-        return;
-
-    for (CALayer *layer in [parent sublayers]) {
-        CALayer *layerWithResolvedAnimations = layer;
-
-        if ([[layer animationKeys] count])
-            layerWithResolvedAnimations = [layer presentationLayer];
-
-        auto transform = TransformationMatrix { [layerWithResolvedAnimations transform] };
-        if (!transform.isInvertible())
-            continue;
-
-        CGPoint subviewPoint = [layerWithResolvedAnimations convertPoint:point fromLayer:parent];
-
-        auto handlesEvent = [&] {
-            if (CGRectIsEmpty([layerWithResolvedAnimations frame]))
-                return false;
-
-            if (![layerWithResolvedAnimations containsPoint:subviewPoint])
-                return false;
-
-            auto platformCALayer = PlatformCALayer::platformCALayerForLayer((__bridge void*)layer);
-            if (platformCALayer) {
-                // Scrolling changes boundsOrigin on the scroll container layer, but we computed its event region ignoring scroll position, so factor out bounds origin.
-                FloatPoint boundsOrigin = layer.bounds.origin;
-                FloatPoint localPoint = subviewPoint - toFloatSize(boundsOrigin);
-                auto* eventRegion = platformCALayer->eventRegion();
-                return eventRegion && eventRegion->contains(roundedIntPoint(localPoint));
-            }
-            
-            return false;
-        }();
-
-        if (handlesEvent)
-            layersAtPoint.append(std::make_pair(layer, subviewPoint));
-
-        if ([layer sublayers])
-            collectDescendantLayersAtPoint(layersAtPoint, layer, subviewPoint);
-    };
+    // Scrolling changes boundsOrigin on the scroll container layer, but we computed its event region ignoring scroll position, so factor out bounds origin.
+    FloatPoint boundsOrigin = layer.bounds.origin;
+    FloatPoint originRelativePoint = FloatPoint(localPoint) - toFloatSize(boundsOrigin);
+    auto* eventRegion = platformCALayer->eventRegion();
+    return eventRegion && eventRegion->contains(roundedIntPoint(originRelativePoint));
 }
 
 static ScrollingNodeID scrollingNodeIDForLayer(CALayer *layer)
@@ -171,7 +135,7 @@ RefPtr<ScrollingTreeNode> ScrollingTreeMac::scrollingNodeForPoint(FloatPoint poi
     pointInContentsLayer.moveBy(scrollOrigin);
 
     Vector<LayerAndPoint, 16> layersAtPoint;
-    collectDescendantLayersAtPoint(layersAtPoint, rootContentsLayer.get(), pointInContentsLayer);
+    collectDescendantLayersAtPoint(layersAtPoint, rootContentsLayer.get(), pointInContentsLayer, layerEventRegionContainsPoint);
 
     LOG_WITH_STREAM(Scrolling, stream << "ScrollingTreeMac " << this << " scrollingNodeForPoint " << point << " found " << layersAtPoint.size() << " layers");
 #if !LOG_DISABLED
@@ -211,7 +175,7 @@ OptionSet<EventListenerRegionType> ScrollingTreeMac::eventListenerRegionTypesFor
     auto rootContentsLayer = static_cast<ScrollingTreeFrameScrollingNodeMac*>(rootScrollingNode)->rootContentsLayer();
 
     Vector<LayerAndPoint, 16> layersAtPoint;
-    collectDescendantLayersAtPoint(layersAtPoint, rootContentsLayer.get(), point);
+    collectDescendantLayersAtPoint(layersAtPoint, rootContentsLayer.get(), point, layerEventRegionContainsPoint);
 
     if (layersAtPoint.isEmpty())
         return { };
@@ -231,16 +195,6 @@ OptionSet<EventListenerRegionType> ScrollingTreeMac::eventListenerRegionTypesFor
     return eventRegion->eventListenerRegionTypesForPoint(roundedIntPoint(localPoint));
 }
 #endif
-
-void ScrollingTreeMac::lockLayersForHitTesting()
-{
-    m_layerHitTestMutex.lock();
-}
-
-void ScrollingTreeMac::unlockLayersForHitTesting()
-{
-    m_layerHitTestMutex.unlock();
-}
 
 void ScrollingTreeMac::didCompleteRenderingUpdate()
 {
@@ -271,38 +225,6 @@ void ScrollingTreeMac::registerForPlatformRenderingUpdateCallback()
     [CATransaction addCommitHandler:[] {
         PlatformCALayerContentsDelayedReleaser::singleton().scrollingThreadCommitDidEnd();
     } forPhase:kCATransactionPhasePostCommit];
-}
-
-void ScrollingTreeMac::setWheelEventTestMonitor(RefPtr<WheelEventTestMonitor>&& monitor)
-{
-    m_wheelEventTestMonitor = WTFMove(monitor);
-}
-
-void ScrollingTreeMac::receivedWheelEvent(const PlatformWheelEvent& event)
-{
-    auto monitor = m_wheelEventTestMonitor;
-    if (monitor)
-        monitor->receivedWheelEvent(event);
-}
-
-void ScrollingTreeMac::deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier identifier, WheelEventTestMonitor::DeferReason reason)
-{
-    auto monitor = m_wheelEventTestMonitor;
-    if (!monitor)
-        return;
-
-    LOG_WITH_STREAM(WheelEventTestMonitor, stream << "    (!) ScrollingTreeMac::deferForReason: Deferring on " << identifier << " for reason " << reason);
-    monitor->deferForReason(identifier, reason);
-}
-
-void ScrollingTreeMac::removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier identifier, WheelEventTestMonitor::DeferReason reason)
-{
-    auto monitor = m_wheelEventTestMonitor;
-    if (!monitor)
-        return;
-
-    LOG_WITH_STREAM(WheelEventTestMonitor, stream << "    (!) ScrollingTreeMac::removeDeferralForReason: Removing deferral on " << identifier << " for reason " << reason);
-    monitor->removeDeferralForReason(identifier, reason);
 }
 
 #endif // ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)

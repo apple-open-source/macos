@@ -58,6 +58,8 @@ public:
     static Ref<WebFullScreenManager> create(WebPage*);
     virtual ~WebFullScreenManager();
 
+    void invalidate();
+
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
     bool supportsFullScreen(bool withKeyboard);
@@ -108,6 +110,7 @@ private:
     void handleEvent(WebCore::ScriptExecutionContext&, WebCore::Event&) final;
 
     void setElement(WebCore::Element&);
+    void clearElement();
 
 #if ENABLE(VIDEO)
     void scheduleTextRecognitionForMainVideo();
@@ -117,7 +120,7 @@ private:
     void setMainVideoElement(RefPtr<WebCore::HTMLVideoElement>&&);
 
     WeakPtr<WebCore::HTMLVideoElement, WebCore::WeakPtrImplWithEventTargetData> m_mainVideoElement;
-    RunLoop::Timer<WebFullScreenManager> m_mainVideoElementTextRecognitionTimer;
+    RunLoop::Timer m_mainVideoElementTextRecognitionTimer;
     bool m_isPerformingTextRecognitionInMainVideo { false };
 #endif // ENABLE(VIDEO)
 

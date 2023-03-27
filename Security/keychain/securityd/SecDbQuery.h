@@ -113,6 +113,7 @@ typedef struct Query
 
     // Set to true if we modified any synchronizable item as part of executing this query
     bool q_sync_changed;
+
     
     /* Keybag handle to use for this item. */
     keybag_handle_t q_keybag;

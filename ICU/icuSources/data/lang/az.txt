@@ -86,6 +86,7 @@ az{
         chm{"mari"}
         chn{"çinuk ləhçəsi"}
         cho{"çoktau"}
+        cho_Latn{"çoktau"}
         chp{"çipevyan"}
         chr{"çeroki"}
         chy{"çeyen"}

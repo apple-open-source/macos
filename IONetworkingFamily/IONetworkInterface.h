@@ -358,7 +358,7 @@ private:
     OSDictionary *          _dataDict;
     IOMbufQueue *           _inputPushQueue;
     void *                  _unused1;
-    UInt32                  _unused2;
+    UInt32                  _hwAssists;
 
     struct ExpansionData {
         int                         unit;

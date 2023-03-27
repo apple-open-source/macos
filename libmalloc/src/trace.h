@@ -70,5 +70,7 @@ TRACE_CODE(medium_malloc, DBG_UMALLOC_INTERNAL, 0xc);
 TRACE_CODE(medium_free, DBG_UMALLOC_INTERNAL, 0xd);
 
 TRACE_CODE(nanov2_region_allocation, DBG_UMALLOC_INTERNAL, 0x10);
+TRACE_CODE(nanov2_region_reservation, DBG_UMALLOC_INTERNAL, 0x20);
+TRACE_CODE(nanov2_region_protection, DBG_UMALLOC_INTERNAL, 0x30);
 
 #endif // __TRACE_H

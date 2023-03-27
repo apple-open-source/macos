@@ -29,9 +29,7 @@
 #if USE(COORDINATED_GRAPHICS)
 
 #include "CompositingRunLoop.h"
-#include "EventDispatcher.h"
 #include "ThreadedDisplayRefreshMonitor.h"
-#include "WebProcess.h"
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/TransformationMatrix.h>
 #include <wtf/SetForScope.h>
@@ -85,7 +83,7 @@ ThreadedCompositor::~ThreadedCompositor()
 
 void ThreadedCompositor::createGLContext()
 {
-    ASSERT(!RunLoop::isMain());
+    ASSERT(m_compositingRunLoop->isCurrent());
 
     // GLNativeWindowType depends on the EGL implementation: reinterpret_cast works
     // for pointers (only if they are 64-bit wide and not for other cases), and static_cast for
@@ -173,13 +171,8 @@ void ThreadedCompositor::updateViewport()
 
 void ThreadedCompositor::forceRepaint()
 {
-    // FIXME: Enable this for WPE once it's possible to do these forced updates
+    // FIXME: Implement this once it's possible to do these forced updates
     // in a way that doesn't starve out the underlying graphics buffers.
-#if PLATFORM(GTK) && !USE(WPE_RENDERER)
-    m_compositingRunLoop->performTaskSync([this, protectedThis = Ref { *this }] {
-        renderLayerTree();
-    });
-#endif
 }
 
 void ThreadedCompositor::renderLayerTree()
@@ -196,7 +189,7 @@ void ThreadedCompositor::renderLayerTree()
     float scaleFactor;
     bool needsResize;
 
-    Vector<WebCore::CoordinatedGraphicsState> states;
+    Vector<RefPtr<Nicosia::Scene>> states;
 
     {
         Locker locker { m_attributes.lock };
@@ -264,17 +257,17 @@ void ThreadedCompositor::sceneUpdateFinished()
     Locker stateLocker { m_compositingRunLoop->stateLock() };
 
     // Schedule the DisplayRefreshMonitor callback, if necessary.
-    if (shouldDispatchDisplayRefreshCallback)
+    if (shouldDispatchDisplayRefreshCallback) {
         m_displayRefreshMonitor->dispatchDisplayRefreshCallback();
-
-    // Always notify the ScrollingTrees to make sure scrolling does not depend on the main thread.
-    WebProcess::singleton().eventDispatcher().notifyScrollingTreesDisplayWasRefreshed(m_displayRefreshMonitor->displayID());
+        // Notify the ScrollingTree to make sure scrolling does not depend on the main thread.
+        m_client.displayDidRefresh(m_displayRefreshMonitor->displayID());
+    }
 
     // Mark the scene update as completed.
     m_compositingRunLoop->updateCompleted(stateLocker);
 }
 
-void ThreadedCompositor::updateSceneState(const CoordinatedGraphicsState& state)
+void ThreadedCompositor::updateSceneState(const RefPtr<Nicosia::Scene>& state)
 {
     Locker locker { m_attributes.lock };
     m_attributes.states.append(state);
@@ -288,7 +281,7 @@ void ThreadedCompositor::updateScene()
 
 void ThreadedCompositor::updateSceneWithoutRendering()
 {
-    Vector<WebCore::CoordinatedGraphicsState> states;
+    Vector<RefPtr<Nicosia::Scene>> states;
 
     {
         Locker locker { m_attributes.lock };
@@ -306,13 +299,13 @@ RefPtr<WebCore::DisplayRefreshMonitor> ThreadedCompositor::displayRefreshMonitor
 
 void ThreadedCompositor::frameComplete()
 {
-    ASSERT(!RunLoop::isMain());
+    ASSERT(m_compositingRunLoop->isCurrent());
     sceneUpdateFinished();
 }
 
 void ThreadedCompositor::targetRefreshRateDidChange(unsigned rate)
 {
-    ASSERT(!RunLoop::isMain());
+    ASSERT(RunLoop::isMain());
     m_displayRefreshMonitor->setTargetRefreshRate(rate);
 }
 

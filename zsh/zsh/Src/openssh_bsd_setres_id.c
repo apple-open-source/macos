@@ -46,6 +46,8 @@
  *
  */
 
+#include "zsh.mdh"
+#include "openssh_bsd_setres_id.pro"
 
 #include <sys/types.h>
 
@@ -53,7 +55,15 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "zsh.mdh"
+#ifdef __NetBSD__
+/*
+ * On NetBSD, setreuid() does not reset the saved uid if the real uid
+ * is not modified. Better to use setuid() that resets all of real,
+ * effective and saved uids to the specified value. Same for setregid().
+ */
+#define BROKEN_SETREUID
+#define BROKEN_SETREGID
+#endif
 
 #if defined(ZSH_IMPLEMENT_SETRESGID) || defined(BROKEN_SETRESGID)
 int

@@ -37,8 +37,14 @@
 #include <unistd.h>
 #include <fts.h>
 
+#include <TargetConditionals.h>
+
 #include "removefile.h"
 #include "removefile_priv.h"
+
+#if __APPLE__ && !TARGET_OS_SIMULATOR
+#include <apfs/apfs_fsctl.h>
+#endif
 
 static int
 __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t state) {
@@ -56,7 +62,61 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 		case FTS_D:
 			if (unlink(path) == 0) {
 				fts_set(stream, current_file, FTS_SKIP);
+				break;
 			}
+#if __APPLE__ && !TARGET_OS_SIMULATOR
+			else if (state->unlink_flags & REMOVEFILE_CLEAR_PURGEABLE) {
+				uint64_t cp_flags = APFS_CLEAR_PURGEABLE;
+				(void)fsctl(path, APFSIOC_MARK_PURGEABLE, &cp_flags, 0);
+			}
+#endif
+#if __APPLE__
+			/*
+			 * When traversing a directory with fts_read,
+			 * it will be accessed first in pre-order (FTS_D),
+			 * then the children will be read in and processed, and later it will be
+			 * accessed again in post-order (FTS_DP).
+			 * If the directory is dataless we should skip the children read when possible.
+			 * To know the list of children the directory needs to be materialised,
+			 * and this operation can be very expensive.
+			 */
+			int is_dataless = (current_file->fts_statp->st_flags & SF_DATALESS) != 0;
+			if (!is_dataless) {
+				break;
+			}
+			// If recursive is not set the calling function will skip the children read anyway.
+			// Do not try to unlink the rootlevel if REMOVEFILE_KEEP_PARENT is set.
+			if (!recursive || secure || (keep_parent && current_file->fts_level == FTS_ROOTLEVEL)) {
+				break;
+			}
+			if ((geteuid() == 0) &&
+				(current_file->fts_statp->st_flags & (UF_APPEND|UF_IMMUTABLE)) &&
+				!(current_file->fts_statp->st_flags & (SF_APPEND|SF_IMMUTABLE)) &&
+				chflags(path, current_file->fts_statp->st_flags &= ~(UF_APPEND|UF_IMMUTABLE)) < 0) {
+				break;
+			}
+			// Calling getiopolicy_np outside of this block is unsafe on iOS. See 76141982.
+			if (state->confirm_callback != NULL &&
+				(getiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_THREAD) != IOPOL_MATERIALIZE_DATALESS_FILES_OFF)) {
+				break;
+			}
+			/*
+			 * The directory could be marked as dataless but still have children on disk.
+			 * If children are present we need to process them before unlinking the directory.
+			 * The only way to discern this case without materialising
+			 * the directory is to try to unlink it.
+			 * In that case the unlink will fail.
+			 */
+			if (unlinkat(AT_FDCWD, path, AT_REMOVEDIR_DATALESS) == 0) {
+				/*
+				 * We succeeded at removing the directory.
+				 * We need to both skip the children read and the next
+				 * access of the directory in post-order.
+				 */
+				fts_set(stream, current_file, FTS_SKIP);
+				state->runtime_flags = REMOVEFILE_SKIP;
+			}
+#endif
 			break;
 		case FTS_DC:
 			state->error_num = ELOOP;
@@ -69,6 +129,10 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 			res = -1;
 			break;
 		case FTS_DP:
+			if (state->runtime_flags == REMOVEFILE_SKIP) {
+				state->runtime_flags = 0;
+				break;
+			}
 			if (recursive &&
 			    (!keep_parent ||
 			     current_file->fts_level != FTS_ROOTLEVEL)) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -59,7 +59,7 @@ static libSC_info_client_t	*nwi_client	= NULL;
 
 
 static dispatch_queue_t
-__nwi_client_queue()
+__nwi_client_queue(void)
 {
 	static dispatch_once_t  once;
 	static dispatch_queue_t q;
@@ -102,7 +102,7 @@ _nwi_state_initialize(void)
  *   information.
  */
 const char *
-nwi_state_get_notify_key()
+nwi_state_get_notify_key(void)
 {
 	return "com.apple.system.SystemConfiguration.nwi";
 }
@@ -125,7 +125,7 @@ nwi_state_retain(nwi_state_t state)
 }
 
 static void
-_nwi_client_release()
+_nwi_client_release(void)
 {
 	// release connection reference on 1-->0 transition
 	dispatch_sync(__nwi_client_queue(), ^{
@@ -138,7 +138,7 @@ _nwi_client_release()
 }
 
 static void
-_nwi_client_init()
+_nwi_client_init(void)
 {
 	dispatch_sync(__nwi_client_queue(), ^{
 		if ((nwi_active++ == 0) || (nwi_client == NULL)) {
@@ -193,7 +193,7 @@ nwi_state_release(nwi_state_t state)
 }
 
 static nwi_state *
-_nwi_state_copy_data()
+_nwi_state_copy_data(void)
 {
 	nwi_state_t		nwi_state	= NULL;
 	xpc_object_t		reqdict;

@@ -26,96 +26,26 @@
 
 #pragma once
 
-#include <optional>
-
-#if OS(DARWIN) && !USE(UNIX_DOMAIN_SOCKETS)
-#include <mach/mach_init.h>
-#include <mach/mach_traps.h>
+#if OS(DARWIN)
 #include <wtf/MachSendRight.h>
 #endif
 
-#if OS(WINDOWS)
-#include <windows.h>
-#endif
-
 #if USE(UNIX_DOMAIN_SOCKETS)
-#include <variant>
-#include <wtf/Function.h>
 #include <wtf/unix/UnixFileDescriptor.h>
 #endif
 
 namespace IPC {
 
-class Decoder;
-class Encoder;
-
+// IPC::Attachment is a type representing objects that cannot be transferred as data,
+// rather they are transferred via operating system cross-process communication primitives.
 #if OS(DARWIN)
-class Attachment : public MachSendRight {
+using Attachment = MachSendRight;
+#elif OS(WINDOWS)
+using Attachment = int; // Windows does not need attachments at the moment.
+#elif USE(UNIX_DOMAIN_SOCKETS)
+using Attachment = UnixFileDescriptor;
 #else
-class Attachment {
+#error Unsupported platform
 #endif
-public:
-    Attachment();
-
-    enum Type {
-        Uninitialized,
-#if USE(UNIX_DOMAIN_SOCKETS)
-        SocketType,
-        MappedMemoryType,
-        CustomWriterType,
-#elif OS(DARWIN)
-        MachPortType
-#endif
-    };
-
-#if USE(UNIX_DOMAIN_SOCKETS)
-    explicit Attachment(UnixFileDescriptor&&, size_t);
-    explicit Attachment(UnixFileDescriptor&&);
-
-    Attachment(Attachment&&);
-    Attachment& operator=(Attachment&&);
-    ~Attachment();
-
-    using SocketDescriptor = int;
-    using CustomWriterFunc = WTF::Function<void(SocketDescriptor)>;
-    using CustomWriter = std::variant<CustomWriterFunc, SocketDescriptor>;
-    Attachment(CustomWriter&&);
-#elif OS(DARWIN)
-    Attachment(MachSendRight&&);
-    Attachment(const MachSendRight&);
-#elif OS(WINDOWS)
-    Attachment(HANDLE handle)
-        : m_handle(handle)
-    { }
-#endif
-
-    Type type() const { return m_type; }
-
-#if USE(UNIX_DOMAIN_SOCKETS)
-    bool isNull() const { return !m_fd; }
-    size_t size() const { return m_size; }
-
-    const UnixFileDescriptor& fd() const { return m_fd; }
-    UnixFileDescriptor release() { return std::exchange(m_fd, UnixFileDescriptor { }); }
-
-    const CustomWriter& customWriter() const { return m_customWriter; }
-#elif OS(WINDOWS)
-    HANDLE handle() const { return m_handle; }
-#endif
-
-    void encode(Encoder&) const;
-    static std::optional<Attachment> decode(Decoder&);
-    
-private:
-    Type m_type;
-
-#if USE(UNIX_DOMAIN_SOCKETS)
-    UnixFileDescriptor m_fd;
-    size_t m_size;
-    CustomWriter m_customWriter;
-#elif OS(WINDOWS)
-    HANDLE m_handle { INVALID_HANDLE_VALUE };
-#endif
-};
 
 } // namespace IPC

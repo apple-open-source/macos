@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>85</integer>
+	<integer>88</integer>
 	<dict>
 		<key>domains</key>
 		<array>
@@ -342,6 +342,42 @@
 				<string>^ingest$</string>
 				<key>suffix</key>
 				<string>stg.ais-test.apple-programs.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^ingest$</string>
+				<key>suffix</key>
+				<string>main.teststudies.apple.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^ingest$</string>
+				<key>suffix</key>
+				<string>qa.teststudies.apple.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^ingest$</string>
+				<key>suffix</key>
+				<string>release.teststudies.apple.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^ingest$</string>
+				<key>suffix</key>
+				<string>carry.studies.apple.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^ingest$</string>
+				<key>suffix</key>
+				<string>validation.studies.apple.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^ingest$</string>
+				<key>suffix</key>
+				<string>research.studies.apple.com</string>
 			</dict>
 		</array>
 		<key>policyName</key>
@@ -2078,7 +2114,7 @@
 			</dict>
 			<dict>
 				<key>labelRegex</key>
-				<string>^(sh-|tj-|nc-|pr-|cn-crt-|stg-|crt-)?pod([0-9]|[0-9][0-9])?-smp-device(-dr)?$</string>
+				<string>^(sh-|tj-|nc-|pr-|cn-crt-|stg-|crt-)?pod[0-9]{0,3}-smp-device(-dr)?$</string>
 				<key>suffix</key>
 				<string>apple.com</string>
 			</dict>
@@ -2519,7 +2555,7 @@
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>^acsegateway$</string>
+				<string>^.*acsegateway$</string>
 				<key>suffix</key>
 				<string>icloud.com</string>
 			</dict>

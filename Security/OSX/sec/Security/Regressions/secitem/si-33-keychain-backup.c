@@ -47,6 +47,8 @@
 
 #include "../Security_regressions.h"
 
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+
 struct test_persistent_s {
     CFTypeRef persist[2];
     CFDictionaryRef query;
@@ -584,3 +586,4 @@ int si_33_keychain_backup(int argc, char *const *argv)
 
 	return 0;
 }
+#endif

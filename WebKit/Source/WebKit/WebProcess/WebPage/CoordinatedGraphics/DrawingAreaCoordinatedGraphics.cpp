@@ -241,7 +241,7 @@ void DrawingAreaCoordinatedGraphics::setLayerTreeStateIsFrozen(bool isFrozen)
 void DrawingAreaCoordinatedGraphics::updatePreferences(const WebPreferencesStore& store)
 {
     Settings& settings = m_webPage.corePage()->settings();
-#if PLATFORM(WAYLAND) && USE(WPE_RENDERER)
+#if PLATFORM(WAYLAND)
     if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland
         && &PlatformDisplay::sharedDisplayForCompositing() == &PlatformDisplay::sharedDisplay()) {
         // We failed to create the shared display for compositing, disable accelerated compositing.
@@ -470,7 +470,7 @@ void DrawingAreaCoordinatedGraphics::targetRefreshRateDidChange(unsigned rate)
 #endif
 }
 
-void DrawingAreaCoordinatedGraphics::didUpdate()
+void DrawingAreaCoordinatedGraphics::displayDidRefresh()
 {
     // We might get didUpdate messages from the UI process even after we've
     // entered accelerated compositing mode. Ignore them.
@@ -833,7 +833,9 @@ void DrawingAreaCoordinatedGraphics::display(UpdateInfo& updateInfo)
     if (!bitmap)
         return;
 
-    if (!bitmap->createHandle(updateInfo.bitmapHandle))
+    if (auto handle = bitmap->createHandle())
+        updateInfo.bitmapHandle = WTFMove(*handle);
+    else
         return;
 
     auto rects = m_dirtyRegion.rects();

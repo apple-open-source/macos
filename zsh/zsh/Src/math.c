@@ -162,7 +162,7 @@ static int unary = 1;
 #define TOKCOUNT 53
 
 /*
- * Opeator recedences: in reverse order, i.e. lower number, high precedence.
+ * Operator precedences: in reverse order, i.e. lower number, high precedence.
  * These are the C precedences.
  *
  * 0   Non-operators: NUM (numeric constant), ID (identifier),
@@ -219,7 +219,7 @@ static int c_prec[TOKCOUNT] =
 };
 
 /*
- * Opeator recedences: in reverse order, i.e. lower number, high precedence.
+ * Operator precedences: in reverse order, i.e. lower number, high precedence.
  * These are the default zsh precedences.
  *
  * 0   Non-operators: NUM (numeric constant), ID (identifier),
@@ -831,6 +831,8 @@ zzlex(void)
 	case ' ': /* Fall through! */
 	case '\t':
 	case '\n':
+	case '"': /* POSIX says ignore these */
+	case Dnull:
 	    break;
 	default:
 	    if (idigit(*--ptr) || *ptr == '.')
@@ -838,13 +840,18 @@ zzlex(void)
 	    if (*ptr == '#') {
 		if (*++ptr == '\\' || *ptr == '#') {
 		    int v;
+		    char *optr = ptr;
 
 		    ptr++;
 		    if (!*ptr) {
 			zerr("bad math expression: character missing after ##");
 			return EOI;
 		    }
-		    ptr = getkeystring(ptr, NULL, GETKEYS_MATH, &v);
+		    if(!(ptr = getkeystring(ptr, NULL, GETKEYS_MATH, &v))) {
+			zerr("bad math expression: bad character after ##");
+			ptr = optr;
+			return EOI;
+		    }
 		    yyval.u.l = v;
 		    return NUM;
 		}
@@ -856,14 +863,18 @@ zzlex(void)
 
 		p = ptr;
 		ptr = ie;
-		if (ie - p == 3) {
-		    if (strncasecmp(p, "NaN", 3) == 0) {
+		if (ie - p == 3 && !EMULATION(EMULATE_SH)) {
+		    if ((p[0] == 'N' || p[0] == 'n') &&
+			(p[1] == 'A' || p[1] == 'a') &&
+			(p[2] == 'N' || p[2] == 'n')) {
 			yyval.type = MN_FLOAT;
 			yyval.u.d = 0.0;
 			yyval.u.d /= yyval.u.d;
 			return NUM;
 		    }
-		    else if (strncasecmp(p, "Inf", 3) == 0) {
+		    else if ((p[0] == 'I' || p[0] == 'i') &&
+			     (p[1] == 'N' || p[1] == 'n') &&
+			     (p[2] == 'F' || p[2] == 'f')) {
 			yyval.type = MN_FLOAT;
 			yyval.u.d = 0.0;
 			yyval.u.d = 1.0 / yyval.u.d;

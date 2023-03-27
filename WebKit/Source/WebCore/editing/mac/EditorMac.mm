@@ -47,6 +47,7 @@
 #import "HTMLNames.h"
 #import "LegacyNSPasteboardTypes.h"
 #import "LegacyWebArchive.h"
+#import "MutableStyleProperties.h"
 #import "PagePasteboardContext.h"
 #import "Pasteboard.h"
 #import "PasteboardStrategy.h"
@@ -55,7 +56,6 @@
 #import "RenderImage.h"
 #import "RuntimeApplicationChecks.h"
 #import "SharedBuffer.h"
-#import "StyleProperties.h"
 #import "WebContentReader.h"
 #import "WebNSAttributedStringExtras.h"
 #import "markup.h"
@@ -118,7 +118,7 @@ void Editor::platformPasteFont()
         backgroundColor = colorFromCocoaColor(nsBackgroundColor);
     if (!backgroundColor.isValid())
         backgroundColor = Color::transparentBlack;
-    style->setProperty(CSSPropertyBackgroundColor, CSSPrimitiveValue::create(backgroundColor));
+    style->setProperty(CSSPropertyBackgroundColor, CSSValuePool::singleton().createColorValue(backgroundColor));
 
     if (NSFont *font = dynamic_objc_cast<NSFont>([fontAttributes objectForKey:NSFontAttributeName])) {
         // FIXME: Need more sophisticated escaping code if we want to handle family names
@@ -142,7 +142,7 @@ void Editor::platformPasteFont()
             foregroundColor = Color::transparentBlack;
     } else
         foregroundColor = Color::black;
-    style->setProperty(CSSPropertyColor, CSSPrimitiveValue::create(foregroundColor));
+    style->setProperty(CSSPropertyColor, CSSValuePool::singleton().createColorValue(foregroundColor));
 
     FontShadow fontShadow;
     if (NSShadow *nsFontShadow = dynamic_objc_cast<NSShadow>([fontAttributes objectForKey:NSShadowAttributeName]))
@@ -250,7 +250,7 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
         pasteboardImage.dataInWebArchiveFormat = imageInWebArchiveFormat(imageElement);
 
     if (auto imageRange = makeRangeSelectingNode(imageElement))
-        pasteboardImage.dataInHTMLFormat = serializePreservingVisualAppearance(VisibleSelection { *imageRange }, ResolveURLs::YesExcludingURLsForPrivacy, SerializeComposedTree::Yes);
+        pasteboardImage.dataInHTMLFormat = serializePreservingVisualAppearance(VisibleSelection { *imageRange }, ResolveURLs::YesExcludingURLsForPrivacy, SerializeComposedTree::Yes, IgnoreUserSelectNone::Yes);
 
     pasteboardImage.url.url = url;
     pasteboardImage.url.title = title;

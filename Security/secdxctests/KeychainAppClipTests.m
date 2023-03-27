@@ -199,8 +199,13 @@
 
 - (void)testAppClipNoSecItemUpdateTokenItemsAllowed {
     SecSecurityClientRegularToAppClip();
-    // Don't bother setting it up, app clips aren't even welcome at the door.
-    XCTAssertEqual(SecItemUpdateTokenItemsForAccessGroups(NULL, (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], NULL), errSecRestrictedAPI);
+    // App clips aren't even welcome at the door.
+    NSArray *tokenItems = @[ @{
+                                 (id)kSecClass: (id)kSecClassGenericPassword,
+                                 (id)kSecAttrAccessGroup: (id)kSecAttrAccessGroupToken,
+                                 (id)kSecAttrLabel: @"label",
+                                 } ];
+    XCTAssertEqual(SecItemUpdateTokenItemsForAccessGroups(@"com.apple.testtoken", (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], (__bridge CFArrayRef)tokenItems), errSecRestrictedAPI);
 }
 
 - (void)testAppClipCanPassAppIDAccessGroup {

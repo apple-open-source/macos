@@ -43,6 +43,8 @@ __BEGIN_DECLS
 CFStringRef SecFrameworkCopyLocalizedString(CFStringRef key,
     CFStringRef tableName);
 
+Boolean SecFrameworkIsRunningInXcode(void);
+
 /* Return the SHA1 digest of a chunk of data as newly allocated CFDataRef. */
 CFDataRef SecSHA1DigestCreate(CFAllocatorRef allocator,
 	const UInt8 *data, CFIndex length);

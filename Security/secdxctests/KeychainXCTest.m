@@ -44,11 +44,13 @@
 #import <SecurityFoundation/SFKeychain.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
+#include "featureflags/featureflags.h"
 #include <corecrypto/ccpbkdf2.h>
 #include <corecrypto/ccsha2.h>
 #include <corecrypto/ccaes.h>
 #include <corecrypto/ccmode.h>
 #include <corecrypto/ccwrap.h>
+
 
 void* testlist = NULL;
 
@@ -158,6 +160,7 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
     self.testFailureLogger = [[KeychainXCTestFailureLogger alloc] init];
     [[XCTestObservationCenter sharedTestObservationCenter] addTestObserver:self.testFailureLogger];
 
+
     // Do not want test code to be allowed to init real keychain!
     secd_test_setup_temp_keychain("keychaintestthrowaway", NULL);
     securityd_init(NULL);
@@ -227,7 +230,7 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
 + (void)tearDown {
     secd_test_teardown_delete_temp_keychain("keychaintestthrowaway");
     SecResetLocalSecuritydXPCFakeEntitlements();
-    [super tearDown];
+
 
     [[XCTestObservationCenter sharedTestObservationCenter] removeTestObserver:self.testFailureLogger];
 }

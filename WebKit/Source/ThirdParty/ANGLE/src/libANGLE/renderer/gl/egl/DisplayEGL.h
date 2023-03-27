@@ -11,7 +11,6 @@
 
 #include <map>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "libANGLE/renderer/gl/DisplayGL.h"
@@ -107,6 +106,16 @@ class DisplayEGL : public DisplayGL
 
     const FunctionsEGL *getFunctionsEGL() const;
 
+    DeviceImpl *createDevice() override;
+
+    bool supportsDmaBufFormat(EGLint format) const override;
+    egl::Error queryDmaBufFormats(EGLint maxFormats, EGLint *formats, EGLint *numFormats) override;
+    egl::Error queryDmaBufModifiers(EGLint format,
+                                    EGLint maxModifiers,
+                                    EGLuint64KHR *modifiers,
+                                    EGLBoolean *externalOnly,
+                                    EGLint *numModifiers) override;
+
   protected:
     virtual EGLint fixSurfaceType(EGLint surfaceType) const;
 
@@ -153,7 +162,7 @@ class DisplayEGL : public DisplayGL
         // unset when an external context is current.
         bool isExternalContext = false;
     };
-    angle::HashMap<std::thread::id, CurrentNativeContext> mCurrentNativeContexts;
+    angle::HashMap<uint64_t, CurrentNativeContext> mCurrentNativeContexts;
 
     void generateCaps(egl::Caps *outCaps) const override;
 
@@ -166,6 +175,12 @@ class DisplayEGL : public DisplayGL
     bool mSupportsNoConfigContexts = false;
 
     EGLSurface mMockPbuffer = EGL_NO_SURFACE;
+
+    // Supported DRM formats
+    bool mSupportsDmaBufImportModifiers = false;
+    bool mNoOpDmaBufImportModifiers     = false;
+    std::vector<EGLint> mDrmFormats;
+    bool mDrmFormatsInitialized = false;
 };
 
 }  // namespace rx

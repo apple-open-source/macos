@@ -316,9 +316,7 @@ static NSString* modelID = nil;
     NSString* schema = @"CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY AUTOINCREMENT,data BLOB);";
     NSString* path = [NSString stringWithFormat:@"%@/empty", _path];
 
-    XCTAssertNil([SFAnalyticsSQLiteStore storeWithPath:nil schema:schema]);
     XCTAssertNil([SFAnalyticsSQLiteStore storeWithPath:@"" schema:schema]);
-    XCTAssertNil([SFAnalyticsSQLiteStore storeWithPath:path schema:nil]);
     XCTAssertNil([SFAnalyticsSQLiteStore storeWithPath:path schema:@""]);
 
     XCTAssertNil([[SFSQLite alloc] initWithPath:nil schema:schema]);

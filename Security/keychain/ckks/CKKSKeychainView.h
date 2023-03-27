@@ -121,6 +121,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nullable) CKKSNearFutureScheduler* suggestTLKUpload;
 
+@property (readonly) CKKSNearFutureScheduler* outgoingQueueOperationScheduler;
+@property (readonly) CKKSNearFutureScheduler* outgoingQueuePriorityOperationScheduler;
+
 /* Used for debugging: just what happened last time we ran this? */
 @property (nullable) CKKSIncomingQueueOperation* lastIncomingQueueOperation;
 @property (nullable) CKKSNewTLKOperation* lastNewTLKOperation;
@@ -199,7 +202,7 @@ NS_ASSUME_NONNULL_BEGIN
                           identifier:(NSString*)identifier
                             viewHint:(NSString*)viewHint
                      fetchCloudValue:(bool)fetchCloudValue
-                            complete:(void (^)(NSString* uuid, NSError* operror))complete;
+                            complete:(void (^)(CKKSCurrentItemData* _Nullable data, NSError* _Nullable operror))complete;
 
 - (bool)outgoingQueueEmpty:(NSError* __autoreleasing*)error;
 

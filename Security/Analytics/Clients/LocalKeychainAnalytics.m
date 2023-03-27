@@ -62,7 +62,11 @@ NSString* const LKABackupLastSuccessDate = @"backupLastSuccess";
 }
 
 + (NSString*)databasePath {
+#if TARGET_OS_OSX
+    return [self defaultProtectedAnalyticsDatabasePath:@"localkeychain"];
+#else
     return [self defaultAnalyticsDatabasePath:@"localkeychain"];
+#endif
 }
 
 // MARK: Client-specific functionality

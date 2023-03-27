@@ -113,6 +113,7 @@ constexpr ComparableCaseFoldingASCIILiteral supportedImageMIMETypeArray[] = {
 #if !USE(CG) && USE(OPENJPEG)
     "image/jpeg2000",
 #endif
+    "image/jpg",
 #if USE(JPEGXL)
     "image/jxl",
 #endif
@@ -422,9 +423,11 @@ bool MIMETypeRegistry::isSupportedImageMIMEType(const String& mimeType)
         }
     });
 #endif
-    if (supportedImageMIMETypeSet.contains(mimeType))
+
+    String normalizedMIMEType = normalizedImageMIMEType(mimeType);
+    if (supportedImageMIMETypeSet.contains(normalizedMIMEType))
         return true;
-    return additionalSupportedImageMIMETypes().contains(normalizedImageMIMEType(mimeType));
+    return additionalSupportedImageMIMETypes().contains(normalizedMIMEType);
 }
 
 bool MIMETypeRegistry::isSupportedImageVideoOrSVGMIMEType(const String& mimeType)
@@ -538,12 +541,16 @@ bool MIMETypeRegistry::isTextMediaPlaylistMIMEType(const String& mimeType)
     return false;
 }
 
+// https://mimesniff.spec.whatwg.org/#json-mime-type
 bool MIMETypeRegistry::isSupportedJSONMIMEType(const String& mimeType)
 {
     if (mimeType.isEmpty())
         return false;
 
     if (equalLettersIgnoringASCIICase(mimeType, "application/json"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(mimeType, "text/json"_s))
         return true;
 
     // When detecting +json ensure there is a non-empty type / subtype preceeding the suffix.
@@ -711,8 +718,6 @@ bool MIMETypeRegistry::isSupportedModelMIMEType(const String& mimeType)
 static String normalizedImageMIMEType(const String& mimeType)
 {
 #if USE(CURL)
-    return mimeType;
-#else
     // FIXME: Since this is only used in isSupportedImageMIMEType, we should consider removing the non-image types below.
     static constexpr std::pair<ComparableLettersLiteral, ASCIILiteral> mimeTypeAssociationArray[] = {
         { "application/ico", "image/vnd.microsoft.icon"_s },
@@ -765,6 +770,8 @@ static String normalizedImageMIMEType(const String& mimeType)
     static constexpr SortedArrayMap associationMap { mimeTypeAssociationArray };
     auto normalizedType = associationMap.tryGet(mimeType);
     return normalizedType ? *normalizedType : mimeType;
+#else
+    return mimeType;
 #endif
 }
 
@@ -841,7 +848,7 @@ bool MIMETypeRegistry::isJPEGMIMEType(const String& mimeType)
         return false;
     return CFEqual(destinationUTI.get(), jpegUTI());
 #else
-    return mimeType == "image/jpeg"_s;
+    return mimeType == "image/jpeg"_s || mimeType == "image/jpg"_s;
 #endif
 }
 

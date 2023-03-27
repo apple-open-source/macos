@@ -5,9 +5,10 @@
 //
 // angle_version.h: ANGLE version constants. Generated from git commands.
 
-#ifndef COMMON_VERSION_H_
-#define COMMON_VERSION_H_
+#ifndef COMMON_ANGLE_VERSION_H_
+#define COMMON_ANGLE_VERSION_H_
 
+#include "ANGLEShaderProgramVersion.h"
 #include "angle_commit.h"
 
 #define ANGLE_MAJOR_VERSION 2
@@ -25,4 +26,4 @@
     "." ANGLE_MACRO_STRINGIFY(ANGLE_MINOR_VERSION) "." ANGLE_MACRO_STRINGIFY( \
         ANGLE_REVISION) " git hash: " ANGLE_COMMIT_HASH
 
-#endif  // COMMON_VERSION_H_
+#endif  // COMMON_ANGLE_VERSION_H_

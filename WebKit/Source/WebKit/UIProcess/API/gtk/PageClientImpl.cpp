@@ -70,9 +70,9 @@ PageClientImpl::PageClientImpl(GtkWidget* viewWidget)
 }
 
 // PageClient's pure virtual functions
-std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& process)
+std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy&)
 {
-    return makeUnique<DrawingAreaProxyCoordinatedGraphics>(*webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_viewWidget)), process);
+    return makeUnique<DrawingAreaProxyCoordinatedGraphics>(*webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_viewWidget)));
 }
 
 void PageClientImpl::setViewNeedsDisplay(const WebCore::Region& region)
@@ -250,16 +250,28 @@ WebCore::IntRect PageClientImpl::rootViewToAccessibilityScreen(const WebCore::In
 
 void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool wasEventHandled)
 {
-    if (wasEventHandled || event.type() != WebEvent::Type::KeyDown || !event.nativeEvent())
+    if (wasEventHandled || event.type() != WebEventType::KeyDown || !event.nativeEvent())
         return;
 
+    // Always consider arrow keys as handled, otherwise the GtkWindow key bindings will move the focus.
+    guint keyval;
+    gdk_event_get_keyval(event.nativeEvent(), &keyval);
+    switch (keyval) {
+    case GDK_KEY_Up:
+    case GDK_KEY_KP_Up:
+    case GDK_KEY_Down:
+    case GDK_KEY_KP_Down:
+    case GDK_KEY_Left:
+    case GDK_KEY_KP_Left:
+    case GDK_KEY_Right:
+    case GDK_KEY_KP_Right:
+        return;
+    default:
+        break;
+    }
+
     WebKitWebViewBase* webkitWebViewBase = WEBKIT_WEB_VIEW_BASE(m_viewWidget);
-    webkitWebViewBaseForwardNextKeyEvent(webkitWebViewBase);
-#if USE(GTK4)
-    gdk_display_put_event(gtk_widget_get_display(m_viewWidget), event.nativeEvent());
-#else
-    gtk_main_do_event(event.nativeEvent());
-#endif
+    webkitWebViewBasePropagateKeyEvent(webkitWebViewBase, event.nativeEvent());
 }
 
 RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& page)
@@ -355,12 +367,6 @@ void PageClientImpl::didPerformDragControllerAction()
     webkitWebViewBaseDidPerformDragControllerAction(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
 }
 #endif
-
-void PageClientImpl::handleDownloadRequest(DownloadProxy& download)
-{
-    if (WEBKIT_IS_WEB_VIEW(m_viewWidget))
-        webkitWebViewHandleDownloadRequest(WEBKIT_WEB_VIEW(m_viewWidget), &download);
-}
 
 void PageClientImpl::didCommitLoadForMainFrame(const String& /* mimeType */, bool /* useCustomContentProvider */ )
 {
@@ -460,13 +466,7 @@ void PageClientImpl::wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent&
     if (gdk_event_get_event_type(event.nativeEvent()) != GDK_SCROLL)
         return;
 
-    webkitWebViewBaseForwardNextWheelEvent(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
-
-#if USE(GTK4)
-    gdk_display_put_event(gtk_widget_get_display(m_viewWidget), event.nativeEvent());
-#else
-    gtk_main_do_event(event.nativeEvent());
-#endif
+    webkitWebViewBasePropagateWheelEvent(WEBKIT_WEB_VIEW_BASE(m_viewWidget), event.nativeEvent());
 }
 
 void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String&, const IPC::DataReference&)
@@ -546,17 +546,6 @@ void PageClientImpl::derefView()
     g_object_unref(m_viewWidget);
 }
 
-#if ENABLE(VIDEO) && USE(GSTREAMER)
-bool PageClientImpl::decidePolicyForInstallMissingMediaPluginsPermissionRequest(InstallMissingMediaPluginsPermissionRequest& request)
-{
-    if (!WEBKIT_IS_WEB_VIEW(m_viewWidget))
-        return false;
-
-    webkitWebViewRequestInstallMissingMediaPlugins(WEBKIT_WEB_VIEW(m_viewWidget), request);
-    return true;
-}
-#endif
-
 void PageClientImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completionHandler)
 {
     completionHandler(WebCore::DOMPasteAccessResponse::DeniedForGesture);
@@ -591,9 +580,9 @@ bool PageClientImpl::effectiveAppearanceIsDark() const
 }
 
 #if USE(WPE_RENDERER)
-IPC::Attachment PageClientImpl::hostFileDescriptor()
+UnixFileDescriptor PageClientImpl::hostFileDescriptor()
 {
-    return IPC::Attachment({ webkitWebViewBaseRenderHostFileDescriptor(WEBKIT_WEB_VIEW_BASE(m_viewWidget)), UnixFileDescriptor::Adopt });
+    return { webkitWebViewBaseRenderHostFileDescriptor(WEBKIT_WEB_VIEW_BASE(m_viewWidget)), UnixFileDescriptor::Adopt };
 }
 #endif
 
@@ -630,6 +619,11 @@ WebCore::Color PageClientImpl::accentColor()
         return WebCore::Color(accentColor);
 
     return SRGBA<uint8_t> { 52, 132, 228 };
+}
+
+WebKitWebResourceLoadManager* PageClientImpl::webResourceLoadManager()
+{
+    return WEBKIT_IS_WEB_VIEW(m_viewWidget) ? webkitWebViewGetWebResourceLoadManager(WEBKIT_WEB_VIEW(m_viewWidget)) : nullptr;
 }
 
 } // namespace WebKit

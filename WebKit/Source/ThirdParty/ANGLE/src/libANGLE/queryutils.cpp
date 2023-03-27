@@ -1490,7 +1490,7 @@ void QueryShaderiv(const Context *context, Shader *shader, GLenum pname, GLint *
             *params = shader->isFlaggedForDeletion();
             return;
         case GL_COMPILE_STATUS:
-            *params = shader->isCompiled() ? GL_TRUE : GL_FALSE;
+            *params = shader->isCompiled(context) ? GL_TRUE : GL_FALSE;
             return;
         case GL_COMPLETION_STATUS_KHR:
             if (context->isContextLost())
@@ -1503,13 +1503,13 @@ void QueryShaderiv(const Context *context, Shader *shader, GLenum pname, GLint *
             }
             return;
         case GL_INFO_LOG_LENGTH:
-            *params = shader->getInfoLogLength();
+            *params = shader->getInfoLogLength(context);
             return;
         case GL_SHADER_SOURCE_LENGTH:
             *params = shader->getSourceLength();
             return;
         case GL_TRANSLATED_SHADER_SOURCE_LENGTH_ANGLE:
-            *params = shader->getTranslatedSourceWithDebugInfoLength();
+            *params = shader->getTranslatedSourceWithDebugInfoLength(context);
             return;
         default:
             UNREACHABLE();
@@ -2033,7 +2033,8 @@ GLuint QueryProgramResourceIndex(const Program *program,
     }
 }
 
-void QueryProgramResourceName(const Program *program,
+void QueryProgramResourceName(const Context *context,
+                              const Program *program,
                               GLenum programInterface,
                               GLuint index,
                               GLsizei bufSize,
@@ -2063,7 +2064,7 @@ void QueryProgramResourceName(const Program *program,
             break;
 
         case GL_UNIFORM_BLOCK:
-            program->getActiveUniformBlockName({index}, bufSize, length, name);
+            program->getActiveUniformBlockName(context, {index}, bufSize, length, name);
             break;
 
         case GL_TRANSFORM_FEEDBACK_VARYING:
@@ -2441,18 +2442,34 @@ void SetMaterialParameters(GLES1State *state,
                            MaterialParameter pname,
                            const GLfloat *params)
 {
+    // Note: Ambient and diffuse colors are inherited from glColor when COLOR_MATERIAL is enabled,
+    // and can only be modified by this function if that is disabled:
+    //
+    // > the replaced values remain until changed by either sending a new color or by setting a
+    // > new material value when COLOR_MATERIAL is not currently enabled, to override that
+    // particular value.
+
     MaterialParameters &material = state->materialParameters();
     switch (pname)
     {
         case MaterialParameter::Ambient:
-            material.ambient = ColorF::fromData(params);
+            if (!state->isColorMaterialEnabled())
+            {
+                material.ambient = ColorF::fromData(params);
+            }
             break;
         case MaterialParameter::Diffuse:
-            material.diffuse = ColorF::fromData(params);
+            if (!state->isColorMaterialEnabled())
+            {
+                material.diffuse = ColorF::fromData(params);
+            }
             break;
         case MaterialParameter::AmbientAndDiffuse:
-            material.ambient = ColorF::fromData(params);
-            material.diffuse = ColorF::fromData(params);
+            if (!state->isColorMaterialEnabled())
+            {
+                material.ambient = ColorF::fromData(params);
+                material.diffuse = ColorF::fromData(params);
+            }
             break;
         case MaterialParameter::Specular:
             material.specular = ColorF::fromData(params);
@@ -3057,6 +3074,7 @@ unsigned int GetTexParameterCount(GLenum pname)
         case GL_TEXTURE_SRGB_DECODE_EXT:
         case GL_DEPTH_STENCIL_TEXTURE_MODE:
         case GL_TEXTURE_NATIVE_ID_ANGLE:
+        case GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES:
             return 1;
         default:
             return 0;
@@ -3156,6 +3174,7 @@ bool GetQueryParameterInfo(const State &glState,
         case GL_TEXTURE_BINDING_2D:
         case GL_TEXTURE_BINDING_CUBE_MAP:
         case GL_RESET_NOTIFICATION_STRATEGY_EXT:
+        case GL_QUERY_COUNTER_BITS_EXT:
         {
             *type      = GL_INT;
             *numParams = 1;
@@ -3225,6 +3244,16 @@ bool GetQueryParameterInfo(const State &glState,
             *numParams = 1;
             return true;
         }
+        case GL_COLOR_LOGIC_OP:
+        {
+            if (!extensions.logicOpANGLE)
+            {
+                return false;
+            }
+            *type      = GL_BOOL;
+            *numParams = 1;
+            return true;
+        }
         case GL_COLOR_WRITEMASK:
         {
             *type      = GL_BOOL;
@@ -3241,6 +3270,14 @@ bool GetQueryParameterInfo(const State &glState,
             *numParams = 1;
             return true;
         }
+        case GL_POLYGON_OFFSET_CLAMP_EXT:
+            if (!extensions.polygonOffsetClampEXT)
+            {
+                return false;
+            }
+            *type      = GL_FLOAT;
+            *numParams = 1;
+            return true;
         case GL_ALIASED_LINE_WIDTH_RANGE:
         case GL_ALIASED_POINT_SIZE_RANGE:
         case GL_DEPTH_RANGE:
@@ -3297,22 +3334,30 @@ bool GetQueryParameterInfo(const State &glState,
             *numParams = 1;
             return true;
         case GL_MAX_CLIP_DISTANCES_EXT:  // case GL_MAX_CLIP_PLANES
+        case GL_CLIP_DISTANCE0_EXT:
+        case GL_CLIP_DISTANCE1_EXT:
+        case GL_CLIP_DISTANCE2_EXT:
+        case GL_CLIP_DISTANCE3_EXT:
+        case GL_CLIP_DISTANCE4_EXT:
+        case GL_CLIP_DISTANCE5_EXT:
+        case GL_CLIP_DISTANCE6_EXT:
+        case GL_CLIP_DISTANCE7_EXT:
             if (clientMajorVersion < 2)
             {
                 break;
             }
-            if (!extensions.clipDistanceAPPLE && !extensions.clipCullDistanceEXT)
+            if (!extensions.clipDistanceAPPLE && !extensions.clipCullDistanceAny())
             {
                 // NOTE(hqle): if client version is 1. GL_MAX_CLIP_DISTANCES_EXT is equal
                 // to GL_MAX_CLIP_PLANES which is a valid enum.
                 return false;
             }
-            *type      = GL_INT;
+            *type      = (pname == GL_MAX_CLIP_DISTANCES_EXT) ? GL_INT : GL_BOOL;
             *numParams = 1;
             return true;
         case GL_MAX_CULL_DISTANCES_EXT:
         case GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES_EXT:
-            if (!extensions.clipCullDistanceEXT)
+            if (!extensions.clipCullDistanceAny())
             {
                 return false;
             }
@@ -3604,6 +3649,21 @@ bool GetQueryParameterInfo(const State &glState,
         return true;
     }
 
+    if (extensions.provokingVertexANGLE && pname == GL_PROVOKING_VERTEX_ANGLE)
+    {
+        *type      = GL_INT;
+        *numParams = 1;
+        return true;
+    }
+
+    if (extensions.shaderFramebufferFetchARM &&
+        (pname == GL_FETCH_PER_SAMPLE_ARM || pname == GL_FRAGMENT_SHADER_FRAMEBUFFER_FETCH_MRT_ARM))
+    {
+        *type      = GL_BOOL;
+        *numParams = 1;
+        return true;
+    }
+
     if (glState.getClientVersion() < Version(2, 0))
     {
         switch (pname)
@@ -3814,6 +3874,20 @@ bool GetQueryParameterInfo(const State &glState,
             case GL_TEXTURE_BINDING_BUFFER:
             case GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT:
             case GL_MAX_TEXTURE_BUFFER_SIZE:
+                *type      = GL_INT;
+                *numParams = 1;
+                return true;
+        }
+    }
+
+    if (extensions.shaderPixelLocalStorageANGLE)
+    {
+        switch (pname)
+        {
+            case GL_MAX_PIXEL_LOCAL_STORAGE_PLANES_ANGLE:
+            case GL_MAX_COLOR_ATTACHMENTS_WITH_ACTIVE_PIXEL_LOCAL_STORAGE_ANGLE:
+            case GL_MAX_COMBINED_DRAW_BUFFERS_AND_PIXEL_LOCAL_STORAGE_PLANES_ANGLE:
+            case GL_PIXEL_LOCAL_STORAGE_ACTIVE_PLANES_ANGLE:
                 *type      = GL_INT;
                 *numParams = 1;
                 return true;
@@ -4437,6 +4511,8 @@ egl::Error SetSurfaceAttrib(Surface *surface, EGLint attribute, EGLint value)
         case EGL_TIMESTAMPS_ANDROID:
             surface->setTimestampsEnabled(value != EGL_FALSE);
             break;
+        case EGL_FRONT_BUFFER_AUTO_REFRESH_ANDROID:
+            return surface->setAutoRefreshEnabled(value == EGL_TRUE);
         case EGL_RENDER_BUFFER:
             return surface->setRenderBuffer(value);
         default:

@@ -155,10 +155,10 @@ static struct ip6protosw                *g_tcp6_protosw         = NULL;
 static struct protosw                   *g_udp_protosw          = NULL;
 static struct ip6protosw                *g_udp6_protosw         = NULL;
 
-ZONE_DEFINE(flow_divert_group_zone, "flow_divert_group",
-    sizeof(struct flow_divert_group), ZC_ZFREE_CLEARMEM);
-ZONE_DEFINE(flow_divert_pcb_zone, "flow_divert_pcb",
-    sizeof(struct flow_divert_pcb), ZC_ZFREE_CLEARMEM);
+static KALLOC_TYPE_DEFINE(flow_divert_group_zone, struct flow_divert_group,
+    NET_KT_DEFAULT);
+static KALLOC_TYPE_DEFINE(flow_divert_pcb_zone, struct flow_divert_pcb,
+    NET_KT_DEFAULT);
 
 static errno_t
 flow_divert_dup_addr(sa_family_t family, struct sockaddr *addr, struct sockaddr **dup);

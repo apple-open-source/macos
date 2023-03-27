@@ -2403,7 +2403,7 @@ unsigned int Renderer9::getReservedFragmentUniformVectors() const
 bool Renderer9::getShareHandleSupport() const
 {
     // PIX doesn't seem to support using share handles, so disable them.
-    return (mD3d9Ex != nullptr) && !gl::DebugAnnotationsActive();
+    return (mD3d9Ex != nullptr) && !gl::DebugAnnotationsActive(/*context=*/nullptr);
 }
 
 int Renderer9::getMajorShaderModel() const
@@ -2706,7 +2706,7 @@ angle::Result Renderer9::compileToExecutable(d3d::Context *context,
         flags = D3DCOMPILE_OPTIMIZATION_LEVEL3;
     }
 
-    if (gl::DebugAnnotationsActive())
+    if (gl::DebugAnnotationsActive(/*context=*/nullptr))
     {
 #ifndef NDEBUG
         flags = D3DCOMPILE_SKIP_OPTIMIZATION;
@@ -2906,29 +2906,30 @@ TextureStorage *Renderer9::createTextureStorageExternal(
 }
 
 TextureStorage *Renderer9::createTextureStorage2D(GLenum internalformat,
-                                                  bool renderTarget,
+                                                  BindFlags bindFlags,
                                                   GLsizei width,
                                                   GLsizei height,
                                                   int levels,
                                                   const std::string &label,
                                                   bool hintLevelZeroOnly)
 {
-    return new TextureStorage9_2D(this, internalformat, renderTarget, width, height, levels, label);
+    return new TextureStorage9_2D(this, internalformat, bindFlags.renderTarget, width, height,
+                                  levels, label);
 }
 
 TextureStorage *Renderer9::createTextureStorageCube(GLenum internalformat,
-                                                    bool renderTarget,
+                                                    BindFlags bindFlags,
                                                     int size,
                                                     int levels,
                                                     bool hintLevelZeroOnly,
                                                     const std::string &label)
 {
-    return new TextureStorage9_Cube(this, internalformat, renderTarget, size, levels,
+    return new TextureStorage9_Cube(this, internalformat, bindFlags.renderTarget, size, levels,
                                     hintLevelZeroOnly, label);
 }
 
 TextureStorage *Renderer9::createTextureStorage3D(GLenum internalformat,
-                                                  bool renderTarget,
+                                                  BindFlags bindFlags,
                                                   GLsizei width,
                                                   GLsizei height,
                                                   GLsizei depth,
@@ -2942,7 +2943,7 @@ TextureStorage *Renderer9::createTextureStorage3D(GLenum internalformat,
 }
 
 TextureStorage *Renderer9::createTextureStorage2DArray(GLenum internalformat,
-                                                       bool renderTarget,
+                                                       BindFlags bindFlags,
                                                        GLsizei width,
                                                        GLsizei height,
                                                        GLsizei depth,
@@ -3050,7 +3051,8 @@ angle::Result Renderer9::getVertexSpaceRequired(const gl::Context *context,
 void Renderer9::generateCaps(gl::Caps *outCaps,
                              gl::TextureCapsMap *outTextureCaps,
                              gl::Extensions *outExtensions,
-                             gl::Limitations *outLimitations) const
+                             gl::Limitations *outLimitations,
+                             ShPixelLocalStorageOptions *outPLSOptions) const
 {
     d3d9_gl::GenerateCaps(mD3d9, mDevice, mDeviceType, mAdapter, outCaps, outTextureCaps,
                           outExtensions, outLimitations);

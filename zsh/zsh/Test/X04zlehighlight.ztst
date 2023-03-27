@@ -5,8 +5,6 @@
   export TERM=xterm-256color
   if [[ ${+termcap} != 1 || ${termcap[Co]} != <-> || ${termcap[Co]} -lt 256 ]]; then
     ZTST_unimplemented="no termcap module OR termcap doesn't support 256 or more colors"
-  elif [[ $OSTYPE == cygwin ]]; then
-    ZTST_unimplemented='the zsh/zpty module does not work on Cygwin'
   elif zmodload zsh/zpty 2> /dev/null; then
     zpty_start() {
       export PS1= PS2=
@@ -95,6 +93,50 @@
 >0m27m24mCDE|32|trueCDE|39|
 
   zpty_start
+  zpty_input 'rh_widget() { region_highlight+=( "0 4 fg=green memo=someplugin" ); typeset -p region_highlight }'
+  zpty_input 'zle -N rh_widget'
+  zpty_input 'bindkey "\C-a" rh_widget'
+  zpty_enable_zle
+  zpty_input $'\C-a'
+  zpty_line
+  zpty_stop
+0:region_highlight memo information round trips
+>typeset -a region_highlight=( '0 4 fg=green memo=someplugin' )
+
+  zpty_start
+  zpty_input 'rh_widget() { region_highlight+=( "0 4 fg=green memo=someplugin,futureattribute=futurevalue" ); typeset -p region_highlight }'
+  zpty_input 'zle -N rh_widget'
+  zpty_input 'bindkey "\C-a" rh_widget'
+  zpty_enable_zle
+  zpty_input $'\C-a'
+  zpty_line
+  zpty_stop
+0:region_highlight memo information forward compatibility, #1
+>typeset -a region_highlight=( '0 4 fg=green memo=someplugin' )
+
+  zpty_start
+  zpty_input 'rh_widget() { region_highlight+=( "0 4 fg=green memo=someplugin futurefifthfield" ); typeset -p region_highlight }'
+  zpty_input 'zle -N rh_widget'
+  zpty_input 'bindkey "\C-a" rh_widget'
+  zpty_enable_zle
+  zpty_input $'\C-a'
+  zpty_line
+  zpty_stop
+0:region_highlight memo information forward compatibility, #2
+>typeset -a region_highlight=( '0 4 fg=green memo=someplugin' )
+
+  zpty_start
+  zpty_input 'rh_widget() { region_highlight+=( "0 4 fg=green memo=some'$'\0''plugin" ); typeset -p region_highlight }'
+  zpty_input 'zle -N rh_widget'
+  zpty_input 'bindkey "\C-a" rh_widget'
+  zpty_enable_zle
+  zpty_input $'\C-a'
+  zpty_line
+  zpty_stop
+0:region_highlight memo information forward compatibility, #3: NULs
+>typeset -a region_highlight=( '0 4 fg=green memo=some' )
+
+  zpty_start
   zpty_input 'rh_widget() { BUFFER="true"; region_highlight+=( "0 4 fg=#040810" ); }'
   zpty_input 'zle -N rh_widget'
   zpty_input 'bindkey "\C-a" rh_widget'
@@ -153,6 +195,17 @@
   zpty_stop
 0:overlapping region_highlight with near-color (hex-triplets at input)
 >0m27m24mCDE|340|tCDE|3160|rCDE|39|CDE|340|ueCDE|39|
+
+  zpty_start
+  zpty_input 'f () { zle clear-screen; zle g -f nolast; BUFFER=": ${(q)LASTWIDGET}" }; zle -N f'
+  zpty_input 'g () { }; zle -N g'
+  zpty_input 'bindkey "\C-a" f'
+  zpty_enable_zle
+  zpty_input $'\C-a'
+  zpty_line 1 p
+  zpty_stop
+0:zle $widgetname -f nolast
+>0m27m24m0m27m24m: clear-screen
 
 %clean
 

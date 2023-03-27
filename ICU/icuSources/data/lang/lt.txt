@@ -120,9 +120,12 @@ lt{
         chm{"marių"}
         chn{"činuk žargonas"}
         cho{"čoktau"}
+        cho_Latn{"čoktau"}
         chp{"čipvėjų"}
         chr{"čerokių"}
         chy{"čajenų"}
+        cic{"čikato"}
+        cic_Latn{"čikato"}
         ckb{"soranių kurdų"}
         co{"korsikiečių"}
         cop{"koptų"}

@@ -2717,7 +2717,6 @@
     <ClCompile Include="..\..\..\..\src\tool_msgs.c" />
     <ClCompile Include="..\..\..\..\src\tool_operate.c" />
     <ClCompile Include="..\..\..\..\src\tool_operhlp.c" />
-    <ClCompile Include="..\..\..\..\src\tool_panykey.c" />
     <ClCompile Include="..\..\..\..\src\tool_paramhlp.c" />
     <ClCompile Include="..\..\..\..\src\tool_parsecfg.c" />
     <ClCompile Include="..\..\..\..\src\tool_progress.c" />
@@ -2768,7 +2767,6 @@
     <ClInclude Include="..\..\..\..\src\tool_msgs.h" />
     <ClInclude Include="..\..\..\..\src\tool_operate.h" />
     <ClInclude Include="..\..\..\..\src\tool_operhlp.h" />
-    <ClInclude Include="..\..\..\..\src\tool_panykey.h" />
     <ClInclude Include="..\..\..\..\src\tool_paramhlp.h" />
     <ClInclude Include="..\..\..\..\src\tool_parsecfg.h" />
     <ClInclude Include="..\..\..\..\src\tool_progress.h" />

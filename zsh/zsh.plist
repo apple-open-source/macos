@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>zsh</string>
 	<key>OpenSourceVersion</key>
-	<string>5.8.1</string>
+	<string>5.9</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.zsh.org/</string>
 	<key>OpenSourceURL</key>
-	<string>https://cfhcable.dl.sourceforge.net/project/zsh/zsh/5.8.1/zsh-5.8.1.tar.xz</string>
+	<string>https://cfhcable.dl.sourceforge.net/project/zsh/zsh/5.9/zsh-5.9.tar.xz</string>
 	<key>OpenSourceSHA512256</key>
-	<string>f4e5e185b68731ab20b7ba44b9e06647f7e98e61c96f2cb52d6850a4c8954ecf</string>
+	<string>9b8d1ecedd5b5e81fbf1918e876752a7dd948e05c1a0dba10ab863842d45acd5</string>
 	<key>OpenSourceImportDate</key>
-	<string>2022-03-03</string>
+	<string>2022-07-29</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Completion/Unix/Command/_subversion: 6087334</string>

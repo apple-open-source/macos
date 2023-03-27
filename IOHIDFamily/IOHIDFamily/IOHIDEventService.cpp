@@ -1463,17 +1463,17 @@ DebugKeyAction IOHIDEventService::debugKeyActionTable[] = {
     { false,
       (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskEsc),
       IOHIDEventService::debugActionNMI,
-      NULL
+      (void*)(kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskEsc)
     },
     { false,
       (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskEsc),
       IOHIDEventService::debugActionNMI,
-      NULL
+      (void*)(kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskEsc)
     },
     { false,
       (kKeyMaskLeftCommand | kKeyMaskRightCommand | kKeyMaskDelete),
       IOHIDEventService::debugActionNMI,
-      NULL
+      (void*)(kKeyMaskLeftCommand | kKeyMaskRightCommand | kKeyMaskDelete)
     },
     { true,
       kKeyMaskPower,
@@ -1494,8 +1494,24 @@ bool IOHIDEventService::isPowerButtonNmiEnabled () const {
 // IOHIDEventService::debugActionNMI
 //====================================================================================================
 
-void IOHIDEventService::debugActionNMI (IOHIDEventService *self __unused, void * parameter __unused) {
-  PE_enter_debugger("HID: Triggering NMI");
+void IOHIDEventService::debugActionNMI (IOHIDEventService *self __unused, void * parameter) {
+    UInt32 pressedKeyMask = (UInt32)(uintptr_t)parameter;
+    const char * panicString;
+    switch (pressedKeyMask) {
+        case kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskEsc:
+            panicString = "HID: Triggering NMI (Ctrl + Shift + Option + Left Command + Esc)";
+            break;
+        case kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskEsc:
+            panicString = "HID: Triggering NMI (Ctrl + Shift + Option + Right Command + Esc)";
+            break;
+        case kKeyMaskLeftCommand | kKeyMaskRightCommand | kKeyMaskDelete:
+            panicString = "HID: Triggering NMI (Left Command + Right Command + Delete)";
+            break;
+        default:
+            panicString = "HID: Triggering NMI";
+            break;
+    }
+    PE_enter_debugger(panicString);
 }
 
 //====================================================================================================

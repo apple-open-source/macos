@@ -120,9 +120,15 @@ TransformFeedback::~TransformFeedback()
     SafeDelete(mImplementation);
 }
 
-void TransformFeedback::setLabel(const Context *context, const std::string &label)
+angle::Result TransformFeedback::setLabel(const Context *context, const std::string &label)
 {
     mState.mLabel = label;
+
+    if (mImplementation)
+    {
+        return mImplementation->onLabelUpdate(context);
+    }
+    return angle::Result::Continue;
 }
 
 const std::string &TransformFeedback::getLabel() const
@@ -147,7 +153,7 @@ angle::Result TransformFeedback::begin(const Context *context,
     // In one of the angle_unittests - "TransformFeedbackTest.SideEffectsOfStartAndStop"
     // there is a code path where <context> is a nullptr, account for that possiblity.
     const ProgramExecutable *programExecutable =
-        context ? context->getState().getProgramExecutable() : nullptr;
+        context ? context->getState().getLinkedProgramExecutable(context) : nullptr;
     if (programExecutable)
     {
         // Compute the number of vertices we can draw before overflowing the bound buffers.

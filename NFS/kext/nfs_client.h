@@ -531,6 +531,7 @@ int     nfs4_claim_delegated_state_for_node(nfsnode_t, int);
 int     nfs4_open_downgrade_rpc(nfsnode_t, struct nfs_open_file *, vfs_context_t);
 int     nfs4_close_rpc(nfsnode_t, struct nfs_open_file *, thread_t, kauth_cred_t, int);
 void    nfs4_delegation_return_enqueue(nfsnode_t);
+void    nfs4_delegation_return_read(vfs_context_t, nfsnode_t, int);
 int     nfs4_delegation_return(nfsnode_t, int, thread_t, kauth_cred_t);
 int     nfs4_lock_rpc(nfsnode_t, struct nfs_open_file *, struct nfs_file_lock *, int, int, thread_t, kauth_cred_t);
 int     nfs4_delegreturn_rpc(struct nfsmount *, u_char *, int, struct nfs_stateid *, int, thread_t, kauth_cred_t);

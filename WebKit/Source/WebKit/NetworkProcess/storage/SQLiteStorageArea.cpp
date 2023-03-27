@@ -175,14 +175,19 @@ bool SQLiteStorageArea::prepareDatabase(ShouldCreateIfNotExists shouldCreateIfNo
         return false;
     }
 
-    if (quota() != WebCore::StorageMap::noQuota)
-        m_database->setMaximumSize(quota());
+    if (quota() != WebCore::StorageMap::noQuota) {
+        // Value is upconverted and stored as blob in database, so we need to make database file limit
+        // bigger than quota.
+        m_database->setMaximumSize(quota() * 2);
+    }
 
     return true;
 }
 
 void SQLiteStorageArea::startTransactionIfNecessary()
 {
+    ASSERT(m_database);
+
     if (!m_transaction)
         m_transaction = makeUnique<WebCore::SQLiteTransaction>(*m_database);
 
@@ -274,7 +279,7 @@ HashMap<String, String> SQLiteStorageArea::allItems()
     // Import from database.
     auto statement = cachedStatement(StatementType::GetAllItems);
     if (!statement) {
-        RELEASE_LOG_ERROR(Storage, "SQLiteStorageArea::getAllItems failed on creating statement (%d) - %s", m_database->lastError(), m_database->lastErrorMsg());
+        RELEASE_LOG_ERROR(Storage, "SQLiteStorageArea::allItems failed on creating statement (%d) - %s", m_database->lastError(), m_database->lastErrorMsg());
         return { };
     }
 
@@ -292,7 +297,7 @@ HashMap<String, String> SQLiteStorageArea::allItems()
     }
 
     if (result != SQLITE_DONE)
-        RELEASE_LOG_ERROR(Storage, "SQLiteStorageArea::getAllItems failed on executing statement (%d) - %s", m_database->lastError(), m_database->lastErrorMsg());
+        RELEASE_LOG_ERROR(Storage, "SQLiteStorageArea::allItems failed on executing statement (%d) - %s", m_database->lastError(), m_database->lastErrorMsg());
 
     return items;
 }
@@ -324,7 +329,6 @@ Expected<void, StorageError> SQLiteStorageArea::setItem(IPC::Connection::UniqueI
     }
 
     dispatchEvents(connection, storageAreaImplID, key, oldValue, value, urlString);
-
     if (m_cache)
         m_cache->set(WTFMove(key), value.sizeInBytes() > maximumSizeForValuesKeptInMemory ? String() : WTFMove(value));
 
@@ -355,7 +359,6 @@ Expected<void, StorageError> SQLiteStorageArea::removeItem(IPC::Connection::Uniq
     }
 
     dispatchEvents(connection, storageAreaImplID, key, oldValue, String(), urlString);
-
     if (m_cache)
         m_cache->remove(key);
 

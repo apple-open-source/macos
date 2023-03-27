@@ -67,6 +67,7 @@ bool IOUserBlockStorageDevice::init ( OSDictionary * dict )
 	fRevision = NULL;
 	fAdditionDeviceInfo = NULL;
 	fPoolInitialized = false;
+    fHWPath = true;
 
 	retVal = setProperty ( kIOServiceDEXTEntitlementsKey, kIOBlockStorageDeviceDextEntitlement );
 out:
@@ -138,85 +139,36 @@ void IOUserBlockStorageDevice::stop(IOService *provider)
 
 bool IOUserBlockStorageDevice::start(IOService *provider)
 {
+    fSkipStartDev = true;
+    if (!provider){
+        LOG_ERR("Got null provider.");
+        goto ErrorStart;
+    }
+    if (kIOReturnSuccess != Start(provider)) {
+        LOG_ERR("Start() execution failed");
+        goto ErrorStart;
+    }
+    struct DeviceParams deviceParams;
+    if (kIOReturnSuccess != GetDeviceParams(&deviceParams)){
+        LOG_ERR("Failed to get device params");
+        goto ErrorDeviceParams;
+    }
+    if (kIOReturnSuccess != ReportEjectability(&fIsEjectable)) {
+        LOG_ERR("Failed to report ejectability");
+        goto ErrorDeviceParams;
+    }
+    fSkipStartDev = false;
+    if (kIOReturnSuccess != StartDev(provider, &deviceParams)) {
+        LOG_ERR("StartDev() execution failed");
+        goto ErrorStartDev;
+    }
+    return true;
 
-	OSDictionary *	dict = NULL;
-
-	LOG_INFO("Started");
-
-	if (super::start(provider) == false) {
-		LOG_ERR("Failed to start base");
-		return false;
-	}
-
-	if (kIOReturnSuccess != Start(provider)) {
-		LOG_ERR("Start() execution failed");
-		goto FailedToStart;
-	}
-
-	/* Get device specific parameters */
-	GetDeviceParams(&fDeviceParams);
-
-	if (fDeviceParams.blockSize == 0) {
-		LOG_ERR("Bad block size %u", fDeviceParams.blockSize);
-		goto FailedToStart;
-	}
-
-	if (fDeviceParams.numOfOutstandingIOs == 0) {
-		LOG_ERR("Bad num of outstanding IOs %u", fDeviceParams.numOfOutstandingIOs);
-		goto FailedToStart;
-	}
-
-	dict = OSDictionary::withCapacity ( 2 );
-	if (dict == NULL) {
-		LOG_ERR("Failed to allocate new dictionary");
-		goto FailedToAllocDictionary;
-	}
-
-	/* Set properties */
-	setProperty ( kIOMinimumSegmentAlignmentByteCountKey, fDeviceParams.minSegmentAlignment, 32);
-	setProperty ( kIOMaximumByteCountReadKey, fDeviceParams.maxIOSize, sizeof ( fDeviceParams.maxIOSize ) * NBBY );
-	setProperty ( kIOMaximumByteCountWriteKey, fDeviceParams.maxIOSize, sizeof ( fDeviceParams.maxIOSize ) * NBBY );
-	setProperty ( kIOMaximumBlockCountReadKey, fDeviceParams.maxIOSize / fDeviceParams.blockSize, sizeof ( fDeviceParams.maxIOSize ) * NBBY );
-	setProperty ( kIOMaximumBlockCountWriteKey, fDeviceParams.maxIOSize / fDeviceParams.blockSize, sizeof ( fDeviceParams.maxIOSize ) * NBBY );
-	dict->setObject ( kIOStorageFeatureUnmap, fDeviceParams.isUnmapSupported ? kOSBooleanTrue : kOSBooleanFalse);
-	dict->setObject ( kIOStorageFeatureForceUnitAccess, fDeviceParams.isFUASupported ? kOSBooleanTrue : kOSBooleanFalse);
-	setProperty ( kIOStorageFeaturesKey, dict );
-	OSSafeReleaseNULL(dict);
-
-	/* Allocate array of outstanding requests */
-	fOutstandingRequests = IONewZero(IORequest * _Atomic, fDeviceParams.numOfOutstandingIOs);
-	if (fOutstandingRequests == NULL) {
-		LOG_ERR("failed to allocate outstanding requests table\n");
-		goto FailedToAlloc;
-	}
-
-	fMapper = IOMapper::copyMapperForDevice(provider);
-
-	/* Initialize requests pool */
-	if (fRequestsPool.init(fDeviceParams.numOfOutstandingIOs,
-			       fDeviceParams.maxIOSize,
-			       fDeviceParams.numOfAddressBits,
-			       fDeviceParams.minSegmentAlignment,
-			       fMapper) != kIOReturnSuccess) {
-		LOG_ERR("failed to init requests pool\n");
-		goto FailedToInitPool;
-	}
-
-	fPoolInitialized = true;
-
-	registerService();
-
-	return true;
-
-FailedToInitPool:
-	IODelete(fOutstandingRequests, IORequest * _Atomic, fDeviceParams.numOfOutstandingIOs);
-FailedToAlloc:
-FailedToAllocDictionary:
-	/* TODO: Stop() should be called explicitly ? */
-FailedToStart:
-	super::stop(provider);
-	
-	return false;
+ErrorDeviceParams:
+ErrorStartDev:
+    Stop(provider);
+ErrorStart:
+    return false;
 }
 
 IOReturn IOUserBlockStorageDevice::doAsyncReadWrite ( IOMemoryDescriptor *inBuffer,
@@ -537,7 +489,15 @@ IOReturn IOUserBlockStorageDevice::doEjectMedia ( void )
 	request->waitForCompletion();
 
 	retVal = request->getStatus();
-
+    if (retVal != kIOReturnSuccess){
+        LOG_ERR("Request failure.");
+        goto StatusFailure;
+    }
+    if (!fHWPath || fIsEjectable) {
+        retVal = terminate ( kIOServiceRequired );
+        assert(retVal == kIOReturnSuccess);
+    }
+StatusFailure:
 FailedToSubmit:
 FailedToMakeOutstanding:
 	/* return request to the pool */
@@ -682,7 +642,89 @@ kern_return_t IMPL(IOUserBlockStorageDevice, Stop)
 
 kern_return_t IMPL(IOUserBlockStorageDevice, Start)
 {
-	return kIOReturnSuccess;
+    return kIOReturnSuccess;
+}
+
+kern_return_t IMPL(IOUserBlockStorageDevice, StartDev)
+{
+    if(fSkipStartDev){
+        return kIOReturnSuccess;
+    }
+    kern_return_t status = kIOReturnSuccess;
+    if(fStartDevStarted){
+        LOG_ERR("StartDev called more than once.");
+        return kIOReturnError;
+    }
+    fStartDevStarted = true;
+    OSDictionary *    dict = NULL;
+    LOG_INFO("Started");
+
+    if (super::start(provider) == false) {
+        LOG_ERR("Failed to start base");
+        return kIOReturnError;
+    }
+    fDeviceParams = *deviceParams;
+    if (fDeviceParams.blockSize == 0) {
+        LOG_ERR("Bad block size %u", fDeviceParams.blockSize);
+        status = kIOReturnError;
+        goto FailedToStart;
+    }
+    if (fDeviceParams.numOfOutstandingIOs == 0) {
+        LOG_ERR("Bad num of outstanding IOs %u", fDeviceParams.numOfOutstandingIOs);
+        status = kIOReturnError;
+        goto FailedToStart;
+    }
+
+    dict = OSDictionary::withCapacity ( 2 );
+    if (dict == NULL) {
+        LOG_ERR("Failed to allocate new dictionary");
+        status = kIOReturnNoMemory;
+        goto FailedToStart;
+    }
+
+    /* Set properties */
+    setProperty ( kIOMinimumSegmentAlignmentByteCountKey, fDeviceParams.minSegmentAlignment, 32);
+    setProperty ( kIOMaximumByteCountReadKey, fDeviceParams.maxIOSize, sizeof ( fDeviceParams.maxIOSize ) * NBBY );
+    setProperty ( kIOMaximumByteCountWriteKey, fDeviceParams.maxIOSize, sizeof ( fDeviceParams.maxIOSize ) * NBBY );
+    setProperty ( kIOMaximumBlockCountReadKey, fDeviceParams.maxIOSize / fDeviceParams.blockSize, sizeof ( fDeviceParams.maxIOSize ) * NBBY );
+    setProperty ( kIOMaximumBlockCountWriteKey, fDeviceParams.maxIOSize / fDeviceParams.blockSize, sizeof ( fDeviceParams.maxIOSize ) * NBBY );
+    dict->setObject ( kIOStorageFeatureUnmap, fDeviceParams.isUnmapSupported ? kOSBooleanTrue : kOSBooleanFalse);
+    dict->setObject ( kIOStorageFeatureForceUnitAccess, fDeviceParams.isFUASupported ? kOSBooleanTrue : kOSBooleanFalse);
+    setProperty ( kIOStorageFeaturesKey, dict );
+    OSSafeReleaseNULL(dict);
+
+    /* Allocate array of outstanding requests */
+    fOutstandingRequests = IONewZero(IORequest * _Atomic, fDeviceParams.numOfOutstandingIOs);
+    if (fOutstandingRequests == NULL) {
+        LOG_ERR("failed to allocate outstanding requests table\n");
+        status = kIOReturnNoMemory;
+        goto FailedToStart;
+    }
+
+    fMapper = IOMapper::copyMapperForDevice(provider);
+
+    /* Initialize requests pool */
+    if (fRequestsPool.init(fDeviceParams.numOfOutstandingIOs,
+                   fDeviceParams.maxIOSize,
+                   fDeviceParams.numOfAddressBits,
+                   fDeviceParams.minSegmentAlignment,
+                   fMapper) != kIOReturnSuccess) {
+        LOG_ERR("failed to init requests pool\n");
+        status = kIOReturnError;
+        goto FailedToInitPool;
+    }
+
+    fPoolInitialized = true;
+    registerService();
+
+    return status;
+
+FailedToInitPool:
+    IODelete(fOutstandingRequests, IORequest * _Atomic, fDeviceParams.numOfOutstandingIOs);
+
+FailedToStart:
+    super::stop(provider);
+    return status;
 }
 
 IORequest *IOUserBlockStorageDevice::removeOutstandingRequestAndMarkSlotFree(uint32_t index)
@@ -730,6 +772,7 @@ kern_return_t IMPL(IOUserBlockStorageDevice, RegisterDext)
 		if ( ret != kIOReturnSuccess ) {
 			fPerfControlClient->release();
 			fPerfControlClient = NULL;
+            return ret;
 		}
 	}
 

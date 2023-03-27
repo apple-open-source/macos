@@ -15,6 +15,7 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/accessibility/atspi"
+    "${WEBCORE_DIR}/crypto/openssl"
     "${WEBCORE_DIR}/page/gtk"
     "${WEBCORE_DIR}/platform/adwaita"
     "${WEBCORE_DIR}/platform/audio/glib"
@@ -22,10 +23,12 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/glib"
     "${WEBCORE_DIR}/platform/gtk"
     "${WEBCORE_DIR}/platform/graphics/egl"
+    "${WEBCORE_DIR}/platform/graphics/epoxy"
     "${WEBCORE_DIR}/platform/graphics/glx"
     "${WEBCORE_DIR}/platform/graphics/gbm"
     "${WEBCORE_DIR}/platform/graphics/gstreamer"
     "${WEBCORE_DIR}/platform/graphics/gtk"
+    "${WEBCORE_DIR}/platform/graphics/libwpe"
     "${WEBCORE_DIR}/platform/graphics/opengl"
     "${WEBCORE_DIR}/platform/graphics/opentype"
     "${WEBCORE_DIR}/platform/graphics/wayland"
@@ -37,12 +40,6 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/network/glib"
     "${WEBCORE_DIR}/platform/text/gtk"
 )
-
-if (USE_WPE_RENDERER)
-    list(APPEND WebCore_INCLUDE_DIRECTORIES
-        "${WEBCORE_DIR}/platform/graphics/libwpe"
-    )
-endif ()
 
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     accessibility/atspi/AccessibilityAtspi.h
@@ -102,12 +99,6 @@ list(APPEND WebCore_LIBRARIES
     GTK::GTK
 )
 
-if (USE_WPE_RENDERER)
-    list(APPEND WebCore_LIBRARIES
-        WPE::libwpe
-    )
-endif ()
-
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${ENCHANT_INCLUDE_DIRS}
     ${GIO_UNIX_INCLUDE_DIRS}
@@ -117,7 +108,7 @@ list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${UPOWERGLIB_INCLUDE_DIRS}
 )
 
-if (USE_OPENGL)
+if (USE_OPENGL AND NOT USE_LIBEPOXY)
     list(APPEND WebCore_SOURCES
         platform/graphics/OpenGLShims.cpp
     )
@@ -133,6 +124,7 @@ if (ENABLE_WAYLAND_TARGET)
     )
     list(APPEND WebCore_LIBRARIES
         ${WAYLAND_LIBRARIES}
+        WPE::libwpe
     )
 endif ()
 
@@ -149,13 +141,20 @@ if (ENABLE_BUBBLEWRAP_SANDBOX)
     list(APPEND WebCore_LIBRARIES Libseccomp::Libseccomp)
 endif ()
 
+if (ENABLE_SPEECH_SYNTHESIS)
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
+        ${Flite_INCLUDE_DIRS}
+    )
+    list(APPEND WebCore_LIBRARIES
+        ${Flite_LIBRARIES}
+    )
+endif ()
+
 include_directories(SYSTEM
     ${WebCore_SYSTEM_INCLUDE_DIRECTORIES}
 )
 
 list(APPEND WebCoreTestSupport_LIBRARIES PRIVATE GTK::GTK)
-
-add_definitions(-DBUILDING_WEBKIT)
 
 if (ENABLE_SMOOTH_SCROLLING)
     list(APPEND WebCore_SOURCES

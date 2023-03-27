@@ -6,7 +6,7 @@
 	<string>com.apple.security.XPCAcmeService</string>
 	<key>com.apple.private.sandbox.profile:embedded</key>
 	<string>temporary-sandbox</string>
-	<key>com.apple.security.exception.files.home-relative-path</key>
+	<key>com.apple.security.exception.files.home-relative-path.read-write</key>
 	<array>
 		<string>/Library/Caches/com.apple.security.XPCAcmeService</string>
 		<string>/Library/Caches/com.apple.security.XPCAcmeService/</string>
@@ -17,6 +17,10 @@
 	<array>
 		<string>/private/var/tmp/com.apple.security.XPCAcmeService</string>
 		<string>/private/var/tmp/com.apple.security.XPCAcmeService/</string>
+		<string>/private/var/mobile/Library/Caches/com.apple.security.XPCAcmeService</string>
+		<string>/private/var/mobile/Library/Caches/com.apple.security.XPCAcmeService/</string>
+		<string>/private/var/mobile/Library/HTTPStorages/com.apple.security.XPCAcmeService</string>
+		<string>/private/var/mobile/Library/HTTPStorages/com.apple.security.XPCAcmeService/</string>
 		<string>/private/var/root/Library/Caches/com.apple.security.XPCAcmeService</string>
 		<string>/private/var/root/Library/Caches/com.apple.security.XPCAcmeService/</string>
 		<string>/private/var/root/Library/HTTPStorages/com.apple.security.XPCAcmeService</string>

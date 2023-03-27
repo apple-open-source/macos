@@ -163,7 +163,6 @@ static void DADiskSetContainer( DADiskRef disk )
         
         while ( media )
         {
-    
             if ( IOObjectConformsTo( media, kIOMediaClass ) )
             {
                 CFTypeRef content;
@@ -202,6 +201,8 @@ static void DADiskSetContainer( DADiskRef disk )
             IOObjectRelease( media );
 
             media = parent;
+            
+            parent = IO_OBJECT_NULL;
         }
     }
 

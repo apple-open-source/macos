@@ -27,7 +27,6 @@
 #include "WKCredential.h"
 
 #include "APIString.h"
-#include "WebCertificateInfo.h"
 #include "WebCredential.h"
 #include "WKAPICast.h"
 
@@ -45,7 +44,7 @@ WKCredentialRef WKCredentialCreate(WKStringRef username, WKStringRef password, W
 
 WKCredentialRef WKCredentialCreateWithCertificateInfo(WKCertificateInfoRef certificateInfo)
 {
-    return toAPI(&WebCredential::create(toImpl(certificateInfo)).leakRef());
+    return nullptr;
 }
 
 WKStringRef WKCredentialCopyUser(WKCredentialRef credentialRef)

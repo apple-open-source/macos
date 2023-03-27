@@ -304,10 +304,13 @@ public:
 
     bool isEmptyIgnoringNullReferences() const
     {
-        auto result = begin() == end();
-        if (UNLIKELY(result && m_map.size()))
+        if (m_map.isEmpty())
+            return true;
+
+        auto onlyContainsNullReferences = begin() == end();
+        if (UNLIKELY(onlyContainsNullReferences))
             const_cast<WeakHashMap&>(*this).clear();
-        return result;
+        return onlyContainsNullReferences;
     }
 
     bool hasNullReferences() const
@@ -318,7 +321,7 @@ public:
             return !iterator.key.get();
         });
         if (result)
-            amortizedCleanupIfNeeded(count);
+            increaseOperationCountSinceLastCleanup(count);
         else
             m_operationCountSinceLastCleanup = 0;
         return result;

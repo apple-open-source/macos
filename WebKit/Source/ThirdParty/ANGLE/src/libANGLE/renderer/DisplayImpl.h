@@ -9,6 +9,7 @@
 #ifndef LIBANGLE_RENDERER_DISPLAYIMPL_H_
 #define LIBANGLE_RENDERER_DISPLAYIMPL_H_
 
+#include "common/Optional.h"
 #include "common/angleutils.h"
 #include "libANGLE/Caps.h"
 #include "libANGLE/Config.h"
@@ -55,9 +56,18 @@ class StreamProducerImpl;
 class ShareGroupImpl : angle::NonCopyable
 {
   public:
-    ShareGroupImpl() {}
+    ShareGroupImpl() : mAnyContextWithRobustness(false) {}
     virtual ~ShareGroupImpl() {}
     virtual void onDestroy(const egl::Display *display) {}
+
+    void onRobustContextAdd() { mAnyContextWithRobustness = true; }
+    bool hasAnyContextWithRobustness() const { return mAnyContextWithRobustness; }
+
+  private:
+    // Whether any context in the share group has robustness enabled.  If any context in the share
+    // group is robust, any program created in any context of the share group must have robustness
+    // enabled.  This is because programs are shared between the share group contexts.
+    bool mAnyContextWithRobustness;
 };
 
 class DisplayImpl : public EGLImplFactory, public angle::Subject
@@ -104,6 +114,8 @@ class DisplayImpl : public EGLImplFactory, public angle::Subject
     virtual egl::Error waitNative(const gl::Context *context, EGLint engine) = 0;
     virtual gl::Version getMaxSupportedESVersion() const                     = 0;
     virtual gl::Version getMaxConformantESVersion() const                    = 0;
+    // If desktop GL is not supported in any capacity for a given backend, this returns None.
+    virtual Optional<gl::Version> getMaxSupportedDesktopVersion() const = 0;
     const egl::Caps &getCaps() const;
 
     virtual void setBlobCacheFuncs(EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get) {}
@@ -122,7 +134,11 @@ class DisplayImpl : public EGLImplFactory, public angle::Subject
     virtual egl::Error handleGPUSwitch();
     virtual egl::Error forceGPUSwitch(EGLint gpuIDHigh, EGLint gpuIDLow);
 
+    virtual egl::Error waitUntilWorkScheduled();
+
     virtual bool isX11() const;
+    virtual bool isWayland() const;
+    virtual bool isGBM() const;
 
     virtual bool supportsDmaBufFormat(EGLint format) const;
     virtual egl::Error queryDmaBufFormats(EGLint max_formats, EGLint *formats, EGLint *num_formats);

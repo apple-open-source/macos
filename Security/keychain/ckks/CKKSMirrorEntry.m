@@ -74,9 +74,13 @@
 }
 
 - (bool)matchesCKRecord: (CKRecord*) record {
+    return [self matchesCKRecord:record checkServerFields:true];
+}
+
+- (bool)matchesCKRecord:(CKRecord*)record checkServerFields:(bool)checkServerFields {
     bool matches = [self.item matchesCKRecord: record];
 
-    if(matches) {
+    if(matches && checkServerFields) {
 
         // Why is obj-c nullable equality so difficult?
         if(!((record[SecCKRecordServerWasCurrent] == nil && self.wasCurrent == 0) ||

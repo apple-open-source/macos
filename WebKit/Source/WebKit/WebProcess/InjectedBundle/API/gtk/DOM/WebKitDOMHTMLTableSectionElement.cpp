@@ -26,6 +26,7 @@
 #include <WebCore/Document.h>
 #include <WebCore/ElementInlines.h>
 #include <WebCore/HTMLNames.h>
+#include <WebCore/HTMLTableRowElement.h>
 #include <WebCore/JSExecState.h>
 #include "GObjectEventListener.h"
 #include "WebKitDOMEventPrivate.h"
@@ -230,7 +231,8 @@ WebKitDOMHTMLElement* webkit_dom_html_table_section_element_insert_row(WebKitDOM
         auto description = WebCore::DOMException::description(result.releaseException().code());
         g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
     }
-    return WebKit::kit(result.releaseReturnValue().ptr());
+    WebCore::HTMLElement* resultElement = result.releaseReturnValue().ptr();
+    return WebKit::kit(resultElement);
 }
 
 void webkit_dom_html_table_section_element_delete_row(WebKitDOMHTMLTableSectionElement* self, glong index, GError** error)

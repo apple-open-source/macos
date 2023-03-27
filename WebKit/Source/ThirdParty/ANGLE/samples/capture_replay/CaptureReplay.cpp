@@ -18,8 +18,7 @@ class CaptureReplaySample : public SampleApplication
         : SampleApplication("CaptureReplaySample",
                             argc,
                             argv,
-                            3,
-                            0,
+                            ClientType::ES3_0,
                             traceInfo.drawSurfaceWidth,
                             traceInfo.drawSurfaceHeight),
           mTraceInfo(traceInfo)
@@ -32,7 +31,8 @@ class CaptureReplaySample : public SampleApplication
 
         if (mTraceInfo.isBinaryDataCompressed)
         {
-            mTraceLibrary->setBinaryDataDecompressCallback(angle::DecompressBinaryData);
+            mTraceLibrary->setBinaryDataDecompressCallback(angle::DecompressBinaryData,
+                                                           angle::DeleteBinaryData);
         }
 
         std::stringstream binaryPathStream;
@@ -43,7 +43,7 @@ class CaptureReplaySample : public SampleApplication
         return true;
     }
 
-    void destroy() override {}
+    void destroy() override { mTraceLibrary->finishReplay(); }
 
     void draw() override
     {

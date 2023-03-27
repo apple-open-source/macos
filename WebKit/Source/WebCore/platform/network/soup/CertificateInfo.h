@@ -45,12 +45,12 @@ public:
     CertificateInfo();
     explicit CertificateInfo(const WebCore::ResourceResponse&);
     explicit CertificateInfo(const WebCore::ResourceError&);
-    CertificateInfo(GTlsCertificate*, GTlsCertificateFlags);
+    CertificateInfo(GRefPtr<GTlsCertificate>&&, GTlsCertificateFlags);
     WEBCORE_EXPORT ~CertificateInfo();
 
     CertificateInfo isolatedCopy() const;
 
-    GTlsCertificate* certificate() const { return m_certificate.get(); }
+    const GRefPtr<GTlsCertificate>& certificate() const { return m_certificate; }
     void setCertificate(GTlsCertificate* certificate) { m_certificate = certificate; }
     GTlsCertificateFlags tlsErrors() const { return m_tlsErrors; }
     void setTLSErrors(GTlsCertificateFlags tlsErrors) { m_tlsErrors = tlsErrors; }
@@ -61,114 +61,21 @@ public:
 
     bool isEmpty() const { return !m_certificate; }
 
+    bool operator==(const CertificateInfo& other) const
+    {
+        if (tlsErrors() != other.tlsErrors())
+            return false;
+
+        if (m_certificate.get() == other.m_certificate.get())
+            return true;
+
+        return m_certificate && other.m_certificate && g_tls_certificate_is_same(m_certificate.get(), other.m_certificate.get());
+    }
+    bool operator!=(const CertificateInfo& other) const { return !(*this == other); }
+
 private:
     GRefPtr<GTlsCertificate> m_certificate;
     GTlsCertificateFlags m_tlsErrors;
 };
 
 } // namespace WebCore
-
-namespace WTF {
-namespace Persistence {
-
-template<> struct Coder<GRefPtr<GByteArray>> {
-    static void encode(Encoder &encoder, const GRefPtr<GByteArray>& byteArray)
-    {
-        encoder << static_cast<uint32_t>(byteArray->len);
-        encoder.encodeFixedLengthData({ byteArray->data, byteArray->len });
-    }
-
-    static std::optional<GRefPtr<GByteArray>> decode(Decoder& decoder)
-    {
-        std::optional<uint32_t> size;
-        decoder >> size;
-        if (!size)
-            return std::nullopt;
-
-        GRefPtr<GByteArray> byteArray = adoptGRef(g_byte_array_sized_new(*size));
-        g_byte_array_set_size(byteArray.get(), *size);
-        if (!decoder.decodeFixedLengthData({ byteArray->data, *size }))
-            return std::nullopt;
-        return byteArray;
-    }
-};
-
-static Vector<GRefPtr<GByteArray>> certificatesDataListFromCertificateInfo(const WebCore::CertificateInfo &certificateInfo)
-{
-    auto* certificate = certificateInfo.certificate();
-    if (!certificate)
-        return { };
-
-    Vector<GRefPtr<GByteArray>> certificatesDataList;
-    for (; certificate; certificate = g_tls_certificate_get_issuer(certificate)) {
-        GByteArray* certificateData = nullptr;
-        g_object_get(G_OBJECT(certificate), "certificate", &certificateData, nullptr);
-
-        if (!certificateData) {
-            certificatesDataList.clear();
-            break;
-        }
-        certificatesDataList.append(adoptGRef(certificateData));
-    }
-
-    // Reverse so that the list starts from the rootmost certificate.
-    certificatesDataList.reverse();
-
-    return certificatesDataList;
-}
-
-static GRefPtr<GTlsCertificate> certificateFromCertificatesDataList(const Vector<GRefPtr<GByteArray>> &certificatesDataList)
-{
-    GType certificateType = g_tls_backend_get_certificate_type(g_tls_backend_get_default());
-    GRefPtr<GTlsCertificate> certificate;
-    for (auto& certificateData : certificatesDataList) {
-        certificate = adoptGRef(G_TLS_CERTIFICATE(g_initable_new(
-            certificateType, nullptr, nullptr, "certificate", certificateData.get(), "issuer", certificate.get(), nullptr)));
-        if (!certificate)
-            break;
-    }
-
-    return certificate;
-}
-
-template<> struct Coder<WebCore::CertificateInfo> {
-    static void encode(Encoder& encoder, const WebCore::CertificateInfo& certificateInfo)
-    {
-        auto certificatesDataList = certificatesDataListFromCertificateInfo(certificateInfo);
-
-        encoder << certificatesDataList;
-
-        if (certificatesDataList.isEmpty())
-            return;
-
-        encoder << static_cast<uint32_t>(certificateInfo.tlsErrors());
-    }
-
-    static std::optional<WebCore::CertificateInfo> decode(Decoder& decoder)
-    {
-        std::optional<Vector<GRefPtr<GByteArray>>> certificatesDataList;
-        decoder >> certificatesDataList;
-        if (!certificatesDataList)
-            return std::nullopt;
-
-        WebCore::CertificateInfo certificateInfo;
-        if (certificatesDataList->isEmpty())
-            return certificateInfo;
-
-        auto certificate = certificateFromCertificatesDataList(certificatesDataList.value());
-        if (!certificate)
-            return std::nullopt;
-        certificateInfo.setCertificate(certificate.get());
-
-        std::optional<uint32_t> tlsErrors;
-        decoder >> tlsErrors;
-        if (!tlsErrors)
-            return std::nullopt;
-        certificateInfo.setTLSErrors(static_cast<GTlsCertificateFlags>(*tlsErrors));
-
-        return certificateInfo;
-    }
-};
-
-} // namespace WTF::Persistence
-} // namespace WTF

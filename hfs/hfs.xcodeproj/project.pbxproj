@@ -1140,6 +1140,7 @@
 		C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hfs.util.8; sourceTree = "<group>"; };
 		C1B6FD2B10CC0DB200778D48 /* hfs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hfs.util; sourceTree = BUILT_PRODUCTS_DIR; };
 		D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UVFSPluginTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		D377EBD728A3C9550030F8B8 /* hfs_testplan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = hfs_testplan.xctestplan; sourceTree = "<group>"; };
 		D39F1548287D55BD00366492 /* hfs_xctests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = hfs_xctests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D39F154A287D55BD00366492 /* hfs_xctests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = hfs_xctests.m; sourceTree = "<group>"; };
 		D39F1554287D563300366492 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
@@ -1791,6 +1792,7 @@
 		D39F1549287D55BD00366492 /* hfs_xctests */ = {
 			isa = PBXGroup;
 			children = (
+				D377EBD728A3C9550030F8B8 /* hfs_testplan.xctestplan */,
 				9A8C9A92287FF9600078618B /* hfs_xctests_utilities.m */,
 				9A8C9A91287FF95F0078618B /* hfs_xctests.h */,
 				D39F154A287D55BD00366492 /* hfs_xctests.m */,

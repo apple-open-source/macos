@@ -73,6 +73,11 @@ struct IntegralTypedArrayAdaptor {
             result = toInt32(value);
         return static_cast<Type>(result);
     }
+
+    static constexpr Type toNativeFromUndefined()
+    {
+        return 0;
+    }
     
     template<typename OtherAdaptor>
     static typename OtherAdaptor::Type convertTo(Type value)
@@ -146,6 +151,11 @@ struct FloatTypedArrayAdaptor {
         return static_cast<Type>(value);
     }
 
+    static Type toNativeFromUndefined()
+    {
+        return PNaN;
+    }
+
     template<typename OtherAdaptor>
     static typename OtherAdaptor::Type convertTo(Type value)
     {
@@ -211,6 +221,12 @@ struct BigIntTypedArrayAdaptor {
         return static_cast<Type>(value);
     }
 
+    static Type toNativeFromUndefined()
+    {
+        // This function is a stub since undefined->BigInt conversion throws an error.
+        return 0;
+    }
+
     template<typename OtherAdaptor>
     static typename OtherAdaptor::Type convertTo(Type value)
     {
@@ -230,6 +246,17 @@ using JSFloat32Array = JSGenericTypedArrayView<Float32Adaptor>;
 using JSFloat64Array = JSGenericTypedArrayView<Float64Adaptor>;
 using JSBigInt64Array = JSGenericTypedArrayView<BigInt64Adaptor>;
 using JSBigUint64Array = JSGenericTypedArrayView<BigUint64Adaptor>;
+using JSResizableOrGrowableSharedInt8Array = JSGenericResizableOrGrowableSharedTypedArrayView<Int8Adaptor>;
+using JSResizableOrGrowableSharedInt16Array = JSGenericResizableOrGrowableSharedTypedArrayView<Int16Adaptor>;
+using JSResizableOrGrowableSharedInt32Array = JSGenericResizableOrGrowableSharedTypedArrayView<Int32Adaptor>;
+using JSResizableOrGrowableSharedUint8Array = JSGenericResizableOrGrowableSharedTypedArrayView<Uint8Adaptor>;
+using JSResizableOrGrowableSharedUint8ClampedArray = JSGenericResizableOrGrowableSharedTypedArrayView<Uint8ClampedAdaptor>;
+using JSResizableOrGrowableSharedUint16Array = JSGenericResizableOrGrowableSharedTypedArrayView<Uint16Adaptor>;
+using JSResizableOrGrowableSharedUint32Array = JSGenericResizableOrGrowableSharedTypedArrayView<Uint32Adaptor>;
+using JSResizableOrGrowableSharedFloat32Array = JSGenericResizableOrGrowableSharedTypedArrayView<Float32Adaptor>;
+using JSResizableOrGrowableSharedFloat64Array = JSGenericResizableOrGrowableSharedTypedArrayView<Float64Adaptor>;
+using JSResizableOrGrowableSharedBigInt64Array = JSGenericResizableOrGrowableSharedTypedArrayView<BigInt64Adaptor>;
+using JSResizableOrGrowableSharedBigUint64Array = JSGenericResizableOrGrowableSharedTypedArrayView<BigUint64Adaptor>;
 
 struct Int8Adaptor : IntegralTypedArrayAdaptor<int8_t, Int8Array, JSInt8Array, TypeInt8> { };
 struct Int16Adaptor : IntegralTypedArrayAdaptor<int16_t, Int16Array, JSInt16Array, TypeInt16> { };
@@ -277,6 +304,11 @@ struct Uint8ClampedAdaptor {
         if (value > 255)
             return 255;
         return static_cast<uint8_t>(lrint(value));
+    }
+
+    static constexpr Type toNativeFromUndefined()
+    {
+        return 0;
     }
 
     template<typename OtherAdaptor>

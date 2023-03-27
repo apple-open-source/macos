@@ -191,9 +191,11 @@ static const SingleUnitFormat da_singFmt[] = {
 };
 
 static const SingleUnitFormat fi_singFmt[] = {
-//    unit                                 value   wide_2                           wide_0                        shrt_X              shrt_1            narr_0         numr_0      wide_0  narr_0
-    { UAMEASUNIT_DURATION_HOUR,            37.203, "37,20 tuntia",               "37 tuntia",             "37,203 t",              "37,2 t",                 "37 t",       "37 t",      0,2,    0,2 },
-    { UAMEASUNIT_DURATION_MINUTE,          37.203, "37,20 minuuttia",            "37 minuuttia",          "37,203 min",            "37,2 min",            "37 min",       "37 min",      0,2,    0,2 },
+//    unit                                    value   wide_2                           wide_0                        shrt_X              shrt_1            narr_0         numr_0      wide_0  narr_0
+    { UAMEASUNIT_DURATION_HOUR,               37.203, "37,20 tuntia",               "37 tuntia",             "37,203 t",              "37,2 t",                 "37 t",       "37 t",      0,2,    0,2 },
+    { UAMEASUNIT_DURATION_MINUTE,             37.203, "37,20 minuuttia",            "37 minuuttia",          "37,203 min",            "37,2 min",            "37 min",       "37 min",      0,2,    0,2 },
+    { UAMEASUNIT_LENGTH_METER ,               37.203, "37,20 metri\\u00e4",         "37 metri\\u00e4",       "37,203 m",              "37,2 m",                 "37\\u202fm","37\\u202fm",  0,2,    0,2 },
+    { UAMEASUNIT_LENGTH_KILOMETER,            37.203, "37,20 kilometri\\u00e4",     "37 kilometri\\u00e4",   "37,203 km",           "37,2 km",               "37\\u202fkm",  "37\\u202fkm", 0,2,    0,2 },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -209,6 +211,14 @@ static const SingleUnitFormat he_singFmt[] = {
 //      numr_0                                 wide_0  narr_0
     { UAMEASUNIT_LENGTH_KILOMETER,         37.203, "37.20\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",        "37.203\\u202f\\u05e7\\u05f4\\u05de",        "37.2\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",      0,2,    0,2 },
     { UAMEASUNIT_LENGTH_MILE,              37.203, "37.20\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37.203\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37.2\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc",    0,2,    0,2 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat hi_singFmt[] = {
+//    unit                                 value   wide_2                                                                                                              wide_0                                                                                                           shrt_X           shrt_1          narr_0       numr_0      wide_0  narr_0
+    { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37.20 \\u0921\\u093F\\u0917\\u094D\\u0930\\u0940 \\u0938\\u0947\\u0932\\u094D\\u0938\\u093F\\u092F\\u0938",        "37 \\u0921\\u093F\\u0917\\u094D\\u0930\\u0940 \\u0938\\u0947\\u0932\\u094D\\u0938\\u093F\\u092F\\u0938",        "37.203\\u2103", "37.2\\u2103", "37\\u2103", "37\\u00B0", 0,2,    0,2 },
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37.20 \\u0921\\u093F\\u0917\\u094D\\u0930\\u0940 \\u092B\\u093C\\u0947\\u0930\\u0928\\u0939\\u093E\\u0907\\u091F", "37 \\u0921\\u093F\\u0917\\u094D\\u0930\\u0940 \\u092B\\u093C\\u0947\\u0930\\u0928\\u0939\\u093E\\u0907\\u091F", "37.203\\u2109", "37.2\\u2109", "37\\u2109", "37\\u00B0", 0,2,    0,2 },
+    { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37.20\\u00B0",                                                                                                     "37\\u00B0",                                                                                                     "37.203\\u00B0", "37.2\\u00B0", "37\\u00B0", "37\\u00B0", 0,2,    0,2 },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -500,7 +510,7 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "es_MX",      NULL,            NULL,            NULL,            NULL            },
     { "fi",         fi_singFmt,      NULL,            NULL,            NULL            }, // fi: try plural cases for 1, other
     { "he",         he_singFmt,      NULL,            he_multFmt,      NULL            }, // he: try plural cases for 1, 2, 20, 3
-    { "hi",         NULL,            NULL,            hi_multFmt,      NULL            }, // hi: try plural cases for 1 (covers 0.0-1.0), other
+    { "hi",         hi_singFmt,      NULL,            hi_multFmt,      NULL            }, // hi: try plural cases for 1 (covers 0.0-1.0), other
     { "hr",         NULL,            NULL,            NULL,            NULL            }, // hr: try plural cases for 1, 2, 5
     { "hu",         NULL,            NULL,            NULL,            NULL            }, // hu: try plural cases for 1, other
     { "id",         NULL,            NULL,            NULL,            NULL            }, // id: try plural cases for other only

@@ -2409,7 +2409,11 @@ __private_extern__ struct pf_fragment_tag * pf_find_fragment_tag(struct mbuf *);
 __private_extern__ struct pf_fragment_tag * pf_copy_fragment_tag(struct mbuf *,
     struct pf_fragment_tag *, int);
 #if SKYWALK && defined(XNU_TARGET_OS_OSX)
-__private_extern__ bool pf_check_compatible_rules(void);
+#define PF_COMPATIBLE_FLAGS_PF_ENABLED 0x00000001
+#define PF_COMPATIBLE_FLAGS_CUSTOM_ANCHORS_PRESENT 0x00000002
+#define PF_COMPATIBLE_FLAGS_CUSTOM_RULES_PRESENT 0x00000004
+
+__private_extern__ uint32_t pf_check_compatible_rules(void);
 #endif // SKYWALK && defined(XNU_TARGET_OS_OSX)
 #else /* !KERNEL */
 extern struct pf_anchor_global pf_anchors;

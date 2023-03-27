@@ -43,6 +43,7 @@ NS_ASSUME_NONNULL_BEGIN
                           errorState:(OctagonState*)errorState
                           deviceInfo:(OTDeviceInformation*)deviceInfo
                       policyOverride:(TPPolicyVersion* _Nullable)policyOverride
+                     accountSettings:(OTAccountSettings* _Nullable)accountSettings
                                epoch:(uint64_t)epoch;
 
 @property (nonatomic) uint64_t epoch;
@@ -55,6 +56,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSData* stableInfoSig;
 
 @property (nullable) TPPolicyVersion* policyOverride;
+@property (nullable) OTAccountSettings* accountSettings;
 
 @end
 

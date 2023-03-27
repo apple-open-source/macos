@@ -137,11 +137,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)joinWithRecoveryKey:(OTControlArguments*)arguments
                 recoveryKey:(NSString*)recoveryKey
-                 sosSuccess:(BOOL)sosSuccess
-                      reply:(void (^)(NSError * _Nullable))reply;
-
-- (void)joinWithRecoveryKey:(OTControlArguments*)arguments
-                recoveryKey:(NSString*)recoveryKey
                       reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)createCustodianRecoveryKey:(OTControlArguments*)arguments
@@ -192,6 +187,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setMachineIDOverride:(OTControlArguments*)arguments
                    machineID:(NSString*)machineID
                        reply:(void (^)(NSError* _Nullable replyError))reply;
+
+- (void)getAccountMetadata:(OTControlArguments*)arguments
+                     reply:(void (^)(OTAccountMetadataClassC* metadata, NSError* _Nullable replyError))reply;
 
 - (CKKSKeychainView* _Nullable)ckksAccountSyncForContainer:(NSString*_Nullable)containerName
                                                  contextID:(NSString*)contextID

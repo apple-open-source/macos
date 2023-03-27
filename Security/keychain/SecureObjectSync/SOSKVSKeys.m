@@ -74,7 +74,7 @@ SOSKVSKeyType SOSKVSKeyGetKeyType(CFStringRef key) {
     else if(CFStringHasPrefix(key, sRetirementPrefix)) retval = kRetirementKey;
     else if(CFStringHasPrefix(key, kSOSKVSKeyParametersKey)) retval = kParametersKey;
     else if(CFStringHasPrefix(key, kSOSKVSInitialSyncKey)) retval = kInitialSyncKey;
-    else if(CFStringHasPrefix(key, kSOSKVSAccountChangedKey)) retval = kAccountChangedKey;
+    else if(CFStringHasPrefix(key, kSOSKVSOfficialDSIDKey)) retval = kDSIDKey;
     else if(CFStringHasPrefix(key, sDebugInfoPrefix)) retval = kDebugInfoKey;
     else if(CFStringHasPrefix(key, sLastKeyParametersPushedPrefix)) retval = kLastKeyParameterKey;
     else retval = kMessageKey;
@@ -145,7 +145,7 @@ bool SOSKVSKeyParse(SOSKVSKeyType keyType, CFStringRef key, CFStringRef *circle,
                 *peerInfo = CFStringCreateWithSubstring(NULL, key, dbgRange);
             }
             break;
-        case kAccountChangedKey:
+        case kDSIDKey:
         case kParametersKey:
         case kInitialSyncKey:
         case kUnknownKey:

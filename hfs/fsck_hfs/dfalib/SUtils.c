@@ -395,6 +395,7 @@ void DeleteRepairOrder(SGlobPtr GPtr, RepairOrderPtr orig)
 {
 	RepairOrderPtr cur;
 	RepairOrderPtr prev = NULL;
+	RepairOrderPtr temp = NULL;
 
 	cur = GPtr->MinorRepairsP;
 	while (cur) {
@@ -405,10 +406,13 @@ void DeleteRepairOrder(SGlobPtr GPtr, RepairOrderPtr orig)
 			if (cur == GPtr->MinorRepairsP) {
 				GPtr->MinorRepairsP = cur->link;
 			}
+			temp = cur->link;
 			DisposeMemory(cur);
+			cur = temp;
+		} else {
+			prev = cur;
+			cur = cur->link;
 		}
-		prev = cur;
-		cur = cur->link;
 	}
 
 	return;

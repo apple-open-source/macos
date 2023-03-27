@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2007-2022 Apple Inc. All rights reserved.
+ */
+
 #include "removefile.h"
 #include "removefile_priv.h"
 

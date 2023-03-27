@@ -23,6 +23,7 @@
 #include "APIDownloadClient.h"
 #include "DownloadProxy.h"
 #include "WebErrors.h"
+#include "WebKitDownloadClient.h"
 #include "WebKitDownloadPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitURIRequestPrivate.h"
@@ -31,6 +32,7 @@
 #include <glib/gi18n-lib.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
+#include <wtf/glib/GWeakPtr.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
 
@@ -71,17 +73,11 @@ enum {
 static GParamSpec* sObjProperties[N_PROPERTIES] = { nullptr, };
 
 struct _WebKitDownloadPrivate {
-    ~_WebKitDownloadPrivate()
-    {
-        if (webView)
-            g_object_remove_weak_pointer(G_OBJECT(webView), reinterpret_cast<void**>(&webView));
-    }
-
     RefPtr<DownloadProxy> download;
 
     GRefPtr<WebKitURIRequest> request;
     GRefPtr<WebKitURIResponse> response;
-    WebKitWebView* webView;
+    GWeakPtr<WebKitWebView> webView;
     CString destinationURI;
     guint64 currentSize;
     bool isCancelled;
@@ -93,7 +89,7 @@ struct _WebKitDownloadPrivate {
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitDownload, webkit_download, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitDownload, webkit_download, G_TYPE_OBJECT)
 
 static void webkitDownloadSetProperty(GObject* object, guint propId, const GValue* value, GParamSpec* paramSpec)
 {
@@ -164,8 +160,7 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     sObjProperties[PROP_DESTINATION] =
         g_param_spec_string(
             "destination",
-            _("Destination"),
-            _("The local URI to where the download will be saved"),
+            nullptr, nullptr,
             nullptr,
             WEBKIT_PARAM_READABLE);
 
@@ -177,8 +172,7 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     sObjProperties[PROP_RESPONSE] =
         g_param_spec_object(
             "response",
-            _("Response"),
-            _("The response of the download"),
+            nullptr, nullptr,
             WEBKIT_TYPE_URI_RESPONSE,
             WEBKIT_PARAM_READABLE);
 
@@ -195,8 +189,7 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     sObjProperties[PROP_ESTIMATED_PROGRESS] =
         g_param_spec_double(
             "estimated-progress",
-            _("Estimated Progress"),
-            _("Determines the current progress of the download"),
+            nullptr, nullptr,
             0.0, 1.0, 1.0,
             WEBKIT_PARAM_READABLE);
 
@@ -212,8 +205,7 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     sObjProperties[PROP_ALLOW_OVERWRITE] =
         g_param_spec_boolean(
             "allow-overwrite",
-            _("Allow Overwrite"),
-            _("Whether the destination may be overwritten"),
+            nullptr, nullptr,
             FALSE,
             WEBKIT_PARAM_READWRITE);
 
@@ -317,11 +309,12 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
             G_TYPE_STRING);
 }
 
-WebKitDownload* webkitDownloadCreate(DownloadProxy* downloadProxy)
+GRefPtr<WebKitDownload> webkitDownloadCreate(DownloadProxy& downloadProxy, WebKitWebView* webView)
 {
-    ASSERT(downloadProxy);
-    WebKitDownload* download = WEBKIT_DOWNLOAD(g_object_new(WEBKIT_TYPE_DOWNLOAD, NULL));
-    download->priv->download = downloadProxy;
+    GRefPtr<WebKitDownload> download = adoptGRef(WEBKIT_DOWNLOAD(g_object_new(WEBKIT_TYPE_DOWNLOAD, nullptr)));
+    download->priv->download = &downloadProxy;
+    download->priv->webView.reset(webView);
+    attachDownloadClientToDownload(GRefPtr<WebKitDownload> { download }, downloadProxy);
     return download;
 }
 
@@ -341,12 +334,6 @@ void webkitDownloadSetResponse(WebKitDownload* download, WebKitURIResponse* resp
 {
     download->priv->response = response;
     g_object_notify_by_pspec(G_OBJECT(download), sObjProperties[PROP_RESPONSE]);
-}
-
-void webkitDownloadSetWebView(WebKitDownload* download, WebKitWebView* webView)
-{
-    download->priv->webView = webView;
-    g_object_add_weak_pointer(G_OBJECT(webView), reinterpret_cast<void**>(&download->priv->webView));
 }
 
 bool webkitDownloadIsCancelled(WebKitDownload* download)
@@ -393,7 +380,7 @@ void webkitDownloadFailed(WebKitDownload* download, const ResourceError& resourc
         g_timer_stop(download->priv->timer.get());
 
     g_signal_emit(download, signals[FAILED], 0, webError.get());
-    g_signal_emit(download, signals[FINISHED], 0, NULL);
+    g_signal_emit(download, signals[FINISHED], 0, nullptr);
 }
 
 void webkitDownloadCancelled(WebKitDownload* download)
@@ -414,7 +401,7 @@ void webkitDownloadFinished(WebKitDownload* download)
     }
     if (download->priv->timer)
         g_timer_stop(download->priv->timer.get());
-    g_signal_emit(download, signals[FINISHED], 0, NULL);
+    g_signal_emit(download, signals[FINISHED], 0, nullptr);
 }
 
 String webkitDownloadDecideDestinationWithSuggestedFilename(WebKitDownload* download, const CString& suggestedFilename, bool& allowOverwrite)
@@ -462,7 +449,9 @@ WebKitURIRequest* webkit_download_get_request(WebKitDownload* download)
  * webkit_download_get_destination:
  * @download: a #WebKitDownload
  *
- * Obtains the URI to which the downloaded file will be written. You
+ * Obtains the URI to which the downloaded file will be written.
+ *
+ * You
  * can connect to #WebKitDownload::created-destination to make
  * sure this method returns a valid destination.
  *
@@ -481,6 +470,7 @@ const gchar* webkit_download_get_destination(WebKitDownload* download)
  * @uri: the destination URI
  *
  * Sets the URI to which the downloaded file will be written.
+ *
  * This method should be called before the download transfer
  * starts or it will not have any effect on the ongoing download
  * operation. To set the destination using the filename suggested
@@ -498,6 +488,7 @@ void webkit_download_set_destination(WebKitDownload* download, const gchar* uri)
 {
     g_return_if_fail(WEBKIT_IS_DOWNLOAD(download));
     g_return_if_fail(uri);
+    g_return_if_fail(uri[0] != '\0');
 
     WebKitDownloadPrivate* priv = download->priv;
     if (priv->destinationURI == uri)
@@ -510,6 +501,8 @@ void webkit_download_set_destination(WebKitDownload* download, const gchar* uri)
 /**
  * webkit_download_get_response:
  * @download: a #WebKitDownload
+ *
+ * Retrieves the #WebKitURIResponse object that backs the download process.
  *
  * Retrieves the #WebKitURIResponse object that backs the download
  * process. This method returns %NULL if called before the response
@@ -530,7 +523,9 @@ WebKitURIResponse* webkit_download_get_response(WebKitDownload* download)
  * webkit_download_cancel:
  * @download: a #WebKitDownload
  *
- * Cancels the download. When the ongoing download
+ * Cancels the download.
+ *
+ * When the ongoing download
  * operation is effectively cancelled the signal
  * #WebKitDownload::failed is emitted with
  * %WEBKIT_DOWNLOAD_ERROR_CANCELLED_BY_USER error.
@@ -541,7 +536,7 @@ void webkit_download_cancel(WebKitDownload* download)
 
     download->priv->isCancelled = true;
     download->priv->download->cancel([download = Ref { *download->priv->download }] (auto*) {
-        download->client().legacyDidCancel(download.get());
+        download->client().didFinish(download.get());
     });
 }
 
@@ -549,6 +544,7 @@ void webkit_download_cancel(WebKitDownload* download)
  * webkit_download_get_estimated_progress:
  * @download: a #WebKitDownload
  *
+ * Gets the value of the #WebKitDownload:estimated-progress property.
  * Gets the value of the #WebKitDownload:estimated-progress property.
  * You can monitor the estimated progress of the download operation by
  * connecting to the notify::estimated-progress signal of @download.
@@ -576,6 +572,7 @@ gdouble webkit_download_get_estimated_progress(WebKitDownload* download)
  * @download: a #WebKitDownload
  *
  * Gets the elapsed time in seconds, including any fractional part.
+ *
  * If the download finished, had an error or was cancelled this is
  * the time between its start and the event.
  *
@@ -595,6 +592,8 @@ gdouble webkit_download_get_elapsed_time(WebKitDownload* download)
 /**
  * webkit_download_get_received_data_length:
  * @download: a #WebKitDownload
+ *
+ * Gets the length of the data already downloaded for @download.
  *
  * Gets the length of the data already downloaded for @download
  * in bytes.
@@ -621,12 +620,14 @@ WebKitWebView* webkit_download_get_web_view(WebKitDownload* download)
 {
     g_return_val_if_fail(WEBKIT_IS_DOWNLOAD(download), 0);
 
-    return download->priv->webView;
+    return download->priv->webView.get();
 }
 
 /**
  * webkit_download_get_allow_overwrite:
  * @download: a #WebKitDownload
+ *
+ * Returns the current value of the #WebKitDownload:allow-overwrite property.
  *
  * Returns the current value of the #WebKitDownload:allow-overwrite property,
  * which determines whether the download will overwrite an existing file on
@@ -647,6 +648,8 @@ gboolean webkit_download_get_allow_overwrite(WebKitDownload* download)
  * webkit_download_set_allow_overwrite:
  * @download: a #WebKitDownload
  * @allowed: the new value for the #WebKitDownload:allow-overwrite property
+ *
+ * Sets the #WebKitDownload:allow-overwrite property.
  *
  * Sets the #WebKitDownload:allow-overwrite property, which determines whether
  * the download may overwrite an existing file on disk, or if it will fail if

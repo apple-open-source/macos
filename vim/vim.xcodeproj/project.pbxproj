@@ -149,6 +149,7 @@
 		C1AA54E2234F945A00C82C5B /* popupmenu.c in Sources */ = {isa = PBXBuildFile; fileRef = C1AA54E1234F945A00C82C5B /* popupmenu.c */; };
 		C1AA54E4234F948200C82C5B /* spellsuggest.c in Sources */ = {isa = PBXBuildFile; fileRef = C1AA54E3234F948100C82C5B /* spellsuggest.c */; };
 		C1AA54E6234F94A900C82C5B /* drawline.c in Sources */ = {isa = PBXBuildFile; fileRef = C1AA54E5234F94A900C82C5B /* drawline.c */; };
+		C1C241B42971BDBC00AE4D30 /* vim9class.c in Sources */ = {isa = PBXBuildFile; fileRef = C1C241B32971BDBC00AE4D30 /* vim9class.c */; };
 		C1F2AD95230611F700B8602B /* popupwin.c in Sources */ = {isa = PBXBuildFile; fileRef = C1F2AD94230611EB00B8602B /* popupwin.c */; };
 		C1F2AD972306122A00B8602B /* testing.c in Sources */ = {isa = PBXBuildFile; fileRef = C1F2AD962306122400B8602B /* testing.c */; };
 		C1F2AD992306125600B8602B /* cmdhist.c in Sources */ = {isa = PBXBuildFile; fileRef = C1F2AD982306125300B8602B /* cmdhist.c */; };
@@ -2305,6 +2306,7 @@
 		C1AA54E1234F945A00C82C5B /* popupmenu.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = popupmenu.c; path = src/popupmenu.c; sourceTree = "<group>"; };
 		C1AA54E3234F948100C82C5B /* spellsuggest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = spellsuggest.c; path = src/spellsuggest.c; sourceTree = "<group>"; };
 		C1AA54E5234F94A900C82C5B /* drawline.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = drawline.c; path = src/drawline.c; sourceTree = "<group>"; };
+		C1C241B32971BDBC00AE4D30 /* vim9class.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vim9class.c; path = src/vim9class.c; sourceTree = "<group>"; };
 		C1F2AD94230611EB00B8602B /* popupwin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = popupwin.c; path = src/popupwin.c; sourceTree = "<group>"; };
 		C1F2AD962306122400B8602B /* testing.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = testing.c; path = src/testing.c; sourceTree = "<group>"; };
 		C1F2AD982306125300B8602B /* cmdhist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cmdhist.c; path = src/cmdhist.c; sourceTree = "<group>"; };
@@ -2512,6 +2514,7 @@
 				4CD04D1710361A31001C87D5 /* version.c */,
 				4CD04D1810361A31001C87D5 /* version.h */,
 				4CD04D2010361A31001C87D5 /* vim.h */,
+				C1C241B32971BDBC00AE4D30 /* vim9class.c */,
 				A962ED9927864C8A00D3CCF4 /* vim9cmds.c */,
 				C198001B23F385AF004D70D5 /* vim9compile.c */,
 				C198001F23F3861B004D70D5 /* vim9execute.c */,
@@ -5338,6 +5341,7 @@
 				A9DA7B922482C9B700ECA3F8 /* typval.c in Sources */,
 				C1AA54D6234F930700C82C5B /* register.c in Sources */,
 				3ECDF48D1BDAA945009B95F1 /* crypt.c in Sources */,
+				C1C241B42971BDBC00AE4D30 /* vim9class.c in Sources */,
 				C1F2AD992306125600B8602B /* cmdhist.c in Sources */,
 				4CD04D8D10361A31001C87D5 /* if_xcmdsrv.c in Sources */,
 				4CD04D9010361A31001C87D5 /* main.c in Sources */,

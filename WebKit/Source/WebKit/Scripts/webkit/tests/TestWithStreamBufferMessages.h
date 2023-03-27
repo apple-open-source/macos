@@ -27,7 +27,6 @@
 #include "ArgumentCoders.h"
 #include "Connection.h"
 #include "MessageNames.h"
-#include "TestWithStreamBufferMessagesReplies.h"
 #include <wtf/Forward.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -45,7 +44,7 @@ static inline IPC::ReceiverName messageReceiverName()
 
 class SendStreamBuffer {
 public:
-    using Arguments = std::tuple<const IPC::StreamConnectionBuffer&>;
+    using Arguments = std::tuple<IPC::StreamConnectionBuffer>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithStreamBuffer_SendStreamBuffer; }
     static constexpr bool isSync = false;
@@ -55,13 +54,13 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const IPC::StreamConnectionBuffer&> m_arguments;
 };
 
 } // namespace TestWithStreamBuffer

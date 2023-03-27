@@ -28,9 +28,13 @@
 
 #import "SFAnalyticsSampler.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface SFAnalyticsSampler(Internal)
 - (instancetype)initWithName:(NSString*)name interval:(NSTimeInterval)interval block:(NSNumber* (^)(void))block clientClass:(Class)clientClass;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif // objc2
 

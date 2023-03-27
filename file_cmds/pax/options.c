@@ -1060,8 +1060,7 @@ tar_options(int argc, char **argv)
 int mkpath(char *);
 
 int
-mkpath(path)
-	char *path;
+mkpath(char *path)
 {
 	struct stat sb;
 	char *slash;

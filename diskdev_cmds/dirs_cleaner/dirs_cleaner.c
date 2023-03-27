@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -580,8 +580,8 @@ dc_clean_part_sync(dir_ctx_t *ctx)
 	dir_thread_ctx_t *tctx = &ctx->dc_thread;
 
 	if(dc_init_thread_ctx(ctx) &&
-	   removefile(ctx->dc_temp_path, tctx->dtc_rf_state, REMOVEFILE_RECURSIVE |
-				  REMOVEFILE_KEEP_PARENT | REMOVEFILE_ALLOW_LONG_PATHS)) {
+	   removefile(ctx->dc_temp_path, tctx->dtc_rf_state,
+				  REMOVEFILE_RECURSIVE | REMOVEFILE_KEEP_PARENT | REMOVEFILE_ALLOW_LONG_PATHS | REMOVEFILE_CLEAR_PURGEABLE)) {
 		__unused int res = errno;
 
 		if (res == ECANCELED)
@@ -605,7 +605,8 @@ dc_clean_sync(dir_ctx_t *ctx, bool input_path)
 		removefile_state_set(rmst, REMOVEFILE_STATE_ERROR_CALLBACK, removefile_error_continue);
 	}
 
-	if (removefile(path, rmst, REMOVEFILE_RECURSIVE | REMOVEFILE_KEEP_PARENT | REMOVEFILE_ALLOW_LONG_PATHS)) {
+	if (removefile(path, rmst,
+				   REMOVEFILE_RECURSIVE | REMOVEFILE_KEEP_PARENT | REMOVEFILE_ALLOW_LONG_PATHS | REMOVEFILE_CLEAR_PURGEABLE)) {
 		res = errno;
 		DIRS_CLEANER_ERROR(res, "removefile(%s, NULL, ...)", path);
 	}
@@ -632,7 +633,7 @@ usage()
  * part of the system initialization (boot).
  *
  * If conditions permit, empty temporary directory will be created under dc_temp_path.
- * Input directory is swapped with temporay directory then. Certain input directory
+ * Input directory is swapped with temporary directory then. Certain input directory
  * attributes are preserved during the swap. When swap is completed, first phase
  * of cleaning is done, as input directory is empty now. Since used space was not
  * actually reclamed this kind of cleaning is asynchronous.

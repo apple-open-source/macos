@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,8 +42,13 @@ static void jsPDFDocFinalize(JSObjectRef object)
     CFRelease(JSObjectGetPrivate(object));
 }
 
+static JSClassRef jsPDFDocClass(void);
+
 static JSValueRef jsPDFDocPrint(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+    if (!JSValueIsObjectOfClass(ctx, thisObject, jsPDFDocClass()))
+        return JSValueMakeUndefined(ctx);
+
     WebDataSource *dataSource = (__bridge WebDataSource *)JSObjectGetPrivate(thisObject);
 
     WebView *webView = [[dataSource webFrame] webView];
@@ -52,24 +57,28 @@ static JSValueRef jsPDFDocPrint(JSContextRef ctx, JSObjectRef function, JSObject
     return JSValueMakeUndefined(ctx);
 }
 
-static JSStaticFunction jsPDFDocStaticFunctions[] = {
-    { "print", jsPDFDocPrint, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
-    { 0, 0, 0 },
-};
+static JSClassRef jsPDFDocClass(void)
+{
+    static JSStaticFunction jsPDFDocStaticFunctions[] = {
+        { "print", jsPDFDocPrint, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { 0, 0, 0 },
+    };
 
-static JSClassDefinition jsPDFDocClassDefinition = {
-    0,
-    kJSClassAttributeNone,
-    "Doc",
-    0,
-    0,
-    jsPDFDocStaticFunctions,
-    jsPDFDocInitialize, jsPDFDocFinalize, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
+    static JSClassDefinition jsPDFDocClassDefinition = {
+        0,
+        kJSClassAttributeNone,
+        "Doc",
+        0,
+        0,
+        jsPDFDocStaticFunctions,
+        jsPDFDocInitialize, jsPDFDocFinalize, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+
+    static JSClassRef jsPDFDocClass = JSClassCreate(&jsPDFDocClassDefinition);
+    return jsPDFDocClass;
+}
 
 JSObjectRef makeJSPDFDoc(JSContextRef ctx, WebDataSource *dataSource)
 {
-    static JSClassRef jsPDFDocClass = JSClassCreate(&jsPDFDocClassDefinition);
-
-    return JSObjectMake(ctx, jsPDFDocClass, (__bridge void*)dataSource);
+    return JSObjectMake(ctx, jsPDFDocClass(), (__bridge void*)dataSource);
 }

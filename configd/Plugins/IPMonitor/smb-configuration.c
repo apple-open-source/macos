@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -447,7 +447,7 @@ copy_primary_ip(SCDynamicStoreRef store, CFStringRef serviceID)
 
 
 static void
-ptr_query_stop()
+ptr_query_stop(void)
 {
 	if (ptrTarget == NULL) {
 		return;

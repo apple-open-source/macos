@@ -149,17 +149,17 @@ void WebFileSystemStorageConnection::createSyncAccessHandle(WebCore::FileSystemH
         if (!result)
             return completionHandler(convertToException(result.error()));
 
-        completionHandler(std::pair { result.value().first, result.value().second.release() });
+        completionHandler(WebCore::FileSystemStorageConnection::SyncAccessHandleInfo { result->identifier, result->handle.release(), result->capacity });
     });
 }
 
-void WebFileSystemStorageConnection::closeSyncAccessHandle(WebCore::FileSystemHandleIdentifier identifier, WebCore::FileSystemSyncAccessHandleIdentifier accessHandleIdentifier, VoidCallback&& completionHandler)
+void WebFileSystemStorageConnection::closeSyncAccessHandle(WebCore::FileSystemHandleIdentifier identifier, WebCore::FileSystemSyncAccessHandleIdentifier accessHandleIdentifier, FileSystemStorageConnection::VoidCallback&& completionHandler)
 {
     if (!m_connection)
-        return completionHandler(WebCore::Exception { WebCore::UnknownError, "Connection is lost"_s });
+        return;
 
-    m_connection->sendWithAsyncReply(Messages::NetworkStorageManager::CloseSyncAccessHandle(identifier, accessHandleIdentifier), [completionHandler = WTFMove(completionHandler)](auto error) mutable {
-        completionHandler(convertToExceptionOr(error));
+    m_connection->sendWithAsyncReply(Messages::NetworkStorageManager::CloseSyncAccessHandle(identifier, accessHandleIdentifier), [completionHandler = WTFMove(completionHandler)]() mutable {
+        return completionHandler({ });
     });
 }
 
@@ -219,6 +219,14 @@ void WebFileSystemStorageConnection::invalidateAccessHandle(WebCore::FileSystemS
                 connection->invalidateAccessHandle(identifier);
         });
     }
+}
+
+void WebFileSystemStorageConnection::requestNewCapacityForSyncAccessHandle(WebCore::FileSystemHandleIdentifier identifier, WebCore::FileSystemSyncAccessHandleIdentifier accessHandleIdentifier, uint64_t newCapacity, RequestCapacityCallback&& completionHandler)
+{
+    if (!m_connection)
+        return completionHandler(std::nullopt);
+
+    m_connection->sendWithAsyncReply(Messages::NetworkStorageManager::RequestNewCapacityForSyncAccessHandle(identifier, accessHandleIdentifier, newCapacity), WTFMove(completionHandler));
 }
 
 } // namespace WebKit

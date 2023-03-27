@@ -45,6 +45,7 @@
 
 #endif // TARGET_OS_OSX || TARGET_OS_SIMULATOR || MALLOC_TARGET_DK_OSX
 
+
 #if NANOV2_REGION_BITS > 0
 #define NANOV2_MULTIPLE_REGIONS	1
 #else	// NANOV2_REGION_BITS > 0
@@ -69,7 +70,7 @@
 // Maximum number of slots per block
 #define NANOV2_MAX_SLOTS_PER_BLOCK	(NANOV2_BLOCK_SIZE/NANO_REGIME_QUANTA_SIZE)
 
-// Highest region number.
+// Highest region number supported by this signature
 #if NANOV2_MULTIPLE_REGIONS
 #define NANOV2_MAX_REGION_NUMBER	((1 << NANOV2_REGION_BITS) - 1)
 #else 	// NANOV2_MULTIPLE_REGIONS

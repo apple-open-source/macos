@@ -326,6 +326,16 @@ LFHFS_GetFSAttr ( UVFSFileNode psNode, const char *pcAttr, UVFSFSAttributeValue 
     vnode_t psVnode = (vnode_t)psNode;
     struct hfsmount *psMount = psVnode->sFSParams.vnfs_mp->psHfsmount;
 
+    if (strcmp(pcAttr, UVFS_FSATTR_MOUNTFLAGS) == 0) {
+        *puRetLen = sizeof(uint64_t);
+        if (uLen < *puRetLen) {
+            return E2BIG;
+        }
+
+        psAttrVal->fsa_number = LI_MNT_SUPPORT_OPEN_UNLINK;
+        goto end;
+    }
+
     if (strcmp(pcAttr, UVFS_FSATTR_PC_LINK_MAX)==0)
     {
         *puRetLen = sizeof(uint64_t);

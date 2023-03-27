@@ -1,4 +1,4 @@
-.TH "ZSHCOMPWID" "1" "February 12, 2022" "zsh 5\&.8\&.1"
+.TH "ZSHCOMPWID" "1" "May 14, 2022" "zsh 5\&.9"
 .SH "NAME"
 zshcompwid \- zsh completion widgets
 .\" Yodl file: Zsh/compwid.yo
@@ -35,7 +35,7 @@ work even if the widget in question has been re\-bound\&.
 When this newly defined widget is bound to a key
 using the \fBbindkey\fP builtin command defined in the \fBzsh/zle\fP module
 (see \fIzshzle\fP(1)), typing that key will call the shell function `\fBcompleter\fP\&'\&. This
-function is responsible for generating the possible matches using the
+function is responsible for generating completion matches using the
 builtins described below\&.  As with other ZLE widgets, the function is
 called with its standard input closed\&.
 .PP
@@ -201,7 +201,7 @@ was generated, the match is accepted\&.
 The string of an exact match if one was found, otherwise unset\&.
 .TP
 \fBignored\fP
-The number of words that were ignored because they matched one of the
+The number of completions that were ignored because they matched one of the
 patterns given with the \fB\-F\fP option to the \fBcompadd\fP builtin
 command\&.
 .TP
@@ -294,8 +294,7 @@ It may be set to any other value; when the widget exits this value
 will be used in the same way as the value of \fBLISTMAX\fP\&.
 .TP
 \fBnmatches\fP
-The number of matches generated and accepted by the completion code so
-far\&.
+The number of matches added by the completion code so far\&.
 .TP
 \fBold_insert\fP
 On entry to the widget this will be set to the number of the match of
@@ -331,7 +330,8 @@ value of a parameter assignment\&.
 .TP
 \fBpattern_insert\fP
 Normally this is set to \fBmenu\fP, which specifies that menu completion will
-be used whenever a set of matches was generated using pattern matching\&.  If
+be used whenever a set of matches was generated using \fBpattern_match\fP
+(see below)\&.  If
 it is set to any other non\-empty string by the user and menu completion is
 not selected by other option settings, the code will instead insert any
 common prefix for the generated matches as with normal completion\&.
@@ -347,7 +347,7 @@ additionally a wildcard `\fB*\fP\&' is assumed at the cursor position; if
 it is empty or unset, metacharacters will be treated literally\&.
 .RS
 .PP
-Note that the matcher specifications given to the \fBcompadd\fP builtin
+Note that the match specifications given to the \fBcompadd\fP builtin
 command are not used if this is set to a non\-empty string\&.
 .RE
 .TP
@@ -450,20 +450,19 @@ edited\&.
 \fB        \fP[\fB\-E\fP \fInumber\fP ]
 .TP
 .PD
-\fB        \fP[\fB\-M\fP \fImatch\-spec\fP ] [ \fB\-\fP\fB\-\fP ] [ \fIwords\fP \&.\&.\&. ]
+\fB        \fP[\fB\-M\fP \fImatch\-spec\fP ] [ \fB\-\fP\fB\-\fP ] [ \fIcompletions\fP \&.\&.\&. ]
 .RS
 .PP
 This builtin command can be used to add matches directly and control
 all the information the completion code stores with each possible
-match\&. The return status is zero if at least one match was added and
+completion\&. The return status is zero if at least one match was added and
 non\-zero if no matches were added\&.
 .PP
-The completion code breaks the string to complete into seven fields in
-the order: 
+The completion code breaks each match into seven fields in the order:
 .PP
 .RS
 .nf
-\fI<ipre><apre><hpre><word><hsuf><asuf><isuf>\fP
+\fI<ipre><apre><hpre><body><hsuf><asuf><isuf>\fP
 .fi
 .RE
 .PP
@@ -473,12 +472,12 @@ is an ignored prefix taken from the command line, the contents of the
 option\&. With the \fB\-U\fP option, only the string from the \fB\-i\fP
 option is used\&. The field \fI<apre>\fP is an optional prefix string
 given with the \fB\-P\fP option\&.  The \fI<hpre>\fP field is a string
-that is considered part of the match but that should not be shown when 
+that is considered part of the match but that should not be shown when
 listing completions, given with the \fB\-p\fP option; for example,
 functions that do filename generation might specify
-a common path prefix this way\&.  \fI<word>\fP is the part of the match that
-should appear in the list of completions, i\&.e\&. one of the \fIwords\fP given
-at the end of the \fBcompadd\fP command line\&. The suffixes \fI<hsuf>\fP,
+a common path prefix this way\&.  \fI<body>\fP is the part of the match that
+should appear in the list of matches shown to the user\&.
+The suffixes \fI<hsuf>\fP,
 \fI<asuf>\fP and \fI<isuf>\fP correspond to the prefixes \fI<hpre>\fP,
 \fI<apre>\fP and \fI<ipre>\fP and are given by the options \fB\-s\fP, \fB\-S\fP and
 \fB\-I\fP, respectively\&.
@@ -489,53 +488,53 @@ The supported flags are:
 .TP
 .PD
 \fB\-P\fP \fIprefix\fP
-This gives a string to be inserted before the given \fIwords\fP\&.  The
+This gives a string to be inserted before each match\&.  The
 string given is not considered as part of the match and any shell
 metacharacters in it will not be quoted when the string is inserted\&.
 .TP
 \fB\-S\fP \fIsuffix\fP
-Like \fB\-P\fP, but gives a string to be inserted after the match\&.
+Like \fB\-P\fP, but gives a string to be inserted after each match\&.
 .TP
 \fB\-p\fP \fIhidden\-prefix\fP
-This gives a string that should be inserted into the command line before the
+This gives a string that should be inserted before each
 match but that should not appear in the list of matches\&. Unless the
 \fB\-U\fP option is given, this string must be matched as part of the string
 on the command line\&.
 .TP
 \fB\-s\fP \fIhidden\-suffix\fP
-Like `\fB\-p\fP\&', but gives a string to insert after the match\&.
+Like `\fB\-p\fP\&', but gives a string to insert after each match\&.
 .TP
 \fB\-i\fP \fIignored\-prefix\fP
-This gives a string to insert into the command line just before any
+This gives a string to insert just before any
 string given with the `\fB\-P\fP\&' option\&.  Without `\fB\-P\fP' the string is
-inserted before the string given with `\fB\-p\fP\&' or directly before the
+inserted before the string given with `\fB\-p\fP\&' or directly before each
 match\&.
 .TP
 \fB\-I\fP \fIignored\-suffix\fP
 Like \fB\-i\fP, but gives an ignored suffix\&.
 .TP
 \fB\-a\fP
-With this flag the \fIwords\fP are taken as names of arrays and the
-possible matches are their values\&.  If only some elements of the
-arrays are needed, the \fIwords\fP may also contain subscripts, as in
+With this flag the \fIcompletions\fP are taken as names of arrays and the
+actual completions are their values\&.  If only some elements of the
+arrays are needed, the \fIcompletions\fP may also contain subscripts, as in
 `\fBfoo[2,\-1]\fP\&'\&.
 .TP
 \fB\-k\fP
-With this flag the \fIwords\fP are taken as names of associative arrays
-and the possible matches are their keys\&.  As for \fB\-a\fP, the
+With this flag the \fIcompletions\fP are taken as names of associative arrays
+and the actual completions are their keys\&.  As for \fB\-a\fP, the
 \fIwords\fP may also contain subscripts, as in `\fBfoo[(R)*bar*]\fP\&'\&.
 .TP
 \fB\-d\fP \fIarray\fP
-This adds per\-match display strings\&. The \fIarray\fP should contain one 
-element per \fIword\fP given\&. The completion code will then display the 
-first element instead of the first \fIword\fP, and so on\&. The
+This adds per\-completion display strings\&. The \fIarray\fP should contain one
+element per \fIcompletion\fP given\&. The completion code will then display the
+first element instead of the first \fIcompletion\fP, and so on\&. The
 \fIarray\fP may be given as the name of an array parameter or directly
 as a space\-separated list of words in parentheses\&.
 .RS
 .PP
-If there are fewer display strings than \fIwords\fP, the leftover
-\fIwords\fP will be displayed unchanged and if there are more display
-strings than \fIwords\fP, the leftover display strings will be silently
+If there are fewer display strings than \fIcompletions\fP, the leftover
+\fIcompletions\fP will be displayed unchanged and if there are more display
+strings than \fIcompletions\fP, the leftover display strings will be silently
 ignored\&.
 .RE
 .TP
@@ -562,7 +561,8 @@ by the \fB\-d\fP option)\&. This is the default if `\fB\-o\fP\&' is specified bu
 the \fIorder\fP argument is omitted\&.
 .TP
 \fBnosort\fP
-This specifies that the matches are pre\-sorted and their order should be
+This specifies that the \fIcompletions\fP
+are pre\-sorted and their order should be
 preserved\&.  This value only makes sense alone and cannot be combined with any
 others\&.
 .TP
@@ -575,7 +575,7 @@ Arrange the matches backwards by reversing the sort ordering\&.
 .RE
 .TP
 \fB\-J\fP \fIgroup\-name\fP
-Gives the name of the group of matches the words should be stored in\&.
+Gives the name of the group that the matches should be stored in\&.
 .TP
 \fB\-V\fP \fIgroup\-name\fP
 Like \fB\-J\fP but naming an unsorted group\&. This option is identical to
@@ -620,13 +620,13 @@ description, it can be escaped using e\&.g\&. \fB${my_str//\e%/%%}\fP\&.
 .RE
 .TP
 \fB\-x\fP \fImessage\fP
-Like \fB\-X\fP, but the \fImessage\fP will be printed even if there are no 
+Like \fB\-X\fP, but the \fImessage\fP will be printed even if there are no
 matches in the group\&.
 .TP
 \fB\-q\fP
-The suffix given with \fB\-S\fP will be automatically removed if 
+The suffix given with \fB\-S\fP will be automatically removed if
 the next character typed is a blank or does not insert anything, or if
-the suffix consists of only one character and the next character typed 
+the suffix consists of only one character and the next character typed
 is the same character\&.
 .TP
 \fB\-r\fP \fIremove\-chars\fP
@@ -650,15 +650,15 @@ list is typed\&.
 .RE
 .TP
 \fB\-R\fP \fIremove\-func\fP
-This is another form of the \fB\-r\fP option\&. When a suffix 
-has been inserted and the completion accepted, the function
+This is another form of the \fB\-r\fP option\&. When a match
+has been accepted and a suffix has been inserted, the function
 \fIremove\-func\fP will be called after the next character typed\&.  It is
 passed the length of the suffix as an argument and can use the special
 parameters available in ordinary (non\-completion) zle widgets (see
 \fIzshzle\fP(1)) to analyse and modify the command line\&.
 .TP
 \fB\-f\fP
-If this flag is given, all of the matches built from \fIwords\fP are
+If this flag is given, all of the matches built from the \fIcompletions\fP are
 marked as being the names of files\&.  They are not required to be actual
 filenames, but if they are, and the option \fBLIST_TYPES\fP is set, the
 characters describing the types of the files in the completion lists will
@@ -672,15 +672,14 @@ the \fBAUTO_PARAM_SLASH\fP and \fBAUTO_PARAM_KEYS\fP options be used for
 the matches\&.
 .TP
 \fB\-W\fP \fIfile\-prefix\fP
-This string is a pathname that will be
-prepended to each of the matches formed by the given \fIwords\fP together 
+This string is a pathname that will be prepended to each match together
 with any prefix specified by the \fB\-p\fP option to form a complete filename
 for testing\&.  Hence it is only useful if combined with the \fB\-f\fP flag, as
 the tests will not otherwise be performed\&.
 .TP
 \fB\-F\fP \fIarray\fP
-Specifies an array containing patterns\&. Words matching one of these
-patterns are ignored, i\&.e\&. not considered to be possible matches\&.
+Specifies an array containing patterns\&.  \fIcompletions\fP that match one of
+these patterns are ignored, that is, not considered to be matches\&.
 .RS
 .PP
 The \fIarray\fP may be the name of an array parameter or a list of
@@ -690,8 +689,8 @@ taken as the patterns\&.
 .RE
 .TP
 \fB\-Q\fP
-This flag instructs the completion 
-code not to quote any metacharacters in the words when inserting them
+This flag instructs the completion
+code not to quote any metacharacters in the matches when inserting them
 into the command line\&.
 .TP
 \fB\-M\fP \fImatch\-spec\fP
@@ -702,47 +701,50 @@ between them to form the specification string to use\&.
 Note that they will only be used if the \fB\-U\fP option is not given\&.
 .TP
 \fB\-n\fP
-Specifies that the words added are to be used as possible
-matches, but are not to appear in the completion listing\&.
+Specifies that matching \fIcompletions\fP are to be added to the set of
+matches, but are not to be listed to the user\&.
 .TP
 \fB\-U\fP
-If this flag is given, all words given will be accepted and no matching
+If this flag is given, all \fIcompletions\fP are added
+to the set of matches and no matching
 will be done by the completion code\&. Normally this is used in
 functions that do the matching themselves\&.
 .TP
 \fB\-O\fP \fIarray\fP
-If this option is given, the \fIwords\fP are \fInot\fP added to the set of
-possible completions\&.  Instead, matching is done as usual and all of the
-\fIwords\fP given as arguments that match the string on the command line
+If this option is given, the \fIcompletions\fP are \fInot\fP added to the set of
+matches\&.  Instead, matching is done as usual and all of the
+\fIcompletions\fP that match
 will be stored in the array parameter whose name is given as \fIarray\fP\&.
 .TP
 \fB\-A\fP \fIarray\fP
-As the \fB\-O\fP option, except that instead of those of the \fIwords\fP which
+As the \fB\-O\fP option, except that instead of those of the \fIcompletions\fP
+which
 match being stored in \fIarray\fP, the strings generated internally by the
-completion code are stored\&. For example,
-with a matching specification of `\fB\-M "L:|no="\fP\&', the string `\fBnof\fP'
-on the command line and the string `\fBfoo\fP\&' as one of the \fIwords\fP, this
+completion code are stored\&.  For example,
+with a match specification of `\fB\-M "L:|no="\fP\&', a current word of `\fBnof\fP'
+and \fIcompletions\fP of `\fBfoo\fP\&', this
 option stores the string `\fBnofoo\fP\&' in the array, whereas the \fB\-O\fP
 option stores the `\fBfoo\fP\&' originally given\&.
 .TP
 \fB\-D\fP \fIarray\fP
-As with \fB\-O\fP, the \fIwords\fP are not added to the set of possible
-completions\&.  Instead, the completion code tests whether each \fIword\fP 
-in turn matches what is on the line\&.  If the \fIn\fPth \fIword\fP does not
+As with \fB\-O\fP, the \fIcompletions\fP are not added to the set of matches\&.
+Instead, whenever the \fIn\fPth \fIcompletion\fP does not
 match, the \fIn\fPth element of the \fIarray\fP is removed\&.  Elements
-for which the corresponding \fIword\fP is matched are retained\&.
+for which the corresponding \fIcompletion\fP matches are retained\&.
+This option can be used more than once to remove elements from multiple
+arrays\&.
 .TP
 \fB\-C\fP
 This option adds a special match which expands to all other matches
 when inserted into the line, even those that are added after this
 option is used\&.  Together with the \fB\-d\fP option it is possible to
-specify a string that should be displayed in the list for this special 
-match\&.  If no string is given, it will be shown as a string containing 
-the strings that would be inserted for the other matches, truncated to 
+specify a string that should be displayed in the list for this special
+match\&.  If no string is given, it will be shown as a string containing
+the strings that would be inserted for the other matches, truncated to
 the width of the screen\&.
 .TP
 \fB\-E\fP \fInumber\fP
-This option adds \fInumber\fP empty matches after the \fIwords\fP have
+This option adds \fInumber\fP empty matches after matching \fIcompletions\fP have
 been added\&.  An empty match takes up space in completion listings but
 will never be inserted in the line and can\&'t be selected with menu
 completion or menu selection\&.  This makes empty matches only useful to
@@ -760,7 +762,7 @@ added\&.
 .PD
 \fB\-\fP\fB\-\fP
 This flag ends the list of flags and options\&. All arguments after it
-will be taken as the words to use as matches even if they begin with
+will be taken as the \fIcompletions\fP even if they begin with
 hyphens\&.
 .PP
 Except for the \fB\-M\fP flag, if any of these flags is given more than
@@ -811,7 +813,7 @@ Without the optional \fInumber\fP, the longest match is taken, but
 if \fInumber\fP is given, anything up to the \fInumber\fPth match is
 moved\&.  If the \fInumber\fP is negative, the \fInumber\fPth longest
 match is moved\&. For example, if \fBPREFIX\fP contains the string
-`\fBa=b=c\fP\&', then \fBcompset \-P '*\e='\fP will move the string `\fBa=b=\fP' 
+`\fBa=b=c\fP\&', then \fBcompset \-P '*\e='\fP will move the string `\fBa=b=\fP'
 into the \fBIPREFIX\fP parameter, but \fBcompset \-P 1 \&'*\e='\fP will move only
 the string `\fBa=\fP\&'\&.
 .RE
@@ -825,7 +827,7 @@ As \fB\-P\fP, but match the last portion of \fBSUFFIX\fP and transfer the
 matched portion to the front of the value of \fBISUFFIX\fP\&.
 .TP
 \fB\-n\fP \fIbegin\fP [ \fIend\fP ]
-If the current word position as specified by the parameter \fBCURRENT\fP 
+If the current word position as specified by the parameter \fBCURRENT\fP
 is greater than or equal to \fIbegin\fP, anything up to the
 \fIbegin\fPth word is removed from the \fBwords\fP array and the value
 of the parameter \fBCURRENT\fP is decremented by \fIbegin\fP\&.
@@ -851,7 +853,7 @@ point to the same word in the changed array\&.
 If the optional pattern \fIend\-pat\fP is also given, and there is an
 element in the \fBwords\fP array matching this pattern, the parameters
 are modified only if the index of this word is higher than the one
-given by the \fBCURRENT\fP parameter (so that the matching word has 
+given by the \fBCURRENT\fP parameter (so that the matching word has
 to be after the cursor)\&. In this case, the words starting with the one
 matching \fBend\-pat\fP are also removed from the \fBwords\fP
 array\&. If \fBwords\fP contains no word matching \fIend\-pat\fP, the
@@ -861,7 +863,7 @@ testing and modification is performed as if it were not given\&.
 \fB\-q\fP
 The word
 currently being completed is split on spaces into separate words,
-respecting the usual shell quoting conventions\&.  The 
+respecting the usual shell quoting conventions\&.  The
 resulting words are stored in the \fBwords\fP array, and \fBCURRENT\fP,
 \fBPREFIX\fP, \fBSUFFIX\fP, \fBQIPREFIX\fP, and \fBQISUFFIX\fP are modified to
 reflect the word part that is completed\&.
@@ -916,7 +918,7 @@ true if the test for the \fB\-P\fP option of \fBcompset\fP would succeed\&.
 true if the test for the \fB\-S\fP option of \fBcompset\fP would succeed\&.
 .TP
 \fB\-after\fP \fIbeg\-pat\fP
-true if the test of the \fB\-N\fP option with only the \fIbeg\-pat\fP given 
+true if the test of the \fB\-N\fP option with only the \fIbeg\-pat\fP given
 would succeed\&.
 .TP
 \fB\-between\fP \fIbeg\-pat end\-pat\fP
@@ -924,319 +926,352 @@ true if the test for the \fB\-N\fP option with both patterns would succeed\&.
 .PP
 .SH "COMPLETION MATCHING CONTROL"
 .PP
-It is possible by use of the
-\fB\-M\fP option of the \fBcompadd\fP builtin command to specify how the
-characters in the string to be completed (referred to here as the
-command line) map onto the characters in the list of matches produced by
-the completion code (referred to here as the trial completions)\&. Note
-that this is not used if the command line contains a glob pattern and
-the \fBGLOB_COMPLETE\fP option is set or the \fBpattern_match\fP of the
-\fBcompstate\fP special association is set to a non\-empty string\&.
+When the user invokes completion, the current \fIword\fP on the command line
+(that is, the word the cursor is currently on) is used to generate a \fImatch
+pattern\fP\&.  Only those \fIcompletions\fP that match the pattern are offered to the
+user as \fImatches\fP\&.
 .PP
-The \fImatch\-spec\fP given as the argument to the \fB\-M\fP option (see
-`Completion Builtin Commands\&' above) consists of one or more matching descriptions separated by
-whitespace\&.  Each description consists of a letter followed by a colon
-and then the patterns describing which character sequences on the line match
-which character sequences in the trial completion\&.  Any sequence of
-characters not handled in this fashion must match exactly, as usual\&.
-.PP
-The forms of \fImatch\-spec\fP understood are as follows\&. In each case, the
-form with an upper case initial character retains the string already
-typed on the command line as the final result of completion, while with
-a lower case initial character the string on the command line is changed
-into the corresponding part of the trial completion\&.
+The default match pattern is generated from the current word by either
 .PP
 .PD 0
-.TP
-.PD 0
-\fBm:\fP\fIlpat\fP\fB=\fP\fItpat\fP
 .TP
 .PD
-\fBM:\fP\fIlpat\fP\fB=\fP\fItpat\fP
-Here, \fIlpat\fP is a pattern that matches on the command line,
-corresponding to \fItpat\fP which matches in the trial completion\&.
+\(bu
+appending a `\fB*\fP\&' (matching any number of characters in a completion)
+\fIor,\fP
 .TP
+\(bu
+if the shell option \fBCOMPLETE_IN_WORD\fP is set, inserting a `\fB*\fP\&' at the
+cursor position\&.
+.PP
+This narrow pattern can be broadened selectively by passing a \fImatch
+specification\fP to the \fBcompadd\fP builtin command through its \fB\-M\fP option
+(see
+`Completion Builtin Commands\&' above)\&.  A match specification consists of one or more \fImatchers\fP separated by
+whitespace\&.  Matchers in a match specification are applied one at a time, from
+left to right\&.  Once all matchers have been applied, completions are compared
+to the final match pattern and non\-matching ones are discarded\&.
+.PP
 .PD 0
-\fBl:\fP\fIlanchor\fP\fB|\fP\fIlpat\fP\fB=\fP\fItpat\fP
-.TP
-.PD 0
-\fBL:\fP\fIlanchor\fP\fB|\fP\fIlpat\fP\fB=\fP\fItpat\fP
-.TP
-.PD 0
-\fBl:\fP\fIlanchor\fP\fB||\fP\fIranchor\fP\fB=\fP\fItpat\fP
-.TP
-.PD 0
-\fBL:\fP\fIlanchor\fP\fB||\fP\fIranchor\fP\fB=\fP\fItpat\fP
-.TP
-.PD 0
-\fBb:\fP\fIlpat\fP\fB=\fP\fItpat\fP
 .TP
 .PD
-\fBB:\fP\fIlpat\fP\fB=\fP\fItpat\fP
-These letters are for patterns that are anchored by another pattern on
-the left side\&. Matching for \fIlpat\fP and \fItpat\fP is as for \fBm\fP and
-\fBM\fP, but the pattern \fIlpat\fP matched on the command line must be
-preceded by the pattern \fIlanchor\fP\&.  The \fIlanchor\fP can be blank to
-anchor the match to the start of the command line string; otherwise the
-anchor can occur anywhere, but must match in both the command line and
-trial completion strings\&.
+\(bu
+Note that the \fB\-M\fP option is ignored if the current word contains a glob
+pattern and the shell option \fBGLOB_COMPLETE\fP is set or if the
+\fBpattern_match\fP key of the special associative array \fBcompstate\fP is set to
+a non\-empty value (see
+`Completion Special Parameters\&' above)\&.
+.TP
+\(bu
+Users of the completion system (see \fIzshcompsys\fP(1))  should generally not use the \fB\-M\fP option directly, but rather use the
+\fBmatcher\-list\fP and \fBmatcher\fP styles (see the subsection \fIStandard Styles\fP
+in
+the documentation for COMPLETION SYSTEM CONFIGURATION in \fIzshcompsys\fP(1))\&.
+.PP
+Each matcher consists of
+.PP
+.PD 0
+.TP
+.PD
+\(bu
+a case\-sensitive letter
+.TP
+\(bu
+a `\fB:\fP\&',
+.TP
+\(bu
+one or more patterns separated by pipes (`\fB|\fP\&'),
+.TP
+\(bu
+an equals sign (`\fB=\fP\&'), and
+.TP
+\(bu
+another pattern\&.
+.PP
+The patterns before the `\fB=\fP\&' are used to match substrings of the current
+word\&.  For each matched substring, the corresponding part of the match pattern
+is broadened with the pattern after the `\fB=\fP\&', by means of a logical \fBOR\fP\&.
+.PP
+Each pattern in a matcher cosists of either
+.PP
+.PD 0
+.TP
+.PD
+\(bu
+the empty string or
+.TP
+\(bu
+a sequence of
 .RS
 .PP
-If no \fIlpat\fP is given but a \fIranchor\fP is, this matches the gap
-between substrings matched by \fIlanchor\fP and \fIranchor\fP\&. Unlike
-\fIlanchor\fP, the \fIranchor\fP only needs to match the trial
-completion string\&.
+.PD 0
+.TP
+.PD
+\(bu
+literal characters (which may be quoted with a `\fB\e\fP\&'),
+.TP
+\(bu
+question marks (`\fB?\fP\&'),
+.TP
+\(bu
+bracket expressions (`\fB[\&.\&.\&.]\fP\&'; see the subsection \fIGlob Operators\fP in
+the documentation for GLOB OPERATORS in \fIzshexpn\fP(1)), and/or
+.TP
+\(bu
+brace expressions (see below)\&.
+
+.RE
 .PP
-The \fBb\fP and \fBB\fP forms are similar to \fBl\fP and \fBL\fP with an empty 
-anchor, but need to match only the beginning of the word on the command line
-or trial completion, respectively\&.
+Other shell patterns are not allowed\&.
+.PP
+A brace expression, like a bracket expression, consists of a list of
+.PP
+.PD 0
+.TP
+.PD
+\(bu
+literal characters,
+.TP
+\(bu
+ranges (`\fB0\-9\fP\&'), and/or
+.TP
+\(bu
+character classes (`\fB[:\fP\fIname\fP\fB:]\fP\&')\&.
+.PP
+However, they differ from each other as follows:
+.PP
+.PD 0
+.TP
+.PD
+\(bu
+A brace expression is delimited by a pair of braces (`\fB{\&.\&.\&.}\fP\&')\&.
+.TP
+\(bu
+Brace expressions do not support negations\&.  That is, an initial
+`\fB!\fP\&' or `\fB^\fP' has no special meaning and will be interpreted as a literal
+character\&.
+.TP
+\(bu
+When a character in the current word matches the \fIn\fPth pattern in a brace
+expression, the corresponding part of the match pattern is broadened only with
+the \fIn\fPth pattern of the brace expression on the other side of the `\fB=\fP\&',
+if there is one; if there is no brace expression on the other side, then this
+pattern is the empty string\&.  However, if either brace expression has more
+elements than the other, then the excess entries are simply ignored\&.  When
+comparing indexes, each literal character or character class counts as one
+element, but each range is instead expanded to the full list of literal
+characters it represents\&.  Additionally, if on \fIboth\fP sides of the
+`\fB=\fP\&', the \fIn\fPth pattern is `\fB[:upper:]\fP' or `\fB[:lower:]\fP', then these
+are expanded as ranges, too\&.
+.PP
+Note that, although the matching system does not yet handle multibyte
+characters, this is likely to be a future extension\&.  Hence, using
+`\fB[:upper:]\fP\&' and `\fB[:lower:]\fP' is recommended over
+`\fBA\-Z\fP\&' and `\fBa\-z\fP'\&.
+.PP
+Below are the different forms of matchers supported\&.  Each \fIuppercase\fP form
+behaves exactly like its lowercase counterpart, but adds an additional step
+\fIafter\fP the match pattern has filtered out non\-matching completions:  Each of
+a match\&'s substrings that was matched by a subpattern from an uppercase matcher
+is replaced with the corresponding substring of the current word\&.  However,
+patterns from \fIlowercase\fP matchers have higher weight:  If a substring of the
+current word was matched by patterns from both a lowercase and an uppercase
+matcher, then the lowercase matcher\&'s pattern wins and the corresponding part
+of the match is not modified\&.
+.PP
+Unless indicated otherwise, each example listed assumes \fBCOMPLETE_IN_WORD\fP to
+be unset (as it is by default)\&.
+.PP
+.PD 0
+.TP
+.PD 0
+\fBm:\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD
+\fBM:\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
+.RS
+.PP
+For each substring of the current word that matches \fIword\-pat\fP, broaden the
+corresponding part of the match pattern to additionally match \fImatch\-pat\fP\&.
+.PP
+.PD 0
+.TP
+.PD
+Examples:
+.RS
+.PP
+\fBm:{[:lower:]}={[:upper:]}\fP lets any lower case character in the current word
+be completed to itself or its uppercase counterpart\&.  So, the completions
+`\fBfoo\fP\&', `\fBFOO\fP' and `\fBFoo\fP' will are be considered matches for the word
+`\fBfo\fP\&'\&.
+.PP
+\fBM:_=\fP inserts every underscore from the current word into each match, in the
+same relative position, determined by matching the substrings around it\&.  So,
+given a completion `\fBfoo\fP\&', the word `\fBf_o\fP' will be completed to the match
+`\fBf_oo\fP\&', even though the latter was not present as a completion\&.
+.RE
 .RE
 .TP
 .PD 0
-\fBr:\fP\fIlpat\fP\fB|\fP\fIranchor\fP\fB=\fP\fItpat\fP
+\fBb:\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
 .TP
 .PD 0
-\fBR:\fP\fIlpat\fP\fB|\fP\fIranchor\fP\fB=\fP\fItpat\fP
+\fBB:\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
 .TP
 .PD 0
-\fBr:\fP\fIlanchor\fP\fB||\fP\fIranchor\fP\fB=\fP\fItpat\fP
-.TP
-.PD 0
-\fBR:\fP\fIlanchor\fP\fB||\fP\fIranchor\fP\fB=\fP\fItpat\fP
-.TP
-.PD 0
-\fBe:\fP\fIlpat\fP\fB=\fP\fItpat\fP
+\fBe:\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
 .TP
 .PD
-\fBE:\fP\fIlpat\fP\fB=\fP\fItpat\fP
-As \fBl\fP, \fBL\fP, \fBb\fP and \fBB\fP, with the difference that the command
-line and trial completion patterns are anchored on the right side\&.
-Here an empty \fIranchor\fP and the \fBe\fP and \fBE\fP forms force the
-match to the end of the command line or trial completion string\&.
+\fBE:\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
+.RS
+.PP
+For each consecutive substring at the \fBb:\fPeginning or \fBe:\fPnd of the current
+word that matches \fIword\-pat\fP, broaden the corresponding part of the match
+pattern to additionally match \fImatch\-pat\fP\&.
+.PP
+.PD 0
+.TP
+.PD
+Examples:
+.RS
+.PP
+`\fBb:\-=+\fP\&' lets any number of minuses at the start of the current word be
+completed to a minus or a plus\&.
+.PP
+`\fBB:0=\fP\&' adds all zeroes at the beginning of the current word to the
+beginning of each match\&.
+.RE
+.RE
+.TP
+.PD 0
+\fBl:\fP\fB|\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD 0
+\fBL:\fP\fB|\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD 0
+\fBR:\fP\fIword\-pat\fP\fB|\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD
+\fBr:\fP\fIword\-pat\fP\fB|\fP\fB=\fP\fImatch\-pat\fP
+.RS
+.PP
+If there is a substring at the \fBl:\fPeft or \fBr:\fPight edge of the current word
+that matches \fIword\-pat\fP, then broaden the corresponding part of the match
+pattern to additionally match \fImatch\-pat\fP\&.
+.PP
+For each \fBl:\fP, \fBL:\fP, \fBr:\fP and \fBR:\fP matcher (including the ones below),
+the pattern \fImatch\-pat\fP may also be a `\fB*\fP\&'\&.  This matches any number of
+characters in a completion\&.
+.PP
+.PD 0
+.TP
+.PD
+Examples:
+.RS
+.PP
+`\fBr:|=*\fP\&' appends a `\fB*\fP' to the match pattern, even when
+\fBCOMPLETE_IN_WORD\fP is set and the cursor is not at the end of the current
+word\&.
+.PP
+If the current word starts with a minus, then `\fBL:|\-=\fP\&' will prepend it to
+each match\&.
+.RE
+.RE
+.TP
+.PD 0
+\fBl:\fP\fIanchor\fP\fB|\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD 0
+\fBL:\fP\fIanchor\fP\fB|\fP\fIword\-pat\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD 0
+\fBr:\fP\fIword\-pat\fP\fB|\fP\fIanchor\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD
+\fBR:\fP\fIword\-pat\fP\fB|\fP\fIanchor\fP\fB=\fP\fImatch\-pat\fP
+.RS
+.PP
+For each substring of the current word that matches \fIword\-pat\fP and has on
+its \fBl:\fPeft or \fBr:\fPight another substring matching \fIanchor\fP, broaden the
+corresponding part of the match pattern to additionally match \fImatch\-pat\fP\&.
+.PP
+Note that these matchers (and the ones below) modify only what is matched by
+\fIword\-pat\fP; they do not change the matching behavior of what is matched by
+\fIanchor\fP (or \fIcoanchor\fP; see the matchers below)\&.  Thus, unless its
+corresponding part of the match pattern has been modified, the anchor in the
+current word has to match literally in each completion, just like any other
+substring of the current word\&.
+.PP
+If a matcher includes at least one anchor (which includes the matchers with two
+anchors, below), then \fImatch\-pat\fP may also be `\fB*\fP\&' or `\fB**\fP'\&.  `\fB*\fP'
+can match any part of a completion that does not contain any substrings
+matching \fIanchor\fP, whereas a `\fB**\fP\&' can match any part of a completion,
+period\&.  (Note that this is different from the behavior of `\fB*\fP\&' in the
+anchorless forms of `\fBl:\fP\&' and `\fBr:\fP' and and also different from `\fB*\fP'
+and `\fB**\fP\&' in glob expressions\&.)
+.PP
+.PD 0
+.TP
+.PD
+Examples:
+.RS
+.PP
+`\fBr:|\&.=*\fP\&' makes the completion `\fBcomp\&.sources\&.unix\fP' a match for the word
+`\fB\&.\&.u\fP\&' \-\- but \fInot\fP for the word `\fB\&.u\fP'\&.
+.PP
+Given a completion `\fB\-\fP\fB\-foo\fP\&', the matcher `\fBL:\-\-|no\-=\fP' will complete
+the word `\fB\-\fP\fB\-no\-\fP\&' to the match `\fB\-\fP\fB\-no\-foo\fP'\&.
+.RE
+.RE
+.TP
+.PD 0
+\fBl:\fP\fIanchor\fP\fB||\fP\fIcoanchor\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD 0
+\fBL:\fP\fIanchor\fP\fB||\fP\fIcoanchor\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD 0
+\fBr:\fP\fIcoanchor\fP\fB||\fP\fIanchor\fP\fB=\fP\fImatch\-pat\fP
+.TP
+.PD
+\fBR:\fP\fIcoanchor\fP\fB||\fP\fIanchor\fP\fB=\fP\fImatch\-pat\fP
+.RS
+.PP
+For any two consecutive substrings of the current word that match \fIanchor\fP
+and \fIcoanchor\fP, in the order given, insert the pattern \fImatch\-pat\fP
+between their corresponding parts in the match pattern\&.
+.PP
+Note that, unlike \fIanchor\fP, the pattern \fIcoanchor\fP does not change what
+`\fB*\fP\&' can match\&.
+.PP
+.PD 0
+.TP
+.PD
+Examples:
+.RS
+.PP
+`\fBr:?||[[:upper:]]=*\fP\&' will complete the current word `\fBfB\fP' to
+`\fBfooBar\fP\&', but it will not complete it to `\fBfooHooBar\fP' (because `\fB*\fP'
+here cannot match anything that includes a match for `\fB[[:upper:]]\fP), nor
+will it complete `\fBB\fP\&' to `\fBfooBar\fP' (because there is no character in the
+current word to match \fIcoanchor\fP)\&.
+.PP
+Given the current word `\fBpass\&.n\fP\&' and a completion `\fBpass\&.byname\fP', the
+matcher `\fBL:\&.||[[:alpha:]]=by\fP\&' will produce the match `\fBpass\&.name\fP'\&.
+.RE
+.RE
 .TP
 \fBx:\fP
-This form is used to mark the end of matching specifications:
-subsequent specifications are ignored\&. In a single standalone list
-of specifications this has no use but where matching specifications
-are accumulated, such as from nested function calls, it can allow one
-function to override another\&.
-.PP
-Each \fIlpat\fP, \fItpat\fP or \fIanchor\fP is either an empty string or
-consists of a sequence of literal characters (which may be quoted with a
-backslash), question marks, character classes, and correspondence
-classes; ordinary shell patterns are not used\&.  Literal characters match
-only themselves, question marks match any character, and character
-classes are formed as for globbing and match any character in the given
-set\&.
-.PP
-Correspondence classes are defined like character classes, but with two
-differences: they are delimited by a pair of braces, and negated classes
-are not allowed, so the characters \fB!\fP and \fB^\fP have no special
-meaning directly after the opening brace\&.  They indicate that a range of
-characters on the line match a range of characters in the trial
-completion, but (unlike ordinary character classes) paired according to
-the corresponding position in the sequence\&.  For example, to make any
-ASCII lower case letter on the line match the corresponding upper case
-letter in the trial completion, you can use `\fBm:{a\-z}={A\-Z}\fP\&'
-(however, see below for the recommended form for this)\&.  More
-than one pair of classes can occur, in which case the first class before
-the \fB=\fP corresponds to the first after it, and so on\&.  If one side has
-more such classes than the other side, the superfluous classes behave
-like normal character classes\&.  In anchor patterns correspondence classes
-also behave like normal character classes\&.
-.PP
-The standard `\fB[:\fP\fIname\fP\fB:]\fP\&' forms described for standard shell
-patterns (see
-the section FILENAME GENERATION in \fIzshexpn\fP(1))
-may appear in correspondence classes as well as normal character
-classes\&.  The only special behaviour in correspondence classes is if
-the form on the left and the form on the right are each one of
-\fB[:upper:]\fP, \fB[:lower:]\fP\&.  In these cases the
-character in the word and the character on the line must be the same up
-to a difference in case\&.  Hence to make any lower case character on the
-line match the corresponding upper case character in the trial
-completion you can use `\fBm:{[:lower:]}={[:upper:]}\fP\&'\&.  Although the
-matching system does not yet handle multibyte characters, this is likely
-to be a future extension, at which point this syntax will handle
-arbitrary alphabets; hence this form, rather than the use of explicit
-ranges, is the recommended form\&.  In other cases
-`\fB[:\fP\fIname\fP\fB:]\fP\&' forms are allowed\&.  If the two forms on the left
-and right are the same, the characters must match exactly\&.  In remaining
-cases, the corresponding tests are applied to both characters, but they
-are not otherwise constrained; any matching character in one set goes
-with any matching character in the other set:  this is equivalent to the
-behaviour of ordinary character classes\&.
-.PP
-The pattern \fItpat\fP may also be one or two stars, `\fB*\fP\&' or
-`\fB**\fP\&'\&. This means that the pattern on the command line can match
-any number of characters in the trial completion\&. In this case the
-pattern must be anchored (on either side); in the case of a single
-star, the \fIanchor\fP then determines how much of the trial completion
-is to be included \-\- only the characters up to the next appearance of
-the anchor will be matched\&. With two stars, substrings matched by the
-anchor can be matched, too\&.
-.PP
-Examples:
-.PP
-The keys of the \fBoptions\fP association defined by the \fBparameter\fP
-module are the option names in all\-lower\-case form, without
-underscores, and without the optional \fBno\fP at the beginning even
-though the builtins \fBsetopt\fP and \fBunsetopt\fP understand option names
-with upper case letters, underscores, and the optional \fBno\fP\&.  The
-following alters the matching rules so that the prefix \fBno\fP and any
-underscore are ignored when trying to match the trial completions
-generated and upper case letters on the line match the corresponding
-lower case letters in the words:
-.PP
 .RS
-.nf
-\fBcompadd \-M \&'L:|[nN][oO]= M:_= M:{[:upper:]}={[:lower:]}' \- \e 
-  ${(k)options} \fP
-.fi
+.PP
+Ignore this matcher and all matchers to its right\&.
+.PP
+This matcher is used to mark the end of a match specification\&.  In a single
+standalone list of matchers, this has no use, but where match specifications
+are concatenated, as is often the case when using the
+completion system (see \fIzshcompsys\fP(1)), it can allow one match specification to override another\&.
 .RE
-.PP
-The first part says that the pattern `\fB[nN][oO]\fP\&' at the beginning
-(the empty anchor before the pipe symbol) of the string on the
-line matches the empty string in the list of words generated by
-completion, so it will be ignored if present\&. The second part does the
-same for an underscore anywhere in the command line string, and the
-third part uses correspondence classes so that any
-upper case letter on the line matches the corresponding lower case
-letter in the word\&. The use of the upper case forms of the
-specification characters (\fBL\fP and \fBM\fP) guarantees that what has
-already been typed on the command line (in particular the prefix
-\fBno\fP) will not be deleted\&.
-.PP
-Note that the use of \fBL\fP in the first part means that it matches
-only when at the beginning of both the command line string and the
-trial completion\&. I\&.e\&., the string `\fB_NO_f\fP\&' would not be
-completed to `\fB_NO_foo\fP\&', nor would `\fBNONO_f\fP' be completed to
-`\fBNONO_foo\fP\&' because of the leading underscore or the second
-`\fBNO\fP\&' on the line which makes the pattern fail even though they are 
-otherwise ignored\&. To fix this, one would use `\fBB:[nN][oO]=\fP\&'
-instead of the first part\&. As described above, this matches at the
-beginning of the trial completion, independent of other characters or
-substrings at the beginning of the command line word which are ignored
-by the same or other \fImatch\-spec\fPs\&.
-.PP
-The second example makes completion case insensitive\&.  This is just
-the same as in the option example, except here we wish to retain the
-characters in the list of completions:
-.PP
-.RS
-.nf
-\fBcompadd \-M \&'m:{[:lower:]}={[:upper:]}' \&.\&.\&. \fP
-.fi
-.RE
-.PP
-This makes lower case letters match their upper case counterparts\&.
-To make upper case letters match the lower case forms as well:
-.PP
-.RS
-.nf
-\fBcompadd \-M \&'m:{[:lower:][:upper:]}={[:upper:][:lower:]}' \&.\&.\&. \fP
-.fi
-.RE
-.PP
-A nice example for the use of \fB*\fP patterns is partial word
-completion\&. Sometimes you would like to make strings like `\fBc\&.s\&.u\fP\&'
-complete to strings like `\fBcomp\&.source\&.unix\fP\&', i\&.e\&. the word on the
-command line consists of multiple parts, separated by a dot in this
-example, where each part should be completed separately \-\- note,
-however, that the case where each part of the word, i\&.e\&. `\fBcomp\fP\&',
-`\fBsource\fP\&' and `\fBunix\fP' in this example, is to be completed from
-separate sets of matches
-is a different problem to be solved by the implementation of the
-completion widget\&.  The example can be handled by:
-.PP
-.RS
-.nf
-\fBcompadd \-M \&'r:|\&.=* r:|=*' \e 
-  \- comp\&.sources\&.unix comp\&.sources\&.misc \&.\&.\&.\fP
-.fi
-.RE
-.PP
-The first specification says that \fIlpat\fP is the empty string, while
-\fIanchor\fP is a dot; \fItpat\fP is \fB*\fP, so this can match anything
-except for the `\fB\&.\fP\&' from the anchor in
-the trial completion word\&.  So in `\fBc\&.s\&.u\fP\&', the matcher sees `\fBc\fP',
-followed by the empty string, followed by the anchor `\fB\&.\fP\&', and
-likewise for the second dot, and replaces the empty strings before the
-anchors, giving `\fBc\fP[\fBomp\fP]\fB\&.s\fP[\fBources\fP]\fB\&.u\fP[\fBnix\fP]\&', where
-the last part of the completion is just as normal\&.
-.PP
-With the pattern shown above, the string `\fBc\&.u\fP\&' could not be
-completed to `\fBcomp\&.sources\&.unix\fP\&' because the single star means
-that no dot (matched by the anchor) can be skipped\&. By using two stars 
-as in `\fBr:|\&.=**\fP\&', however, `\fBc\&.u\fP' could be completed to
-`\fBcomp\&.sources\&.unix\fP\&'\&. This also shows that in some cases,
-especially if the anchor is a real pattern, like a character class,
-the form with two stars may result in more matches than one would like\&.
-.PP
-The second specification is needed to make this work when the cursor is
-in the middle of the string on the command line and the option
-\fBCOMPLETE_IN_WORD\fP is set\&. In this case the completion code would
-normally try to match trial completions that end with the string as
-typed so far, i\&.e\&. it will only insert new characters at the cursor
-position rather than at the end\&.  However in our example we would like
-the code to recognise matches which contain extra characters after the
-string on the line (the `\fBnix\fP\&' in the example)\&.  Hence we say that the
-empty string at the end of the string on the line matches any characters
-at the end of the trial completion\&.
-.PP
-More generally, the specification
-.PP
-.RS
-.nf
-\fBcompadd \-M \&'r:|[\&.,_\-]=* r:|=*' \&.\&.\&. \fP
-.fi
-.RE
-.PP
-allows one to complete words with abbreviations before any of the
-characters in the square brackets\&.  For example, to
-complete \fBveryverylongfile\&.c\fP rather than \fBveryverylongheader\&.h\fP
-with the above in effect, you can just type \fBvery\&.c\fP before attempting
-completion\&.
-.PP
-The specifications with both a left and a right anchor are useful to
-complete partial words whose parts are not separated by some
-special character\&. For example, in some places strings have to be
-completed that are formed `\fBLikeThis\fP\&' (i\&.e\&. the separate parts are
-determined by a leading upper case letter) or maybe one has to
-complete strings with trailing numbers\&. Here one could use the simple
-form with only one anchor as in:
-.PP
-.RS
-.nf
-\fBcompadd \-M \&'r:|[[:upper:]0\-9]=* r:|=*' LikeTHIS FooHoo 5foo123 5bar234\fP
-.fi
-.RE
-.PP
-But with this, the string `\fBH\fP\&' would neither complete to `\fBFooHoo\fP'
-nor to `\fBLikeTHIS\fP\&' because in each case there is an upper case
-letter before the `\fBH\fP\&' and that is matched by the anchor\&. Likewise, 
-a `\fB2\fP\&' would not be completed\&. In both cases this could be changed
-by using `\fBr:|[[:upper:]0\-9]=**\fP\&', but then `\fBH\fP' completes to both
-`\fBLikeTHIS\fP\&' and `\fBFooHoo\fP' and a `\fB2\fP' matches the other
-strings because characters can be inserted before every upper case
-letter and digit\&. To avoid this one would use:
-.PP
-.RS
-.nf
-\fBcompadd \-M \&'r:[^[:upper:]0\-9]||[[:upper:]0\-9]=** r:|=*' \e 
-    LikeTHIS FooHoo foo123 bar234\fP
-.fi
-.RE
-.PP
-By using these two anchors, a `\fBH\fP\&' matches only upper case `\fBH\fP's that 
-are immediately preceded by something matching the left anchor
-`\fB[^[:upper:]0\-9]\fP\&'\&. The effect is, of course, that `\fBH\fP' matches only
-the string `\fBFooHoo\fP\&', a `\fB2\fP' matches only `\fBbar234\fP' and so on\&.
-.PP
-When using the completion system (see
-\fIzshcompsys\fP(1)), users can define match specifications that are to be used for
-specific contexts by using the \fBmatcher\fP and \fBmatcher\-list\fP
-styles\&. The values for the latter will be used everywhere\&.
 .PP
 .SH "COMPLETION WIDGET EXAMPLE"
 .PP
@@ -1267,5 +1302,5 @@ matches, e\&.g\&.:
 .fi
 .RE
 .PP
-This function will complete files in the current directory matching the 
+This function will complete files in the current directory matching the
 current word\&.

@@ -105,10 +105,13 @@ bool SOSAccountRemoveRecoveryKey(SOSAccount* account, CFErrorRef *error) {
 // Recovery Setting From a Local Client goes through here
 bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef *error) {
     __block bool result = false;
+    __block CFErrorRef cfError = NULL;
     CFDataRef oldRecoveryKey = NULL;
     SOSRecoveryKeyBagRef rkbg = NULL;
 
-    if(![account isInCircle:error]) return false;
+    if(![account isInCircle:error]) {
+        return false;
+    }
     oldRecoveryKey = SOSAccountCopyRecoveryPublic(kCFAllocatorDefault, account, NULL); // ok to fail here. don't collect error
 
     CFDataPerformWithHexString(pubData, ^(CFStringRef recoveryKeyString) {
@@ -120,7 +123,8 @@ bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef
 
     rkbg = SOSRecoveryKeyBagCreateForAccount(kCFAllocatorDefault, (__bridge CFTypeRef)account, pubData, NULL);
     SOSAccountSetRecoveryKeyBagEntry(kCFAllocatorDefault, account, rkbg, NULL);
-    SOSAccountUpdateRecoveryRing(account, error, ^SOSRingRef(SOSRingRef existing, CFErrorRef *error) {
+    CFErrorRef accountError = NULL;
+    if (!SOSAccountUpdateRecoveryRing(account, &accountError, ^SOSRingRef(SOSRingRef existing, CFErrorRef *error) {
         SOSRingRef newRing = NULL;
         CFMutableSetRef peerInfoIDs = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
         SOSCircleForEachValidSyncingPeer(account.trust.trustedCircle, account.accountKey, ^(SOSPeerInfoRef peer) {
@@ -128,42 +132,52 @@ bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef
         });
         SOSRingSetPeerIDs(existing, peerInfoIDs);
         if(rkbg) {
-            if (SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, rkbg, error)) {
+            if (SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, rkbg, &cfError)) {
                 result = true;
             } else {
-                secerror("SetRecoveryKey failed at SOSRingSetRecoveryKeyBag #1: %@", error ? *error : nil);
+                secerror("SetRecoveryKey failed at SOSRingSetRecoveryKeyBag #1: %@", cfError);
             }
         } else {
-            SOSRecoveryKeyBagRef ringrkbg = SOSRecoveryKeyBagCreateForAccount(kCFAllocatorDefault, (__bridge CFTypeRef)account, SOSRKNullKey(), error);
+            SOSRecoveryKeyBagRef ringrkbg = SOSRecoveryKeyBagCreateForAccount(kCFAllocatorDefault, (__bridge CFTypeRef)account, SOSRKNullKey(), &cfError);
             if (ringrkbg != NULL) {
-                if (SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, ringrkbg, error)) {
+                if (SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, ringrkbg, &cfError)) {
                     result = true;
                 } else {
-                    secerror("SetRecoveryKey failed at SOSRingSetRecoveryKeyBag #2: %@", error ? *error : nil);
+                    secerror("SetRecoveryKey failed at SOSRingSetRecoveryKeyBag #2: %@", cfError);
                 }
             } else {
-                secerror("SetRecoveryKey failed at SOSRecoveryKeyBagCreateForAccount: %@", error ? *error : nil);
+                secerror("SetRecoveryKey failed at SOSRecoveryKeyBagCreateForAccount: %@", cfError);
             }
             CFReleaseNull(ringrkbg);
         }
-        if (result && !SOSRingGenerationSign(existing, NULL, account.trust.fullPeerInfo, error)) {
-            secerror("SetRecoveryKey failed at SOSRingGenerationSign: %@", error ? *error : nil);
+        if (result && !SOSRingGenerationSign(existing, NULL, account.trust.fullPeerInfo, &cfError)) {
+            secerror("SetRecoveryKey failed at SOSRingGenerationSign: %@", cfError);
             result = false;
         }
         newRing = CFRetainSafe(existing);
         return newRing;
-    });
+    })) {
+        CFReleaseNull(cfError);
+        cfError = accountError;
+        result = false;
+    }
     CFReleaseNull(rkbg);
 
     if(SOSPeerInfoHasBackupKey(account.trust.peerInfo)) {
         SOSAccountProcessBackupRings(account);
     }
 
-    SOSClearErrorIfTrue(result, error);
     if (!result) {
         // if we're failing and something above failed to give an error - make a generic one.
-        if(error && !(*error)) SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("Failed to set Recovery Key"));
-        secnotice("recovery", "SetRecoveryPublic Failed: %@", error ? (CFTypeRef) *error : (CFTypeRef) CFSTR("No error space"));
+        if (cfError == NULL) {
+            SOSErrorCreate(kSOSErrorProcessingFailure, &cfError, NULL, CFSTR("Failed to set Recovery Key"));
+        }
+        secnotice("recovery", "SetRecoveryPublic Failed: %@", cfError);
+        if (error != nil) {
+            *error = cfError;
+        } else {
+            CFReleaseNull(cfError);
+        }
     }
     return result;
 }
@@ -219,4 +233,5 @@ void SOSAccountEnsureRecoveryRing(SOSAccount* account) {
         sosRecoveryAlertAndNotify(account, oldRingRKBG, acctRKBG);
         CFRetainAssign(oldRingRKBG, acctRKBG);
     }
+    CFReleaseNull(acctRKBG);
 }

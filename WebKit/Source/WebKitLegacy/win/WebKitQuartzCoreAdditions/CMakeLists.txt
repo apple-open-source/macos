@@ -41,8 +41,6 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/API/WKCACFImageInternal.h DESTINATION ${DE
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/API/WKCACFView.h DESTINATION ${DERIVED_SOURCES_DIR}/WebKitQuartzCoreAdditions)
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/API/WKCACFViewPrivate.h DESTINATION ${DERIVED_SOURCES_DIR}/WebKitQuartzCoreAdditions)
 
-WEBKIT_ADD_PRECOMPILED_HEADER("WebKitQuartzCoreAdditionsPrefix.h" "WebKitQuartzCoreAdditionsPrefix.cpp" WebKitQuartzCoreAdditions_SOURCES)
-
 include_directories(
     .
     "${DERIVED_SOURCES_DIR}/ForwardingHeaders"
@@ -53,9 +51,11 @@ include_directories(
 add_library(WebKitQuartzCoreAdditions SHARED ${WebKitQuartzCoreAdditions_SOURCES})
 set_target_properties(WebKitQuartzCoreAdditions PROPERTIES OUTPUT_NAME WebKitQuartzCoreAdditions${DEBUG_SUFFIX})
 target_link_libraries(WebKitQuartzCoreAdditions
+    Apple::CoreFoundation
+    Apple::CoreGraphics
+    Apple::QuartzCore
     D3d9
     WebKit::WTF
-    CoreFoundation${DEBUG_SUFFIX}
-    CoreGraphics${DEBUG_SUFFIX}
-    QuartzCore${DEBUG_SUFFIX}
 )
+
+target_precompile_headers(WebKitQuartzCoreAdditions PRIVATE WebKitQuartzCoreAdditionsPrefix.h)

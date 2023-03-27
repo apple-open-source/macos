@@ -1,3 +1,5 @@
+## vim:ft=zsh
+#
 # A collection of vcs_info usage examples
 
 ### Running vcs_info #########################################################
@@ -55,7 +57,7 @@ precmd() {
     # is (as with the other examples above too) just an example of a very
     # basic single-line prompt. See "man zshmisc" for details on how to
     # make this less readable. :-)
-    if [[ -n ${vcs_info_msg_0_} ]]; then
+    if [[ -z ${vcs_info_msg_0_} ]]; then
         # Oh hey, nothing from vcs_info, so we got more space.
         # Let's print a longer part of $PWD...
         PS1="%5~%# "
@@ -138,7 +140,7 @@ zstyle ':vcs_info:git*' formats "(%s)-[%12.12i %b]-" # hash & branch
 ### Fetch the full 40-character Mercurial revision id
 # There is no great way to obtain branch, local rev, and untracked changes in
 # addition to the full 40-character global rev id with a single invocation of
-# Mercurial. This hook obtains the full global rev id using hexdump (in the
+# Mercurial. This hook obtains the full global rev id using xxd(1) (in the
 # same way the use-simple flag does) while retaining all the other vcs_info
 # default functionality and information.
 zstyle ':vcs_info:hg*+set-message:*' hooks hg-fullglobalrev
@@ -146,7 +148,7 @@ zstyle ':vcs_info:hg*+set-message:*' hooks hg-fullglobalrev
 # Output the full 40-char global rev id
 function +vi-hg-fullglobalrev() {
     local dirstatefile="${hook_com[base]}/.hg/dirstate"
-    local grevid="$(hexdump -n 20 -e '1/1 "%02x"' ${dirstatefile})"
+    local grevid="$(xxd -p -l 20 < ${dirstatefile})"
     # Omit %h from your hgrevformat since it will be included below
     hook_com[revision]="${hook_com[revision]} ${grevid}"
 }
@@ -160,7 +162,7 @@ zstyle ':vcs_info:git*+set-message:*' hooks git-untracked
 
 +vi-git-untracked(){
     if [[ $(git rev-parse --is-inside-work-tree 2> /dev/null) == 'true' ]] && \
-        git status --porcelain | grep '??' &> /dev/null ; then
+        git status --porcelain | grep -q '^?? ' 2> /dev/null ; then
         # This will show the marker if there are any untracked files in repo.
         # If instead you want to show the marker only if there are untracked
         # files in $PWD, use:
@@ -179,14 +181,17 @@ function +vi-git-st() {
     local ahead behind
     local -a gitstatus
 
-    # for git prior to 1.7
-    # ahead=$(git rev-list origin/${hook_com[branch]}..HEAD | wc -l)
-    ahead=$(git rev-list ${hook_com[branch]}@{upstream}..HEAD 2>/dev/null | wc -l)
-    (( $ahead )) && gitstatus+=( "+${ahead}" )
+    # Exit early in case the worktree is on a detached HEAD
+    git rev-parse ${hook_com[branch]}@{upstream} >/dev/null 2>&1 || return 0
 
-    # for git prior to 1.7
-    # behind=$(git rev-list HEAD..origin/${hook_com[branch]} | wc -l)
-    behind=$(git rev-list HEAD..${hook_com[branch]}@{upstream} 2>/dev/null | wc -l)
+    local -a ahead_and_behind=(
+        $(git rev-list --left-right --count HEAD...${hook_com[branch]}@{upstream} 2>/dev/null)
+    )
+
+    ahead=${ahead_and_behind[1]}
+    behind=${ahead_and_behind[2]}
+
+    (( $ahead )) && gitstatus+=( "+${ahead}" )
     (( $behind )) && gitstatus+=( "-${behind}" )
 
     hook_com[misc]+=${(j:/:)gitstatus}
@@ -280,6 +285,54 @@ function +vi-hg-branchhead() {
         fi
     fi
 }
+
+
+### Show information about patch series
+# This is used with with hg mq, quilt, and git rebases and conflicts.
+#
+# All these cases have a notion of a "series of patches/commits" that is being
+# applied.  The following shows the information about the most recent patch to
+# have been applied:
+zstyle ':vcs_info:*+gen-applied-string:*' hooks gen-applied-string
+function +vi-gen-applied-string() {
+  # Separate the patch id from the patch log message.
+  if [[ $1 == *\ * ]]; then
+    local patch_name_or_filename="${1%% *}"
+    local patch_description="${1#* }"
+  else
+    local patch_name_or_filename="$1"
+    local patch_description=""
+  fi
+
+  # Apply escaping; see `Oddities' in the manual.
+  patch_name_or_filename=${patch_name_or_filename//'%'/%%}
+  patch_description=${patch_description//'%'/%%}
+
+  # Apply different colouring to the patch description.
+  if [[ -n ${patch_description} ]]; then
+    patch_description="%F{yellow}${patch_description}%f"
+  fi
+
+  # Re-assemble $1, escaped and coloured.
+  hook_com[applied-string]="${patch_name_or_filename} ${patch_description}"
+  ret=1
+}
+# The value of hook_com[applied-string] is incorporated into the %m expando
+# (see the 'patch-format' style for details), which is not included in the
+# 'formats' and 'actionformats' style by default, so to actually use this,
+# you'll need to add %m (or %Q under quilt in add-on mode) to your 'formats'
+# and 'actionformats' styles, as in:
+# 
+#     zstyle ':vcs_info:*' actionformats ' (%s)-[%b|%a]%u%c- %m'
+#     zstyle ':vcs_info:*' formats ' (%s)-[%b]%u%c- %m'
+# 
+# Or you could add it as a new word, as in:
+#
+#     zstyle ':vcs_info:*' actionformats ' (%s)-[%b|%a]%u%c-' '%m'
+#     zstyle ':vcs_info:*' formats ' (%s)-[%b]%u%c-' '%m'
+#
+# In the latter case, you will need to arrange to print ${vcs_info_msg_1_} in
+# addition to ${vcs_info_msg_0_}; see the top of this file for details.
 
 
 ### Run vcs_info selectively to increase speed in large repos ################
@@ -543,6 +596,9 @@ function +vi-set-quilt-patches() {
 
 # This would take care of all the dedicated-patches-directory-in-${HOME}
 # from earlier examples, too.
+
+# Finally, the "Show information about patch series" example above this section
+# may also be useful.
 
 
 ### Using vcs_info from CVS ##################################################

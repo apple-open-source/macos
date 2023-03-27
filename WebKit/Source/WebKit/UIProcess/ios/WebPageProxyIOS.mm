@@ -35,6 +35,7 @@
 #import "Connection.h"
 #import "DataReference.h"
 #import "DocumentEditingContext.h"
+#import "DrawingAreaProxy.h"
 #import "EditingRange.h"
 #import "GlobalFindInPageState.h"
 #import "InteractionInformationAtPosition.h"
@@ -44,8 +45,7 @@
 #import "PageClient.h"
 #import "PaymentAuthorizationViewController.h"
 #import "PrintInfo.h"
-#import "RemoteLayerTreeDrawingAreaProxy.h"
-#import "RemoteLayerTreeDrawingAreaProxyMessages.h"
+#import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeTransaction.h"
 #import "RemoteScrollingCoordinatorProxy.h"
 #import "RevealItem.h"
@@ -84,6 +84,10 @@
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, process().connection())
 
 #define WEBPAGEPROXY_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageProxyID=%llu, webPageID=%llu, PID=%i] WebPageProxy::" fmt, this, m_identifier.toUInt64(), m_webPageID.toUInt64(), m_process->processIdentifier(), ##__VA_ARGS__)
+
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+static constexpr CGFloat kTargetFullscreenAspectRatio = 1.7778;
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -336,36 +340,6 @@ void WebPageProxy::setOverrideViewportArguments(const std::optional<ViewportArgu
         m_process->send(Messages::WebPage::SetOverrideViewportArguments(viewportArguments), m_webPageID);
 }
 
-static bool exceedsRenderTreeSizeSizeThreshold(uint64_t thresholdSize, uint64_t committedSize)
-{
-    const double thesholdSizeFraction = 0.5; // Empirically-derived.
-    return committedSize > thresholdSize * thesholdSizeFraction;
-}
-
-void WebPageProxy::didCommitLayerTree(const WebKit::RemoteLayerTreeTransaction& layerTreeTransaction)
-{
-    themeColorChanged(layerTreeTransaction.themeColor());
-    pageExtendedBackgroundColorDidChange(layerTreeTransaction.pageExtendedBackgroundColor());
-    sampledPageTopColorChanged(layerTreeTransaction.sampledPageTopColor());
-
-    if (!m_hasUpdatedRenderingAfterDidCommitLoad) {
-        if (layerTreeTransaction.transactionID() >= m_firstLayerTreeTransactionIdAfterDidCommitLoad) {
-            m_hasUpdatedRenderingAfterDidCommitLoad = true;
-            stopMakingViewBlankDueToLackOfRenderingUpdateIfNecessary();
-            m_lastVisibleContentRectUpdate = VisibleContentRectUpdateInfo();
-        }
-    }
-
-    pageClient().didCommitLayerTree(layerTreeTransaction);
-
-    // FIXME: Remove this special mechanism and fold it into the transaction's layout milestones.
-    if (m_observedLayoutMilestones.contains(WebCore::ReachedSessionRestorationRenderTreeSizeThreshold) && !m_hitRenderTreeSizeThreshold
-        && exceedsRenderTreeSizeSizeThreshold(m_sessionRestorationRenderTreeSize, layerTreeTransaction.renderTreeSize())) {
-        m_hitRenderTreeSizeThreshold = true;
-        didReachLayoutMilestone(WebCore::ReachedSessionRestorationRenderTreeSizeThreshold);
-    }
-}
-
 bool WebPageProxy::updateLayoutViewportParameters(const WebKit::RemoteLayerTreeTransaction& layerTreeTransaction)
 {
     if (m_baseLayoutViewportSize == layerTreeTransaction.baseLayoutViewportSize()
@@ -380,11 +354,6 @@ bool WebPageProxy::updateLayoutViewportParameters(const WebKit::RemoteLayerTreeT
     LOG_WITH_STREAM(VisibleRects, stream << "WebPageProxy::updateLayoutViewportParameters: baseLayoutViewportSize: " << m_baseLayoutViewportSize << " minStableLayoutViewportOrigin: " << m_minStableLayoutViewportOrigin << " maxStableLayoutViewportOrigin: " << m_maxStableLayoutViewportOrigin);
 
     return true;
-}
-
-void WebPageProxy::layerTreeCommitComplete()
-{
-    pageClient().layerTreeCommitComplete();
 }
 
 void WebPageProxy::selectWithGesture(const WebCore::IntPoint point, GestureType gestureType, GestureRecognizerState gestureState, bool isInteractingWithFocusedElement, CompletionHandler<void(const WebCore::IntPoint&, GestureType, GestureRecognizerState, OptionSet<WebKit::SelectionFlags>)>&& callback)
@@ -457,8 +426,8 @@ void WebPageProxy::applyAutocorrection(const String& correction, const String& o
 
 bool WebPageProxy::applyAutocorrection(const String& correction, const String& originalText)
 {
-    bool autocorrectionApplied = false;
-    m_process->sendSync(Messages::WebPage::SyncApplyAutocorrection(correction, originalText), Messages::WebPage::SyncApplyAutocorrection::Reply(autocorrectionApplied), m_webPageID);
+    auto sendSync = m_process->sendSync(Messages::WebPage::SyncApplyAutocorrection(correction, originalText), m_webPageID);
+    auto [autocorrectionApplied] = sendSync.takeReplyOr(false);
     return autocorrectionApplied;
 }
 
@@ -575,7 +544,7 @@ void WebPageProxy::getSelectionContext(CompletionHandler<void(const String&, con
     sendWithAsyncReply(Messages::WebPage::GetSelectionContext(), WTFMove(callbackFunction));
 }
 
-void WebPageProxy::handleTwoFingerTapAtPoint(const WebCore::IntPoint& point, OptionSet<WebEvent::Modifier> modifiers, WebKit::TapIdentifier requestID)
+void WebPageProxy::handleTwoFingerTapAtPoint(const WebCore::IntPoint& point, OptionSet<WebEventModifier> modifiers, WebKit::TapIdentifier requestID)
 {
     send(Messages::WebPage::HandleTwoFingerTapAtPoint(point, modifiers, requestID));
 }
@@ -776,7 +745,7 @@ void WebPageProxy::moveSelectionByOffset(int32_t offset, CompletionHandler<void(
 
 void WebPageProxy::interpretKeyEvent(const EditorState& state, bool isCharEvent, CompletionHandler<void(bool)>&& completionHandler)
 {
-    m_editorState = state;
+    updateEditorState(state);
     if (m_keyEventQueue.isEmpty())
         completionHandler(false);
     else
@@ -834,7 +803,7 @@ void WebPageProxy::potentialTapAtPosition(const WebCore::FloatPoint& position, b
     send(Messages::WebPage::PotentialTapAtPosition(requestID, position, shouldRequestMagnificationInformation));
 }
 
-void WebPageProxy::commitPotentialTap(OptionSet<WebEvent::Modifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart, WebCore::PointerID pointerId)
+void WebPageProxy::commitPotentialTap(OptionSet<WebEventModifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart, WebCore::PointerID pointerId)
 {
     send(Messages::WebPage::CommitPotentialTap(modifiers, layerTreeTransactionIdAtLastTouchStart, pointerId));
 }
@@ -849,7 +818,7 @@ void WebPageProxy::tapHighlightAtPosition(const WebCore::FloatPoint& position, W
     send(Messages::WebPage::TapHighlightAtPosition(requestID, position));
 }
 
-void WebPageProxy::attemptSyntheticClick(const FloatPoint& location, OptionSet<WebEvent::Modifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart)
+void WebPageProxy::attemptSyntheticClick(const FloatPoint& location, OptionSet<WebEventModifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart)
 {
     send(Messages::WebPage::AttemptSyntheticClick(roundedIntPoint(location), modifiers, layerTreeTransactionIdAtLastTouchStart));
 }
@@ -859,7 +828,7 @@ void WebPageProxy::didRecognizeLongPress()
     send(Messages::WebPage::DidRecognizeLongPress());
 }
 
-void WebPageProxy::handleDoubleTapForDoubleClickAtPoint(const WebCore::IntPoint& point, OptionSet<WebEvent::Modifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart)
+void WebPageProxy::handleDoubleTapForDoubleClickAtPoint(const WebCore::IntPoint& point, OptionSet<WebEventModifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart)
 {
     send(Messages::WebPage::HandleDoubleTapForDoubleClickAtPoint(point, modifiers, layerTreeTransactionIdAtLastTouchStart));
 }
@@ -891,6 +860,13 @@ FloatSize WebPageProxy::availableScreenSize()
 
 FloatSize WebPageProxy::overrideScreenSize()
 {
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+    // Report screen dimensions based on fullscreen preferences.
+    CGFloat preferredWidth = m_preferences->mediaPreferredFullscreenWidth();
+    CGFloat preferredHeight = preferredWidth / kTargetFullscreenAspectRatio;
+    return FloatSize(CGSizeMake(preferredWidth, preferredHeight));
+#endif
+
     return WebCore::overrideScreenSize();
 }
 
@@ -906,11 +882,13 @@ void WebPageProxy::couldNotRestorePageState()
 
 void WebPageProxy::restorePageState(std::optional<WebCore::FloatPoint> scrollPosition, const WebCore::FloatPoint& scrollOrigin, const WebCore::FloatBoxExtent& obscuredInsetsOnSave, double scale)
 {
+    MESSAGE_CHECK(scale > 0);
     pageClient().restorePageState(scrollPosition, scrollOrigin, obscuredInsetsOnSave, scale);
 }
 
 void WebPageProxy::restorePageCenterAndScale(std::optional<WebCore::FloatPoint> center, double scale)
 {
+    MESSAGE_CHECK(scale > 0);
     pageClient().restorePageCenterAndScale(center, scale);
 }
 
@@ -1070,16 +1048,16 @@ size_t WebPageProxy::computePagesForPrintingiOS(FrameIdentifier frameID, const P
     if (!hasRunningProcess())
         return 0;
 
-    size_t pageCount = 0;
-    sendSync(Messages::WebPage::ComputePagesForPrintingiOS(frameID, printInfo), Messages::WebPage::ComputePagesForPrintingiOS::Reply(pageCount), Seconds::infinity());
+    auto sendResult = sendSync(Messages::WebPage::ComputePagesForPrintingiOS(frameID, printInfo), Seconds::infinity());
+    auto [pageCount] = sendResult.takeReplyOr(0);
     return pageCount;
 }
 
-uint64_t WebPageProxy::drawToPDFiOS(FrameIdentifier frameID, const PrintInfo& printInfo, size_t pageCount, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
+IPC::Connection::AsyncReplyID WebPageProxy::drawToPDFiOS(FrameIdentifier frameID, const PrintInfo& printInfo, size_t pageCount, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
 {
     if (!hasRunningProcess()) {
         completionHandler({ });
-        return 0;
+        return { };
     }
 
     return sendWithAsyncReply(Messages::WebPage::DrawToPDFiOS(frameID, printInfo, pageCount), WTFMove(completionHandler));
@@ -1117,7 +1095,7 @@ void WebPageProxy::didUpdateEditorState(const EditorState& oldEditorState, const
 
 void WebPageProxy::dispatchDidUpdateEditorState()
 {
-    if (!m_waitingForPostLayoutEditorStateUpdateAfterFocusingElement || m_editorState.isMissingPostLayoutData)
+    if (!m_waitingForPostLayoutEditorStateUpdateAfterFocusingElement || !m_editorState.hasPostLayoutData())
         return;
 
     pageClient().didUpdateEditorState();
@@ -1176,16 +1154,16 @@ WebCore::FloatRect WebPageProxy::selectionBoundingRectInRootViewCoordinates() co
     if (m_editorState.selectionIsNone)
         return { };
 
-    if (m_editorState.isMissingPostLayoutData)
+    if (!m_editorState.hasVisualData())
         return { };
 
     WebCore::FloatRect bounds;
-    auto& postLayoutData = m_editorState.postLayoutData();
+    auto& visualData = *m_editorState.visualData;
     if (m_editorState.selectionIsRange) {
-        for (auto& geometry : postLayoutData.selectionGeometries)
+        for (auto& geometry : visualData.selectionGeometries)
             bounds.unite(geometry.rect());
     } else
-        bounds = postLayoutData.caretRectAtStart;
+        bounds = visualData.caretRectAtStart;
 
     return bounds;
 }
@@ -1637,6 +1615,21 @@ Color WebPageProxy::platformUnderPageBackgroundColor() const
         return contentViewBackgroundColor;
 
     return WebCore::Color::white;
+}
+
+void WebPageProxy::statusBarWasTapped()
+{
+#if PLATFORM(IOS)
+    RELEASE_LOG_INFO(WebRTC, "WebPageProxy::statusBarWasTapped");
+
+#if USE(APPLE_INTERNAL_SDK)
+    UIApplication *app = UIApplication.sharedApplication;
+    if (!app.supportsMultipleScenes && app.applicationState != UIApplicationStateActive)
+        [[LSApplicationWorkspace defaultWorkspace] openApplicationWithBundleID:[[NSBundle mainBundle] bundleIdentifier]];
+#endif
+
+    m_uiClient->statusBarWasTapped();
+#endif
 }
 
 } // namespace WebKit

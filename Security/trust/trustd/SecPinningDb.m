@@ -168,6 +168,8 @@ static inline bool isNSDictionary(id nsType) {
         if (!db_version || [new_version compare:db_version] == NSOrderedDescending) {
             newer = YES;
             secnotice("pinningDb", "Pinning database should update from version %@ to version %@", db_version, new_version);
+        } else {
+            secinfo("pinningDb", "Pinning database should not update from version %@ to version %@", db_version, new_version);
         }
     });
 
@@ -619,7 +621,7 @@ static inline bool isNSDictionary(id nsType) {
             NSMutableString *policySpecificKey = [NSMutableString stringWithString:@"AppleServerAuthenticationNoPinning"];
             [policySpecificKey appendString:policy];
             pinningDisabled = [defaults boolForKey:policySpecificKey];
-            secinfo("pinningQA", "%@ disable pinning = %d", policy, pinningDisabled);
+            secinfo("pinningQA", "%@ disable pinning = %{BOOL}d", policy, pinningDisabled);
         }
     }
 
@@ -632,7 +634,7 @@ static inline bool isNSDictionary(id nsType) {
                 secnotice("pinningQA", "could not disable pinning: not an internal release");
             } else {
                 NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.apple.security"];
-                secnotice("pinningQA", "generic pinning disable = %d", [defaults boolForKey:@"AppleServerAuthenticationNoPinning"]);
+                secnotice("pinningQA", "generic pinning disable = %{BOOL}d", [defaults boolForKey:@"AppleServerAuthenticationNoPinning"]);
             }
         });
     });

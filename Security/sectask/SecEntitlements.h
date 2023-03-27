@@ -55,7 +55,7 @@ __BEGIN_DECLS
 #define kSecEntitlementApplicationIdentifier kSecEntitlementAppleApplicationIdentifier
 #endif
 
-/* Marzipan apps distributed through the App Store cannot share an application
+/* Catalyst apps distributed through the App Store cannot share an application
    identifier with their iOS versions, so they have an associated application
    identifier which matches the iOS identifier. It will be preferred, when
    present, over the 'regular' application identifier. This avoids developers

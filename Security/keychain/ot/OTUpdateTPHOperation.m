@@ -143,6 +143,8 @@
                                              policySecrets:nil
                                  syncUserControllableViews:nil
                                      secureElementIdentity:secureElementIdentity
+                                             walrusSetting:nil
+                                                 webAccess:nil
                                                      reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
         STRONGIFY(self);
         if(error || !peerState) {

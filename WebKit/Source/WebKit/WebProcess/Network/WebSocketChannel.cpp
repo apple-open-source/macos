@@ -34,10 +34,12 @@
 #include <WebCore/Blob.h>
 #include <WebCore/ClientOrigin.h>
 #include <WebCore/Document.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/ExceptionCode.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
+#include <WebCore/NetworkConnectionIntegrity.h>
 #include <WebCore/Page.h>
 #include <WebCore/WebSocketChannel.h>
 #include <WebCore/WebSocketChannelClient.h>
@@ -112,6 +114,14 @@ WebSocketChannel::ConnectStatus WebSocketChannel::connect(const URL& url, const 
     if (!m_document)
         return ConnectStatus::KO;
 
+    if (WebProcess::singleton().webSocketChannelManager().hasReachedSocketLimit()) {
+        auto reason = "Connection failed: Insufficient resources"_s;
+        logErrorMessage(reason);
+        if (m_client)
+            m_client->didReceiveMessageError(String { reason });
+        return ConnectStatus::KO;
+    }
+
     auto request = webSocketConnectRequest(*m_document, url);
     if (!request)
         return ConnectStatus::KO;
@@ -119,15 +129,18 @@ WebSocketChannel::ConnectStatus WebSocketChannel::connect(const URL& url, const 
     if (request->url() != url && m_client)
         m_client->didUpgradeURL();
 
+    OptionSet<NetworkConnectionIntegrity> networkConnectionIntegrityPolicy;
     bool allowPrivacyProxy { true };
     if (auto* frame = m_document ? m_document->frame() : nullptr) {
-        if (auto* mainFrameDocumentLoader = frame->mainFrame().document() ? frame->mainFrame().document()->loader() : nullptr)
+        if (auto* mainFrameDocumentLoader = frame->mainFrame().document() ? frame->mainFrame().document()->loader() : nullptr) {
             allowPrivacyProxy = mainFrameDocumentLoader->allowPrivacyProxy();
+            networkConnectionIntegrityPolicy = mainFrameDocumentLoader->networkConnectionIntegrityPolicy();
+        }
     }
 
     m_inspector.didCreateWebSocket(url);
     m_url = request->url();
-    MessageSender::send(Messages::NetworkConnectionToWebProcess::CreateSocketChannel { *request, protocol, m_identifier, m_webPageProxyID, m_document->clientOrigin(), WebProcess::singleton().hadMainFrameMainResourcePrivateRelayed(), allowPrivacyProxy });
+    MessageSender::send(Messages::NetworkConnectionToWebProcess::CreateSocketChannel { *request, protocol, m_identifier, m_webPageProxyID, m_document->clientOrigin(), WebProcess::singleton().hadMainFrameMainResourcePrivateRelayed(), allowPrivacyProxy, networkConnectionIntegrityPolicy });
     return ConnectStatus::OK;
 }
 

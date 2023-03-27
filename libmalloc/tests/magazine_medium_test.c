@@ -6,6 +6,9 @@
 //
 
 #include <darwintest.h>
+#include "../src/internal.h"
+
+#if CONFIG_MEDIUM_ALLOCATOR
 
 #include "../src/magazine_medium.c"
 #include "magazine_testing.h"
@@ -225,3 +228,13 @@ T_DECL(medium_free_deallocate, "check medium regions deallocate when empty",
 	T_ASSERT_EQ(depot->mag_num_objects, 0, "no objects in depot after last free");
 	T_ASSERT_EQ(depot->num_bytes_in_magazine, 0ul, "no region in depot after last free");
 }
+
+#else // CONFIG_MEDIUM_ALLOCATOR
+
+// binaries are required to contain at least 1 test
+T_DECL(medium_test_skip, "skip medium tests")
+{
+	T_SKIP("MallocMedium not compiled on this platform");
+}
+
+#endif // CONFIG_MEDIUM_ALLOCATOR

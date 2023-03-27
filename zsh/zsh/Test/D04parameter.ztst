@@ -1398,6 +1398,13 @@
 >a6 a17 a117 b6 b17 b117
 >b117 b17 b6 a117 a17 a6
 
+  foo=(a-6 a117 a-17 a-34 b6 b-117 b17 b-2)
+  print ${(-)foo}
+  print ${(O-)foo}
+0:Numeric sorting of signed integers
+>a-34 a-17 a-6 a117 b-117 b-2 b6 b17
+>b17 b6 b-2 b-117 a117 a-6 a-17 a-34
+
   x=sprodj
   x[-10]=scrumf
   print $x
@@ -1615,6 +1622,8 @@
    print ${foo: -1}
    print ${foo: -10}
    print ${foo:5:-2}
+   print ${foo::3}
+   print ${foo: }
 0:Bash-style offsets, scalar
 >456789
 >56789
@@ -1627,6 +1636,8 @@
 >9
 >123456789
 >67
+>123
+>123456789
 
    foo=(1 2 3 4 5 6 7 8 9)
    print ${foo:3}
@@ -1682,14 +1693,48 @@
 >b
 >c
 
+   () {
+     emulate -L sh
+     local a=( one two three )
+     printf '<%s><%s>\n' ${a[*]:0:2}
+     printf '<%s><%s>\n' "${a[*]:0:2}"
+     printf '<%s><%s>\n' ${a[@]:0:2}
+     printf '<%s><%s>\n' "${a[@]:0:2}"
+     printf '<%s><%s>\n' "${a:0:2}"
+     printf '<%s><%s>\n' ${*:1:2}
+     printf '<%s><%s>\n' "${*:1:2}"
+     printf '<%s><%s>\n' ${@:1:2}
+     printf '<%s><%s>\n' "${@:1:2}"
+     printf '<%s><%s>\n' ${*:0:2}
+     printf '<%s><%s>\n' "${*:0:2}"
+     printf '<%s><%s>\n' ${@:0:2}
+     printf '<%s><%s>\n' "${@:0:2}"
+   } one two three
+0:Bash-style offsets, quoted array
+><one><two>
+><one two><>
+><one><two>
+><one><two>
+><on><>
+><one><two>
+><one two><>
+><one><two>
+><one><two>
+><(anon)><one>
+><(anon) one><>
+><(anon)><one>
+><(anon)><one>
+
    printf "%n" '[0]'
 1:Regression test for identifier test
 ?(eval):1: not an identifier: [0]
 
    str=rts
+   print ${str:0: }
    print ${str:0:}
 1:Regression test for missing length after offset
-?(eval):2: unrecognized modifier
+>
+?(eval):3: unrecognized modifier
 
    foo="123456789"
    print ${foo:5:-6}
@@ -2650,3 +2695,35 @@ F:behavior, see http://austingroupbugs.net/view.php?id=888
 >1: pws
 >3: pw
 >4: pw
+
+ : "${foo:0:${\"}}"
+1:broken length in ${name:offset:length} (workers/45843#1)
+?(eval):1: unrecognized modifier `$'
+
+ $ZTST_testdir/../Src/zsh -fc $'$\\\n('
+1:regression test for workers/45843#2: escaped newline in command substitution start token
+?zsh:2: parse error near `$('
+
+# `
+
+ eval $'echo $\\\n(printf "%d\\n" $(( 4 + 2 )) )'
+0:Normal command substitution with escaped newline
+>6
+
+ eval $'echo $\\\n(( 14 / 2 ))'
+0:Normal math eval with escaped newline after $
+>7
+
+ eval $'echo $(\\\n( 15 / 3 ))'
+0:Normal math eval with escaped newline after $(
+>5
+
+  function '*' { echo What a star; }
+  eval 'echo $(\*)'
+0:Backslash character other than newline is normal after $(
+>What a star
+
+ : ${(zZ+x+):-}
+1:parameter expansion flags parsing error gives a clue
+?(eval):1: error in flags near position 7 in '${(zZ+x+):-}'
+

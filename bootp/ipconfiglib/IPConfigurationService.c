@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -83,6 +83,8 @@ STATIC const CFStringRef kSCPropNetIPv6LinkLocalAddress = CFSTR("LinkLocalAddres
 #define kSCPropNetIPv6LinkLocalAddress	kSCPropNetIPv6LinkLocalAddress
 #endif /* kSCPropNetIPv6LinkLocalAddress */
 
+const CFStringRef
+kIPConfigurationServiceOptionClearState = _kIPConfigurationServiceOptionClearState;
 
 /**
  ** ObjectWrapper
@@ -333,6 +335,7 @@ typedef struct {
     CFBooleanRef 		no_publish;
     CFNumberRef 		mtu;
     CFStringRef			apn_name;
+    CFBooleanRef		clear_state;
     Boolean			is_ipv6;
     union {
 	IPv4Config		v4;
@@ -468,6 +471,7 @@ config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
 #define N_KEYS_VALUES	9
     int			count;
     CFDictionaryRef	config_dict;
+    CFBooleanRef	clear_state;
     CFDictionaryRef 	proto_dict;
     CFStringRef 	proto_key;
     const void *	keys[N_KEYS_VALUES];
@@ -506,8 +510,13 @@ config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
 
     /* 4 */
     /* clear state */
+    clear_state = params->clear_state;
+    if (clear_state == NULL) {
+	/* default is to clear state */
+	clear_state = kCFBooleanTrue;
+    }
     keys[count] = _kIPConfigurationServiceOptionClearState;
-    values[count] = kCFBooleanTrue;
+    values[count] = clear_state;
     count++;
 
     /* 5 */
@@ -896,13 +905,13 @@ remove_clear_state(IPConfigurationServiceRef service)
 				   kIPConfigurationServiceOptions);
     if (options != NULL
 	&& CFDictionaryContainsKey(options,
-				   _kIPConfigurationServiceOptionClearState)) {
+				   kIPConfigurationServiceOptionClearState)) {
 	CFMutableDictionaryRef	config_dict;
 	CFMutableDictionaryRef	new_options;
 
 	new_options = CFDictionaryCreateMutableCopy(NULL, 0, options);
 	CFDictionaryRemoveValue(new_options,
-				_kIPConfigurationServiceOptionClearState);
+				kIPConfigurationServiceOptionClearState);
 	config_dict
 	     = CFDictionaryCreateMutableCopy(NULL, 0, service->config_dict);
 	CFDictionarySetValue(config_dict,
@@ -1074,6 +1083,15 @@ IPConfigurationServiceCreateInternal(CFStringRef interface_name,
 	    && isA_CFString(params.apn_name) == NULL) {
 	    IPConfigLogFL(LOG_NOTICE, "invalid '%@' option",
 			  kIPConfigurationServiceOptionAPNName);
+	    goto done;
+	}
+	params.clear_state
+	    = CFDictionaryGetValue(options,
+				   kIPConfigurationServiceOptionClearState);
+	if (params.clear_state != NULL
+	    && isA_CFBoolean(params.clear_state) == NULL) {
+	    IPConfigLogFL(LOG_NOTICE, "invalid '%@' option",
+			  kIPConfigurationServiceOptionClearState);
 	    goto done;
 	}
 

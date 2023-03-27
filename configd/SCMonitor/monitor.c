@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2018, 2020, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -566,7 +566,7 @@ notify_configure(MyType *myInstance)
 #pragma mark -
 
 static Boolean
-onConsole()
+onConsole(void)
 {
 	CFArrayRef		console_sessions;
 	Boolean			on		= FALSE;

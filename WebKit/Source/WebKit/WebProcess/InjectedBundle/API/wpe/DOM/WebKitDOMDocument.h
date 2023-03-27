@@ -17,7 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#if !defined(__WEBKITDOM_H_INSIDE__) && !defined(WEBKIT2_COMPILATION)
+#if !defined(__WEBKITDOM_H_INSIDE__) && !defined(BUILDING_WEBKIT)
 #error "Only <wpe/webkitdom.h> can be included directly."
 #endif
 
@@ -48,7 +48,7 @@ struct _WebKitDOMDocumentClass {
     WebKitDOMNodeClass parent_class;
 };
 
-WEBKIT_API GType
+WEBKIT_DEPRECATED GType
 webkit_dom_document_get_type(void);
 
 G_END_DECLS

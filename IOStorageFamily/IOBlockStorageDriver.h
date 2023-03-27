@@ -349,7 +349,6 @@ protected:
         UInt64         reserved0000;
         UInt64         maxReadBlockTransfer;
         UInt64         maxWriteBlockTransfer;
-        IONotifier *   powerEventNotifier;
         UInt32         deblockRequestWriteLockCount;
         UInt64         maxReadSegmentTransfer;
         UInt64         maxWriteSegmentTransfer;
@@ -370,8 +369,6 @@ protected:
               IOBlockStorageDriver::_expansionData->maxReadBlockTransfer
     #define _maxWriteBlockTransfer           \
               IOBlockStorageDriver::_expansionData->maxWriteBlockTransfer
-    #define _powerEventNotifier              \
-              IOBlockStorageDriver::_expansionData->powerEventNotifier
     #define _deblockRequestWriteLockCount    \
               IOBlockStorageDriver::_expansionData->deblockRequestWriteLockCount
     #define _maxReadSegmentTransfer          \
@@ -1111,6 +1108,8 @@ public:
 
     virtual IOBlockStorageDevice * getProvider() const APPLE_KEXT_OVERRIDE;
 
+    virtual void systemWillShutdown(IOOptionBits inOptions) APPLE_KEXT_OVERRIDE;
+    
 protected:
 
     IOLock *      _deblockRequestWriteLock;

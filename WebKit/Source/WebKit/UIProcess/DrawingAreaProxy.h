@@ -29,7 +29,6 @@
 #include "DrawingAreaInfo.h"
 #include "GenericCallback.h"
 #include "MessageReceiver.h"
-#include "MessageSender.h"
 #include <WebCore/FloatRect.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/IntSize.h>
@@ -44,6 +43,12 @@ class MachSendRight;
 }
 #endif
 
+namespace WebCore {
+enum class DelegatedScrollingMode : uint8_t;
+using FramesPerSecond = unsigned;
+using PlatformDisplayID = uint32_t;
+}
+
 namespace WebKit {
 
 class LayerTreeContext;
@@ -54,7 +59,7 @@ class WebProcessProxy;
 class UpdateInfo;
 #endif
 
-class DrawingAreaProxy : public IPC::MessageReceiver, protected IPC::MessageSender {
+class DrawingAreaProxy : public IPC::MessageReceiver {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(DrawingAreaProxy);
 
@@ -64,9 +69,14 @@ public:
     DrawingAreaType type() const { return m_type; }
     DrawingAreaIdentifier identifier() const { return m_identifier; }
 
-    void startReceivingMessages();
+    void startReceivingMessages(WebProcessProxy&);
+    virtual void attachToProvisionalFrameProcess(WebProcessProxy&) = 0;
+
+    virtual WebCore::DelegatedScrollingMode delegatedScrollingMode() const;
 
     virtual void deviceScaleFactorDidChange() = 0;
+    virtual void colorSpaceDidChange() { }
+    virtual void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<WebCore::FramesPerSecond> /* nominalFramesPerSecond */) { }
 
     // FIXME: These should be pure virtual.
     virtual void setBackingStoreIsDiscardable(bool) { }
@@ -82,7 +92,6 @@ public:
     virtual void targetRefreshRateDidChange(unsigned) { }
 #endif
 
-    virtual void colorSpaceDidChange() { }
     virtual void minimumSizeForAutoLayoutDidChange() { }
     virtual void sizeToContentAutoSizeMaximumSizeDidChange() { }
     virtual void windowKindDidChange() { }
@@ -97,7 +106,7 @@ public:
 
     virtual void updateDebugIndicator() { }
 
-    virtual void waitForDidUpdateActivityState(ActivityStateChangeID) { }
+    virtual void waitForDidUpdateActivityState(ActivityStateChangeID, WebProcessProxy&) { }
     
     virtual void dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&&) { ASSERT_NOT_REACHED(); }
 
@@ -119,17 +128,18 @@ public:
 
     virtual void dispatchPresentationCallbacksAfterFlushingLayers(const Vector<CallbackID>&) { }
 
+    virtual bool shouldCoalesceVisualEditorStateUpdates() const { return false; }
+    virtual bool shouldSendWheelEventsToEventDispatcher() const { return false; }
+
     WebPageProxy& page() const { return m_webPageProxy; }
-    WebProcessProxy& process() { return m_process.get(); }
-    const WebProcessProxy& process() const { return m_process.get(); }
 
 protected:
-    DrawingAreaProxy(DrawingAreaType, WebPageProxy&, WebProcessProxy&);
+    DrawingAreaProxy(DrawingAreaType, WebPageProxy&);
 
     DrawingAreaType m_type;
     DrawingAreaIdentifier m_identifier;
     WebPageProxy& m_webPageProxy;
-    Ref<WebProcessProxy> m_process;
+    Vector<Ref<WebProcessProxy>> m_processesWithRegisteredDrawingAreaProxyMessageReceiver;
 
     WebCore::IntSize m_size;
     WebCore::IntSize m_scrollOffset;
@@ -140,10 +150,6 @@ protected:
 private:
     virtual void sizeDidChange() = 0;
 
-    IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final { return m_identifier.toUInt64(); }
-    bool sendMessage(UniqueRef<IPC::Encoder>&&, OptionSet<IPC::SendOption>, std::optional<std::pair<CompletionHandler<void(IPC::Decoder*)>, uint64_t>>&&) final;
-
     // Message handlers.
     // FIXME: These should be pure virtual.
     virtual void enterAcceleratedCompositingMode(uint64_t /* backingStoreStateID */, const LayerTreeContext&) { }
@@ -153,7 +159,7 @@ private:
     virtual void didUpdateGeometry() { }
 
 #if PLATFORM(MAC)
-    RunLoop::Timer<DrawingAreaProxy> m_viewExposedRectChangedTimer;
+    RunLoop::Timer m_viewExposedRectChangedTimer;
     std::optional<WebCore::FloatRect> m_lastSentViewExposedRect;
 #endif // PLATFORM(MAC)
 #endif
@@ -163,7 +169,6 @@ private:
     virtual void didUpdateBackingStoreState(uint64_t /* backingStoreStateID */, const UpdateInfo&, const LayerTreeContext&) { }
     virtual void exitAcceleratedCompositingMode(uint64_t /* backingStoreStateID */, const UpdateInfo&) { }
 #endif
-    bool m_startedReceivingMessages { false };
 };
 
 } // namespace WebKit

@@ -19,6 +19,7 @@
 #import <libaks_filevault.h>
 #import "authutilities.h"
 #import <os/boot_mode_private.h>
+#import <sys/sysctl.h>
 
 AUTHD_DEFINE_LOG
 
@@ -60,12 +61,14 @@ static NSString *const globalConfigPath = @"%@/%@/Library/Preferences";
 static NSString *const managedConfigPath = @"%@/%@/Library/Managed Preferences";
 static NSString *const homeDirPath = @"%@/%@/Users";
 
-static NSString *const fvunlockOverrideScEnforcementPrefsName = @"com.apple.smartcard.fvunlock";
-static NSString *const fvunlockOverrideScEnforcementFileName = @"%@/%@/var/db/.scnotenforced";
+static NSString *const kFvunlockOverrideScEnforcementPrefsName = @"com.apple.smartcard.fvunlock";
+static NSString *const kFvunlockOverrideScEnforcementFileName = @"%@/%@/var/db/.scnotenforced";
+static NSString *const kFvunlockResetDbFileName = @"%@/%@/var/db/.authdbreset";
 
 @interface PreloginUserDb : NSObject {
     Boolean scEnforcementOverridden;
 }
+@property (readonly) Boolean resetDb;
 
 - (instancetype)init;
 
@@ -97,6 +100,37 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     NSMutableDictionary<NSString *, NSString *> *_dbVolumeGroupMap;
 	dispatch_queue_t _queue;
     NSArray *_systemVolumePreboots;
+}
+
++(NSString *)systemVolumeUuid
+{
+    static char sysVolumeUuid[128]; // should be more than enough, 36 is typical length today
+    static char *result = NULL;
+    
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        size_t bufferSize;
+        OSStatus status = sysctlbyname("kern.bootuuid", NULL, &bufferSize, NULL, 0);
+        if (status != noErr) {
+            os_log_error(AUTHD_LOG, "Unable to get system volume len: %d", (int)status);
+            return;
+        }
+        
+        if (bufferSize > sizeof(sysVolumeUuid)) {
+            os_log_error(AUTHD_LOG, "Buffer size %d is too big", (int)bufferSize);
+            return;
+        }
+
+        status = sysctlbyname("kern.bootuuid", sysVolumeUuid, &bufferSize, NULL, 0);
+        if (status != noErr) {
+            os_log_error(AUTHD_LOG, "Unable to get system volume UUID: %d", (int)status);
+            return;
+        }
+        os_log_debug(AUTHD_LOG, "System volume UUID: %{public}s", sysVolumeUuid);
+        result = sysVolumeUuid;
+    });
+    
+    return [NSString stringWithUTF8String:result];
 }
 
 - (instancetype)init
@@ -319,7 +353,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         }
         os_log_info(AUTHD_LOG, "Preboot volume %{public}@ is usable for FVUnlock", volumeUuid);
 
-        NSString *filePath = [NSString stringWithFormat:fvunlockOverrideScEnforcementFileName, mountPoint, volumeUuid.UUIDString];
+        NSString *filePath = [NSString stringWithFormat:kFvunlockOverrideScEnforcementFileName, mountPoint, volumeUuid.UUIDString];
         BOOL overrideFileExists = !access(filePath.UTF8String, F_OK);
 
         switch(operation) {
@@ -835,6 +869,16 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     [self setEnforcedSmartcardOverride:volumeUuid operation:kAuthorizationOverrideOperationQuery status:&scEnforcementOverridden internal:YES];
     os_log_info(AUTHD_LOG, "SC enforcement override: %d", scEnforcementOverridden);
     if (!isInFVUnlockOrRecovery()) {
+    _resetDb = NO;
+        
+        if ([[PreloginUserDb systemVolumeUuid] isEqualToString:volumeUuid.UUIDString]) {
+            NSString *filePath = [NSString stringWithFormat:kFvunlockResetDbFileName, mountPoint, volumeUuid.UUIDString];
+            _resetDb = !access(filePath.UTF8String, F_OK);
+            if (_resetDb) {
+                os_log(AUTHD_LOG, "Authd wants to reset the database");
+                remove(filePath.UTF8String);
+            }
+        }
         
         // remove SCenforcement override flag
         if (scEnforcementOverridden) {
@@ -869,7 +913,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     
     if (scEnforcementOverridden) {
         os_log_info(AUTHD_LOG, "SC enforcement overridden for this boot");
-        global[fvunlockOverrideScEnforcementPrefsName] = @{ @"overrideScEnforcement": @YES };
+        global[kFvunlockOverrideScEnforcementPrefsName] = @{ @"overrideScEnforcement": @YES };
     }
 
     if (global.count) {
@@ -1059,3 +1103,14 @@ OSStatus prelogin_smartcardonly_override(const char *uuid, unsigned char operati
     return [database setEnforcedSmartcardOverride:volumeUuid operation:operation status:status internal:NO];
 }
 
+Boolean prelogin_reset_db_wanted(void)
+{
+    PreloginUserDb *database;
+    OSStatus retval = preloginDb(&database);
+    if (retval) {
+        os_log_error(AUTHD_LOG, "Unable to read db");
+        return retval;
+    }
+    os_log(AUTHD_LOG, "prelogin_reset_db_wanted returns %d", database.resetDb);
+    return database.resetDb;
+}

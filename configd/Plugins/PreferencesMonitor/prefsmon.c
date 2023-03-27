@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010, 2012-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -103,7 +103,7 @@ savePastConfiguration(CFStringRef old_model)
 
 
 static Boolean
-establishNewPreferences()
+establishNewPreferences(void)
 {
 	SCNetworkSetRef	current		= NULL;
 	CFStringRef	new_model;
@@ -203,7 +203,7 @@ establishNewPreferences()
 
 
 static void
-watchSCDynamicStore()
+watchSCDynamicStore(void)
 {
 	CFMutableArrayRef	keys;
 	Boolean			ok;

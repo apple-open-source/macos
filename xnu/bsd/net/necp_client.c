@@ -658,8 +658,7 @@ static LIST_HEAD(_necp_fd_list, necp_fd_data) necp_fd_list;
 static LIST_HEAD(_necp_fd_observer_list, necp_fd_data) necp_fd_observer_list;
 
 #if SKYWALK
-static ZONE_DEFINE(necp_arena_info_zone, "necp.arenainfo",
-    sizeof(struct necp_arena_info), ZC_ZFREE_CLEARMEM);
+static KALLOC_TYPE_DEFINE(necp_arena_info_zone, struct necp_arena_info, NET_KT_DEFAULT);
 #endif /* !SKYWALK */
 
 static LCK_ATTR_DECLARE(necp_fd_mtx_attr, 0, 0);
@@ -6033,16 +6032,17 @@ necp_find_conn_extension_info(nstat_provider_context ctx,
 		}
 		return necp_find_domain_info_common(client, client->parameters, client->parameters_length, NULL, (nstat_domain_info *)buf);
 
-	case NSTAT_EXTENDED_UPDATE_TYPE_NECP_TLV:
+	case NSTAT_EXTENDED_UPDATE_TYPE_NECP_TLV: {
+		size_t parameters_length = client->parameters_length;
 		if (buf == NULL) {
-			return client->parameters_length;
+			return parameters_length;
 		}
-		if (buf_size < client->parameters_length) {
+		if (buf_size < parameters_length) {
 			return 0;
 		}
-		memcpy(buf, client->parameters, client->parameters_length);
-		return client->parameters_length;
-
+		memcpy(buf, client->parameters, parameters_length);
+		return parameters_length;
+	}
 	case NSTAT_EXTENDED_UPDATE_TYPE_ORIGINAL_NECP_TLV:
 		if (buf == NULL) {
 			return (client->original_parameters_source != NULL) ? client->original_parameters_source->parameters_length : 0;
@@ -8257,16 +8257,28 @@ necp_client_add_flow(struct necp_fd_data *fd_data, struct necp_client_action_arg
 
 	NECP_CLIENT_FLOW_LOG(client, new_registration, "adding flow");
 
+	size_t trailer_offset = (sizeof(struct necp_client_add_flow) +
+	    add_request->stats_request_count * sizeof(struct necp_client_flow_stats));
+
 	// Copy override address
 	if (add_request->flags & NECP_CLIENT_FLOW_FLAGS_OVERRIDE_ADDRESS) {
-		size_t offset_of_address = (sizeof(struct necp_client_add_flow) +
-		    add_request->stats_request_count * sizeof(struct necp_client_flow_stats));
+		size_t offset_of_address = trailer_offset;
 		if (buffer_size >= offset_of_address + sizeof(struct sockaddr_in)) {
 			struct sockaddr *override_address = (struct sockaddr *)(((uint8_t *)add_request) + offset_of_address);
 			if (buffer_size >= offset_of_address + override_address->sa_len &&
 			    override_address->sa_len <= sizeof(parameters.remote_addr)) {
 				memcpy(&parameters.remote_addr, override_address, override_address->sa_len);
+				trailer_offset += override_address->sa_len;
 			}
+		}
+	}
+
+	// Copy override IP protocol
+	if (add_request->flags & NECP_CLIENT_FLOW_FLAGS_OVERRIDE_IP_PROTOCOL) {
+		size_t offset_of_ip_protocol = trailer_offset;
+		if (buffer_size >= offset_of_ip_protocol + sizeof(uint8_t)) {
+			uint8_t *ip_protocol_p = (uint8_t *)(((uint8_t *)add_request) + offset_of_ip_protocol);
+			memcpy(&parameters.ip_protocol, ip_protocol_p, sizeof(uint8_t));
 		}
 	}
 

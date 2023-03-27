@@ -98,7 +98,7 @@ static CFDataRef CreateDERFromDictionary(CFDictionaryRef di, CFErrorRef *error)
 
     CFReleaseNull(error);
 
-    NSData *outdata = (__bridge NSData *)CreateDERFromDictionary((__bridge CFTypeRef)dictionary, &error);
+    NSData *outdata = (__bridge_transfer NSData *)CreateDERFromDictionary((__bridge CFTypeRef)dictionary, &error);
     XCTAssertEqual(error, NULL, "error should be NULL: %@", error);
     XCTAssertNotEqual(outdata, NULL, "should have data");
 

@@ -69,17 +69,18 @@ private:
     void postTaskToWorkQueue(Function<void()>&&);
 
     // Methods to be run on the work queue.
-    bool openSQLiteDatabase(const String& fullFilename);
+    void openSQLiteDatabase(const String& fullFilename, CompletionHandler<void(bool)>&&);
     String ensureValidRecordsTable();
-    String importRecords();
+    void importRecords(CompletionHandler<void(String)>&&);
     void importRecordsIfNecessary();
-    bool doPushChanges(const Vector<ServiceWorkerContextData>&, const Vector<ServiceWorkerRegistrationKey>&);
+    void doPushChanges(Vector<ServiceWorkerContextData>&&, Vector<ServiceWorkerRegistrationKey>&&, CompletionHandler<void(bool, Vector<ServiceWorkerContextData>&&, Vector<ServiceWorkerRegistrationKey>&&)>&&);
+    void doPushChangesWithOpenDatabase(Vector<ServiceWorkerContextData>&&, Vector<ServiceWorkerRegistrationKey>&&, CompletionHandler<void(bool, Vector<ServiceWorkerContextData>&&, Vector<ServiceWorkerRegistrationKey>&&)>&&);
     void doClearOrigin(const SecurityOrigin&);
     SWScriptStorage& scriptStorage();
     String scriptStorageDirectory() const;
 
     // Replies to the main thread.
-    void addRegistrationToStore(ServiceWorkerContextData&&);
+    void addRegistrationToStore(ServiceWorkerContextData&&, CompletionHandler<void()>&&);
     void databaseFailedToOpen();
     void databaseOpenedAndRecordsImported(); 
 
@@ -90,6 +91,11 @@ private:
     String m_databaseFilePath;
     std::unique_ptr<SQLiteDatabase> m_database;
     uint64_t m_pushCounter { 0 };
+};
+
+struct ImportedScriptAttributes {
+    URL responseURL;
+    String mimeType;
 };
 
 } // namespace WebCore

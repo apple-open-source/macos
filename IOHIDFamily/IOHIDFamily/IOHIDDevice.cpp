@@ -285,6 +285,8 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 #define _asyncTimer                 _reserved->asyncTimer
 #define _asyncTimeout               _reserved->asyncTimeout
 #define _settingTimeout             _reserved->settingTimeout
+#define _eventReporter              _reserved->eventReporter
+#define _reporterList               _reserved->reporterList
 
 #define WORKLOOP_LOCK   ((IOHIDEventSource *)_eventSource)->lock()
 #define WORKLOOP_UNLOCK ((IOHIDEventSource *)_eventSource)->unlock()
@@ -337,6 +339,8 @@ void IOHIDDevice::free()
     OSSafeReleaseNULL(_hierarchElements);
     OSSafeReleaseNULL(_interfaceElementArrays);
     OSSafeReleaseNULL(_elementContainer);
+    OSSafeReleaseNULL(_eventReporter);
+    OSSafeReleaseNULL(_reporterList);
 
     if ( _clientSet )
     {
@@ -432,6 +436,8 @@ bool IOHIDDevice::start( IOService * provider )
 
     ret = parseReportDescriptor( reportDescriptor );
     require_noerr_action(ret, exit, HIDDeviceLogError("failed to parse report descriptor"));
+    
+    createReporters();
 
     // Enable multiple interfaces if the first top-level collection has usage pair kHIDPage_AppleVendor, kHIDUsage_AppleVendor_MultipleInterfaces
     if (_elementArray->getCount() > 1 &&
@@ -549,6 +555,78 @@ exit:
         reportDescriptorMap->release();
 
     return result;
+}
+
+void IOHIDDevice::createReporters()
+{
+    bool res = false;
+    IOReportLegend *legend = NULL;
+
+    legend = IOReportLegend::with(NULL);
+    require(legend, exit);
+    
+    _eventReporter = IOSimpleReporter::with(this, kIOReportCategoryPower, kIOReportUnitNone);
+    require_action(_eventReporter, exit, HIDDeviceLogError("IOSimpleReporter::with failed"));
+     
+    _reporterList = OSSet::withCapacity(1);
+    require_action(_reporterList, exit, HIDDeviceLogError("_reporterList creation failed"));
+ 
+    //set up channels for IOSimpleReporter
+    _elementContainer->getInputReportElements()->iterateObjects(^bool(OSObject *object) {
+        IOHIDElementPrivate * element = (IOHIDElementPrivate *) object;
+        if(element) {
+            char buf[12];
+            snprintf(buf, sizeof(buf), "Report %d", (unsigned int)element->getReportID());
+            _eventReporter->addChannel((uint64_t)element->getReportID(), buf);
+        }
+        return false;
+    });
+
+    res = legend->addReporterLegend(_eventReporter, "IOHIDDevice Input Report Errors", "Input Report IDs");
+    require_noerr(res, exit);
+   
+    _reporterList->setObject(_eventReporter);
+    
+    res = true;
+    
+exit:
+    
+    if(!res) {
+        HIDDeviceLogError("IOHIDDevice::createReporters failed");
+    }
+    
+    if (legend) {
+        setProperty(kIOReportLegendKey, legend->getLegend());
+        setProperty(kIOReportLegendPublicKey, true);
+    }
+    
+    OSSafeReleaseNULL(legend);
+}
+
+
+IOReturn IOHIDDevice::configureReport(IOReportChannelList      *channels,
+                          IOReportConfigureAction  action,
+                          void                     *result,
+                          void                     *destination)
+{
+    IOReturn res = kIOReturnError;
+        
+    res = IOReporter::configureAllReports(_reporterList, channels, action, result, destination);
+        
+    return res;
+}
+
+
+IOReturn IOHIDDevice::updateReport(IOReportChannelList     *channels,
+                                        IOReportUpdateAction    action,
+                                        void                    *result,
+                                        void                    *destination)
+{
+    IOReturn res = kIOReturnError;
+        
+    res = IOReporter::updateAllReports(_reporterList, channels, action, result, destination);
+        
+    return res;
 }
 
 bool IOHIDDevice::_publishDeviceNotificationHandler(void * target __unused,
@@ -2071,14 +2149,20 @@ IOReturn IOHIDDevice::handleReportWithTime(
         // XXX - Do we need to advance the start of the report data?
 
         reportID = ( _reportCount > 1 ) ? *((UInt8 *) reportData) : 0;
-
+        
+        IOReturn error = kIOReturnSuccess;
         changed = _elementContainer->processReport(reportType,
                                                    reportID,
                                                    reportData,
                                                    (UInt32)reportLength,
                                                    timeStamp,
                                                    &shouldTickle,
-                                                   options);
+                                                   options,
+                                                   &error);
+        
+        if((_eventReporter) && (error == kIOReturnError)) {
+            _eventReporter->incrementValue(reportID, 1);
+        }
         
         ret = kIOReturnSuccess;
     }

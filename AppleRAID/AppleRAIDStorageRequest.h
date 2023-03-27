@@ -33,6 +33,7 @@ class AppleRAIDStorageRequest : public IOCommand
     friend class AppleRAIDMirrorSet;				// XXX remove this
     friend class AppleLVMGroup;					// XXX remove this
     friend class AppleRAIDEventSource;				// XXX remove this
+	friend class AppleRAIDMemoryDescriptor;			// XXX remove this
     friend class AppleRAIDStripeMemoryDescriptor;		// XXX remove this
     friend class AppleRAIDMirrorMemoryDescriptor;		// XXX remove this
     friend class AppleRAIDConcatMemoryDescriptor;		// XXX remove this
@@ -59,6 +60,7 @@ protected:
     IOStorageCompletion		srClientsCompletion;
     IOMemoryDescriptor		*srMemoryDescriptor;
     IODirection			srMemoryDescriptorDirection;
+    IOLock				*srClientMemoryDescriptorLock;
     
     virtual void free(void);
     

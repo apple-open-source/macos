@@ -79,6 +79,7 @@ af{
         chk{"Chuukees"}
         chm{"Mari"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chr{"Cherokees"}
         chy{"Cheyennees"}
         ckb{"Sorani"}

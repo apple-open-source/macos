@@ -52,12 +52,12 @@ page/linux/ResourceUsageThreadLinux.cpp
 
 page/scrolling/nicosia/ScrollingCoordinatorNicosia.cpp
 page/scrolling/nicosia/ScrollingStateNodeNicosia.cpp
-page/scrolling/nicosia/ScrollingTreeFixedNode.cpp
+page/scrolling/nicosia/ScrollingTreeFixedNodeNicosia.cpp
 page/scrolling/nicosia/ScrollingTreeFrameScrollingNodeNicosia.cpp
 page/scrolling/nicosia/ScrollingTreeNicosia.cpp
-page/scrolling/nicosia/ScrollingTreeOverflowScrollProxyNode.cpp
+page/scrolling/nicosia/ScrollingTreeOverflowScrollProxyNodeNicosia.cpp
 page/scrolling/nicosia/ScrollingTreeOverflowScrollingNodeNicosia.cpp
-page/scrolling/nicosia/ScrollingTreePositionedNode.cpp
+page/scrolling/nicosia/ScrollingTreePositionedNodeNicosia.cpp
 page/scrolling/nicosia/ScrollingTreeScrollingNodeDelegateNicosia.cpp
 page/scrolling/nicosia/ScrollingTreeStickyNodeNicosia.cpp
 
@@ -71,7 +71,6 @@ platform/gamepad/manette/ManetteGamepadProvider.cpp
 
 platform/generic/ScrollbarsControllerGeneric.cpp
 
-platform/graphics/ANGLEWebKitBridge.cpp
 platform/graphics/GLContext.cpp @no-unify
 platform/graphics/PlatformDisplay.cpp @no-unify
 
@@ -107,6 +106,7 @@ platform/graphics/wayland/PlatformDisplayWayland.cpp
 
 platform/graphics/x11/PlatformDisplayX11.cpp @no-unify
 platform/graphics/x11/XErrorTrapper.cpp @no-unify
+platform/graphics/x11/XUniquePtr.cpp @no-unify
 platform/graphics/x11/XUniqueResource.cpp @no-unify
 
 platform/gtk/CursorGtk.cpp

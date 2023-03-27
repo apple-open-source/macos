@@ -53,7 +53,7 @@ if _pick_variant -r variant binutils=GNU elftoolchain=elftoolchain elfutils=elfu
 	'(-C)--demangle[decode symbol names]'
 	'(--format -P)-f+[specify output format]:format:(bsd sysv posix)'
 	'(- *)--usage[give a short usage message]'
-	'(- *)-\\?[display help information]'
+	'(- *)-?[display help information]'
       )
     ;;
     binutils)
@@ -62,11 +62,12 @@ if _pick_variant -r variant binutils=GNU elftoolchain=elftoolchain elfutils=elfu
         '!(--no-recurse-limit)--recurse-limit'
         '--no-recurse-limit[disable demangling recursion limit]'
 	'(-f --format -P)-f+[specify output format]:format:(bsd sysv posix)'
-	'(-C --no-demangle)--demangle=-[decode symbol names]::style:(auto gnu lucid arm hp edg gnu-v3 java gnat rust dlang)'
+	'(-C --no-demangle)--demangle=-[decode symbol names]::style [auto]:(auto gnu lucid arm hp edg gnu-v3 java gnat rust dlang)'
+        '--ifunc-chars=[specify characters to use for indirect function symbols]:characters for global/local indirect function symbols [ii]'
 	'--plugin[load specified plugin]:plugin'
 	'--special-syms[include special symbols in the output]'
 	'--synthetic[display synthetic symbols as well]'
-	"--target=[target object format]:targets:(${${(@M)${(f)$(_call_program targets nm --help)}:#*supported targets:*}##*: })"
+	"--target=[target object format]:target:(${${(@M)${(f)$(_call_program targets nm --help)}:#*supported targets:*}##*: })"
 	'--with-symbol-versions[display version strings after symbol names]'
       )
     ;;

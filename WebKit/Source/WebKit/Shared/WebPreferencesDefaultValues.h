@@ -38,7 +38,9 @@ namespace WebKit {
 #if PLATFORM(IOS_FAMILY)
 bool defaultPassiveTouchListenersAsDefaultOnDocument();
 bool defaultCSSOMViewScrollingAPIEnabled();
+bool defaultShouldPrintBackgrounds();
 bool defaultAlternateFormControlDesignEnabled();
+bool defaultVideoFullscreenRequiresElementFullscreen();
 #if ENABLE(TEXT_AUTOSIZING)
 bool defaultTextAutosizingUsesIdempotentMode();
 #endif
@@ -67,6 +69,7 @@ bool defaultOfflineWebApplicationCacheEnabled();
 #if ENABLE(MEDIA_STREAM)
 bool defaultCaptureAudioInGPUProcessEnabled();
 bool defaultCaptureAudioInUIProcessEnabled();
+bool defaultManageCaptureStatusBarInGPUProcessEnabled();
 #endif
 
 #if ENABLE(MEDIA_SOURCE) && PLATFORM(IOS_FAMILY)
@@ -82,5 +85,14 @@ bool defaultTextRecognitionInVideosEnabled();
 bool defaultVisualTranslationEnabled();
 bool defaultRemoveBackgroundEnabled();
 #endif
+
+#if ENABLE(GAMEPAD)
+bool defaultGamepadVibrationActuatorEnabled();
+#endif
+
+bool defaultShouldTakeSuspendedAssertions();
+bool defaultShowModalDialogEnabled();
+
+bool defaultShouldEnableScreenOrientationAPI();
 
 } // namespace WebKit

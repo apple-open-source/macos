@@ -479,7 +479,7 @@ void SpirvTypeSpec::onVectorComponentSelection()
 }
 
 SPIRVBuilder::SPIRVBuilder(TCompiler *compiler,
-                           ShCompileOptions compileOptions,
+                           const ShCompileOptions &compileOptions,
                            ShHashFunction64 hashFunction,
                            NameMap &nameMap)
     : mCompiler(compiler),
@@ -667,7 +667,7 @@ spirv::IdRef SPIRVBuilder::getFunctionTypeId(spirv::IdRef returnTypeId,
 
 SpirvDecorations SPIRVBuilder::getDecorations(const TType &type)
 {
-    const bool enablePrecision = (mCompileOptions & SH_IGNORE_PRECISION_QUALIFIERS) == 0;
+    const bool enablePrecision = !mCompileOptions.ignorePrecisionQualifiers;
     const TPrecision precision = type.getPrecision();
 
     SpirvDecorations decorations;
@@ -1677,8 +1677,7 @@ void SPIRVBuilder::addCapability(spv::Capability capability)
 
 void SPIRVBuilder::addExecutionMode(spv::ExecutionMode executionMode)
 {
-    ASSERT(static_cast<size_t>(executionMode) < mExecutionModes.size());
-    mExecutionModes.set(executionMode);
+    mExecutionModes.insert(executionMode);
 }
 
 void SPIRVBuilder::addExtension(SPIRVExtensions extension)
@@ -1733,19 +1732,21 @@ void SPIRVBuilder::writePerVertexBuiltIns(const TType &type, spirv::IdRef typeId
 void SPIRVBuilder::writeInterfaceVariableDecorations(const TType &type, spirv::IdRef variableId)
 {
     const TLayoutQualifier &layoutQualifier = type.getLayoutQualifier();
-
-    const bool isVarying = IsVarying(type.getQualifier());
+    const bool isVarying                    = IsVarying(type.getQualifier());
     const bool needsSetBinding =
-        IsSampler(type.getBasicType()) ||
-        (type.isInterfaceBlock() &&
-         (type.getQualifier() == EvqUniform || type.getQualifier() == EvqBuffer)) ||
-        IsImage(type.getBasicType()) || IsSubpassInputType(type.getBasicType());
+        !layoutQualifier.pushConstant &&
+        (IsSampler(type.getBasicType()) ||
+         (type.isInterfaceBlock() &&
+          (type.getQualifier() == EvqUniform || type.getQualifier() == EvqBuffer)) ||
+         IsImage(type.getBasicType()) || IsSubpassInputType(type.getBasicType()));
     const bool needsLocation = type.getQualifier() == EvqAttribute ||
                                type.getQualifier() == EvqVertexIn ||
                                type.getQualifier() == EvqFragmentOut || isVarying;
     const bool needsInputAttachmentIndex = IsSubpassInputType(type.getBasicType());
     const bool needsBlendIndex =
         type.getQualifier() == EvqFragmentOut && layoutQualifier.index >= 0;
+    const bool needsYuvDecorate = mCompileOptions.addVulkanYUVLayoutQualifier &&
+                                  type.getQualifier() == EvqFragmentOut && layoutQualifier.yuv;
 
     // If the resource declaration requires set & binding, add the DescriptorSet and Binding
     // decorations.
@@ -1779,6 +1780,14 @@ void SPIRVBuilder::writeInterfaceVariableDecorations(const TType &type, spirv::I
     if (needsBlendIndex)
     {
         spirv::WriteDecorate(&mSpirvDecorations, variableId, spv::DecorationIndex,
+                             {spirv::LiteralInteger(layoutQualifier.index)});
+    }
+
+    if (needsYuvDecorate)
+    {
+        // WIP in spec
+        const spv::Decoration yuvDecorate = static_cast<spv::Decoration>(6088);
+        spirv::WriteDecorate(&mSpirvDecorations, variableId, yuvDecorate,
                              {spirv::LiteralInteger(layoutQualifier.index)});
     }
 
@@ -1957,6 +1966,38 @@ void SPIRVBuilder::writeMemberDecorations(const SpirvType &type, spirv::IdRef ty
         {
             spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
                                        spirv::LiteralInteger(fieldIndex), spv::DecorationInvariant,
+                                       {});
+        }
+
+        // Add memory qualifier decorations to buffer members
+        if (fieldType.getMemoryQualifier().coherent)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex), spv::DecorationCoherent,
+                                       {});
+        }
+        if (fieldType.getMemoryQualifier().readonly)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex),
+                                       spv::DecorationNonWritable, {});
+        }
+        if (fieldType.getMemoryQualifier().writeonly)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex),
+                                       spv::DecorationNonReadable, {});
+        }
+        if (fieldType.getMemoryQualifier().restrictQualifier)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex), spv::DecorationRestrict,
+                                       {});
+        }
+        if (fieldType.getMemoryQualifier().volatileQualifier)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex), spv::DecorationVolatile,
                                        {});
         }
 
@@ -2229,10 +2270,9 @@ void SPIRVBuilder::writeExecutionModes(spirv::Blob *blob)
     }
 
     // Add any execution modes that were added due to built-ins used in the shader.
-    for (size_t executionMode : mExecutionModes)
+    for (spv::ExecutionMode executionMode : mExecutionModes)
     {
-        spirv::WriteExecutionMode(blob, mEntryPointId,
-                                  static_cast<spv::ExecutionMode>(executionMode), {});
+        spirv::WriteExecutionMode(blob, mEntryPointId, executionMode, {});
     }
 }
 
@@ -2244,6 +2284,9 @@ void SPIRVBuilder::writeExtensions(spirv::Blob *blob)
         {
             case SPIRVExtensions::MultiviewOVR:
                 spirv::WriteExtension(blob, "SPV_KHR_multiview");
+                break;
+            case SPIRVExtensions::FragmentShaderInterlockARB:
+                spirv::WriteExtension(blob, "SPV_EXT_fragment_shader_interlock");
                 break;
             default:
                 UNREACHABLE();
@@ -2259,6 +2302,9 @@ void SPIRVBuilder::writeSourceExtensions(spirv::Blob *blob)
         {
             case SPIRVExtensions::MultiviewOVR:
                 spirv::WriteSourceExtension(blob, "GL_OVR_multiview");
+                break;
+            case SPIRVExtensions::FragmentShaderInterlockARB:
+                spirv::WriteSourceExtension(blob, "GL_ARB_fragment_shader_interlock");
                 break;
             default:
                 UNREACHABLE();

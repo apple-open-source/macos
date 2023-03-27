@@ -49,7 +49,8 @@ AEP_Patches    = PR-3996371-conf.diff \
 		 PR-4383204.patch \
 		 PR-4905054.manpages.patch \
 		 rdar-25537031-fix-uuconv.c.diff \
-		 PR-59291737.patch
+		 PR-59291737.patch \
+		 PR-95279817.patch
 
 AEP_SubDir     = uucp
 AEP_TarDir     := $(shell pwd)

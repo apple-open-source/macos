@@ -51,7 +51,9 @@
        (global-name "com.apple.security.syspolicy")
        (global-name "com.apple.security.agent")
        (global-name "com.apple.security.agent.login")
-       (global-name "com.apple.security.KeychainStasher"))
+       (global-name "com.apple.security.KeychainStasher")
+       (global-name "com.apple.keychainsharingmessagingd")
+       (global-name "com.apple.AuthenticationServices.CredentialSharingGroups"))
 
 (allow mach-task-name)
 
@@ -67,3 +69,6 @@
 (with-filter (system-attribute apple-internal)
      (allow nvram-get
             (nvram-variable "AMFITrustedKeys")))
+
+(allow file-read* file-write*
+    (subpath "/private/var/protected/sfanalytics/"))

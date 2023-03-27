@@ -54,6 +54,7 @@
 - (void)updateBacklightState:(BOOL)state;
 - (void)updatePluginState:(BOOL)state;
 - (void)updateMotionState:(BOOL)state;
+- (void)updateAODEnabledStatus:(BOOL)status;
 
 /*
  Update parameters through pmtool

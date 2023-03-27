@@ -452,6 +452,9 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
     }
 
     func testRecoveryKeyJoinUsingFuturePolicy() throws {
+    #if os(tvOS)
+        throw XCTSkip("do not run test on tvOS platforms (appleTV, homepod)")
+    #else
         let (newPolicyDocument, futureViewZoneID) = try self.createOctagonAndCKKSUsingFuturePolicy()
 
         let futurePeerContext = self.makeInitiatorContext(contextID: "futurePeer")
@@ -468,7 +471,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let createRecoveryExpectation = self.expectation(description: "createRecoveryExpectation returns")
         self.manager.createRecoveryKey(self.otcontrolArgumentsFor(context: futurePeerContext), recoveryKey: recoveryKey) { error in
@@ -513,12 +516,13 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         self.wait(for: [serverJoinExpectation], timeout: 10)
+    #endif
     }
 
     func testPreapprovedJoinUsingFuturePolicy() throws {
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: self.createSOSPeer(peerID: "peer2ID"), trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: self.createSOSPeer(peerID: "peer2ID"), trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         print(peer2mockSOS.allPeers())
-        self.mockSOSAdapter.trustedPeers.add(peer2mockSOS.selfPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2mockSOS.selfPeer)
 
         let futurePeerContext = self.manager.context(forContainerName: OTCKContainerName,
                                                      contextID: "futurePeer",
@@ -564,7 +568,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)

@@ -26,5 +26,6 @@
 #import "_WKSystemPreferences.h"
 
 constexpr auto LDMEnabledKey = "LDMGlobalEnabled";
-constexpr auto WKCaptivePortalModeEnabledKey = "WKCaptivePortalModeEnabled"_s;
-constexpr auto WKCaptivePortalModeContainerConfigurationChangedNotification = @"WKCaptivePortalModeContainerConfigurationChanged";
+constexpr auto WKLockdownModeEnabledKey = "WKLockdownModeEnabled"_s;
+// This string must remain consistent with the lockdown mode notification name in privacy settings.
+constexpr auto WKLockdownModeContainerConfigurationChangedNotification = @"WKCaptivePortalModeContainerConfigurationChanged";

@@ -100,7 +100,9 @@ public:
 
     void updateStaticTimingProperties();
 
-    virtual Seconds timeToNextTick(BasicEffectTiming) const;
+    virtual Seconds timeToNextTick(const BasicEffectTiming&) const;
+
+    virtual bool preventsAnimationReadiness() const { return false; }
 
 protected:
     explicit AnimationEffect();

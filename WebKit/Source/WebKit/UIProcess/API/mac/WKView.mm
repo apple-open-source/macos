@@ -48,6 +48,7 @@
 #import <WebCore/WebViewVisualIdentificationOverlay.h>
 #import <WebKit/WKDragDestinationAction.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
+#import <pal/spi/mac/NSViewSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/NakedRef.h>
 
@@ -189,6 +190,23 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     [super setFrameSize:size];
     _data->_impl->setFrameSize(NSSizeToCGSize(size));
 }
+
+#if USE(NSVIEW_SEMANTICCONTEXT)
+
+- (void)_setSemanticContext:(NSViewSemanticContext)semanticContext
+{
+    auto wasUsingFormSemanticContext = _data->_impl ? _data->_impl->useFormSemanticContext() : false;
+
+    [super _setSemanticContext:semanticContext];
+
+    if (!_data->_impl)
+        return;
+
+    if (wasUsingFormSemanticContext != _data->_impl->useFormSemanticContext())
+        _data->_impl->semanticContextDidChange();
+}
+
+#endif
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)renewGState
@@ -1423,12 +1441,12 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(NSUs
 
 - (void)_setOverrideDeviceScaleFactor:(CGFloat)deviceScaleFactor
 {
-    _data->_impl->setOverrideDeviceScaleFactor(deviceScaleFactor);
+    _data->_impl->page().setCustomDeviceScaleFactor(deviceScaleFactor);
 }
 
 - (CGFloat)_overrideDeviceScaleFactor
 {
-    return _data->_impl->overrideDeviceScaleFactor();
+    return _data->_impl->page().customDeviceScaleFactor().value_or(0);
 }
 
 - (WKLayoutMode)_layoutMode

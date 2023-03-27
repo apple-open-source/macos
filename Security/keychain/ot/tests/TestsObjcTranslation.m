@@ -36,13 +36,6 @@ static const uint8_t signingKey_384[] = {
     }];
 }
 
-+ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
-                    recoveryKey:(NSString*)recoveryKey
-                          reply:(void(^)(NSError* _Nullable error))reply
-{
-    [OTClique recoverOctagonUsingData: ctx recoveryKey:recoveryKey reply:reply];
-}
-
 + (BOOL)saveCoruptDataToKeychainForContainer:(NSString*)containerName
                                    contextID:(NSString*)contextID
                                        error:(NSError**)error
@@ -420,10 +413,60 @@ static int invocationCount = 0;
     return [self.clique fetchTrustedSecureElementIdentities:error];
 }
 
+- (BOOL)setAccountSetting:(OTAccountSettings*)setting error:(NSError**)error
+{
+    return [self.clique setAccountSetting:setting error:error];
+}
+
+- (OTAccountSettings* _Nullable)fetchAccountSettings:(NSError**)error
+{
+    return [self.clique fetchAccountSettings:error];
+}
+
++ (OTAccountSettings* _Nullable)fetchAccountWideSettings:(OTConfigurationContext*)context error:(NSError**)error
+{
+    return [OTClique fetchAccountWideSettings:context error:error];
+}
+
++ (OTAccountSettings* _Nullable)fetchAccountWideSettingsWithForceFetch:(bool)forceFetch
+                                                         configuration:(OTConfigurationContext*)context
+                                                                 error:(NSError**)error
+{
+    return [OTClique fetchAccountWideSettingsWithForceFetch:forceFetch configuration:context error:error];
+}
 
 - (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error
 {
     return [self.clique waitForPriorityViewKeychainDataRecovery:error];
+}
+
+- (NSString*)createAndSetRecoveryKeyWithContext:(OTConfigurationContext*)context error:(NSError**)error
+{
+    return [OTClique createAndSetRecoveryKeyWithContext:context error:error];
+}
++ (BOOL)isRecoveryKeySet:(OTConfigurationContext*)ctx error:(NSError**)error
+{
+    NSError* localError = nil;
+    BOOL result = [OTClique isRecoveryKeySet:ctx error:&localError];
+    if (error) {
+        if (result == NO && localError == nil) {
+            localError = [NSError errorWithDomain:OctagonErrorDomain code:-1 description:@"Error not actually returned from Clique API, this is to satisfy Swift BOOL/NSError convention"];
+        }
+        *error = localError;
+    }
+    return result;
+}
+
++ (BOOL)recoverWithRecoveryKey:(OTConfigurationContext*)ctx
+                   recoveryKey:(NSString*)recoveryKey
+                         error:(NSError**)error
+{
+    return [OTClique recoverWithRecoveryKey:ctx recoveryKey:recoveryKey error:error];
+}
+
+- (BOOL)removeRecoveryKeyWithContext:(OTConfigurationContext*)context error:(NSError**)error
+{
+    return [self.clique removeRecoveryKey:context error:error];
 }
 
 - (bool)preflightRecoveryKey:(OTConfigurationContext*)context recoveryKey:(NSString*)recoveryKey error:(NSError**)error

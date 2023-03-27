@@ -109,11 +109,7 @@ CertificateInfo ResourceResponse::platformCertificateInfo(Span<const std::byte> 
             return { };
     }
 
-#if HAVE(SEC_TRUST_SERIALIZATION)
     return CertificateInfo(trust);
-#else
-    return CertificateInfo(CertificateInfo::certificateChainFromSecTrust(trust));
-#endif
 }
 
 NSURLResponse *ResourceResponse::nsURLResponse() const
@@ -173,7 +169,12 @@ void ResourceResponse::platformLazyInit(InitLevel initLevel)
 
         if (m_initLevel < CommonFieldsOnly) {
             m_url = [m_nsResponse URL];
-            m_mimeType = [m_nsResponse MIMEType];
+#if USE(AVIF)
+            if (m_url.string().endsWithIgnoringASCIICase(".avif"_s) || m_url.string().endsWithIgnoringASCIICase(".avifs"_s))
+                m_mimeType = "image/avif"_s;
+            else
+#endif
+                m_mimeType = [m_nsResponse MIMEType];
             m_expectedContentLength = [m_nsResponse expectedContentLength];
             // Stripping double quotes as a workaround for <rdar://problem/8757088>, can be removed once that is fixed.
             m_textEncodingName = stripLeadingAndTrailingDoubleQuote([m_nsResponse textEncodingName]);

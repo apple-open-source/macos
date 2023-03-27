@@ -21,9 +21,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (int)depart:(OTControlArguments*)arguments;
 
-- (int)resetOctagon:(OTControlArguments*)arguments timeout:(NSTimeInterval)timeout;
+- (int)resetOctagon:(OTControlArguments*)arguments idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword notifyIdMS:(bool)notifyIdMS timeout:(NSTimeInterval)timeout;
 
-- (int)resetProtectedData:(OTControlArguments*)arguments appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid;
+- (int)resetProtectedData:(OTControlArguments*)arguments appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid         idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+   idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+	       notifyIdMS:(bool)notifyIdMS
+;
 
 - (int)status:(OTControlArguments*)arguments json:(bool)json;
 
@@ -60,7 +63,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (int)fetchUserControllableViewsSyncStatus:(OTControlArguments*)arguments;
 
-- (int)resetAccountCDPContentsWithArguments:(OTControlArguments*)argumentsName;
+- (int)resetAccountCDPContentsWithArguments:(OTControlArguments*)argumentsName
+idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword notifyIdMS:(bool)notifyIdMS ;
 
 - (int)createCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
                                           json:(bool)json
@@ -81,6 +85,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (int)removeCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
                                     uuidString:(NSString*)uuidString
                                        timeout:(NSTimeInterval)timeout;
+
+- (int)removeRecoveryKeyWithArguments:(OTControlArguments*)arguments;
+
+- (int)setRecoveryKeyWithArguments:(OTControlArguments*)arguments;
 
 - (int)createInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
                                     json:(bool)json
@@ -116,6 +124,26 @@ NS_ASSUME_NONNULL_BEGIN
                   machineID:(NSString*)machineID
                        json:(bool)json;
 
+- (int)fetchAccountSettingsWithArguments:(OTControlArguments*)argumentsName
+                                    json:(bool)json;
+- (int)fetchAccountWideSettingsWithArguments:(OTControlArguments*)arguments
+                                  forceFetch:(bool)forceFetch
+                                        json:(bool)json;
+
+- (int)disableWalrusWithArguments:(OTControlArguments*)argumentsName
+                          timeout:(NSTimeInterval)timeout;
+
+- (int)enableWalrusWithArguments:(OTControlArguments*)argumentsName
+                         timeout:(NSTimeInterval)timeout;
+
+- (int)disableWebAccessWithArguments:(OTControlArguments*)argumentsName
+                             timeout:(NSTimeInterval)timeout;
+
+- (int)enableWebAccessWithArguments:(OTControlArguments*)argumentsName
+                            timeout:(NSTimeInterval)timeout;
+
+- (int)printAccountMetadataWithArguments:(OTControlArguments*)argumentsName
+                                    json:(bool)json;
 
 @end
 

@@ -677,3 +677,25 @@ smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop,
 
 	return error;
 }
+
+/*
+ * uio_update() does NOT handle if the update len is longer than the current IOV.
+ * It is up to the caller to check for the current IOV remaining length and then
+ * call uio_update multiple times with the len matching each IOV len.
+ *
+ * See Radar 102713128 for more details.
+ */
+void
+smbfs_uio_update(uio_t uio, user_size_t length)
+{
+    user_size_t update_size;
+
+    while (length > 0) {
+        update_size = MIN(length, uio_curriovlen(uio));
+        if (update_size == 0) {
+            break;
+        }
+        uio_update(uio, update_size);
+        length -= update_size;
+    }
+}

@@ -8,6 +8,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class OTAccountSettings;
+
 @interface OTClique(Private)
 
 + (NSArray<NSData*>* _Nullable)fetchEscrowRecordsInternal:(OTConfigurationContext*)configurationContext
@@ -15,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (BOOL)isCloudServicesAvailable;
 
-- (BOOL)resetAndEstablish:(CuttlefishResetReason)resetReason error:(NSError**)error;
+- (BOOL)resetAndEstablish:(CuttlefishResetReason)resetReason idmsTargetContext:(NSString*_Nullable)idmsTargetContext idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword notifyIdMS:(bool)notifyIdMS accountSettings:(OTAccountSettings*_Nullable)accountSettings error:(NSError**)error;
 
 - (BOOL)establish:(NSError**)error;
 

@@ -172,9 +172,7 @@ void MD4Final (unsigned char digest[16], MD4_CTX *context)
 
 /* MD4 basic transformation. Transforms state based on block.
  */
-static void MD4Transform (state, block)
-UINT4 state[4];
-const unsigned char block[64];
+static void MD4Transform (UINT4 state[4], const unsigned char block[64])
 {
   UINT4 a = state[0], b = state[1], c = state[2], d = state[3], x[16];
 

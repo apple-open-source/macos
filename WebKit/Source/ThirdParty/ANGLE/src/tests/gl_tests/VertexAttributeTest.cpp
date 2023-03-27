@@ -5,7 +5,6 @@
 //
 #include "anglebase/numerics/safe_conversions.h"
 #include "common/mathutil.h"
-#include "platform/FeaturesVk_autogen.h"
 #include "test_utils/ANGLETest.h"
 #include "test_utils/gl_raii.h"
 #include "util/random_utils.h"
@@ -1848,8 +1847,7 @@ void main() {
     };
     // clang-format on
 
-    GLuint buffer;
-    glGenBuffers(1, &buffer);
+    GLBuffer buffer;
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLuint) * kDataSize, kColorTestData, GL_STATIC_DRAW);
 
@@ -2132,6 +2130,11 @@ class VertexAttributeTestES31 : public VertexAttributeTestES3
         EXPECT_GL_NO_ERROR();
     }
 
+    std::string makeMismatchingSignsTestVS(uint32_t attribCount, uint16_t signedMask);
+    std::string makeMismatchingSignsTestFS(uint32_t attribCount);
+    uint16_t setupVertexAttribPointersForMismatchSignsTest(uint16_t currentSignedMask,
+                                                           uint16_t toggleMask);
+
     GLuint mVAO            = 0;
     GLuint mExpectedBuffer = 0;
     GLuint mQuadBuffer     = 0;
@@ -2198,7 +2201,7 @@ layout(local_size_x=1) in;
 void main()
 {
 })";
-    ANGLE_GL_COMPUTE_PROGRAM(computePogram, kComputeShader);
+    ANGLE_GL_COMPUTE_PROGRAM(computeProgram, kComputeShader);
 
     glViewport(0, 0, getWindowWidth(), getWindowHeight());
     glClearColor(0, 0, 0, 0);
@@ -2308,7 +2311,7 @@ void main() {
         EXPECT_PIXEL_COLOR_EQ(getWindowWidth() / 2, 0, GLColor::yellow);
 
         glBindVertexArray(vao[1]);
-        glUseProgram(computePogram.get());
+        glUseProgram(computeProgram.get());
         glDispatchCompute(1, 1, 1);
 
         glUseProgram(renderProgram1.get());
@@ -3388,6 +3391,281 @@ void main()
     EXPECT_EQ(expectedColors, actualColors);
 }
 
+std::string VertexAttributeTestES31::makeMismatchingSignsTestVS(uint32_t attribCount,
+                                                                uint16_t signedMask)
+{
+    std::ostringstream shader;
+
+    shader << R"(#version 310 es
+precision highp float;
+
+// The signedness is determined by |signedMask|.
+)";
+
+    for (uint32_t i = 0; i < attribCount; ++i)
+    {
+        shader << "in highp " << ((signedMask >> i & 1) == 0 ? "u" : "i") << "vec4 attrib" << i
+               << ";\n";
+    }
+
+    shader << "flat out highp uvec4 v[" << attribCount << "];\n";
+
+    shader << R"(
+void main() {
+)";
+
+    for (uint32_t i = 0; i < attribCount; ++i)
+    {
+        shader << "v[" << i << "] = uvec4(attrib" << i << ");\n";
+    }
+
+    shader << R"(
+    // gl_VertexID    x    y
+    //      0        -1   -1
+    //      1         1   -1
+    //      2        -1    1
+    //      3         1    1
+    int bit0 = gl_VertexID & 1;
+    int bit1 = gl_VertexID >> 1;
+    gl_Position = vec4(bit0 * 2 - 1, bit1 * 2 - 1, gl_VertexID % 2 == 0 ? -1 : 1, 1);
+})";
+
+    return shader.str();
+}
+
+std::string VertexAttributeTestES31::makeMismatchingSignsTestFS(uint32_t attribCount)
+{
+    std::ostringstream shader;
+
+    shader << R"(#version 310 es
+precision highp float;
+)";
+
+    shader << "flat in highp uvec4 v[" << attribCount << "];\n";
+
+    shader << R"(out vec4 fragColor;
+uniform vec4 colorScale;
+
+bool isOk(uvec4 inputVarying, uint index)
+{
+    return inputVarying.x == index &&
+        inputVarying.y == index * 2u &&
+        inputVarying.z == index + 1u &&
+        inputVarying.w == index + 0x12345u;
+}
+
+void main()
+{
+    bool result = true;
+)";
+    shader << "    for (uint index = 0u; index < " << attribCount << "u; ++index)\n";
+    shader << R"({
+        result = result && isOk(v[index], index);
+    }
+
+    fragColor = vec4(result) * colorScale;
+})";
+
+    return shader.str();
+}
+
+uint16_t VertexAttributeTestES31::setupVertexAttribPointersForMismatchSignsTest(
+    uint16_t currentSignedMask,
+    uint16_t toggleMask)
+{
+    uint16_t newSignedMask = currentSignedMask ^ toggleMask;
+
+    for (uint32_t i = 0; i < 16; ++i)
+    {
+        if ((toggleMask >> i & 1) == 0)
+        {
+            continue;
+        }
+
+        const GLenum type = (newSignedMask >> i & 1) == 0 ? GL_UNSIGNED_INT : GL_INT;
+        glVertexAttribIPointer(i, 4, type, sizeof(GLuint[4]),
+                               reinterpret_cast<const void *>(sizeof(GLuint[4][4]) * i));
+    }
+
+    return newSignedMask;
+}
+
+// Test changing between matching and mismatching signedness of vertex attributes, when the
+// attribute changes type.
+TEST_P(VertexAttributeTestES31, MismatchingSignsChangingAttributeType)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_ANGLE_relaxed_vertex_attribute_type"));
+
+    // GL supports a minimum of 16 vertex attributes, and gl_VertexID is counted as one.
+    // The signedness pattern used here is:
+    //
+    //   0                14
+    //   iiui uuii iuui uui
+    //
+    // Which is chosen such that there's no clear repeating / mirror pattern.
+    const std::string vs = makeMismatchingSignsTestVS(15, 0x49CB);
+    const std::string fs = makeMismatchingSignsTestFS(15);
+
+    ANGLE_GL_PROGRAM(program, vs.c_str(), fs.c_str());
+    for (uint32_t i = 0; i < 15; ++i)
+    {
+        char attribName[20];
+        snprintf(attribName, sizeof(attribName), "attrib%u\n", i);
+        glBindAttribLocation(program, i, attribName);
+    }
+    glLinkProgram(program);
+    glUseProgram(program);
+    ASSERT_GL_NO_ERROR();
+
+    GLint colorScaleLoc = glGetUniformLocation(program, "colorScale");
+    ASSERT_NE(-1, colorScaleLoc);
+
+    GLuint data[15][4][4];
+    for (GLuint i = 0; i < 15; ++i)
+    {
+        for (GLuint j = 0; j < 4; ++j)
+        {
+            // Match the expectation in the shader
+            data[i][j][0] = i;
+            data[i][j][1] = i * 2;
+            data[i][j][2] = i + 1;
+            data[i][j][3] = i + 0x12345;
+        }
+    }
+
+    GLBuffer buffer;
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW);
+
+    // Randomly match and mismatch the component type
+    uint16_t signedMask = setupVertexAttribPointersForMismatchSignsTest(0x0FA5, 0x7FFF);
+
+    for (uint32_t i = 0; i < 15; ++i)
+    {
+        glEnableVertexAttribArray(i);
+    }
+
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+
+    glUniform4f(colorScaleLoc, 1, 0, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Modify the attributes randomly and make sure tests still pass
+
+    signedMask = setupVertexAttribPointersForMismatchSignsTest(signedMask, 0x3572);
+    glUniform4f(colorScaleLoc, 0, 1, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    signedMask = setupVertexAttribPointersForMismatchSignsTest(signedMask, 0x4B1C);
+    glUniform4f(colorScaleLoc, 0, 0, 1, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    signedMask = setupVertexAttribPointersForMismatchSignsTest(signedMask, 0x19D6);
+    glUniform4f(colorScaleLoc, 0, 0, 0, 1);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // All channels must be 1
+    EXPECT_PIXEL_RECT_EQ(0, 0, getWindowWidth(), getWindowHeight(), GLColor::white);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test changing between matching and mismatching signedness of vertex attributes, when the
+// program itself changes the type.
+TEST_P(VertexAttributeTestES31, MismatchingSignsChangingProgramType)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_ANGLE_relaxed_vertex_attribute_type"));
+
+    // GL supports a minimum of 16 vertex attributes, and gl_VertexID is counted as one.
+    constexpr uint32_t kAttribCount[4]      = {12, 9, 15, 7};
+    constexpr uint32_t kAttribSignedMask[4] = {0x94f, 0x6A, 0x765B, 0x29};
+
+    GLProgram programs[4];
+
+    for (uint32_t progIndex = 0; progIndex < 4; ++progIndex)
+    {
+        const std::string vs =
+            makeMismatchingSignsTestVS(kAttribCount[progIndex], kAttribSignedMask[progIndex]);
+        const std::string fs = makeMismatchingSignsTestFS(kAttribCount[progIndex]);
+
+        programs[progIndex].makeRaster(vs.c_str(), fs.c_str());
+        for (uint32_t i = 0; i < kAttribCount[progIndex]; ++i)
+        {
+            char attribName[20];
+            snprintf(attribName, sizeof(attribName), "attrib%u\n", i);
+            glBindAttribLocation(programs[progIndex], i, attribName);
+        }
+        glLinkProgram(programs[progIndex]);
+        glUseProgram(programs[progIndex]);
+        ASSERT_GL_NO_ERROR();
+    }
+
+    GLuint data[15][4][4];
+    for (GLuint i = 0; i < 15; ++i)
+    {
+        for (GLuint j = 0; j < 4; ++j)
+        {
+            // Match the expectation in the shader
+            data[i][j][0] = i;
+            data[i][j][1] = i * 2;
+            data[i][j][2] = i + 1;
+            data[i][j][3] = i + 0x12345;
+        }
+    }
+
+    GLBuffer buffer;
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW);
+
+    // Randomly match and mismatch the component type
+    setupVertexAttribPointersForMismatchSignsTest(0x55F8, 0x7FFF);
+
+    for (uint32_t i = 0; i < 15; ++i)
+    {
+        glEnableVertexAttribArray(i);
+    }
+
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+
+    glUseProgram(programs[0]);
+    GLint colorScaleLoc = glGetUniformLocation(programs[0], "colorScale");
+    ASSERT_NE(-1, colorScaleLoc);
+    glUniform4f(colorScaleLoc, 1, 0, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Change the program, which have randomly different attribute component types and make sure
+    // tests still pass
+
+    glUseProgram(programs[1]);
+    colorScaleLoc = glGetUniformLocation(programs[1], "colorScale");
+    ASSERT_NE(-1, colorScaleLoc);
+    glUniform4f(colorScaleLoc, 0, 1, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glUseProgram(programs[2]);
+    colorScaleLoc = glGetUniformLocation(programs[2], "colorScale");
+    ASSERT_NE(-1, colorScaleLoc);
+    glUniform4f(colorScaleLoc, 0, 0, 1, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glUseProgram(programs[3]);
+    colorScaleLoc = glGetUniformLocation(programs[3], "colorScale");
+    ASSERT_NE(-1, colorScaleLoc);
+    glUniform4f(colorScaleLoc, 0, 0, 0, 1);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // All channels must be 1
+    EXPECT_PIXEL_RECT_EQ(0, 0, getWindowWidth(), getWindowHeight(), GLColor::white);
+    ASSERT_GL_NO_ERROR();
+}
+
 // Test that aliasing attribute locations work with es 100 shaders.  Note that es 300 and above
 // don't allow vertex attribute aliasing.  This test excludes matrix types.
 TEST_P(VertexAttributeTest, AliasingVectorAttribLocations)
@@ -4107,8 +4385,7 @@ TEST_P(VertexAttributeTestES3, emptyBuffer)
                 color = vec4(1.0, 0.0, 0.0, 1.0);
             })";
     GLuint program2 = CompileProgram(vs2, fs);
-    GLuint buf;
-    glGenBuffers(1, &buf);
+    GLBuffer buf;
     glBindBuffer(GL_ARRAY_BUFFER, buf);
     glEnableVertexAttribArray(0);
     glVertexAttribIPointer(0, 4, GL_UNSIGNED_BYTE, 0, 0);
@@ -4117,6 +4394,87 @@ TEST_P(VertexAttributeTestES3, emptyBuffer)
     glDrawArrays(GL_POINTS, 0, 1);
 
     swapBuffers();
+}
+
+// This is a test for use with ANGLE's Capture/Replay.
+// It emulates a situation we see in some apps, where attribs are passed in but may not be used.
+// In particular, that test asks for all active attributes and iterates through each one. Before any
+// changes to FrameCapture, this will create calls that look up attributes that are considered
+// unused on some platforms, making the trace non-portable. Whether they are used depends on how
+// well the stack optimizes the shader pipeline. In this instance, we are just passing them across
+// the pipeline boundary where they are dead in the fragment shader, but other cases have included
+// attributes passed to empty functions, or some eliminated with math. The more optimizations
+// applied by the driver, the higher chance of getting an unused attribute.
+TEST_P(VertexAttributeTestES3, UnusedAttribsMEC)
+{
+    constexpr char vertexShader[] =
+        R"(#version 300 es
+        precision mediump float;
+        in vec4 position;
+        in vec4 input_unused;
+        out vec4 passthrough;
+        void main()
+        {
+            passthrough = input_unused;
+            gl_Position = position;
+        })";
+
+    constexpr char fragmentShader[] =
+        R"(#version 300 es
+        precision mediump float;
+        in vec4 passthrough;
+        out vec4 color;
+        void main()
+        {
+            // ignore passthrough - this makes it unused with cross stage optimizations
+            color = vec4(1.0);
+        })";
+
+    GLuint program = CompileProgram(vertexShader, fragmentShader);
+    glUseProgram(program);
+
+    // Set up vertex data
+    GLBuffer positionBuffer;
+    const std::array<Vector3, 6> &quadVerts = GetQuadVertices();
+    glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);
+    glBufferData(GL_ARRAY_BUFFER, quadVerts.size() * sizeof(quadVerts[0]), quadVerts.data(),
+                 GL_STATIC_DRAW);
+
+    // Loop through a sequence multiple times, so MEC can capture it.
+    // Ask about vertex attribs and set them up, regardless of whether they are used.
+    // This matches behavior seen in some apps.
+    for (int i = 0; i < 10; i++)
+    {
+        // Look up the number of attribs
+        GLint activeAttribCount = 0;
+        glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &activeAttribCount);
+
+        // Look up how big they might get
+        GLint maxActiveAttribLength = 0;
+        glGetProgramiv(program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &maxActiveAttribLength);
+
+        GLsizei attribLength  = 0;
+        GLint attribSize      = 0;
+        GLenum attribType     = 0;
+        GLchar attribName[16] = {0};
+        ASSERT(maxActiveAttribLength < 16);
+
+        // Look up each attribute and set them up
+        for (int j = 0; j < activeAttribCount; j++)
+        {
+            glGetActiveAttrib(program, j, maxActiveAttribLength, &attribLength, &attribSize,
+                              &attribType, attribName);
+            GLint posLoc = glGetAttribLocation(program, attribName);
+            ASSERT_NE(posLoc, -1);
+            glVertexAttribPointer(posLoc, 3, GL_FLOAT, GL_FALSE, j, nullptr);
+            glEnableVertexAttribArray(posLoc);
+        }
+
+        // Draw and swap on each loop to trigger MEC
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        EXPECT_PIXEL_COLOR_EQ(getWindowWidth() / 2, getWindowHeight() / 2, GLColor::white);
+        swapBuffers();
+    }
 }
 
 // VAO emulation fails on Mac but is not used on Mac in the wild. http://anglebug.com/5577

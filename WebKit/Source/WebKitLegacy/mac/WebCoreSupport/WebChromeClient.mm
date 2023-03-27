@@ -61,7 +61,6 @@
 #import <WebCore/CookieConsentDecisionResult.h>
 #import <WebCore/Cursor.h>
 #import <WebCore/DataListSuggestionPicker.h>
-#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/Element.h>
 #import <WebCore/FileChooser.h>
 #import <WebCore/FileIconLoader.h>
@@ -84,7 +83,6 @@
 #import <WebCore/Page.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/ResourceRequest.h>
-#import <WebCore/SSLKeyGenerator.h>
 #import <WebCore/SerializedCryptoKeyWrap.h>
 #import <WebCore/UniversalAccessZoom.h>
 #import <WebCore/Widget.h>
@@ -543,11 +541,6 @@ void WebChromeClient::setStatusbarText(const String& status)
     @autoreleasepool {
         CallUIDelegate(m_webView, @selector(webView:setStatusText:), (NSString *)status);
     }
-}
-
-bool WebChromeClient::supportsImmediateInvalidation()
-{
-    return true;
 }
 
 void WebChromeClient::invalidateRootView(const IntRect&)
@@ -1154,14 +1147,6 @@ void WebChromeClient::mockMediaPlaybackTargetPickerDismissPopup()
     [m_webView _mockMediaPlaybackTargetPickerDismissPopup];
 }
 #endif
-
-String WebChromeClient::signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challengeString, const URL& url) const
-{
-    SEL selector = @selector(signedPublicKeyAndChallengeStringForWebView:);
-    if ([[m_webView UIDelegate] respondsToSelector:selector])
-        return CallUIDelegate(m_webView, selector);
-    return WebCore::signedPublicKeyAndChallengeString(keySizeIndex, challengeString, url);
-}
 
 #if PLATFORM(MAC)
 void WebChromeClient::changeUniversalAccessZoomFocus(const WebCore::IntRect& viewRect, const WebCore::IntRect& selectionRect)

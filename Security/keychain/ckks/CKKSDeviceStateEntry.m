@@ -555,7 +555,7 @@
 
     // We'd like to have the circle peer ID. Give the account state tracker a fighting chance, but not having it is not an error
     // But, if the platform doesn't have SOS, don't bother
-    if(OctagonPlatformSupportsSOS() && [accountTracker.accountCirclePeerIDInitialized wait:500*NSEC_PER_MSEC] != 0 && !accountTracker.accountCirclePeerID) {
+    if(OctagonIsSOSFeatureEnabled() && [accountTracker.accountCirclePeerIDInitialized wait:500*NSEC_PER_MSEC] != 0 && !accountTracker.accountCirclePeerID) {
         ckkserror("ckksdevice", viewState, "No SOS peer ID available");
     }
 

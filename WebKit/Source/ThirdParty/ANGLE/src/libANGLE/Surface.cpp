@@ -28,11 +28,15 @@ namespace
 angle::SubjectIndex kSurfaceImplSubjectIndex = 0;
 }  // namespace
 
-SurfaceState::SurfaceState(const egl::Config *configIn, const AttributeMap &attributesIn)
-    : label(nullptr),
+SurfaceState::SurfaceState(SurfaceID idIn,
+                           const egl::Config *configIn,
+                           const AttributeMap &attributesIn)
+    : id(idIn),
+      label(nullptr),
       config((configIn != nullptr) ? new egl::Config(*configIn) : nullptr),
       attributes(attributesIn),
       timestampsEnabled(false),
+      autoRefreshEnabled(false),
       directComposition(false),
       swapBehavior(EGL_NONE)
 {
@@ -60,12 +64,13 @@ EGLint SurfaceState::getPreferredSwapInterval() const
 }
 
 Surface::Surface(EGLint surfaceType,
+                 SurfaceID id,
                  const egl::Config *config,
                  const AttributeMap &attributes,
                  bool forceRobustResourceInit,
                  EGLenum buftype)
     : FramebufferAttachmentObject(),
-      mState(config, attributes),
+      mState(id, config, attributes),
       mImplementation(nullptr),
       mRefCount(0),
       mDestroyed(false),
@@ -322,7 +327,7 @@ Error Surface::prepareSwap(const gl::Context *context)
     return mImplementation->prepareSwap(context);
 }
 
-Error Surface::swap(const gl::Context *context)
+Error Surface::swap(gl::Context *context)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "egl::Surface::swap");
     context->onPreSwap();
@@ -334,7 +339,7 @@ Error Surface::swap(const gl::Context *context)
     return NoError();
 }
 
-Error Surface::swapWithDamage(const gl::Context *context, const EGLint *rects, EGLint n_rects)
+Error Surface::swapWithDamage(gl::Context *context, const EGLint *rects, EGLint n_rects)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "egl::Surface::swapWithDamage");
     context->onPreSwap();
@@ -346,7 +351,7 @@ Error Surface::swapWithDamage(const gl::Context *context, const EGLint *rects, E
     return NoError();
 }
 
-Error Surface::swapWithFrameToken(const gl::Context *context, EGLFrameTokenANGLE frameToken)
+Error Surface::swapWithFrameToken(gl::Context *context, EGLFrameTokenANGLE frameToken)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "egl::Surface::swapWithFrameToken");
     context->onPreSwap();
@@ -617,15 +622,19 @@ bool Surface::isYUV() const
     return false;
 }
 
-bool Surface::isCreatedWithAHB() const
+bool Surface::isExternalImageWithoutIndividualSync() const
+{
+    return false;
+}
+
+bool Surface::hasFrontBufferUsage() const
 {
     return false;
 }
 
 GLuint Surface::getId() const
 {
-    UNREACHABLE();
-    return 0;
+    return mState.id.value;
 }
 
 Error Surface::getBufferAgeImpl(const gl::Context *context, EGLint *age) const
@@ -698,6 +707,13 @@ bool Surface::isTimestampsEnabled() const
     return mState.timestampsEnabled;
 }
 
+Error Surface::setAutoRefreshEnabled(bool enabled)
+{
+    ANGLE_TRY(mImplementation->setAutoRefreshEnabled(enabled));
+    mState.autoRefreshEnabled = enabled;
+    return NoError();
+}
+
 bool Surface::hasProtectedContent() const
 {
     return mState.hasProtectedContent();
@@ -743,6 +759,9 @@ void Surface::onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMess
             break;
         case angle::SubjectMessage::SurfaceChanged:
             onStateChange(angle::SubjectMessage::SurfaceChanged);
+            break;
+        case angle::SubjectMessage::SwapchainImageChanged:
+            onStateChange(angle::SubjectMessage::SwapchainImageChanged);
             break;
         default:
             UNREACHABLE();
@@ -859,11 +878,12 @@ egl::Error Surface::unlockSurfaceKHR(const egl::Display *display)
 }
 
 WindowSurface::WindowSurface(rx::EGLImplFactory *implFactory,
+                             SurfaceID id,
                              const egl::Config *config,
                              EGLNativeWindowType window,
                              const AttributeMap &attribs,
                              bool robustResourceInit)
-    : Surface(EGL_WINDOW_BIT, config, attribs, robustResourceInit)
+    : Surface(EGL_WINDOW_BIT, id, config, attribs, robustResourceInit)
 {
     mImplementation = implFactory->createWindowSurface(mState, window, attribs);
 }
@@ -876,21 +896,23 @@ void Surface::setDamageRegion(const EGLint *rects, EGLint n_rects)
 WindowSurface::~WindowSurface() {}
 
 PbufferSurface::PbufferSurface(rx::EGLImplFactory *implFactory,
+                               SurfaceID id,
                                const Config *config,
                                const AttributeMap &attribs,
                                bool robustResourceInit)
-    : Surface(EGL_PBUFFER_BIT, config, attribs, robustResourceInit)
+    : Surface(EGL_PBUFFER_BIT, id, config, attribs, robustResourceInit)
 {
     mImplementation = implFactory->createPbufferSurface(mState, attribs);
 }
 
 PbufferSurface::PbufferSurface(rx::EGLImplFactory *implFactory,
+                               SurfaceID id,
                                const Config *config,
                                EGLenum buftype,
                                EGLClientBuffer clientBuffer,
                                const AttributeMap &attribs,
                                bool robustResourceInit)
-    : Surface(EGL_PBUFFER_BIT, config, attribs, robustResourceInit, buftype)
+    : Surface(EGL_PBUFFER_BIT, id, config, attribs, robustResourceInit, buftype)
 {
     mImplementation =
         implFactory->createPbufferFromClientBuffer(mState, buftype, clientBuffer, attribs);
@@ -899,11 +921,12 @@ PbufferSurface::PbufferSurface(rx::EGLImplFactory *implFactory,
 PbufferSurface::~PbufferSurface() {}
 
 PixmapSurface::PixmapSurface(rx::EGLImplFactory *implFactory,
+                             SurfaceID id,
                              const Config *config,
                              NativePixmapType nativePixmap,
                              const AttributeMap &attribs,
                              bool robustResourceInit)
-    : Surface(EGL_PIXMAP_BIT, config, attribs, robustResourceInit)
+    : Surface(EGL_PIXMAP_BIT, id, config, attribs, robustResourceInit)
 {
     mImplementation = implFactory->createPixmapSurface(mState, nativePixmap, attribs);
 }

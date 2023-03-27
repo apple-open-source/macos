@@ -247,6 +247,7 @@
 
 /* Define if you have the header file: */
 #define HAVE_DIRENT_H 1
+#define HAVE_DISPATCH_DISPATCH_H 1
 #define HAVE_ERRNO_H 1
 #define HAVE_FCNTL_H 1
 /* #undef HAVE_FRAME_H */

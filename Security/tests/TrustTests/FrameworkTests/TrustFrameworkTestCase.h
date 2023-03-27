@@ -25,7 +25,13 @@
 #ifndef _TRUSTTESTS_FRAMEWORK_TESTCASE_H_
 #define _TRUSTTESTS_FRAMEWORK_TESTCASE_H_
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface TrustFrameworkTestCase : XCTestCase
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromResource:(NSString * )name subdirectory:(NSString *)dir;
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromPEMResource:(NSString *)name subdirectory:(NSString *)dir;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* _TRUSTTESTS_FRAMEWORK_TESTCASE_H_ */

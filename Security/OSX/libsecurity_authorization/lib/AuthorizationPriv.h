@@ -212,16 +212,6 @@ OSStatus SessionGetDistinguishedUser(SecuritySessionId session, uid_t * _Nonnull
  */
 OSStatus SessionSetUserPreferences(SecuritySessionId session);
 
-    
-/*!
-    @function AuthorizationEnableSmartCard
-    Enable or disable system login using smartcard or get current status.
- 
-    @param authRef (input) The authorization object on which this operation is performed.
-    @param enable (input) desired smartcard login support state, TRUE to enable, FALSE to disable
- */
-OSStatus AuthorizationEnableSmartCard(AuthorizationRef _Nonnull authRef, Boolean enable);
-
 /*!
      @function AuthorizationExecuteWithPrivilegesInternal
      Run an executable tool with enhanced privileges after passing

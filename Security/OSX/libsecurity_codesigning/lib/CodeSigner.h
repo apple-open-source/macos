@@ -53,7 +53,7 @@ public:
     virtual ~SecCodeSigner() _NOEXCEPT;
 	
 	void parameters(CFDictionaryRef args);	// parse and set parameters
-	bool valid() const;
+	virtual bool valid() const;
     
 	std::string getTeamIDFromSigner(CFArrayRef certs);
 	

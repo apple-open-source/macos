@@ -21,7 +21,7 @@ export LIBRARYPREFIX = /Library
 endif
 
 $(DIR):
-	gnutar xozf $(TARBALL) -C $(OBJROOT)
+	tar xozf $(TARBALL) -C $(OBJROOT)
 
 afterinstallsrc::
 	@echo "# $(NAMEVERSION): afterinstallsrc"

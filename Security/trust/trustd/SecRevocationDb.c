@@ -612,8 +612,8 @@ static bool copyFilterComponents(CFDataRef xmlData, CFDataRef * CF_RETURNS_RETAI
 CFAbsoluteTime gUpdateStarted = 0.0;
 CFAbsoluteTime gNextUpdate = 0.0;
 static CFIndex gUpdateInterval = 0;
-static _Atomic CFIndex gLastVersion = ATOMIC_VAR_INIT(0);
-static _Atomic int64_t gSchemaVersion = ATOMIC_VAR_INIT(-1);
+static _Atomic CFIndex gLastVersion = 0;
+static _Atomic int64_t gSchemaVersion = -1;
 
 /* Update Format:
     1. The length of the signed data, as a 4-byte integer in network byte order.
@@ -2621,8 +2621,8 @@ static bool _SecRevocationDbUpdateIssuerData(SecRevocationDbConnectionRef dbc, i
             if (ok) { ++processed; }
         }
 #if VERBOSE_LOGGING
-        secdebug("validupdate", "Processed %ld of %ld deletions for group %lld, result=%s",
-                 processed, identifierCount, groupId, (ok) ? "true" : "false");
+        secdebug("validupdate", "Processed %ld of %ld deletions for group %lld, result=%{bool}d",
+                 processed, identifierCount, groupId, ok);
 #endif
     }
     /* process additions */
@@ -2660,8 +2660,8 @@ static bool _SecRevocationDbUpdateIssuerData(SecRevocationDbConnectionRef dbc, i
             if (ok) { ++processed; }
         }
 #if VERBOSE_LOGGING
-        secdebug("validupdate", "Processed %ld of %ld additions for group %lld, result=%s",
-                 processed, identifierCount, groupId, (ok) ? "true" : "false");
+        secdebug("validupdate", "Processed %ld of %ld additions for group %lld, result=%{bool}d",
+                 processed, identifierCount, groupId, ok);
 #endif
     }
     if (!ok || localError) {

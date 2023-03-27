@@ -48,12 +48,13 @@ public:
     bool multiThreaded() const final { return false; }
 
     // Note: CompletionTask should not hold a reference to the Plan otherwise there will be a reference cycle.
-    OSREntryPlan(Context*, Ref<Module>&&, Ref<Callee>&&, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, uint32_t loopIndex, MemoryMode, CompletionTask&&);
+    OSREntryPlan(VM&, Ref<Module>&&, Ref<Callee>&&, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, uint32_t loopIndex, MemoryMode, CompletionTask&&);
 
 private:
     // For some reason friendship doesn't extend to parent classes...
     using Base::m_lock;
 
+    void dumpDisassembly(CompilationContext&, LinkBuffer&);
     bool isComplete() const final { return m_completed; }
     void complete() WTF_REQUIRES_LOCK(m_lock) final
     {

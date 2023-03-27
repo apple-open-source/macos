@@ -263,10 +263,16 @@ void main()
         }
         EXPECT_GL_NO_ERROR();
 
-        if (!IsOpenGLES())
+        // Ensure that the stored value reflect the actual platform behavior.
+        float storedColor[4];
+        glGetFloatv(GL_BLEND_COLOR, storedColor);
+        if (storedColor[0] == 10)
         {
-            // GLES test machines will need a workaround.
             EXPECT_PIXEL_COLOR32F_NEAR(0, 0, GLColor32F(5, 0, 0, 0), 0.001f);
+        }
+        else
+        {
+            EXPECT_PIXEL_COLOR32F_NEAR(0, 0, GLColor32F(0.5, 0, 0, 0), 0.001f);
         }
 
         // Check sure that non-float attachments clamp BLEND_COLOR.
@@ -3632,7 +3638,6 @@ TEST_P(WebGLCompatibilityTest, FloatBlend)
 {
     if (getClientMajorVersion() >= 3)
     {
-        TestBlendColor(false);
         ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_EXT_color_buffer_float"));
     }
     else
@@ -3642,18 +3647,12 @@ TEST_P(WebGLCompatibilityTest, FloatBlend)
         ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_CHROMIUM_color_buffer_float_rgba"));
     }
 
-    TestBlendColor(false);
-
     // -
 
     TestExtFloatBlend(GL_RGBA32F, GL_FLOAT, false);
 
     ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_EXT_float_blend"));
     ASSERT_GL_NO_ERROR();
-
-    // D3D9 supports float rendering explicitly, supports blending operations in practice,
-    // but cannot support float blend colors.
-    ANGLE_SKIP_TEST_IF(IsD3D9());
 
     TestExtFloatBlend(GL_RGBA32F, GL_FLOAT, true);
 }
@@ -3665,7 +3664,6 @@ TEST_P(WebGLCompatibilityTest, HalfFloatBlend)
     GLenum type           = GL_FLOAT;
     if (getClientMajorVersion() >= 3)
     {
-        TestBlendColor(false);
         ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_EXT_color_buffer_float"));
     }
     else
@@ -3677,13 +3675,7 @@ TEST_P(WebGLCompatibilityTest, HalfFloatBlend)
         type           = GL_HALF_FLOAT_OES;
     }
 
-    TestBlendColor(false);
-
     // -
-
-    // D3D9 supports float rendering explicitly, supports blending operations in practice,
-    // but cannot support float blend colors.
-    ANGLE_SKIP_TEST_IF(IsD3D9());
 
     TestExtFloatBlend(internalFormat, type, true);
 }
@@ -3707,6 +3699,7 @@ TEST_P(WebGLCompatibilityTest, R16FTextures)
         }
 
         // Unsized R 16F (OES)
+        if (getClientMajorVersion() < 3)
         {
             bool texture = IsGLExtensionEnabled("GL_OES_texture_half_float") &&
                            IsGLExtensionEnabled("GL_EXT_texture_rg");
@@ -3767,6 +3760,7 @@ TEST_P(WebGLCompatibilityTest, RG16FTextures)
         }
 
         // Unsized RG 16F (OES)
+        if (getClientMajorVersion() < 3)
         {
             bool texture = IsGLExtensionEnabled("GL_OES_texture_half_float") &&
                            IsGLExtensionEnabled("GL_EXT_texture_rg");
@@ -3829,6 +3823,7 @@ TEST_P(WebGLCompatibilityTest, RGB16FTextures)
         }
 
         // Unsized RGB 16F (OES)
+        if (getClientMajorVersion() < 3)
         {
             bool texture = IsGLExtensionEnabled("GL_OES_texture_half_float");
             bool filter  = IsGLExtensionEnabled("GL_OES_texture_half_float_linear");
@@ -3891,6 +3886,7 @@ TEST_P(WebGLCompatibilityTest, RGBA16FTextures)
         }
 
         // Unsized RGBA 16F (OES)
+        if (getClientMajorVersion() < 3)
         {
             bool texture = IsGLExtensionEnabled("GL_OES_texture_half_float");
             bool filter  = IsGLExtensionEnabled("GL_OES_texture_half_float_linear");
@@ -4696,9 +4692,6 @@ TEST_P(WebGLCompatibilityTest, FramebufferAttachmentQuery)
 // Tests WebGL reports INVALID_OPERATION for mismatch of drawbuffers and fragment output
 TEST_P(WebGLCompatibilityTest, DrawBuffers)
 {
-    // Fails on Intel Ubuntu 19.04 Mesa 19.0.2 Vulkan. http://anglebug.com/3616
-    ANGLE_SKIP_TEST_IF(IsLinux() && IsIntel() && IsVulkan());
-
     // Make sure we can use at least 4 attachments for the tests.
     bool useEXT = false;
     if (getClientMajorVersion() < 3)
@@ -4863,10 +4856,6 @@ void main()
             EXPECT_GL_ERROR(GL_INVALID_OPERATION);
         }
     }
-
-    // TODO(syoussefi): Qualcomm driver crashes in the presence of VK_ATTACHMENT_UNUSED.
-    // http://anglebug.com/3423
-    ANGLE_SKIP_TEST_IF(IsVulkan() && IsAndroid());
 
     // Test that attachments written to get the correct color from shader output but that even when
     // the extension is used, disabled attachments are not written at all and stay red.
@@ -5722,6 +5711,96 @@ void main()
     glColorMaskiOES(1, false, false, false, false);
     drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f, 1.0f, true);
     EXPECT_GL_NO_ERROR();
+}
+
+// Test that ETC2/EAC formats are rejected by unextended WebGL 2.0 contexts.
+TEST_P(WebGL2CompatibilityTest, ETC2EACFormats)
+{
+    size_t byteLength          = 8;
+    constexpr uint8_t data[16] = {};
+    constexpr GLenum formats[] = {GL_COMPRESSED_R11_EAC,
+                                  GL_COMPRESSED_SIGNED_R11_EAC,
+                                  GL_COMPRESSED_RGB8_ETC2,
+                                  GL_COMPRESSED_SRGB8_ETC2,
+                                  GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2,
+                                  GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2,
+                                  GL_COMPRESSED_RG11_EAC,
+                                  GL_COMPRESSED_SIGNED_RG11_EAC,
+                                  GL_COMPRESSED_RGBA8_ETC2_EAC,
+                                  GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC};
+
+    for (const auto &fmt : formats)
+    {
+        if (fmt == GL_COMPRESSED_RG11_EAC)
+            byteLength = 16;
+
+        {
+            GLTexture tex;
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glCompressedTexImage2D(GL_TEXTURE_2D, 0, fmt, 4, 4, 0, byteLength, data);
+            EXPECT_GL_ERROR(GL_INVALID_ENUM);
+        }
+
+        {
+            GLTexture tex;
+            glBindTexture(GL_TEXTURE_2D_ARRAY, tex);
+            glCompressedTexImage3D(GL_TEXTURE_2D_ARRAY, 0, fmt, 4, 4, 1, 0, byteLength, data);
+            EXPECT_GL_ERROR(GL_INVALID_ENUM);
+        }
+
+        {
+            GLTexture tex;
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexStorage2D(GL_TEXTURE_2D, 1, fmt, 4, 4);
+            EXPECT_GL_ERROR(GL_INVALID_ENUM);
+        }
+
+        {
+            GLTexture tex;
+            glBindTexture(GL_TEXTURE_2D_ARRAY, tex);
+            glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, fmt, 4, 4, 1);
+            EXPECT_GL_ERROR(GL_INVALID_ENUM);
+        }
+    }
+}
+
+// Test that GL_HALF_FLOAT_OES type is rejected by WebGL 2.0 contexts.
+TEST_P(WebGL2CompatibilityTest, HalfFloatOesType)
+{
+    const std::array<std::pair<GLenum, GLenum>, 6> formats = {{{GL_R16F, GL_RED},
+                                                               {GL_RG16F, GL_RG},
+                                                               {GL_RGB16F, GL_RGB},
+                                                               {GL_RGBA16F, GL_RGBA},
+                                                               {GL_R11F_G11F_B10F, GL_RGB},
+                                                               {GL_RGB9_E5, GL_RGB}}};
+    for (const auto &fmt : formats)
+    {
+        {
+            GLTexture tex;
+            glBindTexture(GL_TEXTURE_2D, tex);
+            EXPECT_GL_NO_ERROR();
+
+            glTexImage2D(GL_TEXTURE_2D, 0, fmt.first, 1, 1, 0, fmt.second, GL_HALF_FLOAT_OES,
+                         nullptr);
+            EXPECT_GL_ERROR(GL_INVALID_ENUM);
+
+            glTexImage2D(GL_TEXTURE_2D, 0, fmt.first, 1, 1, 0, fmt.second, GL_HALF_FLOAT, nullptr);
+            EXPECT_GL_NO_ERROR();
+        }
+        {
+            GLTexture tex;
+            glBindTexture(GL_TEXTURE_3D, tex);
+            EXPECT_GL_NO_ERROR();
+
+            glTexImage3D(GL_TEXTURE_3D, 0, fmt.first, 1, 1, 1, 0, fmt.second, GL_HALF_FLOAT_OES,
+                         nullptr);
+            EXPECT_GL_ERROR(GL_INVALID_ENUM);
+
+            glTexImage3D(GL_TEXTURE_3D, 0, fmt.first, 1, 1, 1, 0, fmt.second, GL_HALF_FLOAT,
+                         nullptr);
+            EXPECT_GL_NO_ERROR();
+        }
+    }
 }
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(WebGLCompatibilityTest);

@@ -125,7 +125,7 @@ makeprivate(HashNode hn, UNUSED(int flags))
 	    break;
 	}
 	/* PM_HIDE so new parameters in deeper scopes do not shadow */
-	pm->node.flags |= (PM_HIDE|PM_SPECIAL|PM_REMOVABLE);
+	pm->node.flags |= (PM_HIDE|PM_SPECIAL|PM_REMOVABLE|PM_RO_BY_DESIGN);
 	pm->level -= 1;
     }
 }
@@ -171,6 +171,7 @@ bin_private(char *nam, char **args, LinkList assigns, Options ops, int func)
 {
     int from_typeset = 1;
     int ofake = fakelevel;	/* paranoia in case of recursive call */
+    int hasargs = /* *args != NULL || */ (assigns && firstnode(assigns));
     makeprivate_error = 0;
 
     if (!OPT_ISSET(ops, 'P')) {
@@ -189,7 +190,12 @@ bin_private(char *nam, char **args, LinkList assigns, Options ops, int func)
 	return bin_typeset("private", args, assigns, ops, func);
     }
 
-    ops->ind['g'] = 2;	/* force bin_typeset() to behave as "local" */
+    if (!(OPT_ISSET(ops, 'm') || OPT_ISSET(ops, '+')))
+	ops->ind['g'] = 2;	/* force bin_typeset() to behave as "local" */
+    if (OPT_ISSET(ops, 'p') || OPT_ISSET(ops, 'm') ||
+	(!hasargs && OPT_ISSET(ops, '+'))) {
+	return bin_typeset("private", args, assigns, ops, func);
+    }
 
     queue_signals();
     fakelevel = locallevel;
@@ -555,7 +561,7 @@ printprivatenode(HashNode hn, int printflags)
 
 static struct builtin bintab[] = {
     /* Copied from BUILTIN("local"), "P" added */
-    BUILTIN("private", BINF_PLUSOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL | BINF_ASSIGN, (HandlerFunc)bin_private, 0, -1, 0, "AE:%F:%HL:%PR:%TUZ:%ahi:%lprtux", "P")
+    BUILTIN("private", BINF_PLUSOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL | BINF_ASSIGN, (HandlerFunc)bin_private, 0, -1, 0, "AE:%F:%HL:%PR:%TUZ:%ahi:%lmprtux", "P")
 };
 
 static struct features module_features = {

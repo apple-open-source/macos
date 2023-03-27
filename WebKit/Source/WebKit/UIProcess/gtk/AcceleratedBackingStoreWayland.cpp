@@ -26,10 +26,13 @@
 #include "config.h"
 #include "AcceleratedBackingStoreWayland.h"
 
-#if PLATFORM(WAYLAND) && USE(EGL)
+#if PLATFORM(WAYLAND)
 
 #include "LayerTreeContext.h"
 #include "WebPageProxy.h"
+#include <WebCore/CairoUtilities.h>
+#include <WebCore/GLContext.h>
+
 // These includes need to be in this order because wayland-egl.h defines WL_EGL_PLATFORM
 // and eglplatform.h, included by egl.h, checks that to decide whether it's Wayland platform.
 #if USE(GTK4)
@@ -37,36 +40,34 @@
 #else
 #include <gdk/gdkwayland.h>
 #endif
+#if USE(LIBEPOXY)
+#include <epoxy/egl.h>
+#else
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <WebCore/CairoUtilities.h>
-#include <WebCore/GLContext.h>
+#endif
 
-#if USE(OPENGL_ES)
+#if USE(LIBEPOXY)
+#include <epoxy/gl.h>
+#elif USE(OPENGL_ES)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else
 #include <WebCore/OpenGLShims.h>
 #endif
 
-#if USE(WPE_RENDERER)
 #include <wpe/wpe.h>
 #include <wpe/fdo-egl.h>
 #if WPE_FDO_CHECK_VERSION(1, 7, 0)
 #include <wayland-server.h>
 #include <wpe/unstable/fdo-shm.h>
 #endif
-#else
-#include "WaylandCompositor.h"
-#endif
 
-#if USE(WPE_RENDERER)
 #if !defined(PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)
 typedef void (*PFNGLEGLIMAGETARGETTEXTURE2DOESPROC) (GLenum target, GLeglImageOES);
 #endif
 
 static PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glImageTargetTexture2D;
-#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -74,7 +75,6 @@ using namespace WebCore;
 enum class WaylandImpl { Unsupported, EGL, SHM };
 static std::optional<WaylandImpl> s_waylandImpl;
 
-#if USE(WPE_RENDERER)
 static bool isEGLImageAvailable(bool useIndexedGetString)
 {
 #if USE(OPENGL_ES)
@@ -144,11 +144,9 @@ static bool tryInitializeSHM()
     return false;
 #endif
 }
-#endif // USE(WPE_RENDERER)
 
 bool AcceleratedBackingStoreWayland::checkRequirements()
 {
-#if USE(WPE_RENDERER)
     if (s_waylandImpl)
         return s_waylandImpl.value() != WaylandImpl::Unsupported;
 
@@ -159,13 +157,6 @@ bool AcceleratedBackingStoreWayland::checkRequirements()
         return true;
 
     WTFLogAlways("AcceleratedBackingStoreWayland requires glEGLImageTargetTexture2D or shm interface");
-#else
-    if (WaylandCompositor::singleton().isRunning()) {
-        s_waylandImpl = WaylandImpl::EGL;
-        return true;
-    }
-#endif
-
     s_waylandImpl = WaylandImpl::Unsupported;
     return false;
 }
@@ -179,7 +170,6 @@ std::unique_ptr<AcceleratedBackingStoreWayland> AcceleratedBackingStoreWayland::
 AcceleratedBackingStoreWayland::AcceleratedBackingStoreWayland(WebPageProxy& webPage)
     : AcceleratedBackingStore(webPage)
 {
-#if USE(WPE_RENDERER)
     static struct wpe_view_backend_exportable_fdo_egl_client exportableEGLClient = {
         // export_egl_image
         nullptr,
@@ -223,14 +213,10 @@ AcceleratedBackingStoreWayland::AcceleratedBackingStoreWayland(WebPageProxy& web
     }
 
     wpe_view_backend_initialize(wpe_view_backend_exportable_fdo_get_view_backend(m_exportable));
-#else
-    WaylandCompositor::singleton().registerWebPage(m_webPage);
-#endif
 }
 
 AcceleratedBackingStoreWayland::~AcceleratedBackingStoreWayland()
 {
-#if USE(WPE_RENDERER)
     if (s_waylandImpl.value() == WaylandImpl::EGL) {
         if (m_egl.pendingImage)
             wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image(m_exportable, m_egl.pendingImage);
@@ -242,19 +228,9 @@ AcceleratedBackingStoreWayland::~AcceleratedBackingStoreWayland()
         }
     }
     wpe_view_backend_exportable_fdo_destroy(m_exportable);
-#else
-    WaylandCompositor::singleton().unregisterWebPage(m_webPage);
-#endif
 
     if (m_gdkGLContext && m_gdkGLContext.get() == gdk_gl_context_get_current())
         gdk_gl_context_clear_current();
-}
-
-void AcceleratedBackingStoreWayland::realize()
-{
-#if !USE(WPE_RENDERER)
-    WaylandCompositor::singleton().bindWebPage(m_webPage);
-#endif
 }
 
 void AcceleratedBackingStoreWayland::unrealize()
@@ -262,7 +238,6 @@ void AcceleratedBackingStoreWayland::unrealize()
     if (!m_glContextInitialized)
         return;
 
-#if USE(WPE_RENDERER)
     if (s_waylandImpl.value() == WaylandImpl::EGL) {
         if (m_egl.viewTexture) {
             if (makeContextCurrent())
@@ -270,9 +245,6 @@ void AcceleratedBackingStoreWayland::unrealize()
             m_egl.viewTexture = 0;
         }
     }
-#else
-    WaylandCompositor::singleton().unbindWebPage(m_webPage);
-#endif
 
     if (m_gdkGLContext && m_gdkGLContext.get() == gdk_gl_context_get_current())
         gdk_gl_context_clear_current();
@@ -320,7 +292,6 @@ bool AcceleratedBackingStoreWayland::makeContextCurrent()
     return m_glContext ? m_glContext->makeContextCurrent() : false;
 }
 
-#if USE(WPE_RENDERER)
 void AcceleratedBackingStoreWayland::update(const LayerTreeContext& context)
 {
     if (m_surfaceID == context.contextID)
@@ -423,12 +394,10 @@ void AcceleratedBackingStoreWayland::displayBuffer(struct wpe_fdo_shm_exported_b
     m_webPage.setViewNeedsDisplay(IntRect(IntPoint::zero(), m_webPage.viewSize()));
 }
 #endif
-#endif
 
 bool AcceleratedBackingStoreWayland::tryEnsureTexture(unsigned& texture, IntSize& textureSize)
 {
     ASSERT(s_waylandImpl.value() == WaylandImpl::EGL);
-#if USE(WPE_RENDERER)
     if (!makeContextCurrent())
         return false;
 
@@ -457,10 +426,6 @@ bool AcceleratedBackingStoreWayland::tryEnsureTexture(unsigned& texture, IntSize
 
     texture = m_egl.viewTexture;
     textureSize = { static_cast<int>(wpe_fdo_egl_exported_image_get_width(m_egl.committedImage)), static_cast<int>(wpe_fdo_egl_exported_image_get_height(m_egl.committedImage)) };
-#else
-    if (!WaylandCompositor::singleton().getTexture(m_webPage, texture, textureSize))
-        return false;
-#endif
 
     return true;
 }
@@ -533,7 +498,6 @@ void AcceleratedBackingStoreWayland::snapshot(GtkSnapshot* gtkSnapshot)
         break;
     }
     case WaylandImpl::SHM:
-#if USE(WPE_RENDERER)
 #if WPE_FDO_CHECK_VERSION(1, 7, 0)
         if (m_shm.pendingFrame) {
             wpe_view_backend_exportable_fdo_dispatch_frame_complete(m_exportable);
@@ -546,9 +510,6 @@ void AcceleratedBackingStoreWayland::snapshot(GtkSnapshot* gtkSnapshot)
 #else
         FALLTHROUGH;
 #endif // WPE_FDO_CHECK_VERSION
-#else
-        FALLTHROUGH;
-#endif
     case WaylandImpl::Unsupported:
         RELEASE_ASSERT_NOT_REACHED();
     }
@@ -583,7 +544,6 @@ bool AcceleratedBackingStoreWayland::paint(cairo_t* cr, const IntRect& clipRect)
         break;
     }
     case WaylandImpl::SHM:
-#if USE(WPE_RENDERER)
 #if WPE_FDO_CHECK_VERSION(1, 7, 0)
         if (m_shm.pendingFrame) {
             wpe_view_backend_exportable_fdo_dispatch_frame_complete(m_exportable);
@@ -598,9 +558,6 @@ bool AcceleratedBackingStoreWayland::paint(cairo_t* cr, const IntRect& clipRect)
 #else
         FALLTHROUGH;
 #endif // WPE_FDO_CHECK_VERSION
-#else
-        FALLTHROUGH;
-#endif // USE(WPE_RENDERER)
     case WaylandImpl::Unsupported:
         RELEASE_ASSERT_NOT_REACHED();
     }
@@ -625,4 +582,4 @@ bool AcceleratedBackingStoreWayland::paint(cairo_t* cr, const IntRect& clipRect)
 
 } // namespace WebKit
 
-#endif // PLATFORM(WAYLAND) && USE(EGL)
+#endif // PLATFORM(WAYLAND)

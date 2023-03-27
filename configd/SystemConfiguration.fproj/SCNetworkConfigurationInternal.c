@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009-2013, 2015-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -605,7 +605,7 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 #define NETWORKCONFIGURATION_RESOURCE_FILE	"NetworkConfiguration.plist"
 
 static CFDictionaryRef
-__copyTemplates()
+__copyTemplates(void)
 {
 	CFBundleRef     bundle;
 	CFDictionaryRef templates;

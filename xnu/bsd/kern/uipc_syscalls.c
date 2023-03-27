@@ -92,6 +92,7 @@
 #include <sys/priv.h>
 #include <sys/sysctl.h>
 #include <sys/sys_domain.h>
+#include <sys/types.h>
 
 #include <security/audit/audit.h>
 
@@ -935,7 +936,11 @@ connectx_nocancel(proc_ref_t p, connectx_args_ref_t uap, int_ref_t retval)
 	}
 
 	if (uap->len != USER_ADDR_NULL) {
-		error1 = copyout(&bytes_written, uap->len, sizeof(uap->len));
+		if (IS_64BIT_PROCESS(p)) {
+			error1 = copyout(&bytes_written, uap->len, sizeof(user64_size_t));
+		} else {
+			error1 = copyout(&bytes_written, uap->len, sizeof(user32_size_t));
+		}
 		/* give precedence to connectitx errors */
 		if ((error1 != 0) && (error == 0)) {
 			error = error1;

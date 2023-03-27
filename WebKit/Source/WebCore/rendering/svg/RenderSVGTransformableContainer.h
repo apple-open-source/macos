@@ -34,24 +34,19 @@ public:
     RenderSVGTransformableContainer(SVGGraphicsElement&, RenderStyle&&);
 
     bool isSVGTransformableContainer() const final { return true; }
-    void setHadTransformUpdate(bool value = true) { m_hadTransformUpdate = value; }
-    bool didTransformToRootUpdate() const { return m_didTransformToRootUpdate; }
 
 private:
-    SVGGraphicsElement& graphicsElement() const;
+    ASCIILiteral renderName() const final { return "RenderSVGTransformableContainer"_s; }
 
     void element() const = delete;
+    SVGGraphicsElement& graphicsElement() const;
 
-    void layoutChildren() final;
-    void calculateViewport() final;
-    FloatPoint additionalContainerTranslation() const;
+    FloatSize additionalContainerTranslation() const;
     void applyTransform(TransformationMatrix&, const RenderStyle&, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> = RenderStyle::allTransformOperations) const final;
-    void styleWillChange(StyleDifference, const RenderStyle& newStyle) final;
-    void updateFromStyle() final;
+    void updateLayerTransform() final;
+    bool needsHasSVGTransformFlags() const final;
 
-    AffineTransform m_supplementalLocalToParentTransform;
-    bool m_didTransformToRootUpdate { false };
-    bool m_hadTransformUpdate { false };
+    AffineTransform m_supplementalLayerTransform;
 };
 
 } // namespace WebCore

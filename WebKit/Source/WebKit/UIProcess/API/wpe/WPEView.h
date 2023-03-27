@@ -53,8 +53,8 @@ struct CompositionUnderline;
 }
 
 namespace WebKit {
-class DownloadProxy;
 class TouchGestureController;
+class WebKitWebResourceLoadManager;
 class WebPageGroup;
 class WebProcessPool;
 struct EditingRange;
@@ -75,10 +75,10 @@ public:
     // Client methods
     void setClient(std::unique_ptr<API::ViewClient>&&);
     void frameDisplayed();
-    void handleDownloadRequest(WebKit::DownloadProxy&);
     void willStartLoad();
     void didChangePageID();
     void didReceiveUserMessage(WebKit::UserMessage&&, CompletionHandler<void(WebKit::UserMessage&&)>&&);
+    WebKit::WebKitWebResourceLoadManager* webResourceLoadManager();
 
     void setInputMethodContext(WebKitInputMethodContext*);
     WebKitInputMethodContext* inputMethodContext() const;
@@ -108,6 +108,9 @@ public:
 #endif
 
     WebKit::TouchGestureController& touchGestureController() const { return *m_touchGestureController; }
+#if ENABLE(GAMEPAD)
+    static WebKit::WebPageProxy* platformWebPageProxyForGamepadInput();
+#endif
 
 private:
     View(struct wpe_view_backend*, const API::PageConfiguration&);

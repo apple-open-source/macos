@@ -7136,9 +7136,9 @@ TEST_P(ImageRespecificationTest, ImageTarget2DOESSwitch)
 
     EGLWindow *window = getEGLWindow();
     EGLint attribs[]  = {
-         EGL_IMAGE_PRESERVED,
-         EGL_TRUE,
-         EGL_NONE,
+        EGL_IMAGE_PRESERVED,
+        EGL_TRUE,
+        EGL_NONE,
     };
     EGLImageKHR firstEGLImage = eglCreateImageKHR(
         window->getDisplay(), window->getContext(), EGL_GL_TEXTURE_2D_KHR,
@@ -8466,7 +8466,7 @@ void main()
     //          | __/__/   _|/
     //          |/__/   __/ |
     //          |/   __/    |
-    //          | __/    Draw 3 (blue): factor width/2, offset -1, depth test: Less
+    //          | __/    Draw 3 (blue): factor width/2, offset -2, depth test: Less
     //          |/
     //          |
     //          |
@@ -8493,6 +8493,88 @@ void main()
 
     EXPECT_PIXEL_RECT_EQ(0, 0, w / 2 - 1, h, GLColor::blue);
     EXPECT_PIXEL_RECT_EQ(w / 2 + 1, 0, w / 4 - 1, h, GLColor::green);
+    EXPECT_PIXEL_RECT_EQ(3 * w / 4 + 1, 0, w / 4 - 1, h, GLColor::red);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests state change for glPolygonOffsetClampEXT.
+TEST_P(StateChangeTestES3, PolygonOffsetClamp)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_polygon_offset_clamp"));
+
+    constexpr char kVS[] = R"(#version 300 es
+precision highp float;
+uniform float height;
+void main()
+{
+    // gl_VertexID    x    y
+    //      0        -1   -1
+    //      1         1   -1
+    //      2        -1    1
+    //      3         1    1
+    int bit0 = gl_VertexID & 1;
+    int bit1 = gl_VertexID >> 1;
+    gl_Position = vec4(bit0 * 2 - 1, bit1 * 2 - 1, gl_VertexID % 2 == 0 ? -1 : 1, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 colorOut;
+uniform vec4 color;
+void main()
+{
+    colorOut = color;
+})";
+
+    glEnable(GL_POLYGON_OFFSET_FILL);
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+
+    GLint colorLoc = glGetUniformLocation(program, "color");
+    ASSERT_NE(-1, colorLoc);
+
+    glClearColor(0, 0, 0, 1);
+    glClearDepthf(0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+
+    // The shader creates a depth slope from left (0) to right (1).
+    //
+    // This test issues two draw calls:
+    //
+    //           Draw 2 (green): factor width, offset 0, clamp 0.5, depth test: Greater
+    //          ^     |       __________________
+    //          |     |    __/      __/
+    //          |     V __/      __/  <--- Draw 1 (red): factor width, offset 0, clamp 0.25
+    //          |    __/      __/
+    //          | __/      __/
+    //          |/      __/
+    //          |    __/
+    //          | __/
+    //          |/
+    //          |
+    //          |
+    //          +------------------------------->
+    //
+    // Result:  <---------green--------><--red-->
+
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+
+    glUniform4f(colorLoc, 1, 0, 0, 1);
+    glPolygonOffsetClampEXT(getWindowWidth(), 0, 0.25);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glUniform4f(colorLoc, 0, 1, 0, 1);
+    glPolygonOffsetClampEXT(getWindowWidth(), 0, 0.5);
+    glDepthFunc(GL_GREATER);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, 3 * w / 4 - 1, h, GLColor::green);
     EXPECT_PIXEL_RECT_EQ(3 * w / 4 + 1, 0, w / 4 - 1, h, GLColor::red);
 
     ASSERT_GL_NO_ERROR();
@@ -8716,6 +8798,84 @@ TEST_P(StateChangeTestES3, StencilWriteMask)
     EXPECT_PIXEL_RECT_EQ(w / 2, 0, w / 2, h / 2, GLColor::magenta);
     EXPECT_PIXEL_RECT_EQ(0, h / 2, w / 2, h / 2, GLColor::white);
     EXPECT_PIXEL_RECT_EQ(w / 2, h / 2, w / 2, h / 2, GLColor::black);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests that |discard| works with stencil write mask
+TEST_P(StateChangeTestES3, StencilWriteMaskVsDiscard)
+{
+    constexpr char kVS[] = R"(#version 300 es
+precision highp float;
+uniform float height;
+void main()
+{
+    // gl_VertexID    x    y
+    //      0        -1   -1
+    //      1         1   -1
+    //      2        -1    1
+    //      3         1    1
+    int bit0 = gl_VertexID & 1;
+    int bit1 = gl_VertexID >> 1;
+    gl_Position = vec4(bit0 * 2 - 1, bit1 * 2 - 1, gl_VertexID % 2 == 0 ? -1 : 1, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 colorOut;
+uniform vec4 color;
+uniform int flag;
+void main()
+{
+    if (flag > 0)
+    {
+        discard;
+    }
+    colorOut = color;
+})";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+
+    GLint colorLoc = glGetUniformLocation(program, "color");
+    ASSERT_NE(colorLoc, -1);
+
+    GLint flagLoc = glGetUniformLocation(program, "flag");
+    ASSERT_NE(flagLoc, -1);
+
+    glEnable(GL_DEPTH_TEST);
+
+    glClearColor(0, 0, 0, 1);
+    glClearDepthf(1);
+    glClearStencil(0x00);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_STENCIL_TEST);
+
+    // Enable stencil write, but issue a draw call where all fragments are discarded.
+    glStencilFunc(GL_ALWAYS, 128, 128);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glStencilMask(128);
+
+    glUniform4f(colorLoc, 1, 0, 0, 1);
+    glUniform1i(flagLoc, 1);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // At this point, the stencil buffer should be unmodified.  Verify it with another draw call.
+    glStencilFunc(GL_NOTEQUAL, 128, 128);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilMask(128);
+
+    glUniform4f(colorLoc, 0, 1, 0, 1);
+    glUniform1i(flagLoc, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, w, h, GLColor::green);
 
     ASSERT_GL_NO_ERROR();
 }
@@ -9626,6 +9786,461 @@ TEST_P(StateChangeTestES3, PrimitiveRestart)
 
     ASSERT_GL_NO_ERROR();
 }
+
+// Tests state change for GL_COLOR_LOGIC_OP and glLogicOp.
+TEST_P(StateChangeTestES3, LogicOp)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_ANGLE_logic_op"));
+
+    constexpr char kVS[] = R"(#version 300 es
+precision highp float;
+uniform float height;
+void main()
+{
+    // gl_VertexID    x    y
+    //      0        -1   -1
+    //      1         1   -1
+    //      2        -1    1
+    //      3         1    1
+    int bit0 = gl_VertexID & 1;
+    int bit1 = gl_VertexID >> 1;
+    gl_Position = vec4(bit0 * 2 - 1, bit1 * 2 - 1, gl_VertexID % 2 == 0 ? -1 : 1, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 colorOut;
+uniform vec4 color;
+void main()
+{
+    colorOut = color;
+})";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+
+    GLint colorLoc = glGetUniformLocation(program, "color");
+    ASSERT_NE(-1, colorLoc);
+
+    glClearColor(0, 0, 0, 1);
+    glClearDepthf(0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    auto unorm8 = [](uint8_t value) { return (value + 0.1f) / 255.0f; };
+
+    constexpr uint8_t kInitRed   = 0xA4;
+    constexpr uint8_t kInitGreen = 0x1E;
+    constexpr uint8_t kInitBlue  = 0x97;
+    constexpr uint8_t kInitAlpha = 0x65;
+
+    // Initialize with logic op enabled, but using the default GL_COPY op.
+    glEnable(GL_COLOR_LOGIC_OP_ANGLE);
+
+    glUniform4f(colorLoc, unorm8(kInitRed), unorm8(kInitGreen), unorm8(kInitBlue),
+                unorm8(kInitAlpha));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Set logic op to GL_XOR and draw again.
+    glLogicOpANGLE(GL_LOGIC_OP_XOR_ANGLE);
+
+    constexpr uint8_t kXorRed   = 0x4C;
+    constexpr uint8_t kXorGreen = 0x7D;
+    constexpr uint8_t kXorBlue  = 0xB3;
+    constexpr uint8_t kXorAlpha = 0x0F;
+
+    glUniform4f(colorLoc, unorm8(kXorRed), unorm8(kXorGreen), unorm8(kXorBlue), unorm8(kXorAlpha));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Set logic op to GL_INVERT and draw again.
+    glLogicOpANGLE(GL_LOGIC_OP_INVERT_ANGLE);
+    glUniform4f(colorLoc, 0.123f, 0.234f, 0.345f, 0.456f);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+
+    // Verify results
+    const GLColor kExpect(static_cast<uint8_t>(~(kInitRed ^ kXorRed)),
+                          static_cast<uint8_t>(~(kInitGreen ^ kXorGreen)),
+                          static_cast<uint8_t>(~(kInitBlue ^ kXorBlue)),
+                          static_cast<uint8_t>(~(kInitAlpha ^ kXorAlpha)));
+    EXPECT_PIXEL_RECT_EQ(0, 0, w, h, kExpect);
+
+    // Render again with logic op enabled, this time with GL_COPY_INVERTED
+    glLogicOpANGLE(GL_LOGIC_OP_COPY_INVERTED_ANGLE);
+    glUniform4f(colorLoc, 0.123f, 0.234f, 0.345f, 0.456f);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Disable logic op and render again
+    glDisable(GL_COLOR_LOGIC_OP_ANGLE);
+    glUniform4f(colorLoc, 0, 1, 0, 1);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, w, h, GLColor::green);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test for a bug with the VK_EXT_graphics_pipeline_library implementation in a scenario such as
+// this:
+//
+// - Use blend function A, draw  <-- a new pipeline is created
+// - Use blend function B, draw  <-- a new pipeline is created,
+//                                   new transition from A to B
+// - Switch to program 2
+// - Use blend function A, draw  <-- a new pipeline is created
+// - Switch to program 1
+// -                       draw  <-- the first pipeline is retrieved from cache,
+//                                   new transition from B to A
+// - Use blend function B, draw  <-- the second pipeline is retrieved from transition
+// - Switch to program 3
+// -                       draw  <-- a new pipeline is created
+//
+// With graphics pipeline library, the fragment output partial pipeline changes as follows:
+//
+// - Use blend function A, draw  <-- a new fragment output pipeline is created
+// - Use blend function B, draw  <-- a new fragment output pipeline is created,
+//                                   new transition from A to B
+// - Switch to program 2
+// - Use blend function A, draw  <-- the first fragment output pipeline is retrieved from cache
+// - Switch to program 1
+// -                       draw  <-- the first monolithic pipeline is retrieved from cache
+// - Use blend function B, draw  <-- the second monolithic pipeline is retrieved from transition
+// - Switch to program 3
+// -                       draw  <-- the second fragment output pipeline is retrieved from cache
+//
+// The bug was that the dirty blend state was discarded when the monolithic pipeline was retrieved
+// through the transition graph, and the last draw call used a stale fragment output pipeline (from
+// the last draw call with function A)
+//
+TEST_P(StateChangeTestES3, FragmentOutputStateChangeAfterCachedPipelineTransition)
+{
+    // Program 1
+    ANGLE_GL_PROGRAM(drawColor, essl1_shaders::vs::Simple(), essl1_shaders::fs::UniformColor());
+    // Program 2
+    ANGLE_GL_PROGRAM(drawColor2, essl3_shaders::vs::Simple(), R"(#version 300 es
+precision mediump float;
+out vec4 colorOut;
+uniform vec4 colorIn;
+void main()
+{
+    colorOut = colorIn;
+}
+)");
+    // Program 3
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Simple(), essl1_shaders::fs::Green());
+
+    glUseProgram(drawColor2);
+    GLint color2UniformLocation = glGetUniformLocation(drawColor2, "colorIn");
+    ASSERT_NE(color2UniformLocation, -1);
+
+    glUseProgram(drawColor);
+    GLint colorUniformLocation =
+        glGetUniformLocation(drawColor, angle::essl1_shaders::ColorUniform());
+    ASSERT_NE(colorUniformLocation, -1);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    // Framebuffer color is now (0, 0, 0, 0)
+
+    glUniform4f(colorUniformLocation, 0, 0, 1, 0.25f);
+    drawQuad(drawColor, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0, 0, 0.25, 0.25*0.25)
+
+    glBlendFunc(GL_ONE, GL_ONE);
+    glUniform4f(colorUniformLocation, 0, 0, 0.25, 0.5 - 0.0625);
+    drawQuad(drawColor, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0, 0, 0.5, 0.5)
+
+    // Draw with a different program, but same fragment output state.  The fragment output pipeline
+    // is retrieved from cache.
+    glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
+    glUseProgram(drawColor2);
+    glUniform4f(color2UniformLocation, 1, 0, 0, 0.5);
+    drawQuad(drawColor2, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0.5, 0, 0.25, 0.5)
+
+    // Draw with the original program and the first fragment output state, so it's retrieved from
+    // cache.
+    glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
+    glUseProgram(drawColor);
+    glUniform4f(colorUniformLocation, 0, 0, 0.5, 0.25);
+    drawQuad(drawColor, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0.25, 0, 0.25, 0.25+0.25*0.25)
+
+    // Change to the second fragment output state, so it's retrieved through the transition graph.
+    glBlendFunc(GL_ONE, GL_ONE);
+    glUniform4f(colorUniformLocation, 0, 0, 0.5, 0.25 - 0.25 * 0.25);
+    drawQuad(drawColor, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0.25, 0, 0.75, 0.5)
+
+    // Draw with the third program, not changing the fragment output state.
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0.25, 1, 0.75, 1)
+
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor(64, 255, 192, 255), 1);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests a specific case for multiview and queries.
+TEST_P(SimpleStateChangeTestES3, MultiviewAndQueries)
+{
+    ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_OVR_multiview"));
+
+    ANGLE_GL_PROGRAM(prog, essl1_shaders::vs::Zero(), essl1_shaders::fs::Red());
+    glUseProgram(prog);
+
+    const int PRE_QUERY_CNT = 63;
+
+    GLQuery qry;
+    GLTexture tex;
+    GLFramebuffer fb;
+    GLFramebuffer fb2;
+    glBeginQuery(GL_ANY_SAMPLES_PASSED, qry);
+    for (int i = 0; i < PRE_QUERY_CNT; i++)
+    {
+        glDrawArrays(GL_POINTS, 0, 1);
+
+        GLColor color;
+        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
+    }
+    glEndQuery(GL_ANY_SAMPLES_PASSED);
+    glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, tex);
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, 2, 2, 2);
+    glBindFramebuffer(GL_FRAMEBUFFER, fb);
+    glFramebufferTextureMultiviewOVR(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, tex, 0, 0, 2);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_FRAMEBUFFER, fb2);
+    glBeginQuery(GL_ANY_SAMPLES_PASSED, qry);
+}
+
+// Tests a bug related to an ordering of certain commands.
+TEST_P(SimpleStateChangeTestES3, ClearQuerySwapClear)
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+    {
+        GLQuery query;
+        glBeginQuery(GL_ANY_SAMPLES_PASSED, query);
+        glEndQuery(GL_ANY_SAMPLES_PASSED);
+    }
+    swapBuffers();
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+
+// Tests a bug around sampler2D swap and uniform locations.
+TEST_P(StateChangeTestES3, SamplerSwap)
+{
+    constexpr char kVS[] = R"(#version 300 es
+precision highp float;
+uniform float height;
+void main()
+{
+    // gl_VertexID    x    y
+    //      0        -1   -1
+    //      1         1   -1
+    //      2        -1    1
+    //      3         1    1
+    int bit0 = gl_VertexID & 1;
+    int bit1 = gl_VertexID >> 1;
+    gl_Position = vec4(bit0 * 2 - 1, bit1 * 2 - 1, gl_VertexID % 2 == 0 ? -1 : 1, 1);
+})";
+
+    constexpr char kFS1[] = R"(#version 300 es
+precision highp float;
+uniform sampler2D A;
+uniform sampler2D B;
+out vec4 colorOut;
+void main()
+{
+    float a = texture(A, vec2(0)).x;
+    float b = texture(B, vec2(0)).x;
+    colorOut = vec4(a, b, 0, 1);
+})";
+
+    constexpr char kFS2[] = R"(#version 300 es
+precision highp float;
+uniform sampler2D B;
+uniform sampler2D A;
+const vec2 multiplier = vec2(0.5, 0.5);
+out vec4 colorOut;
+void main()
+{
+    float a = texture(A, vec2(0)).x;
+    float b = texture(B, vec2(0)).x;
+    colorOut = vec4(a, b, 0, 1);
+})";
+
+    ANGLE_GL_PROGRAM(prog1, kVS, kFS1);
+    ANGLE_GL_PROGRAM(prog2, kVS, kFS2);
+
+    const GLColor kColorA(123, 0, 0, 0);
+    const GLColor kColorB(157, 0, 0, 0);
+
+    GLTexture texA;
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texA);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 1, 1);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &kColorA);
+
+    GLTexture texB;
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, texB);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 1, 1);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &kColorB);
+    EXPECT_GL_NO_ERROR();
+
+    glUseProgram(prog1);
+    glUniform1i(glGetUniformLocation(prog1, "A"), 0);
+    glUniform1i(glGetUniformLocation(prog1, "B"), 1);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    const GLColor kExpect(kColorA.R, kColorB.R, 0, 255);
+
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, kExpect, 1);
+    ASSERT_GL_NO_ERROR();
+
+    // The same with the second program that has sampler2D (definitions) swapped which should have
+    // no effect on the result.
+    glUseProgram(prog2);
+    glUniform1i(glGetUniformLocation(prog2, "A"), 0);
+    glUniform1i(glGetUniformLocation(prog2, "B"), 1);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, kExpect, 1);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests a bug around sampler2D reordering and uniform locations.
+TEST_P(StateChangeTestES3, SamplerReordering)
+{
+    constexpr char kVS[] = R"(#version 300 es
+precision highp float;
+uniform float height;
+void main()
+{
+    // gl_VertexID    x    y
+    //      0        -1   -1
+    //      1         1   -1
+    //      2        -1    1
+    //      3         1    1
+    int bit0 = gl_VertexID & 1;
+    int bit1 = gl_VertexID >> 1;
+    gl_Position = vec4(bit0 * 2 - 1, bit1 * 2 - 1, gl_VertexID % 2 == 0 ? -1 : 1, 1);
+})";
+
+    constexpr char kFS1[] = R"(#version 300 es
+precision highp float;
+uniform sampler2D A;
+uniform sampler2D B;
+//uniform vec2 multiplier;
+const vec2 multiplier = vec2(0.5, 0.5);
+out vec4 colorOut;
+void main()
+{
+    float a = texture(A, vec2(0)).x;
+    float b = texture(B, vec2(0)).x;
+    colorOut = vec4(vec2(a, b) * multiplier, 0, 1);
+})";
+
+    constexpr char kFS2[] = R"(#version 300 es
+precision highp float;
+uniform sampler2D S;
+uniform sampler2D P;
+//uniform vec2 multiplier;
+const vec2 multiplier = vec2(0.5, 0.5);
+out vec4 colorOut;
+void main()
+{
+    float a = texture(P, vec2(0)).x;
+    float b = texture(S, vec2(0)).x;
+    colorOut = vec4(vec2(a, b) * multiplier, 0, 1);
+})";
+
+    constexpr char kFS3[] = R"(#version 300 es
+precision highp float;
+uniform sampler2D R;
+uniform sampler2D S;
+//uniform vec2 multiplier;
+const vec2 multiplier = vec2(0.5, 0.5);
+out vec4 colorOut;
+void main()
+{
+    float a = texture(R, vec2(0)).x;
+    float b = texture(S, vec2(0)).x;
+    colorOut = vec4(vec2(a, b) * multiplier, 0, 1);
+})";
+
+    ANGLE_GL_PROGRAM(prog1, kVS, kFS1);
+    ANGLE_GL_PROGRAM(prog2, kVS, kFS2);
+    ANGLE_GL_PROGRAM(prog3, kVS, kFS3);
+
+    const GLColor kColorA(123, 0, 0, 0);
+    const GLColor kColorB(157, 0, 0, 0);
+
+    GLTexture texA;
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texA);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 1, 1);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &kColorA);
+
+    GLTexture texB;
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, texB);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 1, 1);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &kColorB);
+    EXPECT_GL_NO_ERROR();
+
+    glUseProgram(prog1);
+    glUniform1i(glGetUniformLocation(prog1, "A"), 0);
+    glUniform1i(glGetUniformLocation(prog1, "B"), 1);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glUseProgram(prog2);
+    glUniform1i(glGetUniformLocation(prog2, "S"), 0);
+    glUniform1i(glGetUniformLocation(prog2, "P"), 1);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    constexpr float kXMultiplier = 0.5;
+    constexpr float kYMultiplier = 0.5;
+
+    const GLColor kExpect(static_cast<uint8_t>((kColorA.R + kColorB.R) * kXMultiplier),
+                          static_cast<uint8_t>((kColorA.R + kColorB.R) * kYMultiplier), 0, 255);
+
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, kExpect, 1);
+    ASSERT_GL_NO_ERROR();
+
+    // Do the same thing again, but with the second shader having its samplers specified in the
+    // opposite order.  The difference between kFS2 and kFS3 is that S is now the second
+    // declaration, and P is renamed to R.  The reason for the rename is that even if the samplers
+    // get sorted by name, they would still result in the two shaders declaring them in different
+    // orders.
+    glDisable(GL_BLEND);
+
+    glUseProgram(prog1);
+    glUniform1i(glGetUniformLocation(prog1, "A"), 0);
+    glUniform1i(glGetUniformLocation(prog1, "B"), 1);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glUseProgram(prog3);
+    glUniform1i(glGetUniformLocation(prog3, "S"), 0);
+    glUniform1i(glGetUniformLocation(prog3, "R"), 1);
+
+    glEnable(GL_BLEND);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, kExpect, 1);
+    ASSERT_GL_NO_ERROR();
+}
+
 }  // anonymous namespace
 
 ANGLE_INSTANTIATE_TEST_ES2(StateChangeTest);
@@ -9637,8 +10252,12 @@ ANGLE_INSTANTIATE_TEST_ES3_AND(StateChangeTestES3,
                                ES3_VULKAN().disable(Feature::SupportsIndexTypeUint8),
                                ES3_VULKAN()
                                    .disable(Feature::SupportsExtendedDynamicState)
-                                   .disable(Feature::SupportsExtendedDynamicState2),
-                               ES3_VULKAN().disable(Feature::SupportsExtendedDynamicState2));
+                                   .disable(Feature::SupportsExtendedDynamicState2)
+                                   .disable(Feature::SupportsLogicOpDynamicState),
+                               ES3_VULKAN()
+                                   .disable(Feature::SupportsExtendedDynamicState2)
+                                   .disable(Feature::SupportsLogicOpDynamicState),
+                               ES3_VULKAN().enable(Feature::ForceStaticVertexStrideState));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(StateChangeTestWebGL2);
 ANGLE_INSTANTIATE_TEST_COMBINE_1(StateChangeTestWebGL2,

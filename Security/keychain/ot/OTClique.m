@@ -43,6 +43,7 @@
 
 const NSString* kSecEntitlementPrivateOctagonEscrow = @"com.apple.private.octagon.escrow-content";
 const NSString* kSecEntitlementPrivateOctagonSecureElement = @"com.apple.private.octagon.secureelement";
+const NSString* kSecEntitlementPrivateOctagonWalrus = @"com.apple.private.octagon.walrus";
 
 #if OCTAGON
 #import <AuthKit/AuthKit.h>
@@ -226,7 +227,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
 + (BOOL)platformSupportsSOS
 {
-    return (OctagonPlatformSupportsSOS() && OctagonIsSOSFeatureEnabled());
+    return OctagonIsSOSFeatureEnabled();
 }
 
 - (instancetype)initWithContextData:(OTConfigurationContext*)ctx
@@ -242,6 +243,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         _ctx.ckksControl = ctx.ckksControl;
         _ctx.escrowFetchSource = ctx.escrowFetchSource;
         _ctx.overrideForSetupAccountScript = ctx.overrideForSetupAccountScript;
+        _ctx.sbd = ctx.sbd;
     }
     return self;
 #else
@@ -332,14 +334,19 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     if(localError && error) {
         *error = localError;
     }
-    secnotice("clique-establish", "establish complete: %@", success ? @"YES" : @"NO");
+    secnotice("clique-establish", "establish complete: %{BOOL}d", success);
     subTaskSuccess = success ? true : false;
     OctagonSignpostEnd(establishSignPost, OctagonSignpostNameEstablish, OctagonSignpostNumber1(OctagonSignpostNameEstablish), (int)subTaskSuccess);
 
     return success;
 }
 
-- (BOOL)resetAndEstablish:(CuttlefishResetReason)resetReason error:(NSError**)error
+- (BOOL)resetAndEstablish:(CuttlefishResetReason)resetReason
+        idmsTargetContext:(NSString*_Nullable)idmsTargetContext
+   idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
+               notifyIdMS:(bool)notifyIdMS
+          accountSettings:(OTAccountSettings*_Nullable)accountSettings
+                    error:(NSError**)error
 {
     secnotice("clique-resetandestablish", "resetAndEstablish started");
     bool subTaskSuccess = false;
@@ -354,7 +361,13 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
     __block BOOL success = NO;
     __block NSError* localError = nil;
-    [control resetAndEstablish:[[OTControlArguments alloc] initWithConfiguration:self.ctx] resetReason:resetReason reply:^(NSError * _Nullable operationError) {
+    [control resetAndEstablish:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
+                   resetReason:resetReason
+             idmsTargetContext:idmsTargetContext
+        idmsCuttlefishPassword:idmsCuttlefishPassword
+                    notifyIdMS:notifyIdMS
+               accountSettings:accountSettings
+                         reply:^(NSError * _Nullable operationError) {
         if(operationError) {
             secnotice("clique-resetandestablish", "resetAndEstablish returned an error: %@", operationError);
         }
@@ -366,7 +379,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         *error = localError;
     }
 
-    secnotice("clique-resetandestablish", "establish complete: %@", success ? @"YES" : @"NO");
+    secnotice("clique-resetandestablish", "establish complete: %{BOOL}d", success);
     subTaskSuccess = success ? true : false;
     OctagonSignpostEnd(resetAndEstablishSignPost, OctagonSignpostNameResetAndEstablish, OctagonSignpostNumber1(OctagonSignpostNameResetAndEstablish), (int)subTaskSuccess);
 
@@ -390,7 +403,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     OTClique* clique = [[OTClique alloc] initWithContextData:data];
 
     NSError* localError = nil;
-    [clique resetAndEstablish:resetReason error:&localError];
+    [clique resetAndEstablish:resetReason idmsTargetContext:nil idmsCuttlefishPassword:nil notifyIdMS:false accountSettings:nil error:&localError];
 
     if(localError) {
         secnotice("clique-newfriends", "account reset failed: %@", localError);
@@ -505,7 +518,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
             return nil;
         }
     } else {
-        if(OctagonPlatformSupportsSOS()) { // Join if the legacy restore is complete now.
+        if(OctagonIsSOSFeatureEnabled()) { // Join if the legacy restore is complete now.
             secnotice("clique-recovery", "attempting joinAfterRestore");
             BOOL joinAfterRestoreSuccess = [clique joinAfterRestore:&localError];
             secnotice("clique-recovery", "joinAfterRestore: %@", localError);
@@ -592,7 +605,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         NSError* resetError = nil;
 
         OctagonSignpost resetSignPost = OctagonSignpostBegin(OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle);
-        [clique resetAndEstablish:CuttlefishResetReasonNoBottleDuringEscrowRecovery error:&resetError];
+        [clique resetAndEstablish:CuttlefishResetReasonNoBottleDuringEscrowRecovery idmsTargetContext:nil idmsCuttlefishPassword:nil notifyIdMS:false accountSettings:nil error:&resetError];
         subTaskSuccess = (resetError == nil) ? true : false;
         OctagonSignpostEnd(resetSignPost, OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle, OctagonSignpostNumber1(OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle), (int)subTaskSuccess);
 
@@ -782,7 +795,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         }
     }
 
-    if(!OctagonPlatformSupportsSOS() && sosIdentifiers.count > 0) {
+    if(!OctagonIsSOSFeatureEnabled() && sosIdentifiers.count > 0) {
         NSError *localError = [NSError errorWithDomain:NSOSStatusErrorDomain
                                                   code:errSecUnimplemented
                                               userInfo:@{NSLocalizedDescriptionKey: @"SOS is not available on this platform; can't distrust any SOS peers"}];
@@ -1037,7 +1050,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         }
         OctagonSignpostEnd(safariSyncingEnabledSignPost, OctagonSignpostNameSafariPasswordSyncingEnabled, OctagonSignpostNumber1(OctagonSignpostNameSafariPasswordSyncingEnabled), (int)subTaskSuccess);
 
-        secnotice("clique-safari", "safariPasswordSyncingEnabled complete: %@", viewMember ? @"YES" : @"NO");
+        secnotice("clique-safari", "safariPasswordSyncingEnabled complete: %{BOOL}d", viewMember);
         return viewMember;
     } else {
         secnotice("clique-safari", "SOS disabled for this platform, returning NO");
@@ -1423,7 +1436,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         if(result){
             viewsEnabledResult = CFBooleanGetValue(result) ? YES : NO;
         }
-        secnotice("clique-legacy", "peersHaveViewsEnabled results: %@ (%@)", viewsEnabledResult ? @"YES" : @"NO",
+        secnotice("clique-legacy", "peersHaveViewsEnabled results: %{BOOL}d (%@)", viewsEnabledResult,
                   viewsEnabledErrorRef);
         if (error) {
             *error = (NSError*)CFBridgingRelease(viewsEnabledErrorRef);
@@ -1488,7 +1501,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
 
     // If we didn't early-exit, and we aren't going to invoke SOS below, we succeeded.
-    if(!OctagonPlatformSupportsSOS()) {
+    if(!OctagonIsSOSFeatureEnabled()) {
         secnotice("clique-legacy", "requestToJoinCircle platform does not support SOS");
         subTaskSuccess = true;
         OctagonSignpostEnd(signPost, OctagonSignpostNameRequestToJoinCircle, OctagonSignpostNumber1(OctagonSignpostNameRequestToJoinCircle), (int)subTaskSuccess);
@@ -1759,50 +1772,6 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }];
 #else // !OCTAGON
     reply(nil, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
-#endif
-}
-
-+ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
-                    recoveryKey:(NSString*)recoveryKey
-                          reply:(void(^)(NSError* _Nullable error))reply
-{
-    [self recoverOctagonUsingData:ctx recoveryKey:recoveryKey sosSuccess:YES reply:reply];
-}
-
-+ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
-                    recoveryKey:(NSString*)recoveryKey
-                     sosSuccess:(BOOL)sosSuccess
-                          reply:(void(^)(NSError* _Nullable error))reply
-{
-#if OCTAGON
-    OctagonSignpost signpost = OctagonSignpostBegin(OctagonSignpostNameRecoverOctagonUsingData);
-    __block bool subTaskSuccess = false;
-
-    NSError* controlError = nil;
-    OTControl* control = [ctx makeOTControl:&controlError];
-
-    secnotice("clique-recoverykey", "join using recovery key");
-
-    if(!control) {
-        secnotice("clique-recoverykey", "failed to fetch OTControl object: %@", controlError);
-        OctagonSignpostEnd(signpost, OctagonSignpostNameRecoverOctagonUsingData, OctagonSignpostNumber1(OctagonSignpostNameRecoverOctagonUsingData), (int)subTaskSuccess);
-        reply(controlError);
-        return;
-    }
-    [control joinWithRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] recoveryKey:recoveryKey sosSuccess:sosSuccess reply:^(NSError *joinError) {
-        if(joinError){
-            secnotice("clique-recoverykey", "failed to join using recovery key: %@", joinError);
-            OctagonSignpostEnd(signpost, OctagonSignpostNameRecoverOctagonUsingData, OctagonSignpostNumber1(OctagonSignpostNameRecoverOctagonUsingData), (int)subTaskSuccess);
-            reply(joinError);
-            return;
-        }
-        secnotice("clique-recoverykey", "successfully joined using recovery key");
-        subTaskSuccess = true;
-        OctagonSignpostEnd(signpost, OctagonSignpostNameRecoverOctagonUsingData, OctagonSignpostNumber1(OctagonSignpostNameRecoverOctagonUsingData), (int)subTaskSuccess);
-        reply(nil);
-    }];
-#else // !OCTAGON
-    reply([NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
 #endif
 }
 
@@ -2357,7 +2326,17 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
-+ (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data error:(NSError**)error
++ (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data
+                                    error:(NSError**)error
+{
+    return [OTClique resetProtectedData:data idmsTargetContext:nil idmsCuttlefishPassword:nil notifyIdMS:false error:error];
+}
+
++ (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data
+                        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+                   idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+                               notifyIdMS:(bool)notifyIdMS
+                                    error:(NSError**)error
 {
 #if OCTAGON
     if ([OTClique isCloudServicesAvailable] == NO) {
@@ -2377,7 +2356,18 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
 
     __block NSError* localError = nil;
+    __block OTAccountSettings* accountSettings = nil;
     
+    [control fetchAccountWideSettingsWithForceFetch:true
+                                          arguments:[[OTControlArguments alloc] initWithConfiguration:data]
+                                              reply:^(OTAccountSettings* retSettings, NSError *replyError) {
+        if (replyError) {
+            secerror("clique-reset-protected-data: failed to fetch account settings: %@", replyError);
+        } else {
+            secnotice("clique-reset-protected-data", "fetched account settings: %@", retSettings);
+            accountSettings = retSettings;
+        }
+    }];
     //delete all records
     id<OctagonEscrowRecovererPrococol> sb = data.sbd ?: [[getSecureBackupClass() alloc] init];
 
@@ -2407,7 +2397,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
 
     //reset sos
-    if(OctagonPlatformSupportsSOS()) {
+    if(OctagonIsSOSFeatureEnabled()) {
         //reset SOS
         CFErrorRef sosError = NULL;
         bool resetSuccess = SOSCCResetToOffering(&sosError);
@@ -2427,7 +2417,12 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
     //reset octagon
     OTClique* clique = [[OTClique alloc] initWithContextData:data];
-    [clique resetAndEstablish:CuttlefishResetReasonUserInitiatedReset error:&localError];
+    [clique resetAndEstablish:CuttlefishResetReasonUserInitiatedReset
+            idmsTargetContext:idmsTargetContext
+       idmsCuttlefishPassword:idmsCuttlefishPassword
+                   notifyIdMS:notifyIdMS
+              accountSettings:accountSettings
+                        error:&localError];
 
     if(localError) {
         secerror("clique-reset-protected-data: account reset failed: %@", localError);

@@ -4807,7 +4807,7 @@ __SCNetworkInterfaceCopyAll_IONetworkInterface(Boolean keep_pre_configured)
 
 static
 CFArrayRef
-__SCNetworkInterfaceCopyAll_Modem()
+__SCNetworkInterfaceCopyAll_Modem(void)
 {
 	CFDictionaryRef		matching;
 	CFStringRef		match_keys[2];
@@ -5036,7 +5036,7 @@ _SCNetworkInterfaceCopyAllWithPreferences(SCPreferencesRef prefs)
 
 
 CFArrayRef /* of SCNetworkInterfaceRef's */
-SCNetworkInterfaceCopyAll()
+SCNetworkInterfaceCopyAll(void)
 {
 	CFArrayRef	all_interfaces;
 
@@ -8513,7 +8513,9 @@ __SCNetworkInterfaceCopyDeepConfiguration(SCNetworkSetRef set, SCNetworkInterfac
 
 
 __private_extern__ Boolean
-__SCNetworkInterfaceIsMember(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
+__SCNetworkInterfaceIsBusyMember(SCPreferencesRef prefs,
+				 SCNetworkInterfaceRef interface,
+				 Boolean allow_configured)
 {
 	CFArrayRef	interfaces;
 	Boolean		match		= FALSE;
@@ -8537,7 +8539,8 @@ __SCNetworkInterfaceIsMember(SCPreferencesRef prefs, SCNetworkInterfaceRef inter
 	// add Bridge [member] interfaces
 	interfaces = SCBridgeInterfaceCopyAll(prefs);
 	if (interfaces != NULL) {
-		__SCBridgeInterfaceListCollectMembers(interfaces, members);
+		__SCBridgeInterfaceListCollectMembers(interfaces, members,
+						      allow_configured);
 		CFRelease(interfaces);
 	}
 

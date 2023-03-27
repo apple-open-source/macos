@@ -231,6 +231,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     NSData* originalKeyData = (__bridge_transfer NSData*)SecKeyCopyExternalRepresentation(key, NULL);
     NSData* foundKeyData = (__bridge_transfer NSData*)SecKeyCopyExternalRepresentation((SecKeyRef)foundItem, NULL);
     XCTAssertEqualObjects(originalKeyData, foundKeyData, @"found key does not match the key we put in the keychain");
+    CFReleaseNull(key);
 }
 
 - (void)testMetadataQueriesDoNotGetSecret

@@ -30,6 +30,8 @@ namespace WebKit {
 
 enum ImageOptions {
     ImageOptionsShareable = 1 << 0,
+    // Makes local in process buffer
+    ImageOptionsLocal = 1 << 1,
 };
 
 enum {
@@ -42,6 +44,9 @@ enum {
     SnapshotOptionsForceWhiteText = 1 << 7,
     SnapshotOptionsPrinting = 1 << 8,
     SnapshotOptionsUseScreenColorSpace = 1 << 9,
+    SnapshotOptionsVisibleContentRect = 1 << 10,
+    SnapshotOptionsFullContentRect = 1 << 11,
+    SnapshotOptionsTransparentBackground = 1 << 12
 };
 typedef uint32_t SnapshotOptions;
 

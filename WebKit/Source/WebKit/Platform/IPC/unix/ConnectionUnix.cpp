@@ -29,6 +29,7 @@
 #include "Connection.h"
 
 #include "DataReference.h"
+#include "IPCUtilities.h"
 #include "SharedMemory.h"
 #include "UnixMessage.h"
 #include <sys/socket.h>
@@ -84,36 +85,20 @@ public:
 
     AttachmentInfo& operator=(const AttachmentInfo&) = default;
 
-    void setType(Attachment::Type type) { m_type = type; }
-    Attachment::Type type() const { return m_type; }
-    void setSize(size_t size)
-    {
-        ASSERT(m_type == Attachment::MappedMemoryType);
-        m_size = size;
-    }
-
-    size_t size() const
-    {
-        ASSERT(m_type == Attachment::MappedMemoryType);
-        return m_size;
-    }
-
     // The attachment is not null unless explicitly set.
     void setNull() { m_isNull = true; }
     bool isNull() const { return m_isNull; }
 
 private:
     // The AttachmentInfo will be copied using memcpy, so all members must be trivially copyable.
-    Attachment::Type m_type;
     bool m_isNull;
-    size_t m_size;
 };
 
 static_assert(sizeof(MessageInfo) + sizeof(AttachmentInfo) * attachmentMaxAmount <= messageMaxSize, "messageMaxSize is too small.");
 
 void Connection::platformInitialize(Identifier identifier)
 {
-    m_socketDescriptor = identifier;
+    m_socketDescriptor = identifier.handle;
 #if USE(GLIB)
     m_socket = adoptGRef(g_socket_new_from_fd(m_socketDescriptor, nullptr));
 #endif
@@ -178,16 +163,8 @@ bool Connection::processMessage()
         messageData += sizeof(AttachmentInfo) * attachmentCount;
 
         for (size_t i = 0; i < attachmentCount; ++i) {
-            switch (attachmentInfo[i].type()) {
-            case Attachment::MappedMemoryType:
-            case Attachment::SocketType:
-                if (!attachmentInfo[i].isNull())
-                    attachmentFileDescriptorCount++;
-                break;
-            case Attachment::Uninitialized:
-            default:
-                break;
-            }
+            if (!attachmentInfo[i].isNull())
+                attachmentFileDescriptorCount++;
         }
 
         if (messageInfo.isBodyOutOfLine())
@@ -199,38 +176,21 @@ bool Connection::processMessage()
 
     size_t fdIndex = 0;
     for (size_t i = 0; i < attachmentCount; ++i) {
-        int fd = -1;
-        switch (attachmentInfo[i].type()) {
-        case Attachment::MappedMemoryType:
-            if (!attachmentInfo[i].isNull())
-                fd = m_fileDescriptors[fdIndex++];
-            attachments[attachmentCount - i - 1] = Attachment(UnixFileDescriptor(fd, UnixFileDescriptor::Adopt), attachmentInfo[i].size());
-            break;
-        case Attachment::SocketType:
-            if (!attachmentInfo[i].isNull())
-                fd = m_fileDescriptors[fdIndex++];
-            attachments[attachmentCount - i - 1] = Attachment(UnixFileDescriptor(fd, UnixFileDescriptor::Adopt));
-            break;
-        case Attachment::CustomWriterType:
-            attachments[attachmentCount - i - 1] = Attachment(Attachment::CustomWriter(m_socketDescriptor));
-            break;
-        case Attachment::Uninitialized:
-            attachments[attachmentCount - i - 1] = Attachment();
-        default:
-            break;
-        }
+        int fd = !attachmentInfo[i].isNull() ? m_fileDescriptors[fdIndex++] : -1;
+        attachments[attachmentCount - i - 1] = UnixFileDescriptor { fd, UnixFileDescriptor::Adopt };
     }
 
     if (messageInfo.isBodyOutOfLine()) {
         ASSERT(messageInfo.bodySize());
 
-        if (attachmentInfo[attachmentCount].isNull() || attachmentInfo[attachmentCount].size() != messageInfo.bodySize()) {
+        if (attachmentInfo[attachmentCount].isNull()) {
             ASSERT_NOT_REACHED();
             return false;
         }
 
         WebKit::SharedMemory::Handle handle;
-        handle.adoptAttachment(Attachment(UnixFileDescriptor(m_fileDescriptors[attachmentFileDescriptorCount - 1], UnixFileDescriptor::Adopt), attachmentInfo[attachmentCount].size()));
+        handle.m_size = messageInfo.bodySize();
+        handle.m_handle = UnixFileDescriptor { m_fileDescriptors[attachmentFileDescriptorCount - 1], UnixFileDescriptor::Adopt };
 
         oolMessageBody = WebKit::SharedMemory::map(handle, WebKit::SharedMemory::Protection::ReadOnly);
         if (!oolMessageBody) {
@@ -372,13 +332,16 @@ void Connection::readyReadHandler()
     }
 }
 
-bool Connection::open()
+bool Connection::platformPrepareForOpen()
 {
-    if (!setNonBlock(m_socketDescriptor)) {
-        ASSERT_NOT_REACHED();
-        return false;
-    }
+    if (setNonBlock(m_socketDescriptor))
+        return true;
+    ASSERT_NOT_REACHED();
+    return false;
+}
 
+void Connection::platformOpen()
+{
     RefPtr<Connection> protectedThis(this);
     m_isConnected = true;
 #if USE(GLIB)
@@ -416,15 +379,13 @@ bool Connection::open()
 
         }
     });
-    return true;
+    return;
 #endif
 
     // Schedule a call to readyReadHandler. Data may have arrived before installation of the signal handler.
     m_connectionQueue->dispatch([protectedThis] {
         protectedThis->readyReadHandler();
     });
-
-    return true;
 }
 
 bool Connection::platformCanSendOutgoingMessages() const
@@ -444,19 +405,19 @@ bool Connection::sendOutgoingMessage(UniqueRef<Encoder>&& encoder)
 
     size_t messageSizeWithBodyInline = sizeof(MessageInfo) + (outputMessage.attachments().size() * sizeof(AttachmentInfo)) + outputMessage.bodySize();
     if (messageSizeWithBodyInline > messageMaxSize && outputMessage.bodySize()) {
-        RefPtr<WebKit::SharedMemory> oolMessageBody = WebKit::SharedMemory::allocate(encoder->bufferSize());
+        RefPtr<WebKit::SharedMemory> oolMessageBody = WebKit::SharedMemory::allocate(outputMessage.bodySize());
         if (!oolMessageBody)
             return false;
 
-        WebKit::SharedMemory::Handle handle;
-        if (!oolMessageBody->createHandle(handle, WebKit::SharedMemory::Protection::ReadOnly))
+        auto handle = oolMessageBody->createHandle(WebKit::SharedMemory::Protection::ReadOnly);
+        if (!handle)
             return false;
 
         outputMessage.messageInfo().setBodyOutOfLine();
 
         memcpy(oolMessageBody->data(), outputMessage.body(), outputMessage.bodySize());
 
-        outputMessage.appendAttachment(handle.releaseAttachment());
+        outputMessage.appendAttachment(handle->releaseHandle());
     }
 
     return sendOutputMessage(outputMessage);
@@ -481,7 +442,6 @@ bool Connection::sendOutputMessage(UnixMessage& outputMessage)
 
     Vector<AttachmentInfo> attachmentInfo;
     MallocPtr<char> attachmentFDBuffer;
-    bool hasCustomWriterAttachments { false };
 
     auto& attachments = outputMessage.attachments();
     if (!attachments.isEmpty()) {
@@ -489,7 +449,7 @@ bool Connection::sendOutputMessage(UnixMessage& outputMessage)
 
         size_t attachmentFDBufferLength = std::count_if(attachments.begin(), attachments.end(),
             [](const Attachment& attachment) {
-                return !attachment.isNull();
+                return !!attachment;
             });
 
         if (attachmentFDBufferLength) {
@@ -510,26 +470,11 @@ bool Connection::sendOutputMessage(UnixMessage& outputMessage)
         attachmentInfo.resize(attachments.size());
         int fdIndex = 0;
         for (size_t i = 0; i < attachments.size(); ++i) {
-            attachmentInfo[i].setType(attachments[i].type());
-
-            switch (attachments[i].type()) {
-            case Attachment::MappedMemoryType:
-                attachmentInfo[i].setSize(attachments[i].size());
-                FALLTHROUGH;
-            case Attachment::SocketType:
-                if (!attachments[i].isNull()) {
-                    ASSERT(fdPtr);
-                    fdPtr[fdIndex++] = attachments[i].fd().value();
-                } else
-                    attachmentInfo[i].setNull();
-                break;
-            case Attachment::CustomWriterType:
-                hasCustomWriterAttachments = true;
-                break;
-            case Attachment::Uninitialized:
-            default:
-                break;
-            }
+            if (!!attachments[i]) {
+                ASSERT(fdPtr);
+                fdPtr[fdIndex++] = attachments[i].value();
+            } else
+                attachmentInfo[i].setNull();
         }
 
         iov[iovLength].iov_base = attachmentInfo.data();
@@ -594,19 +539,10 @@ bool Connection::sendOutputMessage(UnixMessage& outputMessage)
         return false;
     }
 
-    if (hasCustomWriterAttachments) {
-        for (auto& attachment : attachments) {
-            if (attachment.type() == Attachment::CustomWriterType) {
-                ASSERT(std::holds_alternative<Attachment::CustomWriterFunc>(attachment.customWriter()));
-                std::get<Attachment::CustomWriterFunc>(attachment.customWriter())(m_socketDescriptor);
-            }
-        }
-    }
-
     return true;
 }
 
-Connection::SocketPair Connection::createPlatformConnection(unsigned options)
+SocketPair createPlatformConnection(unsigned options)
 {
     int sockets[2];
     RELEASE_ASSERT(socketpair(AF_UNIX, SOCKET_TYPE, 0, sockets) != -1);
@@ -637,7 +573,7 @@ void Connection::didReceiveSyncReply(OptionSet<SendSyncOption>)
 
 std::optional<Connection::ConnectionIdentifierPair> Connection::createConnectionIdentifierPair()
 {
-    Connection::SocketPair socketPair = Connection::createPlatformConnection();
-    return ConnectionIdentifierPair { socketPair.server, Attachment { UnixFileDescriptor { socketPair.client, UnixFileDescriptor::Adopt } } };
+    SocketPair socketPair = createPlatformConnection();
+    return ConnectionIdentifierPair { Identifier { UnixFileDescriptor { socketPair.server,  UnixFileDescriptor::Adopt } }, UnixFileDescriptor { socketPair.client, UnixFileDescriptor::Adopt } };
 }
 } // namespace IPC

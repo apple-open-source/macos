@@ -33,21 +33,25 @@
 #include "RemoteVideoFrameObjectHeapProxyProcessorMessages.h"
 #include "RemoteVideoFrameProxy.h"
 #include "WebCoreArgumentCoders.h"
+#include "WebProcess.h"
 #include <WebCore/PixelBufferConformerCV.h>
 
 namespace WebKit {
 
+using namespace WebCore;
+
 Ref<RemoteVideoFrameObjectHeapProxyProcessor> RemoteVideoFrameObjectHeapProxyProcessor::create(GPUProcessConnection& connection)
 {
-    return adoptRef(*new RemoteVideoFrameObjectHeapProxyProcessor(connection));
+    auto processor = adoptRef(*new RemoteVideoFrameObjectHeapProxyProcessor(connection));
+    processor->initialize();
+    return processor;
 }
 
 RemoteVideoFrameObjectHeapProxyProcessor::RemoteVideoFrameObjectHeapProxyProcessor(GPUProcessConnection& connection)
-    : m_connectionID(connection.connection().uniqueID())
+    : m_connection(&connection.connection())
     , m_queue(WorkQueue::create("RemoteVideoFrameObjectHeapProxy", WorkQueue::QOS::UserInteractive))
 {
     connection.addClient(*this);
-    connection.connection().addWorkQueueMessageReceiver(Messages::RemoteVideoFrameObjectHeapProxyProcessor::messageReceiverName(), m_queue, *this);
 }
 
 RemoteVideoFrameObjectHeapProxyProcessor::~RemoteVideoFrameObjectHeapProxyProcessor()
@@ -56,12 +60,22 @@ RemoteVideoFrameObjectHeapProxyProcessor::~RemoteVideoFrameObjectHeapProxyProces
     clearCallbacks();
 }
 
+void RemoteVideoFrameObjectHeapProxyProcessor::initialize()
+{
+    RefPtr<IPC::Connection> connection;
+    {
+        Locker lock(m_connectionLock);
+        connection = m_connection;
+    }
+    connection->addWorkQueueMessageReceiver(Messages::RemoteVideoFrameObjectHeapProxyProcessor::messageReceiverName(), m_queue, *this);
+}
+
 void RemoteVideoFrameObjectHeapProxyProcessor::gpuProcessConnectionDidClose(GPUProcessConnection& connection)
 {
     m_sharedVideoFrameWriter.disable();
     {
         Locker lock(m_connectionLock);
-        m_connectionID = { };
+        m_connection = nullptr;
     }
     connection.connection().removeWorkQueueMessageReceiver(Messages::RemoteVideoFrameObjectHeapProxyProcessor::messageReceiverName());
     clearCallbacks();
@@ -104,7 +118,6 @@ void RemoteVideoFrameObjectHeapProxyProcessor::newVideoFrameBuffer(RemoteVideoFr
         pixelBuffer = m_sharedVideoFrameReader.readBuffer(WTFMove(*sharedVideoFrameBuffer));
     if (auto callback = takeCallback(identifier))
         callback(WTFMove(pixelBuffer));
-
 }
 
 void RemoteVideoFrameObjectHeapProxyProcessor::getVideoFrameBuffer(const RemoteVideoFrameProxy& frame, bool canUseIOSurface, Callback&& callback)
@@ -114,12 +127,16 @@ void RemoteVideoFrameObjectHeapProxyProcessor::getVideoFrameBuffer(const RemoteV
         ASSERT(!m_callbacks.contains(frame.identifier()));
         m_callbacks.add(frame.identifier(), WTFMove(callback));
     }
-    Locker lock(m_connectionLock);
-    if (!m_connectionID) {
+    RefPtr<IPC::Connection> connection;
+    {
+        Locker lock(m_connectionLock);
+        connection = m_connection;
+    }
+    if (!connection) {
         takeCallback(frame.identifier())(nullptr);
         return;
     }
-    IPC::Connection::send(m_connectionID, Messages::RemoteVideoFrameObjectHeap::GetVideoFrameBuffer(frame.newReadReference(), canUseIOSurface), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+    connection->send(Messages::RemoteVideoFrameObjectHeap::GetVideoFrameBuffer(frame.newReadReference(), canUseIOSurface), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
 void RemoteVideoFrameObjectHeapProxyProcessor::newConvertedVideoFrameBuffer(std::optional<SharedVideoFrame::Buffer>&& buffer)
@@ -143,12 +160,13 @@ RefPtr<NativeImage> RemoteVideoFrameObjectHeapProxyProcessor::getNativeImage(con
     if (!frame)
         return nullptr;
 
-    DestinationColorSpace destinationColorSpace { DestinationColorSpace::SRGB().platformColorSpace() };
-    auto result = connection.sendSync(Messages::RemoteVideoFrameObjectHeap::ConvertFrameBuffer { *frame }, Messages::RemoteVideoFrameObjectHeap::ConvertFrameBuffer::Reply { destinationColorSpace }, 0, GPUProcessConnection::defaultTimeout);
-    if (!result) {
+    auto sendResult = connection.sendSync(Messages::RemoteVideoFrameObjectHeap::ConvertFrameBuffer { *frame }, 0, GPUProcessConnection::defaultTimeout);
+    if (!sendResult) {
         m_sharedVideoFrameWriter.disable();
         return nullptr;
     }
+
+    auto [destinationColorSpace] = sendResult.takeReplyOr(DestinationColorSpace { DestinationColorSpace::SRGB().platformColorSpace() });
 
     m_conversionSemaphore.wait();
 

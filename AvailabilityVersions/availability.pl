@@ -230,6 +230,12 @@ my @versions = (
     "watchos",  "9.3",
     "bridgeos", "7.2",
     "os_set",   "2022_SU_D",
+    "macos",    "13.3",
+    "ios",      "16.4",
+    "tvos",     "16.4",
+    "watchos",  "9.4",
+    "bridgeos", "7.3",
+    "os_set",   "2022_SU_E",
 );
 
 my @macosx_versions = pairvalues pairgrep { $a eq "macos" } @versions;

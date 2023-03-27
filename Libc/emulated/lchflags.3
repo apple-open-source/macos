@@ -1,4 +1,4 @@
-.Dd Oct 31, 2005
+.Dd Feb 6, 2023
 .Dt LCHFLAGS 3
 .Os
 .Sh NAME
@@ -33,8 +33,6 @@ Instead of being a system call,
 .Fn lchflags
 is emulated using
 .Xr setattrlist 2 .
-Not all file systems support
-.Xr setattrlist 2 .
 .Sh RETURN VALUES
 Upon successful completion, a value of 0 is returned.
 Otherwise, -1 is returned and the global variable
@@ -44,8 +42,6 @@ is set to indicate the error.
 The
 .Fn lchflags
 call may return the same errors as
-.Xr chflags 2
-and
 .Xr setattrlist 2 .
 .Sh SEE ALSO
 .Xr chflags 2 ,

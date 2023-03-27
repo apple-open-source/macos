@@ -66,7 +66,9 @@ attlist_decl_enum="<!ATTLIST a a (a) #IMPLIED>"
 attlist_decl_notation="<!ATTLIST a a NOTATION (a) #IMPLIED>"
 
 include_sect="<![INCLUDE[ ]]>"
+include_sect_start="<![INCLUDE[ "
 ignore_sect="<![IGNORE[ ]]>"
+ignore_sect_start="<![IGNORE[ "
 
 ge_decl="<!ENTITY a 'a'>"
 ge_decl_system="<!ENTITY a SYSTEM 'a'>"

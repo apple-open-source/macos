@@ -192,7 +192,7 @@ OSStatus SecCodeCopyGuestWithAttributes(SecCodeRef __nullable host,
 /*!
 	@function SecCodeCreateWithXPCMessage
 	Creates a SecCode reference to the process that sent the provided XPC message, using the
-    associated audit token.
+	associated audit token.
 
 	@param message The xpc_object_t of a message recieved via xpc to look up the audit token
 	of the process that sent the message.
@@ -202,10 +202,10 @@ OSStatus SecCodeCopyGuestWithAttributes(SecCodeRef __nullable host,
 	changed if the call fails (does not return errSecSuccess).
 	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers. In particular:
-    @error errSecCSInvalidObjectRef The xpc_object_t was not of type XPC_TYPE_DICTIONARY.
+	@error errSecCSInvalidObjectRef The xpc_object_t was not of type XPC_TYPE_DICTIONARY.
 	@error errSecCSInvalidObjectRef The xpc_object_t was not an xpc message with an associated
 	connection.
-    For a complete list of errors, please see {@link SecCodeCopyGuestWithAttributes}.
+	For a complete list of errors, please see {@link SecCodeCopyGuestWithAttributes}.
 */
 OSStatus SecCodeCreateWithXPCMessage(xpc_object_t message, SecCSFlags flags,
 	SecCodeRef * __nonnull CF_RETURNS_RETAINED target);
@@ -265,6 +265,25 @@ OSStatus SecCodeCheckValidity(SecCodeRef code, SecCSFlags flags,
 OSStatus SecCodeCheckValidityWithErrors(SecCodeRef code, SecCSFlags flags,
 	SecRequirementRef __nullable requirement, CFErrorRef *errors);
 
+/*!
+	@function SecCodeValidateFileResource
+	For a SecStaticCodeRef, check that a given CFData object faithfully represents
+	a plain-file resource in its resource seal.
+	This call will fail if the file is missing in the bundle, even if it is optional.
+
+	@param code A code or StaticCode object.
+	@param relativePath A CFStringRef containing the relative path to a sealed resource
+	file. This path is relative to the resource base, which is either Contents or
+	the bundle root, depending on bundle format.
+	@param fileData A CFDataRef containing the exact contents of that resource file.
+	@param flags Pass kSecCSDefaultFlags.
+	@result noErr if fileData is the exact content of the file at relativePath at the
+	time it was signed. Various error codes if it is different, there was no such file,
+	it was not a plain file, or anything is irregular.
+*/
+OSStatus SecCodeValidateFileResource(SecStaticCodeRef code, CFStringRef relativePath,
+	CFDataRef fileData, SecCSFlags flags)
+	__API_AVAILABLE(macos(10.13)) __SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), macCatalyst(11.0));
 
 /*!
 	@function SecCodeCopyPath
@@ -387,11 +406,11 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		the code. Suitable for display to a (knowledeable) user.
 	@constant kSecCodeInfoDigestAlgorithm A CFNumber indicating the kind of cryptographic
 		hash function chosen to establish integrity of the signature on this system, which
-        is the best supported algorithm from kSecCodeInfoDigestAlgorithms.
+		is the best supported algorithm from kSecCodeInfoDigestAlgorithms.
 	@constant kSecCodeInfoDigestAlgorithms A CFArray of CFNumbers indicating the kinds of
  		cryptographic hash functions available within the signature. The ordering of those items
  		has no significance in terms of priority, but determines the order in which
-        the hashes appear in kSecCodeInfoCdHashes.
+		the hashes appear in kSecCodeInfoCdHashes.
  	@constant kSecCodeInfoPlatformIdentifier If this code was signed as part of an operating
  		system release, this value identifies that release.
 	@constant kSecCodeInfoIdentifier A CFString with the actual signing identifier
@@ -440,10 +459,10 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		The algorithm used may change from time to time. However, for any existing signature,
  		the value is stable.
 	@constant kSecCodeInfoCdHashes An array containing the values of the kSecCodeInfoUnique
-        binary identifier for every digest algorithm supported in the signature, in the same
-        order as in the kSecCodeInfoDigestAlgorithms array. The kSecCodeInfoUnique value
-        will be contained in this array, and be the one corresponding to the
-        kSecCodeInfoDigestAlgorithm value.
+		binary identifier for every digest algorithm supported in the signature, in the same
+		order as in the kSecCodeInfoDigestAlgorithms array. The kSecCodeInfoUnique value
+		will be contained in this array, and be the one corresponding to the
+		kSecCodeInfoDigestAlgorithm value.
  */
 CF_ENUM(uint32_t) {
 	kSecCSInternalInformation = 1 << 0,

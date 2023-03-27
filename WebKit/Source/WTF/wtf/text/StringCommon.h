@@ -296,12 +296,8 @@ ALWAYS_INLINE bool equal(const LChar* a, const UChar* b, unsigned length)
 ALWAYS_INLINE bool equal(const UChar* a, const LChar* b, unsigned length) { return equal(b, a, length); }
 
 template<typename StringClassA, typename StringClassB>
-ALWAYS_INLINE bool equalCommon(const StringClassA& a, const StringClassB& b)
+ALWAYS_INLINE bool equalCommon(const StringClassA& a, const StringClassB& b, unsigned length)
 {
-    unsigned length = a.length();
-    if (length != b.length())
-        return false;
-
     if (a.is8Bit()) {
         if (b.is8Bit())
             return equal(a.characters8(), b.characters8(), length);
@@ -313,6 +309,16 @@ ALWAYS_INLINE bool equalCommon(const StringClassA& a, const StringClassB& b)
         return equal(a.characters16(), b.characters8(), length);
 
     return equal(a.characters16(), b.characters16(), length);
+}
+
+template<typename StringClassA, typename StringClassB>
+ALWAYS_INLINE bool equalCommon(const StringClassA& a, const StringClassB& b)
+{
+    unsigned length = a.length();
+    if (length != b.length())
+        return false;
+
+    return equalCommon(a, b, length);
 }
 
 template<typename StringClassA, typename StringClassB>
@@ -437,19 +443,263 @@ ALWAYS_INLINE static size_t findInner(const SearchCharacterType* searchCharacter
     return index + i;
 }
 
+ALWAYS_INLINE const uint8_t* find8(const uint8_t* pointer, uint8_t character, size_t length)
+{
+    constexpr size_t thresholdLength = 16;
+
+    size_t index = 0;
+    size_t runway = std::min(thresholdLength, length);
+    for (; index < runway; ++index) {
+        if (pointer[index] == character)
+            return pointer + index;
+    }
+    if (runway == length)
+        return nullptr;
+
+    ASSERT(index < length);
+    // We rely on memchr already having SIMD optimization, so we don’t have to write our own.
+    return static_cast<const uint8_t*>(memchr(pointer + index, character, length - index));
+}
+
+#if CPU(ARM64)
+WTF_EXPORT_PRIVATE const uint16_t* find16AlignedImpl(const uint16_t* pointer, uint16_t character, size_t length);
+
+ALWAYS_INLINE const uint16_t* find16(const uint16_t* pointer, uint16_t character, size_t length)
+{
+    // We take `size_t` length instead of `unsigned` because,
+    // 1. It is aligned to memchr.
+    // 2. It allows us to use find16 for 4GB~ vectors, which can be used in JSC ArrayBuffer (4GB wasm memory).
+
+    // If the pointer is unaligned to 16bit access, then SIMD implementation does not work. But ARM64 allows unaligned access.
+    // Fallback to a simple implementation. We also use it for smaller memory where length is less than 16.
+    constexpr size_t thresholdLength = 32;
+    static_assert(!(thresholdLength % (16 / sizeof(uint16_t))), "length threshold should be16-byte aligned to make find16AlignedImpl simpler");
+
+    // For first check `threshold - (unaligned >> 1)` characters, we use normal loop.
+    // This can (1) align pointer to 16-byte size so that SIMD loop gets simpler and (2) handle cases
+    // having a character in the beginning of the string efficiently.
+    uintptr_t unaligned = reinterpret_cast<uintptr_t>(pointer) & 0xf;
+
+    size_t index = 0;
+    size_t runway = std::min(thresholdLength - (unaligned / sizeof(uint16_t)), length);
+    for (; index < runway; ++index) {
+        if (pointer[index] == character)
+            return pointer + index;
+    }
+    if (runway == length)
+        return nullptr;
+
+    ASSERT(index < length);
+    return find16AlignedImpl(pointer + index, character, length - index);
+}
+#else
+ALWAYS_INLINE const uint16_t* find16(const uint16_t* pointer, uint16_t character, size_t length)
+{
+    for (size_t index = 0; index < length; ++index) {
+        if (pointer[index] == character)
+            return pointer + index;
+    }
+    return nullptr;
+}
+#endif
+
+#if CPU(ARM64)
+WTF_EXPORT_PRIVATE const uint32_t* find32AlignedImpl(const uint32_t* pointer, uint32_t character, size_t length);
+
+ALWAYS_INLINE const uint32_t* find32(const uint32_t* pointer, uint32_t character, size_t length)
+{
+    constexpr size_t thresholdLength = 32;
+    static_assert(!(thresholdLength % (16 / sizeof(uint32_t))), "it should be 16-byte aligned to make find32AlignedImpl simpler");
+
+    uintptr_t unaligned = reinterpret_cast<uintptr_t>(pointer) & 0xf;
+
+    size_t index = 0;
+    size_t runway = std::min(thresholdLength - (unaligned / sizeof(uint32_t)), length);
+    for (; index < runway; ++index) {
+        if (pointer[index] == character)
+            return pointer + index;
+    }
+    if (runway == length)
+        return nullptr;
+
+    ASSERT(index < length);
+    return find32AlignedImpl(pointer + index, character, length - index);
+}
+#else
+ALWAYS_INLINE const uint32_t* find32(const uint32_t* pointer, uint32_t character, size_t length)
+{
+    for (size_t index = 0; index < length; ++index) {
+        if (pointer[index] == character)
+            return pointer + index;
+    }
+    return nullptr;
+}
+#endif
+
+#if CPU(ARM64)
+WTF_EXPORT_PRIVATE const uint64_t* find64AlignedImpl(const uint64_t* pointer, uint64_t character, size_t length);
+
+ALWAYS_INLINE const uint64_t* find64(const uint64_t* pointer, uint64_t character, size_t length)
+{
+    constexpr size_t thresholdLength = 32;
+    static_assert(!(thresholdLength % (16 / sizeof(uint64_t))), "length threshold should be16-byte aligned to make find64AlignedImpl simpler");
+
+    uintptr_t unaligned = reinterpret_cast<uintptr_t>(pointer) & 0xf;
+
+    size_t index = 0;
+    size_t runway = std::min(thresholdLength - (unaligned / sizeof(uint64_t)), length);
+    for (; index < runway; ++index) {
+        if (pointer[index] == character)
+            return pointer + index;
+    }
+    if (runway == length)
+        return nullptr;
+
+    ASSERT(index < length);
+    return find64AlignedImpl(pointer + index, character, length - index);
+}
+#else
+ALWAYS_INLINE const uint64_t* find64(const uint64_t* pointer, uint64_t character, size_t length)
+{
+    for (size_t index = 0; index < length; ++index) {
+        if (pointer[index] == character)
+            return pointer + index;
+    }
+    return nullptr;
+}
+#endif
+
+#if CPU(ARM64)
+WTF_EXPORT_PRIVATE const float* findFloatAlignedImpl(const float* pointer, float target, size_t length);
+
+ALWAYS_INLINE const float* findFloat(const float* pointer, float target, size_t length)
+{
+    constexpr size_t thresholdLength = 32;
+    static_assert(!(thresholdLength % (16 / sizeof(float))), "length threshold should be16-byte aligned to make floatFindAlignedImpl simpler");
+
+    uintptr_t unaligned = reinterpret_cast<uintptr_t>(pointer) & 0xf;
+
+    size_t index = 0;
+    size_t runway = std::min(thresholdLength - (unaligned / sizeof(float)), length);
+    for (; index < runway; ++index) {
+        if (pointer[index] == target)
+            return pointer + index;
+    }
+    if (runway == length)
+        return nullptr;
+
+    ASSERT(index < length);
+    return findFloatAlignedImpl(pointer + index, target, length - index);
+}
+#else
+ALWAYS_INLINE const float* findFloat(const float* pointer, float target, size_t length)
+{
+    for (size_t index = 0; index < length; ++index) {
+        if (pointer[index] == target)
+            return pointer + index;
+    }
+    return nullptr;
+}
+#endif
+
+#if CPU(ARM64)
+WTF_EXPORT_PRIVATE const double* findDoubleAlignedImpl(const double* pointer, double target, size_t length);
+
+ALWAYS_INLINE const double* findDouble(const double* pointer, double target, size_t length)
+{
+    constexpr size_t thresholdLength = 32;
+    static_assert(!(thresholdLength % (16 / sizeof(double))), "length threshold should be16-byte aligned to make doubleFindAlignedImpl simpler");
+
+    uintptr_t unaligned = reinterpret_cast<uintptr_t>(pointer) & 0xf;
+
+    size_t index = 0;
+    size_t runway = std::min(thresholdLength - (unaligned / sizeof(double)), length);
+    for (; index < runway; ++index) {
+        if (pointer[index] == target)
+            return pointer + index;
+    }
+    if (runway == length)
+        return nullptr;
+
+    ASSERT(index < length);
+    return findDoubleAlignedImpl(pointer + index, target, length - index);
+}
+#else
+ALWAYS_INLINE const double* findDouble(const double* pointer, double target, size_t length)
+{
+    for (size_t index = 0; index < length; ++index) {
+        if (pointer[index] == target)
+            return pointer + index;
+    }
+    return nullptr;
+}
+#endif
+
+#if CPU(ARM64)
+WTF_EXPORT_PRIVATE const LChar* find8NonASCIIAlignedImpl(const LChar* pointer, size_t length);
+
+ALWAYS_INLINE const LChar* find8NonASCII(const LChar* pointer, size_t length)
+{
+    constexpr size_t thresholdLength = 16;
+    static_assert(!(thresholdLength % (16 / sizeof(LChar))), "length threshold should be 16-byte aligned to make find8NonASCIIAlignedImpl simpler");
+    uintptr_t unaligned = reinterpret_cast<uintptr_t>(pointer) & 0xf;
+
+    size_t index = 0;
+    size_t runway = std::min(thresholdLength - (unaligned / sizeof(LChar)), length);
+    for (; index < runway; ++index) {
+        if (!isASCII(pointer[index]))
+            return pointer + index;
+    }
+    if (runway == length)
+        return nullptr;
+
+    ASSERT(index < length);
+    return find8NonASCIIAlignedImpl(pointer + index, length - index);
+}
+
+WTF_EXPORT_PRIVATE const UChar* find16NonASCIIAlignedImpl(const UChar* pointer, size_t length);
+
+ALWAYS_INLINE const UChar* find16NonASCII(const UChar* pointer, size_t length)
+{
+    constexpr size_t thresholdLength = 16;
+    static_assert(!(thresholdLength % (16 / sizeof(UChar))), "length threshold should be 16-byte aligned to make find16NonASCIIAlignedImpl simpler");
+    uintptr_t unaligned = reinterpret_cast<uintptr_t>(pointer) & 0xf;
+
+    size_t index = 0;
+    size_t runway = std::min(thresholdLength - (unaligned / sizeof(UChar)), length);
+    for (; index < runway; ++index) {
+        if (!isASCII(pointer[index]))
+            return pointer + index;
+    }
+    if (runway == length)
+        return nullptr;
+
+    ASSERT(index < length);
+    return find16NonASCIIAlignedImpl(pointer + index, length - index);
+}
+#endif
+
 template<typename CharacterType, std::enable_if_t<std::is_integral_v<CharacterType>>* = nullptr>
 inline size_t find(const CharacterType* characters, unsigned length, CharacterType matchCharacter, unsigned index = 0)
 {
     if constexpr (sizeof(CharacterType) == 1) {
-        // For enough long string, we use memchr since it is faster empirically.
-        constexpr unsigned memchrThresholdLength = 16;
-        if (length > index && length - index >= memchrThresholdLength) {
-            auto* result = reinterpret_cast<const CharacterType*>(memchr(characters + index, matchCharacter, length - index));
-            ASSERT(!result || (result - characters) >= index);
-            if (result)
-                return result - characters;
+        if (index >= length)
             return notFound;
-        }
+        auto* result = reinterpret_cast<const CharacterType*>(find8(bitwise_cast<const uint8_t*>(characters + index), matchCharacter, length - index));
+        ASSERT(!result || static_cast<unsigned>(result - characters) >= index);
+        if (result)
+            return result - characters;
+        return notFound;
+    }
+
+    if constexpr (sizeof(CharacterType) == 2) {
+        if (index >= length)
+            return notFound;
+        auto* result = reinterpret_cast<const CharacterType*>(find16(bitwise_cast<const uint16_t*>(characters + index), matchCharacter, length - index));
+        ASSERT(!result || static_cast<unsigned>(result - characters) >= index);
+        if (result)
+            return result - characters;
+        return notFound;
     }
 
     while (index < length) {

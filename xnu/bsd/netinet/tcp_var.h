@@ -1609,8 +1609,8 @@ extern struct timeval tcp_uptime;
 extern lck_spin_t tcp_uptime_lock;
 extern int tcp_delack_enabled;
 extern int maxseg_unacked;
-extern struct zone *tcp_reass_zone;
-extern struct zone *tcp_rxt_seg_zone;
+KALLOC_TYPE_DECLARE(tcp_reass_zone);
+KALLOC_TYPE_DECLARE(tcp_rxt_seg_zone);
 extern int tcp_ecn_outbound;
 extern int tcp_ecn_inbound;
 extern uint32_t tcp_do_autorcvbuf;
@@ -1785,8 +1785,6 @@ extern bool tcp_notify_ack_active(struct socket *so);
 extern void tcp_set_finwait_timeout(struct tcpcb *);
 
 #if MPTCP
-extern int mptcp_input_preproc(struct tcpcb *tp, struct mbuf *m,
-    struct tcphdr *th, int drop_hdrlen);
 extern uint16_t mptcp_output_csum(struct mbuf *m, uint64_t dss_val,
     uint32_t sseq, uint16_t dlen);
 extern int mptcp_adj_mss(struct tcpcb *, boolean_t);

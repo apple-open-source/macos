@@ -156,7 +156,7 @@ String AccessibilitySVGElement::accessibilityDescription() const
     // FIXME: This is here to not break the svg-image.html test. But 'alt' is not
     // listed as a supported attribute of the 'image' element in the SVG spec:
     // https://www.w3.org/TR/SVG/struct.html#ImageElement
-    if (m_renderer->isSVGImage()) {
+    if (m_renderer->isSVGImageOrLegacySVGImage()) {
         const AtomString& alt = getAttribute(HTMLNames::altAttr);
         if (!alt.isNull())
             return alt;
@@ -210,7 +210,7 @@ bool AccessibilitySVGElement::computeAccessibilityIsIgnored() const
     if (decision == AccessibilityObjectInclusion::IgnoreObject)
         return true;
 
-    if (m_renderer->isSVGHiddenContainer())
+    if (m_renderer->isLegacySVGHiddenContainer() || m_renderer->isSVGHiddenContainer())
         return true;
 
     // The SVG AAM states objects with at least one 'title' or 'desc' element MUST be included.
@@ -293,9 +293,9 @@ AccessibilityRole AccessibilitySVGElement::determineAccessibilityRole()
 
     Element* svgElement = element();
 
-    if (m_renderer->isSVGShapeOrLegacySVGShape() || m_renderer->isSVGPathOrLegacySVGPath() || m_renderer->isSVGImage() || is<SVGUseElement>(svgElement))
+    if (m_renderer->isSVGShapeOrLegacySVGShape() || m_renderer->isSVGPathOrLegacySVGPath() || m_renderer->isSVGImageOrLegacySVGImage() || is<SVGUseElement>(svgElement))
         return AccessibilityRole::Image;
-    if (m_renderer->isSVGForeignObject() || is<SVGGElement>(svgElement))
+    if (m_renderer->isSVGForeignObjectOrLegacySVGForeignObject() || is<SVGGElement>(svgElement))
         return AccessibilityRole::Group;
     if (m_renderer->isSVGText())
         return AccessibilityRole::SVGText;

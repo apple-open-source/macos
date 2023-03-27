@@ -208,10 +208,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property CKKSTestsMockAccountsAuthKitAdapter* mockAccountsAuthKitAdapter;
 
-@property CKKSMockSOSPresentAdapter* mockSOSAdapter;
+@property (nullable) CKKSMockSOSPresentAdapter* mockSOSAdapter;
 @property (nullable) CKKSMockOctagonAdapter *mockOctagonAdapter;
 
-@property OTMockPersonaAdapter* mockPersonaAdapter;
+@property (nullable) OTMockPersonaAdapter* mockPersonaAdapter;
 
 - (NSSet<NSString*>*)managedViewList;
 - (TPSyncingPolicy*)viewSortingPolicyForManagedViewList;

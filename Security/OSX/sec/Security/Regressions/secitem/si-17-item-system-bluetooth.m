@@ -53,12 +53,6 @@ static void tests(void)
     NSLog(@"whoami: %@", whoami);
 
     /*
-     * Check for multi user mode and its expected behavior (since its different)
-     */
-
-    bool multiUser = (whoami[@"musr"]) ? true : false;
-
-    /*
      * Check we can't find it in our keychain
      */
     SKIP: {
@@ -67,6 +61,12 @@ static void tests(void)
                   (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
                   (__bridge id)kSecAttrService : kBlueToothServiceName,
                   };
+
+        /*
+         * Check for multi user mode and its expected behavior (since its different)
+         */
+
+        bool multiUser = (whoami[@"musr"]) ? true : false;
 
         is(SecItemCopyMatching((CFTypeRef)query, NULL), multiUser ? errSecItemNotFound : noErr, "Bluetooth item - user keychain");
 

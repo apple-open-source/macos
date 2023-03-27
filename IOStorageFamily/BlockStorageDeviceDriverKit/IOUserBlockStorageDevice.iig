@@ -155,7 +155,12 @@ private:
 	 * @return      kIOReturnSuccess on success. See IOReturn.h for error codes.
 	 */
 	virtual kern_return_t DoAsyncUnmapPriv(uint32_t requestID, struct BlockRange *ranges, uint32_t numOfRanges) LOCALONLY = 0;
+
 };
 
+class EXTENDS ( IOUserBlockStorageDevice ) IOUserBlockStorageDevicePrivate
+{
+    virtual kern_return_t StartDev(IOService * provider, const DeviceParams *deviceParams);
+};
 
 #endif /* _IOUSERBLOCKSTORAGEDEVICE_H */

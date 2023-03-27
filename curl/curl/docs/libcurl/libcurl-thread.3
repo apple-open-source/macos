@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH libcurl-thread 3 "September 20, 2022" "libcurl 7.86.0" "libcurl thread safety"
+.TH libcurl-thread 3 "September 25, 2022" "libcurl 7.87.0" "libcurl thread safety"
 
 .SH NAME
 libcurl-thread \- libcurl thread safety
@@ -112,3 +112,5 @@ replacements, must be thread safe. You can use \fIcurl_global_init_mem(3)\fP
 to set your own replacement memory functions.
 .IP "Non-safe functions"
 \fICURLOPT_DNS_USE_GLOBAL_CACHE(3)\fP is not thread-safe.
+
+\fIcurl_version_info(3)\fP is not thread-safe before libcurl initialization.

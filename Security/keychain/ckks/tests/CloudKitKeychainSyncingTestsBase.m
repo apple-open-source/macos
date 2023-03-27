@@ -44,6 +44,7 @@
 + (void)setUp {
     SecCKKSEnable();
     SecCKKSResetSyncing();
+
     [super setUp];
 }
 

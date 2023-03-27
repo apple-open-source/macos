@@ -387,11 +387,21 @@
 
 - (void)resetAndEstablish:(OTControlArguments*)arguments
               resetReason:(CuttlefishResetReason)resetReason
+        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+   idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+	       notifyIdMS:(bool)notifyIdMS
+          accountSettings:(OTAccountSettings *_Nullable)accountSettings
                     reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] resetAndEstablish:arguments resetReason:resetReason reply:reply];
+    }] resetAndEstablish:arguments
+             resetReason:resetReason
+       idmsTargetContext:idmsTargetContext
+       idmsCuttlefishPassword:idmsCuttlefishPassword
+              notifyIdMS:notifyIdMS
+         accountSettings:accountSettings
+                   reply:reply];
 }
 
 - (void)establish:(OTControlArguments*)arguments
@@ -467,12 +477,11 @@
 
 - (void) joinWithRecoveryKey:(OTControlArguments*)arguments
                  recoveryKey:(NSString*)recoveryKey
-                  sosSuccess:(BOOL)sosSuccess
                        reply:(void (^)(NSError * _Nullable))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] joinWithRecoveryKey:arguments recoveryKey:recoveryKey sosSuccess:sosSuccess reply:reply];
+    }] joinWithRecoveryKey:arguments recoveryKey:recoveryKey reply:reply];
 }
 
 - (void) createCustodianRecoveryKey:(OTControlArguments*)arguments
@@ -664,11 +673,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 }
 
 - (void)resetAccountCDPContents:(OTControlArguments*)arguments
+        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+   idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+	       notifyIdMS:(bool)notifyIdMS
                           reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(connectionError);
-    }] resetAccountCDPContents:arguments reply:reply];
+    }] resetAccountCDPContents:arguments idmsTargetContext:idmsTargetContext idmsCuttlefishPassword:idmsCuttlefishPassword notifyIdMS:notifyIdMS reply:reply];
 }
 
 - (void)setLocalSecureElementIdentity:(OTControlArguments*)arguments
@@ -699,6 +711,31 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }] fetchTrustedSecureElementIdentities:arguments reply:reply];
 }
 
+- (void)setAccountSetting:(OTControlArguments*)arguments
+                  setting:(OTAccountSettings*)setting
+                    reply:(void (^)(NSError* _Nullable))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(connectionError);
+    }] setAccountSetting:arguments setting:setting reply:reply];
+}
+
+- (void)fetchAccountSettings:(OTControlArguments*)arguments
+                       reply:(void (^)(OTAccountSettings* _Nullable setting, NSError* _Nullable replyError))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(nil, connectionError);
+    }] fetchAccountSettings:arguments reply:reply];
+}
+
+- (void)fetchAccountWideSettingsWithForceFetch:(bool)forceFetch
+                                     arguments:(OTControlArguments*)arguments
+                                         reply:(void (^)(OTAccountSettings* _Nullable setting, NSError* _Nullable error))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(nil, connectionError);
+    }] fetchAccountWideSettingsWithForceFetch:forceFetch arguments:arguments reply:reply];
+}
 
 - (void)waitForPriorityViewKeychainDataRecovery:(OTControlArguments*)arguments
                                           reply:(void (^)(NSError* _Nullable replyError))reply
@@ -735,6 +772,31 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }] setMachineIDOverride:arguments machineID:machineID reply:reply];
 }
 
+- (void)isRecoveryKeySet:(OTControlArguments*)arguments
+                   reply:(void (^)(BOOL isSet, NSError* _Nullable error))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(NO, connectionError);
+    }] isRecoveryKeySet:arguments reply:reply];
+}
+
+- (void)recoverWithRecoveryKey:(OTControlArguments*)arguments
+                   recoveryKey:(NSString*)recoveryKey
+                         reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(connectionError);
+    }] recoverWithRecoveryKey:arguments recoveryKey:recoveryKey reply:reply];
+}
+
+- (void)removeRecoveryKey:(OTControlArguments*)arguments
+                    reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(connectionError);
+    }] removeRecoveryKey:arguments reply:reply];
+}
+
 - (void)preflightRecoverOctagonUsingRecoveryKey:(OTControlArguments*)arguments
                                     recoveryKey:(NSString*)recoveryKey
                                           reply:(void (^)(BOOL correct, NSError* _Nullable replyError))reply
@@ -742,6 +804,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection:^(NSError *connectionError) {
         reply(NO, connectionError);
     }] preflightRecoverOctagonUsingRecoveryKey:arguments recoveryKey:recoveryKey reply:reply];
+}
+
+- (void)getAccountMetadata:(OTControlArguments*)arguments
+                     reply:(void (^)(OTAccountMetadataClassC* metadata, NSError* _Nullable replyError))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(nil, connectionError);
+    }] getAccountMetadata:arguments reply:reply];
 }
 
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {

@@ -101,20 +101,38 @@ kern_return_t IMPL(IOUserBlockStorageDevice, Start)
 	retVal = IODispatchQueue::Create ( "CompletionQueue", 0, 0, &ivars->fCompletionQueue );
 	if (retVal != kIOReturnSuccess) {
 		os_log(OS_LOG_DEFAULT, "IOUserBlockStorageDevice::Start() - failed to create dispatch queue");
-		return retVal;
+		goto DispatchQueueCreateError;
 	}
 
 	retVal = SetDispatchQueue ( "Completion", ivars->fCompletionQueue );
 	if (retVal != kIOReturnSuccess) {
 		os_log(OS_LOG_DEFAULT, "IOUserBlockStorageDevice::Start() - failed to set dispatch queue");
-		return retVal;
+        goto Error;
 	}
 
+    struct DeviceParams deviceParams;
+    retVal = GetDeviceParams(&deviceParams);
+    if (retVal != kIOReturnSuccess){
+        os_log(OS_LOG_DEFAULT, "IOUserBlockStorageDevice::Start() - failed to get device params");
+        goto Error;
+    }
+
+	retVal = StartDev(provider, &deviceParams);
+	if (retVal != kIOReturnSuccess){
+		os_log(OS_LOG_DEFAULT, "IOUserBlockStorageDevice::Start() - failed to start device in kernel");
+        goto Error;
+	}
 	retVal = RegisterDext();
+
 	if (retVal != kIOReturnSuccess) {
 		os_log(OS_LOG_DEFAULT, "IOUserBlockStorageDevice::Start() - failed to set register dext");
-		return retVal;
+        goto Error;
 	}
 
 	return Start(provider, SUPERDISPATCH);
+
+Error:
+    ivars->fCompletionQueue->release();
+DispatchQueueCreateError:
+    return retVal;
 }

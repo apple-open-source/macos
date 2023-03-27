@@ -26,10 +26,12 @@
 #import "config.h"
 #import "WKNavigationActionInternal.h"
 
+#import "APIHitTestResult.h"
 #import "NavigationActionData.h"
 #import "WKFrameInfoInternal.h"
 #import "WKNavigationInternal.h"
 #import "WebEventFactory.h"
+#import "_WKHitTestResultInternal.h"
 #import "_WKUserInitiatedActionInternal.h"
 #import <WebCore/FloatPoint.h>
 #import <WebCore/WebCoreObjCExtras.h>
@@ -63,14 +65,14 @@ static WKNavigationType toWKNavigationType(WebCore::NavigationType navigationTyp
 }
 
 #if PLATFORM(IOS_FAMILY)
-static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEvent::SyntheticClickType syntheticClickType)
+static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheticClickType syntheticClickType)
 {
     switch (syntheticClickType) {
-    case WebKit::WebMouseEvent::NoTap:
+    case WebKit::WebMouseEventSyntheticClickType::NoTap:
         return WKSyntheticClickTypeNoTap;
-    case WebKit::WebMouseEvent::OneFingerTap:
+    case WebKit::WebMouseEventSyntheticClickType::OneFingerTap:
         return WKSyntheticClickTypeOneFingerTap;
-    case WebKit::WebMouseEvent::TwoFingerTap:
+    case WebKit::WebMouseEventSyntheticClickType::TwoFingerTap:
         return WKSyntheticClickTypeTwoFingerTap;
     }
     ASSERT_NOT_REACHED();
@@ -235,6 +237,25 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEvent::Synthe
     if (!page)
         return;
     page->websiteDataStore().storePrivateClickMeasurement(*privateClickMeasurement);
+}
+
+- (_WKHitTestResult *)_hitTestResult
+{
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    auto& webHitTestResultData = _navigationAction->webHitTestResultData();
+    if (!webHitTestResultData)
+        return nil;
+
+    auto apiHitTestResult = API::HitTestResult::create(webHitTestResultData.value());
+    return retainPtr(wrapper(apiHitTestResult)).autorelease();
+#else
+    return nil;
+#endif
+}
+
+- (BOOL)_hasOpener
+{
+    return _navigationAction->hasOpener();
 }
 
 @end

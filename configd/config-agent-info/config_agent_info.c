@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -81,11 +81,13 @@ is_a_config_agent(const struct netagent *agent)
 boolean_t
 is_config_agent_type_dns(const struct netagent *agent)
 {
+	const char *agentDesc;
+
 	if (!is_a_config_agent(agent)) {
 		return false;
 	}
 
-	const char *agentDesc = agent->netagent_type;
+	agentDesc = agent->netagent_type;
 	if (agentDesc == NULL || strcmp(agentDesc, kConfigAgentTypeDNS)) {
 		return false;
 	}
@@ -96,11 +98,13 @@ is_config_agent_type_dns(const struct netagent *agent)
 boolean_t
 is_config_agent_type_proxy(const struct netagent *agent)
 {
+	const char *agentDesc;
+
 	if (!is_a_config_agent(agent)) {
 		return false;
 	}
 
-	const char *agentDesc = agent->netagent_type;
+	agentDesc = agent->netagent_type;
 	if (agentDesc == NULL || strcmp(agentDesc, kConfigAgentTypeProxy)) {
 		return false;
 	}

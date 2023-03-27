@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
 #include "FontBaseline.h"
 #include "InlineRect.h"
 
@@ -41,7 +39,7 @@ public:
         float top { 0 };
         float bottom { 0 };
     };
-    Line(const FloatRect& lineBoxRect, const FloatRect& scrollableOverflow, EnclosingTopAndBottom, float aligmentBaseline, FontBaseline baselineType, float contentLogicalOffset, float contentLogicalWidth, bool isHorizontal);
+    Line(const FloatRect& lineBoxLogicalRect, const FloatRect& lineBoxRect, const FloatRect& scrollableOverflow, EnclosingTopAndBottom, float aligmentBaseline, FontBaseline baselineType, float contentLogicalLeft, float contentLogicalLeftIgnoringInlineDirection, float contentLogicalWidth, bool isHorizontal);
 
     float left() const { return m_lineBoxRect.x(); }
     float right() const { return m_lineBoxRect.maxX(); }
@@ -51,41 +49,54 @@ public:
     FloatPoint topLeft() const { return m_lineBoxRect.location(); }
 
     const FloatRect& lineBoxRect() const { return m_lineBoxRect; }
+    const FloatRect& lineBoxLogicalRect() const { return m_lineBoxLogicalRect; }
     const FloatRect& scrollableOverflow() const { return m_scrollableOverflow; }
 
-    EnclosingTopAndBottom enclosingTopAndBottom() const { return m_enclosingTopAndBottom; }
+    EnclosingTopAndBottom enclosingLogicalTopAndBottom() const { return m_enclosingLogicalTopAndBottom; }
 
     float baseline() const { return m_aligmentBaseline; }
     FontBaseline baselineType() const { return m_baselineType; }
 
     bool isHorizontal() const { return m_isHorizontal; }
 
-    float contentLogicalOffset() const { return m_contentLogicalOffset; }
+    std::optional<FloatRect> ellipsisVisualRect() const { return m_ellipsisVisualRect; }
+
+    float contentLogicalLeft() const { return m_contentLogicalLeft; }
+    // This is "visual" left in inline direction (it is still considered logical as there's no flip for writing mode).
+    float contentLogicalLeftIgnoringInlineDirection() const { return m_contentLogicalLeftIgnoringInlineDirection; }
     float contentLogicalWidth() const { return m_contentLogicalWidth; }
 
     void moveVertically(float offset) { m_lineBoxRect.move({ { }, offset }); }
+    void setEllipsisVisualRect(const FloatRect& ellipsisVisualRect) { m_ellipsisVisualRect = ellipsisVisualRect; }
 
 private:
     // This is line box geometry (see https://www.w3.org/TR/css-inline-3/#line-box).
     FloatRect m_lineBoxRect;
+    FloatRect m_lineBoxLogicalRect;
     FloatRect m_scrollableOverflow;
     // Enclosing top and bottom includes all inline level boxes (border box) vertically.
     // While the line box usually enclose them as well, its vertical geometry is based on
     // the layout bounds of the inline level boxes which may be different when line-height is present.
-    EnclosingTopAndBottom m_enclosingTopAndBottom;
-    float m_aligmentBaseline { 0 };
-    float m_contentLogicalOffset { 0 };
-    float m_contentLogicalWidth { 0 };
+    EnclosingTopAndBottom m_enclosingLogicalTopAndBottom;
+    float m_aligmentBaseline { 0.f };
+    // Content is mostly in flush with the line box edge except for cases like text-align.
+    float m_contentLogicalLeft { 0.f };
+    float m_contentLogicalLeftIgnoringInlineDirection { 0.f };
+    float m_contentLogicalWidth { 0.f };
     FontBaseline m_baselineType { AlphabeticBaseline };
     bool m_isHorizontal { true };
+    // This is visual rect ignoring block direction.
+    std::optional<FloatRect> m_ellipsisVisualRect { };
 };
 
-inline Line::Line(const FloatRect& lineBoxRect, const FloatRect& scrollableOverflow, EnclosingTopAndBottom enclosingTopAndBottom, float aligmentBaseline, FontBaseline baselineType, float contentLogicalOffset, float contentLogicalWidth, bool isHorizontal)
+inline Line::Line(const FloatRect& lineBoxLogicalRect, const FloatRect& lineBoxRect, const FloatRect& scrollableOverflow, EnclosingTopAndBottom enclosingLogicalTopAndBottom, float aligmentBaseline, FontBaseline baselineType, float contentLogicalLeft, float contentLogicalLeftIgnoringInlineDirection, float contentLogicalWidth, bool isHorizontal)
     : m_lineBoxRect(lineBoxRect)
+    , m_lineBoxLogicalRect(lineBoxLogicalRect)
     , m_scrollableOverflow(scrollableOverflow)
-    , m_enclosingTopAndBottom(enclosingTopAndBottom)
+    , m_enclosingLogicalTopAndBottom(enclosingLogicalTopAndBottom)
     , m_aligmentBaseline(aligmentBaseline)
-    , m_contentLogicalOffset(contentLogicalOffset)
+    , m_contentLogicalLeft(contentLogicalLeft)
+    , m_contentLogicalLeftIgnoringInlineDirection(contentLogicalLeftIgnoringInlineDirection)
     , m_contentLogicalWidth(contentLogicalWidth)
     , m_baselineType(baselineType)
     , m_isHorizontal(isHorizontal)
@@ -95,4 +106,3 @@ inline Line::Line(const FloatRect& lineBoxRect, const FloatRect& scrollableOverf
 }
 }
 
-#endif

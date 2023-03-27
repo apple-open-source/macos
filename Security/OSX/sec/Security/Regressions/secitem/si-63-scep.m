@@ -588,9 +588,9 @@ static void test_GetCACert(void)
     CFArrayRef certificates = SecCMSCertificatesOnlyMessageCopyCertificates((__bridge CFDataRef)getCACertResponse);
     isnt(certificates, NULL);
     is(CFArrayGetCount(certificates), 3);
-    SecCertificateRef expected_signing_cert = (SecCertificateRef)CFArrayGetValueAtIndex(certificates, 0);
-    SecCertificateRef expected_subCA_cert = (SecCertificateRef)CFArrayGetValueAtIndex(certificates, 1);
-    SecCertificateRef expected_root_cert = (SecCertificateRef)CFArrayGetValueAtIndex(certificates, 2);
+    SecCertificateRef expected_signing_cert = SecCertificateCreateWithBytes(NULL, _getCACertReponse_97197618 + _97197618_leaf_offset, _97197618_leaf_size);
+    SecCertificateRef expected_subCA_cert = SecCertificateCreateWithBytes(NULL, _getCACertReponse_97197618 + _97197618_subca_offset, _97197618_subca_size);
+    SecCertificateRef expected_root_cert = SecCertificateCreateWithBytes(NULL, _getCACertReponse_97197618 + _97197618_root_offset, _97197618_root_size);
     SecCertificateRef ca_certificate = NULL, ra_signing_certificate = NULL, ra_encryption_certificate=NULL;
 
     // No fingerprint

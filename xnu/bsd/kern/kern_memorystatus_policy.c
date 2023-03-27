@@ -39,7 +39,7 @@
 #include <sys/kern_memorystatus.h>
 #include <vm/vm_protos.h>
 
-#include "kern_memorystatus_internal.h"
+#include <kern/kern_memorystatus_internal.h>
 
 /*
  * All memory pressure policy decisions should live here, and there should be
@@ -174,13 +174,15 @@ memorystatus_pick_action(struct jetsam_thread_state *jetsam_thread,
 			} else if (status.msh_swapin_queue_over_limit) {
 				return MEMORYSTATUS_PROCESS_SWAPIN_QUEUE;
 			} else if (status.msh_swappable_compressor_segments_over_limit) {
-				os_log_with_startup_serial(OS_LOG_DEFAULT, "memorystatus: Skipping swap wakeup because the swap thread is already running. vm_swapout_thread_running=%d, vm_swapout_wake_pending=%d\n", vm_swapout_thread_running, os_atomic_load(&vm_swapout_wake_pending, relaxed));
+				memorystatus_log_info(
+					"memorystatus: Skipping swap wakeup because the swap thread is already running. vm_swapout_thread_running=%d, vm_swapout_wake_pending=%d\n",
+					vm_swapout_thread_running, os_atomic_load(&vm_swapout_wake_pending, relaxed));
 			}
 		}
 
 		if (highwater_remaining) {
 			*kill_cause = kMemorystatusKilledHiwat;
-			os_log_with_startup_serial(OS_LOG_DEFAULT, "memorystatus: Looking for highwatermark kills.\n");
+			memorystatus_log("memorystatus: Looking for highwatermark kills.\n");
 			return MEMORYSTATUS_KILL_HIWATER;
 		}
 	}
@@ -197,7 +199,7 @@ memorystatus_pick_action(struct jetsam_thread_state *jetsam_thread,
 
 	if (!jetsam_thread->limit_to_low_bands) {
 		if (memorystatus_check_aggressive_jetsam_needed(jld_idle_kills)) {
-			os_log_with_startup_serial(OS_LOG_DEFAULT, "memorystatus: Starting aggressive jetsam.\n");
+			memorystatus_log("memorystatus: Starting aggressive jetsam.\n");
 			*kill_cause = kMemorystatusKilledProcThrashing;
 			return MEMORYSTATUS_KILL_AGGRESSIVE;
 		}
@@ -316,7 +318,8 @@ memorystatus_check_aggressive_jetsam_needed(int *jld_idle_kills)
 	 */
 	if (total_candidates < kJetsamMinCandidatesThreshold) {
 #if DEVELOPMENT || DEBUG
-		printf("memorystatus: aggressive: [FAILED] Low Candidate Count (current: %d, threshold: %d)\n", total_candidates, kJetsamMinCandidatesThreshold);
+		memorystatus_log_info(
+			"memorystatus: aggressive: [FAILED] Low Candidate Count (current: %d, threshold: %d)\n", total_candidates, kJetsamMinCandidatesThreshold);
 #endif /* DEVELOPMENT || DEBUG */
 		aggressive_jetsam_needed = false;
 	}
@@ -357,9 +360,10 @@ memorystatus_aggressive_jetsam_needed_sysproc_aging(__unused int eval_aggressive
 	}
 
 #if DEVELOPMENT || DEBUG
-	printf("memorystatus: aggressive%d: [%s] Bad Candidate Threshold Check (total: %d, bad: %d, threshold: %d %%); Memory Pressure Check (available_pgs: %llu, threshold_pgs: %llu)\n",
-	    eval_aggressive_count, aggressive_jetsam_needed ? "PASSED" : "FAILED", *total_candidates, bad_candidates,
-	    kJetsamHighRelaunchCandidatesThreshold, (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, (uint64_t)memorystatus_sysproc_aging_aggr_pages);
+	memorystatus_log_info(
+		"memorystatus: aggressive%d: [%s] Bad Candidate Threshold Check (total: %d, bad: %d, threshold: %d %%); Memory Pressure Check (available_pgs: %llu, threshold_pgs: %llu)\n",
+		eval_aggressive_count, aggressive_jetsam_needed ? "PASSED" : "FAILED", *total_candidates, bad_candidates,
+		kJetsamHighRelaunchCandidatesThreshold, (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, (uint64_t)memorystatus_sysproc_aging_aggr_pages);
 #endif /* DEVELOPMENT || DEBUG */
 	return aggressive_jetsam_needed;
 }

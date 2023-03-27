@@ -127,26 +127,25 @@ static PlatformCAAnimation::ValueFunctionType fromCAValueFunctionType(NSString* 
     return PlatformCAAnimation::NoValueFunction;
 }
 
-CAMediaTimingFunction* toCAMediaTimingFunction(const TimingFunction* timingFunction, bool reverse)
+CAMediaTimingFunction* toCAMediaTimingFunction(const TimingFunction& timingFunction, bool reverse)
 {
-    ASSERT(timingFunction);
     if (is<CubicBezierTimingFunction>(timingFunction)) {
         RefPtr<CubicBezierTimingFunction> reversed;
-        auto* function = downcast<CubicBezierTimingFunction>(timingFunction);
+        std::reference_wrapper<const CubicBezierTimingFunction> function = downcast<CubicBezierTimingFunction>(timingFunction);
 
         if (reverse) {
-            reversed = function->createReversed();
-            function = reversed.get();
+            reversed = function.get().createReversed();
+            function = *reversed;
         }
 
-        float x1 = static_cast<float>(function->x1());
-        float y1 = static_cast<float>(function->y1());
-        float x2 = static_cast<float>(function->x2());
-        float y2 = static_cast<float>(function->y2());
+        float x1 = static_cast<float>(function.get().x1());
+        float y1 = static_cast<float>(function.get().y1());
+        float x2 = static_cast<float>(function.get().x2());
+        float y2 = static_cast<float>(function.get().y2());
         return [CAMediaTimingFunction functionWithControlPoints: x1 : y1 : x2 : y2];
     }
     
-    ASSERT(timingFunction->type() == TimingFunction::LinearFunction);
+    ASSERT(timingFunction.type() == TimingFunction::Type::LinearFunction);
     return [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
 }
 
@@ -325,17 +324,18 @@ void PlatformCAAnimationCocoa::setFillMode(FillModeType value)
     [m_animation setFillMode:toCAFillModeType(value)];
 }
 
-void PlatformCAAnimationCocoa::setTimingFunction(const TimingFunction* value, bool reverse)
+void PlatformCAAnimationCocoa::setTimingFunction(const TimingFunction* timingFunction, bool reverse)
 {
+    ASSERT(timingFunction);
     switch (animationType()) {
     case Basic:
     case Keyframe:
-        [m_animation setTimingFunction:toCAMediaTimingFunction(value, reverse)];
+        [m_animation setTimingFunction:toCAMediaTimingFunction(*timingFunction, reverse)];
         break;
     case Spring:
-        if (value->isSpringTimingFunction()) {
+        if (timingFunction->isSpringTimingFunction()) {
             // FIXME: Handle reverse.
-            auto& function = *static_cast<const SpringTimingFunction*>(value);
+            auto& function = *static_cast<const SpringTimingFunction*>(timingFunction);
             CASpringAnimation *springAnimation = (CASpringAnimation *)m_animation.get();
             springAnimation.mass = function.mass();
             springAnimation.stiffness = function.stiffness();
@@ -428,9 +428,9 @@ void PlatformCAAnimationCocoa::setFromValue(const Color& value)
     [static_cast<CABasicAnimation *>(m_animation.get()) setFromValue:@[@(r), @(g), @(b), @(a)]];
 }
 
-void PlatformCAAnimationCocoa::setFromValue(const FilterOperation* operation, int internalFilterPropertyIndex)
+void PlatformCAAnimationCocoa::setFromValue(const FilterOperation* operation)
 {
-    auto value = PlatformCAFilters::filterValueForOperation(operation, internalFilterPropertyIndex);
+    auto value = PlatformCAFilters::filterValueForOperation(operation);
     [static_cast<CABasicAnimation *>(m_animation.get()) setFromValue:value.get()];
 }
 
@@ -471,9 +471,9 @@ void PlatformCAAnimationCocoa::setToValue(const Color& value)
     [static_cast<CABasicAnimation *>(m_animation.get()) setToValue:@[@(r), @(g), @(b), @(a)]];
 }
 
-void PlatformCAAnimationCocoa::setToValue(const FilterOperation* operation, int internalFilterPropertyIndex)
+void PlatformCAAnimationCocoa::setToValue(const FilterOperation* operation)
 {
-    auto value = PlatformCAFilters::filterValueForOperation(operation, internalFilterPropertyIndex);
+    auto value = PlatformCAFilters::filterValueForOperation(operation);
     [static_cast<CABasicAnimation *>(m_animation.get()) setToValue:value.get()];
 }
 
@@ -529,13 +529,13 @@ void PlatformCAAnimationCocoa::setValues(const Vector<Color>& value)
     }).get()];
 }
 
-void PlatformCAAnimationCocoa::setValues(const Vector<RefPtr<FilterOperation>>& values, int internalFilterPropertyIndex)
+void PlatformCAAnimationCocoa::setValues(const Vector<RefPtr<FilterOperation>>& values)
 {
     if (animationType() != Keyframe)
         return;
 
     [static_cast<CAKeyframeAnimation *>(m_animation.get()) setValues:createNSArray(values, [&] (auto& value) {
-        return PlatformCAFilters::filterValueForOperation(value.get(), internalFilterPropertyIndex);
+        return PlatformCAFilters::filterValueForOperation(value.get());
     }).get()];
 }
 
@@ -561,10 +561,10 @@ void PlatformCAAnimationCocoa::copyKeyTimesFrom(const PlatformCAAnimation& value
     [static_cast<CAKeyframeAnimation *>(m_animation.get()) setKeyTimes:[other keyTimes]];
 }
 
-void PlatformCAAnimationCocoa::setTimingFunctions(const Vector<const TimingFunction*>& value, bool reverse)
+void PlatformCAAnimationCocoa::setTimingFunctions(const Vector<Ref<const TimingFunction>>& timingFunctions, bool reverse)
 {
-    [static_cast<CAKeyframeAnimation *>(m_animation.get()) setTimingFunctions:createNSArray(value, [&] (auto& function) {
-        return toCAMediaTimingFunction(function, reverse);
+    [static_cast<CAKeyframeAnimation *>(m_animation.get()) setTimingFunctions:createNSArray(timingFunctions, [&] (auto& function) {
+        return toCAMediaTimingFunction(function.get(), reverse);
     }).get()];
 }
 

@@ -34,7 +34,8 @@
 #include <stddef.h>
 #include <ptrauth.h>
 
-#if  __PTRAUTH_INTRINSICS__ && __has_builtin(__builtin_ptrauth_string_discriminator)
+#if defined(__PTRAUTH_INTRINSICS__) && __PTRAUTH_INTRINSICS__ && \
+		__has_builtin(__builtin_ptrauth_string_discriminator)
 #define LIBMALLOC_FUNCTION_PTRAUTH(f) \
    __ptrauth(ptrauth_key_function_pointer, 1, \
            __builtin_ptrauth_string_discriminator("libmalloc_functions_" # f) \

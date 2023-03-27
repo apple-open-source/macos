@@ -115,7 +115,7 @@ mbuf_get_chain_len(mbuf_t m0)
  */
 static uint32_t minclsize = 0;
 
-static uint32_t mbuf_minclsize() 
+static uint32_t mbuf_minclsize(void)
 {
 	struct mbuf_stat stats;
 	

@@ -551,7 +551,9 @@ private:
     template<typename Int, typename = Value::IsLegalOffset<Int>>
     Arg effectiveAddr(Value* address, Int offset, Width width)
     {
-        ASSERT(Arg::isValidAddrForm(offset, width));
+        // This function currently is currently only used for loads/stores, so
+        // using Air::Move is appropriate.
+        ASSERT(Arg::isValidAddrForm(Air::Move, offset, width));
         
         auto fallback = [&] () -> Arg {
             return Arg::addr(tmp(address), offset);
@@ -642,7 +644,7 @@ private:
         Width width = value->accessWidth();
 
         Arg result = effectiveAddr(value->lastChild(), offset, width);
-        RELEASE_ASSERT(result.isValidForm(width));
+        RELEASE_ASSERT(result.isValidForm(Air::Move, width));
 
         return result;
     }
@@ -1146,11 +1148,11 @@ private:
                 default:
                     break;
                 case Air::Move32:
-                    if (isValidForm(Store32, Arg::ZeroReg, dest.kind()) && dest.isValidForm(Width32))
+                    if (isValidForm(Store32, Arg::ZeroReg, dest.kind()) && dest.isValidForm(Move, Width32))
                         return Inst(Store32, m_value, zeroReg(), dest);
                     break;
                 case Air::Move:
-                    if (isValidForm(Store64, Arg::ZeroReg, dest.kind()) && dest.isValidForm(Width64))
+                    if (isValidForm(Store64, Arg::ZeroReg, dest.kind()) && dest.isValidForm(Move, Width64))
                         return Inst(Store64, m_value, zeroReg(), dest);
                     break;
                 }
@@ -1189,6 +1191,10 @@ private:
                 return MoveDouble;
             }
             break;
+        case Width128:
+            RELEASE_ASSERT(is64Bit() && Options::useWebAssemblySIMD());
+            RELEASE_ASSERT(bank == FP);
+            return MoveVector;
         }
         RELEASE_ASSERT_NOT_REACHED();
     }
@@ -1219,6 +1225,141 @@ private:
         kind.effects |= memory->traps();
         
         append(createStore(kind, memory->child(0), dest));
+    }
+
+    template<Air::Opcode i8, Air::Opcode i16, Air::Opcode i32, Air::Opcode i64, Air::Opcode f32, Air::Opcode f64>
+    constexpr Air::Opcode simdOpcode(SIMDLane lane)
+    {
+        if (scalarTypeIsFloatingPoint(lane)) {
+            switch (elementByteSize(lane)) {
+            case 4:
+                return f32;
+            case 8:
+                return f64;
+            }
+        } else {
+            switch (elementByteSize(lane)) {
+            case 1:
+                return i8;
+            case 2:
+                return i16;
+            case 4:
+                return i32;
+            case 8:
+                return i64;
+            }
+        }
+
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    template<Air::Opcode unsignedI8, Air::Opcode signedI8, Air::Opcode unsignedI16, Air::Opcode signedI16, Air::Opcode i32, Air::Opcode i64, Air::Opcode f32, Air::Opcode f64>
+    constexpr Air::Opcode simdOpcode(SIMDLane lane, SIMDSignMode signMode)
+    {
+        if (scalarTypeIsFloatingPoint(lane)) {
+            switch (elementByteSize(lane)) {
+            case 4:
+                return f32;
+            case 8:
+                return f64;
+            }
+        } else {
+            switch (elementByteSize(lane)) {
+            case 1:
+                RELEASE_ASSERT(signMode == SIMDSignMode::Signed || signMode == SIMDSignMode::Unsigned);
+                return signMode == SIMDSignMode::Signed ? signedI8 : unsignedI8;
+            case 2:
+                RELEASE_ASSERT(signMode == SIMDSignMode::Signed || signMode == SIMDSignMode::Unsigned);
+                return signMode == SIMDSignMode::Signed ? signedI16 : unsignedI16;
+            case 4:
+                return i32;
+            case 8:
+                return i64;
+            }
+        }
+
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+#define GET_SIMD_OPCODE(info, opcode) \
+    simdOpcode<opcode##Int8, opcode##Int16, opcode##Int32, opcode##Int64, opcode##Float32, opcode##Float64>(lane)
+
+#define GET_SIGNED_SIMD_OPCODE(lane, signMode, opcode) \
+    simdOpcode<opcode##UnsignedInt8, opcode##SignedInt8, opcode##UnsignedInt16, opcode##SignedInt16, opcode##Int32, opcode##Int64, opcode##Float32, opcode##Float64>(lane, signMode)
+
+    void emitSIMDCompare(Air::Arg relCond, Air::Arg doubleCond)
+    {
+        SIMDValue* value = m_value->as<SIMDValue>();
+        auto lane = value->simdLane();
+        bool isFloatingPoint = scalarTypeIsFloatingPoint(lane);
+        auto cond = isFloatingPoint ? doubleCond : relCond;
+        auto condKind = isFloatingPoint ? Arg::DoubleCond : Arg::RelCond;
+        RELEASE_ASSERT(cond);
+        Air::Opcode airOp = isFloatingPoint ? Air::CompareFloatingPointVector : Air::CompareIntegerVector;
+        if (isValidForm(airOp, condKind, Arg::SIMDInfo, Arg::Tmp, Arg::Tmp, Arg::Tmp)) {
+            append(airOp,
+                cond, Arg::simdInfo(value->simdInfo()), tmp(value->child(0)), tmp(value->child(1)), tmp(value));
+            return;
+        }
+        if (isValidForm(airOp, condKind, Arg::SIMDInfo, Arg::Tmp, Arg::Tmp, Arg::Tmp, Arg::Tmp)) {
+            append(airOp,
+                cond, Arg::simdInfo(value->simdInfo()), tmp(value->child(0)), tmp(value->child(1)), tmp(value), m_code.newTmp(FP));
+            return;
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    void emitSIMDCompare(Air::Arg cond)
+    {
+        if (cond.isRelCond())
+            emitSIMDCompare(cond, Air::Arg());
+        else if (cond.isDoubleCond())
+            emitSIMDCompare(Air::Arg(), cond);
+    }
+
+    template<unsigned numScratch = 0>
+    void emitSIMDBinaryOp(Air::Opcode op)
+    {
+        SIMDValue* value = m_value->as<SIMDValue>();
+        if constexpr (!numScratch)
+            append(op, Arg::simdInfo(value->simdInfo()), tmp(value->child(0)), tmp(value->child(1)), tmp(value));
+        else if (numScratch == 1)
+            append(op, Arg::simdInfo(value->simdInfo()), tmp(value->child(0)), tmp(value->child(1)), tmp(value), m_code.newTmp(FP));
+        else
+            RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    template<unsigned numScratch = 0>
+    void emitSIMDMonomorphicBinaryOp(Air::Opcode op)
+    {
+        SIMDValue* value = m_value->as<SIMDValue>();
+        if constexpr (!numScratch)
+            append(op, tmp(value->child(0)), tmp(value->child(1)), tmp(value));
+        else if (numScratch == 1)
+            append(op, tmp(value->child(0)), tmp(value->child(1)), tmp(value), m_code.newTmp(FP));
+        else
+            RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    void emitSIMDUnaryOp(Air::Opcode op)
+    {
+        SIMDValue* value = m_value->as<SIMDValue>();
+
+        if (isValidForm(op, Arg::SIMDInfo, Arg::Tmp, Arg::Tmp)) {
+            append(op, Arg::simdInfo(value->simdInfo()), tmp(value->child(0)), tmp(value));
+            return;
+        }
+        if (isValidForm(op, Arg::SIMDInfo, Arg::Tmp, Arg::Tmp, Arg::Tmp)) {
+            append(op, Arg::simdInfo(value->simdInfo()), tmp(value->child(0)), tmp(value), m_code.newTmp(FP));
+            return;
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    void emitSIMDMonomorphicUnaryOp(Air::Opcode op)
+    {
+        SIMDValue* value = m_value->as<SIMDValue>();
+        append(op, tmp(value->child(0)), tmp(value));
     }
 
     template<typename... Arguments>
@@ -1346,7 +1487,7 @@ private:
             }
             case ValueRep::LateRegister:
             case ValueRep::Register:
-                stackmap->earlyClobbered().clear(value.rep().reg());
+                stackmap->earlyClobbered().remove(value.rep().reg());
                 arg = Tmp(value.rep().reg());
                 append(relaxedMoveForType(value.value()->type()), immOrTmp(value.value()), arg);
                 break;
@@ -1855,6 +1996,9 @@ private:
                             left.consume(*this), right.consume(*this)));
                     }
                     return Inst();
+                case Width128:
+                    RELEASE_ASSERT_NOT_REACHED();
+                    break;
                 }
                 ASSERT_NOT_REACHED();
             },
@@ -1885,6 +2029,9 @@ private:
                             left.consume(*this), right.consume(*this)));
                     }
                     return Inst();
+                case Width128:
+                    RELEASE_ASSERT_NOT_REACHED();
+                    break;
                 }
                 ASSERT_NOT_REACHED();
             },
@@ -1933,8 +2080,12 @@ private:
                             left.consume(*this), right.consume(*this), tmp(m_value)));
                     }
                     return Inst();
+                case Width128:
+                    RELEASE_ASSERT_NOT_REACHED();
+                    break;
                 }
                 ASSERT_NOT_REACHED();
+                return Inst();
             },
             [this] (
                 Width width, const Arg& resCond,
@@ -1957,8 +2108,12 @@ private:
                             left.consume(*this), right.consume(*this), tmp(m_value)));
                     }
                     return Inst();
+                case Width128:
+                    RELEASE_ASSERT_NOT_REACHED();
+                    break;
                 }
                 ASSERT_NOT_REACHED();
+                return Inst();
             },
             [this] (const Arg& doubleCond, ArgPromise& left, ArgPromise& right) -> Inst {
                 if (isValidForm(CompareDouble, Arg::DoubleCond, left.kind(), right.kind(), Arg::Tmp)) {
@@ -2024,6 +2179,9 @@ private:
                     return createSelectInstruction(config.moveConditionally32, relCond, left, right);
                 case Width64:
                     return createSelectInstruction(config.moveConditionally64, relCond, left, right);
+                case Width128:
+                    RELEASE_ASSERT_NOT_REACHED();
+                    break;
                 }
                 ASSERT_NOT_REACHED();
             },
@@ -2039,6 +2197,9 @@ private:
                     return createSelectInstruction(config.moveConditionallyTest32, resCond, left, right);
                 case Width64:
                     return createSelectInstruction(config.moveConditionallyTest64, resCond, left, right);
+                case Width128:
+                    RELEASE_ASSERT_NOT_REACHED();
+                    break;
                 }
                 ASSERT_NOT_REACHED();
             },
@@ -2218,7 +2379,7 @@ private:
         Tmp result = op == UDiv ? m_eax : m_edx;
 
         append(Move, tmp(m_value->child(0)), m_eax);
-        append(Xor64, m_edx, m_edx);
+        append(Move, Arg::imm(0), m_edx);
         append(div, m_eax, m_edx, tmp(m_value->child(1)));
         append(Move, result, tmp(m_value));
     }
@@ -2302,7 +2463,7 @@ private:
             return;
         }
 
-        if (isARM64E()) {
+        if (isARM64_LSE()) {
             if (isBranch) {
                 switch (width) {
                 case Width8:
@@ -2313,6 +2474,9 @@ private:
                     break;
                 case Width32:
                 case Width64:
+                    break;
+                case Width128:
+                    RELEASE_ASSERT_NOT_REACHED();
                     break;
                 }
             }
@@ -2329,6 +2493,9 @@ private:
                     break;
                 case Width64:
                     appendTrapping(Air::Branch64, Arg::relCond(MacroAssembler::Equal), valueResultTmp, expectedValueTmp);
+                    break;
+                case Width128:
+                    RELEASE_ASSERT_NOT_REACHED();
                     break;
                 }
                 m_blockToBlock[m_block]->setSuccessors(success, failure);
@@ -2487,6 +2654,9 @@ private:
                 break;
             case Width64:
                 prepareOpcode = Move;
+                break;
+            case Width128:
+                RELEASE_ASSERT_NOT_REACHED();
                 break;
             }
         } else {
@@ -3580,9 +3750,400 @@ private:
         case WasmAddress: {
             WasmAddressValue* address = m_value->as<WasmAddressValue>();
 
+            if constexpr (isARM64()) {
+                Value* index = m_value->child(0);
+                if (canBeInternal(index)) {
+                    // Maybe, the ideal approach is to introduce a decorator (Index@EXT) to the Air operand
+                    // to provide an extension opportunity for the specific form under the Air opcode.
+                    if (isMergeableValue(index, ZExt32)) {
+                        append(AddZeroExtend64, Arg(address->pinnedGPR()), tmp(index->child(0)), tmp(address));
+                        commitInternal(index);
+                        return;
+                    }
+
+                    if (isMergeableValue(index, SExt32)) {
+                        append(AddSignExtend64, Arg(address->pinnedGPR()), tmp(index->child(0)), tmp(address));
+                        commitInternal(index);
+                        return;
+                    }
+                }
+            }
+
             append(Add64, Arg(address->pinnedGPR()), tmp(m_value->child(0)), tmp(address));
             return;
         }
+
+        case B3::VectorExtractLane: {
+            SIMDValue* value = m_value->as<SIMDValue>();
+            auto lane = value->simdLane();
+            auto signMode = value->signMode();
+            append(GET_SIGNED_SIMD_OPCODE(lane, signMode, Air::VectorExtractLane), Arg::imm(value->immediate(0)), tmp(value->child(0)), tmp(value));
+            return;
+        }
+
+        case B3::VectorReplaceLane: {
+            SIMDValue* value = m_value->as<SIMDValue>();
+            auto lane = value->simdLane();
+            auto replacementScalar = tmp(value->child(1));
+            Tmp result = tmp(value);
+            append(Air::MoveVector, tmp(value->child(0)), result);
+            append(GET_SIMD_OPCODE(lane, Air::VectorReplaceLane), Arg::imm(value->immediate(0)), replacementScalar, result);
+            return;
+        }
+
+        case B3::VectorDupElement: {
+            ASSERT(isARM64());
+            SIMDValue* value = m_value->as<SIMDValue>();
+            auto lane = value->simdLane();
+            append(GET_SIMD_OPCODE(lane, Air::VectorDupElement), Arg::imm(value->immediate(0)), tmp(value->child(0)), tmp(value));
+            return;
+        }
+
+        case B3::VectorSplat: {
+            SIMDValue* value = m_value->as<SIMDValue>();
+            SIMDLane lane = value->simdLane();
+            Tmp scalar = tmp(value->child(0));
+            Air::Opcode op;
+            switch (lane) {
+            case SIMDLane::i8x16:
+                op = VectorSplatInt8;
+                break;
+            case SIMDLane::i16x8:
+                op = VectorSplatInt16;
+                break;
+            case SIMDLane::i32x4:
+                op = VectorSplatInt32;
+                break;
+            case SIMDLane::i64x2:
+                op = VectorSplatInt64;
+                break;
+            case SIMDLane::f32x4:
+                op = VectorSplatFloat32;
+                break;
+            case SIMDLane::f64x2:
+                op = VectorSplatFloat64;
+                break;
+            default:
+                RELEASE_ASSERT_NOT_REACHED();
+            }
+            if (isValidForm(op, Arg::Tmp, Arg::Tmp)) {
+                append(op, scalar, tmp(value));
+                return;
+            }
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+
+        case B3::VectorShr:
+        case B3::VectorShl: {
+            SIMDValue* value = m_value->as<SIMDValue>();
+            SIMDLane lane = value->simdLane();
+
+            int32_t mask = (elementByteSize(lane) * CHAR_BIT) - 1;
+
+            auto v = tmp(value->child(0));
+            auto shift = tmp(value->child(1));
+
+            Tmp shiftAmount = m_code.newTmp(B3::GP);
+            Tmp shiftVector = m_code.newTmp(B3::FP);
+
+            if constexpr (isARM64()) {
+                append(And32, Arg::bitImm(mask), shift, shiftAmount);
+                if (value->opcode() == VectorShr) {
+                    // ARM64 doesn't have a version of this instruction for right shift. Instead, if the input to
+                    // left shift is negative, it's a right shift by the absolute value of that amount.
+                    append(Neg32, shiftAmount);
+                }
+                append(VectorSplatInt8, shiftAmount, shiftVector);
+                append(value->signMode() == SIMDSignMode::Signed ? VectorSshl : VectorUshl, Arg::simdInfo(value->simdInfo()), v, shiftVector, tmp(value));
+
+                return;
+            }
+            
+            if constexpr (isX86()) {
+                append(Move, shift, shiftAmount);
+                append(And32, Arg::imm(mask), shiftAmount);
+                if (value->opcode() == VectorShr && value->signMode() == SIMDSignMode::Signed && value->simdLane() == SIMDLane::i64x2) {
+                    // x86 has no SIMD 64-bit signed right shift instruction, so we scalarize it here.
+                    Tmp lower = m_code.newTmp(B3::GP);
+                    Tmp upper = m_code.newTmp(B3::GP);
+                    Tmp result = tmp(value);
+
+                    append(Move, shiftAmount, m_ecx);
+                    append(VectorExtractLaneInt64, Arg::imm(0), v, lower);
+                    append(VectorExtractLaneInt64, Arg::imm(1), v, upper);
+                    append(Rshift64, m_ecx, lower);
+                    append(Rshift64, m_ecx, upper);
+                    append(VectorReplaceLaneInt64, Arg::imm(0), lower, result);
+                    append(VectorReplaceLaneInt64, Arg::imm(1), upper, result);
+                    return;
+                }
+
+                // Unlike ARM, x86 expects the shift provided as a *scalar*, stored in the lower 64 bits of a vector register.
+                // So, we don't need to splat the shift amount like we do on ARM.
+                append(Move64ToDouble, shiftAmount, shiftVector);
+
+                // 8-bit shifts are pretty involved to implement on Intel, so they get their own instruction type with extra temps.
+                if (value->opcode() == VectorShl && value->simdLane() == SIMDLane::i8x16) {
+                    append(VectorUshl8, v, shiftVector, tmp(value), m_code.newTmp(B3::FP), m_code.newTmp(B3::FP));
+                    return;
+                }
+                if (value->opcode() == VectorShr && value->simdLane() == SIMDLane::i8x16) {
+                    append(value->signMode() == SIMDSignMode::Signed ? VectorSshr8 : VectorUshr8, v, shiftVector, tmp(value), m_code.newTmp(B3::FP), m_code.newTmp(B3::FP));
+                    return;
+                }
+
+                if (value->opcode() == VectorShl)
+                    append(VectorUshl, Arg::simdInfo(value->simdInfo()), v, shiftVector, tmp(value));
+                else
+                    append(value->signMode() == SIMDSignMode::Signed ? VectorSshr : VectorUshr, Arg::simdInfo(value->simdInfo()), v, shiftVector, tmp(value));
+                return;
+            }
+
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+
+        case B3::VectorEqual:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::Equal), Air::Arg::doubleCond(MacroAssembler::DoubleEqualAndOrdered));
+            return;
+        case B3::VectorNotEqual:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::NotEqual), Air::Arg::doubleCond(MacroAssembler::DoubleNotEqualOrUnordered));
+            return;
+        case B3::VectorLessThan:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::LessThan), Air::Arg::doubleCond(MacroAssembler::DoubleLessThanAndOrdered));
+            return;
+        case B3::VectorLessThanOrEqual:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::LessThanOrEqual), Air::Arg::doubleCond(MacroAssembler::DoubleLessThanOrEqualAndOrdered));
+            return;
+        case B3::VectorBelow:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::Below));
+            return;
+        case B3::VectorBelowOrEqual:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::BelowOrEqual));
+            return;
+        case B3::VectorGreaterThan:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::GreaterThan), Air::Arg::doubleCond(MacroAssembler::DoubleGreaterThanAndOrdered));
+            return;
+        case B3::VectorGreaterThanOrEqual:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::GreaterThanOrEqual), Air::Arg::doubleCond(MacroAssembler::DoubleGreaterThanOrEqualAndOrdered));
+            return;
+        case B3::VectorAbove:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::Above));
+            return;
+        case B3::VectorAboveOrEqual:
+            emitSIMDCompare(Air::Arg::relCond(MacroAssembler::AboveOrEqual));
+            return;
+        case B3::VectorAdd:
+            emitSIMDBinaryOp(Air::VectorAdd);
+            return;
+        case B3::VectorSub:
+            emitSIMDBinaryOp(Air::VectorSub);
+            return;
+        case B3::VectorAddSat:
+            emitSIMDBinaryOp(Air::VectorAddSat);
+            return;
+        case B3::VectorSubSat:
+            emitSIMDBinaryOp(Air::VectorSubSat);
+            return;
+        case B3::VectorMul:
+            emitSIMDBinaryOp(Air::VectorMul);
+            return;
+        case B3::VectorDotProduct:
+            if (isX86())
+                emitSIMDMonomorphicBinaryOp(Air::VectorDotProduct);
+            else if (isARM64())
+                emitSIMDMonomorphicBinaryOp</* scratch = */ 1>(Air::VectorDotProduct);
+            else
+                RELEASE_ASSERT_NOT_REACHED();
+            return; 
+        case B3::VectorDiv:
+            emitSIMDBinaryOp(Air::VectorDiv);
+            return;
+        case B3::VectorMin:
+            emitSIMDBinaryOp(Air::VectorMin);
+            return;
+        case B3::VectorMax:
+            emitSIMDBinaryOp(Air::VectorMax);
+            return;
+        case B3::VectorPmin:
+            if (isX86()) {
+                emitSIMDBinaryOp(Air::VectorPmin);
+                return;
+            }
+            if (isARM64()) {
+                emitSIMDBinaryOp</* scratch = */ 1>(Air::VectorPmin);
+                return;
+            }
+            RELEASE_ASSERT_NOT_REACHED();
+        case B3::VectorPmax:
+            if (isX86()) {
+                emitSIMDBinaryOp(Air::VectorPmax);
+                return;
+            }
+            if (isARM64()) {
+                emitSIMDBinaryOp</* scratch = */ 1>(Air::VectorPmax);
+                return;
+            }
+            RELEASE_ASSERT_NOT_REACHED();
+        case B3::VectorNarrow:
+            emitSIMDBinaryOp</* scratch = */ 1>(Air::VectorNarrow);
+            return; 
+        case B3::VectorAnd:
+            emitSIMDBinaryOp(Air::VectorAnd);
+            return;
+        case B3::VectorAndnot:
+            emitSIMDBinaryOp(Air::VectorAndnot);
+            return;
+        case B3::VectorOr:
+            emitSIMDBinaryOp(Air::VectorOr);
+            return;
+        case B3::VectorXor:
+            emitSIMDBinaryOp(Air::VectorXor);
+            return;
+        case B3::VectorNot:
+            emitSIMDUnaryOp(Air::VectorNot);
+            return;
+        case B3::VectorAbs:
+            if (isX86() && m_value->as<SIMDValue>()->simdLane() == SIMDLane::i64x2) {
+                SIMDValue* value = m_value->as<SIMDValue>();
+                append(VectorAbsInt64, tmp(value->child(0)), tmp(value), m_code.newTmp(B3::FP));
+                return;
+            }
+            emitSIMDUnaryOp(Air::VectorAbs);
+            return;
+        case B3::VectorNeg:
+            emitSIMDUnaryOp(Air::VectorNeg);
+            return;
+        case B3::VectorPopcnt:
+            emitSIMDUnaryOp(Air::VectorPopcnt);
+            return;
+        case B3::VectorCeil:
+            emitSIMDUnaryOp(Air::VectorCeil);
+            return;
+        case B3::VectorFloor:
+            emitSIMDUnaryOp(Air::VectorFloor);
+            return;
+        case B3::VectorTrunc:
+            emitSIMDUnaryOp(Air::VectorTrunc);
+            return;
+        case B3::VectorTruncSat:
+            if (isX86()) {
+                SIMDValue* value = m_value->as<SIMDValue>();
+                Tmp v = tmp(value->child(0));
+                Tmp result = tmp(value);
+
+                switch (value->simdLane()) {
+                case SIMDLane::f64x2:
+                    if (value->signMode() == SIMDSignMode::Signed)
+                        append(VectorTruncSatSignedFloat64, v, result, m_code.newTmp(B3::GP), m_code.newTmp(B3::FP));
+                    else
+                        append(VectorTruncSatUnsignedFloat64, v, result, m_code.newTmp(B3::GP), m_code.newTmp(B3::FP));
+                    return;
+                case SIMDLane::f32x4:
+                    if (value->signMode() == SIMDSignMode::Signed)
+                        append(Air::VectorTruncSat, Arg::simdInfo(value->simdInfo()), v, result, m_code.newTmp(B3::GP), m_code.newTmp(B3::FP), m_code.newTmp(B3::FP));
+                    else
+                        append(VectorTruncSatUnsignedFloat32, v, result, m_code.newTmp(B3::GP), m_code.newTmp(B3::FP), m_code.newTmp(B3::FP));
+                    return;
+                default:
+                    RELEASE_ASSERT_NOT_REACHED();
+                }
+            }
+            emitSIMDUnaryOp(Air::VectorTruncSat);
+            return;
+        case B3::VectorConvert:
+            if (isX86() && m_value->as<SIMDValue>()->signMode() == SIMDSignMode::Unsigned) {
+                SIMDValue* value = m_value->as<SIMDValue>();
+                append(VectorConvertUnsigned, tmp(value->child(0)), tmp(value), m_code.newTmp(B3::FP));
+                return;
+            }
+            emitSIMDUnaryOp(Air::VectorConvert);
+            return;
+        case B3::VectorConvertLow:
+            if (isX86()) {
+                SIMDValue* value = m_value->as<SIMDValue>();
+                if (value->signMode() == SIMDSignMode::Signed)
+                    append(VectorConvertLowSignedInt32, tmp(value->child(0)), tmp(value));
+                else
+                    append(VectorConvertLowUnsignedInt32, tmp(value->child(0)), tmp(value), m_code.newTmp(B3::GP), m_code.newTmp(B3::FP));
+                return;
+            }
+            emitSIMDUnaryOp(Air::VectorConvertLow);
+            return;
+        case B3::VectorNearest:
+            emitSIMDUnaryOp(Air::VectorNearest);
+            return;
+        case B3::VectorSqrt:
+            emitSIMDUnaryOp(Air::VectorSqrt);
+            return;
+        case B3::VectorExtendLow:
+            emitSIMDUnaryOp(Air::VectorExtendLow);
+            return;
+        case B3::VectorExtendHigh:
+            emitSIMDUnaryOp(Air::VectorExtendHigh);
+            return;
+        case B3::VectorPromote:
+            emitSIMDUnaryOp(Air::VectorPromote);
+            return;
+        case B3::VectorDemote:
+            emitSIMDUnaryOp(Air::VectorDemote);
+            return;
+        case B3::VectorAnyTrue: 
+            emitSIMDMonomorphicUnaryOp(Air::VectorAnyTrue);
+            return;
+        case B3::VectorAllTrue:
+            emitSIMDUnaryOp(Air::VectorAllTrue);
+            return;
+        case B3::VectorAvgRound:
+            emitSIMDBinaryOp(Air::VectorAvgRound);
+            return;
+        case B3::VectorBitmask:
+            emitSIMDUnaryOp(Air::VectorBitmask);
+            return;
+        case B3::VectorBitwiseSelect: {
+            SIMDValue* value = m_value->as<SIMDValue>();
+            auto resultTmp = tmp(value);
+            append(MoveVector, tmp(value->child(2)), resultTmp);
+            append(Air::VectorBitwiseSelect, tmp(value->child(0)), tmp(value->child(1)), resultTmp);
+            return;
+        }
+        case B3::VectorExtaddPairwise:
+            if (isX86()) {
+                SIMDValue* value = m_value->as<SIMDValue>();
+                if (value->simdLane() == SIMDLane::i16x8 && value->signMode() == SIMDSignMode::Unsigned)
+                    append(VectorExtaddPairwiseUnsignedInt16, tmp(value->child(0)), tmp(value), m_code.newTmp(B3::FP));
+                else
+                    append(Air::VectorExtaddPairwise, Arg::simdInfo(value->simdInfo()), tmp(value->child(0)), tmp(value), m_code.newTmp(B3::GP), m_code.newTmp(B3::FP));
+                return;
+            }
+            emitSIMDUnaryOp(Air::VectorExtaddPairwise);
+            return;
+        case B3::VectorMulSat:
+            if constexpr (isX86()) {
+                SIMDValue* value = m_value->as<SIMDValue>();
+                append(Air::VectorMulSat, tmp(value->child(0)), tmp(value->child(1)), tmp(value), m_code.newTmp(GP), m_code.newTmp(FP));
+                return;
+            }
+            emitSIMDMonomorphicBinaryOp(Air::VectorMulSat);
+            return;
+        case B3::VectorSwizzle:
+            if (m_value->numChildren() == 2)
+                emitSIMDMonomorphicBinaryOp(Air::VectorSwizzle);
+            else {
+                ASSERT(isARM64());
+                ASSERT(m_value->numChildren() == 3);
+#if CPU(ARM64)
+                // The tbl instruction requires these values to be adjacent.
+                Tmp a(ARM64Registers::q30);
+                Tmp b(ARM64Registers::q31);
+#else
+                Tmp a;
+                Tmp b;
+#endif
+                append(Air::MoveVector, tmp(m_value->child(0)), a);
+                append(Air::MoveVector, tmp(m_value->child(1)), b);
+                append(Air::VectorSwizzle2, a, b, tmp(m_value->child(2)), tmp(m_value));
+            }
+            return;
 
         case Fence: {
             FenceValue* fence = m_value->as<FenceValue>();
@@ -3667,11 +4228,19 @@ private:
             return;
         }
 
+        case Const128: {
+            // We expect that the moveConstants() phase has run, and any constant vector referenced from stackmaps get fused.
+            RELEASE_ASSERT(!m_value->asV128().u64x2[0] && !m_value->asV128().u64x2[1]);
+            append(MoveZeroToVector, tmp(m_value));
+            return;
+        }
+
         case BottomTuple: {
             forEachImmOrTmp(m_value, [&] (Arg tmp, Type type, unsigned) {
                 switch (type.kind()) {
                 case Void:
                 case Tuple:
+                case V128:
                     RELEASE_ASSERT_NOT_REACHED();
                     break;
                 case Int32:
@@ -3840,7 +4409,7 @@ private:
             fillStackmap(inst, patchpointValue, 0);
             for (auto& constraint : patchpointValue->resultConstraints) {
                 if (constraint.isReg())
-                    patchpointValue->lateClobbered().clear(constraint.reg());
+                    patchpointValue->lateClobbered().remove(constraint.reg());
             }
 
             for (unsigned i = patchpointValue->numGPScratchRegisters; i--;)
@@ -4235,6 +4804,7 @@ private:
             switch (value->type().kind()) {
             case Void:
             case Tuple:
+            case V128:
                 // It's impossible for a void value to be used as a child. We use RetVoid
                 // for void returns.
                 RELEASE_ASSERT_NOT_REACHED();
@@ -4311,7 +4881,7 @@ private:
             if (appendVoidAtomic(OPCODE_FOR_WIDTH(AtomicAnd, atomic->accessWidth())))
                 return;
 
-            if (isARM64E()) {
+            if (isARM64_LSE()) {
                 Arg address = addr(atomic);
                 Air::Opcode opcode = OPCODE_FOR_WIDTH(AtomicXchgClear, atomic->accessWidth());
                 if (isValidForm(opcode, Arg::Tmp, address.kind(), Arg::Tmp)) {

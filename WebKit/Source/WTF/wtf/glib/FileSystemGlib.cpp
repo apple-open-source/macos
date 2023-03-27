@@ -134,9 +134,32 @@ std::optional<uint64_t> fileSize(PlatformFileHandle handle)
     return g_file_info_get_size(info.get());
 }
 
-std::optional<WallTime> fileCreationTime(const String&)
+std::optional<PlatformFileID> fileID(PlatformFileHandle handle)
 {
-    // FIXME: Is there a way to retrieve file creation time with Gtk on platforms that support it?
+    if (isHandleValid(handle)) {
+        auto info = adoptGRef(g_file_io_stream_query_info(handle, G_FILE_ATTRIBUTE_ID_FILE, nullptr, nullptr));
+        if (info && g_file_info_has_attribute(info.get(), G_FILE_ATTRIBUTE_ID_FILE))
+            return { g_file_info_get_attribute_string(info.get(), G_FILE_ATTRIBUTE_ID_FILE) };
+    }
+    return std::nullopt;
+}
+
+bool fileIDsAreEqual(std::optional<PlatformFileID> a, std::optional<PlatformFileID> b)
+{
+    return a == b;
+}
+
+std::optional<WallTime> fileCreationTime(const String& path)
+{
+    const auto filename = fileSystemRepresentation(path);
+    if (!validRepresentation(filename))
+        return std::nullopt;
+
+    GRefPtr<GFile> file = adoptGRef(g_file_new_for_path(filename.data()));
+    GRefPtr<GFileInfo> info = adoptGRef(g_file_query_info(file.get(), G_FILE_ATTRIBUTE_TIME_CREATED, G_FILE_QUERY_INFO_NONE, nullptr, nullptr));
+    if (info && g_file_info_has_attribute(info.get(), G_FILE_ATTRIBUTE_TIME_CREATED))
+        return WallTime::fromRawSeconds(g_file_info_get_attribute_uint64(info.get(), G_FILE_ATTRIBUTE_TIME_CREATED));
+
     return std::nullopt;
 }
 
@@ -170,13 +193,11 @@ PlatformFileHandle openFile(const String& path, FileOpenMode mode, FileAccessPer
         return ioStream.leakRef();
     }
 
-    if (mode == FileOpenMode::Read)
+    if (mode == FileOpenMode::Read || mode == FileOpenMode::ReadWrite)
         ioStream = adoptGRef(g_file_open_readwrite(file.get(), nullptr, nullptr));
-    else if (mode == FileOpenMode::Write || mode == FileOpenMode::ReadWrite) {
-        if (g_file_test(filename.data(), static_cast<GFileTest>(G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)))
-            ioStream = adoptGRef(g_file_open_readwrite(file.get(), nullptr, nullptr));
-        else
-            ioStream = adoptGRef(g_file_create_readwrite(file.get(), permissionFlag, nullptr, nullptr));
+    else {
+        ASSERT(mode == FileOpenMode::Truncate);
+        ioStream = adoptGRef(g_file_replace_readwrite(file.get(), nullptr, FALSE, permissionFlag, nullptr, nullptr));
     }
 
     return ioStream.leakRef();

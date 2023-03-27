@@ -99,9 +99,11 @@ void ContextMenuContextData::encode(IPC::Encoder& encoder) const
     encoder << m_selectedText;
 
 #if ENABLE(SERVICE_CONTROLS)
-    ShareableBitmap::Handle handle;
-    if (m_controlledImage)
-        m_controlledImage->createHandle(handle, SharedMemory::Protection::ReadOnly);
+    ShareableBitmapHandle handle;
+    if (m_controlledImage) {
+        if (auto imageHandle = m_controlledImage->createHandle(SharedMemory::Protection::ReadOnly))
+            handle = WTFMove(*imageHandle);
+    }
     encoder << handle;
     encoder << m_controlledSelectionData;
     encoder << m_selectedTelephoneNumbers;
@@ -131,7 +133,7 @@ bool ContextMenuContextData::decode(IPC::Decoder& decoder, ContextMenuContextDat
         return false;
 
 #if ENABLE(SERVICE_CONTROLS)
-    ShareableBitmap::Handle handle;
+    ShareableBitmapHandle handle;
     if (!decoder.decode(handle))
         return false;
 

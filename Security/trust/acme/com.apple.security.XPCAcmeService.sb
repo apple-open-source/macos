@@ -19,20 +19,37 @@
 ;; Read/write access to a temporary directory.
 (allow file-read* file-write*
     (subpath (param "_TMPDIR"))
-    (subpath (param "_DARWIN_CACHE_DIR")))
+    (subpath (param "_DARWIN_CACHE_DIR"))
+)
 
 ;; Read/write access for networking file locations
 (allow file-read* file-write*
+    (home-subpath "/Library/Caches/com.apple.nsurlsessiond/")
+    (home-subpath "/Library/Caches/com.apple.security.XPCAcmeService")
+    (home-subpath "/Library/Caches/com.apple.security.XPCAcmeService/")
+    (home-subpath "/Library/HTTPStorages/com.apple.security.XPCAcmeService")
     (home-subpath "/Library/HTTPStorages/com.apple.security.XPCAcmeService/")
-	(home-subpath "/Library/Caches/com.apple.nsurlsessiond/"))
+)
+
+;; Read access for preferences
+(allow file-read*
+    (subpath "/Library/Preferences/")
+)
+
+(allow user-preference-read
+    (preference-domain "kCFPreferencesAnyApplication")
+)
 
 (allow mach-lookup
     (global-name "com.apple.cfnetwork.cfnetworkagent")
     (global-name "com.apple.nsurlsessiond")
-    (global-name "com.apple.dnssd.service"))
+    (global-name "com.apple.dnssd.service")
+    (global-name "com.apple.AppSSO.service-xpc")
+)
 
 (allow ipc-posix-shm
-	(ipc-posix-name "com.apple.AppleDatabaseChanged"))
+	(ipc-posix-name "com.apple.AppleDatabaseChanged")
+)
 
 (allow network-outbound)
 (allow system-socket)

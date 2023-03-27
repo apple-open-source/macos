@@ -404,6 +404,7 @@ __thread bool CKKSSQLInWriteTransaction = false;
     });
     
     bool ret = (cferror == NULL);
+    CFReleaseNull(cferror);
     return ret;
 }
 

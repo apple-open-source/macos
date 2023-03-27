@@ -23,6 +23,7 @@
 #include "config.h"
 #include "FontPlatformData.h"
 
+#include "Font.h"
 #include "SharedBuffer.h"
 #include <CoreText/CoreText.h>
 #include <wtf/text/StringConcatenateNumbers.h>
@@ -99,16 +100,20 @@ static RetainPtr<CFDictionaryRef> cascadeToLastResortAttributesDictionary()
     auto lastResort = adoptCF(CTFontDescriptorCreateWithNameAndSize(CFSTR("LastResort"), 0));
 
     CFTypeRef descriptors[] = { lastResort.get() };
-    RetainPtr<CFArrayRef> array = adoptCF(CFArrayCreate(kCFAllocatorDefault, descriptors, WTF_ARRAY_LENGTH(descriptors), &kCFTypeArrayCallBacks));
+    RetainPtr<CFArrayRef> array = adoptCF(CFArrayCreate(kCFAllocatorDefault, descriptors, std::size(descriptors), &kCFTypeArrayCallBacks));
 
     CFTypeRef keys[] = { kCTFontCascadeListAttribute };
     CFTypeRef values[] = { array.get() };
-    return adoptCF(CFDictionaryCreate(kCFAllocatorDefault, keys, values, WTF_ARRAY_LENGTH(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    return adoptCF(CFDictionaryCreate(kCFAllocatorDefault, keys, values, std::size(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 }
 
 static CTFontDescriptorRef cascadeToLastResortAndVariationsFontDescriptor()
 {
-    static CTFontDescriptorRef descriptor = CTFontDescriptorCreateWithAttributes(cascadeToLastResortAttributesDictionary().get());
+    static CTFontDescriptorRef descriptor;
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
+        descriptor = CTFontDescriptorCreateWithAttributes(cascadeToLastResortAttributesDictionary().get());
+    });
     return descriptor;
 }
 
@@ -179,5 +184,22 @@ String FontPlatformData::familyName() const
         return adoptCF(CTFontCopyFamilyName(platformFont)).get();
     return { };
 }
+
+#if PLATFORM(COCOA)
+FontPlatformData FontPlatformData::cloneWithSize(const FontPlatformData& source, float size)
+{
+    FontPlatformData copy(source);
+    copy.updateSize(size);
+    return copy;
+}
+
+void FontPlatformData::updateSize(float size)
+{
+    m_size = size;
+    ASSERT(m_font.get());
+    m_font = adoptCF(CTFontCreateCopyWithAttributes(m_font.get(), m_size, nullptr, nullptr));
+    m_ctFont = nullptr;
+}
+#endif
 
 } // namespace WebCore

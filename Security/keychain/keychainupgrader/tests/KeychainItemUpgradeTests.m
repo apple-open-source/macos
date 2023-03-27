@@ -2,6 +2,7 @@
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
 
+#include "featureflags/featureflags.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/keychainupgrader/KeychainItemUpgradeRequestServer.h"
 #import "keychain/keychainupgrader/KeychainItemUpgradeRequestServerHelpers.h"
@@ -29,7 +30,7 @@
 + (void)setUp {
     securityd_init_local_spi();
     SecCKKSDisable();
-    
+
     [super setUp];
 }
 
@@ -75,7 +76,11 @@
     self.lockStateTracker = nil;
     self.lockStateProvider = nil;
     self.operationQueue = nil;
-    
+
+}
+
++ (void)tearDown {
+    [super tearDown];
 }
 
 - (void)testStateMachineEntersNothingToDo
@@ -261,6 +266,7 @@
     
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:200];
     XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be 200");
+    CFReleaseNull(rowIDNumberRef);
 }
 
 - (void)testErrorRowID50
@@ -333,6 +339,7 @@
     XCTAssertNil(self.server.controller.persistentReferenceUpgrader.nextFireTime, @"next fire time should be nil");
     expectedRowID = [[NSNumber alloc] initWithLongLong:rowID];
     XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be %d", rowID);
+    CFReleaseNull(rowIDNumberRef);
 }
 - (void)testErrorAuthNeededRowID50
 {

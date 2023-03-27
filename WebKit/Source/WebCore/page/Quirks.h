@@ -39,9 +39,10 @@ class HTMLElement;
 class HTMLVideoElement;
 class LayoutUnit;
 class PlatformMouseEvent;
+class WeakPtrImplWithEventTargetData;
 struct SecurityOriginData;
 
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
 class RegistrableDomain;
 enum class StorageAccessWasGranted : bool;
 #endif
@@ -61,10 +62,8 @@ public:
     bool needsAutoplayPlayPauseEvents() const;
     bool needsSeekingSupportDisabled() const;
     bool needsPerDocumentAutoplayBehavior() const;
-    bool shouldAutoplayForArbitraryUserGesture() const;
     bool shouldAutoplayWebAudioForArbitraryUserGesture() const;
     bool hasBrokenEncryptedMediaAPISupportQuirk() const;
-    bool shouldStripQuotationMarkInFontFaceSetFamily() const;
 #if ENABLE(TOUCH_EVENTS)
     bool shouldDispatchSimulatedMouseEvents(const EventTarget*) const;
     bool shouldDispatchedSimulatedMouseEventsAssumeDefaultPrevented(EventTarget*) const;
@@ -82,12 +81,14 @@ public:
     bool shouldDisableContentChangeObserverTouchEventAdjustment() const;
     bool shouldTooltipPreventFromProceedingWithClick(const Element&) const;
     bool shouldHideSearchFieldResultsButton() const;
-    bool shouldDisableResolutionMediaQuery() const;
+    bool shouldExposeShowModalDialog() const;
+    bool shouldNavigatorPluginsBeEmpty() const;
 
     bool needsMillisecondResolutionForHighResTimeStamp() const;
 
+    WEBCORE_EXPORT bool shouldDisableContentChangeObserver() const;
     WEBCORE_EXPORT bool shouldDispatchSyntheticMouseEventsWhenModifyingSelection() const;
-    WEBCORE_EXPORT bool shouldSuppressAutocorrectionAndAutocaptializationInHiddenEditableAreas() const;
+    WEBCORE_EXPORT bool shouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreas() const;
     WEBCORE_EXPORT bool isTouchBarUpdateSupressedForHiddenContentEditable() const;
     WEBCORE_EXPORT bool isNeverRichlyEditableForTouchBar() const;
     WEBCORE_EXPORT bool shouldAvoidResizingWhenInputViewBoundsChange() const;
@@ -133,18 +134,13 @@ public:
     bool needsVP9FullRangeFlagQuirk() const;
     bool needsHDRPixelDepthQuirk() const;
     
-    bool needsAkamaiMediaPlayerQuirk(const HTMLVideoElement&) const;
-    bool needsFlightAwareSerializationQuirk() const;
-
-    bool needsBlackFullscreenBackgroundQuirk() const;
-
     bool requiresUserGestureToPauseInPictureInPicture() const;
     bool requiresUserGestureToLoadInPictureInPicture() const;
 
     WEBCORE_EXPORT bool blocksReturnToFullscreenFromPictureInPictureQuirk() const;
     bool shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk() const;
 
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
     static bool isMicrosoftTeamsRedirectURL(const URL&);
     static bool hasStorageAccessForAllLoginDomains(const HashSet<RegistrableDomain>&, const RegistrableDomain&);
     static const String& BBCRadioPlayerURLString();
@@ -157,18 +153,18 @@ public:
 #if ENABLE(IMAGE_ANALYSIS)
     bool needsToForceUserSelectAndUserDragWhenInstallingImageOverlay() const;
 #endif
-
-    bool shouldDisableWebSharePolicy() const;
     
 #if PLATFORM(IOS)
     WEBCORE_EXPORT bool allowLayeredFullscreenVideos() const;
 #endif
     bool shouldEnableApplicationCacheQuirk() const;
-    bool hasBrokenPermissionsAPISupportQuirk() const;
     bool shouldEnableFontLoadingAPIQuirk() const;
     bool needsVideoShouldMaintainAspectRatioQuirk() const;
 
     bool shouldDisableLazyImageLoadingQuirk() const;
+    bool shouldDisableLazyIframeLoadingQuirk() const;
+
+    bool shouldDisableFetchMetadata() const;
     
 private:
     bool needsQuirks() const;
@@ -206,7 +202,6 @@ private:
     mutable std::optional<bool> m_shouldBypassAsyncScriptDeferring;
     mutable std::optional<bool> m_needsVP9FullRangeFlagQuirk;
     mutable std::optional<bool> m_needsHDRPixelDepthQuirk;
-    mutable std::optional<bool> m_needsFlightAwareSerializationQuirk;
     mutable std::optional<bool> m_needsBlackFullscreenBackgroundQuirk;
     mutable std::optional<bool> m_requiresUserGestureToPauseInPictureInPicture;
     mutable std::optional<bool> m_requiresUserGestureToLoadInPictureInPicture;
@@ -215,17 +210,20 @@ private:
 #endif
     mutable std::optional<bool> m_blocksReturnToFullscreenFromPictureInPictureQuirk;
     mutable std::optional<bool> m_shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk;
-    mutable std::optional<bool> m_shouldDisableWebSharePolicy;
 #if PLATFORM(IOS)
     mutable std::optional<bool> m_allowLayeredFullscreenVideos;
 #endif
 #if PLATFORM(IOS_FAMILY)
     mutable std::optional<bool> m_shouldEnableApplicationCacheQuirk;
 #endif
-    mutable std::optional<bool> m_hasBrokenPermissionsAPISupportQuirk;
     mutable std::optional<bool> m_shouldEnableFontLoadingAPIQuirk;
     mutable std::optional<bool> m_needsVideoShouldMaintainAspectRatioQuirk;
+    mutable std::optional<bool> m_shouldExposeShowModalDialog;
+#if PLATFORM(IOS_FAMILY)
+    mutable std::optional<bool> m_shouldNavigatorPluginsBeEmpty;
+#endif
     mutable std::optional<bool> m_shouldDisableLazyImageLoadingQuirk;
+    mutable std::optional<bool> m_shouldDisableLazyIframeLoadingQuirk;
 };
 
 } // namespace WebCore

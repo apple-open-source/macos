@@ -67,6 +67,7 @@ uz{
         chk{"chukot"}
         chm{"mari"}
         cho{"choktav"}
+        cho_Latn{"choktav"}
         chr{"cheroki"}
         chy{"cheyenn"}
         ckb{"sorani-kurd"}

@@ -305,8 +305,7 @@ static int igmp_timers_are_running;
 	VERIFY(SLIST_EMPTY(_head));                                     \
 }
 
-static ZONE_DEFINE(igi_zone, "igmp_ifinfo",
-    sizeof(struct igmp_ifinfo), ZC_ZFREE_CLEARMEM);
+static KALLOC_TYPE_DEFINE(igi_zone, struct igmp_ifinfo, NET_KT_DEFAULT);
 
 /* Store IGMPv3 record count in the module private scratch space */
 #define vt_nrecs        pkt_mpriv.__mpriv_u.__mpriv32[0].__mpriv32_u.__val16[0]
@@ -2970,6 +2969,7 @@ igmp_final_leave(struct in_multi *inm, struct igmp_ifinfo *igi,
     struct igmp_tparams *itp)
 {
 	int syncstates = 1;
+	bool retried_already = false;
 
 	INM_LOCK_ASSERT_HELD(inm);
 	IGI_LOCK_ASSERT_NOTHELD(igi);
@@ -2980,6 +2980,7 @@ igmp_final_leave(struct in_multi *inm, struct igmp_ifinfo *igi,
 	    _igmp_inet_buf, (uint64_t)VM_KERNEL_ADDRPERM(inm->inm_ifp),
 	    if_name(inm->inm_ifp)));
 
+retry:
 	switch (inm->inm_state) {
 	case IGMP_NOT_MEMBER:
 	case IGMP_SILENT_MEMBER:
@@ -2996,11 +2997,22 @@ igmp_final_leave(struct in_multi *inm, struct igmp_ifinfo *igi,
 		if (igi->igi_version == IGMP_VERSION_2) {
 			if (inm->inm_state == IGMP_G_QUERY_PENDING_MEMBER ||
 			    inm->inm_state == IGMP_SG_QUERY_PENDING_MEMBER) {
-				panic("%s: IGMPv3 state reached, not IGMPv3 "
-				    "mode (inm %s, igi %s)", __func__,
-				    if_name(inm->inm_ifp),
-				    if_name(igi->igi_ifp));
-				/* NOTREACHED */
+				/*
+				 * We may be in the process of downgrading to
+				 * IGMPv2 but because we just grabbed the
+				 * igi_lock we may have lost the race.
+				 */
+				if (!retried_already) {
+					IGI_UNLOCK(igi);
+					retried_already = true;
+					goto retry;
+				} else {
+					/*
+					 * Proceed with leaving the group
+					 * as if it were IGMPv2 even though we
+					 * may have an inconsistent multicast state.
+					 */
+				}
 			}
 			/* scheduler timer if enqueue is successful */
 			itp->cst = (igmp_v1v2_queue_report(inm,

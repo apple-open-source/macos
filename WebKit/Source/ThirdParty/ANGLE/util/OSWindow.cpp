@@ -6,6 +6,7 @@
 
 #include "OSWindow.h"
 
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -460,6 +461,9 @@ bool FindTestDataPath(const char *searchPath, char *dataPathOut, size_t maxDataP
     const std::string searchPaths[] = {
         AndroidWindow::GetExternalStorageDirectory(),
         AndroidWindow::GetExternalStorageDirectory() + "/third_party/angle"};
+#elif defined(ANGLE_PLATFORM_IOS)
+    const std::string searchPaths[] = {GetExecutableDirectory(),
+                                       GetExecutableDirectory() + "/third_party/angle"};
 #else
     const std::string searchPaths[] = {
         GetExecutableDirectory(), GetExecutableDirectory() + "/../..", ".",

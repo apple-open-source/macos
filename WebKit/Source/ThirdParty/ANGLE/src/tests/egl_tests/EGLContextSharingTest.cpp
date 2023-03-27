@@ -14,6 +14,7 @@
 #include "test_utils/gl_raii.h"
 #include "util/EGLWindow.h"
 #include "util/OSWindow.h"
+#include "util/test_utils.h"
 
 using namespace angle;
 
@@ -406,6 +407,62 @@ TEST_P(EGLContextSharingTest, DisplayShareGroupReleaseShareGroupThatOwnsStagedUp
     eglDestroyContext(display, context2);
 }
 
+// Tests that after creating a texture using EGL_ANGLE_display_texture_share_group,
+// and use it for sampling, and then deleting the Context (which destroys shareGroup) works. If
+// anything cached in ShareGroup, it should be handled nicely if texture can outlive ShareGroup (for
+// example, bugs like angleproject:7466).
+TEST_P(EGLContextSharingTest, DisplayShareGroupReleaseShareGroupThenDestroyTexture)
+{
+    EGLDisplay display = getEGLWindow()->getDisplay();
+    ANGLE_SKIP_TEST_IF(
+        !IsEGLDisplayExtensionEnabled(display, "EGL_ANGLE_display_texture_share_group"));
+
+    EGLConfig config   = getEGLWindow()->getConfig();
+    EGLSurface surface = getEGLWindow()->getSurface();
+
+    const EGLint inShareGroupContextAttribs[] = {
+        EGL_CONTEXT_CLIENT_VERSION, 2, EGL_DISPLAY_TEXTURE_SHARE_GROUP_ANGLE, EGL_TRUE, EGL_NONE};
+
+    // Create two contexts in the global share group, but not in the same context share group
+    EGLContext context1 = eglCreateContext(display, config, nullptr, inShareGroupContextAttribs);
+    EGLContext context2 = eglCreateContext(display, config, nullptr, inShareGroupContextAttribs);
+
+    // Create a texture in context1 and stage a texture update
+    ASSERT_EGL_TRUE(eglMakeCurrent(display, surface, surface, context1));
+    constexpr GLsizei kTexSize                   = 2;
+    const GLColor kBlueData[kTexSize * kTexSize] = {GLColor::blue, GLColor::blue, GLColor::blue,
+                                                    GLColor::blue};
+    {
+        GLTexture textureFromCtx1;
+        glBindTexture(GL_TEXTURE_2D, textureFromCtx1);
+        // This will stage a texture update in context1's SharedGroup::BufferPool
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, kBlueData);
+
+        // Sample from textureFromCtx1 and check it works properly
+        glBindTexture(GL_TEXTURE_2D, textureFromCtx1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        ANGLE_GL_PROGRAM(program1, essl1_shaders::vs::Texture2D(), essl1_shaders::fs::Texture2D());
+        glUseProgram(program1);
+        drawQuad(program1, essl1_shaders::PositionAttrib(), 0.5f);
+        EXPECT_GL_NO_ERROR();
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
+
+        // Destroy context 1, this also destroys context1's SharedGroup and BufferPool
+        // The texture staged update in context1's SharedGroup BufferPool will be flushed
+        SafeDestroyContext(display, context1);
+
+        // Switch to context2 and verify that the texture is accessible
+        ASSERT_EGL_TRUE(eglMakeCurrent(display, surface, surface, context2));
+        ASSERT_GL_TRUE(glIsTexture(textureFromCtx1));
+
+        // textureFromCtx1 should be destroyed when leaving this scope
+    }
+
+    // Destroy context2
+    eglDestroyContext(display, context2);
+}
+
 // Tests that deleting an object on one Context doesn't destroy it ahead-of-time. Mostly focused
 // on the Vulkan back-end where we manage object lifetime manually.
 TEST_P(EGLContextSharingTest, TextureLifetime)
@@ -709,6 +766,103 @@ TEST_P(EGLContextSharingTest, DeleteReaderOfSharedTexture)
         eglDestroySurface(dpy, surface[t]);
         eglDestroyContext(dpy, ctx[t]);
     }
+}
+
+// Test that an inactive but alive thread doesn't prevent memory cleanup.
+TEST_P(EGLContextSharingTestNoFixture, InactiveThreadDoesntPreventCleanup)
+{
+    EGLint dispattrs[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, GetParam().getRenderer(),
+                          EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, GetParam().getDeviceType(),
+                          EGL_NONE};
+
+    // Synchronization tools to ensure the two threads are interleaved as designed by this test.
+    std::mutex mutex;
+    std::condition_variable condVar;
+
+    enum class Step
+    {
+        Start,
+        Thread0Initialize,
+        Thread0MakeCurrent,
+        Thread1MakeCurrent,
+        Thread0Terminate,
+        Thread1Render,
+        Finish,
+        Abort,
+    };
+    Step currentStep = Step::Start;
+
+    std::thread thread0 = std::thread([&]() {
+        ThreadSynchronization<Step> threadSynchronization(&currentStep, &mutex, &condVar);
+
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Start));
+
+        mDisplay = eglGetPlatformDisplayEXT(
+            EGL_PLATFORM_ANGLE_ANGLE, reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), dispattrs);
+        EXPECT_TRUE(mDisplay != EGL_NO_DISPLAY);
+        EXPECT_EGL_TRUE(eglInitialize(mDisplay, nullptr, nullptr));
+
+        threadSynchronization.nextStep(Step::Thread0Initialize);
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Thread1MakeCurrent));
+
+        EGLContext ctx;
+        EGLSurface srf;
+        EGLConfig config = EGL_NO_CONFIG_KHR;
+        EXPECT_TRUE(chooseConfig(&config));
+        EXPECT_TRUE(createContext(config, &ctx));
+
+        EXPECT_TRUE(createPbufferSurface(mDisplay, config, 1280, 720, &srf));
+        ASSERT_EGL_SUCCESS() << "eglCreatePbufferSurface failed.";
+
+        EXPECT_EGL_TRUE(eglMakeCurrent(mDisplay, srf, srf, ctx));
+        threadSynchronization.nextStep(Step::Thread0MakeCurrent);
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Thread1Render));
+
+        eglTerminate(mDisplay);
+        EXPECT_EGL_SUCCESS();
+        EXPECT_EGL_TRUE(eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
+        threadSynchronization.nextStep(Step::Thread0Terminate);
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Finish));
+
+        // Wait a little to simulate an inactive but alive thread.
+        angle::Sleep(100);
+    });
+
+    std::thread thread1 = std::thread([&]() {
+        ThreadSynchronization<Step> threadSynchronization(&currentStep, &mutex, &condVar);
+
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Thread0Initialize));
+
+        EGLContext ctx;
+        EGLSurface srf;
+        EGLConfig config = EGL_NO_CONFIG_KHR;
+        EXPECT_TRUE(chooseConfig(&config));
+        EXPECT_TRUE(createContext(config, &ctx));
+
+        EXPECT_TRUE(createPbufferSurface(mDisplay, config, 1280, 720, &srf));
+        ASSERT_EGL_SUCCESS() << "eglCreatePbufferSurface failed.";
+
+        EXPECT_EGL_TRUE(eglMakeCurrent(mDisplay, srf, srf, ctx));
+
+        threadSynchronization.nextStep(Step::Thread1MakeCurrent);
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Thread0MakeCurrent));
+
+        // Clear and read back to make sure thread uses context and surface.
+        glClearColor(1.0, 0.0, 0.0, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        EXPECT_PIXEL_EQ(0, 0, 255, 0, 0, 255);
+
+        threadSynchronization.nextStep(Step::Thread1Render);
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Thread0Terminate));
+
+        EXPECT_EGL_TRUE(eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
+        threadSynchronization.nextStep(Step::Finish);
+    });
+
+    thread1.join();
+    thread0.join();
+
+    ASSERT_NE(currentStep, Step::Abort);
 }
 
 // Test that eglTerminate() with a thread doesn't cause other threads to crash.

@@ -149,9 +149,9 @@ private:
 };
 
 
-static Vector<WebCore::CertificateInfo::Certificate> pemDataFromCtx(StackOfX509&& certs)
+static WebCore::CertificateInfo::CertificateChain pemDataFromCtx(StackOfX509&& certs)
 {
-    Vector<WebCore::CertificateInfo::Certificate> result;
+    WebCore::CertificateInfo::CertificateChain result;
 
     for (int i = 0; i < certs.count(); i++) {
         BIO bio(certs.item(i));
@@ -165,22 +165,22 @@ static Vector<WebCore::CertificateInfo::Certificate> pemDataFromCtx(StackOfX509&
     return result;
 }
 
-std::unique_ptr<WebCore::CertificateInfo> createCertificateInfo(SSL* ssl)
+std::unique_ptr<WebCore::CertificateInfo> createCertificateInfo(std::optional<long>&& verifyResult, SSL* ssl)
 {
-    if (!ssl)
+    if (!verifyResult || !ssl)
         return nullptr;
 
     auto certChain = SSL_get_peer_cert_chain(ssl);
 
-    return makeUnique<WebCore::CertificateInfo>(X509_V_OK, pemDataFromCtx(StackOfX509(certChain)));
+    return makeUnique<WebCore::CertificateInfo>(*verifyResult, pemDataFromCtx(StackOfX509(certChain)));
 }
 
-std::optional<WebCore::CertificateInfo> createCertificateInfo(X509_STORE_CTX* ctx)
+WebCore::CertificateInfo::CertificateChain createCertificateChain(X509_STORE_CTX* ctx)
 {
     if (!ctx)
-        return std::nullopt;
+        return { };
 
-    return WebCore::CertificateInfo(X509_STORE_CTX_get_error(ctx), pemDataFromCtx(StackOfX509(ctx)));
+    return pemDataFromCtx(StackOfX509(ctx));
 }
 
 static String toString(const ASN1_STRING* name)
@@ -301,17 +301,62 @@ static void getSubjectAltName(const X509* x509, Vector<String>& dnsNames, Vector
             if (value->d.iPAddress->length == 4)
                 ipAddresses.append(makeString(data[0], ".", data[1], ".", data[2], ".", data[3]));
             else if (value->d.iPAddress->length == 16) {
-                StringBuilder ipAddress;
-                for (int i = 0; i < 8; i++) {
-                    ipAddress.append(makeString(hex(data[0] << 8 | data[1], 4)));
-                    if (i != 7)
-                        ipAddress.append(":");
-                    data += 2;
-                }
-                ipAddresses.append(ipAddress.toString());
+                Span<uint8_t, 16> dataSpan { data, 16 };
+                ipAddresses.append(canonicalizeIPv6Address(dataSpan));
             }
         }
     }
+}
+
+String canonicalizeIPv6Address(Span<uint8_t, 16> data)
+{
+    bool compressCurrentSection = false;
+    size_t maxZeros = 0;
+    std::optional<size_t> startRunner;
+    std::optional<size_t> endRunner;
+    std::optional<size_t> start;
+    std::optional<size_t> end;
+
+    for (int i = 0; i < 8; i++) {
+        compressCurrentSection = !data[2 * i] && !data[2 * i + 1];
+        if (compressCurrentSection) {
+            startRunner = !startRunner.has_value() ? i : startRunner;
+            endRunner = i;
+            size_t len = endRunner.value() - startRunner.value() + 1;
+            if (len > maxZeros) {
+                start = startRunner;
+                end = endRunner;
+                maxZeros = len;
+            }
+        } else
+            startRunner.reset();
+    }
+
+    size_t minimum = 1;
+    StringBuilder ipAddress;
+    String oldSection = ""_s;
+    StringBuilder newSection;
+    for (int j = 0; j < 8; j++) {
+        if (j == start && maxZeros > minimum) {
+            if (ipAddress.isEmpty())
+                ipAddress.append(":");
+            ipAddress.append(":");
+
+            j = end.value();
+            continue;
+        }
+        oldSection = makeString(hex(data[2 * j] << 8 | data[2 * j + 1], 4, Lowercase));
+        newSection = StringBuilder();
+        for (int k = 0; k < 4; k++) {
+            if (oldSection[k] != '0' || !newSection.isEmpty() || k == 3)
+                newSection.append(oldSection[k]);
+        }
+        ipAddress.append(newSection.toString());
+
+        if (j != 7)
+            ipAddress.append(":");
+    }
+    return ipAddress.toString();
 }
 
 std::optional<WebCore::CertificateSummary> createSummaryInfo(const Vector<uint8_t>& pem)

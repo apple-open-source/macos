@@ -191,6 +191,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestDelegateToSharedSyntheticAttribute_sharedAttribut
 static inline bool setJSTestDelegateToSharedSyntheticAttribute_sharedAttribute1Setter(JSGlobalObject& lexicalGlobalObject, JSTestDelegateToSharedSyntheticAttribute& thisObject, JSValue value, PropertyName propertyName)
 {
     auto& vm = JSC::getVM(&lexicalGlobalObject);
+    UNUSED_PARAM(vm);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     CustomElementReactionStack customElementReactionStack(lexicalGlobalObject);
     auto& impl = thisObject.wrapped();
@@ -223,6 +224,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestDelegateToSharedSyntheticAttribute_sharedAttribut
 static inline bool setJSTestDelegateToSharedSyntheticAttribute_sharedAttribute2Setter(JSGlobalObject& lexicalGlobalObject, JSTestDelegateToSharedSyntheticAttribute& thisObject, JSValue value, PropertyName propertyName)
 {
     auto& vm = JSC::getVM(&lexicalGlobalObject);
+    UNUSED_PARAM(vm);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     CustomElementReactionStack customElementReactionStack(lexicalGlobalObject);
     auto& impl = thisObject.wrapped();
@@ -243,9 +245,9 @@ JSC::GCClient::IsoSubspace* JSTestDelegateToSharedSyntheticAttribute::subspaceFo
 {
     return WebCore::subspaceForImpl<JSTestDelegateToSharedSyntheticAttribute, UseCustomHeapCellType::No>(vm,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestDelegateToSharedSyntheticAttribute.get(); },
-        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestDelegateToSharedSyntheticAttribute = WTFMove(space); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestDelegateToSharedSyntheticAttribute = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestDelegateToSharedSyntheticAttribute.get(); },
-        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestDelegateToSharedSyntheticAttribute = WTFMove(space); }
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestDelegateToSharedSyntheticAttribute = std::forward<decltype(space)>(space); }
     );
 }
 

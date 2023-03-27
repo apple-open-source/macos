@@ -320,6 +320,14 @@ typedef wint_t patint_t;
  */
 static mbstate_t shiftstate;
 
+/* See clear_mbstate() in params.c for the use of clear_shiftstate() */
+
+/**/
+mod_export void
+clear_shiftstate(void) {
+    memset(&shiftstate, 0, sizeof(shiftstate));
+}
+
 /*
  * Multibyte version: it's (almost) as easy to return the
  * value as not, so do so since we sometimes need it..
@@ -509,7 +517,7 @@ void
 patcompstart(void)
 {
     patcompcharsset();
-    if (isset(CASEGLOB))
+    if (isset(CASEGLOB) || isset(CASEPATHS))
 	patglobflags = 0;
     else
 	patglobflags = GF_IGNCASE;
@@ -631,6 +639,13 @@ patcompile(char *exp, int inflags, char **endexp)
     p->size = patsize;
     p->patmlen = len;
     p->patnpar = patnpar-1;
+
+#ifndef __CYGWIN__  /* The filesystem itself is case-insensitive on Cygwin */
+    if ((patflags & PAT_FILE) && !isset(CASEGLOB) && !(patflags & PAT_PURES)) {
+	p->globflags |= GF_IGNCASE;
+	p->globend |= GF_IGNCASE;
+    }
+#endif
 
     if (!strp) {
 	pscan = (Upat)(patout + startoff);
@@ -1250,7 +1265,7 @@ patcomppiece(int *flagp, int paren)
     int hash, count;
     union upat up;
     char *nptr, *str0, *ptr, *patprev;
-    zrange_t from, to;
+    zrange_t from = 0, to;
     char *charstart;
 
     flags = 0;
@@ -1992,6 +2007,8 @@ charsub(char *x, char *y)
 
 	if (ret == MB_INVALID || ret == MB_INCOMPLETE) {
 	    /* Error.  Treat remainder as single characters */
+	    /* Reset the shift state for next time. */
+	    memset(&shiftstate, 0, sizeof(shiftstate));
 	    return res + (y - x);
 	}
 

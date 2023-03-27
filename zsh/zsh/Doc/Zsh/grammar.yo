@@ -288,7 +288,9 @@ for each selection until a break or end-of-file is encountered.
 cindex(subshell)
 item(tt(LPAR()) var(list) tt(RPAR()))(
 Execute var(list) in a subshell.  Traps set by the tt(trap) builtin
-are reset to their default values while executing var(list).
+are reset to their default values while executing var(list); an
+exception is that ignored signals will continue to be ignored
+if the option tt(POSIXTRAPS) is set.
 )
 item(tt({) var(list) tt(}))(
 Execute var(list).
@@ -357,7 +359,7 @@ deliberately left unspecified, because historically there was a mismatch between
 the documented and implemented behaviours.  Cf. 20076, 21734/21735, 45075.)
 )
 findex(function)
-xitem(tt(function) var(word) ... [ tt(()) ] [ var(term) ] tt({) var(list) tt(}))
+xitem(tt(function) [ tt(-T) ] var(word) ... [ tt(()) ] [ var(term) ] tt({) var(list) tt(}))
 xitem(var(word) ... tt(()) [ var(term) ] tt({) var(list) tt(}))
 item(var(word) ... tt(()) [ var(term) ] var(command))(
 where var(term) is one or more newline or tt(;).
@@ -366,6 +368,17 @@ Normally, only one var(word) is provided; multiple var(word)s
 are usually only useful for setting traps.
 The body of the function is the var(list) between
 the tt({) and tt(}).  See noderef(Functions).
+
+The options of tt(function) have the following meanings:
+
+startitem()
+item(-T)(
+Enable tracing for this function, as though with tt(functions -T).  See the
+documentation of the tt(-f) option to the tt(typeset) builtin, in
+ifzman(zmanref(zshbuiltins))\
+ifnzman(noderef(Shell Builtin Commands)).
+)
+enditem()
 
 If the option tt(SH_GLOB) is set for compatibility with other shells, then
 whitespace may appear between the left and right parentheses when
@@ -417,6 +430,8 @@ else the end of the test will not be recognized.  For the
 tt(for), tt(repeat), tt(case) and tt(select) commands no such special form
 for the arguments is necessary, but the other condition (the special form
 of var(sublist) or use of the tt(SHORT_LOOPS) option) still applies.
+The tt(SHORT_REPEAT) option is available to enable the short version only
+for the tt(repeat) command.
 
 startitem()
 item(tt(if) var(list) tt({) var(list) tt(}) [ tt(elif) var(list) tt({) var(list) tt(}) ] ... [ tt(else {) var(list) tt(}) ])(
@@ -558,6 +573,11 @@ position (if it could be the first word of a simple command),
 or if the alias is global.
 If the replacement text ends with a space, the next word in the shell input
 is always eligible for purposes of alias expansion.
+
+It is an error for the function name, var(word), in the sh-compatible function
+definition syntax `var(word) tt(+LPAR()+RPAR()) ...' to be a word that resulted
+from alias expansion, unless the tt(ALIAS_FUNC_DEF) option is set.
+
 findex(alias, use of)
 cindex(aliases, global)
 An alias is defined using the tt(alias) builtin; global aliases
@@ -583,6 +603,15 @@ word tt(foo), alias expansion may be avoided by quoting part of the
 word, e.g. tt(\foo).  Any form of quoting works, although there is
 nothing to prevent an alias being defined for the quoted form such as
 tt(\foo) as well.
+
+In particular, note that quoting must be used when using tt(unalias) to remove
+global aliases:
+
+example(% alias -g foo=bar
+% unalias foo
+unalias: no such hash table element: bar
+% unalias \foo
+% )
 
 When tt(POSIX_ALIASES) is set, only plain unquoted strings are eligible
 for aliasing.  The tt(alias) builtin does not reject ineligible aliases,
@@ -633,26 +662,6 @@ is too late to expand the newly defined alias.  This is often
 a problem in shell scripts, functions, and code executed with `tt(source)'
 or `tt(.)'.  Consequently, use of functions rather than aliases is
 recommended in non-interactive code.
-
-Note also the unhelpful interaction of aliases and function definitions:
-
-example(alias func='noglob func'
-func+LPAR()RPAR() {
-    echo Do something with $*
-})
-
-Because aliases are expanded in function definitions, this causes the
-following command to be executed:
-
-example(noglob func+LPAR()RPAR() {
-    echo Do something with $*
-})
-
-which defines tt(noglob) as well as tt(func) as functions with the
-body given.  To avoid this, either quote the name tt(func) or use the
-alternative function definition form `tt(function func)'.  Ensuring the
-alias is defined after the function works but is problematic if the
-code fragment might be re-executed.
 
 texinode(Quoting)()(Aliasing)(Shell Grammar)
 sect(Quoting)

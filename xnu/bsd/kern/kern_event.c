@@ -810,7 +810,10 @@ knote_post(struct knote *kn, long hint)
 	result = filter_call(knote_fops(kn), f_event(kn, hint));
 	kqlock(kq);
 
-	dropping = (kn->kn_status & KN_DROPPING);
+	/* Someone dropped the knote/the monitored object vanished while we
+	 * were in f_event, swallow the side effects of the post.
+	 */
+	dropping = (kn->kn_status & (KN_DROPPING | KN_VANISHED));
 
 	if (!dropping && (result & FILTER_ADJUST_EVENT_IOTIER_BIT)) {
 		kqueue_update_iotier_override(kq);
@@ -839,7 +842,8 @@ knote_post(struct knote *kn, long hint)
 }
 
 /*
- * Called by knote_drop() to wait for the last f_event() caller to be done.
+ * Called by knote_drop() and knote_fdclose() to wait for the last f_event()
+ * caller to be done.
  *
  *	- kq locked at entry
  *	- kq unlocked at exit
@@ -849,7 +853,7 @@ knote_wait_for_post(struct kqueue *kq, struct knote *kn)
 {
 	kqlock_held(kq);
 
-	assert(kn->kn_status & KN_DROPPING);
+	assert(kn->kn_status & (KN_DROPPING | KN_VANISHED));
 
 	if (kn->kn_status & KN_POSTING) {
 		lck_spin_sleep(&kq->kq_lock, LCK_SLEEP_UNLOCK, knote_post_wev(kn),
@@ -6053,13 +6057,16 @@ knote_detach(struct klist *list, struct knote *kn)
 /*
  * knote_vanish - Indicate that the source has vanished
  *
+ * Used only for vanishing ports - vanishing fds go
+ * through knote_fdclose()
+ *
  * If the knote has requested EV_VANISHED delivery,
  * arrange for that. Otherwise, deliver a NOTE_REVOKE
  * event for backward compatibility.
  *
- * The knote is marked as having vanished, but is not
- * actually detached from the source in this instance.
- * The actual detach is deferred until the knote drop.
+ * The knote is marked as having vanished. The source's
+ * reference to the knote is dropped by caller, but the knote's
+ * source reference is only cleaned up later when the knote is dropped.
  *
  * Our caller already has the object lock held. Calling
  * the detach routine would try to take that lock
@@ -6140,9 +6147,22 @@ restart:
 		if (!knote_lock(kq, kn, &knlc, KNOTE_KQ_LOCK_ON_SUCCESS)) {
 			/* the knote was dropped by someone, nothing to do */
 		} else if (kn->kn_status & KN_REQVANISH) {
+			/*
+			 * Since we have REQVANISH for this knote, we need to notify clients about
+			 * the EV_VANISHED.
+			 *
+			 * But unlike mach ports, we want to do the detach here as well and not
+			 * defer it so that we can release the iocount that is on the knote and
+			 * close the fp.
+			 */
 			kn->kn_status |= KN_VANISHED;
 
-			kqunlock(kq);
+			/*
+			 * There may be a concurrent post happening, make sure to wait for it
+			 * before we detach. knote_wait_for_post() unlocks on kq on exit
+			 */
+			knote_wait_for_post(kq, kn);
+
 			knote_fops(kn)->f_detach(kn);
 			if (kn->kn_is_fd) {
 				fp_drop(p, (int)kn->kn_id, kn->kn_fp, 0);
@@ -8144,8 +8164,7 @@ struct kern_event_head kern_event_head;
 
 static u_int32_t static_event_id = 0;
 
-static ZONE_DEFINE(ev_pcb_zone, "kerneventpcb",
-    sizeof(struct kern_event_pcb), ZC_ZFREE_CLEARMEM);
+static KALLOC_TYPE_DEFINE(ev_pcb_zone, struct kern_event_pcb, NET_KT_DEFAULT);
 
 /*
  * Install the protosw's for the NKE manager.  Invoked at extension load time

@@ -39,8 +39,9 @@ template<typename, typename> struct ArgumentCoder;
 //
 class StreamConnectionEncoder final {
 public:
-    // Stream message needs to be at least size of StreamSetDestinationID message.
-    static constexpr size_t minimumMessageSize = sizeof(MessageName) + sizeof(uint64_t);
+    // Stream allocation needs to be at least size of StreamSetDestinationID message at any offset % messageAlignment.
+    // StreamSetDestinationID has MessageName+uint64_t, where uint64_t is expected to to be aligned at 8.
+    static constexpr size_t minimumMessageSize = 16;
     static constexpr size_t messageAlignment = alignof(MessageName);
     static constexpr bool isIPCEncoder = true;
 
@@ -68,10 +69,16 @@ public:
         return true;
     }
 
+    template<typename T, size_t Extent>
+    bool encodeSpan(const Span<T, Extent>& data)
+    {
+        return encodeFixedLengthData(reinterpret_cast<const uint8_t*>(data.data()), data.size_bytes(), alignof(T));
+    }
+
     template<typename T>
     StreamConnectionEncoder& operator<<(T&& t)
     {
-        ArgumentCoder<std::remove_const_t<std::remove_reference_t<T>>, void>::encode(*this, std::forward<T>(t));
+        ArgumentCoder<std::remove_cvref_t<T>, void>::encode(*this, std::forward<T>(t));
         return *this;
     }
 

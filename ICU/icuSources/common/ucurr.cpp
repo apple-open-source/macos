@@ -690,11 +690,11 @@ ucurr_getName(const UChar* currency,
     UBool didFallBackByCountry = false;
     LocalUResourceBundlePointer languageRB(ures_open(U_ICUDATA_CURR, loc, &ec2));
     LocalUResourceBundlePointer countryRB(ures_openWithCountryFallback(U_ICUDATA_CURR, loc, &didFallBackByCountry, &ec2));
-    UScriptCode languageLocaleScript = USCRIPT_COMMON;
+    UScriptCode languageLocaleScripts[5];
     if (didFallBackByCountry) {
-        uscript_getCode(loc, &languageLocaleScript, 1, &ec2);
+        uscript_getCode(loc, languageLocaleScripts, 5, &ec2);
         if (U_FAILURE(ec2)) {
-            languageLocaleScript = USCRIPT_COMMON;
+            languageLocaleScripts[0] = USCRIPT_COMMON;
         }
     }
     
@@ -721,7 +721,7 @@ ucurr_getName(const UChar* currency,
             if (U_SUCCESS(ec2)) {
                 U16_GET(s, 0, 0, u_strlen(s), s0);
                 UScriptCode scr = uscript_getScript(s0, &ec2);
-                if (U_FAILURE(ec2) || (u_isalpha(s0) && scr != USCRIPT_LATIN && scr != languageLocaleScript)) {
+                if (U_FAILURE(ec2) || (u_isalpha(s0) && scr != USCRIPT_LATIN && scr != languageLocaleScripts[0])) {
                     // if the currency symbol we got back is in a different script from the one used by the requested
                     // locale's language (and isn't a symbol or a Latin letter), don't fall back by country
                     s = NULL;
@@ -751,7 +751,7 @@ ucurr_getName(const UChar* currency,
             if (U_SUCCESS(ec2)) {
                 U16_GET(s, 0, 0, u_strlen(s), s0);
                 UScriptCode scr = uscript_getScript(s0, &ec2);
-                if (U_FAILURE(ec2) || (u_isalpha(s0) && scr != USCRIPT_LATIN && scr != languageLocaleScript)) {
+                if (U_FAILURE(ec2) || (u_isalpha(s0) && scr != USCRIPT_LATIN && scr != languageLocaleScripts[0])) {
                     // if the currency symbol we got back is in a different script from the one used by the requested
                     // locale's language (and isn't a symbol or a Latin letter), don't fall back by country
                     s = NULL;

@@ -38,6 +38,7 @@
 
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFBundle.h>
 
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecIdentity.h>
@@ -102,6 +103,31 @@ loser:
     return rv;
 }
 
+static bool
+_is_apple_mail_bundle(void)
+{
+    static dispatch_once_t onceToken;
+    static bool result = false;
+    dispatch_once(&onceToken, ^{
+        CFBundleRef bundle = CFBundleGetMainBundle();
+        if (bundle) {
+            CFStringRef bundleID = CFBundleGetIdentifier(bundle);
+            result = (bundleID != NULL) && (CFStringHasPrefix(bundleID, CFSTR("com.apple.mail"))
+                                            || CFStringHasPrefix(bundleID, CFSTR("com.apple.mobilemail"))
+                                            || CFStringHasPrefix(bundleID, CFSTR("com.apple.email")));
+        }
+    });
+    return result;
+}
+
+static CFDictionaryRef
+_create_mail_keychain_query(CFDictionaryRef query)
+{
+    CFMutableDictionaryRef mutableMailQuery = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(query), query);
+    CFDictionarySetValue(mutableMailQuery, kSecAttrSynchronizable, kSecAttrSynchronizableAny);
+    return mutableMailQuery;
+}
+
 static CF_RETURNS_RETAINED CFTypeRef CERT_FindItemInAllAvailableKeychains(CFDictionaryRef query)
 {
     CFTypeRef item = NULL;
@@ -148,7 +174,15 @@ SecCertificateRef CERT_FindUserCertByUsage(SecKeychainRef keychainOrArray,
     CFDictionaryRef query = CFDictionaryCreate(
         kCFAllocatorDefault, keys, values, sizeof(keys) / sizeof(*keys), NULL, NULL);
     CFTypeRef result = NULL;
+
+    if (_is_apple_mail_bundle()) {
+        CFDictionaryRef mailQuery = _create_mail_keychain_query(query);
+        CFReleaseNull(query);
+        query = mailQuery;
+    }
+
     result = CERT_FindItemInAllAvailableKeychains(query);
+
     CFReleaseNull(query);
     CFReleaseNull(nickname_cfstr);
     return (SecCertificateRef)result;
@@ -338,6 +372,13 @@ static CF_RETURNS_RETAINED CFTypeRef CERT_FindByIssuerAndSN(CFTypeRef keychainOr
     const void* keys[] = {kSecClass, kSecAttrIssuer, kSecAttrSerialNumber, kSecReturnRef};
     const void* values[] = {class, issuer, serial, kCFBooleanTrue};
     query = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys) / sizeof(*keys), NULL, NULL);
+
+    if (_is_apple_mail_bundle()) {
+        CFDictionaryRef mailQuery = _create_mail_keychain_query(query);
+        CFReleaseNull(query);
+        query = mailQuery;
+    }
+
     ident = CERT_FindItemInAllAvailableKeychains(query);
 
 out:
@@ -390,6 +431,13 @@ static CF_RETURNS_RETAINED CFTypeRef CERT_FindBySubjectKeyID(CFTypeRef keychainO
     const void* keys[] = {kSecClass, kSecAttrSubjectKeyID, kSecReturnRef};
     const void* values[] = {class, subjectkeyid, kCFBooleanTrue};
     query = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys) / sizeof(*keys), NULL, NULL);
+
+    if (_is_apple_mail_bundle()) {
+        CFDictionaryRef mailQuery = _create_mail_keychain_query(query);
+        CFReleaseNull(query);
+        query = mailQuery;
+    }
+
     ident = CERT_FindItemInAllAvailableKeychains(query);
 
 out:

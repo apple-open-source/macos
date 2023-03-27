@@ -51,6 +51,7 @@ hsb{
         cgg{"chiga"}
         ch{"čamoršćina"}
         cho{"choctawšćina"}
+        cho_Latn{"choctawšćina"}
         chr{"cherokee"}
         ckb{"sorani"}
         co{"korsišćina"}

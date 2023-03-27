@@ -35,20 +35,15 @@ namespace WebCore {
 bool RealtimeMediaSourceCenter::shouldInterruptAudioOnPageVisibilityChange()
 {
 #if PLATFORM(IOS)
-    if (!WebCore::IOSApplication::isMobileSafari() && !WebCore::IOSApplication::isSafariViewService())
-        return true;
-
     NSArray *modes = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"UIBackgroundModes"];
-    if (!modes)
+    if (!modes || ![modes isKindOfClass:NSArray.class])
         return true;
     
-    RELEASE_LOG_ERROR(WebRTC, "RealtimeMediaSourceCenter::shouldInterruptAudioOnPageVisibilityChange2");
     int modesCount = [modes count];
     for (int i = 0; i < modesCount; i++) {
         if ([[modes objectAtIndex:i] isEqual: @"audio"])
             return false;
     }
-    RELEASE_LOG_ERROR(WebRTC, "RealtimeMediaSourceCenter::shouldInterruptAudioOnPageVisibilityChange3");
     return true;
 #else
     return false;

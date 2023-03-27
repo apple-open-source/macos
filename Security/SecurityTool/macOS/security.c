@@ -675,10 +675,9 @@ const command commands[] =
 	  "       authorizationdb remove <right-name>\n"
 	  "       authorizationdb write <right-name> [allow|deny|<rulename>]\n"
 	  "If no rulename is specified, write will read a plist from stdin.\n"
-	  "       authorizationdb merge source [destination]\n"
-	  "If no destination path is specified, merge will merge to /etc/authorization.\n"
-      "       authorizationdb smartcard <enable|disable|status>\n"
-      "Enables/disables smartcard login support or report current status.",
+      "       authorizationdb reset [data volume UUID]\n"
+      "Resets Authorization database to the default state, discarding any changes\n"
+      "When ran from Recovery, data volume UUID must be provided.\n",
       "Make changes to the authorization policy database." },
 
 	{ "execute-with-privileges" , execute_with_privileges,

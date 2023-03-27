@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -749,6 +749,65 @@ EAPSIMAKAClearEncryptedIdentityInfo(EAPSIMAKAEncryptedIdentityInfoRef info)
 	my_CFRelease(&info->oob_pseudonym);
 	free(info);
     }
+}
+
+STATIC Boolean
+IsNotificationCodeActionable(uint16_t notification_code)
+{
+    switch (notification_code) {
+	case kATNotificationCodeGeneralFailureAfterAuthentication:
+	case kATNotificationCodeTemporarilyDeniedAccess:
+	case kATNotificationCodeNotSubscribed:
+	    return TRUE;
+	break;
+    default:
+	return FALSE;
+	break;
+    }
+}
+
+#define MAX_EAPAKASIM_ACTIONS 10
+
+PRIVATE_EXTERN CFDictionaryRef
+EAPSIMAKAActionInfoForNotificationCode(CFDictionaryRef properties, uint16_t notification_code)
+{
+    CFArrayRef 		actions = NULL;
+    CFIndex 		count = 0;
+    CFDictionaryRef 	actionInfo = NULL;
+
+    if (IsNotificationCodeActionable(notification_code) == FALSE) {
+	return NULL;
+    }
+    actions = isA_CFArray(CFDictionaryGetValue(properties,
+					       kEAPSIMAKANotificationActions));
+    if (actions == NULL) {
+	return NULL;
+    }
+    count = CFArrayGetCount(actions);
+    if (count == 0 || count > MAX_EAPAKASIM_ACTIONS) {
+	return NULL;
+    }
+    for (CFIndex i = 0; i < count; i++) {
+	CFNumberRef 	cfcode = NULL;
+	int 		code = 0;
+
+	actionInfo = CFArrayGetValueAtIndex(actions, i);
+	if (isA_CFDictionary(actionInfo) == NULL) {
+	    return NULL;
+	}
+	cfcode = isA_CFNumber(CFDictionaryGetValue(actionInfo, kEAPSIMAKANotificationActionInfoCode));
+	if (cfcode == NULL) {
+	    return NULL;
+	}
+	if (CFNumberGetValue(cfcode, kCFNumberIntType, &code) == FALSE) {
+	    return NULL;
+	}
+	if (code == notification_code) {
+	    break;
+	}
+	actionInfo = NULL;
+    }
+    return actionInfo;
 }
 
 /**

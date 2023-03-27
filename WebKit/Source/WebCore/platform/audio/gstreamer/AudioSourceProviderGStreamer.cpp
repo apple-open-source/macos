@@ -95,6 +95,7 @@ AudioSourceProviderGStreamer::AudioSourceProviderGStreamer(MediaStreamTrackPriva
     initializeDebugCategory();
     auto pipelineName = makeString("WebAudioProvider_MediaStreamTrack_", source.id());
     m_pipeline = gst_element_factory_make("pipeline", pipelineName.utf8().data());
+    GST_DEBUG_OBJECT(m_pipeline.get(), "MediaStream WebAudio provider created");
     auto src = webkitMediaStreamSrcNew();
     webkitMediaStreamSrcAddTrack(WEBKIT_MEDIA_STREAM_SRC(src), &source, true);
 
@@ -120,19 +121,22 @@ AudioSourceProviderGStreamer::AudioSourceProviderGStreamer(MediaStreamTrackPriva
     auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(m_pipeline.get())));
     ASSERT(bus);
 
-    gst_bus_set_sync_handler(bus.get(), [](GstBus*, GstMessage* message, gpointer userData) -> GstBusSyncReply {
+    gst_bus_set_sync_handler(bus.get(), [](GstBus*, GstMessage* messageRef, gpointer userData) -> GstBusSyncReply {
+        auto message = adoptGRef(messageRef);
         auto* decodebin = GST_ELEMENT_CAST(userData);
-        if (GST_MESSAGE_TYPE(message) != GST_MESSAGE_STREAM_COLLECTION || GST_MESSAGE_SRC(message) != GST_OBJECT_CAST(decodebin)) {
-            gst_message_unref(message);
+        if (GST_MESSAGE_TYPE(message.get()) == GST_MESSAGE_LATENCY) {
+            auto pipeline = adoptGRef(gst_element_get_parent(decodebin));
+            gst_bin_recalculate_latency(GST_BIN_CAST(pipeline.get()));
             return GST_BUS_DROP;
         }
 
-        GRefPtr<GstStreamCollection> collection;
-        gst_message_parse_stream_collection(message, &collection.outPtr());
-        if (!collection) {
-            gst_message_unref(message);
+        if (GST_MESSAGE_TYPE(message.get()) != GST_MESSAGE_STREAM_COLLECTION || GST_MESSAGE_SRC(message.get()) != GST_OBJECT_CAST(decodebin))
             return GST_BUS_DROP;
-        }
+
+        GRefPtr<GstStreamCollection> collection;
+        gst_message_parse_stream_collection(message.get(), &collection.outPtr());
+        if (!collection)
+            return GST_BUS_DROP;
 
         unsigned size = gst_stream_collection_get_size(collection.get());
         GList* streams = nullptr;
@@ -149,7 +153,6 @@ AudioSourceProviderGStreamer::AudioSourceProviderGStreamer(MediaStreamTrackPriva
             g_list_free(streams);
         }
 
-        gst_message_unref(message);
         return GST_BUS_DROP;
     }, gst_object_ref(decodebin), gst_object_unref);
 }
@@ -252,7 +255,9 @@ void AudioSourceProviderGStreamer::setClient(WeakPtr<AudioSourceProviderClient>&
     if (client() == newClient.get())
         return;
 
-    GST_DEBUG("Setting up client %p (previous: %p)", newClient, client());
+#if ENABLE(MEDIA_STREAM)
+    GST_DEBUG_OBJECT(m_pipeline.get(), "Setting up client %p (previous: %p)", newClient.get(), client());
+#endif
     bool previousClientWasValid = !!m_client;
     m_client = WTFMove(newClient);
 
@@ -340,7 +345,9 @@ void AudioSourceProviderGStreamer::setClient(WeakPtr<AudioSourceProviderClient>&
 
 void AudioSourceProviderGStreamer::handleNewDeinterleavePad(GstPad* pad)
 {
-    GST_DEBUG("New pad %" GST_PTR_FORMAT, pad);
+#if ENABLE(MEDIA_STREAM)
+    GST_DEBUG_OBJECT(m_pipeline.get(), "New pad %" GST_PTR_FORMAT, pad);
+#endif
 
     // A new pad for a planar channel was added in deinterleave. Plug
     // in an appsink so we can pull the data from each

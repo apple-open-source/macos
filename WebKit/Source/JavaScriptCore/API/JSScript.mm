@@ -24,12 +24,14 @@
  */
 
 #import "config.h"
+#import "JSBase.h"
 #import "JSScriptInternal.h"
 
 #import "APICast.h"
 #import "BytecodeCacheError.h"
 #import "CachedTypes.h"
 #import "CodeCache.h"
+#import "Completion.h"
 #import "Identifier.h"
 #import "IntegrityInlines.h"
 #import "JSContextInternal.h"
@@ -271,7 +273,7 @@ static bool validateBytecodeCachePath(NSURL* cachePath, NSError** error)
     URL url = URL({ }, filename);
     auto type = m_type == kJSScriptTypeModule ? JSC::SourceProviderSourceType::Module : JSC::SourceProviderSourceType::Program;
     JSC::SourceOrigin origin(url);
-    Ref<JSScriptSourceProvider> sourceProvider = JSScriptSourceProvider::create(self, origin, WTFMove(filename), startPosition, type);
+    Ref<JSScriptSourceProvider> sourceProvider = JSScriptSourceProvider::create(self, origin, WTFMove(filename), String(), startPosition, type);
     JSC::SourceCode sourceCode(WTFMove(sourceProvider), startPosition.m_line.oneBasedInt(), startPosition.m_column.oneBasedInt());
     return sourceCode;
 }

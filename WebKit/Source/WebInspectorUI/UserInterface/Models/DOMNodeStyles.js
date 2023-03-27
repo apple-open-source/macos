@@ -34,6 +34,7 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
 
         this._rulesMap = new Map;
         this._stylesMap = new Multimap;
+        this._groupingsMap = new Map;
 
         this._matchedRules = [];
         this._inheritedRules = [];
@@ -48,7 +49,6 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
         this._propertyNameToEffectivePropertyMap = {};
         this._usedCSSVariables = new Set;
         this._allCSSVariables = new Set;
-        this._variableStylesByType = null;
 
         this._pendingRefreshTask = null;
         this.refresh();
@@ -135,6 +135,8 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
     get usedCSSVariables() { return this._usedCSSVariables; }
     get allCSSVariables() { return this._allCSSVariables; }
 
+    set ignoreNextContentDidChangeForStyleSheet(ignoreNextContentDidChangeForStyleSheet) { this._ignoreNextContentDidChangeForStyleSheet = ignoreNextContentDidChangeForStyleSheet; }
+
     get needsRefresh()
     {
         return this._pendingRefreshTask || this._needsRefresh;
@@ -143,67 +145,6 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
     get uniqueOrderedStyles()
     {
         return WI.DOMNodeStyles.uniqueOrderedStyles(this._orderedStyles);
-    }
-
-    get variableStylesByType()
-    {
-        if (this._variableStylesByType)
-            return this._variableStylesByType;
-
-        let properties = this._computedStyle?.properties;
-        if (!properties)
-            return new Map;
-
-        // Will iterate in order through type checkers for each CSS variable to identify its type.
-        // The catch-all "other" must always be last.
-        const typeCheckFunctions = [
-            {
-                type: WI.DOMNodeStyles.VariablesGroupType.Colors,
-                checker: (property) => WI.Color.fromString(property.value),
-            },
-            {
-                type: WI.DOMNodeStyles.VariablesGroupType.Dimensions,
-                // FIXME: <https://webkit.org/b/233576> build RegExp from `WI.CSSCompletions.lengthUnits`.
-                checker: (property) => /^-?\d+(\.\d+)?\D+$/.test(property.value),
-            },
-            {
-                type: WI.DOMNodeStyles.VariablesGroupType.Numbers,
-                checker: (property) => /^-?\d+(\.\d+)?$/.test(property.value),
-            },
-            {
-                type: WI.DOMNodeStyles.VariablesGroupType.Other,
-                checker: (property) => true,
-            },
-        ];
-
-        let variablesForType = {};
-        for (let property of properties) {
-            if (!property.isVariable)
-                continue;
-
-            for (let {type, checker} of typeCheckFunctions) {
-                if (checker(property)) {
-                    variablesForType[type] ||= [];
-                    variablesForType[type].push(property);
-                    break;
-                }
-            }
-        }
-
-        this._variableStylesByType = new Map;
-        for (let {type} of typeCheckFunctions) {
-            if (!variablesForType[type]?.length)
-                continue;
-
-            const ownerStyleSheet = null;
-            const id = null;
-            const inherited = false;
-            const text = null;
-            let style = new WI.CSSStyleDeclaration(this, ownerStyleSheet, id, WI.CSSStyleDeclaration.Type.Computed, this._node, inherited, text, variablesForType[type]);
-            this._variableStylesByType.set(type, style);
-        }
-
-        return this._variableStylesByType;
     }
 
     refreshIfNeeded()
@@ -262,6 +203,7 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
 
             this._previousStylesMap = this._stylesMap;
             this._stylesMap = new Multimap;
+            this._groupingsMap = new Map;
 
             this._matchedRules = parseRuleMatchArrayPayload(matchedRulesPayload, this._node);
 
@@ -376,9 +318,6 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
                     break;
                 }
             }
-
-            if (significantChange)
-                this._variableStylesByType = null;
 
             this._previousStylesMap = null;
             this._includeUserAgentRulesOnNextRefresh = false;
@@ -776,11 +715,49 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
 
         // COMPATIBILITY (iOS 13): CSS.CSSRule.groupings did not exist yet.
         let groupings = (payload.groupings || payload.media || []).map((grouping) => {
+            // COMPATIBILITY (macOS 13, iOS 16) CSS.CSSRule.ruleId did not exist yet.
+            let ruleId = grouping.ruleId;
+
+            let ruleIdForMap = null;
+            if (ruleId) {
+                ruleIdForMap = `${ruleId.styleSheetId}-${ruleId.ordinal}`;
+
+                let existingGroupingForRuleId = this._groupingsMap.get(ruleIdForMap);
+                if (existingGroupingForRuleId) {
+                    console.assert(existingGroupingForRuleId.text === grouping.text);
+                    console.assert(existingGroupingForRuleId.type === grouping.type);
+                    return existingGroupingForRuleId;
+                }
+            }
+
             let groupingType = WI.CSSManager.protocolGroupingTypeToEnum(grouping.type || grouping.source);
-            let groupingSourceCodeLocation = DOMNodeStyles.createSourceCodeLocation(grouping.sourceURL);
-            if (styleSheet)
-                groupingSourceCodeLocation = styleSheet.offsetSourceCodeLocation(groupingSourceCodeLocation);
-            return new WI.CSSGrouping(groupingType, grouping.text, groupingSourceCodeLocation);
+
+            let location = {};
+            if (payload.range) {
+                location.line = payload.range.startLine;
+                location.column = payload.range.startColumn;
+                location.documentNode = this._node.ownerDocument;
+            }
+
+            // The style sheet may be different from the style rule's style sheet, since groupings are computed beyond
+            // `@import` boundaries, and an `@import` statement from another style sheet may have been wrapped in
+            // another `@` rule.
+            let groupingStyleSheet = ruleId ? WI.cssManager.styleSheetForIdentifier(ruleId.styleSheetId) : null;
+
+            let groupingSourceCodeLocation = WI.DOMNodeStyles.createSourceCodeLocation(grouping.sourceURL, location);
+            let offsetGroupingSourceCodeLocation = styleSheet?.offsetSourceCodeLocation(groupingSourceCodeLocation) ?? groupingSourceCodeLocation;
+
+            let cssGrouping = new WI.CSSGrouping(this, groupingType, {
+                ownerStyleSheet: groupingStyleSheet,
+                id: grouping.ruleId,
+                text: grouping.text,
+                sourceCodeLocation: offsetGroupingSourceCodeLocation,
+            });
+
+            if (ruleIdForMap)
+                this._groupingsMap.set(ruleIdForMap, cssGrouping);
+
+            return cssGrouping;
         });
 
         if (rule) {
@@ -1056,12 +1033,4 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
 WI.DOMNodeStyles.Event = {
     NeedsRefresh: "dom-node-styles-needs-refresh",
     Refreshed: "dom-node-styles-refreshed"
-};
-
-WI.DOMNodeStyles.VariablesGroupType = {
-    Ungrouped: "ungrouped",
-    Colors: "colors",
-    Dimensions: "dimensions",
-    Numbers: "numbers",
-    Other: "other",
 };

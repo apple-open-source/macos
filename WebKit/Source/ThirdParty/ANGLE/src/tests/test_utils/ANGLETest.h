@@ -502,9 +502,6 @@ class ANGLETestBase
 
     void ignoreD3D11SDKLayersWarnings();
 
-    // Allows a test to be more restrictive about platform warnings.
-    void treatPlatformWarningsAsErrors();
-
     OSWindow *getOSWindow() { return mFixture->osWindow; }
 
     GLuint get2DTexturedQuadProgram();
@@ -672,11 +669,15 @@ class ANGLETestEnvironment : public testing::Environment
 
   private:
     static angle::Library *GetAngleEGLLibrary();
+    static angle::Library *GetAngleVulkanSecondariesEGLLibrary();
+    static angle::Library *GetMesaEGLLibrary();
     static angle::Library *GetSystemEGLLibrary();
     static angle::Library *GetSystemWGLLibrary();
 
     // For loading entry points.
     static std::unique_ptr<angle::Library> gAngleEGLLibrary;
+    static std::unique_ptr<angle::Library> gAngleVulkanSecondariesEGLLibrary;
+    static std::unique_ptr<angle::Library> gMesaEGLLibrary;
     static std::unique_ptr<angle::Library> gSystemEGLLibrary;
     static std::unique_ptr<angle::Library> gSystemWGLLibrary;
 };

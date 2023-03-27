@@ -27,27 +27,12 @@
 
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
+#import <Security/OTConstants.h>
 
 #include <xpc/xpc.h>
 #include <Security/SecKey.h>
 
-#if TARGET_OS_TV
-#define SOS_AVAILABLE false
-#elif TARGET_OS_WATCH
-#define SOS_AVAILABLE false
-#elif TARGET_OS_BRIDGE
-#define SOS_AVAILABLE false
-#elif TARGET_OS_IOS
-#define SOS_AVAILABLE true
-#elif TARGET_OS_OSX
-#define SOS_AVAILABLE true
-#elif TARGET_OS_SIMULATOR
-#define SOS_AVAILABLE true
-#else
-#define SOS_AVAILABLE false
-#endif
-
-#define IF_SOS_DISABLED if(!SOS_AVAILABLE)
+#define IF_SOS_DISABLED if(!OctagonPlatformSupportsSOS())
 
 __BEGIN_DECLS
 
@@ -109,6 +94,8 @@ CFDataRef SOSCCCopyRecoveryPublicKey(CFErrorRef *error);
 CFDataRef SOSCCCopyInitialSyncData(SOSInitialSyncFlags flags, CFErrorRef *error);
 
 void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(CFStringRef oneStateString));
+
+bool SOSCCSetSOSDisabledError(CFErrorRef *error);
 
 __END_DECLS
 

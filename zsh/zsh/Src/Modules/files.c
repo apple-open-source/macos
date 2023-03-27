@@ -32,12 +32,6 @@
 typedef int (*MoveFunc) _((char const *, char const *));
 typedef int (*RecurseFunc) _((char *, char *, struct stat const *, void *));
 
-#ifndef STDC_HEADERS
-extern int link _((const char *, const char *));
-extern int symlink _((const char *, const char *));
-extern int rename _((const char *, const char *));
-#endif
-
 struct recursivecmd;
 
 #include "files.pro"
@@ -122,19 +116,29 @@ domkdir(char *nam, char *path, mode_t mode, int p)
 {
     int err;
     mode_t oumask;
+    struct stat st;
+    int n = 8;
     char const *rpath = unmeta(path);
 
-    if(p) {
-	struct stat st;
-
-	if(!stat(rpath, &st) && S_ISDIR(st.st_mode))
+    while(n-- > 0) {
+	oumask = umask(0);
+	err = mkdir(rpath, mode) ? errno : 0;
+	umask(oumask);
+	if (!err)
 	    return 0;
+	if(!p || err != EEXIST)
+	    break;
+	if(stat(rpath, &st)) {
+	    if(errno == ENOENT)
+		continue;
+	    err = errno;
+	    break;
+	}
+	if(S_ISDIR(st.st_mode))
+	    return 0;
+	break;
     }
-    oumask = umask(0);
-    err = mkdir(rpath, mode) ? errno : 0;
-    umask(oumask);
-    if(!err)
-	return 0;
+
     zwarnnam(nam, "cannot make directory `%s': %e", path, err);
     return 1;
 }
@@ -342,7 +346,13 @@ domove(char *nam, MoveFunc movefn, char *p, char *q, int flags)
 	    unlink(qbuf);
     }
     if(movefn(pbuf, qbuf)) {
-	zwarnnam(nam, "%s: %e", p, errno);
+	int ferrno = errno;
+	char *errfile = p;
+	if (ferrno == ENOENT && !lstat(pbuf, &st)) {
+	    /* p *does* exist, so error is in q */
+	    errfile = q;
+	}
+	zwarnnam(nam, "`%s': %e", errfile, ferrno);
 	zsfree(pbuf);
 	return 1;
     }
@@ -642,7 +652,7 @@ chmod_dochmod(char *arg, char *rp, UNUSED(struct stat const *sp), void *magic)
 
 /**/
 static int
-bin_chmod(char *nam, char **args, Options ops, int func)
+bin_chmod(char *nam, char **args, Options ops, UNUSED(int func))
 {
     struct chmodmagic chm;
     char *str = args[0], *ptr;

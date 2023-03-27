@@ -63,6 +63,24 @@
                                             });
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
 }
+
+-(void)fetchCurrentPointerData:(bool)cached persistentRef:(NSData*)persistentRef
+{
+    XCTestExpectation* currentExpectation = [self expectationWithDescription: @"callback occurs"];
+    SecItemFetchCurrentItemDataAcrossAllDevices(@"com.apple.security.ckks",
+                                                @"pcsservice",
+                                                @"keychain",
+                                                cached,
+                                            ^(SecItemCurrentItemData *cip, NSError *error) {
+                                                XCTAssertNotNil(cip, "current item exists");
+                                                XCTAssertNotNil(cip.currentItemPointerModificationTime, "cip should have mtime");
+                                                XCTAssertNil(error, "no error exists when there's a current item");
+                                                XCTAssertEqualObjects(persistentRef, cip.persistentRef, "persistent ref matches expected persistent ref");
+                                                [currentExpectation fulfill];
+                                            });
+    [self waitForExpectationsWithTimeout:8.0 handler:nil];
+}
+
 -(void)fetchCurrentPointerExpectingError:(bool)fetchCloudValue
 {
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"callback occurs"];
@@ -148,6 +166,8 @@
     NSData* persistentRef = result[(id)kSecValuePersistentRef];
     NSData* sha1 = result[(id)kSecAttrSHA1];
 
+    XCTAssertNotNil(persistentRef, "Item should have a pRef");
+
     [self expectCKModifyRecords:@{SecCKRecordCurrentItemType: [NSNumber numberWithUnsignedInteger: 1]}
         deletedRecordTypeCounts:nil
                          zoneID:self.keychainZoneID
@@ -197,9 +217,13 @@
     XCTAssertNotNil(currentItemPointer, "Found a CKRecord at the expected location in CloudKit");
     XCTAssertEqualObjects(currentItemPointer.recordType, SecCKRecordCurrentItemType, "Saved CKRecord is correct type");
     XCTAssertEqualObjects(((CKReference*)currentItemPointer[SecCKRecordItemRefKey]).recordID, pcsItemRecordID, "Current Item record points to correct record");
+    NSDate *oldModificationTime = currentItemPointer.modificationDate;
+    XCTAssertNotNil(oldModificationTime, "Have modification time");
+
 
     // Check that the status APIs return the right value
     [self fetchCurrentPointer:false persistentRef:persistentRef];
+    [self fetchCurrentPointerData:false persistentRef:persistentRef];
 
     // Rad. If we got here, adding a new current item pointer works. Let's see if we can modify one.
     keychainChanged = [self expectChangeForView:self.keychainZoneID.zoneName];
@@ -279,6 +303,10 @@
     XCTAssertNotNil(currentItemPointer, "Found a CKRecord at the expected location in CloudKit");
     XCTAssertEqualObjects(currentItemPointer.recordType, SecCKRecordCurrentItemType, "Saved CKRecord is correct type");
     XCTAssertEqualObjects(((CKReference*)currentItemPointer[SecCKRecordItemRefKey]).recordID, pcsOtherItemRecordID, "Current Item record points to updated record");
+    NSDate *newModificationTime = currentItemPointer.modificationDate;
+    XCTAssertNotNil(newModificationTime, "Have modification time");
+
+    XCTAssertEqual([newModificationTime compare:oldModificationTime], NSOrderedDescending, "new mtime should be newer then old");
 
     // And: again
     [self fetchCurrentPointer:false persistentRef:otherPersistentRef];
@@ -818,12 +846,19 @@
     NSData* persistentRef = result[(id)kSecValuePersistentRef];
     NSData* sha1 = result[(id)kSecAttrSHA1];
 
+    void (^setWasCurrentAndEtag)(void) = ^{
+        // Set the 'was current' flag on the record
+        CKRecord* modifiedRecord = [record copy];
+        modifiedRecord[SecCKRecordServerWasCurrent] = [NSNumber numberWithInteger:10];
+        [self.keychainZone addToZone:modifiedRecord];
+    };
+
     [self expectCKModifyRecords:@{SecCKRecordCurrentItemType: [NSNumber numberWithUnsignedInteger: 1]}
         deletedRecordTypeCounts:nil
                          zoneID:self.keychainZoneID
             checkModifiedRecord:nil
           inspectOperationGroup:nil
-           runAfterModification:nil];
+           runAfterModification:setWasCurrentAndEtag];
 
     // Set the 'current' pointer.
     XCTestExpectation* setCurrentExpectation = [self expectationWithDescription: @"callback occurs"];
@@ -841,15 +876,24 @@
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
     [self waitForCKModifications];
 
-    // Set the 'was current' flag on the record
-    CKRecord* modifiedRecord = [record copy];
-    modifiedRecord[SecCKRecordServerWasCurrent] = [NSNumber numberWithInteger:10];
-    [self.keychainZone addToZone:modifiedRecord];
+    // Check that the number is on the CKKSMirrorEntry (before fetch)
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
+        NSError* error = nil;
+        CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:@"50184A35-4480-E8BA-769B-567CF72F1EC0"
+                                                    contextID:self.defaultCKKS.operationDependencies.contextID
+                                                       zoneID:self.keychainZoneID
+                                                        error:&error];
+
+        XCTAssertNil(error, "no error fetching ckme");
+        XCTAssertNotNil(ckme, "Received a ckme");
+
+        XCTAssertEqual(ckme.wasCurrent, 10u, "Properly received wasCurrent (before fetch)");
+    }];
 
     [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
-    // Check that the number is on the CKKSMirrorEntry
+    // Check that the number is on the CKKSMirrorEntry (after fetch)
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
         CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:@"50184A35-4480-E8BA-769B-567CF72F1EC0"
@@ -1102,6 +1146,9 @@
                              publicIdentity:(NSData*)publicIdentity
                               expectingSync:false];
     XCTAssertNotNil(result, "Should receive result from adding item");
+    if (result == nil) {
+        return;
+    }
 
     NSData* persistentRef = result[(id)kSecValuePersistentRef];
     NSData* sha1 = result[(id)kSecAttrSHA1];
@@ -1261,6 +1308,9 @@
                              publicIdentity:(NSData*)publicIdentity
                               expectingSync:false];
     XCTAssertNotNil(result, "Should receive result from adding item");
+    if (result == nil) {
+        return;
+    }
 
     NSData* persistentRef = result[(id)kSecValuePersistentRef];
     XCTAssertNotNil(persistentRef, "persistentRef should not be nil");

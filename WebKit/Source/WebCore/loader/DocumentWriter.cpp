@@ -193,16 +193,16 @@ bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
         document->setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { url }, document));
         document->contentSecurityPolicy()->copyStateFrom(ownerDocument->contentSecurityPolicy());
         document->contentSecurityPolicy()->setInsecureNavigationRequestsToUpgrade(ownerDocument->contentSecurityPolicy()->takeNavigationRequestsToUpgrade());
-    } else if (url.hasLocalScheme()) {
+    } else if (url.protocolIsAbout() || url.protocolIsData()) {
         // https://html.spec.whatwg.org/multipage/origin.html#determining-navigation-params-policy-container
         auto* currentHistoryItem = m_frame->loader().history().currentItem();
 
-        if (!url.protocolIsBlob() && currentHistoryItem && currentHistoryItem->policyContainer()) {
+        if (currentHistoryItem && currentHistoryItem->policyContainer()) {
             const auto& policyContainerFromHistory = currentHistoryItem->policyContainer();
             ASSERT(policyContainerFromHistory);
             document->inheritPolicyContainerFrom(*policyContainerFromHistory);
         } else if (url == aboutSrcDocURL()) {
-            auto* parentFrame = m_frame->tree().parent();
+            auto* parentFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent());
             if (parentFrame && parentFrame->document()) {
                 document->inheritPolicyContainerFrom(parentFrame->document()->policyContainer());
                 document->contentSecurityPolicy()->updateSourceSelf(parentFrame->document()->securityOrigin());
@@ -213,7 +213,7 @@ bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
         }
 
         // https://html.spec.whatwg.org/multipage/origin.html#requires-storing-the-policy-container-in-history
-        if (triggeringAction && triggeringAction->type() != NavigationType::BackForward && !url.protocolIsBlob() && currentHistoryItem)
+        if (triggeringAction && triggeringAction->type() != NavigationType::BackForward && currentHistoryItem)
             currentHistoryItem->setPolicyContainer(document->policyContainer());
     }
 
@@ -244,7 +244,7 @@ TextResourceDecoder& DocumentWriter::decoder()
         m_decoder = TextResourceDecoder::create(m_mimeType,
             m_frame->settings().defaultTextEncodingName(),
             m_frame->settings().usesEncodingDetector());
-        Frame* parentFrame = m_frame->tree().parent();
+        auto* parentFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent());
         // Set the hint encoding to the parent frame encoding only if
         // the parent and the current frames share the security origin.
         // We impose this condition because somebody can make a child frame

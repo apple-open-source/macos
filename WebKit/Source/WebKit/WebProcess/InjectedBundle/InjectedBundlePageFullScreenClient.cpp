@@ -46,18 +46,18 @@ bool InjectedBundlePageFullScreenClient::supportsFullScreen(WebPage *page, bool 
     if (m_client.supportsFullScreen) 
         return m_client.supportsFullScreen(toAPI(page), withKeyboard);
 
-    bool supports = true;
-    page->sendSync(Messages::WebFullScreenManagerProxy::SupportsFullScreen(withKeyboard), Messages::WebFullScreenManagerProxy::SupportsFullScreen::Reply(supports));
+    auto sendResult = page->sendSync(Messages::WebFullScreenManagerProxy::SupportsFullScreen(withKeyboard));
+    auto [supports] = sendResult.takeReplyOr(true);
     return supports;
 }
 
-void InjectedBundlePageFullScreenClient::enterFullScreenForElement(WebPage *page, WebCore::Element *element, bool blocksReturnToFullscreenFromPictureInPicture)
+void InjectedBundlePageFullScreenClient::enterFullScreenForElement(WebPage *page, WebCore::Element *element, bool blocksReturnToFullscreenFromPictureInPicture, bool isVideoElementWithControls, FloatSize videoDimensions)
 {
     if (m_client.enterFullScreenForElement) {
         RefPtr<InjectedBundleNodeHandle> nodeHandle = InjectedBundleNodeHandle::getOrCreate(element);
         m_client.enterFullScreenForElement(toAPI(page), toAPI(nodeHandle.get()));
     } else
-        page->send(Messages::WebFullScreenManagerProxy::EnterFullScreen(blocksReturnToFullscreenFromPictureInPicture));
+        page->send(Messages::WebFullScreenManagerProxy::EnterFullScreen(blocksReturnToFullscreenFromPictureInPicture, isVideoElementWithControls, videoDimensions));
 }
 
 void InjectedBundlePageFullScreenClient::exitFullScreenForElement(WebPage *page, WebCore::Element *element)

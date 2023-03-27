@@ -234,12 +234,12 @@ void WebInspectorUIProxy::updateForNewPageProcess(WebPageProxy& inspectedPage)
         m_inspectorPage->send(Messages::WebInspectorUI::UpdateConnection());
 }
 
-void WebInspectorUIProxy::setFrontendConnection(IPC::Attachment connectionIdentifier)
+void WebInspectorUIProxy::setFrontendConnection(IPC::Connection::Handle&& connectionIdentifier)
 {
     if (!m_inspectedPage)
         return;
 
-    m_inspectedPage->send(Messages::WebInspector::SetFrontendConnection(connectionIdentifier));
+    m_inspectedPage->send(Messages::WebInspector::SetFrontendConnection(WTFMove(connectionIdentifier)));
 }
 
 void WebInspectorUIProxy::showConsole()
@@ -652,6 +652,14 @@ void WebInspectorUIProxy::showCertificate(const CertificateInfo& certificateInfo
     platformShowCertificate(certificateInfo);
 }
 
+void WebInspectorUIProxy::setInspectorPageDeveloperExtrasEnabled(bool enabled)
+{
+    if (!m_inspectorPage)
+        return;
+
+    m_inspectorPage->preferences().setDeveloperExtrasEnabled(enabled);
+}
+
 void WebInspectorUIProxy::elementSelectionChanged(bool active)
 {
     m_elementSelectionActive = active;
@@ -697,6 +705,16 @@ void WebInspectorUIProxy::setDeveloperPreferenceOverride(WebCore::InspectorClien
 
     ASSERT_NOT_REACHED();
 }
+
+#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+
+void WebInspectorUIProxy::setEmulatedConditions(std::optional<int64_t>&& bytesPerSecondLimit)
+{
+    if (m_inspectedPage)
+        m_inspectedPage->websiteDataStore().setEmulatedConditions(WTFMove(bytesPerSecondLimit));
+}
+
+#endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
 void WebInspectorUIProxy::setDiagnosticLoggingAvailable(bool available)
 {

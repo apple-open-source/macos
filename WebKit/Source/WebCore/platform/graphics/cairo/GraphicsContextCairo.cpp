@@ -142,7 +142,7 @@ void GraphicsContextCairo::drawRect(const FloatRect& rect, float borderThickness
     Cairo::drawRect(*this, rect, borderThickness, fillColor(), strokeStyle(), strokeColor());
 }
 
-void GraphicsContextCairo::drawNativeImage(NativeImage& nativeImage, const FloatSize&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void GraphicsContextCairo::drawNativeImageInternal(NativeImage& nativeImage, const FloatSize&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     auto& state = this->state();
     Cairo::drawPlatformImage(*this, nativeImage.platformImage().get(), destRect, srcRect, { options, state.imageInterpolationQuality() }, state.alpha(), Cairo::ShadowState(state));
@@ -192,27 +192,6 @@ void GraphicsContextCairo::fillRect(const FloatRect& rect, const Color& color)
     Cairo::fillRect(*this, rect, color, Cairo::ShadowState(state()));
 }
 
-void GraphicsContextCairo::fillRect(const FloatRect& rect, Gradient& gradient)
-{
-    auto pattern = gradient.createPattern(1.0, fillGradientSpaceTransform());
-    if (!pattern)
-        return;
-
-    save();
-    Cairo::fillRect(*this, rect, pattern.get());
-    restore();
-}
-
-void GraphicsContextCairo::fillRect(const FloatRect& rect, const Color& color, CompositeOperator compositeOperator, BlendMode blendMode)
-{
-    auto& state = this->state();
-    CompositeOperator previousOperator = compositeOperation();
-
-    Cairo::State::setCompositeOperation(*this, compositeOperator, blendMode);
-    Cairo::fillRect(*this, rect, color, Cairo::ShadowState(state));
-    Cairo::State::setCompositeOperation(*this, previousOperator, BlendMode::Normal);
-}
-
 void GraphicsContextCairo::clip(const FloatRect& rect)
 {
     Cairo::clip(*this, rect);
@@ -234,27 +213,27 @@ void GraphicsContextCairo::clipToImageBuffer(ImageBuffer& buffer, const FloatRec
         Cairo::clipToImageBuffer(*this, nativeImage->platformImage().get(), destRect);
 }
 
-void GraphicsContextCairo::drawFocusRing(const Path& path, float width, float offset, const Color& color)
+void GraphicsContextCairo::drawFocusRing(const Path& path, float outlineWidth, const Color& color)
 {
 #if PLATFORM(WPE) || PLATFORM(GTK)
     ThemeAdwaita::paintFocus(*this, path, color);
-    UNUSED_PARAM(width);
-    UNUSED_PARAM(offset);
+    UNUSED_PARAM(outlineWidth);
     return;
 #else
-    Cairo::drawFocusRing(*this, path, width, color);
+    Cairo::drawFocusRing(*this, path, outlineWidth, color);
 #endif
 }
 
-void GraphicsContextCairo::drawFocusRing(const Vector<FloatRect>& rects, float width, float offset, const Color& color)
+void GraphicsContextCairo::drawFocusRing(const Vector<FloatRect>& rects, float outlineOffset, float outlineWidth, const Color& color)
 {
 #if PLATFORM(WPE) || PLATFORM(GTK)
     ThemeAdwaita::paintFocus(*this, rects, color);
-    UNUSED_PARAM(width);
-    UNUSED_PARAM(offset);
+    UNUSED_PARAM(outlineOffset);
+    UNUSED_PARAM(outlineWidth);
     return;
 #else
-    Cairo::drawFocusRing(*this, rects, width, color);
+    UNUSED_PARAM(outlineOffset);
+    Cairo::drawFocusRing(*this, rects, outlineWidth, color);
 #endif
 }
 
@@ -268,12 +247,6 @@ void GraphicsContextCairo::drawLinesForText(const FloatPoint& point, float thick
 void GraphicsContextCairo::drawDotsForDocumentMarker(const FloatRect& rect, DocumentMarkerLineStyle style)
 {
     Cairo::drawDotsForDocumentMarker(*this, rect, style);
-}
-
-FloatRect GraphicsContextCairo::roundToDevicePixels(const FloatRect& rect, RoundingMode roundingMode)
-{
-    UNUSED_PARAM(roundingMode);
-    return Cairo::State::roundToDevicePixels(*this, rect);
 }
 
 void GraphicsContextCairo::translate(float x, float y)
@@ -400,8 +373,7 @@ void GraphicsContextCairo::drawPattern(NativeImage& nativeImage, const FloatRect
     if (!patternTransform.isInvertible())
         return;
 
-    UNUSED_PARAM(spacing);
-    Cairo::drawPattern(*this, nativeImage.platformImage().get(), nativeImage.size(), destRect, tileRect, patternTransform, phase, options);
+    Cairo::drawPattern(*this, nativeImage.platformImage().get(), nativeImage.size(), destRect, tileRect, patternTransform, phase, spacing, options);
 }
 
 RenderingMode GraphicsContextCairo::renderingMode() const

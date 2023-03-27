@@ -146,7 +146,6 @@
             NSError* localError = nil;
             BOOL persisted = [self.operationDependencies.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
                 metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
-                metadata.settings = nil;
                 metadata.peerID = peerID;
                 [metadata setTPSyncingPolicy:syncingPolicy];
                 return metadata;

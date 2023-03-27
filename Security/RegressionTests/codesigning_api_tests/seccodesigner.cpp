@@ -8,6 +8,7 @@
 #include <Security/SecCode.h>
 #include <Security/SecStaticCode.h>
 #include <Security/SecCodeSigner.h>
+#include <Security/SecCodeSignerRemote.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecCertificate.h>
@@ -118,6 +119,46 @@ _createStaticCode(const char *path)
     }
 
     return codeRef.yield();
+}
+
+static CFArrayRef
+_getCertificateChain(SecIdentityRef identity)
+{
+    CFRef<SecCertificateRef> primaryCert = NULL;
+    OSStatus status = SecIdentityCopyCertificate(identity, primaryCert.take());
+    if (status != errSecSuccess) {
+        INFO("Unable to copy certificate from identity: %d", status);
+        return NULL;
+    }
+
+    CFRef<CFArrayRef> certificateChain = NULL;
+    CFRef<SecPolicyRef> policy = NULL;
+    CFRef<SecTrustRef> trust = NULL;
+    CFRef<CFMutableArrayRef> wrappedCert = NULL;
+
+    policy = SecPolicyCreateBasicX509();
+    if (!policy) {
+        INFO("Unable to create basic x509 policy");
+        return NULL;
+    }
+
+    wrappedCert.take(CFArrayCreateMutable(NULL, 3, NULL));
+    CFArraySetValueAtIndex(wrappedCert, 0, primaryCert);
+
+    if (SecTrustCreateWithCertificates(wrappedCert, policy, trust.take())) {
+        INFO("Unable to create trust with certificates.");
+        return NULL;
+    }
+
+    SecTrustResultType result;
+    status = SecTrustEvaluate(trust, &result);
+    if (status != errSecSuccess) {
+        INFO("Unable to create trust with certificates.");
+        return NULL;
+    }
+
+    certificateChain.take(SecTrustCopyCertificateChain(trust));
+    return certificateChain.yield();
 }
 
 static SecKeyRef
@@ -481,6 +522,93 @@ exit:
 }
 
 static int
+_forceAddSignatureRemote(const char *path, const char *ident, SecIdentityRef identity)
+{
+    int ret = -1;
+    OSStatus status;
+    CFRef<SecCodeSignerRemoteRef> signerRef = NULL;
+    CFRef<SecStaticCodeRef> codeRef = NULL;
+    CFRef<CFMutableDictionaryRef> parameters = NULL;
+    CFRef<CFStringRef> identifierRef = NULL;
+    CFRef<CFDictionaryRef> signingInfo = NULL;
+    CFRef<CFStringRef> signatureIdentifierRef = NULL;
+    CFRef<CFDictionaryRef> lwcrRef = NULL;
+
+    parameters.take(CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    // Force an identifier on this, so we can validate later.
+    identifierRef.take(CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8*)ident, strlen(ident), kCFStringEncodingUTF8, false));
+    CFDictionaryAddValue(parameters, kSecCodeSignerIdentifier, identifierRef);
+
+    // If we didn't want to force, then we need to add kSecCSSignPreserveSignature.
+    CFArrayRef certChain = _getCertificateChain(identity);
+    status = SecCodeSignerRemoteCreate(parameters, certChain, kSecCSDefaultFlags, signerRef.take(), NULL);
+    if (status != errSecSuccess) {
+        INFO("Unable to create SecCodeSigner: %d", status);
+        return -1;
+    }
+
+    codeRef.take(_createStaticCode(path));
+    require_string(codeRef, exit, "Unable to create SecStaticCode");
+
+    status = SecCodeSignerRemoteAddSignature(signerRef, codeRef, kSecCSDefaultFlags, ^CFDataRef(CFDataRef cmsDigestHash, SecCSDigestAlgorithm digestAlgo) {
+        // We only support SHA256 digest algorithm so make sure thats right.
+        if (digestAlgo != kSecCodeSignatureHashSHA256) {
+            INFO("Called with incorrect digest algorithm type: %d", digestAlgo);
+            return NULL;
+        }
+
+        // Perform local signing based on the identity passed in above.
+        SecKeyRef privateKey = NULL;
+        OSStatus localStatus = SecIdentityCopyPrivateKey(identity, &privateKey);
+        if (localStatus != errSecSuccess) {
+            INFO("Unable to copy private key from identity: %d", localStatus);
+            return NULL;
+        }
+        CFErrorRef localCFError = NULL;
+        CFDataRef sig = SecKeyCreateSignature(privateKey, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256, cmsDigestHash, &localCFError);
+        if (localCFError != NULL) {
+            CFRef<CFStringRef> errorString;
+            errorString.take(CFErrorCopyDescription(localCFError));
+            INFO("Unable to create perform local signature: %s", CFStringGetCStringPtr(errorString.get(), kCFStringEncodingUTF8));
+        }
+        return sig;
+    }, NULL);
+    if (status != errSecSuccess) {
+        INFO("Error on adding signature through SecCodeSignerAddSignature: %d", status);
+        goto exit;
+    }
+
+    status = SecCodeCopySigningInformation(codeRef, kSecCSRequirementInformation, signingInfo.take());
+    if (status != errSecSuccess) {
+        INFO("Error on acquiring signing information through SecCodeCopySigningInformation: %d", status);
+        goto exit;
+    }
+
+    // Don't use .take since we want we add a CFRetain on it.
+    signatureIdentifierRef = (CFStringRef)CFDictionaryGetValue(signingInfo, kSecCodeInfoIdentifier);
+    if (!signatureIdentifierRef) {
+        INFO("No kSecCodeInfoIdentifier on %s", path);
+        goto exit;
+    }
+
+    if (CFStringCompare(signatureIdentifierRef, identifierRef, 0) != kCFCompareEqualTo) {
+        INFO("Forced signature identifier mismatch: %s", CFStringGetCStringPtr(signatureIdentifierRef, kCFStringEncodingUTF8));
+        goto exit;
+    }
+
+    lwcrRef = (CFDictionaryRef)CFDictionaryGetValue(signingInfo, kSecCodeInfoDefaultDesignatedLightweightCodeRequirement);
+    if (!lwcrRef) {
+        INFO("No kSecCodeInfoDefaultDesignatedLightweightCodeRequirement on %s", path);
+        goto exit;
+    }
+    ret = 0;
+
+exit:
+    return ret;
+}
+
+static int
 CheckRemoveSignatureMachO(void)
 {
     BEGIN();
@@ -573,6 +701,183 @@ CheckAddRSASignatureMachO(void)
     }
 
     ret = _forceAddSignature(path, "MachOIdentity", selfSignedIdentity);
+    if (ret) {
+        FAIL("Unable to add RSA CMS signature to %s", path);
+        goto exit;
+    }
+
+    PASS("Successfully added RSA CMS signature to %s", path);
+    ret = 0;
+
+exit:
+    _deletePath(path);
+    return ret;
+}
+
+static int
+CheckRemoteSignatureAPI(void)
+{
+    BEGIN();
+
+    int ret = -1;
+    OSStatus status = 0;
+    const char *path = k_ls_TemporaryBinaryPath;
+    const char *copyPath = k_ls_BinaryPath;
+
+    CFRef<SecCodeSignerRemoteRef> signerRef = NULL;
+    CFRef<SecStaticCodeRef> codeRef = NULL;
+    CFRef<CFMutableDictionaryRef> parameters = NULL;
+    CFRef<CFArrayRef> certChain = NULL;
+    CFRef<CFMutableArrayRef> mutableCertChain = NULL;
+
+    // Set up a binary to use.
+    if (_copyPath(path, copyPath)) {
+        FAIL("Unable to create temporary path (%s)", path);
+        goto exit;
+    }
+
+    parameters.take(CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    // Not able to create a remote signer with no cert chain.
+    status = SecCodeSignerRemoteCreate(parameters, NULL, kSecCSDefaultFlags, signerRef.take(), NULL);
+    if (status != errSecCSInvalidObjectRef) {
+        INFO("SecCodeSignerRemoteCreate didn't fail with appropriate error with NULL cert chain: %d", status);
+        goto exit;
+    }
+
+    // Not able to create a remote signer with an empty cert chain.
+    certChain.take(CFArrayCreate(NULL, NULL, 0, NULL));
+    status = SecCodeSignerRemoteCreate(parameters, certChain.get(), kSecCSDefaultFlags, signerRef.take(), NULL);
+    if (status != errSecCSInvalidObjectRef) {
+        INFO("SecCodeSignerRemoteCreate didn't fail with appropriate error with empty cert chain: %d", status);
+        goto exit;
+    }
+
+    // Not able to create a remote signer with a cert chain array of non-SecCertificate objects.
+    mutableCertChain.take(CFArrayCreateMutable(NULL, 1, NULL));
+    CFArrayAppendValue(mutableCertChain.get(), CFSTR("a string"));
+    status = SecCodeSignerRemoteCreate(parameters, mutableCertChain.get(), kSecCSDefaultFlags, signerRef.take(), NULL);
+    if (status != errSecCSInvalidObjectRef) {
+        INFO("SecCodeSignerRemoteCreate didn't fail with appropriate error with empty cert chain: %d", status);
+        goto exit;
+    }
+
+    // Explicitly disallowed flags: kSecCSEditSignature, kSecCSRemoveSignature, kSecCSSignNestedCode
+    status = SecCodeSignerRemoteCreate(parameters, certChain.get(), kSecCSEditSignature, signerRef.take(), NULL);
+    if (status != errSecCSInvalidFlags) {
+        INFO("SecCodeSignerRemoteCreate didn't fail with unexpected flag kSecCSEditSignature: %d", status);
+        goto exit;
+    }
+
+    status = SecCodeSignerRemoteCreate(parameters, certChain.get(), kSecCSRemoveSignature, signerRef.take(), NULL);
+    if (status != errSecCSInvalidFlags) {
+        INFO("SecCodeSignerRemoteCreate didn't fail with unexpected flag kSecCSRemoveSignature: %d", status);
+        goto exit;
+    }
+
+    status = SecCodeSignerRemoteCreate(parameters, certChain.get(), kSecCSSignNestedCode, signerRef.take(), NULL);
+    if (status != errSecCSInvalidFlags) {
+        INFO("SecCodeSignerRemoteCreate didn't fail with unexpected flag kSecCSSignNestedCode: %d", status);
+        goto exit;
+    }
+
+    PASS("Successfully tested SecCodeSignerRemote API boundary");
+    ret = 0;
+
+exit:
+    _deletePath(path);
+    return ret;
+}
+
+static int
+CheckAddSignatureRemoteMachO(void)
+{
+    BEGIN();
+
+    const char *path = k_ls_TemporaryBinaryPath;
+    const char *copyPath = k_ls_BinaryPath;
+
+    int ret = -1;
+    CFRef<SecKeyRef> privateKey = NULL;
+    CFRef<SecCertificateRef> selfSignedCert = NULL;
+    CFRef<SecIdentityRef> selfSignedIdentity = NULL;
+    CFRef<SecCodeSignerRemoteRef> remoteSigner = NULL;
+
+    privateKey.take(_createRSAKey("Test RSA Key"));
+    if (!privateKey) {
+        FAIL("Unable to create an RSA key pair");
+        goto exit;
+    }
+
+    selfSignedCert.take(_createSelfSignedCertificate("Test Self-Signed Certificate", privateKey));
+    if (!selfSignedCert) {
+        FAIL("Unable to create a self signed certificate");
+        goto exit;
+    }
+
+    selfSignedIdentity.take(SecIdentityCreate(kCFAllocatorDefault, selfSignedCert, privateKey));
+    if (!selfSignedIdentity) {
+        FAIL("Unable to create a self signed identity");
+        goto exit;
+    }
+
+    if (_copyPath(path, copyPath)) {
+        FAIL("Unable to create temporary path (%s)", path);
+        goto exit;
+    }
+
+    ret = _forceAddSignatureRemote(path, "MachOIdentity", selfSignedIdentity);
+    if (ret) {
+        FAIL("Unable to add RSA CMS signature to %s", path);
+        goto exit;
+    }
+
+    PASS("Successfully added RSA CMS signature to %s", path);
+    ret = 0;
+
+exit:
+    _deletePath(path);
+    return ret;
+}
+
+static int
+CheckAddSignatureRemoteBundle(void)
+{
+    BEGIN();
+
+    const char *path = kTemporaryNullBundlePath;
+    const char *copyPath = kNullBundlePath;
+
+    int ret = -1;
+    CFRef<SecKeyRef> privateKey = NULL;
+    CFRef<SecCertificateRef> selfSignedCert = NULL;
+    CFRef<SecIdentityRef> selfSignedIdentity = NULL;
+    CFRef<SecCodeSignerRemoteRef> remoteSigner = NULL;
+
+    privateKey.take(_createRSAKey("Test RSA Key"));
+    if (!privateKey) {
+        FAIL("Unable to create an RSA key pair");
+        goto exit;
+    }
+
+    selfSignedCert.take(_createSelfSignedCertificate("Test Self-Signed Certificate", privateKey));
+    if (!selfSignedCert) {
+        FAIL("Unable to create a self signed certificate");
+        goto exit;
+    }
+
+    selfSignedIdentity.take(SecIdentityCreate(kCFAllocatorDefault, selfSignedCert, privateKey));
+    if (!selfSignedIdentity) {
+        FAIL("Unable to create a self signed identity");
+        goto exit;
+    }
+
+    if (_copyPath(path, copyPath)) {
+        FAIL("Unable to create temporary path (%s)", path);
+        goto exit;
+    }
+
+    ret = _forceAddSignatureRemote(path, "BundleIdentity", selfSignedIdentity);
     if (ret) {
         FAIL("Unable to add RSA CMS signature to %s", path);
         goto exit;
@@ -841,6 +1146,11 @@ int main(void)
         CheckAddAdhocSignatureBundle,
         CheckAddECCSignatureBundle,
         CheckECCKeychainAndSignatureValidationIntegrationBundle,
+
+        // Remote signing.
+        CheckRemoteSignatureAPI,
+        CheckAddSignatureRemoteMachO,
+        CheckAddSignatureRemoteBundle,
 
         // Encrypted disk image tests - only supported on macOS
 #if TARGET_OS_OSX

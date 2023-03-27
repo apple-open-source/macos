@@ -54,7 +54,11 @@ CKDKVSPerformanceCounter* const CKDKVSPerfCounterSynchronizeFailures = (CKDKVSPe
             remove(filename);
         });
     });
+#if TARGET_OS_OSX
+    return [SOSAnalytics defaultProtectedAnalyticsDatabasePath:@"sos_analytics"];
+#else
     return [SOSAnalytics defaultAnalyticsDatabasePath:@"sos_analytics"];
+#endif
 }
 
 + (instancetype)logger

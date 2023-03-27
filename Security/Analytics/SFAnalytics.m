@@ -201,6 +201,33 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)path) path];
 }
 
++ (void)removeLegacyDefaultAnalyticsDatabasePath:(NSString *)basename
+                                  usingDispatchToken:(dispatch_once_t *)onceToken
+{
+    dispatch_once(onceToken, ^{
+        NSString *path = [NSString stringWithFormat:@"Analytics/%@.db", basename];
+        WithPathInKeychainDirectory((__bridge CFStringRef)path, ^(const char *filename) {
+            remove(filename);
+        });
+
+        path = [NSString stringWithFormat:@"Analytics/%@.db-shm", basename];
+        WithPathInKeychainDirectory((__bridge CFStringRef)path, ^(const char *filename) {
+            remove(filename);
+
+        });
+
+        path = [NSString stringWithFormat:@"Analytics/%@.db-wal", basename];
+        WithPathInKeychainDirectory((__bridge CFStringRef)path, ^(const char *filename) {
+            remove(filename);
+
+        });
+
+        WithPathInKeychainDirectory(CFSTR("Analytics"), ^(const char *filename) {
+            remove(filename);
+        });
+    });
+}
+
 + (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename uuid:(NSUUID * __nullable)userUuid
 {
     // Create the top-level directory with full access
@@ -242,6 +269,8 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
 + (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename
 {
+    static dispatch_once_t onceToken;
+    [self removeLegacyDefaultAnalyticsDatabasePath:basename usingDispatchToken:&onceToken];
 #if TARGET_OS_OSX
     uid_t euid = geteuid();
     uuid_t currentUserUuid;
@@ -356,7 +385,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 }
 
 // Instantiate lazily so unit tests can have clean databases each
-- (SFAnalyticsSQLiteStore*)database
+- (SFAnalyticsSQLiteStore* _Nullable)database
 {
     if (!_database) {
         _database = [SFAnalyticsSQLiteStore storeWithPath:self.class.databasePath schema:SFAnalyticsTableSchema];

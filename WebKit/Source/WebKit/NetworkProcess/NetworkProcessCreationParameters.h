@@ -29,6 +29,8 @@
 #include "CacheModel.h"
 #include "SandboxExtension.h"
 #include <WebCore/Cookie.h>
+#include <WebCore/ProcessIdentifier.h>
+#include <WebCore/RegistrableDomain.h>
 #include <wtf/ProcessID.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -38,24 +40,11 @@
 #include <wtf/MemoryPressureHandler.h>
 #endif
 
-namespace IPC {
-class Decoder;
-class Encoder;
-}
-
 namespace WebKit {
 
 struct WebsiteDataStoreParameters;
 
 struct NetworkProcessCreationParameters {
-    NetworkProcessCreationParameters();
-    NetworkProcessCreationParameters(NetworkProcessCreationParameters&&);
-    ~NetworkProcessCreationParameters();
-    NetworkProcessCreationParameters& operator=(NetworkProcessCreationParameters&&);
-
-    void encode(IPC::Encoder&) const;
-    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, NetworkProcessCreationParameters&);
-
     AuxiliaryProcessCreationParameters auxiliaryProcessParameters;
 
     CacheModel cacheModel { CacheModel::DocumentViewer };
@@ -87,6 +76,8 @@ struct NetworkProcessCreationParameters {
     bool ftpEnabled { false };
 
     Vector<WebsiteDataStoreParameters> websiteDataStoreParameters;
+    Vector<std::pair<WebCore::ProcessIdentifier, WebCore::RegistrableDomain>> allowedFirstPartiesForCookies;
+    HashSet<String> localhostAliasesForTesting;
 };
 
 } // namespace WebKit

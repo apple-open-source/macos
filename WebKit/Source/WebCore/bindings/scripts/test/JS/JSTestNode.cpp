@@ -290,6 +290,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestNode_name, (JSGlobalObject* lexicalGlobalObject, 
 static inline bool setJSTestNode_nameSetter(JSGlobalObject& lexicalGlobalObject, JSTestNode& thisObject, JSValue value)
 {
     auto& vm = JSC::getVM(&lexicalGlobalObject);
+    UNUSED_PARAM(vm);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
     auto nativeValue = convert<IDLDOMString>(lexicalGlobalObject, value);
@@ -374,7 +375,7 @@ static inline EncodedJSValue jsTestNodePrototypeFunction_toJSONBody(JSGlobalObje
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
     auto& impl = castedThis->wrapped();
-    auto* result = constructEmptyObject(lexicalGlobalObject, castedThis->globalObject()->objectPrototype());
+    auto* result = constructEmptyObject(lexicalGlobalObject);
     auto nameValue = toJS<IDLDOMString>(*lexicalGlobalObject, throwScope, impl.name());
     RETURN_IF_EXCEPTION(throwScope, { });
     result->putDirect(vm, Identifier::fromString(vm, "name"_s), nameValue);
@@ -404,9 +405,9 @@ public:
             return nullptr;
         return WebCore::subspaceForImpl<TestNodeIterator, UseCustomHeapCellType::No>(vm,
             [] (auto& spaces) { return spaces.m_clientSubspaceForTestNodeIterator.get(); },
-            [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNodeIterator = WTFMove(space); },
+            [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNodeIterator = std::forward<decltype(space)>(space); },
             [] (auto& spaces) { return spaces.m_subspaceForTestNodeIterator.get(); },
-            [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestNodeIterator = WTFMove(space); }
+            [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestNodeIterator = std::forward<decltype(space)>(space); }
         );
     }
 
@@ -421,7 +422,6 @@ public:
         instance->finishCreation(vm);
         return instance;
     }
-
 private:
     TestNodeIterator(JSC::Structure* structure, JSTestNode& iteratedObject, IterationKind kind)
         : Base(structure, iteratedObject, kind)
@@ -433,7 +433,7 @@ using TestNodeIteratorPrototype = JSDOMIteratorPrototype<JSTestNode, TestNodeIte
 JSC_ANNOTATE_HOST_FUNCTION(TestNodeIteratorPrototypeNext, TestNodeIteratorPrototype::next);
 
 template<>
-const JSC::ClassInfo TestNodeIteratorBase::s_info = { "TestNode Iterator"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(TestNodeIteratorBase) };
+const JSC::ClassInfo TestNodeIteratorBase::s_info = { "TestNodeBase Iterator"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(TestNodeIteratorBase) };
 const JSC::ClassInfo TestNodeIterator::s_info = { "TestNode Iterator"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(TestNodeIterator) };
 
 template<>
@@ -483,9 +483,9 @@ JSC::GCClient::IsoSubspace* JSTestNode::subspaceForImpl(JSC::VM& vm)
 {
     return WebCore::subspaceForImpl<JSTestNode, UseCustomHeapCellType::No>(vm,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestNode.get(); },
-        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNode = WTFMove(space); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNode = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestNode.get(); },
-        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestNode = WTFMove(space); }
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestNode = std::forward<decltype(space)>(space); }
     );
 }
 

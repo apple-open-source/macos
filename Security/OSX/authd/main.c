@@ -55,7 +55,6 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
         require(reply != NULL, done);
         
         uint64_t auth_type = xpc_dictionary_get_uint64(event, AUTH_XPC_TYPE);
-        os_log_debug(AUTHD_LOG, "xpc: received message PID %d, type=%llu", connection_get_pid(conn), auth_type);
         
         switch (auth_type) {
             case AUTHORIZATION_CREATE:
@@ -94,9 +93,6 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
             case AUTHORIZATION_DISMISS:
                 connection_destroy_agents(conn);
                 status = errAuthorizationSuccess;
-                break;
-            case AUTHORIZATION_ENABLE_SMARTCARD:
-                status = authorization_enable_smartcard(conn,event,reply);
                 break;
             case AUTHORIZATION_SETUP:
                 {
@@ -180,7 +176,7 @@ security_auth_event_handler(xpc_connection_t xpc_conn)
 static void sandbox(const char *tmpdir)
 {
     char 		*errorbuf;
-	const char	*sandbox_params[] = {"TMP_DIR", tmpdir, NULL};
+	const char	*sandbox_params[] = {"TMP_DIR", tmpdir, "ENABLE_PATTERN_VARIABLES", "1", NULL};
     int32_t		rc;
 
 	rc = sandbox_init_with_parameters(SECURITY_AUTH_NAME, SANDBOX_NAMED, sandbox_params, &errorbuf);

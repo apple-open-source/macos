@@ -371,6 +371,7 @@ void main()
     }
 
     void testTextureSize(int testCaseIndex);
+    void testTextureSizeError();
 
     struct UploadThenUseStageParam
     {
@@ -464,6 +465,9 @@ class Texture2DTestES3 : public Texture2DTest
                           referenceColor[3], 1);
     }
 };
+
+class Texture2DTestES3YUV : public Texture2DTestES3
+{};
 
 class Texture2DTestES3RobustInit : public Texture2DTestES3
 {
@@ -1848,12 +1852,37 @@ class Texture2DTestES31 : public Texture2DTest
   protected:
     Texture2DTestES31() : Texture2DTest() {}
 
-    void TestSampleStencilFromDepthStencil(GLenum format, bool swizzle);
+    void TestSampleWithDepthStencilMode(GLenum format, GLenum mode, bool swizzle);
 };
 
-void Texture2DTestES31::TestSampleStencilFromDepthStencil(GLenum format, bool swizzle)
+void Texture2DTestES31::TestSampleWithDepthStencilMode(GLenum format, GLenum mode, bool swizzle)
 {
     constexpr GLsizei kSize = 4;
+
+    ASSERT(mode == GL_STENCIL_INDEX || mode == GL_DEPTH_COMPONENT);
+
+    bool isStencilMode;
+    GLenum attachment;
+    switch (format)
+    {
+        case GL_DEPTH_COMPONENT16:
+        case GL_DEPTH_COMPONENT24:
+        case GL_DEPTH_COMPONENT32F:
+            attachment    = GL_DEPTH_ATTACHMENT;
+            isStencilMode = false;
+            break;
+        case GL_DEPTH24_STENCIL8:
+        case GL_DEPTH32F_STENCIL8:
+            attachment    = GL_DEPTH_STENCIL_ATTACHMENT;
+            isStencilMode = mode == GL_STENCIL_INDEX;
+            break;
+        case GL_STENCIL_INDEX8:
+            attachment    = GL_STENCIL_ATTACHMENT;
+            isStencilMode = true;
+            break;
+        default:
+            UNREACHABLE();
+    }
 
     // Set up a color texture.
     GLTexture colorTexture;
@@ -1861,13 +1890,13 @@ void Texture2DTestES31::TestSampleStencilFromDepthStencil(GLenum format, bool sw
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, kSize, kSize);
     ASSERT_GL_NO_ERROR();
 
-    // Set up a depth/stencil texture to be sampled as stencil.
+    // Set up a depth/stencil texture to be sampled as mode.
     GLTexture depthStencilTexture;
     glBindTexture(GL_TEXTURE_2D, depthStencilTexture);
     glTexStorage2D(GL_TEXTURE_2D, 1, format, kSize, kSize);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+    glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, mode);
     if (swizzle)
     {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_ALPHA);
@@ -1877,23 +1906,32 @@ void Texture2DTestES31::TestSampleStencilFromDepthStencil(GLenum format, bool sw
     }
     ASSERT_GL_NO_ERROR();
 
-    constexpr char kFS[] =
+    constexpr char kStencilFS[] =
         R"(#version 300 es
 precision mediump float;
-uniform highp usampler2D stencilTex;
+uniform highp usampler2D tex;
 out vec4 color;
 void main()
 {
-    color = vec4(texelFetch(stencilTex, ivec2(0, 0), 0)) / 255.0f;
+    color = vec4(texelFetch(tex, ivec2(0, 0), 0)) / 255.0f;
+})";
+
+    constexpr char kDepthFS[] =
+        R"(#version 300 es
+precision mediump float;
+uniform highp sampler2D tex;
+out vec4 color;
+void main()
+{
+    color = texture(tex, vec2(0, 0));
 })";
 
     // Clear stencil to 42.
     GLFramebuffer clearFBO;
     glBindFramebuffer(GL_FRAMEBUFFER, clearFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D,
-                           depthStencilTexture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, depthStencilTexture, 0);
     ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
-    glClearDepthf(0.42f);
+    glClearDepthf(0.5);
     glClearStencil(42);
     glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     ASSERT_GL_NO_ERROR();
@@ -1902,13 +1940,13 @@ void main()
     glBindTexture(GL_TEXTURE_2D, depthStencilTexture);
     EXPECT_GL_ERROR(GL_NO_ERROR);
 
-    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
-    GLint stencilTexLocation = glGetUniformLocation(program, "stencilTex");
-    ASSERT_NE(-1, stencilTexLocation);
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), isStencilMode ? kStencilFS : kDepthFS);
+    GLint texLocation = glGetUniformLocation(program, "tex");
+    ASSERT_NE(-1, texLocation);
     ASSERT_GL_NO_ERROR();
 
     glUseProgram(program);
-    glUniform1i(stencilTexLocation, 0);
+    glUniform1i(texLocation, 0);
 
     GLFramebuffer drawFBO;
     glBindFramebuffer(GL_FRAMEBUFFER, drawFBO);
@@ -1919,8 +1957,16 @@ void main()
     drawQuad(program, essl3_shaders::PositionAttrib(), 0.95f);
     ASSERT_GL_NO_ERROR();
 
-    GLColor expected = swizzle ? GLColor(1, 0, 0, 42) : GLColor(42, 0, 0, 1);
-    EXPECT_PIXEL_RECT_EQ(0, 0, kSize, kSize, expected);
+    if (isStencilMode)
+    {
+        GLColor expected = swizzle ? GLColor(1, 0, 0, 42) : GLColor(42, 0, 0, 1);
+        EXPECT_PIXEL_RECT_EQ(0, 0, kSize, kSize, expected);
+    }
+    else
+    {
+        GLColor expected = swizzle ? GLColor(255, 0, 0, 127) : GLColor(127, 0, 0, 255);
+        EXPECT_PIXEL_COLOR_NEAR(0, 0, expected, 1);
+    }
 }
 
 TEST_P(Texture2DTest, NegativeAPISubImage)
@@ -2628,6 +2674,77 @@ TEST_P(Texture2DTest, PBOWithMultipleDraws)
     EXPECT_EQ(expected, actual);
 }
 
+// Test that stencil texture uploads work.
+TEST_P(Texture2DTestES3, TexImageWithStencilData)
+{
+    constexpr GLsizei kSize = 4;
+
+    const std::array<std::tuple<GLenum, GLenum, int, int>, 3> testConfigs = {
+        std::make_tuple(GL_DEPTH32F_STENCIL8, GL_FLOAT_32_UNSIGNED_INT_24_8_REV, 8, 4),
+        std::make_tuple(GL_DEPTH24_STENCIL8, GL_UNSIGNED_INT_24_8, 4, 0),
+        std::make_tuple(GL_STENCIL_INDEX8, GL_UNSIGNED_BYTE, 1, 0)};
+
+    for (auto testConfig : testConfigs)
+    {
+        const GLenum format     = std::get<0>(testConfig);
+        const GLenum type       = std::get<1>(testConfig);
+        const GLenum typeLength = std::get<2>(testConfig);
+        const GLenum typeOffset = std::get<3>(testConfig);
+
+        ANGLE_SKIP_TEST_IF(format == GL_STENCIL_INDEX8 &&
+                           !IsGLExtensionEnabled("GL_OES_texture_stencil8"));
+
+        // Set up the framebuffer
+        GLTexture colorTexture;
+        glBindTexture(GL_TEXTURE_2D, colorTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kSize, kSize, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                     nullptr);
+        ASSERT_GL_NO_ERROR();
+
+        GLTexture depthStencilTexture;
+        glBindTexture(GL_TEXTURE_2D, depthStencilTexture);
+
+        GLubyte pixels[kSize * kSize * 8] = {};
+        for (size_t pixelId = 0; pixelId < kSize * kSize; ++pixelId)
+        {
+            pixels[pixelId * typeLength + typeOffset] = 0xD5;
+        }
+        glTexImage2D(GL_TEXTURE_2D, 0, format, kSize, kSize, 0,
+                     format == GL_STENCIL_INDEX8 ? GL_STENCIL_INDEX : GL_DEPTH_STENCIL, type,
+                     pixels);
+        ASSERT_GL_NO_ERROR();
+
+        GLFramebuffer fbo;
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture,
+                               0);
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER,
+            format == GL_STENCIL_INDEX8 ? GL_STENCIL_ATTACHMENT : GL_DEPTH_STENCIL_ATTACHMENT,
+            GL_TEXTURE_2D, depthStencilTexture, 0);
+        ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+        ASSERT_GL_NO_ERROR();
+
+        // Clear only color.
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::black);
+
+        // If stencil is not set to 0xD5, rendering would fail.
+        glEnable(GL_STENCIL_TEST);
+        glStencilFunc(GL_EQUAL, 0xD5, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+        glStencilMask(0xFF);
+
+        // Draw red
+        ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+        drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+        ASSERT_GL_NO_ERROR();
+
+        EXPECT_PIXEL_RECT_EQ(0, 0, kSize, kSize, GLColor::red);
+    }
+}
+
 // Test that glTexSubImage2D combined with a PBO works properly. PBO has all pixels as red
 // except the middle one being green.
 TEST_P(Texture2DTest, TexStorageWithPBOMiddlePixelDifferent)
@@ -3086,18 +3203,59 @@ TEST_P(Texture2DTestES3, TexImageWithDepthPBO)
     EXPECT_PIXEL_RECT_EQ(0, 0, kSize, kSize, GLColor::red);
 }
 
-// Test that sampling stencil from a DEPTH24_STENCIL8 texture works.
-TEST_P(Texture2DTestES31, TexSampleStencilFromDepth24Stencil8)
+// Test sampling modes with a DEPTH_COMPONENT16 texture.
+TEST_P(Texture2DTestES31, TexSampleModesWithDepth16)
 {
-    TestSampleStencilFromDepthStencil(GL_DEPTH24_STENCIL8, false);
-    TestSampleStencilFromDepthStencil(GL_DEPTH24_STENCIL8, true);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, true);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT16, GL_STENCIL_INDEX, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT16, GL_STENCIL_INDEX, true);
 }
 
-// Test that sampling stencil from a DEPTH32F_STENCIL8 texture works.
-TEST_P(Texture2DTestES31, TexSampleStencilFromDepth32fStencil8)
+// Test sampling modes with a DEPTH_COMPONENT24 texture.
+TEST_P(Texture2DTestES31, TexSampleModesWithDepth24)
 {
-    TestSampleStencilFromDepthStencil(GL_DEPTH32F_STENCIL8, false);
-    TestSampleStencilFromDepthStencil(GL_DEPTH32F_STENCIL8, true);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, true);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT24, GL_STENCIL_INDEX, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT24, GL_STENCIL_INDEX, true);
+}
+
+// Test depth sampling with a DEPTH_COMPONENT32F texture.
+TEST_P(Texture2DTestES31, TexSampleModesWithDepth32f)
+{
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, true);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT32F, GL_STENCIL_INDEX, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH_COMPONENT32F, GL_STENCIL_INDEX, true);
+}
+
+// Test sampling modes with a DEPTH24_STENCIL8 texture.
+TEST_P(Texture2DTestES31, TexSampleModesWithDepth24Stencil8)
+{
+    TestSampleWithDepthStencilMode(GL_DEPTH24_STENCIL8, GL_DEPTH_COMPONENT, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH24_STENCIL8, GL_DEPTH_COMPONENT, true);
+    TestSampleWithDepthStencilMode(GL_DEPTH24_STENCIL8, GL_STENCIL_INDEX, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH24_STENCIL8, GL_STENCIL_INDEX, true);
+}
+
+// Test sampling modes with a DEPTH32F_STENCIL8 texture.
+TEST_P(Texture2DTestES31, TexSampleModesWithDepth32fStencil8)
+{
+    TestSampleWithDepthStencilMode(GL_DEPTH32F_STENCIL8, GL_DEPTH_COMPONENT, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH32F_STENCIL8, GL_DEPTH_COMPONENT, true);
+    TestSampleWithDepthStencilMode(GL_DEPTH32F_STENCIL8, GL_STENCIL_INDEX, false);
+    TestSampleWithDepthStencilMode(GL_DEPTH32F_STENCIL8, GL_STENCIL_INDEX, true);
+}
+
+// Test sampling modes with a STENCIL_INDEX8 texture.
+TEST_P(Texture2DTestES31, TexSampleModesWithStencil8)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_texture_stencil8"));
+    TestSampleWithDepthStencilMode(GL_STENCIL_INDEX8, GL_DEPTH_COMPONENT, false);
+    TestSampleWithDepthStencilMode(GL_STENCIL_INDEX8, GL_DEPTH_COMPONENT, true);
+    TestSampleWithDepthStencilMode(GL_STENCIL_INDEX8, GL_STENCIL_INDEX, false);
+    TestSampleWithDepthStencilMode(GL_STENCIL_INDEX8, GL_STENCIL_INDEX, true);
 }
 
 // Test that glTexSubImage2D combined with a PBO works properly when glTexStorage2D has
@@ -3109,9 +3267,6 @@ TEST_P(Texture2DTestES3, TexImageWithStencilPBO)
 
     // http://anglebug.com/5315
     ANGLE_SKIP_TEST_IF(IsOpenGL() && IsOSX());
-
-    // http://anglebug.com/5317
-    ANGLE_SKIP_TEST_IF(IsWindows() && IsD3D());
 
     constexpr GLsizei kSize = 4;
 
@@ -3185,9 +3340,6 @@ TEST_P(Texture2DTestES3, TexImageWithDepthStencilPBO)
     // http://anglebug.com/5315
     ANGLE_SKIP_TEST_IF(IsOpenGL() && IsOSX());
 
-    // http://anglebug.com/5317
-    ANGLE_SKIP_TEST_IF(IsWindows() && IsD3D());
-
     constexpr GLsizei kSize = 4;
 
     // Set up the framebuffer.
@@ -3250,6 +3402,36 @@ TEST_P(Texture2DTestES3, TexImageWithDepthStencilPBO)
     ASSERT_GL_NO_ERROR();
 
     EXPECT_PIXEL_RECT_EQ(0, 0, kSize, kSize, GLColor::red);
+}
+
+// Test functionality of GL_ANGLE_yuv_internal_format with min/mag filters
+// set to nearest and linear modes.
+TEST_P(Texture2DTestES3YUV, TexStorage2DYuvFilterModes)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_ANGLE_yuv_internal_format"));
+
+    // Create YUV texture
+    GLTexture yuvTexture;
+    GLubyte yuvColor[]         = {40, 40, 40, 40, 40, 40, 40, 40, 240, 109, 240, 109};
+    GLubyte expectedRgbColor[] = {0, 0, 255, 255};
+    createImmutableTexture2D(yuvTexture, 2, 4, GL_G8_B8R8_2PLANE_420_UNORM_ANGLE,
+                             GL_G8_B8R8_2PLANE_420_UNORM_ANGLE, GL_UNSIGNED_BYTE, 1, yuvColor);
+
+    // Default is nearest filter mode
+    verifyResults2D(yuvTexture, expectedRgbColor);
+    ASSERT_GL_NO_ERROR();
+
+    // Enable linear filter mode
+    glBindTexture(GL_TEXTURE_2D, yuvTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    verifyResults2D(yuvTexture, expectedRgbColor);
+    ASSERT_GL_NO_ERROR();
+
+    const int windowHeight = getWindowHeight();
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor::blue, 1);
+    EXPECT_PIXEL_COLOR_NEAR(0, windowHeight - 1, GLColor::blue, 1);
+    EXPECT_PIXEL_COLOR_NEAR(0, windowHeight / 2, GLColor::blue, 1);
 }
 
 // Test functionality of GL_ANGLE_yuv_internal_format while cycling through RGB and YUV sources
@@ -3597,6 +3779,26 @@ TEST_P(Texture2DTest, SubImageValidationOverflow)
     EXPECT_GL_ERROR(GL_INVALID_VALUE);
 }
 
+// Test that when a mutable texture is deleted, its corresponding pointer in the Vulkan backend,
+// which is used for mutable texture flushing, is also deleted, and is not accessed by the new
+// mutable texture after it.
+TEST_P(Texture2DTest, MutableUploadThenDeleteThenMutableUpload)
+{
+    GLTexture texture1;
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 GLColor::red.data());
+    texture1.reset();
+    EXPECT_GL_NO_ERROR();
+
+    GLTexture texture2;
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 GLColor::green.data());
+    texture2.reset();
+    EXPECT_GL_NO_ERROR();
+}
+
 // Test to ensure that glTexStorage3D accepts ASTC sliced 3D. https://crbug.com/1060012
 TEST_P(Texture3DTestES3, ImmutableASTCSliced3D)
 {
@@ -3771,6 +3973,19 @@ void main()
     }
 }
 
+void Texture2DTest::testTextureSizeError()
+{
+    GLint max2DSize = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max2DSize);
+    glActiveTexture(GL_TEXTURE0);
+    GLTexture texture;
+    glBindTexture(GL_TEXTURE_2D, texture);
+    FillLevel(0, max2DSize, max2DSize, GLColor::red, false, false);
+    GLenum err  = glGetError();
+    bool passed = (err == GL_NO_ERROR || err == GL_OUT_OF_MEMORY);
+    ASSERT_TRUE(passed);
+}
+
 // Permutation 0 of testTextureSize.
 TEST_P(Texture2DTest, TextureSizeCase0)
 {
@@ -3793,6 +4008,12 @@ TEST_P(Texture2DTest, TextureSizeCase2)
 TEST_P(Texture2DTest, TextureSizeCase3)
 {
     testTextureSize(3);
+}
+
+// Test allocating a very large texture
+TEST_P(Texture2DTest, TextureMaxSize)
+{
+    testTextureSizeError();
 }
 
 // Test that drawing works correctly RGBA 3D texture
@@ -5028,7 +5249,7 @@ TEST_P(Texture2DTestES3, CopyCompressedImageMipMaps)
     ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_copy_image"));
     // TODO(http://anglebug.com/5634): Fix calls to vkCmdCopyBufferToImage() with images smaller
     // than the compressed format block size.
-    ANGLE_SKIP_TEST_IF(GetParam().isEnabled(Feature::AllocateNonZeroMemory));
+    ANGLE_SKIP_TEST_IF(getEGLWindow()->isFeatureEnabled(Feature::AllocateNonZeroMemory));
 
     constexpr uint32_t kSize             = 4;
     constexpr size_t kNumLevels          = 3;
@@ -5349,9 +5570,6 @@ TEST_P(Texture3DTestES3, DrawWithLevelsOutsideRangeUndefined)
 // GLES 3.0.4 section 3.8.13 Texture completeness
 TEST_P(Texture3DTestES3, DrawWithLevelsOutsideRangeWithInconsistentDimensions)
 {
-    // Crashes on Intel Ubuntu 19.04 Mesa 19.0.2 GL. http://anglebug.com/2782
-    ANGLE_SKIP_TEST_IF(IsLinux() && IsIntel() && IsDesktopOpenGL());
-
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_3D, mTexture3D);
     std::vector<GLColor> texDataRed(8u * 8u * 8u, GLColor::red);
@@ -5498,6 +5716,63 @@ TEST_P(Texture2DArrayTestES3, TextureArrayRedefineThenUse)
     drawQuad(mProgram, "position", 0.5f);
     EXPECT_GL_NO_ERROR();
     EXPECT_PIXEL_COLOR_EQ(px, py, GLColor::green);
+}
+
+// Create a 2D array texture and update layers with data and test that pruning
+// of superseded updates works as expected.
+TEST_P(Texture2DArrayTestES3, TextureArrayPruneSupersededUpdates)
+{
+    constexpr uint32_t kTexWidth  = 256;
+    constexpr uint32_t kTexHeight = 256;
+    constexpr uint32_t kTexLayers = 3;
+
+    glBindTexture(GL_TEXTURE_2D_ARRAY, m2DArrayTexture);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    EXPECT_GL_NO_ERROR();
+
+    // Initialize entire texture.
+    constexpr GLColor kInitialExpectedColor = GLColor(201u, 201u, 201u, 201u);
+    std::vector<GLColor> initialData(kTexWidth * kTexHeight * kTexLayers, kInitialExpectedColor);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, kTexWidth, kTexHeight, kTexLayers, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, initialData.data());
+
+    // Upate different layers with different colors, these together should supersed
+    // the entire init update
+    constexpr GLColor kExpectedColor[] = {GLColor(32u, 32u, 32u, 32u), GLColor(64u, 64u, 64u, 64u),
+                                          GLColor(128u, 128u, 128u, 128u)};
+    std::vector<GLColor> supersedingData[] = {
+        std::vector<GLColor>(kTexWidth * kTexHeight, kExpectedColor[0]),
+        std::vector<GLColor>(kTexWidth * kTexHeight, kExpectedColor[1]),
+        std::vector<GLColor>(kTexWidth * kTexHeight, kExpectedColor[2])};
+
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, kTexWidth, kTexHeight, 1, GL_RGBA,
+                    GL_UNSIGNED_BYTE, supersedingData[0].data());
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, kTexWidth, kTexHeight, 1, GL_RGBA,
+                    GL_UNSIGNED_BYTE, supersedingData[1].data());
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 2, kTexWidth, kTexHeight, 1, GL_RGBA,
+                    GL_UNSIGNED_BYTE, supersedingData[2].data());
+
+    glUseProgram(mProgram);
+    EXPECT_GL_NO_ERROR();
+
+    // Draw layer 0
+    glUniform1i(mTextureArraySliceUniformLocation, 0);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, kExpectedColor[0]);
+
+    // Draw layer 1
+    glUniform1i(mTextureArraySliceUniformLocation, 1);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, kExpectedColor[1]);
+
+    // Draw layer 2
+    glUniform1i(mTextureArraySliceUniformLocation, 2);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, kExpectedColor[2]);
 }
 
 // Create a 2D array, use it, then redefine it to have fewer layers.  Regression test for a bug in
@@ -7538,22 +7813,35 @@ class Texture2DNorm16TestES3 : public Texture2DTestES3
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTextures[0],
                                0);
 
-        glBindTexture(GL_TEXTURE_2D, mTextures[0]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16_EXT, 1, 1, 0, GL_RGBA, GL_UNSIGNED_SHORT, nullptr);
+        for (int i = 0; i < 2; ++i)
+        {
+            bool isSubImage = i == 1;
+            SCOPED_TRACE("is subimage:" + std::to_string(isSubImage));
+            glBindTexture(GL_TEXTURE_2D, mTextures[0]);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16_EXT, 1, 1, 0, GL_RGBA, GL_UNSIGNED_SHORT,
+                         nullptr);
 
-        glBindTexture(GL_TEXTURE_2D, mTextures[1]);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalformat, 1, 1, 0, format, type, imageData);
+            glBindTexture(GL_TEXTURE_2D, mTextures[1]);
+            if (isSubImage)
+            {
+                glTexImage2D(GL_TEXTURE_2D, 0, internalformat, 1, 1, 0, format, type, nullptr);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, 1, format, type, imageData);
+            }
+            else
+            {
+                glTexImage2D(GL_TEXTURE_2D, 0, internalformat, 1, 1, 0, format, type, imageData);
+            }
+            EXPECT_GL_NO_ERROR();
 
-        EXPECT_GL_NO_ERROR();
+            drawQuad(mProgram, "position", 0.5f);
 
-        drawQuad(mProgram, "position", 0.5f);
+            GLubyte expectedValue =
+                (type == GL_SHORT) ? 0xFF : static_cast<GLubyte>(pixelValue >> 8);
 
-        GLubyte expectedValue = (type == GL_SHORT) ? 0xFF : static_cast<GLubyte>(pixelValue >> 8);
-
-        EXPECT_PIXEL_COLOR_EQ(0, 0,
-                              SliceFormatColor(format, GLColor(expectedValue, expectedValue,
-                                                               expectedValue, expectedValue)));
-
+            EXPECT_PIXEL_COLOR_EQ(0, 0,
+                                  SliceFormatColor(format, GLColor(expectedValue, expectedValue,
+                                                                   expectedValue, expectedValue)));
+        }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         ASSERT_GL_NO_ERROR();
@@ -7647,7 +7935,7 @@ class Texture2DNorm16TestES3 : public Texture2DTestES3
         GLushort pixelValue  = 0x6A35;
         GLushort imageData[] = {pixelValue, pixelValue, pixelValue, pixelValue};
         GLColor16UI color    = SliceFormatColor16UI(
-               format, GLColor16UI(pixelValue, pixelValue, pixelValue, pixelValue));
+            format, GLColor16UI(pixelValue, pixelValue, pixelValue, pixelValue));
         // Size of drawing viewport
         constexpr GLint width = 8, height = 8;
 
@@ -7926,8 +8214,9 @@ TEST_P(Texture2DRGTest, TextureRGUNormTest)
     ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_rg"));
     // This workaround causes a GL error on Windows AMD, which is likely a driver bug.
     // The workaround is not intended to be enabled in this configuration so skip it.
-    ANGLE_SKIP_TEST_IF(GetParam().isEnabled(Feature::EmulateCopyTexImage2DFromRenderbuffers) &&
-                       IsWindows() && IsAMD());
+    ANGLE_SKIP_TEST_IF(
+        getEGLWindow()->isFeatureEnabled(Feature::EmulateCopyTexImage2DFromRenderbuffers) &&
+        IsWindows() && IsAMD());
 
     GLubyte pixelValue  = 0xab;
     GLubyte imageData[] = {pixelValue, pixelValue};
@@ -9800,7 +10089,7 @@ TEST_P(Texture2DTestES3, NonZeroBaseEmulatedClear)
     // format is *not* emulated and the feature Feature::AllocateNonZeroMemory is enabled, the
     // texture memory will contain non-zero memory, which means the color is not black (causing the
     // test to fail).
-    ANGLE_SKIP_TEST_IF(GetParam().isEnabled(Feature::AllocateNonZeroMemory));
+    ANGLE_SKIP_TEST_IF(getEGLWindow()->isFeatureEnabled(Feature::AllocateNonZeroMemory));
 
     setUpProgram();
 
@@ -10784,6 +11073,96 @@ void main()
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 }
 
+// Verify a common pattern used by the Unreal Engine that trips up the tracer
+TEST_P(CopyImageTestES31, CubeMapCopyImageSubData)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_copy_image"));
+
+    constexpr char kVS[] =
+        R"(#version 300 es
+        precision mediump float;
+        in vec3 pos;
+        void main() {
+            gl_Position = vec4(pos, 1.0);
+        })";
+
+    constexpr char kFS[] =
+        R"(#version 300 es
+        precision mediump float;
+        out vec4 color;
+        uniform samplerCube uTex;
+        void main(){
+            // sample from lod 1.0
+            color = textureLod(uTex, vec3(1.0), 1.0);
+        })";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+
+    // Set up two cube maps, then verify we can copy between them
+    constexpr size_t kSize = 2;
+    constexpr int levels   = 2;
+    std::vector<GLColor> pixelsGreen(kSize * kSize, GLColor::green);
+    std::vector<GLColor> pixelsRed(kSize * kSize, GLColor::red);
+
+    // Initialize src to green
+    GLTexture texCubeSrc;
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texCubeSrc);
+    for (int i = 0; i < levels; i++)
+    {
+        for (GLenum face = 0; face < 6; face++)
+        {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, i, GL_RGBA, kSize >> i, kSize >> i,
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, pixelsGreen.data());
+        }
+    }
+    ASSERT_GL_NO_ERROR();
+
+    // Initialize dst to red
+    GLTexture texCubeDst;
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texCubeDst);
+    for (int i = 0; i < levels; i++)
+    {
+        for (GLenum face = 0; face < 6; face++)
+        {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, i, GL_RGBA, kSize >> i, kSize >> i,
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, pixelsRed.data());
+        }
+    }
+    ASSERT_GL_NO_ERROR();
+
+    // Clear to blue
+    glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
+
+    // Sample from the dst texture to ensure it has the right color
+    GLint textureLoc = glGetUniformLocation(program, "uTex");
+    ASSERT_NE(-1, textureLoc);
+    glUniform1i(textureLoc, 0);
+
+    // Draw once and sample from level 1, which is red
+    drawQuad(program, "pos", 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    // Swap to trigger MEC
+    swapBuffers();
+
+    // Copy level 1 from src to dst
+    glCopyImageSubDataEXT(texCubeSrc, GL_TEXTURE_CUBE_MAP, 1, 0, 0, 0, texCubeDst,
+                          GL_TEXTURE_CUBE_MAP, 1, 0, 0, 0, kSize >> 1, kSize >> 1, 6);
+    ASSERT_GL_NO_ERROR();
+
+    // Draw again and verify we get green
+    drawQuad(program, "pos", 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    // Swap again to end the capture
+    swapBuffers();
+
+    ASSERT_GL_NO_ERROR();
+}
+
 class TextureChangeStorageUploadTest : public ANGLETest<>
 {
   protected:
@@ -10898,13 +11277,22 @@ TEST_P(ExtraSamplerCubeShadowUseTest, Basic)
 
 // Use this to select which configurations (e.g. which renderer, which GLES major version) these
 // tests should be run against.
+#define ES2_EMULATE_COPY_TEX_IMAGE_VIA_SUB()             \
+    ES2_OPENGL().enable(Feature::EmulateCopyTexImage2D), \
+        ES2_OPENGLES().enable(Feature::EmulateCopyTexImage2D)
+#define ES3_EMULATE_COPY_TEX_IMAGE_VIA_SUB()             \
+    ES3_OPENGL().enable(Feature::EmulateCopyTexImage2D), \
+        ES3_OPENGLES().enable(Feature::EmulateCopyTexImage2D)
 #define ES2_EMULATE_COPY_TEX_IMAGE()                                      \
     ES2_OPENGL().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers), \
         ES2_OPENGLES().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers)
 #define ES3_EMULATE_COPY_TEX_IMAGE()                                      \
     ES3_OPENGL().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers), \
         ES3_OPENGLES().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers)
-ANGLE_INSTANTIATE_TEST(Texture2DTest, ANGLE_ALL_TEST_PLATFORMS_ES2, ES2_EMULATE_COPY_TEX_IMAGE());
+ANGLE_INSTANTIATE_TEST(Texture2DTest,
+                       ANGLE_ALL_TEST_PLATFORMS_ES2,
+                       ES2_EMULATE_COPY_TEX_IMAGE_VIA_SUB(),
+                       ES2_EMULATE_COPY_TEX_IMAGE());
 ANGLE_INSTANTIATE_TEST_ES2(TextureCubeTest);
 ANGLE_INSTANTIATE_TEST_ES2(Texture2DTestWithDrawScale);
 ANGLE_INSTANTIATE_TEST_ES2(Sampler2DAsFunctionParameterTest);
@@ -10913,7 +11301,12 @@ ANGLE_INSTANTIATE_TEST_ES2(SamplerArrayAsFunctionParameterTest);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(Texture2DTestES3);
 ANGLE_INSTANTIATE_TEST_ES3_AND(Texture2DTestES3,
-                               ES3_VULKAN().enable(Feature::AllocateNonZeroMemory));
+                               ES3_VULKAN().enable(Feature::AllocateNonZeroMemory),
+                               ES3_VULKAN().enable(Feature::ForceFallbackFormat));
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(Texture2DTestES3YUV);
+ANGLE_INSTANTIATE_TEST_ES3_AND(Texture2DTestES3YUV,
+                               ES3_VULKAN().enable(Feature::PreferLinearFilterForYUV));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(Texture2DTestES3RobustInit);
 ANGLE_INSTANTIATE_TEST_ES3(Texture2DTestES3RobustInit);
@@ -10969,6 +11362,8 @@ ANGLE_INSTANTIATE_TEST_ES3(Texture2DNorm16TestES3);
 ANGLE_INSTANTIATE_TEST(Texture2DRGTest,
                        ANGLE_ALL_TEST_PLATFORMS_ES2,
                        ANGLE_ALL_TEST_PLATFORMS_ES3,
+                       ES2_EMULATE_COPY_TEX_IMAGE_VIA_SUB(),
+                       ES3_EMULATE_COPY_TEX_IMAGE_VIA_SUB(),
                        ES2_EMULATE_COPY_TEX_IMAGE(),
                        ES3_EMULATE_COPY_TEX_IMAGE());
 
@@ -11013,6 +11408,8 @@ ANGLE_INSTANTIATE_TEST_ES3(TextureChangeStorageUploadTest);
 
 ANGLE_INSTANTIATE_TEST_ES3(ExtraSamplerCubeShadowUseTest);
 
-ANGLE_INSTANTIATE_TEST_ES31(Texture2DTestES31);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(Texture2DTestES31);
+ANGLE_INSTANTIATE_TEST_ES31_AND(Texture2DTestES31,
+                                ES31_VULKAN().enable(Feature::ForceFallbackFormat));
 
 }  // anonymous namespace

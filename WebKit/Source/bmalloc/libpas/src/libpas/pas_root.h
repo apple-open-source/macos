@@ -88,7 +88,7 @@ struct pas_root {
     pas_tiny_large_map_hashtable* tiny_large_map_hashtable_instance;
     pas_tiny_large_map_hashtable_in_flux_stash* tiny_large_map_hashtable_instance_in_flux_stash;
     pas_tiny_large_map_second_level_hashtable_in_flux_stash* tiny_large_map_second_level_hashtable_in_flux_stash_instance;
-    pas_heap_config** heap_configs;
+    const pas_heap_config** heap_configs;
     unsigned num_heap_configs;
     pas_red_black_tree* large_sharing_tree;
     pas_red_black_tree_jettisoned_nodes* large_sharing_tree_jettisoned_nodes;
@@ -123,6 +123,18 @@ PAS_API extern pas_root* pas_root_for_libmalloc_enumeration;
 /* This creates the root used for libmalloc enumeration, if there wasn't one already. Clients of
    libpas can choose not to call this, for example because they want to set up enumeration manually. */
 PAS_API pas_root* pas_root_ensure_for_libmalloc_enumeration(void);
+
+#define PAS_MAX_CANDIDATE_POINTERS 256
+
+typedef struct pas_conservative_candidate_pointer_and_location {
+    vm_address_t address_of_pointer;
+    vm_address_t candidate_pointer;
+} pas_conservative_candidate_pointer_and_location;
+
+typedef kern_return_t (*pas_pointer_visitor_t)(void* context, const pas_conservative_candidate_pointer_and_location*, size_t num_candidates);
+
+PAS_API kern_return_t pas_root_visit_conservative_candidate_pointers_in_address_range(task_t task, void* context, vm_address_t zone_address, vm_address_t address, size_t size, memory_reader_t reader, pas_pointer_visitor_t visitor);
+
 #endif
 
 PAS_END_EXTERN_C;

@@ -26,8 +26,12 @@
 #include "config.h"
 #include "PathOperation.h"
 
+#include "AnimationUtilities.h"
 #include "GeometryUtilities.h"
 #include "SVGElement.h"
+#include "SVGElementTypeHelpers.h"
+#include "SVGPathData.h"
+#include "SVGPathElement.h"
 
 namespace WebCore {
 
@@ -36,6 +40,10 @@ Ref<ReferencePathOperation> ReferencePathOperation::create(const String& url, co
     return adoptRef(*new ReferencePathOperation(url, fragment, element));
 }
 
+Ref<ReferencePathOperation> ReferencePathOperation::create(std::optional<Path>&& path)
+{
+    return adoptRef(*new ReferencePathOperation(WTFMove(path)));
+}
 
 ReferencePathOperation::ReferencePathOperation(const String& url, const AtomString& fragment, const RefPtr<SVGElement> element)
     : PathOperation(Reference)
@@ -43,11 +51,38 @@ ReferencePathOperation::ReferencePathOperation(const String& url, const AtomStri
     , m_fragment(fragment)
     , m_element(element)
 {
+    if (is<SVGPathElement>(m_element) || is<SVGGeometryElement>(m_element))
+        m_path = pathFromGraphicsElement(m_element.get());
+}
+
+ReferencePathOperation::ReferencePathOperation(std::optional<Path>&& path)
+    : PathOperation(Reference)
+    , m_path(WTFMove(path))
+{
 }
 
 const SVGElement* ReferencePathOperation::element() const
 {
     return m_element.get();
+}
+
+Ref<RayPathOperation> RayPathOperation::create(float angle, Size size, bool isContaining, FloatRect&& containingBlockBoundingRect, FloatPoint&& position)
+{
+    return adoptRef(*new RayPathOperation(angle, size, isContaining, WTFMove(containingBlockBoundingRect), WTFMove(position)));
+}
+
+bool RayPathOperation::canBlend(const PathOperation& to) const
+{
+    if (auto* toRayPathOperation = dynamicDowncast<RayPathOperation>(to))
+        return m_size == toRayPathOperation->size() && m_isContaining == toRayPathOperation->isContaining();
+    return false;
+}
+
+RefPtr<PathOperation> RayPathOperation::blend(const PathOperation* to, const BlendingContext& context) const
+{
+    ASSERT(is<RayPathOperation>(to));
+    auto& toRayPathOperation = downcast<RayPathOperation>(*to);
+    return RayPathOperation::create(WebCore::blend(m_angle, toRayPathOperation.angle(), context), m_size, m_isContaining);
 }
 
 double RayPathOperation::lengthForPath() const
@@ -118,14 +153,14 @@ double RayPathOperation::lengthForContainPath(const FloatRect& elementRect, doub
     return computedPathLength;
 }
 
-const Path RayPathOperation::pathForReferenceRect(const FloatRect& elementRect, const FloatPoint& anchor, const OffsetRotation rotation) const
+const std::optional<Path> RayPathOperation::getPath(const FloatRect& referenceRect, FloatPoint anchor, OffsetRotation rotation) const
 {
     Path path;
     if (m_containingBlockBoundingRect.isZero())
-        return path;
+        return std::nullopt;
     double length = lengthForPath();
     if (m_isContaining)
-        length = lengthForContainPath(elementRect, length, anchor, rotation);
+        length = lengthForContainPath(referenceRect, length, anchor, rotation);
     auto radians = deg2rad(toPositiveAngle(m_angle) - 90.0);
     auto point = FloatPoint(std::cos(radians) * length, std::sin(radians) * length);
     path.addLineTo(point);

@@ -1,0 +1,9 @@
+#include "Blocks.xcconfig"
+
+OTHER_CFLAGS = -fexceptions
+OTHER_CFLAGS[arch=i386] = -momit-leaf-frame-pointer -fexceptions
+OTHER_CFLAGS[arch=x86_64] = -momit-leaf-frame-pointer -fexceptions
+OTHER_CFLAGS[sdk=driverkit*] =
+OTHER_CFLAGS[sdk=driverkit*][arch=i386] = -momit-leaf-frame-pointer
+OTHER_CFLAGS[sdk=driverkit*][arch=x86_64] = -momit-leaf-frame-pointer
+

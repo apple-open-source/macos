@@ -620,5 +620,42 @@ errOut:
     CFReleaseNull(cert);
 }
 
+- (void)testCopyURIs
+{
+    NSString *nistCertDir = @"nist-certs";
+    SecCertificateRef httpURICert = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ValidURInameConstraintsTest34EE"
+                                                                                          subdirectory:nistCertDir];
+    SecCertificateRef ftpURICert = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"InvalidURInameConstraintsTest37EE"
+                                                                                         subdirectory:nistCertDir];
+    SecCertificateRef noURIsCert = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ValidDNSnameConstraintsTest30EE"
+                                                                                         subdirectory:nistCertDir];
+    SecCertificateRef noSANCert = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"nameConstraintsURI1CACert"
+                                                                                        subdirectory:nistCertDir];
+    XCTAssertNotEqual(NULL, httpURICert);
+    XCTAssertNotEqual(NULL, ftpURICert);
+    XCTAssertNotEqual(NULL, noURIsCert);
+    XCTAssertNotEqual(NULL, noSANCert);
+
+    NSArray *uris = CFBridgingRelease(SecCertificateCopyURIs(httpURICert));
+    XCTAssertNotNil(uris);
+    XCTAssertEqual(uris.count, 1);
+    XCTAssertEqualObjects(uris[0], @"http://testserver.testcertificates.gov/index.html");
+
+    uris = CFBridgingRelease(SecCertificateCopyURIs(ftpURICert));
+    XCTAssertNotNil(uris);
+    XCTAssertEqual(uris.count, 1);
+    XCTAssertEqualObjects(uris[0], @"ftp://invalidcertificates.gov:21/test37/");
+
+    uris = CFBridgingRelease(SecCertificateCopyURIs(noURIsCert));
+    XCTAssertNil(uris);
+
+    uris = CFBridgingRelease(SecCertificateCopyURIs(noSANCert));
+    XCTAssertNil(uris);
+
+    CFReleaseNull(httpURICert);
+    CFReleaseNull(ftpURICert);
+    CFReleaseNull(noURIsCert);
+    CFReleaseNull(noSANCert);
+}
 
 @end

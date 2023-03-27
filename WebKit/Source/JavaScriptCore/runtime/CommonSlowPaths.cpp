@@ -27,8 +27,10 @@
 #include "CommonSlowPaths.h"
 
 #include "ArithProfile.h"
+#include "ArrayPrototypeInlines.h"
 #include "BytecodeStructs.h"
 #include "ClonedArguments.h"
+#include "CommonSlowPathsInlines.h"
 #include "DefinePropertyAttributes.h"
 #include "DirectArguments.h"
 #include "ErrorHandlingScope.h"
@@ -379,34 +381,6 @@ JSC_DEFINE_COMMON_SLOW_PATH(slow_path_nstricteq)
     BEGIN();
     auto bytecode = pc->as<OpNstricteq>();
     RETURN(jsBoolean(!JSValue::strictEqual(globalObject, GET_C(bytecode.m_lhs).jsValue(), GET_C(bytecode.m_rhs).jsValue())));
-}
-
-JSC_DEFINE_COMMON_SLOW_PATH(slow_path_less)
-{
-    BEGIN();
-    auto bytecode = pc->as<OpLess>();
-    RETURN(jsBoolean(jsLess<true>(globalObject, GET_C(bytecode.m_lhs).jsValue(), GET_C(bytecode.m_rhs).jsValue())));
-}
-
-JSC_DEFINE_COMMON_SLOW_PATH(slow_path_lesseq)
-{
-    BEGIN();
-    auto bytecode = pc->as<OpLesseq>();
-    RETURN(jsBoolean(jsLessEq<true>(globalObject, GET_C(bytecode.m_lhs).jsValue(), GET_C(bytecode.m_rhs).jsValue())));
-}
-
-JSC_DEFINE_COMMON_SLOW_PATH(slow_path_greater)
-{
-    BEGIN();
-    auto bytecode = pc->as<OpGreater>();
-    RETURN(jsBoolean(jsLess<false>(globalObject, GET_C(bytecode.m_rhs).jsValue(), GET_C(bytecode.m_lhs).jsValue())));
-}
-
-JSC_DEFINE_COMMON_SLOW_PATH(slow_path_greatereq)
-{
-    BEGIN();
-    auto bytecode = pc->as<OpGreatereq>();
-    RETURN(jsBoolean(jsLessEq<false>(globalObject, GET_C(bytecode.m_rhs).jsValue(), GET_C(bytecode.m_lhs).jsValue())));
 }
 
 JSC_DEFINE_COMMON_SLOW_PATH(slow_path_inc)
@@ -1336,6 +1310,36 @@ JSC_DEFINE_COMMON_SLOW_PATH(slow_path_new_array_with_spread)
     RETURN(result);
 }
 
+JSC_DEFINE_COMMON_SLOW_PATH(slow_path_new_array_with_species)
+{
+    BEGIN();
+    auto bytecode = pc->as<OpNewArrayWithSpecies>();
+    JSObject* array = asObject(GET_C(bytecode.m_array).jsValue());
+    uint64_t length = static_cast<uint64_t>(GET_C(bytecode.m_length).jsValue().asNumber());
+    auto& metadata = bytecode.metadata(codeBlock);
+    auto& arrayAllocationProfile = metadata.m_arrayAllocationProfile;
+    auto& arrayProfile = metadata.m_arrayProfile;
+
+    arrayProfile.observeStructureID(array->structureID());
+    std::pair<SpeciesConstructResult, JSObject*> speciesResult = speciesConstructArray(globalObject, array, length);
+    EXCEPTION_ASSERT(!!throwScope.exception() == (speciesResult.first == SpeciesConstructResult::Exception));
+
+    if (UNLIKELY(speciesResult.first == SpeciesConstructResult::Exception))
+        CHECK_EXCEPTION();
+
+    if (LIKELY(speciesResult.first == SpeciesConstructResult::FastPath)) {
+        if (UNLIKELY(length > std::numeric_limits<unsigned>::max()))
+            THROW(createRangeError(globalObject, "Array size is not a small enough positive integer."_s));
+
+        JSArray* result = constructEmptyArray(globalObject, &arrayAllocationProfile, static_cast<unsigned>(length));
+        CHECK_EXCEPTION();
+        RETURN_PROFILED(result);
+    }
+
+    ASSERT(speciesResult.first == SpeciesConstructResult::CreatedObject);
+    RETURN_PROFILED(speciesResult.second);
+}
+
 JSC_DEFINE_COMMON_SLOW_PATH(slow_path_new_array_buffer)
 {
     BEGIN();
@@ -1374,16 +1378,14 @@ JSC_DEFINE_COMMON_SLOW_PATH(slow_path_spread)
     BEGIN();
 
     auto bytecode = pc->as<OpSpread>();
-    JSValue iterable = GET_C(bytecode.m_argument).jsValue();
+    JSValue iterableValue = GET_C(bytecode.m_argument).jsValue();
 
-    if (iterable.isCell() && isJSArray(iterable.asCell())) {
-        JSArray* array = jsCast<JSArray*>(iterable);
-        if (array->isIteratorProtocolFastAndNonObservable()) {
-            // JSImmutableButterfly::createFromArray does not consult the prototype chain,
-            // so we must be sure that not consulting the prototype chain would
-            // produce the same value during iteration.
-            RETURN(JSImmutableButterfly::createFromArray(globalObject, vm, array));
-        }
+    if (iterableValue.isCell()) {
+        JSCell* iterable = iterableValue.asCell();
+        auto* result = CommonSlowPaths::trySpreadFast(globalObject, iterable);
+        CHECK_EXCEPTION();
+        if (result)
+            RETURN(result);
     }
 
     JSArray* array;
@@ -1393,7 +1395,7 @@ JSC_DEFINE_COMMON_SLOW_PATH(slow_path_spread)
         ASSERT(callData.type != CallData::Type::None);
 
         MarkedArgumentBuffer arguments;
-        arguments.append(iterable);
+        arguments.append(iterableValue);
         ASSERT(!arguments.hasOverflowed());
         JSValue arrayResult = call(globalObject, iterationFunction, callData, jsNull(), arguments);
         CHECK_EXCEPTION();

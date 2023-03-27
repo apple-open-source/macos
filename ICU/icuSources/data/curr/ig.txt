@@ -549,7 +549,7 @@ ig{
         }
         TRY{
             "TRY",
-            "Ego Lira obodo Turkey",
+            "Ego Lira obodo Türkiye",
         }
         TTD{
             "TTD",

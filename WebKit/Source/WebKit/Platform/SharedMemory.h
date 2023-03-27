@@ -27,20 +27,24 @@
 #pragma once
 
 #include <wtf/Forward.h>
-#include <wtf/Noncopyable.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 #if USE(UNIX_DOMAIN_SOCKETS)
-#include "Attachment.h"
+#include <wtf/unix/UnixFileDescriptor.h>
 #endif
 
 #if OS(WINDOWS)
-#include <windows.h>
+#include <wtf/win/Win32Handle.h>
+#endif
+
+#if OS(DARWIN)
+#include <wtf/MachSendRight.h>
 #endif
 
 namespace IPC {
 class Decoder;
 class Encoder;
+class Connection;
 }
 
 namespace WebCore {
@@ -48,12 +52,6 @@ class FragmentedSharedBuffer;
 class ProcessIdentity;
 class SharedBuffer;
 }
-
-#if OS(DARWIN)
-namespace WTF {
-class MachSendRight;
-}
-#endif
 
 namespace WebKit {
 
@@ -67,13 +65,7 @@ public:
     };
 
     class Handle {
-        WTF_MAKE_NONCOPYABLE(Handle);
     public:
-        Handle();
-        ~Handle();
-        Handle(Handle&&);
-        Handle& operator=(Handle&&);
-
         bool isNull() const;
 
         size_t size() const { return m_size; }
@@ -84,26 +76,25 @@ public:
 
         void clear();
 
-#if USE(UNIX_DOMAIN_SOCKETS)
-        IPC::Attachment releaseAttachment() const;
-        void adoptAttachment(IPC::Attachment&&);
-#endif
-#if OS(WINDOWS)
-        static void encodeHandle(IPC::Encoder&, HANDLE);
-        static std::optional<HANDLE> decodeHandle(IPC::Decoder&);
-#endif
         void encode(IPC::Encoder&) const;
         static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, Handle&);
+#if USE(UNIX_DOMAIN_SOCKETS)
+        UnixFileDescriptor releaseHandle();
+#endif
+
     private:
+#if USE(UNIX_DOMAIN_SOCKETS)
+        mutable UnixFileDescriptor m_handle;
+#elif OS(DARWIN)
+        mutable MachSendRight m_handle;
+#elif OS(WINDOWS)
+        mutable Win32Handle m_handle;
+#endif
+        size_t m_size { 0 };
         friend class SharedMemory;
 #if USE(UNIX_DOMAIN_SOCKETS)
-        mutable IPC::Attachment m_attachment;
-#elif OS(DARWIN)
-        mutable mach_port_t m_port { MACH_PORT_NULL };
-#elif OS(WINDOWS)
-        mutable HANDLE m_handle;
+        friend class IPC::Connection;
 #endif
-        size_t m_size;
     };
 
     // FIXME: Change these factory functions to return Ref<SharedMemory> and crash on failure.
@@ -121,7 +112,7 @@ public:
 
     ~SharedMemory();
 
-    bool createHandle(Handle&, Protection);
+    std::optional<Handle> createHandle(Protection);
 
     size_t size() const { return m_size; }
     void* data() const
@@ -131,7 +122,7 @@ public:
     }
 
 #if OS(WINDOWS)
-    HANDLE handle() const { return m_handle; }
+    HANDLE handle() const { return m_handle.get(); }
 #endif
 
 #if PLATFORM(COCOA)
@@ -152,12 +143,12 @@ private:
 #endif
 
 #if USE(UNIX_DOMAIN_SOCKETS)
-    std::optional<int> m_fileDescriptor;
+    UnixFileDescriptor m_fileDescriptor;
     bool m_isWrappingMap { false };
 #elif OS(DARWIN)
-    mach_port_t m_port { MACH_PORT_NULL };
+    MachSendRight m_sendRight;
 #elif OS(WINDOWS)
-    HANDLE m_handle;
+    Win32Handle m_handle;
 #endif
 };
 

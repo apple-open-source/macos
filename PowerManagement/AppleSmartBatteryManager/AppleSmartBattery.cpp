@@ -32,6 +32,8 @@
 #include "AppleSmartBattery.h"
 #include "AppleSmartBatteryKeys.h"
 #include "AppleSmartBatteryKeysPrivate.h"
+#include "AppleSmartBatteryCommands.h"
+#include "AppleSmartBatteryHFDataClient.h"
 #include "battery/adapter.h"
 #include "battery/smcaccessoryinfo_defs.h"
 #include "battery/powerTelemetry_defs.h"
@@ -41,6 +43,17 @@
 #if TARGET_OS_IPHONE || TARGET_OS_OSX_AS
 #include "battery/charger.h"
 #endif
+
+typedef struct CommandStruct_s {
+    uint32_t cmd;
+    int addr;
+    ASBMgrOpType opType;
+    uint32_t smcKey;
+    int nbytes;
+    const OSSymbol *setItAndForgetItSym;
+    int pathBits;
+    bool supportDesktops;
+} CommandStruct;
 
 enum {
     kSecondsUntilValidOnWake    = 30,

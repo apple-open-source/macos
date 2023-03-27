@@ -28,6 +28,7 @@
 
 #import "ArgumentCodersCF.h"
 #import "ArgumentCodersCocoa.h"
+#import "SharedMemory.h"
 #import <CoreText/CoreText.h>
 #import <WebCore/AttributedString.h>
 #import <WebCore/DataDetectorElementInfo.h>
@@ -76,22 +77,6 @@
 #import <pal/cocoa/VisionKitCoreSoftLink.h>
 
 namespace IPC {
-
-void ArgumentCoder<WebCore::AttributedString>::encode(Encoder& encoder, const WebCore::AttributedString& attributedString)
-{
-    encoder << attributedString.string << attributedString.documentAttributes;
-}
-
-std::optional<WebCore::AttributedString> ArgumentCoder<WebCore::AttributedString>::decode(Decoder& decoder)
-{
-    RetainPtr<NSAttributedString> attributedString;
-    if (!IPC::decode(decoder, attributedString))
-        return std::nullopt;
-    RetainPtr<NSDictionary> documentAttributes;
-    if (!IPC::decode(decoder, documentAttributes))
-        return std::nullopt;
-    return { { WTFMove(attributedString), WTFMove(documentAttributes) } };
-}
 
 #if ENABLE(APPLE_PAY)
 
@@ -406,13 +391,14 @@ std::optional<RefPtr<WebCore::ApplePayError>> ArgumentCoder<RefPtr<WebCore::Appl
     if (!isValid)
         return std::nullopt;
 
-    RefPtr<WebCore::ApplePayError> error;
     if (!*isValid)
         return { nullptr };
 
-    error = WebCore::ApplePayError::decode(decoder);
+    std::optional<Ref<WebCore::ApplePayError>> error;
+    decoder >> error;
     if (!error)
         return std::nullopt;
+
     return error;
 }
 
@@ -432,20 +418,6 @@ std::optional<WebCore::PaymentSessionError> ArgumentCoder<WebCore::PaymentSessio
 
 #endif // ENABLE(APPLEPAY)
 
-void ArgumentCoder<WebCore::DictionaryPopupInfo>::encodePlatformData(Encoder& encoder, const WebCore::DictionaryPopupInfo& info)
-{
-    encoder << info.options << info.attributedString;
-}
-
-bool ArgumentCoder<WebCore::DictionaryPopupInfo>::decodePlatformData(Decoder& decoder, WebCore::DictionaryPopupInfo& result)
-{
-    if (!IPC::decode(decoder, result.options))
-        return false;
-    if (!IPC::decode(decoder, result.attributedString))
-        return false;
-    return true;
-}
-
 void ArgumentCoder<WebCore::Font>::encodePlatformData(Encoder& encoder, const WebCore::Font& font)
 {
     const auto& platformData = font.platformData();
@@ -464,7 +436,14 @@ void ArgumentCoder<WebCore::Font>::encodePlatformData(Encoder& encoder, const We
     const auto& creationData = platformData.creationData();
     encoder << static_cast<bool>(creationData);
     if (creationData) {
-        encoder << creationData->fontFaceData;
+        WebKit::SharedMemory::Handle handle;
+        {
+            auto sharedMemoryBuffer = WebKit::SharedMemory::copyBuffer(creationData->fontFaceData);
+            if (auto memoryHandle = sharedMemoryBuffer->createHandle(WebKit::SharedMemory::Protection::ReadOnly))
+                handle = WTFMove(*memoryHandle);
+        }
+        encoder << creationData->fontFaceData->size();
+        encoder << WTFMove(handle);
         encoder << creationData->itemInCollection;
     } else {
         auto options = CTFontDescriptorGetOptions(fontDescriptor.get());
@@ -560,19 +539,31 @@ std::optional<WebCore::FontPlatformData> ArgumentCoder<WebCore::Font>::decodePla
         return std::nullopt;
 
     if (*includesCreationData) {
-        std::optional<Ref<WebCore::FragmentedSharedBuffer>> fontFaceData;
-        decoder >> fontFaceData;
-        if (!fontFaceData)
+        std::optional<uint64_t> bufferSize;
+        decoder >> bufferSize;
+        if (!bufferSize)
             return std::nullopt;
 
-        auto localFontFaceData = fontFaceData.value()->makeContiguous();
+        std::optional<WebKit::SharedMemory::Handle> handle;
+        decoder >> handle;
+        if (!handle)
+            return std::nullopt;
+
+        auto sharedMemoryBuffer = WebKit::SharedMemory::map(*handle, WebKit::SharedMemory::Protection::ReadOnly);
+        if (!sharedMemoryBuffer)
+            return std::nullopt;
+
+        if (sharedMemoryBuffer->size() < *bufferSize)
+            return std::nullopt;
+
+        auto fontFaceData = sharedMemoryBuffer->createSharedBuffer(*bufferSize);
 
         std::optional<String> itemInCollection;
         decoder >> itemInCollection;
         if (!itemInCollection)
             return std::nullopt;
 
-        auto fontCustomPlatformData = createFontCustomPlatformData(localFontFaceData, *itemInCollection);
+        auto fontCustomPlatformData = createFontCustomPlatformData(fontFaceData, *itemInCollection);
         if (!fontCustomPlatformData)
             return std::nullopt;
         auto baseFontDescriptor = fontCustomPlatformData->fontDescriptor.get();
@@ -581,7 +572,7 @@ std::optional<WebCore::FontPlatformData> ArgumentCoder<WebCore::Font>::decodePla
         auto fontDescriptor = adoptCF(CTFontDescriptorCreateCopyWithAttributes(baseFontDescriptor, attributes->get()));
         auto ctFont = adoptCF(CTFontCreateWithFontDescriptor(fontDescriptor.get(), *size, nullptr));
 
-        auto creationData = WebCore::FontPlatformData::CreationData { localFontFaceData, *itemInCollection };
+        auto creationData = WebCore::FontPlatformData::CreationData { fontFaceData, *itemInCollection };
         return WebCore::FontPlatformData(ctFont.get(), *size, *syntheticBold, *syntheticOblique, *orientation, *widthVariant, *textRenderingMode, &creationData);
     }
 
@@ -607,67 +598,6 @@ std::optional<WebCore::FontPlatformData> ArgumentCoder<WebCore::Font>::decodePla
     return WebCore::FontPlatformData(ctFont.get(), *size, *syntheticBold, *syntheticOblique, *orientation, *widthVariant, *textRenderingMode);
 }
 
-void ArgumentCoder<WebCore::ResourceRequest>::encodePlatformData(Encoder& encoder, const WebCore::ResourceRequest& resourceRequest)
-{
-    auto requestToSerialize = retainPtr(resourceRequest.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
-
-    if (Class requestClass = [requestToSerialize class]; UNLIKELY(requestClass != [NSURLRequest class] && requestClass != [NSMutableURLRequest class])) {
-        WebCore::ResourceRequest request(requestToSerialize.get());
-        request.replacePlatformRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody);
-        requestToSerialize = retainPtr(request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
-    }
-    ASSERT([requestToSerialize class] == [NSURLRequest class] || [requestToSerialize class] == [NSMutableURLRequest class]);
-
-    bool requestIsPresent = requestToSerialize;
-    encoder << requestIsPresent;
-
-    if (!requestIsPresent)
-        return;
-
-    // We don't send HTTP body over IPC for better performance.
-    // Also, it's not always possible to do, as streams can only be created in process that does networking.
-    if ([requestToSerialize HTTPBody] || [requestToSerialize HTTPBodyStream]) {
-        auto mutableRequest = adoptNS([requestToSerialize mutableCopy]);
-        [mutableRequest setHTTPBody:nil];
-        [mutableRequest setHTTPBodyStream:nil];
-        requestToSerialize = WTFMove(mutableRequest);
-    }
-
-    IPC::encode(encoder, requestToSerialize.get());
-
-    encoder << resourceRequest.requester();
-    encoder << resourceRequest.isAppInitiated();
-}
-
-bool ArgumentCoder<WebCore::ResourceRequest>::decodePlatformData(Decoder& decoder, WebCore::ResourceRequest& resourceRequest)
-{
-    bool requestIsPresent;
-    if (!decoder.decode(requestIsPresent))
-        return false;
-
-    if (!requestIsPresent) {
-        resourceRequest = WebCore::ResourceRequest();
-        return true;
-    }
-
-    auto request = IPC::decode<NSURLRequest>(decoder, NSURLRequest.class);
-    if (!request)
-        return false;
-    
-    WebCore::ResourceRequest::Requester requester;
-    if (!decoder.decode(requester))
-        return false;
-
-    bool isAppInitiated;
-    if (!decoder.decode(isAppInitiated))
-        return false;
-
-    resourceRequest = WebCore::ResourceRequest(request->get());
-    resourceRequest.setRequester(requester);
-    resourceRequest.setIsAppInitiated(isAppInitiated);
-
-    return true;
-}
 
 #if ENABLE(DATA_DETECTION)
 

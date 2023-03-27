@@ -32,7 +32,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(SVGFEDropShadowElement);
 
 inline SVGFEDropShadowElement::SVGFEDropShadowElement(const QualifiedName& tagName, Document& document)
-    : SVGFilterPrimitiveStandardAttributes(tagName, document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document, makeUniqueRef<PropertyRegistry>(*this))
 {
     ASSERT(hasTagName(SVGNames::feDropShadowTag));
     
@@ -134,6 +134,11 @@ bool SVGFEDropShadowElement::setFilterEffectAttribute(FilterEffect& effect, cons
 
     ASSERT_NOT_REACHED();
     return false;
+}
+
+bool SVGFEDropShadowElement::isIdentity() const
+{
+    return !stdDeviationX() && !stdDeviationY() && !dx() && !dy();
 }
 
 IntOutsets SVGFEDropShadowElement::outsets(const FloatRect& targetBoundingBox, SVGUnitTypes::SVGUnitType primitiveUnits) const

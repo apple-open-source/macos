@@ -693,7 +693,7 @@ extension OctagonPairingTests {
     func testProximitySetupUsingCliqueOctagonAndSOS() throws {
         self.startCKAccountStatusMock()
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         self.getAcceptorInCircle()
 
@@ -788,7 +788,7 @@ extension OctagonPairingTests {
     }
 
     func testProximitySetupUsingCliqueOctagonOnly() throws {
-        OctagonSetPlatformSupportsSOS(false)
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -875,7 +875,7 @@ extension OctagonPairingTests {
 
     func testProximitySetupOctagonAndSOSWithSOSFailure() throws {
         // ensure Octagon protocol continues even if SOS fails in some way.
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -960,9 +960,9 @@ extension OctagonPairingTests {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
     }
 
-    func testProximitySetupOctagonAndSOSWithOcatagonInitiatorMessage1Failure() throws {
+    func testProximitySetupOctagonAndSOSWithOctagonInitiatorMessage1Failure() throws {
         // ensure Octagon protocol halts if enabled and encounters a failure
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -998,7 +998,7 @@ extension OctagonPairingTests {
 
     func testProximitySetupOctagonAndSOSWithOctagonAcceptorMessage1Failure() throws {
         // ensure Octagon protocol continues even if SOS fails in some way.
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -1042,7 +1042,7 @@ extension OctagonPairingTests {
     }
 
     func testProximitySetupOctagonAndSOSWithOctagonInitiatorMessage2Failure() throws {
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -1091,7 +1091,7 @@ extension OctagonPairingTests {
     }
 
     func testProximitySetupOctagonAndSOSWithOctagonAcceptorMessage2Failure() throws {
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -1141,7 +1141,7 @@ extension OctagonPairingTests {
     }
 
     func testProximitySetupOctagonAndSOSWithOctagonInitiatorMessage3Failure() throws {
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -1203,12 +1203,12 @@ extension OctagonPairingTests {
                                               signingKey: signingKeyAcceptor,
                                               viewList: self.managedViewList())
 
-        self.mockSOSAdapter.trustedPeers.add(AcceptorSOSPeer)
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.trustedPeers.add(AcceptorSOSPeer)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let acceptor = self.manager.context(forContainerName: OTCKContainerName,
                                             contextID: self.contextForAcceptor,
-                                            sosAdapter: self.mockSOSAdapter,
+                                            sosAdapter: self.mockSOSAdapter!,
                                             accountsAdapter: self.mockAuthKit2,
                                             authKitAdapter: self.mockAuthKit2,
                                             tooManyPeersAdapter: self.mockTooManyPeers,
@@ -1233,12 +1233,12 @@ extension OctagonPairingTests {
     func testProximitySetupUsingCliqueAcceptorResolvesVersionToSOSOnly() throws {
         self.startCKAccountStatusMock()
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let newSOSPeer = createSOSPeer(peerID: "sos-peer-id")
-        self.mockSOSAdapter.selfPeer = newSOSPeer
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
-        self.mockSOSAdapter.trustedPeers.add(newSOSPeer)
+        self.mockSOSAdapter!.selfPeer = newSOSPeer
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.trustedPeers.add(newSOSPeer)
 
         self.getAcceptorInCircle()
 
@@ -1291,7 +1291,7 @@ extension OctagonPairingTests {
     func testProximitySetupUsingCliqueInitiatorResolvesVersionToSOSOnly() throws {
         self.startCKAccountStatusMock()
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         self.getAcceptorInCircle()
 

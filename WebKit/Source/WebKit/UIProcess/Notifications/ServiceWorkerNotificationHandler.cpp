@@ -26,6 +26,7 @@
 #include "config.h"
 #include "ServiceWorkerNotificationHandler.h"
 
+#include "Logging.h"
 #include "WebsiteDataStore.h"
 #include <WebCore/NotificationData.h>
 #include <wtf/Scope.h>
@@ -53,8 +54,10 @@ WebsiteDataStore* ServiceWorkerNotificationHandler::dataStoreForNotificationID(c
     return WebsiteDataStore::existingDataStoreForSessionID(iterator->value);
 }
 
-void ServiceWorkerNotificationHandler::showNotification(IPC::Connection& connection, const WebCore::NotificationData& data, CompletionHandler<void()>&& callback)
+void ServiceWorkerNotificationHandler::showNotification(IPC::Connection& connection, const WebCore::NotificationData& data, RefPtr<WebCore::NotificationResources>&&, CompletionHandler<void()>&& callback)
 {
+    RELEASE_LOG(Push, "ServiceWorkerNotificationHandler showNotification called");
+
     auto scope = makeScopeExit([&callback] { callback(); });
 
     auto* dataStore = WebsiteDataStore::existingDataStoreForSessionID(data.sourceSession);

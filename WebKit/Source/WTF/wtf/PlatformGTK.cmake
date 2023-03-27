@@ -7,6 +7,7 @@ list(APPEND WTF_PUBLIC_HEADERS
     glib/GSocketMonitor.h
     glib/GTypedefs.h
     glib/GUniquePtr.h
+    glib/GWeakPtr.h
     glib/RunLoopSourcePriority.h
     glib/Sandbox.h
     glib/SocketConnection.h
@@ -24,6 +25,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     )
 elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     list(APPEND WTF_PUBLIC_HEADERS
+        spi/darwin/OSVariantSPI.h
         spi/darwin/ProcessMemoryFootprint.h
     )
 endif ()

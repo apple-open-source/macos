@@ -173,7 +173,7 @@ const GridTrackSize& GridTrackSizingAlgorithm::rawGridTrackSize(GridTrackSizingD
 {
     bool isRowAxis = direction == ForColumns;
     auto& renderStyle = m_renderGrid->style();
-    auto& trackStyles = isRowAxis ? renderStyle.gridColumns() : renderStyle.gridRows();
+    auto& trackStyles = isRowAxis ? renderStyle.gridColumnTrackSizes() : renderStyle.gridRowTrackSizes();
     auto& autoRepeatTrackStyles = isRowAxis ? renderStyle.gridAutoRepeatColumns() : renderStyle.gridAutoRepeatRows();
     auto& autoTrackStyles = isRowAxis ? renderStyle.gridAutoColumns() : renderStyle.gridAutoRows();
     unsigned insertionPoint = isRowAxis ? renderStyle.gridAutoRepeatColumnsInsertionPoint() : renderStyle.gridAutoRepeatRowsInsertionPoint();
@@ -211,6 +211,9 @@ const GridTrackSize& GridTrackSizingAlgorithm::rawGridTrackSize(GridTrackSizingD
 
 LayoutUnit GridTrackSizingAlgorithm::computeTrackBasedSize() const
 {
+    if (isDirectionInMasonryDirection())
+        return m_renderGrid->masonryContentSize();
+    
     LayoutUnit size;
     auto& allTracks = tracks(m_direction);
     for (auto& track : allTracks)
@@ -630,7 +633,7 @@ std::optional<LayoutUnit> GridTrackSizingAlgorithm::gridAreaBreadthForChild(cons
     // To determine the column track's size based on an orthogonal grid item we need it's logical
     // height, which may depend on the row track's size. It's possible that the row tracks sizing
     // logic has not been performed yet, so we will need to do an estimation.
-    if (direction == ForRows && (m_sizingState == ColumnSizingFirstIteration || m_sizingState == ColumnSizingSecondIteration)) {
+    if (direction == ForRows && (m_sizingState == ColumnSizingFirstIteration || m_sizingState == ColumnSizingSecondIteration) && !m_renderGrid->areMasonryColumns()) {
         ASSERT(GridLayoutFunctions::isOrthogonalChild(*m_renderGrid, child));
         // FIXME (jfernandez) Content Alignment should account for this heuristic.
         // https://github.com/w3c/csswg-drafts/issues/2697
@@ -786,6 +789,14 @@ double GridTrackSizingAlgorithm::findFrUnitSize(const GridSpan& tracksSpan, Layo
 
 void GridTrackSizingAlgorithm::computeGridContainerIntrinsicSizes()
 {
+    if (m_direction == ForColumns && m_strategy->isComputingSizeContainment()) {
+        if (auto size = m_renderGrid->explicitIntrinsicInnerLogicalSize(m_direction)) {
+            m_minContentSize = size.value();
+            m_maxContentSize = size.value();
+            return;
+        }
+    }
+
     m_minContentSize = m_maxContentSize = 0_lu;
 
     Vector<GridTrack>& allTracks = tracks(m_direction);
@@ -1324,7 +1335,41 @@ void GridTrackSizingAlgorithm::accumulateIntrinsicSizesForTrack(GridTrack& track
     Vector<GridTrack>& allTracks = tracks(m_direction);
 
     while (auto* gridItem = iterator.nextGridItem()) {
+
         bool isNewEntry = itemsSet.add(gridItem).isNewEntry;
+
+        // Masonry Track Sizing
+        // https://drafts.csswg.org/css-grid-3/#track-sizing
+        // We should only compute track sizes on a subset of items.
+        //
+        // - Items placed at the first implicit line in the masonry axis.
+        // - Items that have a specified definite placement in the grid axis.
+        // - Items that span all grid axis tracks.
+        if (m_renderGrid->isMasonry()) {
+            bool skipTrackSizing = true;
+
+            // m_direction shall always be the gridAxisDirection.
+            ASSERT(!isDirectionInMasonryDirection());
+            auto gridAxisDirection = m_direction;
+            auto masonryAxisDirection = m_renderGrid->areMasonryRows() ? ForRows : ForColumns;
+            auto span = GridPositionsResolver::resolveGridPositionsFromStyle(*m_renderGrid, *gridItem, gridAxisDirection);
+
+            // Items placed at the first implicit line in the masonry axis.
+            if (!m_renderGrid->gridSpanForChild(*gridItem, masonryAxisDirection).startLine())
+                skipTrackSizing = false;
+
+            // Items that have a specified definite placement in the grid axis.
+            if (!span.isIndefinite())
+                skipTrackSizing = false;
+
+            // Items that span all grid axis tracks.
+            if (m_renderGrid->gridSpanForChild(*gridItem, gridAxisDirection).integerSpan() == tracks(gridAxisDirection).size())
+                skipTrackSizing = false;
+
+            if (skipTrackSizing)
+                continue;
+        }
+
         if (is<RenderGrid>(gridItem) && downcast<RenderGrid>(gridItem)->isSubgridInParentDirection(iterator.direction())) {
             // Contribute the mbp of wrapper to the first and last tracks that we span.
             RenderGrid* inner = downcast<RenderGrid>(gridItem);
@@ -1564,6 +1609,7 @@ bool GridTrackSizingAlgorithm::copyUsedTrackSizesForSubgrid()
     GridSpan span = outer->gridSpanForChild(*m_renderGrid, direction);
     Vector<GridTrack>& allTracks = tracks(m_direction);
     int numTracks = allTracks.size();
+    RELEASE_ASSERT((parentTracks.size()  - 1) >= (numTracks - 1 + span.startLine()));
     for (int i = 0; i < numTracks; i++)
         allTracks[i] = parentTracks[i + span.startLine()];
 
@@ -1592,6 +1638,12 @@ void GridTrackSizingAlgorithm::run()
     ASSERT(wasSetup());
     StateMachine stateMachine(*this);
 
+    if (m_renderGrid->isMasonry(m_direction))
+        return;
+    
+    if (m_renderGrid->isMasonry(m_direction))
+        return;
+
     if (m_renderGrid->isSubgrid(m_direction) && copyUsedTrackSizesForSubgrid())
         return;
 
@@ -1616,7 +1668,7 @@ void GridTrackSizingAlgorithm::run()
 
     // Step 3.
     m_strategy->maximizeTracks(tracks(m_direction), m_direction == ForColumns ? m_freeSpaceColumns : m_freeSpaceRows);
-    if (m_strategy->isComputingSizeContainment())
+    if (m_strategy->isComputingSizeContainment() && !m_renderGrid->explicitIntrinsicInnerLogicalSize(m_direction))
         return;
 
     // Step 4.
@@ -1670,6 +1722,11 @@ GridTrackSizingAlgorithm::StateMachine::~StateMachine()
 {
     m_algorithm.advanceNextState();
     m_algorithm.m_needsSetup = true;
+}
+
+bool GridTrackSizingAlgorithm::isDirectionInMasonryDirection() const
+{
+    return m_renderGrid->isMasonry(m_direction);
 }
 
 } // namespace WebCore

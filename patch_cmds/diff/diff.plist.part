@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>diff</string>
 		<key>OpenSourceVersion</key>
-		<string>2022-03-10</string>
+		<string>2022-12-13</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/diff?id=93b7af1d854db2a92dc9fcca70e068a159385f4d</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/diff?id=54d65fdd5643f61a816c1d028b53039290ed1d92</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-03-10</string>
+		<string>2022-12-13</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>diffreg.c: Add missing include files (82062267)</string>

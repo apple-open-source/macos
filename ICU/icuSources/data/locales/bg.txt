@@ -457,16 +457,16 @@ bg{
         }
         gregorian{
             AmPmMarkers{
-                "пр.об.",
-                "сл.об.",
+                "AM",
+                "PM",
             }
             AmPmMarkersAbbr{
-                "am",
-                "pm",
+                "AM",
+                "PM",
             }
             AmPmMarkersNarrow{
-                "am",
-                "pm",
+                "AM",
+                "PM",
             }
             DateTimePatterns{
                 "H:mm:ss zzzz",
@@ -667,33 +667,33 @@ bg{
                 stand-alone{
                     abbreviated{
                         afternoon1{"следобед"}
-                        am{"am"}
+                        am{"AM"}
                         evening1{"вечерта"}
                         midnight{"полунощ"}
                         morning1{"сутринта"}
                         morning2{"на обяд"}
                         night1{"през нощта"}
-                        pm{"pm"}
+                        pm{"PM"}
                     }
                     narrow{
                         afternoon1{"следобед"}
-                        am{"am"}
+                        am{"AM"}
                         evening1{"вечерта"}
                         midnight{"полунощ"}
                         morning1{"сутринта"}
                         morning2{"на обяд"}
                         night1{"през нощта"}
-                        pm{"pm"}
+                        pm{"PM"}
                     }
                     wide{
                         afternoon1{"следобед"}
-                        am{"am"}
+                        am{"AM"}
                         evening1{"вечерта"}
                         midnight{"полунощ"}
                         morning1{"сутринта"}
                         morning2{"на обяд"}
                         night1{"през нощта"}
-                        pm{"pm"}
+                        pm{"PM"}
                     }
                 }
             }
@@ -1239,13 +1239,13 @@ bg{
             dn{"ден от г."}
         }
         dayperiod{
-            dn{"пр.об./сл.об."}
+            dn{"AM/PM"}
         }
         dayperiod-narrow{
-            dn{"пр.об./сл.об."}
+            dn{"AM/PM"}
         }
         dayperiod-short{
-            dn{"пр.об./сл.об."}
+            dn{"AM/PM"}
         }
         era{
             dn{"ера"}

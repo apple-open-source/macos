@@ -23,10 +23,13 @@
 #if USE(LIBWEBRTC) && PLATFORM(COCOA) && ENABLE(GPU_PROCESS)
 
 messages -> LibWebRTCCodecs NotRefCounted {
-    FailedDecoding(WebKit::RTCDecoderIdentifier identifier)
-    CompletedDecoding(WebKit::RTCDecoderIdentifier identifier, uint32_t timeStamp, uint32_t timeStampNs, WebKit::RemoteVideoFrameProxy::Properties frame)
-    CompletedDecodingCV(WebKit::RTCDecoderIdentifier identifier, uint32_t timeStamp, uint32_t timeStampNs, RetainPtr<CVPixelBufferRef> pixelBuffer)
-    CompletedEncoding(WebKit::RTCEncoderIdentifier identifier, IPC::DataReference data, struct webrtc::WebKitEncodedFrameInfo info);
+    FailedDecoding(WebKit::VideoDecoderIdentifier identifier)
+    FlushDecoderCompleted(WebKit::VideoDecoderIdentifier identifier)
+    CompletedDecoding(WebKit::VideoDecoderIdentifier identifier, int64_t timeStamp, int64_t timeStampNs, WebKit::RemoteVideoFrameProxy::Properties frame)
+    CompletedDecodingCV(WebKit::VideoDecoderIdentifier identifier, int64_t timeStamp, int64_t timeStampNs, RetainPtr<CVPixelBufferRef> pixelBuffer)
+    CompletedEncoding(WebKit::VideoEncoderIdentifier identifier, IPC::DataReference data, struct webrtc::WebKitEncodedFrameInfo info);
+    FlushEncoderCompleted(WebKit::VideoEncoderIdentifier id)
+    SetEncodingDescription(WebKit::VideoEncoderIdentifier identifier, IPC::DataReference data);
 }
 
 #endif // USE(LIBWEBRTC) && PLATFORM(COCOA) && ENABLE(GPU_PROCESS)

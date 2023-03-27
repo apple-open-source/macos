@@ -69,15 +69,15 @@ extern "C" {
 
 typedef struct ctf_helem {
 	uint32_t h_name;		/* reference to name in string table */
-	uint16_t h_type;	/* corresponding type ID number */
-	uint16_t h_next;	/* index of next element in hash chain */
+	uint32_t h_type;	/* corresponding type ID number */
+	uint32_t h_next;	/* index of next element in hash chain */
 } ctf_helem_t;
 
 typedef struct ctf_hash {
-	uint16_t *h_buckets;	/* hash bucket array (chain indices) */
+	uint32_t *h_buckets;	/* hash bucket array (chain indices) */
 	ctf_helem_t *h_chains;	/* hash chains buffer */
-	uint16_t h_nbuckets;	/* number of elements in bucket array */
-	uint16_t h_nelems;	/* number of elements in hash table */
+	uint32_t h_nbuckets;	/* number of elements in bucket array */
+	uint32_t h_nelems;	/* number of elements in hash table */
 	uint32_t h_free;		/* index of next free hash element */
 } ctf_hash_t;
 
@@ -103,9 +103,15 @@ typedef struct ctf_lookup {
 } ctf_lookup_t;
 
 typedef struct ctf_fileops {
-	uint16_t (*ctfo_get_kind)(uint16_t);
-	uint16_t (*ctfo_get_root)(uint16_t);
-	uint16_t (*ctfo_get_vlen)(uint16_t);
+	uint16_t (*ctfo_get_kind)(uint32_t);
+	uint16_t (*ctfo_get_root)(uint32_t);
+	uint16_t (*ctfo_get_vlen)(uint32_t);
+	bool     (*ctfo_isparent)(ctf_id_t);
+	bool     (*ctfo_ischild)(ctf_id_t);
+	uint32_t (*ctfo_type_to_index)(ctf_id_t);
+	ctf_id_t (*ctfo_index_to_type)(uint32_t, bool);
+	uint32_t (*ctfo_max_size)(void);
+	uint32_t (*ctfo_lsize_sent)(void);
 } ctf_fileops_t;
 
 typedef struct ctf_list {
@@ -199,7 +205,7 @@ struct ctf_file {
 	uint32_t *ctf_sxlate;	/* translation table for symtab entries */
 	unsigned long ctf_nsyms;	/* number of entries in symtab xlate table */
 	uint32_t *ctf_txlate;	/* translation table for type IDs */
-	uint16_t *ctf_ptrtab;	/* translation table for pointer-to lookups */
+	uint32_t *ctf_ptrtab;	/* translation table for pointer-to lookups */
 	unsigned long ctf_typemax;	/* maximum valid type ID number */
 	const ctf_dmodel_t *ctf_dmodel;	/* data model pointer (see above) */
 	struct ctf_file *ctf_parent;	/* parent CTF container (if any) */
@@ -224,6 +230,12 @@ struct ctf_file {
 #define	LCTF_INFO_KIND(fp, info)	((fp)->ctf_fileops->ctfo_get_kind(info))
 #define	LCTF_INFO_ROOT(fp, info)	((fp)->ctf_fileops->ctfo_get_root(info))
 #define	LCTF_INFO_VLEN(fp, info)	((fp)->ctf_fileops->ctfo_get_vlen(info))
+#define	LCTF_TYPE_ISPARENT(fp, id)	((fp)->ctf_fileops->ctfo_isparent(id))
+#define	LCTF_TYPE_ISCHILD(fp, id)	((fp)->ctf_fileops->ctfo_ischild(id))
+#define	LCTF_TYPE_TO_INDEX(fp, id)	((fp)->ctf_fileops->ctfo_type_to_index(id))
+#define	LCTF_INDEX_TO_TYPE(fp, id, child)	((fp)->ctf_fileops->ctfo_index_to_type(id, child))
+#define	LCTF_MAX_SIZE(fp)	((fp)->ctf_fileops->ctfo_max_size())
+#define	LCTF_LSIZE_SENT(fp)	((fp)->ctf_fileops->ctfo_lsize_sent())
 
 #define	LCTF_MMAP	0x0001	/* libctf should munmap buffers on close */
 #define	LCTF_CHILD	0x0002	/* CTF container is a child */
@@ -282,14 +294,20 @@ enum {
 	ECTF_NOTPTRAUTH		/* type is not a ptrauth */
 };
 
-extern ssize_t ctf_get_ctt_size(const ctf_file_t *, const ctf_type_t *,
+extern ssize_t ctf_get_ctt_size(const ctf_file_t *, const void *,
     ssize_t *, ssize_t *);
 
-extern const ctf_type_t *ctf_lookup_by_id(ctf_file_t **, ctf_id_t);
+extern uint32_t get_type_ctt_info(const ctf_file_t *, const void *);
+extern uint32_t get_type_ctt_type(const ctf_file_t *, const void *);
+extern uint32_t get_type_ctt_name(const ctf_file_t *, const void *);
+extern uint32_t get_type_ctt_size(const ctf_file_t *, const void *);
+extern uint64_t ctf_get_ctt_lsize(const ctf_file_t *, const void *);
+
+extern const void *ctf_lookup_by_id(ctf_file_t **, ctf_id_t);
 
 extern int ctf_hash_create(ctf_hash_t *, unsigned long);
-extern int ctf_hash_insert(ctf_hash_t *, ctf_file_t *, uint16_t, uint32_t);
-extern int ctf_hash_define(ctf_hash_t *, ctf_file_t *, uint16_t, uint32_t);
+extern int ctf_hash_insert(ctf_hash_t *, ctf_file_t *, uint32_t, uint32_t);
+extern int ctf_hash_define(ctf_hash_t *, ctf_file_t *, uint32_t, uint32_t);
 extern ctf_helem_t *ctf_hash_lookup(ctf_hash_t *, ctf_file_t *,
     const char *, size_t);
 extern uint32_t ctf_hash_size(const ctf_hash_t *);

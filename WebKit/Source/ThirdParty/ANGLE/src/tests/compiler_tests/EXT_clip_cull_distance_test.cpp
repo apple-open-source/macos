@@ -13,6 +13,8 @@ namespace
 {
 const char EXTPragma[] = "#extension GL_EXT_clip_cull_distance : require\n";
 
+const char ANGLEPragma[] = "#extension GL_ANGLE_clip_cull_distance : require\n";
+
 // Shader using gl_ClipDistance and gl_CullDistance
 const char VertexShaderCompileSucceeds1[] =
     R"(
@@ -42,6 +44,7 @@ const char VertexShaderCompileSucceeds2[] =
         gl_Position = aPosition;
         gl_ClipDistance[gl_MaxClipDistances - 6 + 1] = dot(aPosition, uPlane);
         gl_ClipDistance[gl_MaxClipDistances - int(aPosition.x)] = dot(aPosition, uPlane);
+        gl_ClipDistance[gl_MaxCombinedClipAndCullDistances - 5] = dot(aPosition, uPlane);
         gl_CullDistance[gl_MaxCullDistances - 6 + 1] = dot(aPosition, uPlane);
         gl_CullDistance[gl_MaxCullDistances - int(aPosition.x)] = dot(aPosition, uPlane);
     })";
@@ -166,6 +169,7 @@ const char FragmentShaderCompileSucceeds2[] =
         fragColor.y = gl_ClipDistance[gl_MaxClipDistances - int(aPosition.x)];
         fragColor.z = gl_CullDistance[gl_MaxCullDistances - 6 + 1];
         fragColor.w = gl_CullDistance[gl_MaxCullDistances - int(aPosition.x)];
+        fragColor *= gl_CullDistance[gl_MaxCombinedClipAndCullDistances - 5];
     })";
 
 #if defined(ANGLE_ENABLE_VULKAN)
@@ -239,6 +243,44 @@ const char FragmentShaderCompileFails5[] =
         }
         fragColor = vec4(color[0], color[1], color[2], 1.0f);
     })";
+
+// In compute shader, redeclaring gl_ClipDistance should be denied.
+const char ComputeShaderCompileFails1[] =
+    R"(
+    layout(local_size_x = 1) in;
+    highp float gl_ClipDistance[1];
+    void main() {})";
+
+// In compute shader, writing to gl_ClipDistance should be denied.
+const char ComputeShaderCompileFails2[] =
+    R"(
+    layout(local_size_x = 1) in;
+    void main() { gl_ClipDistance[0] = 1.0; })";
+
+// In compute shader, reading gl_ClipDistance should be denied.
+const char ComputeShaderCompileFails3[] =
+    R"(
+    layout(local_size_x = 1) in;
+    void main() { highp float c = gl_ClipDistance[0]; })";
+
+// In compute shader, redeclaring gl_CullDistance should be denied.
+const char ComputeShaderCompileFails4[] =
+    R"(
+    layout(local_size_x = 1) in;
+    highp float gl_CullDistance[1];
+    void main() {})";
+
+// In compute shader, writing to gl_CullDistance should be denied.
+const char ComputeShaderCompileFails5[] =
+    R"(
+    layout(local_size_x = 1) in;
+    void main() { gl_CullDistance[0] = 1.0; })";
+
+// In compute shader, reading gl_CullDistance should be denied.
+const char ComputeShaderCompileFails6[] =
+    R"(
+    layout(local_size_x = 1) in;
+    void main() { highp float c = gl_CullDistance[0]; })";
 #endif
 
 class EXTClipCullDistanceTest : public sh::ShaderExtensionTest
@@ -255,9 +297,13 @@ class EXTClipCullDistanceTest : public sh::ShaderExtensionTest
 
     testing::AssertionResult TestShaderCompile(const char *pragma)
     {
+        ShCompileOptions compileOptions = {};
+        compileOptions.objectCode       = true;
+        compileOptions.variables        = true;
+
         const char *shaderStrings[] = {testing::get<1>(GetParam()), pragma,
                                        testing::get<2>(GetParam())};
-        bool success = sh::Compile(mCompiler, shaderStrings, 3, SH_VARIABLES | SH_OBJECT_CODE);
+        bool success                = sh::Compile(mCompiler, shaderStrings, 3, compileOptions);
         if (success)
         {
             return ::testing::AssertionSuccess() << "Compilation success";
@@ -267,11 +313,14 @@ class EXTClipCullDistanceTest : public sh::ShaderExtensionTest
 
     void SetExtensionEnable(bool enable)
     {
-        // GL_APPLE_clip_distance is implicitly enabled when GL_EXT_clip_cull_distance is enabled
+        // GL_APPLE_clip_distance is implicitly enabled when GL_EXT_clip_cull_distance or
+        // GL_ANGLE_clip_cull_distance are enabled
 #if defined(ANGLE_ENABLE_VULKAN)
         mResources.APPLE_clip_distance = enable;
 #endif
         mResources.EXT_clip_cull_distance = enable;
+
+        mResources.ANGLE_clip_cull_distance = enable;
     }
 };
 
@@ -295,6 +344,16 @@ class EXTClipCullDistanceForFragmentShaderTest : public EXTClipCullDistanceTest
     }
 };
 
+class EXTClipCullDistanceForComputeShaderTest : public EXTClipCullDistanceTest
+{
+  public:
+    void InitializeCompiler() { InitializeCompiler(SH_GLSL_450_CORE_OUTPUT); }
+    void InitializeCompiler(ShShaderOutput shaderOutputType)
+    {
+        EXTClipCullDistanceTest::InitializeCompiler(shaderOutputType, GL_COMPUTE_SHADER);
+    }
+};
+
 // Extension flag is required to compile properly. Expect failure when it is
 // not present.
 TEST_P(EXTClipCullDistanceForVertexShaderTest, CompileFailsWithoutExtension)
@@ -302,6 +361,8 @@ TEST_P(EXTClipCullDistanceForVertexShaderTest, CompileFailsWithoutExtension)
     SetExtensionEnable(false);
     InitializeCompiler();
     EXPECT_FALSE(TestShaderCompile(EXTPragma));
+    InitializeCompiler();
+    EXPECT_FALSE(TestShaderCompile(ANGLEPragma));
 }
 
 // Extension directive is required to compile properly. Expect failure when
@@ -327,6 +388,10 @@ TEST_P(EXTClipCullDistanceForVertexShaderTest, CompileSucceedsVulkan)
     EXPECT_TRUE(TestShaderCompile(EXTPragma));
     EXPECT_FALSE(TestShaderCompile(""));
     EXPECT_TRUE(TestShaderCompile(EXTPragma));
+    InitializeCompiler(SH_SPIRV_VULKAN_OUTPUT);
+    EXPECT_TRUE(TestShaderCompile(ANGLEPragma));
+    EXPECT_FALSE(TestShaderCompile(""));
+    EXPECT_TRUE(TestShaderCompile(ANGLEPragma));
 }
 #endif
 
@@ -337,6 +402,8 @@ TEST_P(EXTClipCullDistanceForFragmentShaderTest, CompileFailsWithoutExtension)
     SetExtensionEnable(false);
     InitializeCompiler();
     EXPECT_FALSE(TestShaderCompile(EXTPragma));
+    InitializeCompiler();
+    EXPECT_FALSE(TestShaderCompile(ANGLEPragma));
 }
 
 // Extension directive is required to compile properly. Expect failure when
@@ -350,9 +417,7 @@ TEST_P(EXTClipCullDistanceForFragmentShaderTest, CompileFailsWithExtensionWithou
 
 #if defined(ANGLE_ENABLE_VULKAN)
 // With extension flag and extension directive, compiling using TranslatorVulkan succeeds.
-//
-// Test is disabled due to translation bug.  http://anglebug.com/5747
-TEST_P(EXTClipCullDistanceForFragmentShaderTest, DISABLED_CompileSucceedsVulkan)
+TEST_P(EXTClipCullDistanceForFragmentShaderTest, CompileSucceedsVulkan)
 {
     SetExtensionEnable(true);
 
@@ -364,6 +429,10 @@ TEST_P(EXTClipCullDistanceForFragmentShaderTest, DISABLED_CompileSucceedsVulkan)
     EXPECT_TRUE(TestShaderCompile(EXTPragma));
     EXPECT_FALSE(TestShaderCompile(""));
     EXPECT_TRUE(TestShaderCompile(EXTPragma));
+    InitializeCompiler(SH_SPIRV_VULKAN_OUTPUT);
+    EXPECT_TRUE(TestShaderCompile(ANGLEPragma));
+    EXPECT_FALSE(TestShaderCompile(""));
+    EXPECT_TRUE(TestShaderCompile(ANGLEPragma));
 }
 
 class EXTClipCullDistanceForVertexShaderCompileFailureTest
@@ -372,6 +441,10 @@ class EXTClipCullDistanceForVertexShaderCompileFailureTest
 
 class EXTClipCullDistanceForFragmentShaderCompileFailureTest
     : public EXTClipCullDistanceForFragmentShaderTest
+{};
+
+class EXTClipCullDistanceForComputeShaderCompileFailureTest
+    : public EXTClipCullDistanceForComputeShaderTest
 {};
 
 TEST_P(EXTClipCullDistanceForVertexShaderCompileFailureTest, CompileFails)
@@ -384,6 +457,8 @@ TEST_P(EXTClipCullDistanceForVertexShaderCompileFailureTest, CompileFails)
 
     InitializeCompiler(SH_SPIRV_VULKAN_OUTPUT);
     EXPECT_FALSE(TestShaderCompile(EXTPragma));
+    InitializeCompiler(SH_SPIRV_VULKAN_OUTPUT);
+    EXPECT_FALSE(TestShaderCompile(ANGLEPragma));
 }
 
 TEST_P(EXTClipCullDistanceForFragmentShaderCompileFailureTest, CompileFails)
@@ -396,6 +471,23 @@ TEST_P(EXTClipCullDistanceForFragmentShaderCompileFailureTest, CompileFails)
 
     InitializeCompiler(SH_SPIRV_VULKAN_OUTPUT);
     EXPECT_FALSE(TestShaderCompile(EXTPragma));
+    InitializeCompiler(SH_SPIRV_VULKAN_OUTPUT);
+    EXPECT_FALSE(TestShaderCompile(ANGLEPragma));
+}
+
+// Test that the clip and cull distance built-ins are not defined for compute shaders.
+TEST_P(EXTClipCullDistanceForComputeShaderCompileFailureTest, CompileFails)
+{
+    SetExtensionEnable(true);
+
+    mResources.MaxClipDistances                = 8;
+    mResources.MaxCullDistances                = 8;
+    mResources.MaxCombinedClipAndCullDistances = 8;
+
+    InitializeCompiler(SH_SPIRV_VULKAN_OUTPUT);
+    EXPECT_FALSE(TestShaderCompile(EXTPragma));
+    InitializeCompiler(SH_SPIRV_VULKAN_OUTPUT);
+    EXPECT_FALSE(TestShaderCompile(ANGLEPragma));
 }
 #endif
 
@@ -440,6 +532,17 @@ INSTANTIATE_TEST_SUITE_P(IncorrectESSL300Shaders,
                                         FragmentShaderCompileFails3,
                                         FragmentShaderCompileFails4,
                                         FragmentShaderCompileFails5)));
+
+INSTANTIATE_TEST_SUITE_P(IncorrectESSL310Shaders,
+                         EXTClipCullDistanceForComputeShaderCompileFailureTest,
+                         Combine(Values(SH_GLES3_1_SPEC),
+                                 Values(sh::ESSLVersion310),
+                                 Values(ComputeShaderCompileFails1,
+                                        ComputeShaderCompileFails2,
+                                        ComputeShaderCompileFails3,
+                                        ComputeShaderCompileFails4,
+                                        ComputeShaderCompileFails5,
+                                        ComputeShaderCompileFails6)));
 #endif
 
 }  // anonymous namespace

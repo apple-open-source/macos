@@ -187,10 +187,12 @@ String DOMSelection::type() const
 
 unsigned DOMSelection::rangeCount() const
 {
-    auto frame = this->frame();
-    if (frame && frame->settings().liveRangeSelectionEnabled())
-        return frame->selection().isInDocumentTree();
-    return !frame || frame->selection().isNone() ? 0 : 1;
+    RefPtr frame = this->frame();
+    if (!frame)
+        return 0;
+    if (frame->settings().liveRangeSelectionEnabled())
+        return frame->selection().associatedLiveRange() ? 1 : 0;
+    return frame->selection().isNone() ? 0 : 1;
 }
 
 ExceptionOr<void> DOMSelection::collapse(Node* node, unsigned offset)
@@ -454,10 +456,10 @@ String DOMSelection::toString() const
         return String();
     if (frame->settings().liveRangeSelectionEnabled()) {
         auto range = this->range();
-        return range ? plainText(*range) : emptyString();
+        return range ? plainText(*range, TextIteratorBehavior::IgnoresUserSelectNone) : emptyString();
     }
     auto range = frame->selection().selection().firstRange();
-    return range ? plainText(*range) : emptyString();
+    return range ? plainText(*range, TextIteratorBehavior::IgnoresUserSelectNone) : emptyString();
 }
 
 RefPtr<Node> DOMSelection::shadowAdjustedNode(const Position& position) const

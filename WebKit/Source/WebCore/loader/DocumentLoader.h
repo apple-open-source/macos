@@ -40,6 +40,7 @@
 #include "FrameDestructionObserver.h"
 #include "LinkIcon.h"
 #include "NavigationAction.h"
+#include "NetworkConnectionIntegrity.h"
 #include "ResourceError.h"
 #include "ResourceLoaderIdentifier.h"
 #include "ResourceLoaderOptions.h"
@@ -361,6 +362,7 @@ public:
     ModalContainerObservationPolicy modalContainerObservationPolicy() const { return m_modalContainerObservationPolicy; }
     void setModalContainerObservationPolicy(ModalContainerObservationPolicy policy) { m_modalContainerObservationPolicy = policy; }
 
+    // FIXME: Why is this in a Loader?
     WEBCORE_EXPORT ColorSchemePreference colorSchemePreference() const;
     void setColorSchemePreference(ColorSchemePreference preference) { m_colorSchemePreference = preference; }
 
@@ -441,6 +443,9 @@ public:
 
     void setAllowContentChangeObserverQuirk(bool allow) { m_allowContentChangeObserverQuirk = allow; }
     bool allowContentChangeObserverQuirk() const { return m_allowContentChangeObserverQuirk; }
+
+    void setNetworkConnectionIntegrityPolicy(OptionSet<NetworkConnectionIntegrity> policy) { m_networkConnectionIntegrityPolicy = policy; }
+    OptionSet<NetworkConnectionIntegrity> networkConnectionIntegrityPolicy() const { return m_networkConnectionIntegrityPolicy; }
 
     void setIdempotentModeAutosizingOnlyHonorsPercentages(bool idempotentModeAutosizingOnlyHonorsPercentages) { m_idempotentModeAutosizingOnlyHonorsPercentages = idempotentModeAutosizingOnlyHonorsPercentages; }
     bool idempotentModeAutosizingOnlyHonorsPercentages() const { return m_idempotentModeAutosizingOnlyHonorsPercentages; }
@@ -559,7 +564,6 @@ private:
 
     // ContentSecurityPolicyClient
     WEBCORE_EXPORT void addConsoleMessage(MessageSource, MessageLevel, const String&, unsigned long requestIdentifier) final;
-    WEBCORE_EXPORT void sendCSPViolationReport(URL&&, Ref<FormData>&&) final;
     WEBCORE_EXPORT void enqueueSecurityPolicyViolationEvent(SecurityPolicyViolationEventInit&&) final;
 
     bool disallowWebArchive() const;
@@ -693,10 +697,12 @@ private:
     String m_customUserAgent;
     String m_customUserAgentAsSiteSpecificQuirks;
     bool m_allowContentChangeObserverQuirk { false };
+    OptionSet<NetworkConnectionIntegrity> m_networkConnectionIntegrityPolicy;
     bool m_idempotentModeAutosizingOnlyHonorsPercentages { false };
     String m_customNavigatorPlatform;
     bool m_userContentExtensionsEnabled { true };
     MemoryCompactRobinHoodHashMap<String, Vector<UserContentURLPattern>> m_activeContentRuleListActionPatterns;
+
 #if ENABLE(DEVICE_ORIENTATION)
     DeviceOrientationOrMotionPermissionState m_deviceOrientationAndMotionAccessState { DeviceOrientationOrMotionPermissionState::Prompt };
 #endif
@@ -712,7 +718,7 @@ private:
     ColorSchemePreference m_colorSchemePreference { ColorSchemePreference::NoPreference };
 
 #if ENABLE(SERVICE_WORKER)
-    std::optional<ServiceWorkerRegistrationData> m_serviceWorkerRegistrationData;
+    std::unique_ptr<ServiceWorkerRegistrationData> m_serviceWorkerRegistrationData;
     bool m_canUseServiceWorkers { true };
 #endif
     ScriptExecutionContextIdentifier m_resultingClientId;

@@ -1443,7 +1443,7 @@ case $stdlib in
 							do	case $x in
 								*_p)	continue ;; # linux gcc known to hang for -lc_p
 								esac
-								if	$cc -o doti.$exe doti.$obj -l$x 2>e
+								if	false && $cc -o doti.$exe doti.$obj -l$x 2>e
 								then	ok=1
 								else	if	test -s e && egrep -i ":.*[ 	](find|found|locate|search|-l$x)[ 	]" e > /dev/null
 									then	if	egrep -i ":.*[ 	](access|permission)[ 	]" e

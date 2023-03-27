@@ -80,6 +80,9 @@ private:
     void stopProducingData() final;
 
     void delaySamples(Seconds) final;
+#if PLATFORM(IOS_FAMILY)
+    void setIsInBackground(bool) final;
+#endif
 
     std::optional<Vector<int>> discreteSampleRates() const final { return { { 8000, 16000, 32000, 44100, 48000, 96000 } }; }
 
@@ -134,6 +137,7 @@ public:
     WEBCORE_EXPORT void unregisterSpeakerSamplesProducer(CoreAudioSpeakerSamplesProducer&);
     WEBCORE_EXPORT bool isAudioCaptureUnitRunning();
     WEBCORE_EXPORT void whenAudioCaptureUnitIsNotRunning(Function<void()>&&);
+    WEBCORE_EXPORT bool shouldAudioCaptureUnitRenderAudio();
 
     void setOverrideUnit(BaseAudioSharedUnit* unit) { m_overrideUnit = unit; }
     BaseAudioSharedUnit& unit();

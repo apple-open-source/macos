@@ -796,7 +796,7 @@ vm_object_update(
 		fault_info.hi_offset = copy_size;
 		fault_info.stealth = TRUE;
 		assert(fault_info.cs_bypass == FALSE);
-		assert(fault_info.pmap_cs_associated == FALSE);
+		assert(fault_info.csm_associated == FALSE);
 
 		vm_object_paging_begin(copy_object);
 

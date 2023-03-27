@@ -15,6 +15,9 @@ import sys
 # ANGLE uses SPIR-V 1.0 currently, so there's no reason to generate code for newer instructions.
 SPIRV_GRAMMAR_FILE = '../../../third_party/vulkan-deps/spirv-headers/src/include/spirv/1.0/spirv.core.grammar.json'
 
+# Cherry pick some extra extensions from here that aren't in SPIR-V 1.0.
+SPIRV_CHERRY_PICKED_EXTENSIONS_FILE = '../../../third_party/vulkan-deps/spirv-headers/src/include/spirv/unified1/spirv.core.grammar.json'
+
 # The script has two sets of outputs, a header and source file for SPIR-V code generation, and a
 # header and source file for SPIR-V parsing.
 SPIRV_BUILDER_FILE = 'spirv_instruction_builder'
@@ -102,16 +105,17 @@ void WriteSpirvHeader(std::vector<uint32_t> *blob, uint32_t idCount)
     //  - Version (1.0)
     //  - ANGLE's Generator number:
     //     * 24 for tool id (higher 16 bits)
-    //     * 0 for tool version (lower 16 bits))
+    //     * 1 for tool version (lower 16 bits))
     //  - Bound (idCount)
     //  - 0 (reserved)
     constexpr uint32_t kANGLEGeneratorId = 24;
+    constexpr uint32_t kANGLEGeneratorVersion = 1;
 
     ASSERT(blob->empty());
 
     blob->push_back(spv::MagicNumber);
     blob->push_back(0x00010000);
-    blob->push_back(kANGLEGeneratorId << 16 | 0);
+    blob->push_back(kANGLEGeneratorId << 16 | kANGLEGeneratorVersion);
     blob->push_back(idCount);
     blob->push_back(0x00000000);
 }
@@ -176,12 +180,21 @@ class Writer:
         self.path_prefix = os.path.dirname(os.path.realpath(__file__)) + os.path.sep
         self.grammar = load_grammar(self.path_prefix + SPIRV_GRAMMAR_FILE)
 
+        # We need some extensions that aren't in SPIR-V 1.0. Cherry pick them into our grammar.
+        cherry_picked_extensions = {'SPV_EXT_fragment_shader_interlock'}
+        cherry_picked_extensions_grammar = load_grammar(self.path_prefix +
+                                                        SPIRV_CHERRY_PICKED_EXTENSIONS_FILE)
+        self.grammar['instructions'] += [
+            i for i in cherry_picked_extensions_grammar['instructions']
+            if 'extensions' in i and set(i['extensions']) & cherry_picked_extensions
+        ]
+
         # If an instruction has a parameter of these types, the instruction is ignored
         self.unsupported_kinds = set(['LiteralSpecConstantOpInteger'])
         # If an instruction requires a capability of these kinds, the instruction is ignored
         self.unsupported_capabilities = set(['Kernel', 'Addresses'])
         # If an instruction requires an extension other than these, the instruction is ignored
-        self.supported_extensions = set([])
+        self.supported_extensions = set([]) | cherry_picked_extensions
         # List of bit masks.  These have 'Mask' added to their typename in SPIR-V headers.
         self.bit_mask_types = set([])
 
@@ -211,7 +224,7 @@ class Writer:
         # Write out the files.
         data_source_base_name = os.path.basename(SPIRV_GRAMMAR_FILE)
         builder_template_args = {
-            'script_name': sys.argv[0],
+            'script_name': os.path.basename(sys.argv[0]),
             'data_source_name': data_source_base_name,
             'file_name': SPIRV_BUILDER_FILE,
             'file_name_capitalized': remove_chars(SPIRV_BUILDER_FILE.upper(), '_'),
@@ -221,7 +234,7 @@ class Writer:
             'function_list': ''.join(self.instruction_builder_impl)
         }
         parser_template_args = {
-            'script_name': sys.argv[0],
+            'script_name': os.path.basename(sys.argv[0]),
             'data_source_name': data_source_base_name,
             'file_name': SPIRV_PARSER_FILE,
             'file_name_capitalized': remove_chars(SPIRV_PARSER_FILE.upper(), '_'),

@@ -45,6 +45,7 @@ public:
 private:
     void getPersisted(WebCore::ClientOrigin&&, StorageConnection::PersistCallback&&) final;
     void persist(const WebCore::ClientOrigin&, StorageConnection::PersistCallback&&) final;
+    void getEstimate(WebCore::ClientOrigin&&, StorageConnection::GetEstimateCallback&&) final;
     void fileSystemGetDirectory(WebCore::ClientOrigin&&, StorageConnection::GetDirectoryCallback&&) final;
 
     IPC::Connection& connection();

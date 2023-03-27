@@ -5,23 +5,32 @@ class OctagonCustodianTests: OctagonTestsBase {
     override func setUp() {
         // Please don't make the SOS API calls, no matter what
         OctagonSetSOSFeatureEnabled(false)
-
         super.setUp()
+    }
 
-        // Set this to what it normally is. Each test can muck with it, if they like
-#if os(macOS) || os(iOS)
-        OctagonSetPlatformSupportsSOS(true)
-        self.manager.setSOSEnabledForPlatformFlag(true)
-#else
-        self.manager.setSOSEnabledForPlatformFlag(false)
-        OctagonSetPlatformSupportsSOS(false)
-#endif
+    func createClique(contextData: OTConfigurationContext) throws -> OTClique {
+        let oldFF = OctagonIsSOSFeatureEnabled()
+        defer { OctagonSetSOSFeatureEnabled(oldFF) }
+        OctagonSetSOSFeatureEnabled(false)
+        let clique: OTClique
+        do {
+            clique = try OTClique.newFriends(withContextData: contextData, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            return clique
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+    }
+
+    func createClique() throws -> OTClique {
+        return try self.createClique(contextData: self.otcliqueContext)
     }
 
     func createEstablishContext(contextID: String) -> OTCuttlefishContext {
         return self.manager.context(forContainerName: OTCKContainerName,
                                     contextID: contextID,
-                                    sosAdapter: self.mockSOSAdapter,
+                                    sosAdapter: self.mockSOSAdapter!,
                                     accountsAdapter: self.mockAuthKit2,
                                     authKitAdapter: self.mockAuthKit2,
                                     tooManyPeersAdapter: self.mockTooManyPeers,
@@ -56,13 +65,14 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testCreateCustodianTLKSharesDuringCreation() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         self.assertResetAndBecomeTrustedInDefaultContext()
 
         // This flag gates whether or not we'll error while setting the recovery key
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (_, crk) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
 
@@ -73,18 +83,15 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testJoinWithCustodianRecoveryKeyWithCKKSConflict() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         let remote = self.createEstablishContext(contextID: "remote")
         self.assertResetAndBecomeTrusted(context: remote)
 
-#if os(tvOS) || os(watchOS)
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: remote)
-        self.manager.setSOSEnabledForPlatformFlag(false)
-#else
-        let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: remote)
-#endif
+        OctagonSetSOSFeatureEnabled(false)
         self.sendContainerChangeWaitForFetch(context: remote)
 
         self.silentFetchesAllowed = false
@@ -128,18 +135,15 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testCRKRecoveryRecoversCKKSCreatedShares() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         let remote = self.createEstablishContext(contextID: "remote")
         self.assertResetAndBecomeTrusted(context: remote)
 
-#if os(tvOS) || os(watchOS)
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: remote)
-        self.manager.setSOSEnabledForPlatformFlag(false)
-#else
-        let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: remote)
-#endif
+        OctagonSetSOSFeatureEnabled(false)
 
         // And TLKShares for the RK are sent from the Octagon peer
         self.putFakeKeyHierarchiesInCloudKit()
@@ -185,7 +189,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testRecoverTLKSharesSentToCRKBeforeCKKSFetchCompletes() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let remote = self.createEstablishContext(contextID: "remote")
@@ -196,7 +201,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: remote)
         self.assertSelfTLKSharesInCloudKit(context: remote)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: remote)
 
         self.putCustodianTLKSharesInCloudKit(crk: crk)
@@ -209,11 +214,11 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         // device succeeds joining after restore
-        self.mockSOSAdapter.joinAfterRestoreResult = true
+        self.mockSOSAdapter!.joinAfterRestoreResult = true
         // reset to offering on the mock adapter is by default set to false so this should cause cascading failures resulting in a cfu
-        self.mockSOSAdapter.joinAfterRestoreCircleStatusOverride = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCRequestPending)
-        self.mockSOSAdapter.resetToOfferingCircleStatusOverride = true
+        self.mockSOSAdapter!.joinAfterRestoreCircleStatusOverride = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCRequestPending)
+        self.mockSOSAdapter!.resetToOfferingCircleStatusOverride = true
 
         let preflightJoinWithCustodianRecoveryKeyExpectation = self.expectation(description: "preflightJoinWithCustodianRecoveryKey callback occurs")
         remote.preflightJoin(with: otcrk) { error in
@@ -242,10 +247,11 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: crk.peerID, senderPeerID: remotePeerID), "Should be no shares from peer to CRK; as CRK has self-shares")
         XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: remotePeerID, senderPeerID: crk.peerID), "Should be no shares from crk to peer")
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
-        XCTAssertEqual(self.mockSOSAdapter.circleStatus, SOSCCStatus(kSOSCCRequestPending), "SOS should be Request Pending")
+        XCTAssertEqual(self.mockSOSAdapter!.circleStatus, SOSCCStatus(kSOSCCRequestPending), "SOS should be Request Pending")
     }
 
     func testAddCustodianRecoveryKey() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.putFakeKeyHierarchiesInCloudKit()
@@ -257,20 +263,13 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
         self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: nil) { crk, error in
@@ -285,11 +284,7 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testAddCustodianRecoveryKeyAndCKKSTLKSharesHappen() throws {
-#if os(tvOS) || os(watchOS)
-        self.startCKAccountStatusMock()
-        throw XCTSkip("Apple TVs and watches will not set recovery key")
-#else
-
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         // To get into a state where we don't upload the TLKShares to each RK on RK creation, put Octagon into a waitfortlk state
@@ -301,12 +296,7 @@ class OctagonCustodianTests: OctagonTestsBase {
             self.silentFetchesAllowed = true
         }
 
-        do {
-            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-        }
+        _ = try self.createClique()
 
         // Now, we should be in 'ready'
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -346,11 +336,10 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.assertTLKSharesInCloudKit(receiverPeerID: custodian.peerID, senderPeerID: cuttlefishContextPeerID)
         XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: cuttlefishContextPeerID, senderPeerID: custodian.peerID), "CRK should not create TLKShares to existing peers")
         XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: custodian.peerID, senderPeerID: custodian.peerID), "Should be no shares from the CRK to itself")
-#endif // tvOS || watchOS
     }
 
     func testAddCustodianRecoveryKeyUUID() throws {
-
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.putFakeKeyHierarchiesInCloudKit()
@@ -362,21 +351,14 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
         let uuid = UUID()
@@ -393,6 +375,7 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testCustodianRecoveryKeyTrust() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -401,21 +384,14 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
         let uuid = UUID()
@@ -433,7 +409,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testJoinWithCustodianRecoveryKey() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -443,20 +420,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -468,7 +437,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: establishContext)
 
@@ -569,7 +538,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testJoinWithCustodianRecoveryKeyWithClique() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -579,20 +549,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -604,7 +566,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: establishContext)
 
@@ -711,7 +673,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testJoinWithCustodianRecoveryKeyBadUUID() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -721,20 +684,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -744,7 +699,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryExpectation returns")
         var crk: OTCustodianRecoveryKey?
@@ -795,7 +750,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testJoinWithCustodianRecoveryKeyBadKey() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -805,20 +761,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -828,7 +776,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryExpectation returns")
         var crk: OTCustodianRecoveryKey?
@@ -879,7 +827,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testJoinWithDistrustedCustodianRecoveryKey() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -889,20 +838,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        let clique = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -912,7 +853,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: establishContext)
 
@@ -963,7 +904,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testRefetchOnUpgradeToCustodianCapableOS() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let originalPeerID = self.assertResetAndBecomeTrustedInDefaultContext()
@@ -980,7 +922,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         // Now, our default context makes a recovery key
 
         // This flag gates whether or not we'll error while setting the recovery key
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (_, crk) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
         XCTAssertTrue(self.tlkSharesInCloudKit(receiverPeerID: crk.peerID, senderPeerID: crk.peerID))
@@ -1044,7 +986,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testRefetchOnlyOnceOnUpgradeToCustodianCapableOS() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let originalPeerID = self.assertResetAndBecomeTrustedInDefaultContext()
@@ -1060,7 +1003,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         // Now, our default context makes a recovery key
         // This flag gates whether or not we'll error while setting the recovery key
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (_, crk) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
         XCTAssertTrue(self.tlkSharesInCloudKit(receiverPeerID: crk.peerID, senderPeerID: crk.peerID))
@@ -1125,11 +1068,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testJoinWithCustodianRecoveryKeyAndPromptCFUFromPrivateKeyNotAvailable() throws {
-#if os(tvOS) || os(watchOS)
-        self.startCKAccountStatusMock()
-        throw XCTSkip("Apple TVs and watches will not set recovery key")
-#else
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1139,20 +1079,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -1162,7 +1094,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: establishContext)
 
@@ -1194,16 +1126,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-        XCTAssertEqual(self.mockSOSAdapter.circleStatus, SOSCCStatus(kSOSCCNotInCircle), "SOS should NOT be in circle")
-#endif
+        XCTAssertEqual(self.mockSOSAdapter!.circleStatus, SOSCCStatus(kSOSCCNotInCircle), "SOS should NOT be in circle")
     }
 
     func testJoinWithCustodianRecoveryKeyAndPromptCFUNotInSOSCircle() throws {
-#if os(tvOS) || os(watchOS)
-        self.startCKAccountStatusMock()
-        throw XCTSkip("Apple TVs and watches will not set recovery key")
-#else
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1213,20 +1141,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -1236,7 +1156,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: establishContext)
 
@@ -1250,11 +1170,11 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForUntrustedFetch(context: self.cuttlefishContext)
 
         // device succeeds joining after restore
-        self.mockSOSAdapter.joinAfterRestoreResult = true
+        self.mockSOSAdapter!.joinAfterRestoreResult = true
         // reset to offering on the mock adapter is by default set to false so this should cause cascading failures resulting in a cfu
-        self.mockSOSAdapter.joinAfterRestoreCircleStatusOverride = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCRequestPending)
-        self.mockSOSAdapter.resetToOfferingCircleStatusOverride = true
+        self.mockSOSAdapter!.joinAfterRestoreCircleStatusOverride = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCRequestPending)
+        self.mockSOSAdapter!.resetToOfferingCircleStatusOverride = true
 
         let preflightJoinWithCustodianRecoveryKeyExpectation = self.expectation(description: "preflightJoinWithCustodianRecoveryKey callback occurs")
         establishContext.preflightJoin(with: otcrk) { error in
@@ -1275,16 +1195,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-        XCTAssertEqual(self.mockSOSAdapter.circleStatus, SOSCCStatus(kSOSCCRequestPending), "SOS should be Request Pending")
-#endif
+        XCTAssertEqual(self.mockSOSAdapter!.circleStatus, SOSCCStatus(kSOSCCRequestPending), "SOS should be Request Pending")
     }
 
     func testJoinWithCustodianRecoveryKeyAndJoinsSOS() throws {
-#if os(tvOS) || os(watchOS)
-        self.startCKAccountStatusMock()
-        throw XCTSkip("Apple TVs and watches will not set recovery key")
-#else
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1294,20 +1210,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -1329,7 +1237,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForUntrustedFetch(context: self.cuttlefishContext)
 
         // device succeeds joining after restore
-        self.mockSOSAdapter.joinAfterRestoreResult = true
+        self.mockSOSAdapter!.joinAfterRestoreResult = true
 
         let preflightJoinWithCustodianRecoveryKeyExpectation = self.expectation(description: "preflightJoinWithCustodianRecoveryKey callback occurs")
         establishContext.preflightJoin(with: otcrk) { error in
@@ -1352,16 +1260,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.verifyDatabaseMocks()
 
-        XCTAssertEqual(self.mockSOSAdapter.circleStatus, SOSCCStatus(kSOSCCInCircle), "SOS should be in circle")
-#endif
+        XCTAssertEqual(self.mockSOSAdapter!.circleStatus, SOSCCStatus(kSOSCCInCircle), "SOS should be in circle")
     }
 
     func testJoinWithCustodianRecoveryKeyAndJoinsSOSFromResetToOffering() throws {
-#if os(tvOS) || os(watchOS)
-        self.startCKAccountStatusMock()
-        throw XCTSkip("Apple TVs and watches will not set recovery key")
-#else
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1371,20 +1275,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -1406,10 +1302,10 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForUntrustedFetch(context: self.cuttlefishContext)
 
         // device succeeds joining after restore
-        self.mockSOSAdapter.joinAfterRestoreResult = true
-        self.mockSOSAdapter.joinAfterRestoreCircleStatusOverride = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCRequestPending)
-        self.mockSOSAdapter.resetToOfferingResult = true
+        self.mockSOSAdapter!.joinAfterRestoreResult = true
+        self.mockSOSAdapter!.joinAfterRestoreCircleStatusOverride = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCRequestPending)
+        self.mockSOSAdapter!.resetToOfferingResult = true
 
         let preflightJoinWithCustodianRecoveryKeyExpectation = self.expectation(description: "preflightJoinWithCustodianRecoveryKey callback occurs")
         establishContext.preflightJoin(with: otcrk) { error in
@@ -1431,11 +1327,11 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.verifyDatabaseMocks()
 
-        XCTAssertEqual(self.mockSOSAdapter.circleStatus, SOSCCStatus(kSOSCCInCircle), "SOS should be in circle")
-#endif
+        XCTAssertEqual(self.mockSOSAdapter!.circleStatus, SOSCCStatus(kSOSCCInCircle), "SOS should be in circle")
     }
 
     func testAddRemoveCustodianRecoveryKey() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.putFakeKeyHierarchiesInCloudKit()
@@ -1447,20 +1343,13 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, _) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
@@ -1476,6 +1365,7 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testAddRemoveCustodianRecoveryKeyClique() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.putFakeKeyHierarchiesInCloudKit()
@@ -1487,20 +1377,13 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, _) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
@@ -1516,6 +1399,7 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testAddRemoveCustodianRecoveryKeyTwice() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.putFakeKeyHierarchiesInCloudKit()
@@ -1527,20 +1411,13 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, _) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
@@ -1563,6 +1440,7 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testRemoveBadCustodianRecoveryKey() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.putFakeKeyHierarchiesInCloudKit()
@@ -1574,20 +1452,13 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
         self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: UUID()) { error in
@@ -1598,7 +1469,8 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testJoinWithRemovedCustodianRecoveryKey() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         let establishContextID = "establish-context-id"
@@ -1608,20 +1480,12 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
-        do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
@@ -1631,7 +1495,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: establishContext)
 
@@ -1668,6 +1532,7 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testRemoveDistrustedCustodianRecoveryKey() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.putFakeKeyHierarchiesInCloudKit()
@@ -1679,20 +1544,13 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        let clique = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
@@ -1710,22 +1568,15 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testJoinAfterReboot() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
@@ -1735,7 +1586,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
 
@@ -1754,22 +1605,15 @@ class OctagonCustodianTests: OctagonTestsBase {
     }
 
     func testCreateRemoveRestartAttemptJoin() throws {
-        self.manager.setSOSEnabledForPlatformFlag(false)
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
+        _ = try self.createClique()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
@@ -1779,7 +1623,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
 

@@ -324,7 +324,7 @@
 
 /* BENABLE(LIBPAS) is enabling libpas build. But this does not mean we use libpas for bmalloc replacement. */
 #if !defined(BENABLE_LIBPAS)
-#if BCPU(ADDRESS64) && (BOS(DARWIN) || (BOS(LINUX) && !BPLATFORM(GTK) && !BPLATFORM(WPE))) || BPLATFORM(PLAYSTATION)
+#if BCPU(ADDRESS64) && (BOS(DARWIN) || (BOS(LINUX) && (BCPU(X86_64) || BCPU(ARM64))) || BPLATFORM(PLAYSTATION))
 #define BENABLE_LIBPAS 1
 #ifndef PAS_BMALLOC
 #define PAS_BMALLOC 1
@@ -367,4 +367,13 @@
 #define BENABLE_UNIFIED_AND_FREEZABLE_CONFIG_RECORD 0
 #else
 #define BENABLE_UNIFIED_AND_FREEZABLE_CONFIG_RECORD 1
+#endif
+
+/* We only export the mallocSize and mallocGoodSize APIs if they're supported by the DebugHeap allocator (currently only Darwin) and the current bmalloc allocator (currently only libpas). */
+#if BUSE(LIBPAS) && BOS(DARWIN)
+#define BENABLE_MALLOC_SIZE 1
+#define BENABLE_MALLOC_GOOD_SIZE 1
+#else
+#define BENABLE_MALLOC_SIZE 0
+#define BENABLE_MALLOC_GOOD_SIZE 0
 #endif

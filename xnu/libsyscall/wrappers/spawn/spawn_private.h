@@ -111,6 +111,8 @@ int     posix_spawnattr_set_crash_behavior_deadline_np(posix_spawnattr_t *attr, 
 
 int     posix_spawnattr_set_launch_type_np(posix_spawnattr_t *attr, uint8_t launch_type); __SPI_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0));
 
+int     posix_spawnattr_setdataless_iopolicy_np(posix_spawnattr_t * __restrict attr, const int policy); __SPI_AVAILABLE(macos(13.3), ios(16.4), tvos(16.4), watchos(9.4));
+
 __END_DECLS
 
 #endif /* !defined _SPAWN_PRIVATE_H_*/

@@ -36,6 +36,8 @@
 #include "sdk/objc/Framework/Classes/VideoToolbox/nalu_rewriter.h"
 #include "system_wrappers/include/clock.h"
 
+VT_EXPORT const CFStringRef kVTVideoEncoderSpecification_RequiredLowLatency;
+
 @interface RTCVideoEncoderH265 ()
 
 - (void)frameWasEncoded:(OSStatus)status
@@ -174,8 +176,10 @@ void compressionOutputCallback(void* encoder,
   VTCompressionSessionRef _compressionSession;
   RTCVideoCodecMode _mode;
   int framesLeft;
-
   std::vector<uint8_t> _nv12ScaleBuffer;
+  bool _useAnnexB;
+  bool _needsToSendDescription;
+  RTCVideoEncoderDescriptionCallback _descriptionCallback;
 }
 
 // .5 is set as a mininum to prevent overcompensating for large temporary
@@ -189,6 +193,7 @@ void compressionOutputCallback(void* encoder,
   if (self = [super init]) {
     _codecInfo = codecInfo;
     _bitrateAdjuster.reset(new webrtc::BitrateAdjuster(.5, .95));
+    _useAnnexB = true;
     RTC_CHECK([codecInfo.name isEqualToString:@"H265"]);
   }
   return self;
@@ -212,6 +217,17 @@ void compressionOutputCallback(void* encoder,
   _bitrateAdjuster->SetTargetBitrateBps(_targetBitrateBps);
 
   return [self resetCompressionSession];
+}
+
+- (void)setUseAnnexB:(bool)useAnnexB
+{
+    _useAnnexB = useAnnexB;
+    _needsToSendDescription = !useAnnexB;
+}
+
+- (void)setDescriptionCallback:(RTCVideoEncoderDescriptionCallback)callback
+{
+    _descriptionCallback = callback;
 }
 
 - (NSInteger)encode:(RTCVideoFrame*)frame
@@ -393,8 +409,7 @@ void compressionOutputCallback(void* encoder,
   CFDictionarySetValue(encoder_specs, kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder, kCFBooleanTrue);
 #endif
 #if HAVE_VTB_REQUIREDLOWLATENCY
-  // We will want to enable this property once working.
-  // CFDictionarySetValue(encoder_specs, kVTVideoEncoderSpecification_RequiredLowLatency, kCFBooleanTrue);
+  CFDictionarySetValue(encoder_specs, kVTVideoEncoderSpecification_RequiredLowLatency, kCFBooleanTrue);
 #endif
   OSStatus status = VTCompressionSessionCreate(
       nullptr,  // use default allocator
@@ -403,6 +418,17 @@ void compressionOutputCallback(void* encoder,
       sourceAttributes,
       nullptr,  // use default compressed data allocator
       compressionOutputCallback, nullptr, &_compressionSession);
+  if (status != noErr) {
+    if (encoder_specs)
+      CFDictionaryRemoveValue(encoder_specs, kVTVideoEncoderSpecification_RequiredLowLatency);
+    status = VTCompressionSessionCreate(
+        nullptr,  // use default allocator
+        _width, _height, kCMVideoCodecType_HEVC,
+        encoder_specs,  // use hardware accelerated encoder if available
+        sourceAttributes,
+        nullptr,  // use default compressed data allocator
+        compressionOutputCallback, nullptr, &_compressionSession);
+  }
   if (sourceAttributes) {
     CFRelease(sourceAttributes);
     sourceAttributes = nullptr;
@@ -541,8 +567,37 @@ void compressionOutputCallback(void* encoder,
   }
 
   std::unique_ptr<rtc::Buffer> buffer(new rtc::Buffer());
-  if (!webrtc::H265CMSampleBufferToAnnexBBuffer(sampleBuffer, isKeyframe, buffer.get())) {
-    RTC_LOG(LS_INFO) << "Unable to parse H265 encoded buffer";
+  if (_useAnnexB) {
+    if (!webrtc::H265CMSampleBufferToAnnexBBuffer(sampleBuffer, isKeyframe, buffer.get())) {
+      RTC_LOG(LS_WARNING) << "Unable to parse H265 encoded buffer";
+      return;
+    }
+  } else {
+    buffer->SetSize(0);
+    CMBlockBufferRef blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer);
+    size_t currentStart = 0;
+    size_t size = CMBlockBufferGetDataLength(blockBuffer);
+    while (currentStart < size) {
+      char* data = nullptr;
+      size_t length;
+      if (auto error = CMBlockBufferGetDataPointer(blockBuffer, currentStart, &length, nullptr, &data)) {
+        RTC_LOG(LS_ERROR) << "H264 decoder: CMBlockBufferGetDataPointer failed with error " << error;
+        return;
+      }
+      buffer->AppendData(data, size);
+      currentStart += size;
+    }
+    if (_descriptionCallback && _needsToSendDescription) {
+      auto formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer);
+      auto sampleExtensionsDict = static_cast<CFDictionaryRef>(CMFormatDescriptionGetExtension(formatDescription, kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms));
+      if (sampleExtensionsDict) {
+        auto sampleExtensions = static_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict, CFSTR("hvcC")));
+        if (sampleExtensions) {
+          _needsToSendDescription = false;
+          _descriptionCallback(reinterpret_cast<const uint8_t*>(CFDataGetBytePtr(sampleExtensions)), CFDataGetLength(sampleExtensions));
+        }
+      }
+    }
   }
 
   RTCEncodedImage* frame = [[RTCEncodedImage alloc] init];
@@ -576,6 +631,11 @@ void compressionOutputCallback(void* encoder,
   return [[RTCVideoEncoderQpThresholds alloc]
       initWithThresholdsLow:kLowh265QpThreshold
                        high:kHighh265QpThreshold];
+}
+
+- (void)flush {
+    if (_compressionSession)
+        VTCompressionSessionCompleteFrames(_compressionSession, kCMTimeInvalid);
 }
 
 @end

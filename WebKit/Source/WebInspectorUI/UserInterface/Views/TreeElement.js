@@ -78,7 +78,12 @@ WI.TreeElement = class TreeElement extends WI.Object
 
     set selectable(x)
     {
+        if (x === this._selectable)
+            return;
+
         this._selectable = x;
+
+        this._listItemNode?.classList.toggle("non-selectable", !this._selectable);
     }
 
     get expandable()
@@ -269,6 +274,8 @@ WI.TreeElement = class TreeElement extends WI.Object
                 this._listItemNode.classList.add("expanded");
             if (this.selected)
                 this._listItemNode.classList.add("selected");
+            if (!this.selectable)
+                this._listItemNode.classList.add("non-selectable");
 
             this._listItemNode.addEventListener("click", WI.TreeElement.treeElementToggled);
             this._listItemNode.addEventListener("dblclick", WI.TreeElement.treeElementDoubleClicked);
@@ -484,13 +491,15 @@ WI.TreeElement = class TreeElement extends WI.Object
         return false;
     }
 
-    reveal()
+    reveal({skipExpandingAncestors} = {})
     {
-        var currentAncestor = this.parent;
-        while (currentAncestor && !currentAncestor.root) {
-            if (!currentAncestor.expanded)
-                currentAncestor.expand();
-            currentAncestor = currentAncestor.parent;
+        if (!skipExpandingAncestors) {
+            let currentAncestor = this.parent;
+            while (currentAncestor && !currentAncestor.root) {
+                if (!currentAncestor.expanded)
+                    currentAncestor.expand();
+                currentAncestor = currentAncestor.parent;
+            }
         }
 
         // This must be called before onreveal, as some subclasses will scrollIntoViewIfNeeded and

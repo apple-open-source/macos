@@ -54,7 +54,7 @@ bool IsGLSL410OrOlder(ShShaderOutput output);
 bool RemoveInvariant(sh::GLenum shaderType,
                      int shaderVersion,
                      ShShaderOutput outputType,
-                     ShCompileOptions compileOptions);
+                     const ShCompileOptions &compileOptions);
 
 //
 // The base class used to back handles returned to the driver.
@@ -101,17 +101,19 @@ class TCompiler : public TShHandleBase
     // allocator. Returns nullptr whenever there are compilation errors.
     TIntermBlock *compileTreeForTesting(const char *const shaderStrings[],
                                         size_t numStrings,
-                                        ShCompileOptions compileOptions);
+                                        const ShCompileOptions &compileOptions);
 
     bool compile(const char *const shaderStrings[],
                  size_t numStrings,
-                 ShCompileOptions compileOptions);
+                 const ShCompileOptions &compileOptions);
 
     // Get results of the last compilation.
     int getShaderVersion() const { return mShaderVersion; }
     TInfoSink &getInfoSink() { return mInfoSink; }
 
+    bool specifyEarlyFragmentTests() { return mEarlyFragmentTestsSpecified = true; }
     bool isEarlyFragmentTestsSpecified() const { return mEarlyFragmentTestsSpecified; }
+    bool hasDiscard() const { return mHasDiscard; }
     bool enablesPerSampleShading() const { return mEnablesPerSampleShading; }
     SpecConstUsageBits getSpecConstUsageBits() const { return mSpecConstUsageBits; }
 
@@ -139,11 +141,12 @@ class TCompiler : public TShHandleBase
     TSymbolTable &getSymbolTable() { return mSymbolTable; }
     ShShaderSpec getShaderSpec() const { return mShaderSpec; }
     ShShaderOutput getOutputType() const { return mOutputType; }
+    ShBuiltInResources getBuiltInResources() const { return mResources; }
     const std::string &getBuiltInResourcesString() const { return mBuiltInResourcesString; }
 
     bool isHighPrecisionSupported() const;
 
-    bool shouldRunLoopAndIndexingValidation(ShCompileOptions compileOptions) const;
+    bool shouldRunLoopAndIndexingValidation(const ShCompileOptions &compileOptions) const;
     bool shouldLimitTypeSizes() const;
 
     // Get the resources set by InitBuiltInSymbolTable
@@ -186,9 +189,18 @@ class TCompiler : public TShHandleBase
 
     AdvancedBlendEquations getAdvancedBlendEquations() const { return mAdvancedBlendEquations; }
 
+    bool hasPixelLocalStorageUniforms() const { return mHasPixelLocalStorageUniforms; }
+
     unsigned int getSharedMemorySize() const;
 
     sh::GLenum getShaderType() const { return mShaderType; }
+
+    // Generate a self-contained binary representation of the shader.
+    bool getShaderBinary(const ShHandle compilerHandle,
+                         const char *const shaderStrings[],
+                         size_t numStrings,
+                         const ShCompileOptions &compileOptions,
+                         ShaderBinaryBlob *const binaryOut);
 
     // Validate the AST and produce errors if it is inconsistent.
     bool validateAST(TIntermNode *root);
@@ -202,14 +214,27 @@ class TCompiler : public TShHandleBase
     // it's expected to no longer transform.
     void enableValidateNoMoreTransformations();
 
+    bool areClipDistanceOrCullDistanceRedeclared() const
+    {
+        return mClipDistanceRedeclared || mCullDistanceRedeclared;
+    }
+
+    uint8_t getClipDistanceArraySize() const { return mClipDistanceSize; }
+
+    uint8_t getCullDistanceArraySize() const { return mCullDistanceSize; }
+
+    bool isClipDistanceRedeclared() const { return mClipDistanceRedeclared; }
+
+    bool hasClipDistance() const { return mClipDistanceUsed; }
+
   protected:
     // Add emulated functions to the built-in function emulator.
     virtual void initBuiltInFunctionEmulator(BuiltInFunctionEmulator *emu,
-                                             ShCompileOptions compileOptions)
+                                             const ShCompileOptions &compileOptions)
     {}
     // Translate to object code. May generate performance warnings through the diagnostics.
     [[nodiscard]] virtual bool translate(TIntermBlock *root,
-                                         ShCompileOptions compileOptions,
+                                         const ShCompileOptions &compileOptions,
                                          PerformanceDiagnostics *perfDiagnostics) = 0;
     // Get built-in extensions with default behavior.
     const TExtensionBehavior &getExtensionBehavior() const;
@@ -220,7 +245,7 @@ class TCompiler : public TShHandleBase
     const BuiltInFunctionEmulator &getBuiltInFunctionEmulator() const;
 
     virtual bool shouldFlattenPragmaStdglInvariantAll() = 0;
-    virtual bool shouldCollectVariables(ShCompileOptions compileOptions);
+    virtual bool shouldCollectVariables(const ShCompileOptions &compileOptions);
 
     bool wereVariablesCollected() const;
     std::vector<sh::ShaderVariable> mAttributes;
@@ -277,7 +302,7 @@ class TCompiler : public TShHandleBase
 
     TIntermBlock *compileTreeImpl(const char *const shaderStrings[],
                                   size_t numStrings,
-                                  const ShCompileOptions compileOptions);
+                                  const ShCompileOptions &compileOptions);
 
     // Fetches and stores shader metadata that is not stored within the AST itself, such as shader
     // version.
@@ -289,7 +314,9 @@ class TCompiler : public TShHandleBase
     // Does checks that need to be run after parsing is complete and returns true if they pass.
     bool checkAndSimplifyAST(TIntermBlock *root,
                              const TParseContext &parseContext,
-                             ShCompileOptions compileOptions);
+                             const ShCompileOptions &compileOptions);
+
+    bool resizeClipAndCullDistanceBuiltins(TIntermBlock *root);
 
     bool postParseChecks(const TParseContext &parseContext);
 
@@ -317,8 +344,11 @@ class TCompiler : public TShHandleBase
     TDiagnostics mDiagnostics;
     const char *mSourcePath;  // Path of source file or NULL
 
-    // fragment shader early fragment tests
+    // Fragment shader early fragment tests
     bool mEarlyFragmentTestsSpecified;
+
+    // Fragment shader has the discard instruction
+    bool mHasDiscard;
 
     // Whether per-sample shading is enabled by the shader.  In OpenGL, this keyword should
     // implicitly trigger per-sample shading without the API enabling it.
@@ -330,6 +360,13 @@ class TCompiler : public TShHandleBase
 
     // GL_OVR_multiview num_views.
     int mNumViews;
+
+    // Track gl_ClipDistance / gl_CullDistance usage.
+    uint8_t mClipDistanceSize;
+    uint8_t mCullDistanceSize;
+    bool mClipDistanceRedeclared;
+    bool mCullDistanceRedeclared;
+    bool mClipDistanceUsed;
 
     // geometry shader parameters.
     int mGeometryShaderMaxVertices;
@@ -348,6 +385,9 @@ class TCompiler : public TShHandleBase
 
     // advanced blend equation parameters
     AdvancedBlendEquations mAdvancedBlendEquations;
+
+    // ANGLE_shader_pixel_local_storage.
+    bool mHasPixelLocalStorageUniforms;
 
     // name hashing.
     NameMap mNameMap;
@@ -368,6 +408,18 @@ class TCompiler : public TShHandleBase
 //
 TCompiler *ConstructCompiler(sh::GLenum type, ShShaderSpec spec, ShShaderOutput output);
 void DeleteCompiler(TCompiler *);
+
+struct ShaderDumpHeader
+{
+    uint32_t type;
+    uint32_t spec;
+    uint32_t output;
+    uint8_t basicCompileOptions[32];
+    uint8_t metalCompileOptions[32];
+    uint8_t plsCompileOptions[32];
+    uint8_t padding[20];
+};
+static_assert(sizeof(ShaderDumpHeader) == 128);
 
 }  // namespace sh
 

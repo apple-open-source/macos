@@ -89,21 +89,22 @@
 #define kIOPMDebugLogAssertionNameChange    0x80
 
 
-#define PM_LOG_SYSTEM       "com.apple.powerd"
-#define SYSLOAD_LOG         "systemLoad"
-#define AGGD_REPORTS_LOG    "aggdReport"
-#define BATTERY_LOG         "battery"
-#define BATTERY_HEALTH_LOG  "batteryhealth"
-#define ASSERTIONS_LOG      "assertions"
-#define PMSETTINGS_LOG      "pmSettings"
-#define SLEEPWAKE_LOG       "sleepWake"
-#define ADAPTIVEDISPLAY_LOG "adaptiveDisplay"
-#define WAKEREQUESTS_LOG    "wakeRequests"
-#define DISPLAY_LOG         "displayState"
-#define LOW_POWER_MODE_LOG  "lowPowerMode"
-#define PREFS_LOG           "prefs"
-#define BDC_LOG             "BDC"
-#define SMART_POWER_NAP_LOG "smartPowerNap"
+#define PM_LOG_SYSTEM               "com.apple.powerd"
+#define SYSLOAD_LOG                 "systemLoad"
+#define AGGD_REPORTS_LOG            "aggdReport"
+#define BATTERY_LOG                 "battery"
+#define BATTERY_HEALTH_LOG          "batteryhealth"
+#define ASSERTIONS_LOG              "assertions"
+#define PMSETTINGS_LOG              "pmSettings"
+#define SLEEPWAKE_LOG               "sleepWake"
+#define ADAPTIVEDISPLAY_LOG         "adaptiveDisplay"
+#define WAKEREQUESTS_LOG            "wakeRequests"
+#define DISPLAY_LOG                 "displayState"
+#define LOW_POWER_MODE_LOG          "lowPowerMode"
+#define PREFS_LOG                   "prefs"
+#define BDC_LOG                     "BDC"
+#define SMART_POWER_NAP_LOG         "smartPowerNap"
+#define CORE_SMART_POWER_NAP_LOG    "coreSmartPowerNap"
 
 #ifndef LOG_STREAM
 #define LOG_STREAM OS_LOG_DEFAULT

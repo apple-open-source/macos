@@ -490,6 +490,7 @@
 #define glDrawArraysInstancedANGLE t_glDrawArraysInstancedANGLE
 #define glDrawElementsInstancedANGLE t_glDrawElementsInstancedANGLE
 #define glVertexAttribDivisorANGLE t_glVertexAttribDivisorANGLE
+#define glLogicOpANGLE t_glLogicOpANGLE
 #define glTexStorageMemFlags2DANGLE t_glTexStorageMemFlags2DANGLE
 #define glTexStorageMemFlags2DMultisampleANGLE t_glTexStorageMemFlags2DMultisampleANGLE
 #define glTexStorageMemFlags3DANGLE t_glTexStorageMemFlags3DANGLE
@@ -568,6 +569,19 @@
 #define glTexSubImage2DRobustANGLE t_glTexSubImage2DRobustANGLE
 #define glTexSubImage3DRobustANGLE t_glTexSubImage3DRobustANGLE
 #define glImportSemaphoreZirconHandleANGLE t_glImportSemaphoreZirconHandleANGLE
+#define glBeginPixelLocalStorageANGLE t_glBeginPixelLocalStorageANGLE
+#define glEndPixelLocalStorageANGLE t_glEndPixelLocalStorageANGLE
+#define glFramebufferMemorylessPixelLocalStorageANGLE \
+    t_glFramebufferMemorylessPixelLocalStorageANGLE
+#define glFramebufferPixelLocalClearValuefvANGLE t_glFramebufferPixelLocalClearValuefvANGLE
+#define glFramebufferPixelLocalClearValueivANGLE t_glFramebufferPixelLocalClearValueivANGLE
+#define glFramebufferPixelLocalClearValueuivANGLE t_glFramebufferPixelLocalClearValueuivANGLE
+#define glFramebufferTexturePixelLocalStorageANGLE t_glFramebufferTexturePixelLocalStorageANGLE
+#define glGetFramebufferPixelLocalStorageParameterfvANGLE \
+    t_glGetFramebufferPixelLocalStorageParameterfvANGLE
+#define glGetFramebufferPixelLocalStorageParameterivANGLE \
+    t_glGetFramebufferPixelLocalStorageParameterivANGLE
+#define glPixelLocalStorageBarrierANGLE t_glPixelLocalStorageBarrierANGLE
 #define glInvalidateTextureANGLE t_glInvalidateTextureANGLE
 #define glTexImage2DExternalANGLE t_glTexImage2DExternalANGLE
 #define glGetMultisamplefvANGLE t_glGetMultisamplefvANGLE
@@ -651,6 +665,7 @@
 #define glMultiDrawElementsIndirectEXT t_glMultiDrawElementsIndirectEXT
 #define glFramebufferTexture2DMultisampleEXT t_glFramebufferTexture2DMultisampleEXT
 #define glRenderbufferStorageMultisampleEXT t_glRenderbufferStorageMultisampleEXT
+#define glPolygonOffsetClampEXT t_glPolygonOffsetClampEXT
 #define glPrimitiveBoundingBoxEXT t_glPrimitiveBoundingBoxEXT
 #define glGetGraphicsResetStatusEXT t_glGetGraphicsResetStatusEXT
 #define glGetnUniformfvEXT t_glGetnUniformfvEXT
@@ -829,6 +844,10 @@
 #define glTexGenivOES t_glTexGenivOES
 #define glTexGenxOES t_glTexGenxOES
 #define glTexGenxvOES t_glTexGenxvOES
+
+#if defined(__cplusplus)
+extern "C" {
+#endif  // defined(__cplusplus)
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLALPHAFUNCPROC t_glAlphaFunc;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLCLIPPLANEFPROC t_glClipPlanef;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLCOLOR4FPROC t_glColor4f;
@@ -1316,6 +1335,7 @@ ANGLE_TRACE_LOADER_EXPORT extern PFNGLGETTEXLEVELPARAMETERIVANGLEPROC
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLDRAWARRAYSINSTANCEDANGLEPROC t_glDrawArraysInstancedANGLE;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLDRAWELEMENTSINSTANCEDANGLEPROC t_glDrawElementsInstancedANGLE;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLVERTEXATTRIBDIVISORANGLEPROC t_glVertexAttribDivisorANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLLOGICOPANGLEPROC t_glLogicOpANGLE;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLTEXSTORAGEMEMFLAGS2DANGLEPROC t_glTexStorageMemFlags2DANGLE;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLTEXSTORAGEMEMFLAGS2DMULTISAMPLEANGLEPROC
     t_glTexStorageMemFlags2DMultisampleANGLE;
@@ -1438,6 +1458,25 @@ ANGLE_TRACE_LOADER_EXPORT extern PFNGLTEXSUBIMAGE2DROBUSTANGLEPROC t_glTexSubIma
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLTEXSUBIMAGE3DROBUSTANGLEPROC t_glTexSubImage3DRobustANGLE;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLIMPORTSEMAPHOREZIRCONHANDLEANGLEPROC
     t_glImportSemaphoreZirconHandleANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLBEGINPIXELLOCALSTORAGEANGLEPROC
+    t_glBeginPixelLocalStorageANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLENDPIXELLOCALSTORAGEANGLEPROC t_glEndPixelLocalStorageANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLFRAMEBUFFERMEMORYLESSPIXELLOCALSTORAGEANGLEPROC
+    t_glFramebufferMemorylessPixelLocalStorageANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLFRAMEBUFFERPIXELLOCALCLEARVALUEFVANGLEPROC
+    t_glFramebufferPixelLocalClearValuefvANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLFRAMEBUFFERPIXELLOCALCLEARVALUEIVANGLEPROC
+    t_glFramebufferPixelLocalClearValueivANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLFRAMEBUFFERPIXELLOCALCLEARVALUEUIVANGLEPROC
+    t_glFramebufferPixelLocalClearValueuivANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLFRAMEBUFFERTEXTUREPIXELLOCALSTORAGEANGLEPROC
+    t_glFramebufferTexturePixelLocalStorageANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLGETFRAMEBUFFERPIXELLOCALSTORAGEPARAMETERFVANGLEPROC
+    t_glGetFramebufferPixelLocalStorageParameterfvANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLGETFRAMEBUFFERPIXELLOCALSTORAGEPARAMETERIVANGLEPROC
+    t_glGetFramebufferPixelLocalStorageParameterivANGLE;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLPIXELLOCALSTORAGEBARRIERANGLEPROC
+    t_glPixelLocalStorageBarrierANGLE;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLINVALIDATETEXTUREANGLEPROC t_glInvalidateTextureANGLE;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLTEXIMAGE2DEXTERNALANGLEPROC t_glTexImage2DExternalANGLE;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLGETMULTISAMPLEFVANGLEPROC t_glGetMultisamplefvANGLE;
@@ -1541,6 +1580,7 @@ ANGLE_TRACE_LOADER_EXPORT extern PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC
     t_glFramebufferTexture2DMultisampleEXT;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC
     t_glRenderbufferStorageMultisampleEXT;
+ANGLE_TRACE_LOADER_EXPORT extern PFNGLPOLYGONOFFSETCLAMPEXTPROC t_glPolygonOffsetClampEXT;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLPRIMITIVEBOUNDINGBOXEXTPROC t_glPrimitiveBoundingBoxEXT;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLGETGRAPHICSRESETSTATUSEXTPROC t_glGetGraphicsResetStatusEXT;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLGETNUNIFORMFVEXTPROC t_glGetnUniformfvEXT;
@@ -1737,11 +1777,12 @@ ANGLE_TRACE_LOADER_EXPORT extern PFNGLTEXGENIVOESPROC t_glTexGenivOES;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLTEXGENXOESPROC t_glTexGenxOES;
 ANGLE_TRACE_LOADER_EXPORT extern PFNGLTEXGENXVOESPROC t_glTexGenxvOES;
 
-namespace trace_angle
-{
-using GenericProc = void (*)();
-using LoadProc    = GenericProc(KHRONOS_APIENTRY *)(const char *);
-ANGLE_TRACE_LOADER_EXPORT void LoadGLES(LoadProc loadProc);
-}  // namespace trace_angle
+typedef void (*GenericProc)(void);
+typedef GenericProc(KHRONOS_APIENTRY *LoadProc)(const char *);
+ANGLE_TRACE_LOADER_EXPORT void LoadTraceGLES(LoadProc loadProc);
+
+#if defined(__cplusplus)
+}  // extern "C"
+#endif  // defined(__cplusplus)
 
 #endif  // ANGLE_TRACES_UTIL_GLES_LOADER_AUTOGEN_H_

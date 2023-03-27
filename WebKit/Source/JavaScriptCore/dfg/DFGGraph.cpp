@@ -725,7 +725,7 @@ void Graph::determineReachability()
     }
 }
 
-void Graph::resetReachability()
+void Graph::clearReachability()
 {
     for (BlockIndex blockIndex = m_blocks.size(); blockIndex--;) {
         BasicBlock* block = m_blocks[blockIndex].get();
@@ -734,7 +734,11 @@ void Graph::resetReachability()
         block->isReachable = false;
         block->predecessors.clear();
     }
-    
+}
+
+void Graph::resetReachability()
+{
+    clearReachability();
     determineReachability();
 }
 
@@ -1298,7 +1302,7 @@ JSValue Graph::tryGetConstantProperty(
         ASSERT(structure->isValidOffset(offset));
         ASSERT(!structure->isUncacheableDictionary());
         
-        watchpoints().addLazily(set);
+        watchpoints().addLazily(*set);
     }
     
     // What follows may require some extra thought. We need this load to load a valid JSValue. If
@@ -1402,7 +1406,7 @@ JSValue Graph::tryGetConstantClosureVar(JSValue base, ScopeOffset offset)
             return JSValue();
     }
     
-    watchpoints().addLazily(set);
+    watchpoints().addLazily(*set);
     
     return value;
 }

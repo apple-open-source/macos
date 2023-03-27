@@ -54,12 +54,15 @@
 
 - (instancetype)init
 {
+	NSError *regexError = nil;
+	NSArray<EFLogEventMatch *> *matches = nil;
+	EFLogEventParser *parser = nil;
+
 	self = [super init];
 	if (self == nil) {
 		return nil;
 	}
 
-	NSError *regexError = nil;
 	_nwiRegex = [[NSRegularExpression alloc] initWithPattern:@"\\s+(?<"TokenInterfaceName">\\w+) : flags\\s+: \\w+ \\(.+\\)\\n"
 								  "\\s+address\\s+: (?<"TokenAddress">\\S+)\\n"
 								  "(\\s+VPN server\\s+: \\S+\\n)?"
@@ -105,7 +108,7 @@
 		return nil;
 	}
 
-	NSArray<EFLogEventMatch *> *matches = @[
+	matches = @[
 		[[EFLogEventMatch alloc] initWithPattern:@"^Network information"
 				 multipleNewEventHandler:
 		 ^NSArray<EFEvent *> *(__unused NSTextCheckingResult *matchResult, EFLogEvent *logEvent) {
@@ -119,11 +122,16 @@
 			 }
 
 			 for (NSTextCheckingResult *match in matches) {
+				 EFNetworkControlPathEvent *event = nil;
+				 NSString *addressString = nil;
+				 NSString *rankString = nil;
+				 NSString *orderString = nil;
+
 				 NSString *interfaceName = [logEvent substringForCaptureGroup:@TokenInterfaceName inMatchResult:match];
 				 if (interfaceName == nil) {
 					 continue;
 				 }
-				 EFNetworkControlPathEvent *event = newEvents[interfaceName];
+				 event = newEvents[interfaceName];
 				 if (event == nil) {
 					 event = [self createInterfaceEventWithLogEvent:logEvent matchResult:match];
 					 if (newEvents == nil) {
@@ -133,7 +141,7 @@
 					 event.primaryStateIPv4 = EFPrimaryStateNotPrimary;
 					 event.primaryStateIPv6 = EFPrimaryStateNotPrimary;
 				 }
-				 NSString *addressString = [logEvent substringForCaptureGroup:@TokenAddress inMatchResult:match];
+				 addressString = [logEvent substringForCaptureGroup:@TokenAddress inMatchResult:match];
 				 if (addressString.length > 0) {
 					 if (primaryV4 || primaryV6) {
 						 sa_family_t addressFamily = [self getAddressFamilyOfAddress:addressString];
@@ -147,11 +155,11 @@
 					 }
 					 [self addAddress:addressString toInterfaceEvent:event];
 				 }
-				 NSString *rankString = [logEvent substringForCaptureGroup:@TokenRank inMatchResult:match];
+				 rankString = [logEvent substringForCaptureGroup:@TokenRank inMatchResult:match];
 				 if (rankString.length > 0) {
 					 event.rank = rankString;
 				 }
-				 NSString *orderString = [logEvent substringForCaptureGroup:@TokenOrder inMatchResult:match];
+				 orderString = [logEvent substringForCaptureGroup:@TokenOrder inMatchResult:match];
 				 if (orderString.length > 0) {
 					 if ([orderString isEqualToString:@"Last"]) {
 						 event.order = -1;
@@ -171,6 +179,13 @@
 			 NSMutableArray<NSDictionary<NSString *, NSObject *> *> *orderedDNSConfigurations = nil;
 
 			 for (NSTextCheckingResult *match in matches) {
+				 NSString *searchDomainsString = nil;
+				 NSString *nameServersString = nil;
+				 NSString *flagsDescription = nil;
+				 NSString *reachabilityDescription = nil;
+				 NSString *interfaceName = nil;
+				 NSDictionary<NSString *, NSObject *> *newConfiguration = nil;
+
 				 NSMutableDictionary<NSString *, NSObject *> *dnsConfiguration = [[NSMutableDictionary alloc] init];
 				 NSString *matchDomain = [logEvent substringForCaptureGroup:@TokenDomain inMatchResult:match];
 				 BOOL scoped = NO;
@@ -178,7 +193,7 @@
 					 NSArray<NSString *> *domains = (NSArray<NSString *> *)dnsConfiguration[ResolverMatchDomainsKey];
 					 dnsConfiguration[ResolverMatchDomainsKey] = [self addUniqueString:matchDomain toArray:domains];
 				 }
-				 NSString *searchDomainsString = [logEvent substringForCaptureGroup:@TokenSearchDomains inMatchResult:match];
+				 searchDomainsString = [logEvent substringForCaptureGroup:@TokenSearchDomains inMatchResult:match];
 				 if (searchDomainsString.length > 0) {
 					 [self addSubstringsFromString:searchDomainsString
 						       forCaptureGroup:@TokenDomain
@@ -186,7 +201,7 @@
 							  toArrayAtKey:ResolverSearchDomainsKey
 							  inDictionary:dnsConfiguration];
 				 }
-				 NSString *nameServersString = [logEvent substringForCaptureGroup:@TokenNameServers inMatchResult:match];
+				 nameServersString = [logEvent substringForCaptureGroup:@TokenNameServers inMatchResult:match];
 				 if (nameServersString.length > 0) {
 					 [self addSubstringsFromString:nameServersString
 						       forCaptureGroup:@TokenAddress
@@ -194,24 +209,24 @@
 							  toArrayAtKey:ResolverNameServersKey
 							  inDictionary:dnsConfiguration];
 				 }
-				 NSString *flagsDescription = [logEvent substringForCaptureGroup:@TokenFlagsDescription inMatchResult:match];
+				 flagsDescription = [logEvent substringForCaptureGroup:@TokenFlagsDescription inMatchResult:match];
 				 if (flagsDescription.length > 0) {
 					 dnsConfiguration[ResolverFlagsDescriptionKey] = flagsDescription;
 					 if ([flagsDescription containsString:@"Scoped"]) {
 						 scoped = YES;
 					 }
 				 }
-				 NSString *reachabilityDescription = [logEvent substringForCaptureGroup:@TokenReachabilityDescription inMatchResult:match];
+				 reachabilityDescription = [logEvent substringForCaptureGroup:@TokenReachabilityDescription inMatchResult:match];
 				 if (reachabilityDescription.length > 0) {
 					 dnsConfiguration[ResolverReachabilityDescriptionKey] = reachabilityDescription;
 				 }
 
-				 NSString *interfaceName = [logEvent substringForCaptureGroup:@TokenInterfaceName inMatchResult:match];
+				 interfaceName = [logEvent substringForCaptureGroup:@TokenInterfaceName inMatchResult:match];
 				 if (interfaceName != nil) {
 					 dnsConfiguration[ResolverInterfaceNameKey] = interfaceName;
 				 }
 
-				 NSDictionary<NSString *, NSObject *> *newConfiguration = nil;
+				 newConfiguration = nil;
 				 if (interfaceName != nil && (scoped || matchDomain.length > 0)) {
 					 NSDictionary<NSString *, NSObject *> *existingConfiguration = interfaceDNSConfigurations[interfaceName];
 					 if (existingConfiguration != nil) {
@@ -232,10 +247,11 @@
 				 }
 
 				 if (!scoped) {
+					 NSUInteger existingIndex;
 					 if (orderedDNSConfigurations == nil) {
 						 orderedDNSConfigurations = [[NSMutableArray alloc] init];
 					 }
-					 NSUInteger existingIndex = [orderedDNSConfigurations indexOfObjectPassingTest:
+					 existingIndex = [orderedDNSConfigurations indexOfObjectPassingTest:
 						^BOOL(NSDictionary<NSString *,NSObject *> *obj, __unused NSUInteger idx, __unused BOOL *stop) {
 							NSString *existingInterfaceName = (NSString *)obj[ResolverInterfaceNameKey];
 							return (existingInterfaceName != nil && [interfaceName isEqualToString:existingInterfaceName]);
@@ -249,18 +265,21 @@
 			 }
 
 			 for (NSString *interfaceName in interfaceDNSConfigurations) {
+				 NSError *jsonError = nil;
+				 NSData *jsonData = nil;
+				 EFNetworkControlPathEvent *newEvent = nil;
 				 NSDictionary<NSString *, NSObject *> *dnsConfiguration = interfaceDNSConfigurations[interfaceName];
 				 if (dnsConfiguration == nil || ![NSJSONSerialization isValidJSONObject:dnsConfiguration]) {
 					 specs_log_err("DNS configuration is not valid JSON: %@", dnsConfiguration);
 					 continue;
 				 }
-				 NSError *jsonError = nil;
-				 NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dnsConfiguration options:NSJSONWritingPrettyPrinted error:&jsonError];
+				 jsonError = nil;
+				 jsonData = [NSJSONSerialization dataWithJSONObject:dnsConfiguration options:NSJSONWritingPrettyPrinted error:&jsonError];
 				 if (jsonData == nil) {
 					 specs_log_err("Failed to generate JSON from %@: %@", dnsConfiguration, jsonError);
 					 continue;
 				 }
-				 EFNetworkControlPathEvent *newEvent = [self createInterfaceEventWithLogEvent:logEvent interfaceName:interfaceName];
+				 newEvent = [self createInterfaceEventWithLogEvent:logEvent interfaceName:interfaceName];
 				 newEvent.dnsConfiguration = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
 
 				 if (newEvents == nil) {
@@ -297,7 +316,7 @@
 			 return newEvents;
 		 }],
 	];
-	EFLogEventParser *parser = [[EFLogEventParser alloc] initWithMatches:matches];
+	parser = [[EFLogEventParser alloc] initWithMatches:matches];
 	return [super initWithCategory:@"StateDump" eventParser:parser];
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,7 +75,6 @@
 #include <pal/graphics/WebGPU/WebGPUTexture.h>
 #include <pal/graphics/WebGPU/WebGPUTextureDescriptor.h>
 
-
 namespace WebKit {
 
 RemoteDevice::RemoteDevice(PAL::WebGPU::Device& device, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier, WebGPUIdentifier queueIdentifier)
@@ -125,6 +124,20 @@ void RemoteDevice::createTexture(const WebGPU::TextureDescriptor& descriptor, We
         return;
 
     auto texture = m_backing->createTexture(*convertedDescriptor);
+    auto remoteTexture = RemoteTexture::create(texture, m_objectHeap, m_streamConnection.copyRef(), identifier);
+    m_objectHeap.addObject(identifier, remoteTexture);
+}
+
+void RemoteDevice::createSurfaceTexture(WebGPUIdentifier presentationContextIdentifier, const WebGPU::TextureDescriptor& descriptor, WebGPUIdentifier identifier)
+{
+    auto convertedDescriptor = m_objectHeap.convertFromBacking(descriptor);
+    ASSERT(convertedDescriptor);
+    if (!convertedDescriptor)
+        return;
+
+    auto presentationContext = m_objectHeap.convertPresentationContextFromBacking(presentationContextIdentifier);
+    ASSERT(presentationContext);
+    auto texture = m_backing->createSurfaceTexture(*convertedDescriptor, *presentationContext);
     auto remoteTexture = RemoteTexture::create(texture, m_objectHeap, m_streamConnection.copyRef(), identifier);
     m_objectHeap.addObject(identifier, remoteTexture);
 }

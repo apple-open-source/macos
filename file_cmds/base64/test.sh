@@ -207,6 +207,24 @@ fi
 
 rm -f testfile.$$
 
+# Don't execute the filename.
+rm -f evilfile
+$cmd -i '$(touch evilfile)' 2>/dev/null
+if [ -f "evilfile" ]; then
+	echo "test 25 failed"
+	fails=$(( fails + 1 ))
+fi
+rm -f evilfile
+
+touch -- '-:'
+$cmd -i '-:' 2> testfile.out.$$
+if grep -q 'illegal option' testfile.out.$$; then
+	echo "test 26 failed"
+	fails=$(( fails + 1 ))
+fi
+rm -f -- '-:'
+rm -f testfile.out.$$
+
 if [ "$fails" -ne 0 ]; then
 	echo "$fails tests failed"
 else

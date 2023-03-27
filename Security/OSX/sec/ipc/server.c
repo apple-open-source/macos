@@ -117,6 +117,7 @@
 
 #include "keychain/keychainupgrader/KeychainItemUpgradeRequestServerHelpers.h"
 
+
 #if TARGET_OS_OSX
 #include <sandbox.h>
 #include <pwd.h>
@@ -697,14 +698,22 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
 #if SECUREOBJECTSYNC
             case sec_keychain_sync_update_message_id:
             {
-                CFDictionaryRef updates = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyQuery, &error);
-                if (updates) {
-                    CFArrayRef result = _SecServerKeychainSyncUpdateMessage(updates, &error);
-                    SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
-                    CFReleaseNull(result);
+                if (!OctagonIsSOSFeatureEnabled()) {
+                    secdebug("nosos", "SOS is currently not supported or enabled");
+                    CFArrayRef emptyArray = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+                    SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, emptyArray, &error);
+                    CFReleaseNull(emptyArray);
+                    break;
+                } else {
+                    CFDictionaryRef updates = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyQuery, &error);
+                    if (updates) {
+                        CFArrayRef result = _SecServerKeychainSyncUpdateMessage(updates, &error);
+                        SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
+                        CFReleaseNull(result);
+                    }
+                    CFReleaseNull(updates);
+                    break;
                 }
-                CFReleaseNull(updates);
-                break;
             }
             case sec_keychain_backup_syncable_id:
             {
@@ -767,6 +776,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         SecXPCDictionarySetString(replyMessage, kSecXPCKeyResult, name, &error);
                         CFReleaseNull(name);
                     }
+                    CFReleaseNull(viewName);
                 }
                 break;
             }
@@ -1735,15 +1745,19 @@ int main(int argc, char *argv[])
     dispatch_activate(termSource);
 
 #if TARGET_OS_OSX
-#define SECD_PROFILE_NAME "com.apple.secd"
+#if defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM
+#define SANDBOX_PROFILE_NAME "com.apple.securityd_system"
+#else
+#define SANDBOX_PROFILE_NAME "com.apple.secd"
+#endif
     const char *homedir = homedirPath();
     if (homedir == NULL) {
-        errx(1, "failed to get home directory for secd");
+        errx(1, "failed to get home directory for daemon");
     }
 
     char *errorbuf = NULL;
     const char	*sandbox_params[] = {"_HOME", homedir, NULL};
-    int32_t rc = sandbox_init_with_parameters(SECD_PROFILE_NAME, SANDBOX_NAMED, sandbox_params, &errorbuf);
+    int32_t rc = sandbox_init_with_parameters(SANDBOX_PROFILE_NAME, SANDBOX_NAMED, sandbox_params, &errorbuf);
     if (rc) {
         errx(1, "Failed to instantiate sandbox: %d %s", rc, errorbuf);
         /* errx will quit the process */
@@ -1756,6 +1770,7 @@ int main(int argc, char *argv[])
     OctagonSetShouldPerformInitialization(true);
     SecCKKSEnable();
 #endif
+
 
     /* setup SQDLite before some other component have a chance to create a database connection */
     _SecDbServerSetup();
@@ -1784,8 +1799,11 @@ int main(int argc, char *argv[])
 
 	// <rdar://problem/22425706> 13B104+Roots:Device never moved past spinner after using approval to ENABLE icdp
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE && !SECURITYD_SYSTEM
+    if (OctagonIsSOSFeatureEnabled()) {
 	securityd_soscc_lock_hack();
+    }
 #endif
+
 
     CFRunLoopRun();
 }

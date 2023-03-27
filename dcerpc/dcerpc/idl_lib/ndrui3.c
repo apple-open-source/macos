@@ -835,11 +835,7 @@ void rpc_ss_ndr_ee_unmar_pipe_chunk
             if (p_pipe_state->next_in_pipe < 0)
             {
                 /* Last in pipe */
-                if (p_pipe_state->IDL_msp->IDL_elt_p->buff_dealloc
-                            && p_pipe_state->IDL_msp->IDL_elt_p->data_len != 0)
-                    (*(p_pipe_state->IDL_msp->IDL_elt_p->buff_dealloc))
-                                  (p_pipe_state->IDL_msp->IDL_elt_p->buff_addr);
-                p_pipe_state->IDL_msp->IDL_elt_p = NULL;
+                idl_es_dealloc_elt_buffer(p_pipe_state->IDL_msp);
             }
             *IDL_ecount_p = 0;
             return;

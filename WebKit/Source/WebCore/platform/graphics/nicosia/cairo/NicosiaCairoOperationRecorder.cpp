@@ -614,7 +614,7 @@ void CairoOperationRecorder::drawFilteredImageBuffer(ImageBuffer* srcImage, cons
     append(createCommand<DrawFilteredImageBuffer>(nativeImage->platformImage(), FloatRect(result->absoluteImageRect()), FloatRect({ } , imageBuffer->logicalSize()), filter.filterScale(), ImagePaintingOptions(state.imageInterpolationQuality()), state.alpha(), Cairo::ShadowState(state)));
 }
 
-void CairoOperationRecorder::drawNativeImage(NativeImage& nativeImage, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void CairoOperationRecorder::drawNativeImageInternal(NativeImage& nativeImage, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     struct DrawNativeImage final : PaintingOperation, OperationData<RefPtr<cairo_surface_t>, FloatRect, FloatRect, ImagePaintingOptions, float, Cairo::ShadowState> {
         virtual ~DrawNativeImage() = default;
@@ -637,12 +637,12 @@ void CairoOperationRecorder::drawNativeImage(NativeImage& nativeImage, const Flo
 
 void CairoOperationRecorder::drawPattern(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
-    struct DrawPattern final : PaintingOperation, OperationData<RefPtr<cairo_surface_t>, IntSize, FloatRect, FloatRect, AffineTransform, FloatPoint, ImagePaintingOptions> {
+    struct DrawPattern final : PaintingOperation, OperationData<RefPtr<cairo_surface_t>, IntSize, FloatRect, FloatRect, AffineTransform, FloatPoint, FloatSize, ImagePaintingOptions> {
         virtual ~DrawPattern() = default;
 
         void execute(PaintingOperationReplay& replayer) override
         {
-            Cairo::drawPattern(contextForReplay(replayer), arg<0>().get(), arg<1>(), arg<2>(), arg<3>(), arg<4>(), arg<5>(), arg<6>());
+            Cairo::drawPattern(contextForReplay(replayer), arg<0>().get(), arg<1>(), arg<2>(), arg<3>(), arg<4>(), arg<5>(), arg<6>(), arg<7>());
         }
 
         void dump(TextStream& ts) override
@@ -652,7 +652,7 @@ void CairoOperationRecorder::drawPattern(NativeImage& nativeImage, const FloatRe
     };
 
     UNUSED_PARAM(spacing);
-    append(createCommand<DrawPattern>(nativeImage.platformImage(), nativeImage.size(), destRect, tileRect, patternTransform, phase, options));
+    append(createCommand<DrawPattern>(nativeImage.platformImage(), nativeImage.size(), destRect, tileRect, patternTransform, phase, spacing, options));
 }
 
 void CairoOperationRecorder::drawRect(const FloatRect& rect, float borderThickness)
@@ -760,11 +760,11 @@ void CairoOperationRecorder::drawEllipse(const FloatRect& rect)
     append(createCommand<DrawEllipse>(rect, state.fillBrush().color(), state.strokeStyle(), state.strokeBrush().color(), state.strokeThickness()));
 }
 
-void CairoOperationRecorder::drawFocusRing(const Path& path, float width, float offset, const Color& color)
+void CairoOperationRecorder::drawFocusRing(const Path& path, float outlineWidth, const Color& color)
 {
 #if PLATFORM(WPE) || PLATFORM(GTK)
     ThemeAdwaita::paintFocus(*this, path, color);
-    UNUSED_PARAM(width);
+    UNUSED_PARAM(outlineWidth);
 #else
     struct DrawFocusRing final : PaintingOperation, OperationData<Path, float, Color> {
         virtual ~DrawFocusRing() = default;
@@ -780,16 +780,15 @@ void CairoOperationRecorder::drawFocusRing(const Path& path, float width, float 
         }
     };
 
-    append(createCommand<DrawFocusRing>(path, width, color));
+    append(createCommand<DrawFocusRing>(path, outlineWidth, color));
 #endif
-    UNUSED_PARAM(offset);
 }
 
-void CairoOperationRecorder::drawFocusRing(const Vector<FloatRect>& rects, float width, float offset, const Color& color)
+void CairoOperationRecorder::drawFocusRing(const Vector<FloatRect>& rects, float outlineOffset, float outlineWidth, const Color& color)
 {
 #if PLATFORM(WPE) || PLATFORM(GTK)
     ThemeAdwaita::paintFocus(*this, rects, color);
-    UNUSED_PARAM(width);
+    UNUSED_PARAM(outlineWidth);
 #else
     struct DrawFocusRing final : PaintingOperation, OperationData<Vector<FloatRect>, float, Color> {
         virtual ~DrawFocusRing() = default;
@@ -805,9 +804,9 @@ void CairoOperationRecorder::drawFocusRing(const Vector<FloatRect>& rects, float
         }
     };
 
-    append(createCommand<DrawFocusRing>(rects, width, color));
+    append(createCommand<DrawFocusRing>(rects, outlineWidth, color));
 #endif
-    UNUSED_PARAM(offset);
+    UNUSED_PARAM(outlineOffset);
 }
 
 void CairoOperationRecorder::save()
@@ -1167,11 +1166,6 @@ void CairoOperationRecorder::clipToImageBuffer(ImageBuffer& buffer, const FloatR
 
 void CairoOperationRecorder::applyDeviceScaleFactor(float)
 {
-}
-
-FloatRect CairoOperationRecorder::roundToDevicePixels(const FloatRect& rect, GraphicsContext::RoundingMode)
-{
-    return rect;
 }
 
 void CairoOperationRecorder::append(std::unique_ptr<PaintingOperation>&& command)

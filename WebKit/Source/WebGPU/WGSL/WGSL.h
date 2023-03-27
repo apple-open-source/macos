@@ -65,7 +65,11 @@ struct SourceMap {
     // https://sourcemaps.info/spec.html
 };
 
-std::variant<SuccessfulCheck, FailedCheck> staticCheck(const String& wgsl, const std::optional<SourceMap>&);
+struct Configuration {
+    uint32_t maxBuffersPlusVertexBuffersForVertexStage;
+};
+
+std::variant<SuccessfulCheck, FailedCheck> staticCheck(const String& wgsl, const std::optional<SourceMap>&, const Configuration&);
 
 //
 // Step 2
@@ -204,7 +208,7 @@ struct PrepareResult {
 
 // These are not allowed to fail.
 // All failures must have already been caught in check().
-PrepareResult prepare(const AST::ShaderModule&, const HashMap<String, PipelineLayout>&);
-PrepareResult prepare(const AST::ShaderModule&, const String& entryPointName, const std::optional<PipelineLayout>&);
+PrepareResult prepare(AST::ShaderModule&, const HashMap<String, PipelineLayout>&);
+PrepareResult prepare(AST::ShaderModule&, const String& entryPointName, const std::optional<PipelineLayout>&);
 
 } // namespace WGSL

@@ -41,6 +41,8 @@ OBJC_CLASS NSWindow;
 OBJC_CLASS WKInspectorViewController;
 OBJC_CLASS WKRemoteWebInspectorUIProxyObjCAdapter;
 OBJC_CLASS WKWebView;
+#elif PLATFORM(GTK)
+#include <wtf/glib/GWeakPtr.h>
 #endif
 
 namespace WebCore {
@@ -141,6 +143,7 @@ private:
     void openURLExternally(const String& url);
     void revealFileExternally(const String& path);
     void showCertificate(const WebCore::CertificateInfo&);
+    void setInspectorPageDeveloperExtrasEnabled(bool);
     void sendMessageToBackend(const String& message);
 
     void createFrontendPageAndWindow();
@@ -179,8 +182,8 @@ private:
     WebCore::FloatRect m_sheetRect;
 #endif
 #if PLATFORM(GTK)
-    GtkWidget* m_webView { nullptr };
-    GtkWidget* m_window { nullptr };
+    GWeakPtr<GtkWidget> m_webView;
+    GWeakPtr<GtkWidget> m_window;
 #endif
 #if PLATFORM(WIN_CAIRO)
     HWND m_frontendHandle;

@@ -14,5 +14,6 @@
   <date seconds="-60"/>
   <date seconds="9999999999999"/>
   <date seconds="-2999999999"/>
+  <date seconds="3599.99999999999"/>
 </page>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,9 @@
 
 #if USE(APPLE_INTERNAL_SDK)
 
+#import <CoreSVG/CGSVGDocument.h>
 #import <UIKit/NSTextAlternatives.h>
+#import <UIKit/UIActivityViewController_Private.h>
 #import <UIKit/UIAlertController_Private.h>
 #import <UIKit/UIApplication_Private.h>
 #import <UIKit/UIBarButtonItem_Private.h>
@@ -108,6 +110,7 @@
 #import <UIKit/UIContextMenuInteraction_ForSpringBoardOnly.h>
 #import <UIKit/UIContextMenuInteraction_ForWebKitOnly.h>
 #import <UIKit/UIContextMenuInteraction_Private.h>
+#import <UIKit/UIMenu_Private.h>
 #endif
 
 #if HAVE(UIDATEPICKER_OVERLAY_PRESENTATION)
@@ -133,6 +136,7 @@
 #endif
 
 #if HAVE(UIFINDINTERACTION)
+#import <UIKit/UIFindSession_Private.h>
 #import <UIKit/_UIFindInteraction.h>
 #import <UIKit/_UITextSearching.h>
 #endif
@@ -212,6 +216,7 @@ typedef NS_ENUM(NSInteger, UIPreviewItemType) {
 - (void)_addActionWithTitle:(NSString *)title style:(UIAlertActionStyle)style handler:(void (^)(void))handler;
 - (void)_addActionWithTitle:(NSString *)title style:(UIAlertActionStyle)style handler:(void (^)(void))handler shouldDismissHandler:(BOOL (^)(void))shouldDismissHandler;
 @property (nonatomic) UIAlertControllerStyle preferredStyle;
+@property (nonatomic, assign, setter=_setTitleMaximumLineCount:, getter=_titleMaximumLineCount) NSInteger titleMaximumLineCount;
 @end
 
 WTF_EXTERN_C_BEGIN
@@ -361,6 +366,10 @@ typedef id<NSCoding, NSCopying> _UITextSearchDocumentIdentifier;
 @property (class, nonatomic, copy, getter=_globalFindBuffer, setter=_setGlobalFindBuffer:) NSString *_globalFindBuffer;
 @end
 
+@interface UITextSearchingFindSession ()
+@property (nonatomic, readwrite, weak) id<UITextSearching> searchableObject;
+@end
+
 #endif // HAVE(UIFINDINTERACTION)
 
 typedef enum {
@@ -397,10 +406,13 @@ typedef enum {
 @property (nonatomic, setter=_setShowsFileSizePicker:) BOOL _showsFileSizePicker;
 @end
 
+typedef struct CGSVGDocument *CGSVGDocumentRef;
+
 @interface UIImage ()
 - (id)initWithCGImage:(CGImageRef)CGImage imageOrientation:(UIImageOrientation)imageOrientation;
 - (UIImage *)_flatImageWithColor:(UIColor *)color;
 + (UIImage *)_systemImageNamed:(NSString *)name;
++ (UIImage *)_imageWithCGSVGDocument:(CGSVGDocumentRef)cgSVGDocument;
 @end
 
 @interface UIKeyCommand ()
@@ -428,13 +440,10 @@ typedef enum {
 @end
 
 @interface UIKeyboard ()
++ (instancetype)activeKeyboard;
 + (CGSize)defaultSizeForInterfaceOrientation:(UIInterfaceOrientation)orientation;
-- (void)activate;
-- (void)geometryChangeDone:(BOOL)keyboardVisible;
-- (void)prepareForGeometryChange;
 + (BOOL)isInHardwareKeyboardMode;
 + (BOOL)isOnScreen;
-+ (void)removeAllDynamicDictionaries;
 @end
 
 @interface UIKeyboardImpl : UIView <UIKeyboardCandidateListDelegate>
@@ -730,6 +739,10 @@ typedef enum {
 - (void)setOperation:(UINavigationControllerOperation)operation;
 @optional
 - (UIWindow *)window;
+@end
+
+@interface UIActivityViewController ()
+@property (nonatomic) BOOL allowsCustomPresentationStyle;
 @end
 
 typedef NS_ENUM (NSInteger, _UIBackdropMaskViewFlags) {
@@ -1347,6 +1360,10 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 
 #if USE(UICONTEXTMENU)
 
+typedef NS_ENUM(NSUInteger, UIMenuOptionsPrivate) {
+    UIMenuOptionsPrivateRemoveLineLimitForChildren = 1 << 6,
+};
+
 @interface UIContextMenuInteraction ()
 @property (nonatomic, readonly) UIGestureRecognizer *gestureRecognizerForFailureRelationships;
 - (void)_presentMenuAtLocation:(CGPoint)location;
@@ -1413,7 +1430,27 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 
 #endif // HAVE(UIKIT_RESIZABLE_WINDOWS)
 
+#if HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
+
+@interface UIWindowScene ()
+@property (nonatomic, readonly, getter=_isInLiveResize) BOOL _inLiveResize;
+@end
+
+extern NSNotificationName const _UIWindowSceneDidEndLiveResizeNotification;
+
+#endif // HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
+
 #endif // USE(APPLE_INTERNAL_SDK)
+
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
+    _UIScrollDeviceCategoryOverlayScroll = 6
+};
+
+@interface UIScrollEvent ()
+- (_UIScrollDeviceCategory)_scrollDeviceCategory;
+@end
+#endif
 
 @interface UITextInteractionAssistant (IPI)
 @property (nonatomic, readonly) BOOL inGesture;
@@ -1434,12 +1471,6 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 
 #if USE(UICONTEXTMENU)
 
-@interface UIAction (IPI)
-- (void)_performActionWithSender:(id)sender;
-@end
-
-#if HAVE(LINK_PREVIEW)
-
 @interface UIContextMenuConfiguration (IPI)
 @property (nonatomic, copy) UIContextMenuContentPreviewProvider previewProvider;
 @property (nonatomic, copy) UIContextMenuActionProvider actionProvider;
@@ -1457,8 +1488,6 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @interface UIContextMenuInteraction (IPI)
 @property (nonatomic, strong) _UIClickPresentationInteraction *presentationInteraction;
 @end
-
-#endif // HAVE(LINK_PREVIEW)
 
 #endif // USE(UICONTEXTMENU)
 

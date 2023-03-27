@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2017-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -123,6 +123,9 @@ typedef NS_ENUM(NSInteger, LogAccumulatingState) {
 
 - (void)handleLogEvent:(EFLogEvent *)logEvent completionHandler:(void (^)(NSArray<EFEvent *> * _Nullable))completionHandler
 {
+	SCLogParser *parser = nil;
+	NSArray<EFEvent *> *completeEvents = nil;
+
 	if ([logEvent.eventType isEqualToString:@"stateEvent"]) {
 		logEvent.subsystem = @"com.apple.SystemConfiguration";
 		logEvent.category = @"StateDump";
@@ -232,14 +235,14 @@ typedef NS_ENUM(NSInteger, LogAccumulatingState) {
 		}
 	}
 
-	SCLogParser *parser = _parserMap[logEvent.category];
+	parser = _parserMap[logEvent.category];
 	if (parser == nil) {
 		specs_log_debug("Skipped message with an unknown category (%@): %@", logEvent.category, logEvent.eventMessage);
 		completionHandler(nil);
 		return;
 	}
 
-	NSArray<EFEvent *> *completeEvents = [parser.eventParser parseLogEventIntoMultipleEvents:logEvent];
+	completeEvents = [parser.eventParser parseLogEventIntoMultipleEvents:logEvent];
 	completionHandler(completeEvents);
 }
 

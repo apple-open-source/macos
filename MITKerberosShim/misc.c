@@ -677,6 +677,7 @@ krb5_enctype_to_string(mit_krb5_enctype enctype,
 void KRB5_CALLCONV
 krb5_free_addresses(mit_krb5_context context, mit_krb5_address **addrs)
 {
+    if (!addrs) return;
     unsigned int i;
     for (i = 0; addrs && addrs[i] ; i++) {
 	free(addrs[i]->contents);

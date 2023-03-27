@@ -51,26 +51,10 @@ private:
     OptionSet<EventListenerRegionType> eventListenerRegionTypesForPoint(FloatPoint) const final;
 #endif
 
-    void setWheelEventTestMonitor(RefPtr<WheelEventTestMonitor>&&) final;
-    WheelEventTestMonitor* wheelEventTestMonitor() final { return m_wheelEventTestMonitor.get(); }
-
-    void receivedWheelEvent(const PlatformWheelEvent&) final;
-
-    void deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) final;
-    void removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) final;
-
     void registerForPlatformRenderingUpdateCallback();
     void applyLayerPositionsInternal() final WTF_REQUIRES_LOCK(m_treeLock);
 
-    void lockLayersForHitTesting() final WTF_ACQUIRES_LOCK(m_layerHitTestMutex);
-    void unlockLayersForHitTesting() final WTF_RELEASES_LOCK(m_layerHitTestMutex);
-
     void didCompleteRenderingUpdate() final;
-
-    // This lock protects the CALayer/PlatformCALayer tree.
-    mutable Lock m_layerHitTestMutex;
-    
-    RefPtr<WheelEventTestMonitor> m_wheelEventTestMonitor;
 };
 
 } // namespace WebCore

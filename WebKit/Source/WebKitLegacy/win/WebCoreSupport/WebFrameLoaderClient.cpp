@@ -117,11 +117,6 @@ std::optional<WebCore::PageIdentifier> WebFrameLoaderClient::pageID() const
     return std::nullopt;
 }
 
-std::optional<WebCore::FrameIdentifier> WebFrameLoaderClient::frameID() const
-{
-    return std::nullopt;
-}
-
 bool WebFrameLoaderClient::hasWebView() const
 {
     return m_webFrame->webView();
@@ -741,11 +736,6 @@ void WebFrameLoaderClient::didRunInsecureContent(SecurityOrigin& origin, const U
     frameLoadDelegatePriv2->didRunInsecureContent(webView, webSecurityOrigin.get());
 }
 
-void WebFrameLoaderClient::didDetectXSS(const URL&, bool)
-{
-    // FIXME: propogate call into the private delegate.
-}
-
 ResourceError WebFrameLoaderClient::cancelledError(const ResourceRequest& request) const
 {
     // FIXME: Need ChickenCat to include CFNetwork/CFURLError.h to get these values
@@ -956,7 +946,6 @@ RefPtr<Frame> WebFrameLoaderClient::createFrame(const AtomString& name, HTMLFram
     RefPtr<Frame> childFrame = webFrame->createSubframeWithOwnerElement(m_webFrame->webView(), coreFrame->page(), &ownerElement);
 
     childFrame->tree().setName(name);
-    coreFrame->tree().appendChild(*childFrame);
     childFrame->init();
 
     return childFrame;
@@ -995,10 +984,10 @@ WebHistory* WebFrameLoaderClient::webHistory() const
     return WebHistory::sharedHistory();
 }
 
-String WebFrameLoaderClient::overrideMediaType() const
+AtomString WebFrameLoaderClient::overrideMediaType() const
 {
     notImplemented();
-    return String();
+    return nullAtom();
 }
 
 void WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld& world)

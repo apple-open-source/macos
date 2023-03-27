@@ -64,7 +64,6 @@
 #include "HTMLTextFormControlElement.h"
 #include "HTMLVideoElement.h"
 #include "KeyboardEvent.h"
-#include "LabelableElement.h"
 #include "LocalizedStrings.h"
 #include "MathMLElement.h"
 #include "MathMLNames.h"
@@ -375,13 +374,13 @@ AccessibilityRole AccessibilityNodeObject::determineAccessibilityRoleFromNode(Tr
         return AccessibilityRole::Caption;
     if (node()->hasTagName(dialogTag))
         return AccessibilityRole::ApplicationDialog;
-    if (node()->hasTagName(markTag))
+    if (node()->hasTagName(markTag) || equalLettersIgnoringASCIICase(getAttribute(roleAttr), "mark"_s))
         return AccessibilityRole::Mark;
     if (node()->hasTagName(preTag))
         return AccessibilityRole::Pre;
     if (is<HTMLDetailsElement>(node()))
         return AccessibilityRole::Details;
-    if (is<HTMLSummaryElement>(node()))
+    if (auto* summaryElement = dynamicDowncast<HTMLSummaryElement>(node()); summaryElement && summaryElement->isActiveSummary())
         return AccessibilityRole::Summary;
 
     // http://rawgit.com/w3c/aria/master/html-aam/html-aam.html
@@ -711,16 +710,6 @@ bool AccessibilityNodeObject::isMenuItem() const
     }
 }
 
-bool AccessibilityNodeObject::isNativeCheckboxOrRadio() const
-{
-    Node* node = this->node();
-    if (!is<HTMLInputElement>(node))
-        return false;
-
-    auto& input = downcast<HTMLInputElement>(*node);
-    return input.isCheckbox() || input.isRadioButton();
-}
-
 bool AccessibilityNodeObject::isEnabled() const
 {
     // ARIA says that the disabled status applies to the current element and all descendant elements.
@@ -744,7 +733,14 @@ bool AccessibilityNodeObject::isEnabled() const
 
 bool AccessibilityNodeObject::isIndeterminate() const
 {
-    return equalLettersIgnoringASCIICase(getAttribute(indeterminateAttr), "true"_s);
+    if (supportsCheckedState())
+        return checkboxOrRadioValue() == AccessibilityButtonState::Mixed;
+
+    // We handle this for native <progress> elements in AccessibilityProgressIndicator::isIndeterminate.
+    if (ariaRoleAttribute() == AccessibilityRole::ProgressIndicator)
+        return !hasARIAValueNow();
+
+    return false;
 }
 
 bool AccessibilityNodeObject::isPressed() const
@@ -1066,8 +1062,8 @@ AXCoreObject* AccessibilityNodeObject::selectedTabItem()
 
 AccessibilityButtonState AccessibilityNodeObject::checkboxOrRadioValue() const
 {
-    if (isNativeCheckboxOrRadio())
-        return isIndeterminate() ? AccessibilityButtonState::Mixed : isChecked() ? AccessibilityButtonState::On : AccessibilityButtonState::Off;
+    if (auto* input = dynamicDowncast<HTMLInputElement>(node()); input && (input->isCheckbox() || input->isRadioButton()))
+        return input->indeterminate() ? AccessibilityButtonState::Mixed : isChecked() ? AccessibilityButtonState::On : AccessibilityButtonState::Off;
 
     return AccessibilityObject::checkboxOrRadioValue();
 }
@@ -1829,19 +1825,8 @@ void AccessibilityNodeObject::accessibilityText(Vector<AccessibilityText>& textO
 void AccessibilityNodeObject::ariaLabeledByText(Vector<AccessibilityText>& textOrder) const
 {
     String ariaLabeledBy = ariaLabeledByAttribute();
-    if (!ariaLabeledBy.isEmpty()) {
-        auto objectCache = axObjectCache();
-        if (!objectCache)
-            return;
-
-        auto elements = ariaLabeledByElements();
-
-        Vector<AXCoreObject*> axElements;
-        for (const auto& element : elements)
-            axElements.append(objectCache->getOrCreate(element));
-        
+    if (!ariaLabeledBy.isEmpty())
         textOrder.append(AccessibilityText(ariaLabeledBy, AccessibilityTextSource::Alternative));
-    }
 }
     
 String AccessibilityNodeObject::alternativeTextForWebArea() const
@@ -2115,7 +2100,7 @@ String AccessibilityNodeObject::textUnderElement(AccessibilityTextUnderElementMo
     }
 
     StringBuilder builder;
-    for (AccessibilityObject* child = firstChild(); child; child = child->nextSibling()) {
+    for (RefPtr child = firstChild(); child; child = child->nextSibling()) {
         if (mode.ignoredChildNode && child->node() == mode.ignoredChildNode)
             continue;
         
@@ -2125,7 +2110,7 @@ String AccessibilityNodeObject::textUnderElement(AccessibilityTextUnderElementMo
             continue;
         }
         
-        if (!shouldUseAccessibilityObjectInnerText(child, mode))
+        if (!shouldUseAccessibilityObjectInnerText(child.get(), mode))
             continue;
 
         if (is<AccessibilityNodeObject>(*child)) {
@@ -2253,11 +2238,13 @@ String AccessibilityNodeObject::stringValue() const
     if (node->hasTagName(selectTag)) {
         HTMLSelectElement& selectElement = downcast<HTMLSelectElement>(*node);
         int selectedIndex = selectElement.selectedIndex();
-        const Vector<HTMLElement*>& listItems = selectElement.listItems();
+        auto& listItems = selectElement.listItems();
         if (selectedIndex >= 0 && static_cast<size_t>(selectedIndex) < listItems.size()) {
-            const AtomString& overriddenDescription = listItems[selectedIndex]->attributeWithoutSynchronization(aria_labelAttr);
-            if (!overriddenDescription.isNull())
-                return overriddenDescription;
+            if (RefPtr selectedItem = listItems[selectedIndex].get()) {
+                const AtomString& overriddenDescription = selectedItem->attributeWithoutSynchronization(aria_labelAttr);
+                if (!overriddenDescription.isNull())
+                    return overriddenDescription;
+            }
         }
         if (!selectElement.multiple())
             return selectElement.value();

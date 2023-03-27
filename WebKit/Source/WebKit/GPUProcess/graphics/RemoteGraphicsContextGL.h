@@ -33,10 +33,12 @@
 #include "QualifiedRenderingResourceIdentifier.h"
 #include "RemoteRenderingBackend.h"
 #include "ScopedWebGLRenderingResourcesRequest.h"
+#include "SharedVideoFrame.h"
 #include "StreamMessageReceiver.h"
 #include "StreamServerConnection.h"
 #include <WebCore/NotImplemented.h>
 #include <WebCore/PixelBuffer.h>
+#include <WebCore/ProcessIdentity.h>
 #include <wtf/ThreadAssertions.h>
 #include <wtf/WeakPtr.h>
 
@@ -81,7 +83,7 @@ IPC::StreamConnectionWorkQueue& remoteGraphicsContextGLStreamWorkQueue();
 class RemoteGraphicsContextGL : private WebCore::GraphicsContextGL::Client, public IPC::StreamMessageReceiver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteGraphicsContextGL> create(GPUConnectionToWebProcess&, WebCore::GraphicsContextGLAttributes&&, GraphicsContextGLIdentifier, RemoteRenderingBackend&, IPC::StreamConnectionBuffer&&);
+    static Ref<RemoteGraphicsContextGL> create(GPUConnectionToWebProcess&, WebCore::GraphicsContextGLAttributes&&, GraphicsContextGLIdentifier, RemoteRenderingBackend&, IPC::StreamServerConnection::Handle&&);
     ~RemoteGraphicsContextGL() override;
     void stopListeningForIPC(Ref<RemoteGraphicsContextGL>&& refFromConnection);
 
@@ -91,15 +93,15 @@ public:
 #endif
 
 protected:
-    RemoteGraphicsContextGL(GPUConnectionToWebProcess&, GraphicsContextGLIdentifier, RemoteRenderingBackend&, IPC::StreamConnectionBuffer&&);
+    RemoteGraphicsContextGL(GPUConnectionToWebProcess&, GraphicsContextGLIdentifier, RemoteRenderingBackend&, IPC::StreamServerConnection::Handle&&);
     void initialize(WebCore::GraphicsContextGLAttributes&&);
-    IPC::StreamConnectionWorkQueue& workQueue() const { return remoteGraphicsContextGLStreamWorkQueue(); }
+    IPC::StreamConnectionWorkQueue& workQueue() const { return m_workQueue; }
 
     void workQueueInitialize(WebCore::GraphicsContextGLAttributes&&);
     virtual void platformWorkQueueInitialize(WebCore::GraphicsContextGLAttributes&&) { };
     void workQueueUninitialize();
     template<typename T>
-    bool send(T&& message) const { return m_streamConnection->connection().send(WTFMove(message), m_graphicsContextGLIdentifier); }
+    bool send(T&& message) const { return m_streamConnection->send(WTFMove(message), m_graphicsContextGLIdentifier); }
 
     // GraphicsContextGL::Client overrides.
     void didComposite() final;
@@ -126,19 +128,21 @@ protected:
 #if ENABLE(MEDIA_STREAM)
     void paintCompositedResultsToVideoFrame(CompletionHandler<void(std::optional<WebKit::RemoteVideoFrameProxy::Properties>&&)>&&);
 #endif
-#if ENABLE(VIDEO)
-    void copyTextureFromVideoFrame(RemoteVideoFrameReadReference, uint32_t texture, uint32_t target, int32_t level, uint32_t internalFormat, uint32_t format, uint32_t type, bool premultiplyAlpha, bool flipY, CompletionHandler<void(bool)>&&);
+#if ENABLE(VIDEO) && PLATFORM(COCOA)
+    void copyTextureFromVideoFrame(SharedVideoFrame&&, uint32_t texture, uint32_t target, int32_t level, uint32_t internalFormat, uint32_t format, uint32_t type, bool premultiplyAlpha, bool flipY, CompletionHandler<void(bool)>&&);
+    void setSharedVideoFrameSemaphore(IPC::Semaphore&&);
+    void setSharedVideoFrameMemory(const SharedMemory::Handle&);
 #endif
     void simulateEventForTesting(WebCore::GraphicsContextGL::SimulatedEventForTesting);
     void readnPixels0(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, IPC::ArrayReference<uint8_t>&& data, CompletionHandler<void(IPC::ArrayReference<uint8_t>)>&&);
     void readnPixels1(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, uint64_t offset);
+    void readnPixels2(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, SharedMemory::Handle, CompletionHandler<void(bool)>&&);
     void multiDrawArraysANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t>&& firstsAndCounts);
     void multiDrawArraysInstancedANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t>&& firstsCountsAndInstanceCounts);
     void multiDrawElementsANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t>&& countsAndOffsets, uint32_t type);
     void multiDrawElementsInstancedANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t>&& countsOffsetsAndInstanceCounts, uint32_t type);
     void multiDrawArraysInstancedBaseInstanceANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t, uint32_t>&& firstsCountsInstanceCountsAndBaseInstances);
     void multiDrawElementsInstancedBaseVertexBaseInstanceANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t, int32_t, uint32_t>&& countsOffsetsInstanceCountsBaseVerticesAndBaseInstances, uint32_t type);
-    void paintRenderingResultsToPixelBuffer(CompletionHandler<void(std::optional<IPC::PixelBufferReference>&&)>&&);
 
 #include "RemoteGraphicsContextGLFunctionsGenerated.h" // NOLINT
 
@@ -149,6 +153,7 @@ private:
 
 protected:
     WeakPtr<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
+    Ref<IPC::StreamConnectionWorkQueue> m_workQueue;
     RefPtr<IPC::StreamServerConnection> m_streamConnection;
 #if PLATFORM(COCOA)
     using GCGLContext = WebCore::GraphicsContextGLCocoa;
@@ -162,9 +167,13 @@ protected:
     Ref<RemoteRenderingBackend> m_renderingBackend;
 #if ENABLE(VIDEO)
     Ref<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
+#if PLATFORM(COCOA)
+    SharedVideoFrameReader m_sharedVideoFrameReader;
+#endif
 #endif
     ScopedWebGLRenderingResourcesRequest m_renderingResourcesRequest;
     WebCore::ProcessIdentifier m_webProcessIdentifier;
+    const WebCore::ProcessIdentity m_resourceOwner;
 };
 
 

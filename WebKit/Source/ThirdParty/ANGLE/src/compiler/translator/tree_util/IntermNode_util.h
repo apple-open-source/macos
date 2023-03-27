@@ -27,6 +27,9 @@ TIntermConstantUnion *CreateFloatNode(float value, TPrecision precision);
 TIntermConstantUnion *CreateVecNode(const float values[],
                                     unsigned int vecSize,
                                     TPrecision precision);
+TIntermConstantUnion *CreateUVecNode(const unsigned int values[],
+                                     unsigned int vecSize,
+                                     TPrecision precision);
 TIntermConstantUnion *CreateIndexNode(int index);
 TIntermConstantUnion *CreateUIntNode(unsigned int value);
 TIntermConstantUnion *CreateBoolNode(bool value);
@@ -86,10 +89,16 @@ TIntermTyped *CreateBuiltInFunctionCallNode(const char *name,
                                             TIntermSequence *arguments,
                                             const TSymbolTable &symbolTable,
                                             int shaderVersion);
+TIntermTyped *CreateBuiltInFunctionCallNode(const char *name,
+                                            const std::initializer_list<TIntermNode *> &arguments,
+                                            const TSymbolTable &symbolTable,
+                                            int shaderVersion);
 TIntermTyped *CreateBuiltInUnaryFunctionCallNode(const char *name,
                                                  TIntermTyped *argument,
                                                  const TSymbolTable &symbolTable,
                                                  int shaderVersion);
+
+int GetESSLOrGLSLVersion(ShShaderSpec spec, int esslVersion, int glslVersion);
 
 inline void GetSwizzleIndex(TVector<int> *indexOut) {}
 

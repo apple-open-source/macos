@@ -16,7 +16,6 @@
 #include "libANGLE/Context.h"
 #include "libANGLE/renderer/vulkan/ContextVk.h"
 #include "libANGLE/renderer/vulkan/RendererVk.h"
-#include "libANGLE/trace.h"
 
 namespace rx
 {
@@ -64,9 +63,9 @@ constexpr size_t kConvertedArrayBufferInitialSize = 1024 * 8;
 // device local memory to speed up access to and from the GPU.
 // Dynamic usage patterns or that are frequently mapped
 // will now request host cached memory to speed up access from the CPU.
-ANGLE_INLINE VkMemoryPropertyFlags GetPreferredMemoryType(RendererVk *renderer,
-                                                          gl::BufferBinding target,
-                                                          gl::BufferUsage usage)
+VkMemoryPropertyFlags GetPreferredMemoryType(RendererVk *renderer,
+                                             gl::BufferBinding target,
+                                             gl::BufferUsage usage)
 {
     if (target == gl::BufferBinding::PixelUnpack)
     {
@@ -99,9 +98,9 @@ ANGLE_INLINE VkMemoryPropertyFlags GetPreferredMemoryType(RendererVk *renderer,
     }
 }
 
-ANGLE_INLINE VkMemoryPropertyFlags GetStorageMemoryType(RendererVk *renderer,
-                                                        GLbitfield storageFlags,
-                                                        bool externalBuffer)
+VkMemoryPropertyFlags GetStorageMemoryType(RendererVk *renderer,
+                                           GLbitfield storageFlags,
+                                           bool externalBuffer)
 {
     const bool hasMapAccess =
         (storageFlags & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT_EXT)) != 0;
@@ -127,9 +126,7 @@ ANGLE_INLINE VkMemoryPropertyFlags GetStorageMemoryType(RendererVk *renderer,
     return hasMapAccess ? kHostCachedFlags : kDeviceLocalFlags;
 }
 
-ANGLE_INLINE bool ShouldAllocateNewMemoryForUpdate(ContextVk *contextVk,
-                                                   size_t subDataSize,
-                                                   size_t bufferSize)
+bool ShouldAllocateNewMemoryForUpdate(ContextVk *contextVk, size_t subDataSize, size_t bufferSize)
 {
     // A sub data update with size > 50% of buffer size meets the threshold
     // to acquire a new BufferHelper from the pool.
@@ -137,7 +134,7 @@ ANGLE_INLINE bool ShouldAllocateNewMemoryForUpdate(ContextVk *contextVk,
            subDataSize > (bufferSize / 2);
 }
 
-ANGLE_INLINE bool ShouldUseCPUToCopyData(ContextVk *contextVk, size_t copySize, size_t bufferSize)
+bool ShouldUseCPUToCopyData(ContextVk *contextVk, size_t copySize, size_t bufferSize)
 {
     RendererVk *renderer = contextVk->getRenderer();
     // For some GPU (ARM) we always prefer using CPU to do copy instead of use GPU to avoid pipeline
@@ -148,7 +145,39 @@ ANGLE_INLINE bool ShouldUseCPUToCopyData(ContextVk *contextVk, size_t copySize, 
             copySize < renderer->getMaxCopyBytesUsingCPUWhenPreservingBufferData());
 }
 
-ANGLE_INLINE bool IsUsageDynamic(gl::BufferUsage usage)
+bool RenderPassUsesBufferForReadOnly(ContextVk *contextVk, const vk::BufferHelper &buffer)
+{
+    if (!contextVk->hasActiveRenderPass())
+    {
+        return false;
+    }
+
+    vk::RenderPassCommandBufferHelper &renderPassCommands =
+        contextVk->getStartedRenderPassCommands();
+    return renderPassCommands.usesBuffer(buffer) && !renderPassCommands.usesBufferForWrite(buffer);
+}
+
+// If a render pass is open which uses the buffer in read-only mode, render pass break can be
+// avoided by using acquireAndUpdate.  This can be costly however if the update is very small, and
+// is limited to platforms where render pass break is itself costly (i.e. tiled-based renderers).
+bool ShouldAvoidRenderPassBreakOnUpdate(ContextVk *contextVk,
+                                        const vk::BufferHelper &buffer,
+                                        size_t bufferSize)
+{
+    // Only avoid breaking the render pass if the buffer is not so big such that duplicating it
+    // would outweight the cost of breaking the render pass.  A value of 1KB is temporary chosen as
+    // a heuristic, and can be adjusted when such a situation is encountered.
+    constexpr size_t kPreferDuplicateOverRenderPassBreakMaxBufferSize = 1024;
+    if (!contextVk->getFeatures().preferCPUForBufferSubData.enabled ||
+        bufferSize > kPreferDuplicateOverRenderPassBreakMaxBufferSize)
+    {
+        return false;
+    }
+
+    return RenderPassUsesBufferForReadOnly(contextVk, buffer);
+}
+
+bool IsUsageDynamic(gl::BufferUsage usage)
 {
     return (usage == gl::BufferUsage::DynamicDraw || usage == gl::BufferUsage::DynamicCopy ||
             usage == gl::BufferUsage::DynamicRead);
@@ -256,7 +285,7 @@ void BufferVk::release(ContextVk *contextVk)
     RendererVk *renderer = contextVk->getRenderer();
     if (mBuffer.valid())
     {
-        mBuffer.release(renderer);
+        mBuffer.releaseBufferAndDescriptorSetCache(contextVk);
     }
     if (mStagingBuffer.valid())
     {
@@ -375,8 +404,9 @@ angle::Result BufferVk::setDataWithMemoryType(const gl::Context *context,
         return angle::Result::Continue;
     }
 
-    const bool bufferSizeChanged              = size != static_cast<size_t>(mState.getSize());
-    const bool inUseAndRespecifiedWithoutData = (data == nullptr && isCurrentlyInUse(contextVk));
+    const bool bufferSizeChanged = size != static_cast<size_t>(mState.getSize());
+    const bool inUseAndRespecifiedWithoutData =
+        (data == nullptr && isCurrentlyInUse(contextVk->getRenderer()));
 
     // The entire buffer is being respecified, possibly with null data.
     // Release and init a new mBuffer with requested size.
@@ -471,7 +501,7 @@ angle::Result BufferVk::allocStagingBuffer(ContextVk *contextVk,
     {
         if (size <= mStagingBuffer.getSize() &&
             (coherency == vk::MemoryCoherency::Coherent) == mStagingBuffer.isCoherent() &&
-            !mStagingBuffer.isCurrentlyInUse(contextVk->getLastCompletedQueueSerial()))
+            !contextVk->getRenderer()->hasUnfinishedUse(mStagingBuffer.getResourceUse()))
         {
             // If size is big enough and it is idle, then just reuse the existing staging buffer
             *mapPtr                = mStagingBuffer.getMappedMemory();
@@ -598,7 +628,7 @@ angle::Result BufferVk::ghostMappedBuffer(ContextVk *contextVk,
         memcpy(dstMapPtr, srcMapPtr, static_cast<size_t>(mState.getSize()));
     }
 
-    src.release(contextVk->getRenderer());
+    src.releaseBufferAndDescriptorSetCache(contextVk);
 
     // Return the already mapped pointer with the offset adjustment to avoid the call to unmap().
     *mapPtr = dstMapPtr + offset;
@@ -612,6 +642,7 @@ angle::Result BufferVk::mapRangeImpl(ContextVk *contextVk,
                                      GLbitfield access,
                                      void **mapPtr)
 {
+    RendererVk *renderer = contextVk->getRenderer();
     ASSERT(mBuffer.valid());
 
     // Record map call parameters in case this call is from angle internal (the access/offset/length
@@ -638,15 +669,15 @@ angle::Result BufferVk::mapRangeImpl(ContextVk *contextVk,
     {
         // If app is not going to write, all we need is to ensure GPU write is finished.
         // Concurrent reads from CPU and GPU is allowed.
-        if (mBuffer.isCurrentlyInUseForWrite(contextVk->getLastCompletedQueueSerial()))
+        if (renderer->hasUnfinishedUse(mBuffer.getWriteResourceUse()))
         {
-            // If there are pending commands for the resource, flush them.
-            if (mBuffer.usedInRecordedCommands())
+            // If there are unflushed write commands for the resource, flush them.
+            if (contextVk->hasUnsubmittedUse(mBuffer.getWriteResourceUse()))
             {
                 ANGLE_TRY(
                     contextVk->flushImpl(nullptr, RenderPassClosureReason::BufferWriteThenMap));
             }
-            ANGLE_TRY(mBuffer.finishGPUWriteCommands(contextVk));
+            ANGLE_TRY(renderer->finishResourceUse(contextVk, mBuffer.getWriteResourceUse()));
         }
         if (hostVisible)
         {
@@ -662,7 +693,7 @@ angle::Result BufferVk::mapRangeImpl(ContextVk *contextVk,
     }
 
     // Write case, buffer not in use.
-    if (isExternalBuffer() || !isCurrentlyInUse(contextVk))
+    if (isExternalBuffer() || !isCurrentlyInUse(contextVk->getRenderer()))
     {
         return mBuffer.mapWithOffset(contextVk, mapPtrBytes, static_cast<size_t>(offset));
     }
@@ -694,7 +725,7 @@ angle::Result BufferVk::mapRangeImpl(ContextVk *contextVk,
         return angle::Result::Continue;
     }
 
-    if (!mBuffer.isCurrentlyInUseForWrite(contextVk->getLastCompletedQueueSerial()))
+    if (!renderer->hasUnfinishedUse(mBuffer.getWriteResourceUse()))
     {
         // This will keep the new buffer mapped and update mapPtr, so return immediately.
         return ghostMappedBuffer(contextVk, offset, length, access, mapPtr);
@@ -809,6 +840,7 @@ angle::Result BufferVk::updateBuffer(ContextVk *contextVk,
     }
     return angle::Result::Continue;
 }
+
 angle::Result BufferVk::directUpdate(ContextVk *contextVk,
                                      const uint8_t *data,
                                      size_t size,
@@ -877,10 +909,10 @@ angle::Result BufferVk::acquireAndUpdate(ContextVk *contextVk,
         // The total bytes that we need to copy from old buffer to new buffer
         size_t copySize = bufferSize - updateSize;
 
-        // If the buffer is host visible and the GPU is done writing to, we use the CPU to do the
+        // If the buffer is host visible and the GPU is not writing to it, we use the CPU to do the
         // copy. We need to save the source buffer pointer before we acquire a new buffer.
         if (src.isHostVisible() &&
-            !src.isCurrentlyInUseForWrite(contextVk->getLastCompletedQueueSerial()) &&
+            !contextVk->getRenderer()->hasUnfinishedUse(src.getWriteResourceUse()) &&
             ShouldUseCPUToCopyData(contextVk, copySize, bufferSize))
         {
             uint8_t *mapPointer = nullptr;
@@ -934,7 +966,7 @@ angle::Result BufferVk::acquireAndUpdate(ContextVk *contextVk,
 
     if (src.valid())
     {
-        src.release(contextVk->getRenderer());
+        src.releaseBufferAndDescriptorSetCache(contextVk);
     }
 
     return angle::Result::Continue;
@@ -951,7 +983,7 @@ angle::Result BufferVk::setDataImpl(ContextVk *contextVk,
     //          acquire a new BufferHelper from the pool
     //     else stage the update
     // else update the buffer directly
-    if (isCurrentlyInUse(contextVk))
+    if (isCurrentlyInUse(contextVk->getRenderer()))
     {
         // If storage has just been redefined, don't go down acquireAndUpdate code path. There is no
         // reason you acquire another new buffer right after redefined. And if we do go into
@@ -964,14 +996,27 @@ angle::Result BufferVk::setDataImpl(ContextVk *contextVk,
         // from old buffer to new buffer when we acquire a new buffer, we also favor
         // acquireAndUpdate over stagedUpdate. This could happen when app calls glBufferData with
         // same size and we will try to reuse the existing buffer storage.
-        if (!isExternalBuffer() && updateType != BufferUpdateType::StorageRedefined &&
-            (!mHasValidData || ShouldAllocateNewMemoryForUpdate(
-                                   contextVk, size, static_cast<size_t>(mState.getSize()))))
+        // To avoid breaking the render pass unnecessary, acquireAndUpdate is also favored over
+        // stagedUpdate if the buffer is used read-only in the current render pass.
+        const bool canAcquireAndUpdate =
+            !isExternalBuffer() && updateType != BufferUpdateType::StorageRedefined;
+        if (canAcquireAndUpdate &&
+            (!mHasValidData ||
+             ShouldAvoidRenderPassBreakOnUpdate(contextVk, mBuffer,
+                                                static_cast<size_t>(mState.getSize())) ||
+             ShouldAllocateNewMemoryForUpdate(contextVk, size,
+                                              static_cast<size_t>(mState.getSize()))))
         {
             ANGLE_TRY(acquireAndUpdate(contextVk, data, size, offset, updateType));
         }
         else
         {
+            if (canAcquireAndUpdate && RenderPassUsesBufferForReadOnly(contextVk, mBuffer))
+            {
+                ANGLE_VK_PERF_WARNING(contextVk, GL_DEBUG_SEVERITY_LOW,
+                                      "Breaking the render pass on small upload to large buffer");
+            }
+
             ANGLE_TRY(stagedUpdate(contextVk, data, size, offset));
         }
     }
@@ -1028,7 +1073,7 @@ angle::Result BufferVk::acquireBufferHelper(ContextVk *contextVk, size_t sizeInB
 
     if (mBuffer.valid())
     {
-        mBuffer.release(renderer);
+        mBuffer.releaseBufferAndDescriptorSetCache(contextVk);
     }
 
     // Allocate the buffer directly
@@ -1043,9 +1088,8 @@ angle::Result BufferVk::acquireBufferHelper(ContextVk *contextVk, size_t sizeInB
     return angle::Result::Continue;
 }
 
-bool BufferVk::isCurrentlyInUse(ContextVk *contextVk) const
+bool BufferVk::isCurrentlyInUse(RendererVk *renderer) const
 {
-    return mBuffer.isCurrentlyInUse(contextVk->getLastCompletedQueueSerial());
+    return renderer->hasUnfinishedUse(mBuffer.getResourceUse());
 }
-
 }  // namespace rx

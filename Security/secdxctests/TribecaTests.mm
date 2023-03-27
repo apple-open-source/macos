@@ -751,7 +751,8 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     
     TribecaServiceStatus status = [manager getStatus];
     XCTAssertEqual(status.enabled, true);
-    XCTAssertEqual(status.timeLeftInSeconds, (uint64_t)2590704);
+    const uint64_t expectedTimeLeft = (uint64_t)(tribecaSettingDefaultMaxTTL -([now unsignedLongLongValue] - [lastRestoreTime unsignedLongLongValue]));
+    XCTAssertEqual(status.timeLeftInSeconds, expectedTimeLeft);
     XCTAssertEqual(status.usingAEToken, false);
 }
 

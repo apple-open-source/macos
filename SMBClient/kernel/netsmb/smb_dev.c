@@ -994,7 +994,7 @@ ioc_convert_path_error:
 				sessionp = sdp->sd_session;
                 properties->uid = sessionp->session_uid;
 				properties->smb1_caps = sessionp->session_sopt.sv_caps;
-                properties->smb2_caps = sessionp->session_sopt.sv_capabilities;
+                properties->smb2_caps = sessionp->session_sopt.sv_active_capabilities;
 				properties->flags = sessionp->session_flags;
                 properties->misc_flags = sessionp->session_misc_flags;
 				properties->hflags = sessionp->session_hflags;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,11 +35,11 @@
 #include "Logging.h"
 #include "VideoFrameCV.h"
 #include <pal/spi/cf/CoreVideoSPI.h>
-#include <pal/spi/cocoa/IOSurfaceSPI.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Scope.h>
 #include <wtf/StdMap.h>
 #include <wtf/cf/TypeCastsCF.h>
+#include <wtf/spi/cocoa/IOSurfaceSPI.h>
 #include <wtf/text/StringBuilder.h>
 
 #include "CoreVideoSoftLink.h"
@@ -589,6 +589,7 @@ GraphicsContextGLCVCocoa::GraphicsContextGLCVCocoa(GraphicsContextGLCocoa& owner
 
 bool GraphicsContextGLCVCocoa::copyVideoSampleToTexture(const VideoFrameCV& videoFrame, PlatformGLObject outputTexture, GLint level, GLenum internalFormat, GLenum format, GLenum type, FlipY unpackFlipY)
 {
+    RetainPtr<CVPixelBufferRef> convertedImage;
     auto image = videoFrame.pixelBuffer();
     // FIXME: This currently only supports '420v' and '420f' pixel formats. Investigate supporting more pixel formats.
     OSType pixelFormat = CVPixelBufferGetPixelFormatType(image);
@@ -599,8 +600,14 @@ bool GraphicsContextGLCVCocoa::copyVideoSampleToTexture(const VideoFrameCV& vide
         && pixelFormat != kCVPixelFormatType_AGX_420YpCbCr8BiPlanarFullRange
 #endif
         ) {
-        LOG(WebGL, "GraphicsContextGLCVCocoa::copyVideoTextureToPlatformTexture(%p) - Asked to copy an unsupported pixel format ('%s').", this, FourCC(pixelFormat).string().data());
-        return false;
+        convertedImage = convertPixelBuffer(image);
+        if (!convertedImage) {
+            LOG(WebGL, "GraphicsContextGLCVCocoa::copyVideoTextureToPlatformTexture(%p) - failed converting an image with pixel format ('%s').", this, FourCC(pixelFormat).string().data());
+            return false;
+        }
+        image = convertedImage.get();
+        pixelFormat = CVPixelBufferGetPixelFormatType(image);
+        ASSERT(pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange);
     }
     IOSurfaceRef surface = CVPixelBufferGetIOSurface(image);
     if (!surface)
@@ -683,10 +690,6 @@ bool GraphicsContextGLCVCocoa::copyVideoSampleToTexture(const VideoFrameCV& vide
     });
     // Allocate memory for the output texture.
     GL_BindTexture(GL_TEXTURE_2D, outputTexture);
-    GL_TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    GL_TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    GL_TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    GL_TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     GL_TexImage2D(GL_TEXTURE_2D, level, internalFormat, width, height, 0, format, type, nullptr);
 
     GL_FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, level);

@@ -38,9 +38,11 @@
 		[[EFLogEventMatch alloc] initWithPattern:@"Process interface (?<"TokenStatus">attach|detach): (?<"TokenInterfaceName">\\w+)"
 					 newEventHandler:
 		 ^EFEvent *(NSTextCheckingResult *matchResult, EFLogEvent *logEvent, BOOL *isComplete) {
+			EFNetworkControlPathEvent *newEvent = nil;
+			NSString *statusString = nil;
+
 			 *isComplete = YES;
-			 EFNetworkControlPathEvent *newEvent = nil;
-			 NSString *statusString = [logEvent substringForCaptureGroup:@TokenStatus inMatchResult:matchResult];
+			 statusString = [logEvent substringForCaptureGroup:@TokenStatus inMatchResult:matchResult];
 			 if (statusString != nil) {
 				 newEvent = [self createInterfaceEventWithLogEvent:logEvent matchResult:matchResult];
 				 if (newEvent != nil) {
@@ -52,9 +54,11 @@
 		[[EFLogEventMatch alloc] initWithPattern:@"Process interface link (?<"TokenLinkStatus">down|up): (?<"TokenInterfaceName">\\w+)"
 					 newEventHandler:
 		 ^EFEvent *(NSTextCheckingResult *matchResult, EFLogEvent *logEvent, BOOL *isComplete) {
+			EFNetworkControlPathEvent *newEvent = nil;
+			NSString *linkStatusString = nil;
+
 			 *isComplete = YES;
-			 EFNetworkControlPathEvent *newEvent = nil;
-			 NSString *linkStatusString = [logEvent substringForCaptureGroup:@TokenLinkStatus inMatchResult:matchResult];
+			 linkStatusString = [logEvent substringForCaptureGroup:@TokenLinkStatus inMatchResult:matchResult];
 			 if (linkStatusString != nil) {
 				 newEvent = [self createInterfaceEventWithLogEvent:logEvent matchResult:matchResult];
 				 if (newEvent != nil) {
@@ -72,9 +76,11 @@
 		[[EFLogEventMatch alloc] initWithPattern:@"Process interface quality: (?<"TokenInterfaceName">\\w+) \\(q=(?<"TokenLinkQuality">[-\\d]+)\\)"
 					 newEventHandler:
 		 ^EFEvent * _Nullable(NSTextCheckingResult * _Nonnull matchResult, EFLogEvent * _Nonnull logEvent, BOOL * _Nonnull isComplete) {
+			EFNetworkControlPathEvent *newEvent = nil;
+			NSString *qualityString = nil;
+
 			 *isComplete = YES;
-			 EFNetworkControlPathEvent *newEvent = nil;
-			 NSString *qualityString = [logEvent substringForCaptureGroup:@TokenLinkQuality inMatchResult:matchResult];
+			 qualityString = [logEvent substringForCaptureGroup:@TokenLinkQuality inMatchResult:matchResult];
 			 if (qualityString != nil) {
 				 newEvent = [self createInterfaceEventWithLogEvent:logEvent matchResult:matchResult];
 				 if (newEvent != nil) {

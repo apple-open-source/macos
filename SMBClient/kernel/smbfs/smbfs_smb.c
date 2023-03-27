@@ -3948,8 +3948,9 @@ smbfs_tmpopen(struct smb_share *share, struct smbnode *np, uint32_t rights,
 	struct smbfattr fattr;
 
 	/* If no vnode or the vnode is a directory then don't use already open items */
-	if (!np->n_vnode || vnode_isdir(np->n_vnode))
-		searchOpenFiles = FALSE;
+    if (!(np->n_vnode) || (vnode_isdir(np->n_vnode))) {
+        searchOpenFiles = FALSE;
+    }
 	else {
 		/* Check to see if the file needs to be reopened or revoked */
 		error = smbfs_smb_reopen_file(share, np, context);
@@ -3972,12 +3973,17 @@ smbfs_tmpopen(struct smb_share *share, struct smbnode *np, uint32_t rights,
 		 *	SMB2_FILE_WRITE_ATTRIBUTES
 		 *	
 		 */
-		if (rights & (SMB2_DELETE | SMB2_WRITE_DAC | SMB2_WRITE_OWNER))
-			searchOpenFiles = FALSE;
-		else if (rights & SMB2_FILE_WRITE_ATTRIBUTES)
-			searchOpenFiles = FALSE;
-		else
-			searchOpenFiles = TRUE;
+        if (rights & (SMB2_DELETE | SMB2_WRITE_DAC | SMB2_WRITE_OWNER)) {
+            searchOpenFiles = FALSE;
+        }
+        else {
+            if (rights & SMB2_FILE_WRITE_ATTRIBUTES) {
+                searchOpenFiles = FALSE;
+            }
+            else {
+                searchOpenFiles = TRUE;
+            }
+        }
 	}
 		
 	/* 
@@ -4017,6 +4023,19 @@ smbfs_tmpopen(struct smb_share *share, struct smbnode *np, uint32_t rights,
 			return (0);
 		}
 	}
+    
+    /*
+     * Do we need to close any pending deferred closes?
+     * Only need to check if a file, SMB2 and leases are supported.
+     */
+    if ((np->n_vnode) &&
+        !(vnode_isdir(np->n_vnode)) &&
+        (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) &&
+        (SS_TO_SESSION(share)->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LEASING)) {
+        /* Close any pending deferred closes */
+        CloseDeferredFileRefs(np->n_vnode, "smbfs_tmpopen", 0, context);
+    }
+
 	/*
 	 * For temp opens we give unixy semantics of permitting everything not forbidden 
 	 * by permissions.  Ie denial is up to server with clients/openers needing to use
@@ -4034,7 +4053,7 @@ smbfs_tmpopen(struct smb_share *share, struct smbnode *np, uint32_t rights,
 	if (error) {
 		SMBWARNING_LOCK(np, "%s failed to open: error = %d\n", np->n_name, error);
     }
-    SMB_LOG_FILE_OPS_LOCK(np, "New open on <%s> fid 0x%llx \n",
+    SMB_LOG_FILE_OPS_LOCK(np, "New tmp open on <%s> fid 0x%llx \n",
                           np->n_name, *fidp);
 
 	return (error);

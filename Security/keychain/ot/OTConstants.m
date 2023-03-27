@@ -55,31 +55,6 @@ static bool SecErrorNestedErrorCappingIsEnabledOverride = false;
 static bool SecKeychainStaticPersistentRefsEnabledOverrideSet = false;
 static bool SecKeychainStaticPersistentRefsEnabledOverride = false;
 
-static bool OctagonOverridePlatformSOS = false;
-static bool OctagonPlatformSOSOverrideValue = false;
-
-bool OctagonPlatformSupportsSOS(void)
-{
-    if(OctagonOverridePlatformSOS) {
-        return OctagonPlatformSOSOverrideValue ? YES : NO;
-    }
-    
-#if TARGET_OS_OSX
-    return true;
-#elif TARGET_OS_IOS
-    return true;
-#else
-    return false;
-#endif
-}
-
-void OctagonSetPlatformSupportsSOS(bool value)
-{
-    OctagonPlatformSOSOverrideValue = value;
-    OctagonOverridePlatformSOS = YES;
-}
-
-
 bool OctagonIsSOSFeatureEnabled(void)
 {
     if(OctagonSOSFeatureIsEnabledOverrideSet) {
@@ -95,6 +70,11 @@ bool OctagonIsSOSFeatureEnabled(void)
     });
 
     return sosEnabled;
+}
+
+bool OctagonPlatformSupportsSOS(void)
+{
+    return OctagonIsSOSFeatureEnabled();
 }
 
 void OctagonSetSOSFeatureEnabled(bool value)

@@ -247,7 +247,8 @@ enum {
 	kSecCodeSignerPreserveTeamIdentifier = 1 << 5,  // preserve team identifier flags
 	kSecCodeSignerPreserveDigestAlgorithm = 1 << 6, // preserve digest algorithms used
 	kSecCodeSignerPreservePEH = 1 << 7,				// preserve pre-encryption hashes
-	kSecCodeSignerPreserveRuntime = 1 << 8,        // preserve the runtime version
+	kSecCodeSignerPreserveRuntime = 1 << 8,         // preserve the runtime version
+	kSecCodeSignerPreserveLaunchConstraints = 1 << 9, // preserve embedded launch constraints
 };
 
 

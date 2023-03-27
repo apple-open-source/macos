@@ -560,13 +560,13 @@ void DAFileSystemMount( DAFileSystemRef      filesystem,
                         gid_t                userGID,
                         DAFileSystemCallback callback,
                         void *               callbackContext,
-                        Boolean              userFSPreferenceEnabled )
+                        CFStringRef          preferredMountMethod )
 {
     /*
      * Mount the specified volume.  A status of 0 indicates success.
      */
 
-    DAFileSystemMountWithArguments( filesystem, device, volumeName, mountpoint, userUID, userGID, userFSPreferenceEnabled, callback, callbackContext, NULL );
+    DAFileSystemMountWithArguments( filesystem, device, volumeName, mountpoint, userUID, userGID, preferredMountMethod, callback, callbackContext, NULL );
 }
 
 void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
@@ -575,7 +575,7 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
                                      CFURLRef             mountpoint,
                                      uid_t                userUID,
                                      gid_t                userGID,
-                                     Boolean              userFSPreferenceEnabled,
+                                     CFStringRef          preferredMountMethod,
                                      DAFileSystemCallback callback,
                                      void *               callbackContext,
                                      ... )
@@ -614,23 +614,38 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
         Boolean                 useKext         = FALSE;
         if  (CFGetTypeID(fsImplementation) == CFArrayGetTypeID() )
         {
-            if ( ( ___CFArrayContainsValue( fsImplementation, CFSTR("UserFS") ) == TRUE ) )
-            {
-                useUserFS = TRUE;
-            }
-            if ( ( ___CFArrayContainsValue( fsImplementation, CFSTR("kext") ) == TRUE ) )
-            {
-                useKext = TRUE;
-            }
-                
             /*
-             * If both kext and userfs are supported, check the preference to choose one.
+             * Choose the first listed FSImplementation item as the default mount option
              */
-            if ( useUserFS == TRUE && useKext == TRUE)
+            CFStringRef firstSupportedFS = CFArrayGetValueAtIndex( fsImplementation, 0 );
+            if ( firstSupportedFS != NULL )
             {
-                if (userFSPreferenceEnabled == FALSE)
+                if (CFStringCompare( CFSTR("UserFS"), firstSupportedFS, kCFCompareCaseInsensitive ) == 0)
                 {
-                    useUserFS = FALSE;
+                    useUserFS = TRUE;
+                }
+            }
+        
+            /*
+             * If userfs is specified as the preferred mount option, then use UserFS to mount if it is supported.
+             */
+            if ( preferredMountMethod != NULL )
+            {
+                if ( useUserFS == FALSE )
+                {
+                    if ( ( CFStringCompare( CFSTR("UserFS"), preferredMountMethod, kCFCompareCaseInsensitive ) == 0) &&
+                        ( ___CFArrayContainsString( fsImplementation, CFSTR("UserFS") ) == TRUE ) )
+                    {
+                        useUserFS = TRUE;
+                    }
+                }
+                else
+                {
+                    if ( ( CFStringCompare( CFSTR("kext"), preferredMountMethod, kCFCompareCaseInsensitive ) == 0 ) &&
+                        ( ___CFArrayContainsString( fsImplementation, CFSTR("kext") ) == TRUE ) )
+                    {
+                        useUserFS = FALSE;
+                    }
                 }
             }
         }
@@ -638,7 +653,9 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
 #endif
     
 #if TARGET_OS_IOS
-    if ( ( userFSPreferenceEnabled == true ) && ( os_variant_has_factory_content( "com.apple.diskarbitrationd" ) == false ) )
+    if ( ( preferredMountMethod != NULL ) &&
+        ( CFStringCompare( CFSTR("UserFS"), preferredMountMethod, kCFCompareCaseInsensitive ) == 0 )
+        && ( os_variant_has_factory_content( "com.apple.diskarbitrationd" ) == false ) )
     {
         useUserFS = TRUE;
     }

@@ -28,13 +28,16 @@
 #include "PageClientImpl.h"
 
 #include "DrawingAreaProxyCoordinatedGraphics.h"
-#include "DrawingAreaProxyWC.h"
 #include "WebContextMenuProxyWin.h"
 #include "WebPageProxy.h"
 #include "WebPopupMenuProxyWin.h"
 #include "WebView.h"
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/NotImplemented.h>
+
+#if USE(GRAPHICS_LAYER_WC)
+#include "DrawingAreaProxyWC.h"
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -45,11 +48,13 @@ PageClientImpl::PageClientImpl(WebView& view)
 }
 
 // PageClient's pure virtual functions
-std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& process)
+std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy&)
 {
+#if USE(GRAPHICS_LAYER_WC)
     if (m_view.page()->preferences().useGPUProcessForWebGLEnabled())
-        return makeUnique<DrawingAreaProxyWC>(*m_view.page(), process);
-    return makeUnique<DrawingAreaProxyCoordinatedGraphics>(*m_view.page(), process);
+        return makeUnique<DrawingAreaProxyWC>(*m_view.page());
+#endif
+    return makeUnique<DrawingAreaProxyCoordinatedGraphics>(*m_view.page());
 }
 
 void PageClientImpl::setViewNeedsDisplay(const WebCore::Region& region)
@@ -232,11 +237,6 @@ void PageClientImpl::didChangeContentSize(const IntSize& size)
     notImplemented();
 }
 
-void PageClientImpl::handleDownloadRequest(DownloadProxy& download)
-{
-    notImplemented();
-}
-
 void PageClientImpl::didCommitLoadForMainFrame(const String& /* mimeType */, bool /* useCustomContentProvider */ )
 {
     notImplemented();
@@ -342,10 +342,12 @@ void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigatio
     notImplemented();
 }
 
+#if USE(GRAPHICS_LAYER_WC)
 bool PageClientImpl::usesOffscreenRendering() const
 {
     return m_view.usesOffscreenRendering();
 }
+#endif
 
 void PageClientImpl::didChangeBackgroundColor()
 {

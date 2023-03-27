@@ -785,7 +785,7 @@ getstring(char **strp, uint8_t **inbufp, mach_msg_type_number_t *bytes_leftp)
 			IOLog("Action list too short for string data");
 			return (EIO);
 		}
-		strp = kalloc_data(stringlen + 1, Z_WAITOK);
+		*strp = kalloc_data(stringlen + 1, Z_WAITOK);
 		if (*strp == NULL) {
 			IOLog("No space for string data in action list");
 			return (ENOMEM);

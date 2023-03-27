@@ -1063,18 +1063,18 @@ au_get_grouparg(char_u **argp)
 
     for (p = arg; *p && !VIM_ISWHITE(*p) && *p != '|'; ++p)
 	;
-    if (p > arg)
-    {
-	group_name = vim_strnsave(arg, p - arg);
-	if (group_name == NULL)		// out of memory
-	    return AUGROUP_ERROR;
-	group = au_find_group(group_name);
-	if (group == AUGROUP_ERROR)
-	    group = AUGROUP_ALL;	// no match, use all groups
-	else
-	    *argp = skipwhite(p);	// match, skip over group name
-	vim_free(group_name);
-    }
+    if (p <= arg)
+	return AUGROUP_ALL;
+
+    group_name = vim_strnsave(arg, p - arg);
+    if (group_name == NULL)		// out of memory
+	return AUGROUP_ERROR;
+    group = au_find_group(group_name);
+    if (group == AUGROUP_ERROR)
+	group = AUGROUP_ALL;	// no match, use all groups
+    else
+	*argp = skipwhite(p);	// match, skip over group name
+    vim_free(group_name);
     return group;
 }
 
@@ -1695,6 +1695,7 @@ win_found:
 	globaldir = aco->globaldir;
 
 	// the buffer contents may have changed
+	VIsual_active = aco->save_VIsual_active;
 	check_cursor();
 	if (curwin->w_topline > curbuf->b_ml.ml_line_count)
 	{
@@ -1741,14 +1742,16 @@ win_found:
 	    curwin = save_curwin;
 	    curbuf = curwin->w_buffer;
 	    prevwin = win_find_by_id(aco->save_prevwin_id);
+
 	    // In case the autocommand moves the cursor to a position that
 	    // does not exist in curbuf.
+	    VIsual_active = aco->save_VIsual_active;
 	    check_cursor();
 	}
     }
 
-    check_cursor();	    // just in case lines got deleted
     VIsual_active = aco->save_VIsual_active;
+    check_cursor();	    // just in case lines got deleted
     if (VIsual_active)
 	check_pos(curbuf, &VIsual);
 }
@@ -2068,6 +2071,9 @@ apply_autocmds_group(
 		&& (event == EVENT_WINLEAVE || event == EVENT_BUFLEAVE)))
 	goto BYPASS_AU;
 
+    if (event == EVENT_CMDLINECHANGED)
+	++aucmd_cmdline_changed_count;
+
     /*
      * Save the autocmd_* variables and info about the current buffer.
      */
@@ -2088,8 +2094,8 @@ apply_autocmds_group(
     if (fname_io == NULL)
     {
 	if (event == EVENT_COLORSCHEME || event == EVENT_COLORSCHEMEPRE
-						   || event == EVENT_OPTIONSET
-						   || event == EVENT_MODECHANGED)
+						 || event == EVENT_OPTIONSET
+						 || event == EVENT_MODECHANGED)
 	    autocmd_fname = NULL;
 	else if (fname != NULL && !ends_excmd(*fname))
 	    autocmd_fname = fname;

@@ -75,14 +75,16 @@
 
 #include <openssl/stack_legacy.h>
 
-#define STACK_OF(type)	STACK_##type
+#define STACK_OF(type) struct stack_st_##type
+#define PREDECLARE_STACK_OF(type) STACK_OF(type);
 
 #define DECLARE_STACK_OF(type) \
-typedef struct stack_st_##type	\
+STACK_OF(type) \
     { \
     STACK stack; \
-    } STACK_OF(type); \
-STACK_OF(type) *sk_##type##_new(int (*cmp)(type **,type **)); \
+    }; \
+STACK_OF(type) *sk_##type##_new(int (*cmp)(const type * const *, \
+				const type * const *)); \
 STACK_OF(type) *sk_##type##_new_null(void); \
 void sk_##type##_free(STACK_OF(type) *sk); \
 int sk_##type##_num(const STACK_OF(type) *sk); \
@@ -93,10 +95,11 @@ int sk_##type##_push(STACK_OF(type) *sk,type *v); \
 int sk_##type##_unshift(STACK_OF(type) *sk,type *v); \
 int sk_##type##_find(STACK_OF(type) *sk,type *v); \
 type *sk_##type##_delete(STACK_OF(type) *sk,int n); \
-void sk_##type##_delete_ptr(STACK_OF(type) *sk,type *v); \
+type *sk_##type##_delete_ptr(STACK_OF(type) *sk,type *v); \
 int sk_##type##_insert(STACK_OF(type) *sk,type *v,int n); \
 int (*sk_##type##_set_cmp_func(STACK_OF(type) *sk, \
-			       int (*cmp)(type **,type **)))(type **,type **); \
+	int (*cmp)(const type * const *,const type * const *))) \
+	(const type * const *,const type * const *); \
 STACK_OF(type) *sk_##type##_dup(STACK_OF(type) *sk); \
 void sk_##type##_pop_free(STACK_OF(type) *sk,void (*func)(type *)); \
 type *sk_##type##_shift(STACK_OF(type) *sk); \
@@ -104,8 +107,10 @@ type *sk_##type##_pop(STACK_OF(type) *sk); \
 void sk_##type##_sort(STACK_OF(type) *sk);
 
 #define IMPLEMENT_STACK_OF(type) \
-STACK_OF(type) *sk_##type##_new(int (*cmp)(type **,type **)) \
-    { return (STACK_OF(type) *)sk_new(cmp); } \
+STACK_OF(type) *sk_##type##_new(int (*cmp)(const type * const *, \
+				const type * const *)) \
+    { return (STACK_OF(type) *)sk_new( \
+        (int (*)(const char * const *,const char * const *))cmp); } \
 STACK_OF(type) *sk_##type##_new_null() \
     { return (STACK_OF(type) *)sk_new_null(); } \
 void sk_##type##_free(STACK_OF(type) *sk) \
@@ -126,17 +131,19 @@ int sk_##type##_find(STACK_OF(type) *sk,type *v) \
     { return sk_find((STACK *)sk,(char *)v); } \
 type *sk_##type##_delete(STACK_OF(type) *sk,int n) \
     { return (type *)sk_delete((STACK *)sk,n); } \
-void sk_##type##_delete_ptr(STACK_OF(type) *sk,type *v) \
-    { sk_delete_ptr((STACK *)sk,(char *)v); } \
+type *sk_##type##_delete_ptr(STACK_OF(type) *sk,type *v) \
+    { return (type *)sk_delete_ptr((STACK *)sk,(char *)v); } \
 int sk_##type##_insert(STACK_OF(type) *sk,type *v,int n) \
     { return sk_insert((STACK *)sk,(char *)v,n); } \
 int (*sk_##type##_set_cmp_func(STACK_OF(type) *sk, \
-			       int (*cmp)(type **,type **)))(type **,type **) \
-    { return (int (*)(type **,type **))sk_set_cmp_func((STACK *)sk,cmp); } \
+	int (*cmp)(const type * const *,const type * const *))) \
+	(const type * const *,const type * const *) \
+    { return (int (*)(const type * const *,const type * const *))sk_set_cmp_func( \
+	(STACK *)sk, (int(*)(const char * const *, const char * const *))cmp); } \
 STACK_OF(type) *sk_##type##_dup(STACK_OF(type) *sk) \
     { return (STACK_OF(type) *)sk_dup((STACK *)sk); } \
 void sk_##type##_pop_free(STACK_OF(type) *sk,void (*func)(type *)) \
-    { sk_pop_free((STACK *)sk,func); } \
+    { sk_pop_free((STACK *)sk,(void (*)(void *))func); } \
 type *sk_##type##_shift(STACK_OF(type) *sk) \
     { return (type *)sk_shift((STACK *)sk); } \
 type *sk_##type##_pop(STACK_OF(type) *sk) \

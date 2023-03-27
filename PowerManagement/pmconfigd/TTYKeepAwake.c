@@ -360,7 +360,7 @@ finish:
     return active;
 }
 
-static void create_assertion()
+static void create_assertion(void)
 {
     dispatch_sync(s_tty_queue, ^{
         if (s_assertion == kIOPMNullAssertionID) {

@@ -38,6 +38,14 @@ ParamsT D3D11(const ParamsT &in)
 }
 
 template <typename ParamsT>
+ParamsT Metal(const ParamsT &in)
+{
+    ParamsT out       = in;
+    out.eglParameters = angle::egl_platform::METAL();
+    return out;
+}
+
+template <typename ParamsT>
 ParamsT GL(const ParamsT &in)
 {
     ParamsT out       = in;
@@ -90,6 +98,14 @@ ParamsT EGL(const ParamsT &in)
 {
     ParamsT out = in;
     out.driver  = angle::GLESDriverType::SystemEGL;
+    return out;
+}
+
+template <typename ParamsT>
+ParamsT Zink(const ParamsT &in)
+{
+    ParamsT out = in;
+    out.driver  = angle::GLESDriverType::ZinkEGL;
     return out;
 }
 

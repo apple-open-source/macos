@@ -1163,7 +1163,7 @@ notifyd_dump_status_on_jetsam(void)
 	fclose(f);
 }
 
-static void
+static void __unused
 notifyd_panic_on_jetsam(void)
 {
 	reboot_np(RB_PANIC, "notifyd reached 80% of its memory limit");
@@ -1172,11 +1172,7 @@ notifyd_panic_on_jetsam(void)
 static void
 notifyd_jetsam(void)
 {
-	if (random() < JETSAM_PANIC_PROB_THRESHOLD) {
-		notifyd_panic_on_jetsam();
-	} else {
-		notifyd_dump_status_on_jetsam();
-	}
+	notifyd_dump_status_on_jetsam();
 }
 
 kern_return_t

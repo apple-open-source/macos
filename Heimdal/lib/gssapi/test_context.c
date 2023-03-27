@@ -313,7 +313,7 @@ wrapunwrap_shortmessage(gss_ctx_id_t cctx, gss_ctx_id_t sctx, int flags, gss_OID
 
     maj_stat = gss_unwrap(&min_stat, sctx, &output_token,
 			  &output_token2, &conf_state, &qop_state);
-    if (maj_stat != GSS_S_DEFECTIVE_TOKEN)
+    if (maj_stat == GSS_S_COMPLETE)
 	errx(1, "gss_unwrap bad message failed: %s",
 	     gssapi_err(maj_stat, min_stat, mechoid));
 

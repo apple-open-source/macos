@@ -28,6 +28,7 @@
 #import "APICast.h"
 #import "Completion.h"
 #import "IntegrityInlines.h"
+#import "JSAPIGlobalObject.h"
 #import "JSBaseInternal.h"
 #import "JSCInlines.h"
 #import "JSContextInternal.h"
@@ -36,6 +37,7 @@
 #import "JSGlobalObject.h"
 #import "JSInternalPromise.h"
 #import "JSModuleLoader.h"
+#import "JSScriptInternal.h"
 #import "JSValueInternal.h"
 #import "JSVirtualMachineInternal.h"
 #import "JSWrapperMap.h"
@@ -271,14 +273,24 @@
     JSGlobalContextSetName(m_context, OpaqueJSString::tryCreate(name).get());
 }
 
+- (BOOL)isInspectable
+{
+    return JSGlobalContextIsInspectable(m_context);
+}
+
+- (void)setInspectable:(BOOL)inspectable
+{
+    JSGlobalContextSetInspectable(m_context, inspectable);
+}
+
 - (BOOL)_remoteInspectionEnabled
 {
-    return JSGlobalContextGetRemoteInspectionEnabled(m_context);
+    return self.inspectable;
 }
 
 - (void)_setRemoteInspectionEnabled:(BOOL)enabled
 {
-    JSGlobalContextSetRemoteInspectionEnabled(m_context, enabled);
+    self.inspectable = enabled;
 }
 
 - (BOOL)_includesNativeCallStackWhenReportingExceptions

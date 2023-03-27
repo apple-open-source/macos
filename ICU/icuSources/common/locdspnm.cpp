@@ -609,9 +609,11 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
   UBool hasVariant = uprv_strlen(variant) > 0;
 
   // For stylistic reasons, always load dialect names for `zh` and `yue`. <rdar://50750364>
-  // Also for `ks`, 'pa, 'ur'. <rdar://50687287>
+  // `ks`, 'pa`, `ur`: <rdar://50687287>;
+  // `cic`, `cho`, `apw` <rdar://100483742>.
   UBool forceDialect = (uprv_strcmp(lang, "zh") == 0 || uprv_strcmp(lang, "yue") == 0 ||
-      uprv_strcmp(lang, "ks") == 0 || uprv_strcmp(lang, "pa") == 0 || uprv_strcmp(lang, "ur") == 0);
+      uprv_strcmp(lang, "ks") == 0 || uprv_strcmp(lang, "pa") == 0 || uprv_strcmp(lang, "ur") == 0 || 
+      uprv_strcmp(lang, "cic") == 0 || uprv_strcmp(lang, "cho") == 0 || uprv_strcmp(lang, "apw") == 0 );
 
   if (forceDialect || dialectHandling == ULDN_DIALECT_NAMES) {
     char buffer[ULOC_FULLNAME_CAPACITY];

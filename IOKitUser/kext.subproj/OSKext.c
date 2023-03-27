@@ -341,6 +341,8 @@ typedef struct __OSKext {
 #define __kOSKextPrivateKPI              CFSTR("com.apple.kpi.private")
 #define __kOSKextKasanKPI                CFSTR("com.apple.kpi.kasan")
 #define __kOSKextKasanKPIVersion         CFSTR("8.0.0b1")
+#define __kOSKextKcovKPI                 CFSTR("com.apple.kpi.kcov")
+#define __kOSKextKcovKPIVersion          CFSTR("8.0.0b1")
 
 /* Used when generating symbols.
  */
@@ -8066,7 +8068,7 @@ Boolean __OSKextResolveDependencies(
     }
 
     /*
-     * If this is a KASan kext, implicitly link against the KASan bundle.
+     * If this is a KASan kext, implicitly link against the KASan and Kcov bundles.
      */
     if (OSKextDeclaresExecutable(aKext) && __OSKextHasSuffix(aKext, "_kasan")) {
         OSKextRef kasan_kext = OSKextGetKextWithIdentifier(__kOSKextKasanKPI);
@@ -8074,6 +8076,13 @@ Boolean __OSKextResolveDependencies(
             OSKextLog(aKext, kOSKextLogDetailLevel | kOSKextLogDependenciesFlag,
                     "%s adding implicit KASan dependency", kextPath);
             CFArrayAppendValue(aKext->loadInfo->dependencies, kasan_kext);
+        }
+
+        OSKextRef kcov_kext = OSKextGetKextWithIdentifier(__kOSKextKcovKPI);
+        if (kcov_kext) {
+            OSKextLog(aKext, kOSKextLogDetailLevel | kOSKextLogDependenciesFlag,
+                    "%s adding implicit Kcov dependency", kextPath);
+            CFArrayAppendValue(aKext->loadInfo->dependencies, kcov_kext);
         }
     }
 
@@ -15295,7 +15304,7 @@ Boolean __OSKextAddToMkext(
     }
 
     /*
-     * If this is a KASan kext, implicitly link against the KASan bundle.
+     * If this is a KASan kext, implicitly link against the KASan and Kcov bundles.
      * We've done this already in __OSKextResolveDependencies, but we have
      * to add the dependency to the kext's Info.plist that's sent to the kernel.
      */
@@ -15306,6 +15315,10 @@ Boolean __OSKextAddToMkext(
             CFStringRef kasanVer = (CFStringRef)CFDictionaryGetValue(depsDict, __kOSKextKasanKPI);
             if (!kasanVer) {
                 CFDictionarySetValue(depsDict, __kOSKextKasanKPI, __kOSKextKasanKPIVersion);
+            }
+            CFStringRef kcovVer = (CFStringRef)CFDictionaryGetValue(depsDict, __kOSKextKcovKPI);
+            if (!kcovVer) {
+                CFDictionarySetValue(depsDict, __kOSKextKcovKPI, __kOSKextKcovKPIVersion);
             }
         } else {
             OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,

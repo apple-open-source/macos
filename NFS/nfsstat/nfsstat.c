@@ -920,6 +920,7 @@ struct mountargs {
 	char            *nfs_localport, *mount_localport;       /* AF_LOCAL address (port) info */
 	struct timespec request_timeout;                        /* NFS request timeout */
 	uint32_t        soft_retry_count;                       /* soft retrans count */
+	int             readlink_nocache;                       /* readlink no-cache mode */
 	struct timespec dead_timeout;                           /* dead timeout value */
 	fhandle_t       fh;                                     /* initial file handle */
 	uint32_t        numlocs;                                /* # of fs locations */
@@ -1013,7 +1014,7 @@ mountargs_cleanup(struct mountargs *margs)
 int
 parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 {
-	uint32_t val = 0, attrslength = 0, loc, serv, addr, comp;
+	uint32_t val = 0, attrslength = 0, loc, serv, addr, comp, len;
 	int error = 0, i;
 
 	if (margslen <= XDRWORD * 2) {
@@ -1031,10 +1032,10 @@ parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 	if (val != NFS_XDRARGS_VERSION_0) {
 		return EINVAL;
 	}
-	val = NFS_MATTR_BITMAP_LEN;
-	xb_get_bitmap(error, xb, margs->mattrs, val);
+	len = NFS_MATTR_BITMAP_LEN;
+	xb_get_bitmap(error, xb, margs->mattrs, len);
 	xb_get_32(error, xb, attrslength);
-	if (attrslength > ((uint32_t)margslen - ((4 + NFS_MATTR_BITMAP_LEN + 1) * XDRWORD))) {
+	if (attrslength > ((uint32_t)margslen - ((5 + len) * XDRWORD))) {
 		return EINVAL;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_FLAGS)) {
@@ -1314,6 +1315,10 @@ parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SET_MOUNT_OWNER)) {
 		xb_get_32(error, xb, margs->owner);
+	}
+
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READLINK_NOCACHE)) {
+		xb_get_32(error, xb, margs->readlink_nocache);
 	}
 
 	if (error) {
@@ -1655,15 +1660,23 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_REALM)) {
 		printer->add_array_str(sep, "realm=", margs->realm);
+		SEP;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_PRINCIPAL)) {
 		printer->add_array_str(sep, "principal=", margs->principal);
+		SEP;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SVCPRINCIPAL)) {
 		printer->add_array_str(sep, "sprincipalm=", margs->sprinc);
+		SEP;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SET_MOUNT_OWNER)) {
 		printer->add_array_num(sep, "owner=", margs->owner);
+		SEP;
+	}
+	if (verbose && NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READLINK_NOCACHE)) {
+		printer->add_array_num(sep, "readlink_nocache=", margs->readlink_nocache);
+		SEP;
 	}
 	printer->close_array(0);
 

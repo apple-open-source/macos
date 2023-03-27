@@ -29,6 +29,7 @@
 
 #include "VideoTrackPrivateGStreamer.h"
 
+#include "GStreamerCommon.h"
 #include "MediaPlayerPrivateGStreamer.h"
 #include <gst/pbutils/pbutils.h>
 
@@ -45,22 +46,25 @@ VideoTrackPrivateGStreamer::VideoTrackPrivateGStreamer(WeakPtr<MediaPlayerPrivat
     , m_player(player)
 {
     int kind;
-    auto tags = adoptGRef(gst_stream_get_tags(m_stream));
+    auto tags = adoptGRef(gst_stream_get_tags(m_stream.get()));
 
     if (tags && gst_tag_list_get_int(tags.get(), "webkit-media-stream-kind", &kind) && kind == static_cast<int>(VideoTrackPrivate::Kind::Main)) {
-        auto streamFlags = gst_stream_get_stream_flags(m_stream);
-        gst_stream_set_stream_flags(m_stream, static_cast<GstStreamFlags>(streamFlags | GST_STREAM_FLAG_SELECT));
+        auto streamFlags = gst_stream_get_stream_flags(m_stream.get());
+        gst_stream_set_stream_flags(m_stream.get(), static_cast<GstStreamFlags>(streamFlags | GST_STREAM_FLAG_SELECT));
     }
 
-    g_signal_connect_swapped(m_stream, "notify::caps", G_CALLBACK(+[](VideoTrackPrivateGStreamer* track) {
+    g_signal_connect_swapped(m_stream.get(), "notify::caps", G_CALLBACK(+[](VideoTrackPrivateGStreamer* track) {
         track->m_taskQueue.enqueueTask([track]() {
             track->updateConfigurationFromCaps();
         });
     }), this);
-    g_signal_connect_swapped(m_stream, "notify::tags", G_CALLBACK(+[](VideoTrackPrivateGStreamer* track) {
-        track->m_taskQueue.enqueueTask([track]() {
+    g_signal_connect_swapped(m_stream.get(), "notify::tags", G_CALLBACK(+[](VideoTrackPrivateGStreamer* track) {
+        if (isMainThread())
             track->updateConfigurationFromTags();
-        });
+        else
+            track->m_taskQueue.enqueueTask([track]() {
+                track->updateConfigurationFromTags();
+            });
     }), this);
 
     updateConfigurationFromCaps();
@@ -70,7 +74,10 @@ VideoTrackPrivateGStreamer::VideoTrackPrivateGStreamer(WeakPtr<MediaPlayerPrivat
 void VideoTrackPrivateGStreamer::updateConfigurationFromTags()
 {
     ASSERT(isMainThread());
-    auto tags = adoptGRef(gst_stream_get_tags(m_stream));
+    if (!m_stream)
+        return;
+
+    auto tags = adoptGRef(gst_stream_get_tags(m_stream.get()));
     unsigned bitrate;
     if (!tags || !gst_tag_list_get_uint(tags.get(), GST_TAG_BITRATE, &bitrate))
         return;
@@ -83,8 +90,17 @@ void VideoTrackPrivateGStreamer::updateConfigurationFromTags()
 void VideoTrackPrivateGStreamer::updateConfigurationFromCaps()
 {
     ASSERT(isMainThread());
-    auto caps = adoptGRef(gst_stream_get_caps(m_stream));
+    if (!m_stream)
+        return;
+
+    auto caps = adoptGRef(gst_stream_get_caps(m_stream.get()));
     if (!caps || !gst_caps_is_fixed(caps.get()))
+        return;
+
+    // We might be notified of RTP caps here, when an incoming video track is re-enabled. Since
+    // those caps most likely do not contain the information we need (width, height, colorimetry,
+    // ...), keep previous configuration and return early.
+    if (!doCapsHaveType(caps.get(), GST_VIDEO_CAPS_TYPE_PREFIX))
         return;
 
     auto configuration = this->configuration();
@@ -97,64 +113,7 @@ void VideoTrackPrivateGStreamer::updateConfigurationFromCaps()
         }
         configuration.width = GST_VIDEO_INFO_WIDTH(&info);
         configuration.height = GST_VIDEO_INFO_HEIGHT(&info);
-
-#ifndef GST_DISABLE_GST_DEBUG
-        GUniquePtr<char> colorimetry(gst_video_colorimetry_to_string(&GST_VIDEO_INFO_COLORIMETRY(&info)));
-#endif
-        PlatformVideoColorSpace colorSpace;
-        switch (GST_VIDEO_INFO_COLORIMETRY(&info).matrix) {
-        case GST_VIDEO_COLOR_MATRIX_RGB:
-            colorSpace.matrix = PlatformVideoMatrixCoefficients::Rgb;
-            break;
-        case GST_VIDEO_COLOR_MATRIX_BT709:
-            colorSpace.matrix = PlatformVideoMatrixCoefficients::Bt709;
-            break;
-        case GST_VIDEO_COLOR_MATRIX_BT601:
-            colorSpace.matrix = PlatformVideoMatrixCoefficients::Bt470bg;
-            break;
-        default:
-#ifndef GST_DISABLE_GST_DEBUG
-            GST_DEBUG("Unhandled colorspace matrix from %s", colorimetry.get());
-#endif
-            break;
-        }
-
-        switch (GST_VIDEO_INFO_COLORIMETRY(&info).transfer) {
-        case GST_VIDEO_TRANSFER_SRGB:
-            colorSpace.transfer = PlatformVideoTransferCharacteristics::Iec6196621;
-            break;
-        case GST_VIDEO_TRANSFER_BT709:
-            colorSpace.transfer = PlatformVideoTransferCharacteristics::Bt709;
-            break;
-#if GST_CHECK_VERSION(1, 18, 0)
-        case GST_VIDEO_TRANSFER_BT601:
-            colorSpace.transfer = PlatformVideoTransferCharacteristics::Smpte170m;
-            break;
-#endif
-        default:
-#ifndef GST_DISABLE_GST_DEBUG
-            GST_DEBUG("Unhandled colorspace transfer from %s", colorimetry.get());
-#endif
-            break;
-        }
-
-        switch (GST_VIDEO_INFO_COLORIMETRY(&info).primaries) {
-        case GST_VIDEO_COLOR_PRIMARIES_BT709:
-            colorSpace.primaries = PlatformVideoColorPrimaries::Bt709;
-            break;
-        case GST_VIDEO_COLOR_PRIMARIES_BT470BG:
-            colorSpace.primaries = PlatformVideoColorPrimaries::Bt470bg;
-            break;
-        case GST_VIDEO_COLOR_PRIMARIES_SMPTE170M:
-            colorSpace.primaries = PlatformVideoColorPrimaries::Smpte170m;
-            break;
-        default:
-#ifndef GST_DISABLE_GST_DEBUG
-            GST_DEBUG("Unhandled colorspace primaries from %s", colorimetry.get());
-#endif
-            break;
-        }
-        configuration.colorSpace = WTFMove(colorSpace);
+        configuration.colorSpace = videoColorSpaceFromInfo(info);
     }
 
 #if GST_CHECK_VERSION(1, 20, 0)
@@ -167,7 +126,7 @@ void VideoTrackPrivateGStreamer::updateConfigurationFromCaps()
 
 VideoTrackPrivate::Kind VideoTrackPrivateGStreamer::kind() const
 {
-    if (m_stream && gst_stream_get_stream_flags(m_stream) & GST_STREAM_FLAG_SELECT)
+    if (m_stream && gst_stream_get_stream_flags(m_stream.get()) & GST_STREAM_FLAG_SELECT)
         return VideoTrackPrivate::Kind::Main;
 
     return VideoTrackPrivate::kind();
@@ -178,7 +137,7 @@ void VideoTrackPrivateGStreamer::disconnect()
     m_taskQueue.startAborting();
 
     if (m_stream)
-        g_signal_handlers_disconnect_matched(m_stream, G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, this);
+        g_signal_handlers_disconnect_matched(m_stream.get(), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, this);
 
     m_player = nullptr;
     TrackPrivateBaseGStreamer::disconnect();

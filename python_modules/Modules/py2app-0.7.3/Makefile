@@ -5,14 +5,14 @@ VERSION = $(VERSIONORIG)-noprebuilt
 include ../Makefile.inc
 
 afterinstallsrc::
-	gnutar xozf $(NAME)-$(VERSIONORIG).tar.gz
+	tar xozf $(NAME)-$(VERSIONORIG).tar.gz
 	@set -x && \
 	cd $(NAME)-$(VERSIONORIG) && \
 	rm -rf examples/PyObjC/TinyTinyEdit/dist* && \
 	rm -f py2app/apptemplate/prebuilt/* && \
 	rm -f py2app/bundletemplate/prebuilt/*
 	mv $(NAME)-$(VERSIONORIG) $(NAME)-$(VERSION)
-	gnutar czf $(NAME)-$(VERSION).tar.gz $(NAME)-$(VERSION)
+	tar czf $(NAME)-$(VERSION).tar.gz $(NAME)-$(VERSION)
 	rm -f $(NAME)-$(VERSIONORIG).tar.gz
 	rm -rf $(NAME)-$(VERSION)
 

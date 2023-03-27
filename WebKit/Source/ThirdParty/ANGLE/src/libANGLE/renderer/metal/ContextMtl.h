@@ -207,6 +207,7 @@ class ContextMtl : public ContextImpl, public mtl::Context
     const gl::TextureCapsMap &getNativeTextureCaps() const override;
     const gl::Extensions &getNativeExtensions() const override;
     const gl::Limitations &getNativeLimitations() const override;
+    const ShPixelLocalStorageOptions &getNativePixelLocalStorageOptions() const override;
 
     const ProgramMtl *getProgram() const { return mProgram; }
 
@@ -368,10 +369,14 @@ class ContextMtl : public ContextImpl, public mtl::Context
     // Will end current command encoder and start new blit command encoder. Unless a blit comamnd
     // encoder is already started.
     mtl::BlitCommandEncoder *getBlitCommandEncoder();
-
     // Will end current command encoder and start new compute command encoder. Unless a compute
     // command encoder is already started.
     mtl::ComputeCommandEncoder *getComputeCommandEncoder();
+
+    // Because this backend uses an intermediate representation for the rendering
+    // commands, a render encoder can coexist with blit/compute command encoders.
+    mtl::BlitCommandEncoder *getBlitCommandEncoderWithoutEndingRenderEncoder();
+    mtl::ComputeCommandEncoder *getComputeCommandEncoderWithoutEndingRenderEncoder();
 
     // Get the provoking vertex command encoder.
     mtl::ComputeCommandEncoder *getIndexPreprocessingCommandEncoder();
@@ -386,8 +391,11 @@ class ContextMtl : public ContextImpl, public mtl::Context
                                                     uint32_t layerIndex);
     const mtl::BufferRef &getWorkBuffer() const { return mWorkBuffer; }
 
+    angle::ImageLoadContext getImageLoadContext() const;
+
   private:
     void ensureCommandBufferReady();
+    void endBlitAndComputeEncoding();
     angle::Result ensureIncompleteTexturesCreated(const gl::Context *context);
     angle::Result setupDraw(const gl::Context *context,
                             gl::PrimitiveMode mode,
@@ -396,7 +404,8 @@ class ContextMtl : public ContextImpl, public mtl::Context
                             GLsizei instanceCount,
                             gl::DrawElementsType indexTypeOrNone,
                             const void *indices,
-                            bool xfbPass);
+                            bool xfbPass,
+                            bool *isNoOp);
 
     angle::Result setupDrawImpl(const gl::Context *context,
                                 gl::PrimitiveMode mode,
@@ -405,7 +414,8 @@ class ContextMtl : public ContextImpl, public mtl::Context
                                 GLsizei instanceCount,
                                 gl::DrawElementsType indexTypeOrNone,
                                 const void *indices,
-                                bool xfbPass);
+                                bool xfbPass,
+                                bool *isNoOp);
 
     angle::Result drawTriFanArrays(const gl::Context *context,
                                    GLint first,
@@ -563,6 +573,7 @@ class ContextMtl : public ContextImpl, public mtl::Context
     mtl::RenderCommandEncoder mRenderEncoder;
     mtl::BlitCommandEncoder mBlitEncoder;
     mtl::ComputeCommandEncoder mComputeEncoder;
+    bool mHasMetalSharedEvents = false;
 
     // Cached back-end objects
     FramebufferMtl *mDrawFramebuffer = nullptr;

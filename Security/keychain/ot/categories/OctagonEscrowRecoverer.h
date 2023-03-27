@@ -8,6 +8,9 @@
 - (NSError*)recoverWithInfo:(NSDictionary*)info results:(NSDictionary**)results;
 - (NSError *)getAccountInfoWithInfo:(NSDictionary *)info results:(NSDictionary**)results;
 - (NSError *)disableWithInfo:(NSDictionary *)info;
+- (bool)isRecoveryKeySet:(NSError * __autoreleasing *)error;
+- (bool)restoreKeychainWithBackupPassword:(NSData *)password
+                                    error:(NSError * __autoreleasing *)error;
 @end
 
 #endif /* OctagonEscrowRecoverer_h */

@@ -51,7 +51,6 @@
 #import "WKURLRequestNS.h"
 #import "WKURLResponseNS.h"
 #import "WKViewInternal.h"
-#import "WebCertificateInfo.h"
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
 #import "WebProtectionSpace.h"
@@ -179,7 +178,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)loadAlternateHTMLString:(NSString *)string baseURL:(NSURL *)baseURL forUnreachableURL:(NSURL *)unreachableURL
 {
     NSData *data = [string dataUsingEncoding:NSUTF8StringEncoding];
-    _page->loadAlternateHTML({ static_cast<const uint8_t*>(data.bytes), data.length }, "UTF-8"_s, baseURL, unreachableURL);
+    _page->loadAlternateHTML(WebCore::DataSegment::create((__bridge CFDataRef)data), "UTF-8"_s, baseURL, unreachableURL);
 }
 
 - (void)loadData:(NSData *)data MIMEType:(NSString *)MIMEType textEncodingName:(NSString *)encodingName baseURL:(NSURL *)baseURL
@@ -313,7 +312,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (NSArray *)certificateChain
 {
     if (WebKit::WebFrameProxy* mainFrame = _page->mainFrame())
-        return mainFrame->certificateInfo() ? (__bridge NSArray *)mainFrame->certificateInfo()->certificateInfo().certificateChain() : nil;
+        return (__bridge NSArray *)WebCore::CertificateInfo::certificateChainFromSecTrust(mainFrame->certificateInfo().trust().get()).autorelease();
 
     return nil;
 }
@@ -723,12 +722,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)setPaginationLineGridEnabled:(BOOL)lineGridEnabled
 {
-    _page->setPaginationLineGridEnabled(lineGridEnabled);
 }
 
 - (BOOL)paginationLineGridEnabled
 {
-    return _page->paginationLineGridEnabled();
+    return NO;
 }
 
 - (NSUInteger)pageCount

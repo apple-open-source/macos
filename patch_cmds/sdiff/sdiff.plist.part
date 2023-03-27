@@ -7,6 +7,10 @@
 		<string>https://cgit.freebsd.org/src/tree/usr.bin/sdiff?id=9f72a83a066bd84cfe0bc47975b3510f71df4cdc</string>
 		<key>OpenSourceImportDate</key>
 		<string>2021-10-27</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>sdiff.c: better handling of multibyte sequences (100627590)</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>

@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "February 12, 2022" "zsh 5\&.8\&.1"
+.TH "ZSHMODULES" "1" "May 14, 2022" "zsh 5\&.9"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -104,6 +104,9 @@ Interface to the termcap database\&.
 .TP
 \fBzsh/terminfo\fP
 Interface to the terminfo database\&.
+.TP
+\fBzsh/watch\fP
+Reporting of login and logout events\&.
 .TP
 \fBzsh/zftp\fP
 A builtin FTP client\&.
@@ -972,7 +975,7 @@ input\&.  This is only available with the ncurses library; mouse handling
 can be detected by checking for the exit status of `\fBzcurses mouse\fP\&' with
 no arguments\&.  If a mouse
 button is clicked (or double\- or triple\-clicked, or pressed or released with
-a configurable delay from being clicked) then \fBkparam\fP is set to the string
+a configurable delay from being clicked) then \fIkparam\fP is set to the string
 \fBMOUSE\fP, and \fImparam\fP is set to an array consisting of the
 following elements:
 .PD 0
@@ -1100,10 +1103,10 @@ The \fBzsh/datetime\fP module makes available one builtin command:
 .PD 0
 .TP
 .PD 0
-\fBstrftime\fP [ \fB\-s\fP \fIscalar\fP ] \fIformat\fP [ \fIepochtime\fP [ \fInanoseconds\fP ] ] 
+\fBstrftime\fP [ \fB\-s\fP \fIscalar\fP | \fB\-n\fP ] \fIformat\fP [ \fIepochtime\fP [ \fInanoseconds\fP ] ] 
 .TP
 .PD
-\fBstrftime\fP \fB\-r\fP [ \fB\-q\fP ] [ \fB\-s\fP \fIscalar\fP ] \fIformat\fP \fItimestring\fP 
+\fBstrftime\fP \fB\-r\fP [ \fB\-q\fP ] [ \fB\-s\fP \fIscalar\fP | \fB\-n\fP ] \fIformat\fP \fItimestring\fP 
 Output the date in the \fIformat\fP specified\&.  With no \fIepochtime\fP, the
 current system date/time is used; optionally, \fIepochtime\fP may be used to
 specify the number of seconds since the epoch, and \fInanoseconds\fP may
@@ -1116,6 +1119,9 @@ the section EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1) are also available
 .PD 0
 .TP
 .PD
+\fB\-n\fP
+Suppress printing a newline after the formatted string\&.
+.TP
 \fB\-q\fP
 Run quietly; suppress printing of all error messages described below\&.
 Errors for invalid \fIepochtime\fP values are always printed\&.
@@ -1541,7 +1547,7 @@ value is the content of the file\&.  The value is treated identically to any
 other text coming from a parameter\&.  The value may also be assigned to, in
 which case the file in question is written (whether or not it originally
 existed); or an element may be unset, which will delete the file in
-question\&.  For example, `\fBvared mapfile[myfile]\fP\&' works as expected,
+question\&.  For example, `\fBvared \&'mapfile[myfile]'\fP' works as expected,
 editing the file `\fBmyfile\fP\&'\&.
 .RS
 .PP
@@ -1767,7 +1773,7 @@ The script supplied with the module invokes the shell function
 even if the \fBzsh/newuser\fP module is disabled\&.  Note, however, that
 if the module is not installed the function will not be installed either\&.
 The function is documented in
-the section User Configuration Functions in \fIzshcontrib\fP(1)\&.
+the section `User Configuration Functions\&' in \fIzshcontrib\fP(1)\&.
 .SH "THE ZSH/PARAMETER MODULE"
 .\" Yodl file: Zsh/mod_parameter.yo
 
@@ -1912,6 +1918,8 @@ The keys of the associative arrays are usually valid job numbers,
 and these are the values output with, for example, \fB${(k)jobdirs}\fP\&.
 Non\-numeric job references may be used when looking up a value;
 for example, \fB${jobdirs[%+]}\fP refers to the current job\&.
+.PP
+See the \fBjobs\fP builtin for how job information is provided in a subshell\&.
 .RE
 .TP
 \fBjobtexts\fP
@@ -1921,6 +1929,8 @@ that were used to start the jobs\&.
 .PP
 Handling of the keys of the associative array is as described for
 \fBjobdirs\fP above\&.
+.PP
+See the \fBjobs\fP builtin for how job information is provided in a subshell\&.
 .RE
 .TP
 \fBjobstates\fP
@@ -1938,6 +1948,8 @@ the \fIstate\fP describes the state of that process\&.
 .PP
 Handling of the keys of the associative array is as described for
 \fBjobdirs\fP above\&.
+.PP
+See the \fBjobs\fP builtin for how job information is provided in a subshell\&.
 .RE
 .TP
 \fBnameddirs\fP
@@ -2113,11 +2125,15 @@ This module provides a single autoloaded builtin:
 .PD 0
 .TP
 .PD
-\fBprivate\fP [ {\fB+\fP|\fB\-\fP}\fBAHUahlprtux\fP ] [ {\fB+\fP|\fB\-\fP}\fBEFLRZi\fP [ \fIn\fP ] ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
+\fBprivate\fP [ {\fB+\fP|\fB\-\fP}\fBAHUahlmrtux\fP ] [ {\fB+\fP|\fB\-\fP}\fBEFLRZi\fP [ \fIn\fP ] ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
 The \fBprivate\fP builtin accepts all the same options and arguments as \fBlocal\fP
 (\fIzshbuiltins\fP(1)) except
 for the `\fB\-\fP\fBT\fP\&' option\&.  Tied parameters may not be made private\&.
 .RS
+.PP
+The `\fB\-\fP\fBp\fP\&' option is presently a no\-op because the state of
+private parameters cannot reliably be reloaded\&.  This also applies
+to printing private parameters with `\fBtypeset \-p\fP\&'\&.
 .PP
 If used at the top level (outside a function scope), \fBprivate\fP creates a
 normal parameter in the same manner as \fBdeclare\fP or \fBtypeset\fP\&.  A
@@ -2196,7 +2212,8 @@ Within any other function called by the declaring function, the
 private parameter does \fINOT\fP hide other parameters of the same name, so
 for example a global parameter of the same name is visible and may be
 assigned or unset\&.  This includes calls to anonymous functions, although
-that may also change in the future\&.
+that may also change in the future\&.  However, the private name may not be
+created outside the local scope when it was not previously declared\&.
 .TP
 \(bu
 An exported private remains in the environment of inner scopes but
@@ -2241,6 +2258,18 @@ automatically load this module as needed and will invoke the
 .PP
 If \fBBASH_REMATCH\fP is set, then the array \fBBASH_REMATCH\fP will be set
 instead of \fBMATCH\fP and \fBmatch\fP\&.
+.PP
+Note that the \fBzsh/regex\fP module logic relies on the host system\&. The 
+same \fIexpr\fP and \fIregex\fP pair could produce different results on different
+platforms if a \fIregex\fP with non\-standard syntax is given\&.
+.PP
+For example, no syntax for matching a word boundary is defined in the POSIX
+extended regular expression standard\&. GNU \fBlibc\fP and BSD \fBlibc\fP both provide 
+such syntaxes as extensions (\fB\eb\fP and \fB[[:<:]]\fP/\fB[[:>:]]\fP respectively), 
+but neither of these syntaxes is supported by both of these implementations\&.
+.PP
+Refer to the \fIregcomp\fP(3) and \fIre_format\fP(7) manual pages on your
+system for locally\-supported syntax\&.
 .RE
 .SH "THE ZSH/SCHED MODULE"
 .\" Yodl file: Zsh/mod_sched.yo
@@ -2520,6 +2549,8 @@ Supplies a \fBstrftime\fP (see \fIstrftime\fP(3)) string for the
 formatting of the time elements\&.  The format string supports all of the
 zsh extensions described in
 the section EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1)\&.
+In particular, \fB\-F %s\&.%N\fP can be used to show timestamps with nanosecond
+precision if supported by the system\&.
 The \fB\-s\fP option is implied\&.
 .TP
 \fB\-g\fP
@@ -2647,6 +2678,9 @@ suppress updating of the file atime
 \fBnofollow\fP
 fail if \fIfile\fP is a symbolic link
 .TP
+\fBnonblock\fP
+the file is opened in nonblocking mode
+.TP
 \fBsync\fP
 request that writes wait until data has been physically written
 .TP
@@ -2764,7 +2798,7 @@ the error that occurred\&.
 .RE
 .TP
 .PD 0
-\fBzsystem flock\fP [ \fB\-t\fP \fItimeout\fP ] [ \fB\-f\fP \fIvar\fP ] [\fB\-er\fP] \fIfile\fP
+\fBzsystem flock\fP [ \fB\-t\fP \fItimeout\fP ] [ \fB\-i\fP \fIinterval\fP ] [ \fB\-f\fP \fIvar\fP ] [\fB\-er\fP] \fIfile\fP
 .TP
 .PD
 \fBzsystem flock \-u\fP \fIfd_expr\fP
@@ -2797,9 +2831,16 @@ a safety check that the file descriptor is in use for file locking\&.
 .PP
 By default the shell waits indefinitely for the lock to succeed\&.
 The option \fB\-t\fP \fItimeout\fP specifies a timeout for the lock in
-seconds; currently this must be an integer\&.  The shell will attempt
-to lock the file once a second during this period\&.  If the attempt
-times out, status 2 is returned\&.
+seconds; fractional seconds are allowed\&.  During this period, the
+shell will attempt to lock the file every \fIinterval\fP seconds
+if the \fB\-i\fP \fIinterval\fP option is given, otherwise once a second\&.
+(This \fIinterval\fP is shortened before the last attempt if needed,
+so that the shell waits only until the \fItimeout\fP and not longer\&.)
+If the attempt times out, status 2 is returned\&.
+.PP
+(Note: \fItimeout\fP is limited to 2^30\-1 seconds (about 34 years), and
+\fIinterval\fP to 0\&.999 * LONG_MAX microseconds (only about 35 minutes
+on 32\-bit systems)\&.)
 .PP
 If the option \fB\-e\fP is given, the file descriptor for the lock is
 preserved when the shell uses \fBexec\fP to start a new process;
@@ -2859,9 +2900,9 @@ Returns the process ID of the current process, even in subshells\&.  Compare
 \fB$$\fP, which returns the process ID of the main shell process\&.
 .TP
 \fBppid\fP
-Returns the process ID of the parent of the current process, even in
-subshells\&.  Compare \fB$PPID\fP, which returns the process ID of the parent
-of the main shell process\&.
+Returns the current process ID of the parent of the current process, even
+in subshells\&.  Compare \fB$PPID\fP, which returns the process ID of the
+initial parent of the main shell process\&.
 .TP
 \fBprocsubstpid\fP
 Returns the process ID of the last process started for process
@@ -3110,6 +3151,158 @@ The \fBzsh/terminfo\fP module makes available one parameter:
 \fBterminfo\fP
 An associative array that maps terminfo capability names to
 their values\&.
+.SH "THE ZSH/WATCH MODULE"
+.\" Yodl file: Zsh/mod_watch.yo
+
+The \fBzsh/watch\fP module can be used to report when specific users log in or
+out\&. This is controlled via the following parameters\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBLOGCHECK\fP
+The interval in seconds between checks for login/logout activity
+using the \fBwatch\fP parameter\&.
+.TP
+\fBwatch\fP <S> <Z> (\fBWATCH\fP <S>)
+An array (colon\-separated list) of login/logout events to report\&.
+.RS
+.PP
+If it contains the single word `\fBall\fP\&', then all login/logout events
+are reported\&.  If it contains the single word `\fBnotme\fP\&', then all
+events are reported as with `\fBall\fP\&' except \fB$USERNAME\fP\&.
+.PP
+An entry in this list may consist of a username,
+an `\fB@\fP\&' followed by a remote hostname,
+and a `\fB%\fP\&' followed by a line (tty)\&.  Any of these may
+be a pattern (be sure to quote this during the assignment to
+\fBwatch\fP so that it does not immediately perform file generation);
+the setting of the \fBEXTENDED_GLOB\fP option is respected\&.
+Any or all of these components may be present in an entry;
+if a login/logout event matches all of them,
+it is reported\&.
+.PP
+For example, with the \fBEXTENDED_GLOB\fP option set, the following:
+.PP
+.RS
+.nf
+\fBwatch=(\&'^(pws|barts)')\fP
+.fi
+.RE
+.PP
+causes reports for activity associated with any user other than \fBpws\fP
+or \fBbarts\fP\&.
+.RE
+.TP
+\fBWATCHFMT\fP
+The format of login/logout reports if the \fBwatch\fP parameter is set\&.
+Default is `\fB%n has %a %l from %m\fP\&'\&.
+Recognizes the following escape sequences:
+.RS
+.PP
+.PD 0
+.TP
+.PD
+\fB%n\fP
+The name of the user that logged in/out\&.
+.TP
+\fB%a\fP
+The observed action, i\&.e\&. "logged on" or "logged off"\&.
+.TP
+\fB%l\fP
+The line (tty) the user is logged in on\&.
+.TP
+\fB%M\fP
+The full hostname of the remote host\&.
+.TP
+\fB%m\fP
+The hostname up to the first `\fB\&.\fP\&'\&.  If only the
+IP address is available or the utmp field contains
+the name of an X\-windows display, the whole name is printed\&.
+.RS
+.PP
+\fINOTE:\fP
+The `\fB%m\fP\&' and `\fB%M\fP' escapes will work only if there is a host name
+field in the utmp on your machine\&.  Otherwise they are
+treated as ordinary strings\&.
+.RE
+.TP
+\fB%F{\fP\fIcolor\fP\fB}\fP (\fB%f\fP)
+Start (stop) using a different foreground color\&.
+.TP
+\fB%K{\fP\fIcolor\fP\fB}\fP (\fB%k\fP)
+Start (stop) using a different background color\&.
+.TP
+\fB%S\fP (\fB%s\fP)
+Start (stop) standout mode\&.
+.TP
+\fB%U\fP (\fB%u\fP)
+Start (stop) underline mode\&.
+.TP
+\fB%B\fP (\fB%b\fP)
+Start (stop) boldface mode\&.
+.TP
+.PD 0
+\fB%t\fP
+.TP
+.PD
+\fB%@\fP
+The time, in 12\-hour, am/pm format\&.
+.TP
+\fB%T\fP
+The time, in 24\-hour format\&.
+.TP
+\fB%w\fP
+The date in `\fIday\fP\fB\-\fP\fIdd\fP\&' format\&.
+.TP
+\fB%W\fP
+The date in `\fImm\fP\fB/\fP\fIdd\fP\fB/\fP\fIyy\fP\&' format\&.
+.TP
+\fB%D\fP
+The date in `\fIyy\fP\fB\-\fP\fImm\fP\fB\-\fP\fIdd\fP\&' format\&.
+.TP
+\fB%D{\fP\fIstring\fP\fB}\fP
+The date formatted as \fIstring\fP using the \fBstrftime\fP function, with
+zsh extensions as described by
+EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1)\&.
+.TP
+\fB%(\fP\fIx\fP\fB:\fP\fItrue\-text\fP\fB:\fP\fIfalse\-text\fP\fB)\fP
+Specifies a ternary expression\&.
+The character following the \fIx\fP is
+arbitrary; the same character is used to separate the text
+for the "true" result from that for the "false" result\&.
+Both the separator and the right parenthesis may be escaped
+with a backslash\&.
+Ternary expressions may be nested\&.
+.RS
+.PP
+The test character \fIx\fP may be any one of `\fBl\fP\&', `\fBn\fP', `\fBm\fP'
+or `\fBM\fP\&', which indicate a `true' result if the corresponding
+escape sequence would return a non\-empty value; or it may be `\fBa\fP\&',
+which indicates a `true\&' result if the watched user has logged in,
+or `false\&' if he has logged out\&.
+Other characters evaluate to neither true nor false; the entire
+expression is omitted in this case\&.
+.PP
+If the result is `true\&', then the \fItrue\-text\fP
+is formatted according to the rules above and printed,
+and the \fIfalse\-text\fP is skipped\&.
+If `false\&', the \fItrue\-text\fP is skipped and the \fIfalse\-text\fP
+is formatted and printed\&.
+Either or both of the branches may be empty, but
+both separators must be present in any case\&.
+.RE
+.RE
+.PP
+Furthermore, the \fBzsh/watch\fP module makes available one builtin
+command:
+.PP
+.PD 0
+.TP
+.PD
+\fBlog\fP
+List all users currently logged in who are affected by
+the current setting of the \fBwatch\fP parameter\&.
 .SH "THE ZSH/ZFTP MODULE"
 .\" Yodl file: Zsh/mod_zftp.yo
 
@@ -3827,7 +4020,7 @@ The \fBzselect\fP builtin is a front\-end to the `select\&' system call, which
 blocks until a file descriptor is ready for reading or writing, or has an
 error condition, with an optional timeout\&.  If this is not available on
 your system, the command prints an error message and returns status 2
-(normal errors return status 1)\&.  For more information, see your systems
+(normal errors return status 1)\&.  For more information, see your system\&'s
 documentation for \fIselect\fP(3)\&.  Note there is no connection with the
 shell builtin of the same name\&.
 .RS
@@ -3931,27 +4124,32 @@ the pattern that was defined first\&.
 .PP
 \fIExample\fP
 .PP
-For example, to define your preferred form of precipitation depending on which
-city you\&'re in, you might set the following in your \fBzshrc\fP:
+For example, a fictional `\fBweather\fP\&' plugin might state in its documentation
+that it looks up the \fBpreferred\-precipitation\fP style under the
+`\fB:weather:\fP\fIcontinent\fP\fB:\fP\fIday\-of\-the\-week\fP\fB:\fP\fIphase\-of\-the\-moon\fP\&' context\&.
+According to this, you might set the following in your \fBzshrc\fP:
 .PP
 .RS
 .nf
 \fBzstyle \&':weather:europe:*' preferred\-precipitation rain
-zstyle \&':weather:europe:germany:* preferred\-precipitation none
-zstyle \&':weather:europe:germany:*:munich' preferred\-precipitation snow\fP
+zstyle \&':weather:*:Sunday:*' preferred\-precipitation snow\fP
 .fi
 .RE
 .PP
-Then, the fictional `\fBweather\fP\&' plugin might run under the hood a command
-such as
+Then the plugin would run under the hood a command such as
 .PP
 .RS
 .nf
-\fBzstyle \-s ":weather:${continent}:${country}:${county}:${city}" preferred\-precipitation REPLY\fP
+\fBzstyle \-s ":weather:${continent}:${day_of_week}:${moon_phase}" preferred\-precipitation REPLY\fP
 .fi
 .RE
 .PP
 in order to retrieve your preference into the scalar variable \fB$REPLY\fP\&.
+On Sundays \fB$REPLY\fP would be set to `\fBsnow\fP\&'; in Europe it would be set
+to `\fBrain\fP\&'; and on Sundays in Europe it would be set to `\fBsnow\fP' again,
+because the patterns `\fB:weather:europe:*\fP\&' and `\fB:weather:*:Sunday:*\fP' both
+match the \fIcontext\fP argument to \fBzstyle \-s\fP, are equally specific, and the
+latter is more specific (because it has more colon\-separated components)\&.
 .PP
 \fIUsage\fP
 .PP
@@ -4063,9 +4261,12 @@ Match a value\&. Returns status zero if the
 .PD 0
 \fBzformat \-f\fP \fIparam\fP \fIformat\fP \fIspec\fP \&.\&.\&.
 .TP
+.PD 0
+\fBzformat \-F\fP \fIparam\fP \fIformat\fP \fIspec\fP \&.\&.\&.
+.TP
 .PD
 \fBzformat \-a\fP \fIarray\fP \fIsep\fP \fIspec\fP \&.\&.\&.
-This builtin provides two different forms of formatting\&. The first form 
+This builtin provides different forms of formatting\&. The first form
 is selected with the \fB\-f\fP option\&. In this case the \fIformat\fP
 string will be modified by replacing sequences starting with a percent 
 sign in it with strings from the \fIspec\fPs\&.  Each \fIspec\fP should be
@@ -4114,7 +4315,13 @@ outputs "The answer is \&'yes'\&." to \fBREPLY\fP since the value for the format
 specifier \fBc\fP is 3, agreeing with the digit argument to the ternary
 expression\&.
 .PP
-The second form, using the \fB\-a\fP option, can be used for aligning
+With \fB\-F\fP instead of \fB\-f\fP, ternary expressions choose between the
+`true\&' or `false' text on the basis of whether the format specifier is
+present and non\-empty\&.  A test number indicates a minimum width for the
+value given in the format specifier\&. Negative numbers reverse this,
+so the test is for whether the value exceeds a maximum width\&.
+.PP
+The form, using the \fB\-a\fP option, can be used for aligning
 strings\&.  Here, the \fIspec\fPs are of the form
 `\fIleft\fP\fB:\fP\fIright\fP\&' where `\fIleft\fP' and `\fIright\fP' are
 arbitrary strings\&.  These strings are modified by replacing the colons

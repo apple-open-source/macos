@@ -35,6 +35,7 @@ enum VendorID : uint32_t
     VENDOR_ID_SAMSUNG  = 0x144D,
     VENDOR_ID_VIVANTE  = 0x9999,
     VENDOR_ID_VMWARE   = 0x15AD,
+    VENDOR_ID_VIRTIO   = 0x1AF4,
 };
 
 enum AndroidDeviceID : uint32_t
@@ -112,6 +113,11 @@ inline bool IsVMWare(uint32_t vendorId)
     return vendorId == VENDOR_ID_VMWARE;
 }
 
+inline bool IsVirtIO(uint32_t vendorId)
+{
+    return vendorId == VENDOR_ID_VIRTIO;
+}
+
 inline bool IsNexus5X(uint32_t vendorId, uint32_t deviceId)
 {
     return IsQualcomm(vendorId) && deviceId == ANDROID_DEVICE_ID_NEXUS5X;
@@ -170,6 +176,23 @@ bool IsCoffeeLake(uint32_t DeviceId);
 bool Is9thGenIntel(uint32_t DeviceId);
 bool Is11thGenIntel(uint32_t DeviceId);
 bool Is12thGenIntel(uint32_t DeviceId);
+
+struct MajorMinorPatchVersion
+{
+    MajorMinorPatchVersion();
+    MajorMinorPatchVersion(int major, int minor, int patch);
+
+    int majorVersion = 0;
+    int minorVersion = 0;
+    int patchVersion = 0;
+};
+bool operator==(const MajorMinorPatchVersion &a, const MajorMinorPatchVersion &b);
+bool operator!=(const MajorMinorPatchVersion &a, const MajorMinorPatchVersion &b);
+bool operator<(const MajorMinorPatchVersion &a, const MajorMinorPatchVersion &b);
+bool operator>=(const MajorMinorPatchVersion &a, const MajorMinorPatchVersion &b);
+
+using ARMDriverVersion = MajorMinorPatchVersion;
+ARMDriverVersion ParseARMDriverVersion(uint32_t driverVersion);
 
 // Platform helpers
 inline bool IsWindows()
@@ -238,19 +261,7 @@ inline bool IsIOS()
 bool IsWayland();
 bool IsWin10OrGreater();
 
-struct OSVersion
-{
-    OSVersion();
-    OSVersion(int major, int minor, int patch);
-
-    int majorVersion = 0;
-    int minorVersion = 0;
-    int patchVersion = 0;
-};
-bool operator==(const OSVersion &a, const OSVersion &b);
-bool operator!=(const OSVersion &a, const OSVersion &b);
-bool operator<(const OSVersion &a, const OSVersion &b);
-bool operator>=(const OSVersion &a, const OSVersion &b);
+using OSVersion = MajorMinorPatchVersion;
 
 OSVersion GetMacOSVersion();
 

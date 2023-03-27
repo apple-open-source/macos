@@ -43,7 +43,7 @@
 #import "WebPageProxy.h"
 #import "_WKInspectorConfigurationInternal.h"
 #import "_WKInspectorInternal.h"
-#import "_WKInspectorWindow.h"
+#import "_WKInspectorWindowInternal.h"
 #import <SecurityInterface/SFCertificatePanel.h>
 #import <SecurityInterface/SFCertificateView.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
@@ -356,7 +356,7 @@ void WebInspectorUIProxy::updateInspectorWindowTitle() const
     }
 }
 
-RetainPtr<NSWindow> WebInspectorUIProxy::createFrontendWindow(NSRect savedWindowFrame, InspectionTargetType targetType)
+RetainPtr<NSWindow> WebInspectorUIProxy::createFrontendWindow(NSRect savedWindowFrame, InspectionTargetType targetType, WebPageProxy* inspectedPage)
 {
     NSRect windowFrame = !NSIsEmptyRect(savedWindowFrame) ? savedWindowFrame : NSMakeRect(0, 0, initialWindowWidth, initialWindowHeight);
     auto window = adoptNS([[_WKInspectorWindow alloc] initWithContentRect:windowFrame styleMask:windowStyleMask backing:NSBackingStoreBuffered defer:NO]);
@@ -367,15 +367,17 @@ RetainPtr<NSWindow> WebInspectorUIProxy::createFrontendWindow(NSRect savedWindow
     bool forRemoteTarget = targetType == InspectionTargetType::Remote;
     [window setForRemoteTarget:forRemoteTarget];
 
+    if (inspectedPage)
+        [window setInspectedWebView:inspectedPage->cocoaView().get()];
+
     CGFloat approximatelyHalfScreenSize = ([window screen].frame.size.width / 2) - 4;
     CGFloat minimumFullScreenWidth = std::max<CGFloat>(636, approximatelyHalfScreenSize);
     [window setMinFullScreenContentSize:NSMakeSize(minimumFullScreenWidth, minimumWindowHeight)];
     [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorFullScreenAllowsTiling)];
 
-    // FIXME: <rdar://94829409> Replace Stage Manager auxiliary window workaround.
-    [window setToolbar:[NSToolbar new]];
-    [[window toolbar] setVisible:NO];
-    [window setToolbarStyle:NSWindowToolbarStylePreference];
+#if HAVE(STAGE_MANAGER_NS_WINDOW_COLLECTION_BEHAVIORS)
+    [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorAuxiliary)];
+#endif
 
     [window setTitlebarAppearsTransparent:YES];
 
@@ -399,7 +401,8 @@ void WebInspectorUIProxy::showSavePanel(NSWindow *frontendWindow, NSURL *platfor
         ASSERT(actualURL);
 
         if ([controller base64Encoded]) {
-            auto decodedData = base64Decode([controller content], Base64DecodeOptions::ValidatePadding);
+            String contentString = [controller content];
+            auto decodedData = base64Decode(contentString, Base64DecodeOptions::ValidatePadding);
             if (!decodedData)
                 return;
             auto dataContent = adoptNS([[NSData alloc] initWithBytes:decodedData->data() length:decodedData->size()]);
@@ -473,7 +476,7 @@ void WebInspectorUIProxy::platformCreateFrontendWindow()
         savedWindowFrame = NSRectFromString(savedWindowFrameString);
     }
 
-    m_inspectorWindow = WebInspectorUIProxy::createFrontendWindow(savedWindowFrame, InspectionTargetType::Local);
+    m_inspectorWindow = WebInspectorUIProxy::createFrontendWindow(savedWindowFrame, InspectionTargetType::Local, inspectedPage());
     [m_inspectorWindow setDelegate:m_objCAdapter.get()];
 
     WKWebView *inspectorView = [m_inspectorViewController webView];
@@ -645,11 +648,7 @@ void WebInspectorUIProxy::platformShowCertificate(const CertificateInfo& certifi
     if (!window)
         window = [NSApp keyWindow];
 
-#if HAVE(SEC_TRUST_SERIALIZATION)
-    [certificatePanel beginSheetForWindow:window modalDelegate:nil didEndSelector:NULL contextInfo:nullptr trust:certificateInfo.trust() showGroup:YES];
-#else
-    [certificatePanel beginSheetForWindow:window modalDelegate:nil didEndSelector:NULL contextInfo:nullptr certificates:(NSArray *)certificateInfo.certificateChain() showGroup:YES];
-#endif
+    [certificatePanel beginSheetForWindow:window modalDelegate:nil didEndSelector:NULL contextInfo:nullptr trust:certificateInfo.trust().get() showGroup:YES];
 
     // This must be called after the trust panel has been displayed, because the certificateView doesn't exist beforehand.
     SFCertificateView *certificateView = [certificatePanel certificateView];

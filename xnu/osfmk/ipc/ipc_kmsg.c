@@ -199,8 +199,14 @@ extern char *proc_name_address(struct proc *p);
  */
 #define REPLY_PORT_SEMANTICS_VIOLATIONS_RB_SIZE         2
 
+/*
+ * Stripped down version of service port's string name. This is to avoid overwhelming CA's dynamic memory allocation.
+ */
+#define CA_MACH_SERVICE_PORT_NAME_LEN                   86
+
 struct reply_port_semantics_violations_rb_entry {
 	char        proc_name[CA_PROCNAME_LEN];
+	char        service_name[CA_MACH_SERVICE_PORT_NAME_LEN];
 };
 struct reply_port_semantics_violations_rb_entry reply_port_semantics_violations_rb[REPLY_PORT_SEMANTICS_VIOLATIONS_RB_SIZE];
 static uint8_t reply_port_semantics_violations_rb_index = 0;
@@ -210,8 +216,8 @@ LCK_SPIN_DECLARE(reply_port_telemetry_lock, &reply_port_telemetry_lock_grp);
 
 /* Telemetry: report back the process name violating reply port semantics */
 CA_EVENT(reply_port_semantics_violations,
-    CA_STATIC_STRING(CA_PROCNAME_LEN), proc_name);
-
+    CA_STATIC_STRING(CA_PROCNAME_LEN), proc_name,
+    CA_STATIC_STRING(CA_MACH_SERVICE_PORT_NAME_LEN), service_name);
 
 /* Routine: flush_reply_port_semantics_violations_telemetry
  * Conditions:
@@ -248,6 +254,7 @@ flush_reply_port_semantics_violations_telemetry()
 		if (ca_event) {
 			CA_EVENT_TYPE(reply_port_semantics_violations) * event = ca_event->data;
 			strlcpy(event->proc_name, entry->proc_name, CA_PROCNAME_LEN);
+			strlcpy(event->service_name, entry->service_name, CA_MACH_SERVICE_PORT_NAME_LEN);
 			CA_EVENT_SEND(ca_event);
 		}
 	}
@@ -261,7 +268,7 @@ flush_reply_port_semantics_violations_telemetry()
 }
 
 static void
-stash_reply_port_semantics_violations_telemetry()
+stash_reply_port_semantics_violations_telemetry(mach_service_port_info_t sp_info)
 {
 	struct reply_port_semantics_violations_rb_entry *entry;
 
@@ -281,6 +288,12 @@ stash_reply_port_semantics_violations_telemetry()
 #endif /* MACH_BSD */
 		entry = &reply_port_semantics_violations_rb[reply_port_semantics_violations_rb_index++];
 		strlcpy(entry->proc_name, proc_name, CA_PROCNAME_LEN);
+
+		char *service_name = (char *) "unknown";
+		if (sp_info) {
+			service_name = sp_info->mspi_string_name;
+		}
+		strlcpy(entry->service_name, service_name, CA_MACH_SERVICE_PORT_NAME_LEN);
 	}
 
 	if (reply_port_semantics_violations_rb_index == REPLY_PORT_SEMANTICS_VIOLATIONS_RB_SIZE) {
@@ -4103,6 +4116,18 @@ ipc_kmsg_copyin_header(
 
 	ip_mq_lock(dport);
 
+#if CONFIG_SERVICE_PORT_INFO
+	/*
+	 * Service name is later used in CA telemetry in case of reply port security semantics violations.
+	 */
+	mach_service_port_info_t sp_info = NULL;
+	struct mach_service_port_info sp_info_filled = {};
+	if (ip_active(dport) && (dport->ip_service_port) && (dport->ip_splabel)) {
+		ipc_service_port_label_get_info((ipc_service_port_label_t)dport->ip_splabel, &sp_info_filled);
+		sp_info = &sp_info_filled;
+	}
+#endif /* CONFIG_SERVICE_PORT_INFO */
+
 	if (!ip_active(dport) || (ip_is_kobject(dport) &&
 	    ip_in_space(dport, ipc_space_kernel))) {
 		assert(ip_kotype(dport) != IKOT_TIMER);
@@ -4239,7 +4264,21 @@ ipc_kmsg_copyin_header(
 
 	if (reply_port_semantics_violation) {
 		/* Currently rate limiting it to sucess paths only. */
-		stash_reply_port_semantics_violations_telemetry();
+		task_t task = current_task_early();
+		if (task) {
+			task_lock(task);
+			if (!task_has_reply_port_telemetry(task)) {
+				/* Crash report rate limited to once per task per host. */
+				mach_port_guard_exception(reply_name, 0, 0, kGUARD_EXC_REQUIRE_REPLY_PORT_SEMANTICS);
+				task_set_reply_port_telemetry(task);
+			}
+			task_unlock(task);
+		}
+#if CONFIG_SERVICE_PORT_INFO
+		stash_reply_port_semantics_violations_telemetry(sp_info);
+#else
+		stash_reply_port_semantics_violations_telemetry(NULL);
+#endif
 	}
 	return MACH_MSG_SUCCESS;
 

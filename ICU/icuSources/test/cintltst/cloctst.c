@@ -7456,6 +7456,10 @@ static const UldnItem en_StdMidLong[] = {
 	{ "ur_Arab_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Urdu (Naskh, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
 	{ "ur_Aran_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Urdu (Nastaliq, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/47494884>
 	{ "my_Qaag",                TEST_ULOC_LOCALE, u"Burmese (Zawgyi)" }, // Apple <rdar://problem/51471316>
+	{ "cic_Latn",                    TEST_ULDN_LOCALE, u"Chickasaw" }, // Apple <rdar://105748418>
+	{ "cho_Latn",                    TEST_ULDN_LOCALE, u"Choctaw" }, // Apple <rdar://105748418>
+	{ "apw_Latn",                    TEST_ULDN_LOCALE, u"Apache, Western" }, // Apple <rdar://94490599>
+	
 	// tests for rdar://63655841&79400781
 	{ "atj",                    TEST_ULOC_LOCALE, u"Atikamekw" },
 	{ "bla",                    TEST_ULOC_LOCALE, u"Siksiká" },
@@ -7659,6 +7663,8 @@ static const UldnItem fr_StdMidLong[] = {
 	{ "IO",                     TEST_ULDN_REGION, u"Archipel des Chagos" },
 	// tests for rdar://63655841&79400781
 	{ "atj",                    TEST_ULDN_LOCALE, u"atikamekw" },
+	{ "cho",                    TEST_ULDN_LOCALE, u"choctaw" },
+	{ "cic",                    TEST_ULDN_LOCALE, u"chicacha" },	
 	{ "cr",                     TEST_ULDN_LOCALE, u"cree" }, // macrolang
 	{ "cwd",                    TEST_ULDN_LOCALE, u"cree des bois" }, // distinct name for primary sub-lang
 	{ "crj",                    TEST_ULDN_LOCALE, u"cree de l'Est du sud" }, // other sub-lang
@@ -7734,6 +7740,10 @@ static const UldnItem ur_StdMidLong[] = {
 	{ "ur_Arab",                TEST_ULOC_LOCALE, u"اردو (نسخ)" },         // Apple <rdar://problem/51418203>
 	{ "ur_Aran_PK",             TEST_ULOC_LOCALE, u"اردو (نستعلیق،پاکستان)" }, // Apple <rdar://problem/47494884>
 	{ "ur_Arab_PK",             TEST_ULOC_LOCALE, u"اردو (نسخ،پاکستان)" }, // Apple <rdar://problem/51418203>
+};
+
+static const UldnItem ru_StdMidLong[] = {
+	{ "cic_Latn",                TEST_ULDN_LOCALE, u"чикасо" },
 };
 
 static const UldnItem pa_Arab_StdMidLong[] = {
@@ -7962,6 +7972,19 @@ static const UldnItem yi_StdMidLong[] = { // https://unicode-org.atlassian.net/b
 static const UldnItem apw_StdMidLong[] = { // Apple rdar://89394823 rdar://94490599
 	{ "apw",                TEST_ULOC_LOCALE, u"Nṉee biyátiʼ" },
 	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
+	{ "apw_Latn",           TEST_ULDN_LOCALE, u"Nṉee biyátiʼ" },
+};
+
+static const UldnItem cic_StdMidLong[] = { // Apple rdar://100483742 rdar://100483742
+	{ "cic",                TEST_ULOC_LOCALE, u"Chikashshanompaʼ" },
+	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
+	{ "cic_Latn",           TEST_ULDN_LOCALE, u"Chikashshanompaʼ" },
+};
+
+static const UldnItem cho_StdMidLong[] = { // Apple rdar://103954992 rdar://100483742
+	{ "cho",                TEST_ULOC_LOCALE, u"Chahta" },
+	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
+	{ "cho_Latn",           TEST_ULDN_LOCALE, u"Chahta" },
 };
 
 static const UldnItem dz_StdMidLong[] = { // Apple rdar://89394823
@@ -8014,12 +8037,15 @@ static const UldnLocAndOpts uldnLocAndOpts[] = {
     { "fr_CA", optStdLstLong, fr_StdLstLong, UPRV_LENGTHOF(fr_StdLstLong) },
     { "fr", optDiaMidLong, fr_DiaMidLong, UPRV_LENGTHOF(fr_DiaMidLong) },
     { "ca", optStdLstLong, ca_StdLstLong, UPRV_LENGTHOF(ca_StdLstLong) },
+	{ "cho", optStdMidLong, cho_StdMidLong, UPRV_LENGTHOF(cho_StdMidLong) },
+	{ "cic", optStdMidLong, cic_StdMidLong, UPRV_LENGTHOF(cic_StdMidLong) },
     { "nb", optStdMidLong, nb_StdMidLong, UPRV_LENGTHOF(nb_StdMidLong) }, // <rdar://problem/65008672>
     { "ur", optStdMidLong,      ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
     { "ur_Arab", optStdMidLong, ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
     { "ur_Aran", optStdMidLong, ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
     { "pa_Arab", optStdMidLong, pa_Arab_StdMidLong, UPRV_LENGTHOF(pa_Arab_StdMidLong) },
     { "pa_Aran", optStdMidLong, pa_Arab_StdMidLong, UPRV_LENGTHOF(pa_Arab_StdMidLong) },
+	{ "ru", optStdMidLong,      ru_StdMidLong,      UPRV_LENGTHOF(ru_StdMidLong) },
     { "zh", optStdMidLong,      zh_StdMidLong,        UPRV_LENGTHOF(zh_StdMidLong) },
     { "zh_Hant", optStdMidLong, zh_Hant_StdMidLong,   UPRV_LENGTHOF(zh_Hant_StdMidLong) },
     { "zh_Hant_HK", optStdMidLong, zh_Hant_HK_StdMidLong, UPRV_LENGTHOF(zh_Hant_HK_StdMidLong) },

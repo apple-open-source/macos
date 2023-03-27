@@ -228,8 +228,11 @@ void SecCode::checkValidity(SecCSFlags flags)
 	}
 
 	// check that static and dynamic views are consistent
-	if (this->cdHash() && !CFEqual(this->cdHash(), myDisk->cdHash()))
+	if (this->cdHash() && !CFEqual(this->cdHash(), myDisk->cdHash())) {
+		CFRef<CFURLRef> url = myDisk->copyCanonicalPath();
+		secnotice("SecCode", "cdhash mismatch: %@, %@, %@", url.get(), this->cdHash(), myDisk->cdHash());
 		MacOSError::throwMe(errSecCSStaticCodeChanged);
+	}
 
 	// check host/guest constraints
 	if (!this->host()->isRoot()) {	// not hosted by root of trust

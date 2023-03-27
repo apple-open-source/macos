@@ -367,6 +367,22 @@ void SecCKKSTestResetFlags(void) {
     SecCKKSSetTestSkipTLKShareHealing(false);
 }
 
+@implementation CKKSCurrentItemData: NSData
+
+- (instancetype)initWithUUID:(NSString *)uuid {
+    if ((self = [super init]) == nil) {
+        return nil;
+    }
+    self.uuid = uuid;
+    return self;
+}
+
+- (NSString *)description {
+    return [NSString stringWithFormat:@"CKKSCurrentItemData(%@, mtime: %@)", self.uuid, self.modificationDate];
+}
+
+@end
+
 #else /* NO OCTAGON */
 
 bool SecCKKSIsEnabled(void) {
@@ -419,9 +435,17 @@ void SecCKKSNotifyBlock(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, 
     }
 
     // Ignore our own changes, otherwise we'd infinite-loop.
-    if(source == kSecDbCKKSTransaction) {
-        ckksinfo_global("ckks", "Ignoring kSecDbCKKSTransaction notification");
-        return;
+    switch (source) {
+        case kSecDbCKKSTransaction:
+            ckksinfo_global("ckks", "Ignoring kSecDbCKKSTransaction notification");
+            return;
+
+        case kSecDbKCSharingTransaction:
+            ckksinfo_global("ckks", "Ignoring kSecDbKCSharingTransaction notification");
+            return;
+
+        default:
+            break;
     }
 
     CFArrayForEach(changes, ^(CFTypeRef r) {

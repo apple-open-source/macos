@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2016, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,6 @@
 
 #include <dispatch/dispatch.h>
 #include <SystemConfiguration/SCPrivate.h>
-#include "EAPClientPlugin.h"
 #include "symbol_scope.h"
 #include "EAPLog.h"
 

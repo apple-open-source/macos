@@ -1184,15 +1184,19 @@ create_service(SCPreferencesRef prefs, SCNetworkInterfaceRef netif)
 	if (current_set == NULL) {
 		current_set = SCNetworkSetCreate(prefs);
 		if (!SCNetworkSetSetCurrent(current_set)) {
-			show_scerror("failed to set current set");
+			show_scerror("Set current set");
 			goto done;
 		}
 		(void)SCNetworkSetSetName(current_set, CFSTR("Automatic"));
 	}
 	service = SCNetworkServiceCreate(prefs, netif);
+	if (service == NULL) {
+		show_scerror("Create service");
+		goto done;
+	}
 	if (!SCNetworkSetAddService(current_set, service)) {
 		CFRelease(service);
-		show_scerror("failed to add service to set");
+		show_scerror("Add service to set");
 		goto done;
 	}
 	ret_service = service;
@@ -1209,7 +1213,7 @@ remove_service(SCNetworkServiceRef service)
 
 	success = SCNetworkServiceRemove(service);
 	if (!success) {
-		show_scerror("Failed to remove service");
+		show_scerror("Remove service");
 	}
 	return (success);
 					    
@@ -2350,8 +2354,12 @@ do_add_set(int argc, char * argv[])
 		command_specific_help();
 	}
 	my_CFRelease(&name);
-	if (service == NULL) {
+	if (netif == NULL) {
 		fprintf(stderr, "Can't find %s\n", optarg);
+		exit(EX_UNAVAILABLE);
+	}
+	if (service == NULL) {
+		fprintf(stderr, "Can't configure %s\n", optarg);
 		exit(EX_UNAVAILABLE);
 	}
 	save_optind = optind;

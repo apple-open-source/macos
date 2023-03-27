@@ -30,7 +30,6 @@
 #include "APIFrameHandle.h"
 #include "APIFrameInfo.h"
 #include "WKAPICast.h"
-#include "WebCertificateInfo.h"
 #include "WebFrameProxy.h"
 #include "WebPageProxy.h"
 
@@ -77,9 +76,8 @@ WKURLRef WKFrameCopyUnreachableURL(WKFrameRef frameRef)
     return toCopiedURLAPI(toImpl(frameRef)->unreachableURL());
 }
 
-void WKFrameStopLoading(WKFrameRef frameRef)
+void WKFrameStopLoading(WKFrameRef)
 {
-    toImpl(frameRef)->stopLoading();
 }
 
 WKStringRef WKFrameCopyMIMEType(WKFrameRef frameRef)
@@ -99,7 +97,7 @@ WKPageRef WKFrameGetPage(WKFrameRef frameRef)
 
 WKCertificateInfoRef WKFrameGetCertificateInfo(WKFrameRef frameRef)
 {
-    return toAPI(toImpl(frameRef)->certificateInfo());
+    return nullptr;
 }
 
 bool WKFrameCanProvideSource(WKFrameRef frameRef)
@@ -107,9 +105,9 @@ bool WKFrameCanProvideSource(WKFrameRef frameRef)
     return toImpl(frameRef)->canProvideSource();
 }
 
-bool WKFrameCanShowMIMEType(WKFrameRef frameRef, WKStringRef mimeTypeRef)
+bool WKFrameCanShowMIMEType(WKFrameRef, WKStringRef)
 {
-    return toImpl(frameRef)->canShowMIMEType(toWTFString(mimeTypeRef));
+    return false;
 }
 
 bool WKFrameIsDisplayingStandaloneImageDocument(WKFrameRef frameRef)

@@ -101,7 +101,7 @@ NS_ASSUME_NONNULL_BEGIN
                           identifier:(NSString*)identifier
                             viewHint:(NSString*)viewHint
                      fetchCloudValue:(bool)fetchCloudValue
-                            complete:(void (^)(NSString* uuid, NSError* operror))complete;
+                            complete:(void (^)(CKKSCurrentItemData* data, NSError* operror))complete;
 
 - (void)registerSyncStatusCallback:(NSString*)uuid callback:(SecBoolNSErrorCallback)callback;
 

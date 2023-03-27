@@ -408,12 +408,140 @@ next_sym(const ctf_data_t *cd, const int symidx, const uchar_t matchtype,
 	return (-1);
 }
 
+#pragma mark CTF version support
+
+static uint32_t
+get_type_ctt_info_v1(const void *tp) {
+	return ((const ctf_type_v1_t *)tp)->ctt_info;
+}
+
+static uint32_t
+get_type_ctt_info_v4(const void *tp) {
+	return ((const ctf_type_t *)tp)->ctt_info;
+}
+
+static uint32_t
+get_type_ctt_name_v1(const void *tp) {
+	return ((const ctf_type_v1_t *)tp)->ctt_name;
+}
+
+static uint32_t
+get_type_ctt_name_v4(const void *tp) {
+	return ((const ctf_type_t *)tp)->ctt_name;
+}
+
+static uint32_t
+get_type_ctt_type_v1(const void *tp) {
+	return ((const ctf_type_v1_t *)tp)->ctt_type;
+}
+
+static uint32_t
+get_type_ctt_type_v4(const void *tp) {
+	return ((const ctf_type_t *)tp)->ctt_type;
+}
+
+static size_t
+get_type_ctt_size_v1(const void *ptr) {
+	const ctf_type_v1_t *tp = ptr;
+
+	if (tp->ctt_size == CTF_LSIZE_SENT_V1)
+		return CTF_TYPE_LSIZE(tp);
+
+	return tp->ctt_size;
+}
+
+static size_t
+get_type_ctt_size_v4(const void *ptr) {
+	const ctf_type_t *tp = ptr;
+
+	if (tp->ctt_size == CTF_LSIZE_SENT)
+		return CTF_TYPE_LSIZE(tp);
+
+	return tp->ctt_size;
+}
+
+static size_t
+get_type_size_v1(const void *tp) {
+	if (((ctf_type_v1_t *)tp)->ctt_size == CTF_LSIZE_SENT_V1)
+		return sizeof (ctf_type_v1_t);
+
+	return sizeof (ctf_stype_v1_t);
+}
+
+static size_t
+get_type_size_v4(const void *tp) {
+	if (((ctf_type_t *)tp)->ctt_size == CTF_LSIZE_SENT)
+		return sizeof (ctf_type_t);
+
+	return sizeof (ctf_stype_t);
+}
+
+// TODO: document me
+static struct ctf_ops {
+	uint32_t (* get_type_ctt_info)(const void *);
+	uint32_t (* get_type_ctt_name)(const void *);
+	uint32_t (* get_type_ctt_type)(const void *);
+	size_t (* get_type_ctt_size)(const void *);
+	size_t (* get_type_size)(const void *);
+} ctf_ops[] = {
+	[0] = {
+		.get_type_ctt_info = get_type_ctt_info_v1,
+		.get_type_ctt_name = get_type_ctt_name_v1,
+		.get_type_ctt_type = get_type_ctt_type_v1,
+		.get_type_ctt_size = get_type_ctt_size_v1,
+		.get_type_size = get_type_size_v1,
+	},
+	[1] = {
+		.get_type_ctt_info = get_type_ctt_info_v4,
+		.get_type_ctt_name = get_type_ctt_name_v4,
+		.get_type_ctt_type = get_type_ctt_type_v4,
+		.get_type_ctt_size = get_type_ctt_size_v4,
+		.get_type_size = get_type_size_v4,
+	}
+};
+
+static const struct ctf_ops *
+get_ctf_ops(const ctf_header_t *hp)
+{
+	if (hp->cth_preamble.ctp_version < CTF_VERSION_4)
+		return &ctf_ops[0];
+
+	return &ctf_ops[1];
+}
+
+/* Test wheter ver are using new/old CTF ID size. */
+#define CTF_V4(cops)	(cops == &ctf_ops[1])
+
+#define	LGET_TYPE_CTT_INFO(cops, arg)	cops->get_type_ctt_info(arg)
+#define	LGET_TYPE_CTT_NAME(cops, arg)	cops->get_type_ctt_name(arg)
+#define	LGET_TYPE_CTT_TYPE(cops, arg)	cops->get_type_ctt_type(arg)
+#define	LGET_TYPE_CTT_SIZE(cops, arg)	cops->get_type_ctt_size(arg)
+#define	LGET_TYPE_SIZE(cops, arg)	cops->get_type_size(arg)
+#define	LGET_CTF_ID_SIZE(cops)	(CTF_V4(cops) ? sizeof (uint32_t) : sizeof (uint16_t))
+#define	LGET_PARENT_SHIFT(cops)	(CTF_V4(cops) ? CTF_PARENT_SHIFT : CTF_PARENT_SHIFT_V1)
+#define	LGET_CTF_ID(cops, ptr)	(CTF_V4(cops) ? *(uint32_t *)ptr : *(uint16_t *)ptr)
+
+/* CTF_KIND_ARRAY */
+#define	ARR_CTA_CONTENTS(cops, u)	(CTF_V4(cops) ? u.ap->cta_contents : u.ap_v1->cta_contents)
+#define	ARR_CTA_INDEX(cops, u)	(CTF_V4(cops) ? u.ap->cta_index : u.ap_v1->cta_index)
+#define	ARR_CTA_NELEMS(cops, u)	(CTF_V4(cops) ? u.ap->cta_nelems : u.ap_v1->cta_nelems)
+#define	ARR_SIZE(cops)	(CTF_V4(cops) ? sizeof (ctf_array_t) : sizeof (ctf_array_v1_t))
+
+/* CTF_KIND_STRUCT / CTF_KIND_UNION */
+#define	LMP_CTLM_NAME(cops, u)	(CTF_V4(cops) ? u.lmp->ctlm_name : u.lmp_v1->ctlm_name)
+#define	LMP_CTLM_TYPE(cops, u)	(CTF_V4(cops) ? u.lmp->ctlm_type : u.lmp_v1->ctlm_type)
+#define	LMP_CTLM_OFFSET(cops, u)	(CTF_V4(cops) ? CTF_LMEM_OFFSET(u.lmp) : CTF_LMEM_OFFSET(u.lmp_v1))
+#define	MP_CTM_NAME(cops, u)	(CTF_V4(cops) ? u.mp->ctm_name : u.mp_v1->ctm_name)
+#define	MP_CTM_TYPE(cops, u)	(CTF_V4(cops) ? u.mp->ctm_type : u.mp_v1->ctm_type)
+#define	MP_CTM_OFFSET(cops, u)	(CTF_V4(cops) ? u.mp->ctm_offset : u.mp_v1->ctm_offset)
+
+
 static int
-read_data(const ctf_header_t *hp, const ctf_data_t *cd)
+read_data(const ctf_header_t *hp, const struct ctf_ops *cops, const ctf_data_t *cd)
 {
 	/* LINTED - pointer alignment */
-	const ushort_t *idp = (ushort_t *)(cd->cd_ctfdata + hp->cth_objtoff);
-	ulong_t n = (hp->cth_funcoff - hp->cth_objtoff) / sizeof (ushort_t);
+	uintptr_t idp = (uintptr_t)(cd->cd_ctfdata + hp->cth_objtoff);
+	ulong_t n = (hp->cth_funcoff - hp->cth_objtoff) / LGET_CTF_ID_SIZE(cops);
 
 	if (flags != F_STATS)
 		print_line("- Data Objects ");
@@ -440,7 +568,9 @@ read_data(const ctf_header_t *hp, const ctf_data_t *cd)
 			else
 				symidx = nextsym;
 
-			len = printf("  [%u] %u", i, *idp++);
+			len = printf("  [%u] %u", i, LGET_CTF_ID(cops, idp));
+			idp += LGET_CTF_ID_SIZE(cops);
+
 			if (name != NULL)
 				(void) printf("%*s%s (%u)", (15 - len), "",
 				    name, symidx);
@@ -453,13 +583,13 @@ read_data(const ctf_header_t *hp, const ctf_data_t *cd)
 }
 
 static int
-read_funcs(const ctf_header_t *hp, const ctf_data_t *cd)
+read_funcs(const ctf_header_t *hp, const struct ctf_ops *cops, const ctf_data_t *cd)
 {
 	/* LINTED - pointer alignment */
-	const ushort_t *fp = (ushort_t *)(cd->cd_ctfdata + hp->cth_funcoff);
+	uintptr_t fp = (uintptr_t)(cd->cd_ctfdata + hp->cth_funcoff);
 
 	/* LINTED - pointer alignment */
-	const ushort_t *end = (ushort_t *)(cd->cd_ctfdata + hp->cth_typeoff);
+	uintptr_t end = (uintptr_t)(cd->cd_ctfdata + hp->cth_typeoff);
 
 	ulong_t id;
 	int symidx;
@@ -477,7 +607,9 @@ read_funcs(const ctf_header_t *hp, const ctf_data_t *cd)
 		WARN("file is corrupt -- cth_funcoff > cth_typeoff\n");
 
 	for (symidx = -1, id = 0; fp < end; id++) {
-		ushort_t info = *fp++;
+		uint32_t info = LGET_CTF_ID(cops, fp);
+		fp += LGET_CTF_ID_SIZE(cops);
+
 		ushort_t kind = CTF_INFO_KIND(info);
 		ushort_t n = CTF_INFO_VLEN(info);
 		ushort_t i;
@@ -509,17 +641,23 @@ read_funcs(const ctf_header_t *hp, const ctf_data_t *cd)
 			(void) printf("  [%lu] FUNC ", id);
 			if (name != NULL)
 				(void) printf("(%s) ", name);
-			(void) printf("returns: %u args: (", *fp++);
+
+			(void) printf("returns: %u args: (", LGET_CTF_ID(cops, fp));
+			fp += LGET_CTF_ID_SIZE(cops);
 
 			if (n != 0) {
-				(void) printf("%u", *fp++);
-				for (i = 1; i < n; i++)
-					(void) printf(", %u", *fp++);
+				(void) printf("%u", LGET_CTF_ID(cops, fp));
+				fp += LGET_CTF_ID_SIZE(cops);
+
+				for (i = 1; i < n; i++) {
+					(void) printf(", %u", LGET_CTF_ID(cops, fp));
+					fp += LGET_CTF_ID_SIZE(cops);
+				}
 			}
 
 			(void) printf(")\n");
 		} else
-			fp += n + 1; /* skip to next function definition */
+			fp += (n + 1) * LGET_CTF_ID_SIZE(cops); /* skip to next function definition */
 
 		stats.s_nfunc++;
 		stats.s_nargs += n;
@@ -529,14 +667,16 @@ read_funcs(const ctf_header_t *hp, const ctf_data_t *cd)
 	return (E_SUCCESS);
 }
 
+
+
 static int
-read_types(const ctf_header_t *hp, const ctf_data_t *cd)
+read_types(const ctf_header_t *hp, const struct ctf_ops *cops, const ctf_data_t *cd)
 {
 	/* LINTED - pointer alignment */
-	const ctf_type_t *tp = (ctf_type_t *)(cd->cd_ctfdata + hp->cth_typeoff);
+	const void *tp = (void *)(cd->cd_ctfdata + hp->cth_typeoff);
 
 	/* LINTED - pointer alignment */
-	const ctf_type_t *end = (ctf_type_t *)(cd->cd_ctfdata + hp->cth_stroff);
+	const void *end = (void *)(cd->cd_ctfdata + hp->cth_stroff);
 
 	ulong_t id;
 
@@ -554,35 +694,35 @@ read_types(const ctf_header_t *hp, const ctf_data_t *cd)
 
 	id = 1;
 	if (hp->cth_parlabel || hp->cth_parname)
-		id += 1 << CTF_PARENT_SHIFT;
+		id += 1 << LGET_PARENT_SHIFT(cops);
 
 	for (/* */; tp < end; id++) {
-		ulong_t i, n = CTF_INFO_VLEN(tp->ctt_info);
+		ulong_t i, n = CTF_INFO_VLEN(LGET_TYPE_CTT_INFO(cops, tp));
 		size_t size, increment, vlen = 0;
-		int kind = CTF_INFO_KIND(tp->ctt_info);
+		int kind = CTF_INFO_KIND(LGET_TYPE_CTT_INFO(cops, tp));
 
 		union {
 			const void *ptr;
 			const ctf_array_t *ap;
+			const ctf_array_v1_t *ap_v1;
 			const ctf_member_t *mp;
+			const ctf_member_v1_t *mp_v1;
 			const ctf_lmember_t *lmp;
+			const ctf_lmember_v1_t *lmp_v1;
 			const ctf_enum_t *ep;
 			const ushort_t *argp;
+			const uint32_t *argp32;
 		} u;
 
 		if (flags != F_STATS) {
 			(void) printf("  %c%lu%c ",
-			    "[<"[CTF_INFO_ISROOT(tp->ctt_info)], id,
-			    "]>"[CTF_INFO_ISROOT(tp->ctt_info)]);
+			    "[<"[CTF_INFO_ISROOT(LGET_TYPE_CTT_INFO(cops, tp))], id,
+			    "]>"[CTF_INFO_ISROOT(LGET_TYPE_CTT_INFO(cops, tp))]);
 		}
 
-		if (tp->ctt_size == CTF_LSIZE_SENT) {
-			increment = sizeof (ctf_type_t);
-			size = (size_t)CTF_TYPE_LSIZE(tp);
-		} else {
-			increment = sizeof (ctf_stype_t);
-			size = tp->ctt_size;
-		}
+		increment = LGET_TYPE_SIZE(cops, tp);
+		size = LGET_TYPE_CTT_SIZE(cops, tp);
+
 		u.ptr = (caddr_t)tp + increment;
 
 		switch (kind) {
@@ -591,7 +731,7 @@ read_types(const ctf_header_t *hp, const ctf_data_t *cd)
 				uint_t encoding = *((const uint_t *)u.ptr);
 
 				(void) printf("INTEGER %s encoding=%s offset=%u"
-				    " bits=%u", ref_to_str(tp->ctt_name, hp,
+				    " bits=%u", ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp,
 				    cd), int_encoding_to_str(
 				    CTF_INT_ENCODING(encoding)),
 				    CTF_INT_OFFSET(encoding),
@@ -605,7 +745,7 @@ read_types(const ctf_header_t *hp, const ctf_data_t *cd)
 				uint_t encoding = *((const uint_t *)u.ptr);
 
 				(void) printf("FLOAT %s encoding=%s offset=%u "
-				    "bits=%u", ref_to_str(tp->ctt_name, hp,
+				    "bits=%u", ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp,
 				    cd), fp_encoding_to_str(
 				    CTF_FP_ENCODING(encoding)),
 				    CTF_FP_OFFSET(encoding),
@@ -617,37 +757,43 @@ read_types(const ctf_header_t *hp, const ctf_data_t *cd)
 		case CTF_K_POINTER:
 			if (flags != F_STATS) {
 				(void) printf("POINTER %s refers to %u",
-				    ref_to_str(tp->ctt_name, hp, cd),
-				    tp->ctt_type);
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd),
+				    LGET_TYPE_CTT_TYPE(cops, tp));
 			}
 			break;
 
 		case CTF_K_ARRAY:
 			if (flags != F_STATS) {
 				(void) printf("ARRAY %s content: %u index: %u "
-				    "nelems: %u\n", ref_to_str(tp->ctt_name,
-				    hp, cd), u.ap->cta_contents,
-				    u.ap->cta_index, u.ap->cta_nelems);
+				    "nelems: %u\n", ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd),
+				    ARR_CTA_CONTENTS(cops, u), ARR_CTA_INDEX(cops, u),
+				    ARR_CTA_NELEMS(cops, u));
 			}
-			vlen = sizeof (ctf_array_t);
+			vlen = ARR_SIZE(cops);
 			break;
 
 		case CTF_K_FUNCTION:
 			if (flags != F_STATS) {
 				(void) printf("FUNCTION %s returns: %u args: (",
-				    ref_to_str(tp->ctt_name, hp, cd),
-				    tp->ctt_type);
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd),
+				    LGET_TYPE_CTT_TYPE(cops, tp));
 
 				if (n != 0) {
-					(void) printf("%u", *u.argp++);
-					for (i = 1; i < n; i++, u.argp++)
-						(void) printf(", %u", *u.argp);
+					if (CTF_V4(cops)) {
+						(void) printf("%u", *u.argp32++);
+						for (i = 1; i < n; i++, u.argp32++)
+							(void) printf(", %u", *u.argp32);
+					} else {
+						(void) printf("%u", *u.argp++);
+						for (i = 1; i < n; i++, u.argp++)
+							(void) printf(", %u", *u.argp);
+					}
 				}
 
 				(void) printf(")");
 			}
 
-			vlen = sizeof (ushort_t) * (n + (n & 1));
+			vlen = LGET_CTF_ID_SIZE(cops) * (n + (n & 1));
 			break;
 
 		case CTF_K_STRUCT:
@@ -672,35 +818,50 @@ read_types(const ctf_header_t *hp, const ctf_data_t *cd)
 
 			if (flags != F_STATS) {
 				(void) printf(" %s (%d bytes)\n",
-				    ref_to_str(tp->ctt_name, hp, cd), size);
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd), size);
 
 				if (size >= CTF_LSTRUCT_THRESH) {
-					for (i = 0; i < n; i++, u.lmp++) {
+					for (i = 0; i < n; i++) {
 						(void) printf(
 						    "\t%s type=%u off=%llu\n",
-						    ref_to_str(u.lmp->ctlm_name,
-						    hp, cd), u.lmp->ctlm_type,
-						    CTF_LMEM_OFFSET(u.lmp));
+						    ref_to_str(LMP_CTLM_NAME(cops, u),
+						    hp, cd), LMP_CTLM_TYPE(cops, u),
+						    LMP_CTLM_OFFSET(cops, u));
+
+						if (CTF_V4(cops))
+							u.lmp++;
+						else
+							u.lmp_v1++;
 					}
 				} else {
-					for (i = 0; i < n; i++, u.mp++) {
+					for (i = 0; i < n; i++) {
 						(void) printf(
 						    "\t%s type=%u off=%u\n",
-						    ref_to_str(u.mp->ctm_name,
-						    hp, cd), u.mp->ctm_type,
-						    u.mp->ctm_offset);
+						    ref_to_str(MP_CTM_NAME(cops, u),
+						    hp, cd), MP_CTM_TYPE(cops, u),
+						    MP_CTM_OFFSET(cops, u));
+
+						if (CTF_V4(cops))
+							u.mp++;
+						else
+							u.mp_v1++;
 					}
 				}
 			}
 
-			vlen = n * (size >= CTF_LSTRUCT_THRESH ?
-			    sizeof (ctf_lmember_t) : sizeof (ctf_member_t));
+			if (CTF_V4(cops)) {
+				vlen = n * (size >= CTF_LSTRUCT_THRESH ?
+					sizeof (ctf_lmember_t) : sizeof (ctf_member_t));
+			} else {
+				vlen = n * (size >= CTF_LSTRUCT_THRESH ?
+					sizeof (ctf_lmember_v1_t) : sizeof (ctf_member_v1_t));
+			}
 			break;
 
 		case CTF_K_ENUM:
 			if (flags != F_STATS) {
 				(void) printf("ENUM %s\n",
-				    ref_to_str(tp->ctt_name, hp, cd));
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd));
 
 				for (i = 0; i < n; i++, u.ep++) {
 					(void) printf("\t%s = %d\n",
@@ -718,39 +879,39 @@ read_types(const ctf_header_t *hp, const ctf_data_t *cd)
 		case CTF_K_FORWARD:
 			if (flags != F_STATS) {
 				(void) printf("FORWARD %s",
-				    ref_to_str(tp->ctt_name, hp, cd));
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd));
 			}
 			break;
 
 		case CTF_K_TYPEDEF:
 			if (flags != F_STATS) {
 				(void) printf("TYPEDEF %s refers to %u",
-				    ref_to_str(tp->ctt_name, hp, cd),
-				    tp->ctt_type);
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd),
+				    LGET_TYPE_CTT_TYPE(cops, tp));
 			}
 			break;
 
 		case CTF_K_VOLATILE:
 			if (flags != F_STATS) {
 				(void) printf("VOLATILE %s refers to %u",
-				    ref_to_str(tp->ctt_name, hp, cd),
-				    tp->ctt_type);
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd),
+				    LGET_TYPE_CTT_TYPE(cops, tp));
 			}
 			break;
 
 		case CTF_K_CONST:
 			if (flags != F_STATS) {
 				(void) printf("CONST %s refers to %u",
-				    ref_to_str(tp->ctt_name, hp, cd),
-				    tp->ctt_type);
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd),
+				    LGET_TYPE_CTT_TYPE(cops, tp));
 			}
 			break;
 
 		case CTF_K_RESTRICT:
 			if (flags != F_STATS) {
 				(void) printf("RESTRICT %s refers to %u",
-				    ref_to_str(tp->ctt_name, hp, cd),
-				    tp->ctt_type);
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd),
+				    LGET_TYPE_CTT_TYPE(cops, tp));
 			}
 			break;
 
@@ -759,8 +920,8 @@ read_types(const ctf_header_t *hp, const ctf_data_t *cd)
 				uint_t data = *((const uint_t *)u.ptr);
 
 				(void) printf("PTRAUTH %s refers to %u key %d discriminated %llu discriminator %llu",
-				    ref_to_str(tp->ctt_name, hp, cd),
-				    tp->ctt_type, CTF_PTRAUTH_KEY(data),
+				    ref_to_str(LGET_TYPE_CTT_NAME(cops, tp), hp, cd),
+				    LGET_TYPE_CTT_TYPE(cops, tp), CTF_PTRAUTH_KEY(data),
 				    CTF_PTRAUTH_DISCRIMINATED(data),
 				    CTF_PTRAUTH_DISCRIMINATOR(data));
 			}
@@ -781,7 +942,7 @@ read_types(const ctf_header_t *hp, const ctf_data_t *cd)
 		stats.s_ntypes++;
 		stats.s_types[kind]++;
 
-		tp = (ctf_type_t *)((uintptr_t)tp + increment + vlen);
+		tp = (void *)((uintptr_t)tp + increment + vlen);
 	}
 
 	return (E_SUCCESS);
@@ -1246,7 +1407,8 @@ skiploop:
 		die("%s does not appear to contain CTF data\n", filename);
 
 	if (pp->ctp_version == CTF_VERSION_2 ||
-	    pp->ctp_version == CTF_VERSION_3) {
+	    pp->ctp_version == CTF_VERSION_3 ||
+	    pp->ctp_version == CTF_VERSION_4) {
 		/* LINTED - pointer alignment */
 		hp = (ctf_header_t *)cd.cd_ctfdata;
 		cd.cd_ctfdata = (caddr_t)cd.cd_ctfdata + sizeof (ctf_header_t);
@@ -1317,16 +1479,18 @@ skiploop:
 	}
 #endif /* __APPLE__ */
 
+	const struct ctf_ops *cops = get_ctf_ops(hp);
+
 	if (flags & F_HDR)
 		error |= print_header(hp, &cd);
 	if (flags & (F_LABEL))
 		error |= print_labeltable(hp, &cd);
 	if (flags & (F_DATA | F_STATS))
-		error |= read_data(hp, &cd);
+		error |= read_data(hp, cops, &cd);
 	if (flags & (F_FUNC | F_STATS))
-		error |= read_funcs(hp, &cd);
+		error |= read_funcs(hp, cops, &cd);
 	if (flags & (F_TYPES | F_STATS))
-		error |= read_types(hp, &cd);
+		error |= read_types(hp, cops, &cd);
 	if (flags & (F_STR | F_STATS))
 		error |= read_strtab(hp, &cd);
 	if (flags & F_STATS)

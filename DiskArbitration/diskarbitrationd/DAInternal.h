@@ -125,6 +125,7 @@ const CFStringRef _kDARequestUserUIDKey;        /* ( CFNumber     ) */
 
 __private_extern__ int          ___statfs( const char * path, struct statfs * buf, int flags );
 __private_extern__ Boolean      ___CFArrayContainsValue( CFArrayRef array, const void * value );
+__private_extern__ Boolean      ___CFArrayContainsString( CFArrayRef array, const void * value );
 __private_extern__ void         ___CFArrayRemoveValue( CFMutableArrayRef array, const void * value );
 __private_extern__ vm_address_t ___CFDataCopyBytes( CFDataRef data, mach_msg_type_number_t * length );
 __private_extern__ SInt64       ___CFDictionaryGetIntegerValue( CFDictionaryRef dictionary, const void * key );

@@ -1067,7 +1067,7 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 	u_short sport;
 	char rpcpath[RPCMNT_PATHLEN + 1], dirpath[MAXPATHLEN], mlistpath[MAXPATHLEN];
 	char addrbuf[2 * INET6_ADDRSTRLEN], hostbuf[NI_MAXHOST];
-	int bad = ENOENT, options;
+	int bad = EACCES, options;
 	u_char uuid[16];
 
 	sa = svc_getcaller_sa(transp);
@@ -1150,7 +1150,6 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			if (getfh(dirpath, (fhandle_t *)&fhr.fhr_fh) < 0) {
 				DEBUG(1, "Can't get fh for %s: %s (%d)", dirpath,
 				    strerror(errno), errno);
-				bad = EACCES; /* path must not be exported */
 				if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad)) {
 					log(LOG_ERR, "Can't send reply for failed mount");
 				}
@@ -1167,7 +1166,6 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			}
 			log(LOG_INFO, "Mount successful: %s %s", hostbuf, dirpath);
 		} else {
-			bad = EACCES;
 			if (config.verbose) {
 				getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
 				log(LOG_NOTICE, "Mount failed: %s %s", addrbuf, dirpath);
@@ -2415,7 +2413,7 @@ get_exportlist(void)
 	}
 
 	if (nfsd_pid <= 0) {
-		export_error(LOG_WARNING, "nfsd is not running, can't verify exports permissions");
+		log(LOG_WARNING, "nfsd is not running, can't verify exports permissions");
 	}
 
 	/*
@@ -5389,6 +5387,7 @@ parsecred(char *namelist, struct xucred *cr)
 	struct group *gr;
 	int ngroups, groups[NGROUPS];
 	int allow_nogroups = 0;
+	int ret = 0;
 
 	/* try to make a copy of the string so we don't butcher the original */
 	namelistcopy = strdup(namelist);
@@ -5421,10 +5420,8 @@ parsecred(char *namelist, struct xucred *cr)
 	if (names == NULL) {
 		if (pw == NULL) {
 			log(LOG_ERR, "Unknown user: %s", name);
-			if (namelistcopy) {
-				free(namelistcopy);
-			}
-			return ENOENT;
+			ret = ENOENT;
+			goto out_free;
 		}
 		cr->cr_uid = pw->pw_uid;
 		ngroups = NGROUPS;
@@ -5448,10 +5445,8 @@ parsecred(char *namelist, struct xucred *cr)
 		cr->cr_uid = atoi(name);
 	} else {
 		log(LOG_ERR, "Unknown user: %s", name);
-		if (namelistcopy) {
-			free(namelistcopy);
-		}
-		return ENOENT;
+		ret = ENOENT;
+		goto out_free;
 	}
 	cr->cr_ngroups = 0;
 	/*
@@ -5477,9 +5472,6 @@ parsecred(char *namelist, struct xucred *cr)
 		log(LOG_ERR, "Too many groups in %s", namelist);
 	}
 out:
-	if (namelistcopy) {
-		free(namelistcopy);
-	}
 	if (config.verbose >= 5) {
 		char buf[256];
 		snprintf_cred(buf, sizeof(buf), cr);
@@ -5487,9 +5479,13 @@ out:
 	}
 	if (cr->cr_ngroups < 1 && !allow_nogroups) {
 		log(LOG_ERR, "no groups found: %s", namelist);
-		return EINVAL;
+		ret = EINVAL;
 	}
-	return 0;
+out_free:
+	if (namelistcopy) {
+		free(namelistcopy);
+	}
+	return ret;
 }
 
 #define STRSIZ  (RPCMNT_NAMELEN+RPCMNT_PATHLEN+50)

@@ -99,14 +99,16 @@ private:
     void exitAcceleratedCompositingMode() override;
     void updateAcceleratedCompositingMode(const LayerTreeContext&) override;
 
-    void handleDownloadRequest(DownloadProxy&) override;
     void didChangeContentSize(const WebCore::IntSize&) override;
     void didCommitLoadForMainFrame(const String& mimeType, bool useCustomContentProvider) override;
     void didFirstVisuallyNonEmptyLayoutForMainFrame() override;
     void didFinishNavigation(API::Navigation*) override;
     void didFailNavigation(API::Navigation*) override { }
     void didSameDocumentNavigationForMainFrame(SameDocumentNavigationType) override;
+
+#if USE(GRAPHICS_LAYER_WC)
     bool usesOffscreenRendering() const override;
+#endif
 
     // Auxiliary Client Creation
 #if ENABLE(FULLSCREEN_API)

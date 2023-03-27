@@ -13,7 +13,6 @@
 
 #include "compiler/translator/Compiler.h"
 #include "compiler/translator/InitializeDll.h"
-#include "compiler/translator/glslang_wrapper.h"
 #include "compiler/translator/length_limits.h"
 #ifdef ANGLE_ENABLE_HLSL
 #    include "compiler/translator/TranslatorHLSL.h"
@@ -28,17 +27,6 @@ namespace
 {
 
 bool isInitialized = false;
-
-// glslang can only be initialized/finalized once per process. Otherwise, the following EGL commands
-// will call GlslangFinalize() without ever being able to GlslangInitialize() again, leading to
-// crashes since GlslangFinalize() cleans up glslang for the entire process.
-//   dpy1 = eglGetPlatformDisplay()   |
-//   eglInitialize(dpy1)              | GlslangInitialize()
-//   dpy2 = eglGetPlatformDisplay()   |
-//   eglInitialize(dpy2)              | GlslangInitialize()
-//   eglTerminate(dpy2)               | GlslangFinalize()
-//   eglInitialize(dpy1)              | Display::isInitialized() == true, no GlslangInitialize()
-int initializeGlslangRefCount = 0;
 
 //
 // This is the platform independent interface between an OGL driver
@@ -216,6 +204,7 @@ void InitBuiltInResources(ShBuiltInResources *resources)
     resources->NV_shader_noperspective_interpolation          = 0;
     resources->OES_texture_storage_multisample_2d_array       = 0;
     resources->OES_texture_3D                                 = 0;
+    resources->ANGLE_shader_pixel_local_storage               = 0;
     resources->ANGLE_texture_multisample                      = 0;
     resources->ANGLE_multi_draw                               = 0;
     resources->ANGLE_base_vertex_base_instance                = 0;
@@ -233,6 +222,7 @@ void InitBuiltInResources(ShBuiltInResources *resources)
     resources->EXT_texture_buffer                             = 0;
     resources->OES_sample_variables                           = 0;
     resources->EXT_clip_cull_distance                         = 0;
+    resources->ANGLE_clip_cull_distance                       = 0;
     resources->KHR_blend_equation_advanced                    = 0;
 
     resources->MaxClipDistances                = 8;
@@ -384,6 +374,13 @@ void Destruct(ShHandle handle)
         DeleteCompiler(base->getAsCompiler());
 }
 
+ShBuiltInResources GetBuiltInResources(const ShHandle handle)
+{
+    TCompiler *compiler = GetCompilerFromHandle(handle);
+    ASSERT(compiler);
+    return compiler->getBuiltInResources();
+}
+
 const std::string &GetBuiltInResourcesString(const ShHandle handle)
 {
     TCompiler *compiler = GetCompilerFromHandle(handle);
@@ -401,7 +398,7 @@ const std::string &GetBuiltInResourcesString(const ShHandle handle)
 bool Compile(const ShHandle handle,
              const char *const shaderStrings[],
              size_t numStrings,
-             ShCompileOptions compileOptions)
+             const ShCompileOptions &compileOptions)
 {
     TCompiler *compiler = GetCompilerFromHandle(handle);
     ASSERT(compiler);
@@ -464,6 +461,18 @@ const BinaryBlob &GetObjectBinaryBlob(const ShHandle handle)
 
     TInfoSink &infoSink = compiler->getInfoSink();
     return infoSink.obj.getBinary();
+}
+
+bool GetShaderBinary(const ShHandle handle,
+                     const char *const shaderStrings[],
+                     size_t numStrings,
+                     const ShCompileOptions &compileOptions,
+                     ShaderBinaryBlob *const binaryOut)
+{
+    TCompiler *compiler = GetCompilerFromHandle(handle);
+    ASSERT(compiler);
+
+    return compiler->getShaderBinary(handle, shaderStrings, numStrings, compileOptions, binaryOut);
 }
 
 const std::map<std::string, std::string> *GetNameHashingMap(const ShHandle handle)
@@ -735,6 +744,48 @@ const std::set<std::string> *GetUsedImage2DFunctionNames(const ShHandle handle)
 #endif  // ANGLE_ENABLE_HLSL
 }
 
+uint8_t GetClipDistanceArraySize(const ShHandle handle)
+{
+    ASSERT(handle);
+    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
+    TCompiler *compiler = base->getAsCompiler();
+    ASSERT(compiler);
+
+    return compiler->getClipDistanceArraySize();
+}
+
+uint8_t GetCullDistanceArraySize(const ShHandle handle)
+{
+    ASSERT(handle);
+    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
+    TCompiler *compiler = base->getAsCompiler();
+    ASSERT(compiler);
+
+    return compiler->getCullDistanceArraySize();
+}
+
+bool HasClipDistanceInVertexShader(const ShHandle handle)
+{
+    ASSERT(handle);
+
+    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
+    TCompiler *compiler = base->getAsCompiler();
+    ASSERT(compiler);
+
+    return compiler->getShaderType() == GL_VERTEX_SHADER && compiler->hasClipDistance();
+}
+
+bool HasDiscardInFragmentShader(const ShHandle handle)
+{
+    ASSERT(handle);
+
+    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
+    TCompiler *compiler = base->getAsCompiler();
+    ASSERT(compiler);
+
+    return compiler->getShaderType() == GL_FRAGMENT_SHADER && compiler->hasDiscard();
+}
+
 bool HasValidGeometryShaderInputPrimitiveType(const ShHandle handle)
 {
     ASSERT(handle);
@@ -934,26 +985,6 @@ uint32_t GetAdvancedBlendEquations(const ShHandle handle)
     return compiler->getAdvancedBlendEquations().bits();
 }
 
-void InitializeGlslang()
-{
-    if (initializeGlslangRefCount == 0)
-    {
-        GlslangInitialize();
-    }
-    ++initializeGlslangRefCount;
-    ASSERT(initializeGlslangRefCount < std::numeric_limits<int>::max());
-}
-
-void FinalizeGlslang()
-{
-    --initializeGlslangRefCount;
-    ASSERT(initializeGlslangRefCount >= 0);
-    if (initializeGlslangRefCount == 0)
-    {
-        GlslangFinalize();
-    }
-}
-
 // Can't prefix with just _ because then we might introduce a double underscore, which is not safe
 // in GLSL (ESSL 3.00.6 section 3.8: All identifiers containing a double underscore are reserved for
 // use by the underlying implementation). u is short for user-defined.
@@ -1040,3 +1071,33 @@ const char *InterpolationTypeToString(InterpolationType type)
     }
 }
 }  // namespace sh
+
+ShCompileOptions::ShCompileOptions()
+{
+    memset(this, 0, sizeof(*this));
+}
+
+ShCompileOptions::ShCompileOptions(const ShCompileOptions &other)
+{
+    memcpy(this, &other, sizeof(*this));
+}
+ShCompileOptions &ShCompileOptions::operator=(const ShCompileOptions &other)
+{
+    memcpy(this, &other, sizeof(*this));
+    return *this;
+}
+
+ShBuiltInResources::ShBuiltInResources()
+{
+    memset(this, 0, sizeof(*this));
+}
+
+ShBuiltInResources::ShBuiltInResources(const ShBuiltInResources &other)
+{
+    memcpy(this, &other, sizeof(*this));
+}
+ShBuiltInResources &ShBuiltInResources::operator=(const ShBuiltInResources &other)
+{
+    memcpy(this, &other, sizeof(*this));
+    return *this;
+}

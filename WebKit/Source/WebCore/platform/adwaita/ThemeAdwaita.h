@@ -35,29 +35,32 @@ class Path;
 
 class ThemeAdwaita : public Theme {
 public:
-    static Color focusColor(bool focusColor);
-    static void paintFocus(GraphicsContext&, const FloatRect&, int offset, bool useDarkAppearance);
+    enum class PaintRounded : bool { No, Yes };
+
+    static void paintFocus(GraphicsContext&, const FloatRect&, int offset, const Color&, PaintRounded = PaintRounded::No);
     static void paintFocus(GraphicsContext&, const Path&, const Color&);
-    static void paintFocus(GraphicsContext&, const Vector<FloatRect>&, const Color&);
+    static void paintFocus(GraphicsContext&, const Vector<FloatRect>&, const Color&, PaintRounded = PaintRounded::No);
     enum class ArrowDirection { Up, Down };
-    static void paintArrow(GraphicsContext&, ArrowDirection, bool);
+    static void paintArrow(GraphicsContext&, const FloatRect&, ArrowDirection, bool);
 
     virtual void platformColorsDidChange() { };
 
     void setAccentColor(const Color&);
     Color accentColor();
 private:
-    LengthSize controlSize(ControlPart, const FontCascade&, const LengthSize&, float) const final;
-    LengthSize minimumControlSize(ControlPart, const FontCascade&, const LengthSize&, float) const final;
-    LengthBox controlBorder(ControlPart, const FontCascade&, const LengthBox&, float) const final;
-    void paint(ControlPart, ControlStates&, GraphicsContext&, const FloatRect&, float, ScrollView*, float, float, bool, bool, const Color&) final;
+    LengthSize controlSize(StyleAppearance, const FontCascade&, const LengthSize&, float) const final;
+    LengthSize minimumControlSize(StyleAppearance, const FontCascade&, const LengthSize&, float) const final;
+    LengthBox controlBorder(StyleAppearance, const FontCascade&, const LengthBox&, float) const final;
+    void paint(StyleAppearance, ControlStates&, GraphicsContext&, const FloatRect&, float, ScrollView*, float, float, bool, bool, const Color&) final;
 
     void paintCheckbox(ControlStates&, GraphicsContext&, const FloatRect&, bool, const Color&);
     void paintRadio(ControlStates&, GraphicsContext&, const FloatRect&, bool, const Color&);
     void paintButton(ControlStates&, GraphicsContext&, const FloatRect&, bool);
     void paintSpinButton(ControlStates&, GraphicsContext&, const FloatRect&, bool);
 
-    Color m_accentColor;
+    static Color focusColor(const Color&);
+
+    Color m_accentColor { SRGBA<uint8_t> { 52, 132, 228 } };
 };
 
 } // namespace WebCore

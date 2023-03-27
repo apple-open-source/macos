@@ -431,7 +431,7 @@ done:
 }
 
 static CF_RETURNS_RETAINED CFMutableArrayRef
-readInterfaceList()
+readInterfaceList(void)
 {
     CFMutableArrayRef 		db_list	= NULL;
     CFArrayRef			if_list;
@@ -491,7 +491,7 @@ readInterfaceList()
 }
 
 static CF_RETURNS_RETAINED CFMutableArrayRef
-previouslyActiveInterfaces()
+previouslyActiveInterfaces(void)
 {
     CFMutableArrayRef	active;
     CFIndex		n;
@@ -1911,7 +1911,7 @@ shareLocked(void)
 }
 
 static boolean_t
-blockNewInterfaces()
+blockNewInterfaces(void)
 {
     static boolean_t	    allow	= TRUE;
     static dispatch_once_t  once;
@@ -1927,7 +1927,7 @@ blockNewInterfaces()
 }
 
 static boolean_t
-isConsoleLocked()
+isConsoleLocked(void)
 {
     CFArrayRef		console_sessions;
     boolean_t		locked		    = FALSE;
@@ -2317,7 +2317,7 @@ WEAK_LINK_FORCE_IMPORT(kLockdownNotificationTrustedHostAttached);
 WEAK_LINK_FORCE_IMPORT(kLockdownNotificationTrustedPTPAttached);
 
 static Boolean
-haveLockdown()
+haveLockdown(void)
 {
     Boolean		haveLibrary;
 
@@ -2331,7 +2331,7 @@ haveLockdown()
 }
 
 static void
-shareExcluded()
+shareExcluded(void)
 {
     CFIndex	n;
 
@@ -2369,7 +2369,7 @@ shareExcluded()
 }
 
 static dispatch_queue_t
-trustRequired_queue()
+trustRequired_queue(void)
 {
     static dispatch_once_t	once;
     static dispatch_queue_t	q;
@@ -2577,7 +2577,7 @@ updateTrustRequiredInterfaces(CFArrayRef interfaces)
 
 
 static void
-sharePreconfigured()
+sharePreconfigured(void)
 {
     CFIndex	n;
 
@@ -3851,8 +3851,8 @@ quietCallback(void		*refcon,
 static void
 iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 {
-    kern_return_t	kr  = kIOReturnSuccess;;
     io_object_t		obj;
+    kern_return_t	kr  = kIOReturnSuccess;;
 
     while ((kr == kIOReturnSuccess) &&
 	   ((obj = IOIteratorNext(iterator)) != MACH_PORT_NULL)) {
@@ -3949,7 +3949,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 }
 
 static void
-captureBusy()
+captureBusy(void)
 {
     int			count		= 0;
     io_iterator_t	iterator	= MACH_PORT_NULL;

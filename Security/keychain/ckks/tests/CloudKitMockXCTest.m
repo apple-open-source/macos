@@ -914,16 +914,18 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
             CKAccountInfo* account = nil;
             NSError* ckAccountStatusFetchError = nil;
             if (ckAccount == nil) {
-                account = [[CKAccountInfo alloc] init];
-                account.accountStatus = blockStrongSelf.accountStatus;
-                account.hasValidCredentials = blockStrongSelf.iCloudHasValidCredentials;
-                account.accountPartition = CKAccountPartitionTypeProduction;
+                FakeCKAccountInfo *fakeAccount = [[FakeCKAccountInfo alloc] init];
+                fakeAccount.accountStatus = blockStrongSelf.accountStatus;
+                fakeAccount.hasValidCredentials = blockStrongSelf.iCloudHasValidCredentials;
+                fakeAccount.accountPartition = CKAccountPartitionTypeProduction;
+                account = (CKAccountInfo *)fakeAccount;
                 ckAccountStatusFetchError = blockStrongSelf.ckAccountStatusFetchError;
             } else {
-                account = [[CKAccountInfo alloc] init];
-                account.accountStatus = ckAccount.accountStatus;
-                account.hasValidCredentials = ckAccount.iCloudHasValidCredentials;
-                account.accountPartition = CKAccountPartitionTypeProduction;
+                FakeCKAccountInfo *fakeAccount = [[FakeCKAccountInfo alloc] init];
+                fakeAccount.accountStatus = ckAccount.accountStatus;
+                fakeAccount.hasValidCredentials = ckAccount.iCloudHasValidCredentials;
+                fakeAccount.accountPartition = CKAccountPartitionTypeProduction;
+                account = (CKAccountInfo *)fakeAccount;
                 ckAccountStatusFetchError = ckAccount.ckAccountStatusFetchError;
             }
             if(completionHandler) {
@@ -936,10 +938,11 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     } else {
         NSBlockOperation* fulfillBlock = [NSBlockOperation named:@"account-info-completion" withBlock: ^{
             __strong __typeof(self) blockStrongSelf = weakSelf;
-            CKAccountInfo* account = [[CKAccountInfo alloc] init];
-            account.accountStatus = blockStrongSelf.accountStatus;
-            account.hasValidCredentials = blockStrongSelf.iCloudHasValidCredentials;
-            account.accountPartition = CKAccountPartitionTypeProduction;
+            FakeCKAccountInfo *fakeAccount = [[FakeCKAccountInfo alloc] init];
+            fakeAccount.accountStatus = blockStrongSelf.accountStatus;
+            fakeAccount.hasValidCredentials = blockStrongSelf.iCloudHasValidCredentials;
+            fakeAccount.accountPartition = CKAccountPartitionTypeProduction;
+            CKAccountInfo *account = (CKAccountInfo *)fakeAccount;
             
             if(completionHandler) {
                 completionHandler(account, blockStrongSelf.ckAccountStatusFetchError);
@@ -1346,6 +1349,10 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 
             FakeCKZone* zone = strongSelf.zones[zoneID];
             XCTAssertNotNil(zone, "Have a zone for these records");
+            if (zone == nil) {
+                secnotice("fakecloudkit", "zone not found, failing");
+                return NO;
+            }
 
             __block BOOL result = YES;
             dispatch_sync(zone.queue, ^{
@@ -1603,6 +1610,9 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 
             FakeCKZone* zone = strongSelf.zones[zoneID];
             XCTAssertNotNil(zone, "Have a zone for these records");
+            if (zone == nil) {
+                return NO;
+            }
 
             NSMutableDictionary<CKRecordID*, NSError*>* failedRecords = [[NSMutableDictionary alloc] init];
 

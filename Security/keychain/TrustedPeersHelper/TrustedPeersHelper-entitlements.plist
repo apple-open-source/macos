@@ -65,5 +65,7 @@
 	<array>
 		<string>temporary-sandbox</string>
 	</array>
+	<key>com.apple.private.security.storage.Keychains</key>
+	<true/>
 </dict>
 </plist>

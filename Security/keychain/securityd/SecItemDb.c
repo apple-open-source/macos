@@ -354,8 +354,9 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
 
     if (ok) {
         q->q_changed = true;
-        if (SecDbItemIsSyncable(item))
+        if (SecDbItemIsSyncable(item)) {
             q->q_sync_changed = true;
+        }
     }
 
     secdebug("dbitem", "inserting item " SECDBITEM_FMT "%s%@", item, ok ? "" : "failed: ", ok || error == NULL ? (CFErrorRef)CFSTR("") : *error);
@@ -1319,8 +1320,9 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
                 result = SecDbItemUpdate(item, new_item, dbt, s3dl_should_make_tombstone(q, item_is_sync, item), q->q_uuid_from_primary_key, error);
                 if (result) {
                     q->q_changed = true;
-                    if (item_is_sync || SecDbItemIsSyncable(new_item))
+                    if (item_is_sync || SecDbItemIsSyncable(new_item)) {
                         q->q_sync_changed = true;
+                    }
                 }
                 CFRelease(new_item);
             }
@@ -1387,8 +1389,9 @@ s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFE
         ok = SecDbItemDelete(item, dbt, s3dl_should_make_tombstone(q, item_is_sync, item), q->q_tombstone_use_mdat_from_item, error);
         if (ok) {
             q->q_changed = true;
-            if (item_is_sync)
+            if (item_is_sync) {
                 q->q_sync_changed = true;
+            }
         }
     });
     if (ok && !q->q_changed && !needAuth) {
@@ -1638,7 +1641,7 @@ fail:
 }
 
 bool SecServerDeleteAllForUser(SecDbConnectionRef dbt, CFDataRef musrView, bool keepU, CFErrorRef *error) {
-    secwarning("SecServerDeleteAllForUser for user: %@ keepU %s", musrView, keepU ? "yes" : "no");
+    secwarning("SecServerDeleteAllForUser for user: %@ keepU %{BOOL}d", musrView, keepU);
 
     return kc_transaction(dbt, error, ^{
         bool ok;

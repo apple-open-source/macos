@@ -31,27 +31,26 @@ namespace WebCore {
 #ifndef NDEBUG
 void CertificateInfo::dump() const
 {
-#if HAVE(SEC_TRUST_SERIALIZATION)
+#if PLATFORM(COCOA)
     if (m_trust) {
-        CFIndex entries = SecTrustGetCertificateCount(trust());
+        CFIndex entries = SecTrustGetCertificateCount(trust().get());
 
         NSLog(@"CertificateInfo SecTrust\n");
         NSLog(@"  Entries: %ld\n", entries);
 #if HAVE(SEC_TRUST_COPY_CERTIFICATE_CHAIN)
-        auto chain = adoptCF(SecTrustCopyCertificateChain(trust()));
+        auto chain = adoptCF(SecTrustCopyCertificateChain(trust().get()));
 #endif
         for (CFIndex i = 0; i < entries; ++i) {
 #if HAVE(SEC_TRUST_COPY_CERTIFICATE_CHAIN)
             RetainPtr<CFStringRef> summary = adoptCF(SecCertificateCopySubjectSummary(checked_cf_cast<SecCertificateRef>(CFArrayGetValueAtIndex(chain.get(), i))));
 #else
-            RetainPtr<CFStringRef> summary = adoptCF(SecCertificateCopySubjectSummary(SecTrustGetCertificateAtIndex(trust(), i)));
+            RetainPtr<CFStringRef> summary = adoptCF(SecCertificateCopySubjectSummary(SecTrustGetCertificateAtIndex(trust().get(), i)));
 #endif
             NSLog(@"  %@", (__bridge NSString *)summary.get());
         }
-
         return;
     }
-#endif
+#elif PLATFORM(WIN)
     if (m_certificateChain) {
         CFIndex entries = CFArrayGetCount(m_certificateChain.get());
 
@@ -64,7 +63,7 @@ void CertificateInfo::dump() const
 
         return;
     }
-
+#endif
     NSLog(@"CertificateInfo (Empty)\n");
 }
 #endif

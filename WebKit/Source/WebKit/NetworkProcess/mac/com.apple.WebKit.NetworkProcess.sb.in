@@ -21,40 +21,108 @@
 ; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 ; THE POSSIBILITY OF SUCH DAMAGE.
 
-(version 1)
-(deny default (with partial-symbolication))
-(deny nvram*)
-(deny system-privilege)
-
-(allow system-audit file-read-metadata)
+#include "Shared/Sandbox/macOS/common.sb"
+#include "Shared/Sandbox/preferences.sb"
 
 (allow system-privilege (with grant)
     (require-all
         (privilege-id PRIV_NET_PRIVILEGED_SOCKET_DELEGATE)
         (require-entitlement "com.apple.private.network.socket-delegate")))
 
-;; We can remove the catch once we no longer need to support older macOS
-(catch (lambda)
-    (import "dyld-support.sb"))
+#if USE(SANDBOX_VERSION_3)
+(with-filter (mac-policy-name "Sandbox")
+    (allow system-mac-syscall (mac-syscall-number 5)))
 
-;; Silence spurious logging due to rdar://20117923 and rdar://72366475
-(deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
+(with-filter (mac-policy-name "vnguard")
+    (allow system-mac-syscall (mac-syscall-number 1)))
 
-#include "Shared/Sandbox/preferences.sb"
+(with-filter (mac-policy-name "Quarantine")
+    (allow system-mac-syscall (mac-syscall-number 80 82)))
 
-#if ENABLE(SYSTEM_CONTENT_PATH_SANDBOX_RULES)
-#include <WebKitAdditions/SystemContentSandbox-macos.defs>
-#endif
+(allow system-fcntl
+    (fcntl-command
+        F_BARRIERFSYNC
+        F_DUPFD_CLOEXEC
+        F_GETCONFINED
+        F_GETFL
+        F_GETFD
+        F_GETPATH
+        F_GETPROTECTIONCLASS
+        F_OFD_GETLK
+        F_OFD_SETLK
+        F_OFD_SETLKWTIMEOUT
+        F_PREALLOCATE
+        F_RDADVISE
+        F_SETCONFINED
+        F_SETFL
+        F_SETFD))
 
-;; Utility functions for home directory relative path filters
-(define (home-regex home-relative-regex)
-  (regex (string-append "^" (regex-quote (param "HOME_DIR")) home-relative-regex)))
+(allow process-codesigning-entitlements-der-blob-get)
+(allow process-codesigning-identity-get (target self))
+(allow process-codesigning-status-get)
 
-(define (home-subpath home-relative-subpath)
-    (subpath (string-append (param "HOME_DIR") home-relative-subpath)))
+(allow socket-ioctl)
 
-(define (home-literal home-relative-literal)
-    (literal (string-append (param "HOME_DIR") home-relative-literal)))
+(allow socket-option-set (with telemetry) (with report))
+(allow socket-option-get (with telemetry) (with report))
+
+(allow socket-option-set
+    (require-all
+        (socket-option-level SOL_SOCKET)
+        (socket-option-name
+            SO_DELEGATED
+            SO_DELEGATED_UUID
+            SO_NECP_ATTRIBUTES
+            SO_NECP_CLIENTUUID
+            SO_NECP_LISTENUUID
+            SO_NOSIGPIPE
+            SO_RCVBUF
+            SO_REUSEADDR
+            SO_REUSEPORT)))
+
+(allow socket-option-get
+    (require-all
+        (socket-option-level SOL_SOCKET)
+        (socket-option-name SO_ERROR SO_NREAD)))
+
+(allow socket-option-set
+    (require-all
+        (socket-option-level IPPROTO_TCP)
+        (socket-option-name SO_DEBUG 513)))
+
+(allow socket-option-set
+    (require-all
+        (socket-option-level IPPROTO_IP)
+        (socket-option-name 7 20 25 27)))
+
+(allow socket-option-get
+    (require-all
+        (socket-option-level IPPROTO_IP)
+        (socket-option-name 25)))
+
+(allow socket-option-set
+    (require-all
+        (socket-option-level IPPROTO_IPV6)
+        (socket-option-name 27 61)))
+
+(allow socket-option-get
+    (require-all
+        (socket-option-level IPPROTO_TCP)
+        (socket-option-name 262 SO_REUSEPORT)))
+
+(allow socket-ioctl
+    (ioctl-command CTLIOCGINFO))
+
+;; FIXME: Add telemetry to these
+(allow system-necp-client-action)
+(allow necp-client-open)
+
+(allow iokit-open-service (iokit-registry-entry-class "IOPMrootDomain"))
+
+(allow file-link
+    (extension-class "com.apple.app-sandbox.read-write")
+    (extension "com.apple.app-sandbox.read-write"))
+#endif // USE(SANDBOX_VERSION_3)
 
 #if PLATFORM(MAC)
 (deny mach-register (local-name-prefix ""))
@@ -250,28 +318,17 @@
 (allow file-read*
     ;; Basic system paths
     (subpath "/Library/Frameworks")
-    (subpath "/Library/Managed Preferences")
+    (subpath "/Library/Managed Preferences"))
 
-    ;; On-disk WebKit2 framework location, to account for debug installations
-    ;; outside of /System/Library/Frameworks
+;; On-disk WebKit2 framework location, to account for debug installations
+;; outside of /System/Library/Frameworks
+(allow file-read* file-test-existence
     (subpath (param "WEBKIT2_FRAMEWORK_DIR")))
 
 (allow file-read-data
     (literal "/usr/local/lib/log") ; <rdar://problem/36629495>
 )
 
-;; Sandbox extensions
-(define (apply-read-and-issue-extension op path-filter)
-    (op file-read* path-filter)
-    (op file-issue-extension (require-all (extension-class "com.apple.app-sandbox.read") path-filter)))
-(define (apply-write-and-issue-extension op path-filter)
-    (op file-write* path-filter)
-    (op file-issue-extension (require-all (extension-class "com.apple.app-sandbox.read-write") path-filter)))
-(define (read-only-and-issue-extensions path-filter)
-    (apply-read-and-issue-extension allow path-filter))
-(define (read-write-and-issue-extensions path-filter)
-    (apply-read-and-issue-extension allow path-filter)
-    (apply-write-and-issue-extension allow path-filter))
 (read-only-and-issue-extensions (extension "com.apple.app-sandbox.read"))
 (read-write-and-issue-extensions (extension "com.apple.app-sandbox.read-write"))
 
@@ -280,9 +337,8 @@
 (allow file-read* file-write* (subpath (param "DARWIN_USER_TEMP_DIR")))
 
 ;; IOKit user clients
-(allow iokit-open
-    (iokit-user-client-class "RootDomainUserClient") ; Used by PowerObserver
-)
+(allow IOKIT_OPEN_USER_CLIENT
+    (iokit-user-client-class "RootDomainUserClient")) ; Used by PowerObserver
 
 (deny mach-lookup 
     (global-name "com.apple.PowerManagement.control"))
@@ -300,6 +356,7 @@
     (global-name "com.apple.logd")
     (global-name "com.apple.logd.events")
     (global-name "com.apple.lsd.mapdb")
+    (global-name "com.apple.mobileasset.autoasset") ;; <rdar://problem/101780002>
     (global-name "com.apple.nesessionmanager.flow-divert-token")
     (global-name "com.apple.nesessionmanager.content-filter") ;; <rdar://problem/47598758>
     (global-name "com.apple.system.notification_center"))
@@ -316,7 +373,7 @@
 (allow mach-lookup (global-name "com.apple.webkit.webpushd.service"))
 (allow mach-lookup (global-name "org.webkit.webpushtestdaemon.service"))
 
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
     (global-name "com.apple.DiskArbitration.diskarbitrationd"))
 (with-filter (uid 0)
     (allow mach-lookup 
@@ -406,7 +463,7 @@
 ;; Reserve a namespace for additional protected extended attributes.
 (deny file-read-xattr file-write-xattr (xattr-prefix "com.apple.security.private."))
 
-(deny file-read* file-write* (with no-log)
+(deny file-read* file-write* (with no-report)
     ;; FIXME: Should be removed after <rdar://problem/10463881> is fixed.
     (home-literal "/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2")
     (home-literal "/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2-journal"))
@@ -460,7 +517,7 @@
 (allow mach-lookup
     (global-name "com.apple.tccd"))
 
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
     (global-name "com.apple.tccd.system")
     (global-name "com.apple.CoreServices.coreservicesd")
     (global-name-prefix "com.apple.distributed_notifications"))
@@ -553,6 +610,7 @@
         SYS_kevent_id
         SYS_kevent_qos
         SYS_kqueue
+        SYS_link
         SYS_listxattr
         SYS_lseek
         SYS_lstat
@@ -622,6 +680,7 @@
         SYS_sysctl
         SYS_thread_selfid
         SYS_ulock_wait
+        SYS_ulock_wait2
         SYS_ulock_wake
         SYS_unlink
         SYS_workq_kernreturn
@@ -685,3 +744,7 @@
         (allow syscall-mach
             (machtrap-number MSC_mach_msg2_trap))))
 #endif // HAVE(SANDBOX_MESSAGE_FILTERING)
+
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/com.apple.WebKit.NetworkingAdditions.sb.in>)
+#include <WebKitAdditions/com.apple.WebKit.NetworkingAdditions.sb.in>
+#endif

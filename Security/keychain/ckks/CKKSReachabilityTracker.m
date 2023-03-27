@@ -115,12 +115,17 @@
         ckksnotice_global("network", "Network unavailable");
         self.reachabilityDependency = [CKKSResultOperation named:@"network-available-dependency" withBlock: ^{
             STRONGIFY(self);
-            if (self.haveNetwork) {
-                ckksnotice_global("network", "Network available");
-            } else {
-                ckksnotice_global("network", "Network still not available, retrying after waiting %2.1f hours",
-                                  ((float)(REACHABILITY_TIMEOUT/NSEC_PER_SEC)) / 3600);
-            }
+            dispatch_sync(self.queue, ^{
+                if (self.haveNetwork) {
+                    ckksnotice_global("network", "Network available");
+                } else {
+                    ckksnotice_global("network", "Network still not available, retrying after waiting %2.1f hours",
+                                      ((float)(REACHABILITY_TIMEOUT/NSEC_PER_SEC)) / 3600);
+                    // Branch was probably caused by a timeout to re-check network,
+                    // let setup a new dependency
+                    [self _onQueueResetReachabilityDependency];
+                }
+            });
         }];
 
         /*

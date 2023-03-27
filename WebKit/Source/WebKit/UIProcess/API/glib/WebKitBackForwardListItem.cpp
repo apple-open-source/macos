@@ -46,7 +46,7 @@ struct _WebKitBackForwardListItemPrivate {
     CString originalURI;
 };
 
-WEBKIT_DEFINE_TYPE(WebKitBackForwardListItem, webkit_back_forward_list_item, G_TYPE_INITIALLY_UNOWNED)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitBackForwardListItem, webkit_back_forward_list_item, G_TYPE_INITIALLY_UNOWNED)
 
 static void webkit_back_forward_list_item_class_init(WebKitBackForwardListItemClass*)
 {
@@ -142,6 +142,7 @@ const gchar* webkit_back_forward_list_item_get_title(WebKitBackForwardListItem* 
  * @list_item: a #WebKitBackForwardListItem
  *
  * Obtain the original URI of the item.
+ *
  * See also webkit_back_forward_list_item_get_uri().
  *
  * Returns: the original URI of @list_item or %NULL

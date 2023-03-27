@@ -29,6 +29,7 @@
 #include "SOSRecoveryKeyBag.h"
 #include "AssertMacros.h"
 #include "keychain/SecureObjectSync/SOSGenCount.h"
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include "keychain/SecureObjectSync/SOSAccountPriv.h"
 #include "keychain/SecureObjectSync/SOSRecoveryKeyBag.h"
 #include <utilities/SecCFWrappers.h>
@@ -177,7 +178,7 @@ SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateForAccount(CFAllocatorRef allocator,
     SOSGenCountRef gencount = NULL;
     require_action_quiet(account, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Null Account Object"), NULL, error));
     CFStringRef dsid = NULL;
-    dsid = asString(SOSAccountGetValue((__bridge SOSAccount*)account, kSOSDSIDKey, NULL), NULL);
+    dsid = SOSAccountGetCurrentDSID((__bridge SOSAccount*) account);
 #if !TARGET_OS_BRIDGE
     if (!dsid) {
         ACAccountStore* store = [ACAccountStore defaultStore];
@@ -197,6 +198,9 @@ SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateForAccount(CFAllocatorRef allocator,
     CFRetainAssign(retval->generation, gencount);
     retval->recoveryKeyBag = CFDataCreateCopy(allocator, pubData);
 errOut:
+    if(error && *error) {
+        secnotice("recovery", "Error in SOSRecoveryKeyBagCreateForAccount - %@", *error);
+    }
     CFReleaseNull(gencount);
     return retval;
 }
@@ -207,12 +211,15 @@ CFDataRef SOSRecoveryKeyCopyKeyForAccount(CFAllocatorRef allocator, CFTypeRef ac
     require_action_quiet(recoveryKeyBag && recoveryKeyBag->recoveryKeyBag && recoveryKeyBag->accountDSID,
                          errOut, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Null recoveryKeyBag Object"), NULL, error));
     CFStringRef dsid = NULL;
-    dsid = asString(SOSAccountGetValue((__bridge SOSAccount *)(account), kSOSDSIDKey, NULL), error);
+    dsid = SOSAccountGetCurrentDSID((__bridge SOSAccount *) account);
 
     require_action_quiet(dsid, errOut, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("No DSID in Account"), NULL, error));
     require_action_quiet(CFEqual(dsid, recoveryKeyBag->accountDSID), errOut, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Account/RecoveryKeybag DSID miss-match"), NULL, error));
     retval = CFDataCreateCopy(allocator, recoveryKeyBag->recoveryKeyBag);
 errOut:
+    if(error && *error) {
+        secnotice("recovery", "Error in SOSRecoveryKeyCopyKeyForAccount - %@", *error);
+    }
     return retval;
 }
 

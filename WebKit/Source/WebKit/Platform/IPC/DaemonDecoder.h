@@ -25,11 +25,9 @@
 
 #pragma once
 
-#include "ArgumentCoders.h"
+#include "DaemonCoders.h"
 
-namespace WebKit {
-
-namespace Daemon {
+namespace WebKit::Daemon {
 
 class Decoder {
 public:
@@ -40,8 +38,14 @@ public:
     template<typename T>
     Decoder& operator>>(std::optional<T>& t)
     {
-        t = IPC::ArgumentCoder<std::remove_const_t<std::remove_reference_t<T>>, void>::decode(*this);
+        t = decode<T>();
         return *this;
+    }
+
+    template<typename T>
+    std::optional<T> decode()
+    {
+        return Coder<std::remove_cvref_t<T>>::decode(*this);
     }
 
     template<typename T>
@@ -55,8 +59,8 @@ public:
         return bufferIsLargeEnoughToContainBytes(numElements * sizeof(T));
     }
 
-    WARN_UNUSED_RETURN bool decodeFixedLengthData(uint8_t* data, size_t, size_t alignment);
-    const uint8_t* decodeFixedLengthReference(size_t, size_t);
+    WARN_UNUSED_RETURN bool decodeFixedLengthData(uint8_t* data, size_t);
+    Span<const uint8_t> decodeFixedLengthReference(size_t);
 
 private:
     WARN_UNUSED_RETURN bool bufferIsLargeEnoughToContainBytes(size_t) const;
@@ -65,6 +69,4 @@ private:
     size_t m_bufferPosition { 0 };
 };
 
-} // namespace Daemon
-
-} // namespace WebKit
+} // namespace WebKit::Daemon

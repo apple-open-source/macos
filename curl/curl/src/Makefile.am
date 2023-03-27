@@ -55,7 +55,7 @@ include Makefile.inc
 
 # CURL_FILES comes from Makefile.inc
 curl_SOURCES = $(CURL_FILES)
-if OS_WINDOWS
+if HAVE_WINDRES
 curl_SOURCES += $(CURL_RCFILES)
 $(CURL_RCFILES): tool_version.h
 endif
@@ -87,8 +87,8 @@ CLEANFILES = tool_hugehelp.c
 # embedded text.
 NROFF=env LC_ALL=C @NROFF@ @MANOPT@ # figured out by the configure script
 
-EXTRA_DIST = mkhelp.pl makefile.dj                                     \
- Makefile.m32 makefile.amiga curl.rc Makefile.inc CMakeLists.txt
+EXTRA_DIST = mkhelp.pl \
+ Makefile.mk curl.rc Makefile.inc CMakeLists.txt
 
 # Use absolute directory to disable VPATH
 MANPAGE=$(abs_top_builddir)/docs/curl.1
@@ -156,8 +156,7 @@ tidy:
 listhelp:
 	(cd $(top_srcdir)/docs/cmdline-opts && ./gen.pl listhelp *.d) > tool_listhelp.c
 
-if OS_WINDOWS
-# Warning is "normal": libtool:   error: ignoring unknown tag RC
+if HAVE_WINDRES
 .rc.o:
-	$(LIBTOOL) --tag=RC --mode=compile $(RC) -I$(top_srcdir)/include -DCURL_EMBED_MANIFEST $(RCFLAGS) -i $< -o $@
+	$(RC) -I$(top_srcdir)/include -DCURL_EMBED_MANIFEST $(RCFLAGS) -i $< -o $@
 endif

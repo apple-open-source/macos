@@ -51,8 +51,8 @@
 #define FQ_CODEL_QUANTUM_VO(_q)        ((_q * 2) / 5)
 #define FQ_CODEL_QUANTUM_CTL(_q)       ((_q * 2) / 5)
 
-static ZONE_DEFINE_TYPE(fq_if_zone, "pktsched_fq_if", fq_if_t, ZC_ZFREE_CLEARMEM);
-static ZONE_DEFINE_TYPE(fq_if_grp_zone, "pktsched_fq_if_grp", fq_if_group_t, ZC_ZFREE_CLEARMEM);
+static KALLOC_TYPE_DEFINE(fq_if_zone, fq_if_t, NET_KT_DEFAULT);
+static KALLOC_TYPE_DEFINE(fq_if_grp_zone, fq_if_group_t, NET_KT_DEFAULT);
 
 static uint64_t fq_empty_purge_delay = FQ_EMPTY_PURGE_DELAY;
 #if (DEVELOPMENT || DEBUG)

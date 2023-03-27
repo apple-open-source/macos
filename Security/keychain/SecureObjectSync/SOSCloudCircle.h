@@ -63,7 +63,10 @@ enum {
 
     KSOSCantParseSOSMessage = 8,
     kSOSErrorBadKeyType = 9,
-    kSOSDisabled,
+    
+    kSOSDisabled = 10,
+    
+    kSOSErrorFailedToRegisterBackupPublicKey = 11,
 };
 
 //
@@ -538,6 +541,7 @@ extern const CFStringRef kCKKSViewHome;
 extern const CFStringRef kCKKSViewLimitedPeersAllowed;
 extern const CFStringRef kCKKSViewMFi;
 extern const CFStringRef kCKKSViewMail;
+extern const CFStringRef kCKKSViewContacts;
 
 
 /*!

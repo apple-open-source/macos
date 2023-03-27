@@ -339,7 +339,7 @@ Files differ and only the second file contains the line.
 .Pp
 Comparison options:
 .Bl -tag -width Ds
-.It Fl A Ar algo, -algorithm Ar algo
+.It Fl A Ar algo, Fl -algorithm Ar algo
 Configure the algorithm used when comparing files.
 .Nm
 supports 3 algorithms:
@@ -350,7 +350,7 @@ Myers diff algorithm performs a O(ND) comparison between the two files.
 An optimisation is present when worst case files are detected it causes the
 Myers algorithm to bails out and produces correct, but non-optimal diff output.
 .It Cm patience
-The patience variant of the Myers algorithm, this variant attempts to create
+The Patience variant of the Myers algorithm, this variant attempts to create
 more aesthetically pleasing diff output by logically grouping lines.
 .It Cm stone
 The Stone algorithm looks for the longest common subsequence between compared files.
@@ -358,8 +358,32 @@ Stone encounters worst case performance when there are long common subsequences.
 In large files this can lead to a significant performance impact.
 The Stone algorithm is maintained for compatibility.
 .El
-Diff defaults the algorithm to Myers diff, but will fall back to the Stone
-algorithm if the input or output options are not supported by libdiff.
+.Pp
+.\"#ifdef __APPLE__
+The default diff algorithm when this flag is not given is
+.Dq Cm myers .
+.Nm
+will fallback to the
+.Dq Cm stone
+algorithm if the
+.Dq Cm myers
+algorithm cannot be supported with the given options and the algorithm has
+not been set explicitly.
+.Pp
+The default
+algorithm is affected by the POSIXLY_CORRECT and POSIX_PEDANTIC environment
+variables.
+When either variable is set the default algorithm will be
+.Dq Cm stone .
+.Pp
+If the diff algorithm is selected, but cannot be supported with the given options
+.Nm
+will produce an error.
+.Pp
+.\"#else
+.\"Diff defaults the algorithm to Myers diff, but will fall back to the Stone
+.\"algorithm if the input or output options are not supported by libdiff.
+.\"#endif	/* __APPLE__ */
 .It Fl a -text
 Treat all files as ASCII text.
 Normally

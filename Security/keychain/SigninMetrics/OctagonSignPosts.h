@@ -72,7 +72,6 @@ typedef struct octagon_signpost_s {
 #define OctagonSignpostNameFetchEscrowRecords                               "FetchEscrowRecords"
 #define OctagonSignpostNameFetchEscrowContents                              "FetchEscrowContents"
 #define OctagonSignpostNameSetNewRecoveryKeyWithData                        "SetNewRecoveryKeyWithData"
-#define OctagonSignpostNameRecoverOctagonUsingData                          "RecoverOctagonUsingData"
 #define OctagonSignpostNameRecoverOctagonUsingCustodianRecoveryKey          "RecoverOctagonUsingCustodianRecoveryKey"
 #define OctagonSignpostNamePreflightRecoverOctagonUsingCustodianRecoveryKey "PreflightRecoverOctagonUsingCustodianRecoveryKey"
 #define OctagonSignpostNameRecoverOctagonUsingInheritanceKey                "RecoverOctagonUsingInheritanceKey"

@@ -28,11 +28,15 @@
 
 #import "SFAnalyticsActivityTracker.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface SFAnalyticsActivityTracker(Internal)
 
 - (instancetype)initWithName:(NSString*)name clientClass:(Class)className;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif // objc2
 

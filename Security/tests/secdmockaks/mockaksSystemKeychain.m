@@ -19,7 +19,7 @@
     _SecSystemKeychainAlwaysClearOverride();
 }
 
-#if TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || TARGET_OS_OSX
 /*
  * Test add api in all its variants, using kSecUseSystemKeychain.
  * Expected behavior is different in edu mode because we pay attention to kSecUseSystemKeychain.
@@ -172,10 +172,64 @@
 #endif
 
 - (void)testOldFlagNotInEduMode {
+#if TARGET_OS_OSX
+#ifndef NDEBUG // Don't run this test in BATS yet. See rdar://101983503
+    // When both kSecUseSystemKeychain & kSecUseDataProtectionKeychain are true, we get a param error
+    // because the old flag is not appropriate for macOS DP keychain
+    NSDictionary *item = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrLabel : @"keychain label",
+        (id)kSecUseSystemKeychain : @YES,
+        (id)kSecUseDataProtectionKeychain : @YES,
+    };
+
+    XCTAssertEqual(SecItemAdd((CFDictionaryRef)item, NULL), errSecParam, "SecItemAdd kSecUseSystemKeychain & kSecUseDataProtectionKeychain");
+
+    // Clean up in case previous test failed
+    NSDictionary *query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrLabel : @"keychain label",
+    };
+    SecItemDelete((CFDictionaryRef)query);
+
+    // Add with kSecUseSystemKeychain, which is ignored when kSecUseDataProtectionKeychain is not set
+    item = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrLabel : @"keychain label",
+        (id)kSecUseSystemKeychain : @YES,
+    };
+
+    XCTAssertEqual(SecItemAdd((CFDictionaryRef)item, NULL), errSecSuccess, "SecItemAdd kSecUseSystemKeychain");
+
+    // So it should be in the legacy keychain
+    query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrLabel : @"keychain label",
+        (id)kSecReturnAttributes: @YES,
+    };
+
+    CFTypeRef result = NULL;
+    XCTAssertEqual(SecItemCopyMatching((CFTypeRef)query, &result), noErr, "SecItemCopyMatching after kSecUseSystemKeychain");
+    if (result) { // so we don't crash calling CFGetTypeID
+        XCTAssertEqual(CFGetTypeID(result), CFDictionaryGetTypeID(), "SecItemCopyMatching after kSecUseSystemKeychain unexpectedly returned something that's not a dict");
+        XCTAssertEqualObjects([(__bridge NSDictionary*)result valueForKey:(id)kSecAttrLabel], query[(id)kSecAttrLabel], "SecItemCopyMatching after kSecUseSystemKeychain label doesn't match");
+        CFReleaseNull(result);
+    }
+    SecItemDelete((CFDictionaryRef)query);
+#endif // NDEBUG
+#else
     [self helperOldSystemKeychainFlagWithEduMode:false];
+#endif
 }
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || TARGET_OS_OSX
+
+#if TARGET_OS_OSX
+#define localSecUseSystemKeychainAlways kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS
+#elif TARGET_OS_IOS
+#define localSecUseSystemKeychainAlways kSecUseSystemKeychainAlways
+#endif
+
 /*
  * Test add api in all its variants, using kSecUseSystemKeychainAlways.
  * Pay attention to kSecUseSystemKeychainAlways, whether in edu mode or not.
@@ -201,7 +255,7 @@
     query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrLabel : @"keychain label",
-        (id)kSecUseSystemKeychainAlways : @YES,
+        (id)localSecUseSystemKeychainAlways : @YES,
     };
     SecItemDelete((CFDictionaryRef)query);
 
@@ -212,7 +266,7 @@
     item = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrLabel : @"keychain label",
-        (id)kSecUseSystemKeychainAlways : @YES,
+        (id)localSecUseSystemKeychainAlways : @YES,
     };
 
     XCTAssertEqual(SecItemAdd((CFDictionaryRef)item, NULL), errSecSuccess, "SecItemAdd kSecUseSystemKeychainAlways edumode:%d", eduMode);
@@ -238,7 +292,7 @@
     query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrLabel : @"keychain label",
-        (id)kSecUseSystemKeychainAlways : @YES,
+        (id)localSecUseSystemKeychainAlways : @YES,
         (id)kSecReturnAttributes : @YES,
     };
 
@@ -250,7 +304,7 @@
     queryUpdate = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrLabel : @"keychain label",
-        (id)kSecUseSystemKeychainAlways : @YES,
+        (id)localSecUseSystemKeychainAlways : @YES,
     };
 
     attrsToUpdate0 = @{
@@ -295,7 +349,7 @@
     item = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrLabel : @"keychain label",
-        (id)kSecUseSystemKeychainAlways : @YES,
+        (id)localSecUseSystemKeychainAlways : @YES,
         (id)kSecAttrSynchronizable : @YES,
     };
 
@@ -308,7 +362,7 @@
     item = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrLabel : @"keychain label",
-        (id)kSecUseSystemKeychainAlways : @YES,
+        (id)localSecUseSystemKeychainAlways : @YES,
         (id)kSecAttrSynchronizable : @"1",
     };
 
@@ -318,7 +372,7 @@
     item = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrLabel : @"keychain label",
-        (id)kSecUseSystemKeychainAlways : @YES,
+        (id)localSecUseSystemKeychainAlways : @YES,
         (id)kSecUseSystemKeychain : @YES,
     };
     XCTAssertEqual(SecItemAdd((CFDictionaryRef)item, NULL), errSecParam, "SecItemAdd both flags edumode:%d", eduMode);
@@ -327,7 +381,7 @@
     query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrLabel : @"keychain label",
-        (id)kSecUseSystemKeychainAlways : @YES,
+        (id)localSecUseSystemKeychainAlways : @YES,
         (id)kSecUseSystemKeychain : @YES,
     };
     XCTAssertEqual(SecItemUpdate((CFDictionaryRef)query, (CFDictionaryRef)attrsToUpdate0), errSecParam, "SecItemUpdate both flags edumode:%d", eduMode);
@@ -343,10 +397,12 @@
 
 }
 
+#if TARGET_OS_IOS
 - (void)testNewFlagInEduMode {
     _SecSystemKeychainAlwaysOverride(true);
     [self helperNewSystemKeychainFlagWithEduMode:true];
 }
+#endif // TARGET_OS_IOS
 
 - (void)testNewFlagNotInEduMode {
     _SecSystemKeychainAlwaysOverride(true);
@@ -366,13 +422,12 @@
     NSDictionary *item = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrLabel : @"keychain label",
-        (id)kSecUseSystemKeychainAlways : @YES,
+        (id)localSecUseSystemKeychainAlways : @YES,
     };
 
     XCTAssertEqual(SecItemAdd((CFDictionaryRef)item, NULL), errSecParam, "test_new_system_keychain_flag_disabled SecItemAdd");
 }
-
-#endif // TARGET_OS_IOS
+#endif // TARGET_OS_IOS || TARGET_OS_OSX
 
 #if TARGET_OS_TV
 /*
@@ -511,6 +566,6 @@
 
 #endif // TARGET_OS_TV
 
-#endif // TARGET_OS_IPHONE
+#endif // TARGET_OS_IPHONE || TARGET_OS_OSX
 
 @end

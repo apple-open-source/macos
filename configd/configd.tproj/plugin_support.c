@@ -655,7 +655,7 @@ stopBundle(const void *value, void *context)
 
 
 static void
-stopBundles()
+stopBundles(void)
 {
 	/*
 	 * If defined, call each bundles stop() function.  This function is

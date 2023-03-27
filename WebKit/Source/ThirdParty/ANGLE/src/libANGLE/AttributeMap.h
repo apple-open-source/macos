@@ -7,12 +7,12 @@
 #ifndef LIBANGLE_ATTRIBUTEMAP_H_
 #define LIBANGLE_ATTRIBUTEMAP_H_
 
+#include "common/FastVector.h"
 #include "common/PackedEnums.h"
 
 #include <EGL/egl.h>
 
 #include <functional>
-#include <map>
 #include <vector>
 
 namespace egl
@@ -24,9 +24,19 @@ struct ValidationContext;
 using AttributeValidationFunc =
     std::function<bool(const ValidationContext *, const Display *, EGLAttrib)>;
 
+enum AttributeMapType
+{
+    Invalid,
+    Attrib,
+    Int,
+};
+
 class AttributeMap final
 {
   public:
+    static constexpr size_t kMapSize = 2;
+    using Map                        = angle::FlatUnorderedMap<EGLAttrib, EGLAttrib, kMapSize>;
+
     AttributeMap();
     AttributeMap(const AttributeMap &other);
     AttributeMap &operator=(const AttributeMap &other);
@@ -46,10 +56,12 @@ class AttributeMap final
         return FromEGLenum<PackedEnumT>(static_cast<EGLenum>(get(key)));
     }
 
+    using const_iterator = Map::const_iterator;
+
     template <typename PackedEnumT>
     PackedEnumT getAsPackedEnum(EGLAttrib key, PackedEnumT defaultValue) const
     {
-        auto iter = attribs().find(key);
+        const_iterator iter = attribs().find(key);
         return (attribs().find(key) != attribs().end())
                    ? FromEGLenum<PackedEnumT>(static_cast<EGLenum>(iter->second))
                    : defaultValue;
@@ -57,8 +69,6 @@ class AttributeMap final
 
     bool isEmpty() const;
     std::vector<EGLint> toIntVector() const;
-
-    typedef std::map<EGLAttrib, EGLAttrib>::const_iterator const_iterator;
 
     const_iterator begin() const;
     const_iterator end() const;
@@ -73,16 +83,18 @@ class AttributeMap final
     static AttributeMap CreateFromIntArray(const EGLint *attributes);
     static AttributeMap CreateFromAttribArray(const EGLAttrib *attributes);
 
+    AttributeMapType getType() const { return mMapType; }
+
   private:
     bool isValidated() const;
 
-    const std::map<EGLAttrib, EGLAttrib> &attribs() const
+    const Map &attribs() const
     {
         ASSERT(isValidated());
         return mValidatedAttributes;
     }
 
-    std::map<EGLAttrib, EGLAttrib> &attribs()
+    Map &attribs()
     {
         ASSERT(isValidated());
         return mValidatedAttributes;
@@ -90,7 +102,8 @@ class AttributeMap final
 
     mutable const EGLint *mIntPointer       = nullptr;
     mutable const EGLAttrib *mAttribPointer = nullptr;
-    mutable std::map<EGLAttrib, EGLAttrib> mValidatedAttributes;
+    mutable Map mValidatedAttributes;
+    mutable AttributeMapType mMapType = AttributeMapType::Invalid;
 };
 }  // namespace egl
 

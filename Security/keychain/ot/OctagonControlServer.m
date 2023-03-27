@@ -90,6 +90,30 @@
             return;
         }
     }
+    if(sel_isEqual(invocation.selector, @selector(setAccountSetting:setting:reply:))) {
+        if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonWalrus]) {
+            secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonWalrus);
+            [invocation setSelector:@selector(failSetAccountSetting:setting:reply:)];
+            [invocation invokeWithTarget:self];
+            return;
+        }
+    }
+    if(sel_isEqual(invocation.selector, @selector(fetchAccountSettings:reply:))) {
+        if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonWalrus]) {
+            secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonWalrus);
+            [invocation setSelector:@selector(failFetchAccountSettings:reply:)];
+            [invocation invokeWithTarget:self];
+            return;
+        }
+    }
+    if(sel_isEqual(invocation.selector, @selector(fetchAccountWideSettingsWithForceFetch:arguments:reply:))) {
+        if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonWalrus]) {
+            secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonWalrus);
+            [invocation setSelector:@selector(failFetchAccountWideSettingsWithForceFetch:arguments:reply:)];
+            [invocation invokeWithTarget:self];
+            return;
+        }
+    }
     [invocation invokeWithTarget:self.manager];
 }
 
@@ -132,6 +156,40 @@
                        description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonSecureElement]]);
 }
 
+- (void)failSetAccountSetting:(OTConfigurationContext*)arguments
+                      setting:(OTAccountSettings*)setting
+                        reply:(void (^)(NSError* _Nullable error))reply
+{
+    reply([NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecMissingEntitlement
+                       description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonWalrus]]);
+}
+
+- (void)failFetchAccountSettings:(OTConfigurationContext*)arguments
+                           reply:(void (^)(OTAccountSettings* setting, NSError* _Nullable error))reply
+{
+    reply(nil, [NSError errorWithDomain:NSOSStatusErrorDomain
+                                   code:errSecMissingEntitlement
+                            description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonWalrus]]);
+}
+
+- (void)failFetchAccountWideSettingsWithForceFetch:(bool)forceFetch
+                                         arguments:(OTConfigurationContext*)arguments
+                                             reply:(void (^)(OTAccountSettings* setting, NSError* _Nullable error))reply
+{
+    reply(nil, [NSError errorWithDomain:NSOSStatusErrorDomain
+                                   code:errSecMissingEntitlement
+                            description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonWalrus]]);
+}
+
+- (void)failPersistAccountSettings:(OTConfigurationContext*)arguments
+                           setting:(OTAccountSettings*)setting
+                             reply:(void (^)(NSError* _Nullable error))reply
+{
+    reply([NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecMissingEntitlement
+                       description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonWalrus]]);
+}
 
 + (BOOL)conformsToProtocol:(Protocol *)protocol {
     return [[OTManager class] conformsToProtocol:protocol];

@@ -1043,6 +1043,8 @@ void idl_es_decode_check_buffer  (
     IDL_msp_t
 );
 
+void idl_es_dealloc_elt_buffer(struct IDL_ms_t *IDL_msp);
+
 /*
  *  International character support
  */

@@ -886,7 +886,8 @@ void *_Block_copy(const void *arg) {
         // Resign the invoke pointer as it uses address authentication.
         result->invoke = aBlock->invoke;
 
-#if __has_feature(ptrauth_signed_block_descriptors)
+#if BLOCK_SMALL_DESCRIPTOR_SUPPORTED && \
+    __has_feature(ptrauth_signed_block_descriptors)
         if (aBlock->flags & BLOCK_SMALL_DESCRIPTOR) {
             uintptr_t oldDesc = ptrauth_blend_discriminator(
                     &aBlock->descriptor,

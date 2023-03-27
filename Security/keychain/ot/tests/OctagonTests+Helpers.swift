@@ -51,7 +51,7 @@ extension OctagonTestsBase {
         otcliqueContext.context = context.contextID
         otcliqueContext.altDSID = context.activeAccount?.altDSID
         otcliqueContext.otControl = self.otControl
-
+        otcliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
         return otcliqueContext
     }
 

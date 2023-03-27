@@ -28,6 +28,7 @@
 __FBSDID("$FreeBSD: src/usr.sbin/mtree/specspec.c,v 1.6 2005/03/29 11:44:17 tobez Exp $");
 
 #include <sys/param.h>
+#include <sys/stat.h>
 #include <err.h>
 #include <grp.h>
 #include <pwd.h>
@@ -108,6 +109,8 @@ shownode(NODE *n, int f, char const *path)
 		printf(" siblingid=%llu", n->sibling_id);
 	if (f & F_NXATTR)
 		printf(" nxattr=%llu", n->nxattr);
+	if (f & F_DATALESS)
+		printf(" dataless=%lu", n->st_flags & SF_DATALESS);
 	
 	printf("\n");
 }
@@ -210,6 +213,8 @@ compare_nodes(NODE *n1, NODE *n2, char const *path)
 		differs |= F_SIBLINGID;
 	if (FF(n1, n2, F_NXATTR, nxattr))
 		differs |= F_NXATTR;
+	if (FF(n1, n2, F_DATALESS, st_flags & SF_DATALESS))
+		differs |= F_DATALESS;
 	
 	if (differs) {
 		RECORD_FAILURE(114, WARN_MISMATCH);

@@ -99,6 +99,7 @@
 #include <WebCore/DummySpeechRecognitionProvider.h>
 #include <WebCore/DummyStorageProvider.h>
 #include <WebCore/Editor.h>
+#include <WebCore/EmptyBadgeClient.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/EventNames.h>
 #include <WebCore/FloatQuad.h>
@@ -129,7 +130,6 @@
 #include <WebCore/JSElement.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/LegacySchemeRegistry.h>
-#include <WebCore/LibWebRTCProvider.h>
 #include <WebCore/LogInitialization.h>
 #include <WebCore/Logging.h>
 #include <WebCore/MIMETypeRegistry.h>
@@ -140,7 +140,6 @@
 #include <WebCore/NotImplemented.h>
 #include <WebCore/PageConfiguration.h>
 #include <WebCore/PathUtilities.h>
-#include <WebCore/PermissionController.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PlatformMouseEvent.h>
 #include <WebCore/PlatformWheelEvent.h>
@@ -172,6 +171,7 @@
 #include <WebCore/UserStyleSheet.h>
 #include <WebCore/WebCoreJITOperations.h>
 #include <WebCore/WebCoreTextRenderer.h>
+#include <WebCore/WebRTCProvider.h>
 #include <WebCore/WindowMessageBroadcaster.h>
 #include <WebCore/WindowsTouch.h>
 #include <comdef.h>
@@ -1266,7 +1266,7 @@ void WebView::paintIntoBackingStore(FrameView* frameView, HDC bitmapDC, const In
     if (uiPrivate)
         uiPrivate->drawBackground(this, bitmapDC, &rect);
 
-    if (frameView && frameView->frame().contentRenderer()) {
+    if (frameView && downcast<WebCore::LocalFrame>(frameView->frame()).contentRenderer()) {
         gc.save();
         gc.scale(FloatSize(scaleFactor, scaleFactor));
         gc.clip(logicalDirtyRect);
@@ -1910,9 +1910,9 @@ bool WebView::mouseWheel(WPARAM wParam, LPARAM lParam, bool isMouseHWheel)
         WCHAR className[256];
 
         // Make sure truncation won't affect the comparison.
-        ASSERT(WTF_ARRAY_LENGTH(className) > wcslen(PopupMenuWin::popupClassName()));
+        ASSERT(std::size(className) > wcslen(PopupMenuWin::popupClassName()));
 
-        if (GetClassNameW(focusedWindow, className, WTF_ARRAY_LENGTH(className)) && !wcscmp(className, PopupMenuWin::popupClassName())) {
+        if (GetClassNameW(focusedWindow, className, std::size(className)) && !wcscmp(className, PopupMenuWin::popupClassName())) {
             // We don't let the WebView scroll here for two reasons - 1) To match Firefox behavior, 2) If we do scroll, we lose the
             // focus ring around the select menu.
             SetFocus(m_viewWindow);
@@ -2004,7 +2004,7 @@ bool WebView::execCommand(WPARAM wParam, LPARAM /*lParam*/)
 
 bool WebView::keyUp(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
 {
-    PlatformKeyboardEvent keyEvent(m_viewWindow, virtualKeyCode, keyData, PlatformEvent::KeyUp, systemKeyDown);
+    PlatformKeyboardEvent keyEvent(m_viewWindow, virtualKeyCode, keyData, PlatformEvent::Type::KeyUp, systemKeyDown);
 
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     m_currentCharacterCode = 0;
@@ -2109,10 +2109,10 @@ const char* WebView::interpretKeyEvent(const KeyboardEvent* evt)
         keyDownCommandsMap = new HashMap<int, const char*>;
         keyPressCommandsMap = new HashMap<int, const char*>;
 
-        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyDownEntries); ++i)
+        for (size_t i = 0; i < std::size(keyDownEntries); ++i)
             keyDownCommandsMap->set(keyDownEntries[i].modifiers << 16 | keyDownEntries[i].virtualKey, keyDownEntries[i].name);
 
-        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyPressEntries); ++i)
+        for (size_t i = 0; i < std::size(keyPressEntries); ++i)
             keyPressCommandsMap->set(keyPressEntries[i].modifiers << 16 | keyPressEntries[i].charCode, keyPressEntries[i].name);
     }
 
@@ -2147,7 +2147,7 @@ bool WebView::handleEditingKeyboardEvent(KeyboardEvent& event)
 
     auto command = frame->editor().command(String::fromLatin1(interpretKeyEvent(&event)));
 
-    if (keyEvent->type() == PlatformEvent::RawKeyDown) {
+    if (keyEvent->type() == PlatformEvent::Type::RawKeyDown) {
         // WebKit doesn't have enough information about mode to decide how commands that just insert text if executed via Editor should be treated,
         // so we leave it upon WebCore to either handle them immediately (e.g. Tab that changes focus) or let a keypress event be generated
         // (e.g. Tab that inserts a Tab character, or Enter).
@@ -2184,7 +2184,7 @@ bool WebView::keyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
             pendingCharEvents.append(msg);
     }
 
-    PlatformKeyboardEvent keyEvent(m_viewWindow, virtualKeyCode, keyData, PlatformEvent::RawKeyDown, systemKeyDown);
+    PlatformKeyboardEvent keyEvent(m_viewWindow, virtualKeyCode, keyData, PlatformEvent::Type::RawKeyDown, systemKeyDown);
     bool handled = frame.eventHandler().keyEvent(keyEvent);
 
     // These events cannot be canceled, and we have no default handling for them.
@@ -2260,7 +2260,7 @@ bool WebView::keyPress(WPARAM charCode, LPARAM keyData, bool systemKeyDown)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
 
-    PlatformKeyboardEvent keyEvent(m_viewWindow, charCode, keyData, PlatformEvent::Char, systemKeyDown);
+    PlatformKeyboardEvent keyEvent(m_viewWindow, charCode, keyData, PlatformEvent::Type::Char, systemKeyDown);
     // IE does not dispatch keypress event for WM_SYSCHAR.
     if (systemKeyDown)
         return frame.eventHandler().handleAccessKey(keyEvent);
@@ -2900,7 +2900,7 @@ HRESULT WebView::initWithFrame(RECT frame, _In_ BSTR frameName, _In_ BSTR groupN
         PAL::SessionID::defaultSessionID(),
         makeUniqueRef<WebEditorClient>(this),
         SocketProvider::create(),
-        makeUniqueRef<LibWebRTCProvider>(),
+        makeUniqueRef<WebRTCProvider>(),
         CacheStorageProvider::create(),
         m_webViewGroup->userContentController(),
         BackForwardList::create(),
@@ -2910,9 +2910,9 @@ HRESULT WebView::initWithFrame(RECT frame, _In_ BSTR frameName, _In_ BSTR groupN
         makeUniqueRef<DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
-        WebCore::DummyPermissionController::create(),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
-        makeUniqueRef<WebCore::DummyModelPlayerProvider>()
+        makeUniqueRef<WebCore::DummyModelPlayerProvider>(),
+		EmptyBadgeClient::create()
     );
     configuration.chromeClient = new WebChromeClient(this);
 #if ENABLE(CONTEXT_MENUS)
@@ -3629,8 +3629,8 @@ static Frame *incrementFrame(Frame *curr, bool forward, bool wrapFlag)
 {
     CanWrap canWrap = wrapFlag ? CanWrap::Yes : CanWrap::No;
     return forward
-        ? curr->tree().traverseNext(canWrap)
-        : curr->tree().traversePrevious(canWrap);
+        ? dynamicDowncast<LocalFrame>(curr->tree().traverseNext(canWrap))
+        : dynamicDowncast<LocalFrame>(curr->tree().traversePrevious(canWrap));
 }
 
 HRESULT WebView::searchFor(_In_ BSTR str, BOOL forward, BOOL caseFlag, BOOL wrapFlag, _Out_ BOOL* found)
@@ -5013,7 +5013,7 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     hr = prefsPrivate->menuItemElementEnabled(&enabled);
     if (FAILED(hr))
         return hr;
-    DeprecatedGlobalSettings::setMenuItemElementEnabled(!!enabled);
+    settings.setMenuItemElementEnabled(!!enabled);
 
     hr = prefsPrivate->webAnimationsCompositeOperationsEnabled(&enabled);
     if (FAILED(hr))
@@ -5322,8 +5322,8 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     hr = prefsPrivate->mediaPlaybackRequiresUserGesture(&enabled);
     if (FAILED(hr))
         return hr;
-    settings.setVideoPlaybackRequiresUserGesture(enabled);
-    settings.setAudioPlaybackRequiresUserGesture(enabled);
+    settings.setRequiresUserGestureForVideoPlayback(enabled);
+    settings.setRequiresUserGestureForAudioPlayback(enabled);
 
     hr = prefsPrivate->mediaPlaybackAllowsInline(&enabled);
     if (FAILED(hr))
@@ -6219,7 +6219,7 @@ LRESULT WebView::onIMERequestReconvertString(Frame* targetFrame, RECONVERTSTRING
     reconvertString->dwStrLen = text.length();
     reconvertString->dwTargetStrLen = text.length();
     reconvertString->dwStrOffset = sizeof(RECONVERTSTRING);
-    StringView(text).getCharactersWithUpconvert(reinterpret_cast<UChar*>(reconvertString + 1));
+    StringView(text).getCharacters(reinterpret_cast<UChar*>(reconvertString + 1));
     return totalSize;
 }
 
@@ -6304,7 +6304,7 @@ bool WebView::paintCompositedContentToHDC(HDC deviceContext)
 #if USE(CA)
     m_layerTreeHost->flushPendingLayerChangesNow();
 #elif USE(TEXTURE_MAPPER_GL)
-    m_acceleratedCompositingContext->flushAndRenderLayers();
+    m_acceleratedCompositingContext->flushPendingLayerChanges();
 #endif
 
     // Flushing might have taken us out of compositing mode.
@@ -6313,6 +6313,8 @@ bool WebView::paintCompositedContentToHDC(HDC deviceContext)
 
 #if USE(CA)
     m_layerTreeHost->paint(deviceContext);
+#elif USE(TEXTURE_MAPPER_GL)
+    m_acceleratedCompositingContext->paint(deviceContext);
 #endif
 
     return true;

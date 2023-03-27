@@ -39,9 +39,11 @@ namespace WebCore {
 class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
+struct ClientOrigin;
 struct Cookie;
 struct MessagePortIdentifier;
 struct MessageWithMessagePorts;
+struct SecurityOriginData;
 enum class HTTPCookieAcceptPolicy : uint8_t;
 }
 
@@ -52,9 +54,11 @@ class WebSharedWorkerObjectConnection;
 class WebSWClientConnection;
 class WebSharedWorkerObjectConnection;
 
+enum class WebsiteDataType : uint32_t;
+
 class NetworkProcessConnection : public RefCounted<NetworkProcessConnection>, IPC::Connection::Client {
 public:
-    static Ref<NetworkProcessConnection> create(IPC::Connection::Identifier connectionIdentifier, WebCore::HTTPCookieAcceptPolicy httpCookieAcceptPolicy)
+    static Ref<NetworkProcessConnection> create(IPC::Connection::Identifier&& connectionIdentifier, WebCore::HTTPCookieAcceptPolicy httpCookieAcceptPolicy)
     {
         return adoptRef(*new NetworkProcessConnection(connectionIdentifier, httpCookieAcceptPolicy));
     }
@@ -102,7 +106,6 @@ private:
     void setOnLineState(bool isOnLine);
     void cookieAcceptPolicyChanged(WebCore::HTTPCookieAcceptPolicy);
 
-    void checkProcessLocalPortForActivity(const WebCore::MessagePortIdentifier&, CompletionHandler<void(WebCore::MessagePortChannelProvider::HasActivity)>&&);
     void messagesAvailableForPort(const WebCore::MessagePortIdentifier&);
 
 #if ENABLE(SHAREABLE_RESOURCE)

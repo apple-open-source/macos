@@ -164,6 +164,7 @@ SEC_CONST_DECL (kSecUseOperationPrompt, "u_OpPrompt");
 SEC_CONST_DECL (kSecUseNoAuthenticationUI, "u_NoAuthUI");
 SEC_CONST_DECL (kSecUseAuthenticationUI, "u_AuthUI");
 SEC_CONST_DECL (kSecUseSystemKeychainAlways, "u_SystemKeychainAlways");
+SEC_CONST_DECL (kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS, "u_SystemKeychainAlways");
 SEC_CONST_DECL (kSecUseSystemKeychain, "u_SystemKeychain");
 SEC_CONST_DECL (kSecUseSyncBubbleKeychain, "u_SyncBubbleKeychain");
 SEC_CONST_DECL (kSecUseCallerName, "u_CallerName");

@@ -620,7 +620,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
         swatch.addEventListener(WI.InlineSwatch.Event.Activated, function(event) {
             this._activeInlineSwatch = swatch;
-            this._delegate?.stylePropertyInlineSwatchActivated();
+            this._delegate?.stylePropertyInlineSwatchActivated?.();
         }, this);
 
         if (this._delegate && typeof this._delegate.stylePropertyInlineSwatchDeactivated === "function") {
@@ -754,6 +754,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     _addTimingFunctionTokens(tokens, tokenType)
     {
+        if (!this._isEditable())
+            return tokens;
+
         let newTokens = [];
         let startIndex = NaN;
         let openParenthesis = 0;
@@ -803,6 +806,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     _addBoxShadowTokens(tokens)
     {
+        if (!this._isEditable())
+            return tokens;
+
         let newTokens = [];
         let startIndex = 0;
         let openParentheses = 0;

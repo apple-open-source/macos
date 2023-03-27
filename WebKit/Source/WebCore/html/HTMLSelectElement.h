@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "HTMLFormControlElementWithState.h"
+#include "HTMLFormControlElement.h"
 #include "HTMLOptionElement.h"
 #include "TypeAhead.h"
 #include <wtf/CompletionHandler.h>
@@ -34,7 +34,7 @@ namespace WebCore {
 
 class HTMLOptionsCollection;
 
-class HTMLSelectElement : public HTMLFormControlElementWithState, private TypeAheadDataSource {
+class HTMLSelectElement : public HTMLFormControlElement, private TypeAheadDataSource {
     WTF_MAKE_ISO_ALLOCATED(HTMLSelectElement);
 public:
     static Ref<HTMLSelectElement> create(const QualifiedName&, Document&, HTMLFormElement*);
@@ -73,7 +73,7 @@ public:
     void invalidateSelectedItems();
     void updateListItemSelectedStates(AllowStyleInvalidation = AllowStyleInvalidation::Yes);
 
-    WEBCORE_EXPORT const Vector<HTMLElement*>& listItems() const;
+    WEBCORE_EXPORT const Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>>& listItems() const;
 
     void accessKeySetSelectedIndex(int);
 
@@ -109,6 +109,9 @@ public:
 
     CompletionHandlerCallingScope optionToSelectFromChildChangeScope(const ChildChange&, HTMLOptGroupElement* parentOptGroup = nullptr);
 
+    bool canContainRangeEndPoint() const override { return false; }
+    bool shouldSaveAndRestoreFormControlState() const final { return true; }
+
 protected:
     HTMLSelectElement(const QualifiedName&, Document&, HTMLFormElement*);
 
@@ -125,7 +128,7 @@ private:
     bool canStartSelection() const final { return false; }
 
     bool isEnumeratable() const final { return true; }
-    bool supportLabels() const final { return true; }
+    bool isLabelable() const final { return true; }
 
     bool isInteractiveContent() const final { return true; }
 
@@ -195,7 +198,7 @@ private:
 
 
     // m_listItems contains HTMLOptionElement, HTMLOptGroupElement, and HTMLHRElement objects.
-    mutable Vector<HTMLElement*> m_listItems;
+    mutable Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>> m_listItems;
     Vector<bool> m_lastOnChangeSelection;
     Vector<bool> m_cachedStateForActiveSelection;
     TypeAhead m_typeAhead;

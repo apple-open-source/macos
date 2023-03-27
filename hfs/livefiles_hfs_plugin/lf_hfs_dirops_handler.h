@@ -23,6 +23,6 @@ int LFHFS_ReadDirAttr   ( UVFSFileNode psDirNode, void *pvBuf, size_t iBufLen, u
 int LFHFS_ScanDir       ( UVFSFileNode psDirNode, scandir_matching_request_t* psMatchingCriteria, scandir_matching_reply_t* psMatchingResult );
 int LFHFS_ScanIDs       ( UVFSFileNode psNode, __unused uint64_t uRequestedAttributes, const uint64_t* puFileIDArray, unsigned int iFileIDCount, scanids_match_block_t fMatchCallback);
 
-int DIROPS_RemoveInternal( UVFSFileNode psDirNode, const char *pcUTF8Name );
+int DIROPS_RemoveInternal( UVFSFileNode psDirNode, const char *pcUTF8Name, UVFSFileNode victimNode );
 int DIROPS_LookupInternal( UVFSFileNode psDirNode, const char *pcUTF8Name, UVFSFileNode *ppsOutNode );
 #endif /* lf_hfs_dirpos_handler_h */

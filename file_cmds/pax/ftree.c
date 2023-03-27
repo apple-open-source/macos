@@ -222,7 +222,7 @@ ftree_sel(ARCHD *arcn)
  */
 
 void
-ftree_notsel()
+ftree_notsel(void)
 {
 	if (ftent != NULL)
 		(void)fts_set(ftsp, ftent, FTS_SKIP);

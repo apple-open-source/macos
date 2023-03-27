@@ -27,6 +27,8 @@ nn{
         ceb{"cebuano"}
         chg{"tsjagataisk"}
         chr{"cherokee"}
+        cic{"chickasaw"}
+        cic_Latn{"chickasaw"}
         crs{"seselwa (fransk-kreolsk)"}
         cu{"kyrkjeslavisk"}
         cv{"tsjuvansk"}

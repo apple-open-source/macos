@@ -43,7 +43,7 @@ mod_export int contflag;
 /* # of break levels */
  
 /**/
-mod_export int breaks;
+mod_export volatile int breaks;
 
 /**/
 int
@@ -497,13 +497,15 @@ execrepeat(Estate state, UNUSED(int do_exec))
 
     end = state->pc + WC_REPEAT_SKIP(code);
 
-    lastval = 0;
     tmp = ecgetstr(state, EC_DUPTOK, &htok);
-    if (htok)
+    if (htok) {
 	singsub(&tmp);
+	untokenize(tmp);
+    }
     count = mathevali(tmp);
     if (errflag)
 	return 1;
+    lastval = 0; /* used when the repeat count is zero */
     pushheap();
     cmdpush(CS_REPEAT);
     loops++;
@@ -581,7 +583,7 @@ execif(Estate state, int do_exec)
 	cmdpop();
     } else {
 	noerrexit = olderrexit;
-	if (!retflag)
+	if (!retflag && !errflag)
 	    lastval = 0;
     }
     state->pc = end;
@@ -742,7 +744,7 @@ exectry(Estate state, int do_exec)
 
     /* The :try clause */
     ++try_tryflag;
-    execlist(state, 1, do_exec);
+    execlist(state, 1, 0);
     --try_tryflag;
 
     /* Don't record errflag here, may be reset.  However, */

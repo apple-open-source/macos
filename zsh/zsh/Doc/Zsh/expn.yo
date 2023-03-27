@@ -84,7 +84,7 @@ vindex(histchars, use of)
 A history expansion begins with the first character of the tt(histchars)
 parameter, which is `tt(!)' by default, and may occur anywhere on the
 command line, including inside double quotes (but not inside single quotes
-tt('...') or C-style quotes tt($'...') nor when escaped with a backslash).  
+tt('...') or C-style quotes tt($'...') nor when escaped with a backslash).
 
 The first character is followed by an optional event designator
 (ifzman(see )noderef(Event Designators)) and then an optional word
@@ -287,8 +287,10 @@ expansion.
 )
 item(tt(P))(
 Turn a file name into an absolute path, like tt(realpath+LPAR()3+RPAR()).
-The resulting path will be absolute, have neither `tt(.)' nor `tt(..)' components,
-and refer to the same directory entry as the input filename.
+The resulting path will be absolute,
+will refer to the same directory entry as the input filename,
+and none of its components will be symbolic links or equal to
+`tt(.)' or `tt(..)'.
 
 Unlike tt(realpath+LPAR()3+RPAR()), non-existent trailing components are
 permitted and preserved.
@@ -494,7 +496,7 @@ which treats var(arg) as a file name and replaces it with the file's
 contents.
 
 The tt(=) form is useful as both the tt(/dev/fd) and the named pipe
-implementation of tt(<LPAR())var(...)tt(RPAR()) have drawbacks.  In 
+implementation of tt(<LPAR())var(...)tt(RPAR()) have drawbacks.  In
 the former case, some programmes may automatically close the file
 descriptor in question before examining the file on the command line,
 particularly if this is necessary for security reasons such as when the
@@ -509,7 +511,7 @@ information using a pipe, so that programmes that expect to lseek
 Also note that the previous example can be more compactly and
 efficiently written (provided the tt(MULTIOS) option is set) as:
 
-example(tt(paste <LPAR()cut -f1) var(file1)tt(RPAR() <LPAR()cut -f3) var(file2)tt(RPAR()) ifzman(\ 
+example(tt(paste <LPAR()cut -f1) var(file1)tt(RPAR() <LPAR()cut -f3) var(file2)tt(RPAR()) ifzman(\
 )tt(> >LPAR())var(process1)tt(RPAR() > >LPAR())var(process2)tt(RPAR()))
 
 The shell uses pipes instead of FIFOs to implement the latter
@@ -870,7 +872,8 @@ of the string tt($-) and the array tt($*) respectively.  If
 tt(POSIX_IDENTIFIERS) is set, then braces are required for
 the tt(#) to be treated in this fashion.
 )
-item(tt(${^)var(spec)tt(}))(
+xitem(tt(${^)var(spec)tt(}))
+item(tt(${^^)var(spec)tt(}))(
 pindex(RC_EXPAND_PARAM, toggle)
 cindex(array expansion style, rc)
 cindex(rc, array expansion style)
@@ -893,7 +896,8 @@ happening later.  If word splitting is also in effect the
 tt($var[)var(N)tt(]) may themselves be split into different list
 elements.
 )
-item(tt(${=)var(spec)tt(}))(
+xitem(tt(${=)var(spec)tt(}))
+item(tt(${==)var(spec)tt(}))(
 pindex(SH_WORD_SPLIT, toggle)
 cindex(field splitting, sh style, parameter)
 cindex(sh, field splitting style, parameter)
@@ -909,7 +913,8 @@ Note that splitting is applied to var(word) in the assignment forms
 of var(spec) em(before) the assignment to var(name) is performed.
 This affects the result of array assignments with the tt(A) flag.
 )
-item(tt(${~)var(spec)tt(}))(
+xitem(tt(${~)var(spec)tt(}))
+item(tt(${~~)var(spec)tt(}))(
 pindex(GLOB_SUBST, toggle)
 Turn on the tt(GLOB_SUBST) option for the evaluation of
 var(spec); if the `tt(~)' is doubled, turn it off.  When this option is
@@ -963,16 +968,17 @@ following flags are supported:
 
 startitem()
 item(tt(#))(
-Evaluate the resulting words as numeric expressions and output the
-characters corresponding to the resulting integer.  Note that this form is
-entirely distinct from use of the tt(#) without parentheses.
+Evaluate the resulting words as numeric expressions and interpret
+these as character codes.  Output the corresponding characters.  Note
+that this form is entirely distinct from use of the tt(#) without
+parentheses.
 
 If the tt(MULTIBYTE) option is set and the number is greater than 127
 (i.e. not an ASCII character) it is treated as a Unicode character.
 )
 item(tt(%))(
 Expand all tt(%) escapes in the resulting words in the same way as in
-prompts (see 
+prompts (see
 ifzman(EXPANSION OF PROMPT SEQUENCES in zmanref(zshmisc))\
 ifnzman(noderef(Prompt Expansion))). If this flag is given twice,
 full prompt expansion is done on the resulting words, depending on the
@@ -1092,22 +1098,31 @@ Convert all letters in the result to lower case.
 item(tt(n))(
 Sort decimal integers numerically; if the first differing
 characters of two test strings are not digits, sorting
-is lexical.   Integers with more initial zeroes
-are sorted before those with fewer or none.  Hence the array `tt(foo1 foo02
+is lexical.  `tt(+)' and `tt(-)' are not treated specially; they are treated as
+any other non-digit.  Integers with more initial zeroes
+are sorted before those with fewer or none.  Hence the array `tt(foo+24 foo1 foo02
 foo2 foo3 foo20 foo23)' is sorted into the order shown.
 May be combined with `tt(i)' or `tt(O)'.
+)
+item(tt(-))(
+As tt(n), but a leading minus sign indicates a negative decimal
+integer.  A leading minus sign not followed by an integer does not trigger
+numeric sorting.
+Note that `tt(+)' signs are not handled specially (this may change in the
+future).
 )
 item(tt(o))(
 Sort the resulting words in ascending order; if this appears on its
 own the sorting is lexical and case-sensitive (unless the locale
 renders it case-insensitive).  Sorting in ascending order is the
 default for other forms of sorting, so this is ignored if combined
-with `tt(a)', `tt(i)' or `tt(n)'.
+with `tt(a)', `tt(i)', `tt(n)' or `tt(-)'.
 )
 item(tt(O))(
 Sort the resulting words in descending order; `tt(O)' without `tt(a)',
-`tt(i)' or `tt(n)' sorts in reverse lexical order.  May be combined
-with `tt(a)', `tt(i)' or `tt(n)' to reverse the order of sorting.
+`tt(i)', `tt(n)' or `tt(-)' sorts in reverse lexical order.  May be
+combined with `tt(a)', `tt(i)', `tt(n)' or `tt(-)' to reverse the
+order of sorting.
 )
 item(tt(P))(
 This forces the value of the parameter var(name) to be interpreted as a
@@ -1190,6 +1205,11 @@ for readonly parameters
 )
 item(tt(tag))(
 for tagged parameters
+)
+item(tt(tied))(
+for parameters tied to another parameter in the manner of tt(PATH)
+(colon-separated list) and tt(path) (array), whether these are
+special parameters or user-defined with `tt(typeset -T)'
 )
 item(tt(export))(
 for exported parameters
@@ -1377,16 +1397,29 @@ i.e.  tt("${(@s.:.)line}").
 item(tt(Z:)var(opts)tt(:))(
 As tt(z) but takes a combination of option letters between a following
 pair of delimiter characters.  With no options the effect is identical
-to tt(z).  tt(LPAR()Z+PLUS()c+PLUS()RPAR())
+to tt(z).  The following options are available:
+
+startitem()
+item(tt(LPAR()Z+PLUS()c+PLUS()RPAR()))(
 causes comments to be parsed as a string and retained; any field in the
 resulting array beginning with an unquoted comment character is a
-comment.  tt(LPAR()Z+PLUS()C+PLUS()RPAR()) causes comments to be parsed
+comment.
+)
+item(tt(LPAR()Z+PLUS()C+PLUS()RPAR()))(
+causes comments to be parsed
 and removed.  The rule for comments is standard: anything between a word
 starting with the third character of tt($HISTCHARS), default tt(#), up to
-the next newline is a comment.  tt(LPAR()Z+PLUS()n+PLUS()RPAR()) causes
+the next newline is a comment.
+)
+item(tt(LPAR()Z+PLUS()n+PLUS()RPAR()))(
+causes
 unquoted newlines to be treated as ordinary whitespace, else they are
 treated as if they are shell code delimiters and converted to
-semicolons.  Options are combined within the same set of delimiters,
+semicolons.
+)
+enditem()
+
+Options are combined within the same set of delimiters,
 e.g. tt(LPAR()Z+PLUS()Cn+PLUS()RPAR()).
 )
 item(tt(_:)var(flags)tt(:))(
@@ -1398,7 +1431,7 @@ error, and the flag itself has no effect.
 enditem()
 
 The following flags are meaningful with the tt(${)...tt(#)...tt(}) or
-tt(${)...tt(%)...tt(}) forms.  The tt(S) and tt(I) flags may also be
+tt(${)...tt(%)...tt(}) forms.  The tt(S), tt(I), and tt(*) flags may also be
 used with the tt(${)...tt(/)...tt(}) forms.
 
 startitem()
@@ -1464,6 +1497,11 @@ will remove the same matches as for `tt(#)', but in reverse order, and the
 form using `tt(%%)' will remove the same matches as for `tt(##)' in reverse
 order.
 )
+item(tt(*))(
+pindex(EXTENDED_GLOB, enable)
+Enable tt(EXTENDED_GLOB) for substitution via tt(${)...tt(/)...tt(}) or
+tt(${)...tt(//)...tt(}).  Note that `tt(**)' does not disable extendedglob.
+)
 item(tt(B))(
 Include the index of the beginning of the match in the result.
 )
@@ -1483,7 +1521,9 @@ Include the unmatched portion in the result (the em(R)est).
 enditem()
 
 subsect(Rules)
-
+cindex(parameter expansion rules)
+cindex(rules, parameter expansion)
+cindex(substitution, parameter, rules)
 Here is a summary of the rules for substitution; this assumes that braces
 are present around the substitution, i.e. tt(${)var(...)tt(}).  Some particular
 examples are given below.  Note that the Zsh Development Group accepts
@@ -1681,6 +1721,7 @@ expression) and replaced with the corresponding value, with internal flags
 enditem()
 
 subsect(Examples)
+cindex(parameter expansion, examples)
 The flag tt(f) is useful to split a double-quoted substitution line by
 line.  For example, tt(${(f)"$LPAR()<)var(file)tt(RPAR()"})
 substitutes the contents of var(file) divided so that each line is
@@ -1698,7 +1739,7 @@ This produces the result tt(b).  First, the inner substitution
 tt("${foo}"), which has no array (tt(@)) flag, produces a single word
 result tt("bar baz").  The outer substitution tt("${(@)...[1]}") detects
 that this is a scalar, so that (despite the `tt((@))' flag) the subscript
-picks the first character. 
+picks the first character.
 )
 item(tt("${${(@)foo}[1]}"))(
 This produces the result `tt(bar)'.  In this case, the inner substitution
@@ -1732,7 +1773,7 @@ sect(Command Substitution)
 cindex(command substitution)
 cindex(substitution, command)
 A command enclosed in parentheses preceded by a dollar sign, like
-`tt($LPAR())...tt(RPAR())', or quoted with grave 
+`tt($LPAR())...tt(RPAR())', or quoted with grave
 accents, like `tt(`)...tt(`)', is replaced with its standard output, with
 any trailing newlines deleted.
 If the substitution is not enclosed in double quotes, the
@@ -1823,7 +1864,7 @@ has similar effects.
 
 To combine brace expansion with array expansion, see the
 tt(${^)var(spec)tt(}) form described
-ifzman(in the section Parameter Expansion)\
+ifzman(in the section `Parameter Expansion')\
 ifnzman(in noderef(Parameter Expansion))
 above.
 
@@ -1858,11 +1899,18 @@ The tt(PUSHD_MINUS)
 option exchanges the effects of `tt(~PLUS())' and `tt(~-)' where they are
 followed by a number.
 
+startmenu()
+menu(Dynamic named directories)
+menu(Static named directories)
+menu(`=' expansion)
+menu(Notes)
+endmenu()
+
+texinode(Dynamic named directories)(Static named directories)()(Filename Expansion)
 subsect(Dynamic named directories)
 cindex(directories, named, dynamic)
 cindex(named directories, dynamic)
 cindex(dynamic named directories)
-
 If the function tt(zsh_directory_name) exists, or the shell variable
 tt(zsh_directory_name_functions) exists and contains an array of
 function names, then the functions are used to implement dynamic
@@ -1952,6 +2000,7 @@ example(zsh_directory_name+LPAR()RPAR() {
   return 0
 })
 
+texinode(Static named directories)(`=' expansion)(Dynamic named directories)(Filename Expansion)
 subsect(Static named directories)
 cindex(directories, named, static)
 cindex(named directories, static)
@@ -1978,6 +2027,7 @@ i.e. either the directory name or the full path; the name is used
 if they are the same length.
 The parameters tt($PWD) and tt($OLDPWD) are never abbreviated in this fashion.
 
+texinode(`=' expansion)(Notes)(Static named directories)(Filename Expansion)
 subsect(`=' expansion)
 
 If a word begins with an unquoted `tt(=)'
@@ -1987,8 +2037,9 @@ name of a command.  If a command
 exists by that name, the word is replaced
 by the full pathname of the command.
 
+texinode(Notes)()(`=' expansion)(Filename Expansion)
 subsect(Notes)
-
+cindex(filename expansion, notes)
 Filename expansion is performed on the right hand side of a parameter
 assignment, including those appearing after commands of the
 tt(typeset) family.  In this case, the right hand side will be treated
@@ -2033,6 +2084,7 @@ No filename generation pattern
 matches the files `tt(.)' or `tt(..)'.  In other instances of pattern
 matching, the `tt(/)' and `tt(.)' are not treated specially.
 subsect(Glob Operators)
+cindex(glob operators)
 startitem()
 item(tt(*))(
 Matches any string, including the null string.
@@ -2103,7 +2155,8 @@ is not sensitive to the locale:
 startitem()
 item(tt([:IDENT:]))(
 The character is allowed to form part of a shell identifier, such
-as a parameter name
+as a parameter name; this test respects the tt(POSIX_IDENTIFIERS)
+option
 )
 item(tt([:IFS:]))(
 The character is used as an input field separator, i.e. is contained in the
@@ -2263,6 +2316,8 @@ within `tt([[)...tt(]])'), a `tt(/)' is not special; and `tt(/)' is also
 not special after a `tt(~)' appearing outside parentheses in a filename
 pattern.
 subsect(Globbing Flags)
+cindex(globbing flags)
+cindex(glob flags)
 There are various flags which affect any text to their right up to the
 end of the enclosing group or to the end of the pattern; they require
 the tt(EXTENDED_GLOB) option. All take the form
@@ -2427,7 +2482,7 @@ qualifiers are also not applied in ordinary pattern matching.
 )
 item(tt(u))(
 Respect the current locale in determining the presence of multibyte
-characters in a pattern, provided the shell was compiled with 
+characters in a pattern, provided the shell was compiled with
 tt(MULTIBYTE_SUPPORT).  This overrides the tt(MULTIBYTE)
 option; the default behaviour is taken from the option.  Compare tt(U).
 (Mnemonic: typically multibyte characters are from Unicode in the UTF-8
@@ -2457,6 +2512,8 @@ searched for all files which match, so that a pattern of the form
 tt(LPAR()#i)tt(RPAR()/foo/bar/...) is potentially slow.
 
 subsect(Approximate Matching)
+cindex(approximate matching)
+cindex(matching, approximate)
 When matching approximately, the shell keeps a count of the errors found,
 which cannot exceed the number specified in the
 tt(LPAR()#a)var(num)tt(RPAR()) flags.  Four types of error are recognised:
@@ -2522,6 +2579,8 @@ approximate match.  It is best to place the tt((#a1)) after any path
 segments which are known to be correct.
 
 subsect(Recursive Globbing)
+cindex(recursive globbing)
+cindex(globbing, recursive)
 A pathname component of the form `tt(LPAR())var(foo)tt(/RPAR()#)'
 matches a path consisting of zero or more directories
 matching the pattern var(foo).
@@ -2674,18 +2733,18 @@ expected, if combined with a `tt(=)', the value given must match the
 file-modes exactly, with a `tt(PLUS())', at least the bits in the
 given number must be set in the file-modes, and with a `tt(-)', the
 bits in the number must not be set. Giving a `tt(?)' instead of a
-octal digit anywhere in the number ensures that the corresponding bits 
+octal digit anywhere in the number ensures that the corresponding bits
 in the file-modes are not checked, this is only useful in combination
 with `tt(=)'.
 
 If the qualifier `tt(f)' is followed by any other character anything
-up to the next matching character (`tt([)', `tt({)', and `tt(<)' match 
+up to the next matching character (`tt([)', `tt({)', and `tt(<)' match
 `tt(])', `tt(})', and `tt(>)' respectively, any other character
 matches itself) is taken as a list of comma-separated
 var(sub-spec)s. Each var(sub-spec) may be either an octal number as
 described above or a list of any of the characters `tt(u)', `tt(g)',
 `tt(o)', and `tt(a)', followed by a `tt(=)', a `tt(PLUS())', or a
-`tt(-)', followed by a list of any of the characters `tt(r)', `tt(w)', 
+`tt(-)', followed by a list of any of the characters `tt(r)', `tt(w)',
 `tt(x)', `tt(s)', and `tt(t)', or an octal digit. The first list of
 characters specify which access rights are to be checked. If a `tt(u)'
 is given, those for the owner of the file are used, if a `tt(g)' is
@@ -2694,7 +2753,7 @@ of other users, and the `tt(a)' says to test all three groups. The
 `tt(=)', `tt(PLUS())', and `tt(-)' again says how the modes are to be
 checked and have the same meaning as described for the first form
 above. The second list of characters finally says which access rights
-are to be expected: `tt(r)' for read access, `tt(w)' for write access, 
+are to be expected: `tt(r)' for read access, `tt(w)' for write access,
 `tt(x)' for the right to execute the file (or to search a directory),
 `tt(s)' for the setuid and setgid bits, and `tt(t)' for the sticky
 bit.
@@ -2703,7 +2762,7 @@ Thus, `tt(*(f70?))' gives the files for which the owner has read,
 write, and execute permission, and for which other group members have
 no rights, independent of the permissions for other users. The pattern
 `tt(*(f-100))' gives all files for which the owner does not have
-execute permission, and `tt(*(f:gu+w,o-rx:))' gives the files for which 
+execute permission, and `tt(*(f:gu+w,o-rx:))' gives the files for which
 the owner and the other members of the group have at least write
 permission, and for which other users don't have read or execute
 permission.
@@ -2824,7 +2883,9 @@ negates all qualifiers following it
 )
 item(tt(-))(
 toggles between making the qualifiers work on symbolic links (the
-default) and the files they point to
+default) and the files they point to, if any; any symbolic link for
+whose target the `tt(stat)' system call fails (whatever the cause of the
+failure) is treated as a file in its own right
 )
 item(tt(M))(
 sets the tt(MARK_DIRS) option for the current pattern
@@ -2854,18 +2915,26 @@ matches in directory traversal order will be considered.
 Implies tt(oN) when no tt(o)var(c) qualifier is used.
 )
 item(tt(o)var(c))(
-specifies how the names of the files should be sorted. If var(c) is
-tt(n) they are sorted by name; if it is tt(L) they
-are sorted depending on the size (length) of the files; if tt(l)
-they are sorted by the number of links; if tt(a), tt(m), or tt(c)
-they are sorted by the time of the last access, modification, or
-inode change respectively; if tt(d), files in subdirectories appear before
+specifies how the names of the files should be sorted. The following values
+of var(c) sort in the following ways:
+
+startsitem()
+sitem(tt(n))(By name.)
+sitem(tt(L))(By the size (length) of the files.)
+sitem(tt(l))(By number of links.)
+sitem(tt(a))(By time of last access, youngest first.)
+sitem(tt(m))(By time of last modification, youngest first.)
+sitem(tt(c))(By time of last inode change, youngest first.)
+sitem(tt(d))(By directories: files in subdirectories appear before
 those in the current directory at each level of the search DASH()- this is best
 combined with other criteria, for example `tt(odon)' to sort on names for
-files within the same directory; if tt(N), no sorting is performed.
-Note that tt(a), tt(m), and tt(c) compare
-the age against the current time, hence the first name in the list is the
-youngest file. Also note that the modifiers tt(^) and tt(-) are used,
+files within the same directory.)
+sitem(tt(N))(No sorting is performed.)
+xitem(tt(e)var(string))
+sitem(tt(+)var(cmd))(Sort by shell code (see below).)
+endsitem()
+
+Note that the modifiers tt(^) and tt(-) are used,
 so `tt(*(^-oL))' gives a list of all files sorted by file size in descending
 order, following any symbolic links.  Unless tt(oN) is used, multiple order
 specifiers may occur to resolve ties.
@@ -2885,8 +2954,8 @@ repeated, but note that the maximum number of sort operators of any kind
 that may appear in any glob expression is 12.
 )
 item(tt(O)var(c))(
-like `tt(o)', but sorts in descending order; i.e. `tt(*(^oc))' is the
-same as `tt(*(Oc))' and `tt(*(^Oc))' is the same as `tt(*(oc))'; `tt(Od)'
+like `tt(o)', but sorts in descending order; i.e. `tt(*+LPAR()^o)var(c)tt(+RPAR())' is the
+same as `tt(*+LPAR()O)var(c)tt(+RPAR())' and `tt(*+LPAR()^O)var(c)tt(+RPAR())' is the same as `tt(*+LPAR()o)var(c)tt(+RPAR())'; `tt(Od)'
 puts files in the current directory before those in subdirectories at each
 level of the search.
 )
@@ -2894,7 +2963,7 @@ item(tt([)var(beg)[tt(,)var(end)]tt(]))(
 specifies which of the matched filenames should be included in the
 returned list. The syntax is the same as for array
 subscripts. var(beg) and the optional var(end) may be mathematical
-expressions. As in parameter subscripting they may be negative to make 
+expressions. As in parameter subscripting they may be negative to make
 them count from the last match backward. E.g.: `tt(*(-OL[1,3]))'
 gives a list of the names of the three largest files.
 )

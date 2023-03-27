@@ -106,17 +106,17 @@ ctf_lookup_by_name(ctf_file_t *fp, const char *name)
 			 * data includes "struct foo *" but not "foo_t *" and
 			 * the user tries to access "foo_t *" in the debugger.
 			 */
-			ntype = fp->ctf_ptrtab[CTF_TYPE_TO_INDEX(type)];
+			ntype = fp->ctf_ptrtab[LCTF_TYPE_TO_INDEX(fp, type)];
 			if (ntype == 0) {
 				ntype = ctf_type_resolve(fp, type);
 				if (ntype == CTF_ERR || (ntype = fp->ctf_ptrtab[
-				    CTF_TYPE_TO_INDEX(ntype)]) == 0) {
+				    LCTF_TYPE_TO_INDEX(fp, ntype)]) == 0) {
 					(void) ctf_set_errno(fp, ECTF_NOTYPE);
 					goto err;
 				}
 			}
 
-			type = CTF_INDEX_TO_TYPE(ntype,
+			type = LCTF_INDEX_TO_TYPE(fp, ntype,
 			    (fp->ctf_flags & LCTF_CHILD));
 
 			q = p + 1;
@@ -231,7 +231,11 @@ ctf_lookup_by_symbol(ctf_file_t *fp, unsigned long symidx)
 	if (fp->ctf_sxlate[symidx] == -1u)
 		return (ctf_set_errno(fp, ECTF_NOTYPEDAT));
 
-	type = *(uint16_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+	if (fp->ctf_version < CTF_VERSION_4)
+		type = *(uint16_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+	else
+		type = *(uint32_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+
 	if (type == 0)
 		return (ctf_set_errno(fp, ECTF_NOTYPEDAT));
 
@@ -243,18 +247,18 @@ ctf_lookup_by_symbol(ctf_file_t *fp, unsigned long symidx)
  * given type ID.  If the ID is invalid, the function returns NULL.
  * This function is not exported outside of the library.
  */
-const ctf_type_t *
+const void *
 ctf_lookup_by_id(ctf_file_t **fpp, ctf_id_t type)
 {
 	ctf_file_t *fp = *fpp; /* caller passes in starting CTF container */
 
-	if ((fp->ctf_flags & LCTF_CHILD) && CTF_TYPE_ISPARENT(type) &&
+	if ((fp->ctf_flags & LCTF_CHILD) && LCTF_TYPE_ISPARENT(fp, type) &&
 	    (fp = fp->ctf_parent) == NULL) {
 		(void) ctf_set_errno(*fpp, ECTF_NOPARENT);
 		return (NULL);
 	}
 
-	type = CTF_TYPE_TO_INDEX(type);
+	type = LCTF_TYPE_TO_INDEX(fp, type);
 	if (type > 0 && type <= fp->ctf_typemax) {
 		*fpp = fp; /* function returns ending CTF container */
 		return (LCTF_INDEX_TO_TYPEPTR(fp, type));
@@ -272,8 +276,8 @@ int
 ctf_func_info(ctf_file_t *fp, unsigned long symidx, ctf_funcinfo_t *fip)
 {
 	const ctf_sect_t *sp = &fp->ctf_symtab;
-	const uint16_t *dp;
 	uint16_t info, kind, n;
+	ctf_id_t ret;
 
 	if (sp->cts_data == NULL)
 		return (ctf_set_errno(fp, ECTF_NOSYMTAB));
@@ -299,9 +303,16 @@ ctf_func_info(ctf_file_t *fp, unsigned long symidx, ctf_funcinfo_t *fip)
 	if (fp->ctf_sxlate[symidx] == -1u)
 		return (ctf_set_errno(fp, ECTF_NOFUNCDAT));
 
-	dp = (uint16_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+	if (fp->ctf_version == CTF_VERSION_4) {
+		const uint32_t *dp = (uint32_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+		info = *dp++;
+		ret = *dp++;
+	} else {
+		const uint16_t *dp = (uint16_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+		info = *dp++;
+		ret = *dp++;
+	}
 
-	info = *dp++;
 	kind = LCTF_INFO_KIND(fp, info);
 	n = LCTF_INFO_VLEN(fp, info);
 
@@ -311,11 +322,21 @@ ctf_func_info(ctf_file_t *fp, unsigned long symidx, ctf_funcinfo_t *fip)
 	if (kind != CTF_K_FUNCTION)
 		return (ctf_set_errno(fp, ECTF_CORRUPT));
 
-	fip->ctc_return = *dp++;
+	fip->ctc_return = ret;
 	fip->ctc_argc = n;
 	fip->ctc_flags = 0;
 
-	if (n != 0 && dp[n - 1] == 0) {
+	bool varg = false;
+	if (fp->ctf_version == CTF_VERSION_4) {
+		const uint32_t *dp = (uint32_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+		dp += 2;
+		varg = dp[n - 1] == 0;
+	} else {
+		const uint16_t *dp = (uint16_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+		dp += 2;
+		varg = dp[n - 1] == 0;
+	}
+	if (n != 0 && varg) {
 		fip->ctc_flags |= CTF_FUNC_VARARG;
 		fip->ctc_argc--;
 	}
@@ -330,20 +351,28 @@ ctf_func_info(ctf_file_t *fp, unsigned long symidx, ctf_funcinfo_t *fip)
 int
 ctf_func_args(ctf_file_t *fp, unsigned long symidx, uint32_t argc, ctf_id_t *argv)
 {
-	const uint16_t *dp;
+	uintptr_t dp;
 	ctf_funcinfo_t f;
 
 	if (ctf_func_info(fp, symidx, &f) == CTF_ERR)
 		return (CTF_ERR); /* errno is set for us */
 
 	/*
-	 * The argument data is two uint16_t's past the translation table
+	 * The argument data is two uint32_t's past the translation table
 	 * offset: one for the function info, and one for the return type.
 	 */
-	dp = (uint16_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]) + 2;
+	const size_t idsz = (fp->ctf_version < CTF_VERSION_4) ? sizeof (uint16_t) : sizeof (uint32_t);
+	dp = ((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]) + 2 * idsz;
 
-	for (argc = MIN(argc, f.ctc_argc); argc != 0; argc--)
-		*argv++ = *dp++;
+	for (argc = MIN(argc, f.ctc_argc); argc != 0; argc--) {
+		if (fp->ctf_version == CTF_VERSION_4) {
+			*argv++ = *(uint32_t *)dp;
+			dp += sizeof (uint32_t);
+		} else {
+			*argv++ = *(uint16_t *)dp;
+			dp += sizeof (uint16_t);
+		}
+	}
 
 	return (0);
 }

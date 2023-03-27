@@ -42,5 +42,7 @@
     <true/>
     <key>com.apple.mkb.usersession.info</key>
     <true/>
+	<key>com.apple.private.system-keychain</key>
+	<true/>
 </dict>
 </plist>

@@ -190,7 +190,6 @@ bool SecDbItemClearRowId(SecDbItemRef item, CFErrorRef *error);
 
 CFDataRef SecDbItemGetPersistentRef(SecDbItemRef item, CFErrorRef *error);
 bool SecDbItemSetPersistentRef(SecDbItemRef item, CFDataRef uuid, CFErrorRef *error);
-bool SecDbItemClearPersistentRef(SecDbItemRef item, CFErrorRef *error);
 
 bool SecDbItemIsSyncableOrCorrupted(SecDbItemRef item);
 bool SecDbItemIsSyncable(SecDbItemRef item);
@@ -210,6 +209,19 @@ CFMutableDictionaryRef SecDbItemCopyPListWithFlagAndSkip(SecDbItemRef item,
                                                          CFOptionFlags mask,
                                                          CFOptionFlags flagsToSkip,
                                                          CFErrorRef *error);
+
+/// Returns a SHA-256 hash of an item's primary key attribute columns. This
+/// works like `SecDbItemGetPrimaryKey`, but combines the values stored in the
+/// database columns for each attribute, rather than the attribute values. In
+/// particular, for attributes with the `S` flag, this combines the _hashes_ of
+/// their values.
+///
+/// Combining the values stored in the database columns ensures that a keyprint
+/// is a stable and unique identifier for an item. Otherwise, two items with
+/// different attribute values, but the same hashes for those values, would have
+/// different keyprints, but map to the same database row. This is the case for
+/// empty attribute values of different types (rdar://94078693).
+CFDataRef SecDbItemCopyKeyprint(SecDbItemRef item, CFErrorRef *error);
 
 CFDataRef SecDbItemGetPrimaryKey(SecDbItemRef item, CFErrorRef *error);
 CFDataRef SecDbItemGetSHA1(SecDbItemRef item, CFErrorRef *error);
@@ -250,6 +262,8 @@ bool SecErrorIsSqliteDuplicateItemError(CFErrorRef error);
 // Note: this function might modify item, unless always_use_uuid_from_new_item is true
 // Another note: if items are being restored from a backup, we're going to take the incoming item if there's a conflict
 bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, bool always_use_uuid_from_new_item, bool always_use_persistentref_from_backup, CFErrorRef *error);
+
+bool SecDbItemDoInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error);
 
 bool SecDbItemDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, bool tombstone_time_from_item, CFErrorRef *error);
 

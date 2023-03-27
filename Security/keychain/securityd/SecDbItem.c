@@ -1373,15 +1373,6 @@ bool SecDbItemSetPersistentRef(SecDbItemRef item, CFDataRef uuidData, CFErrorRef
     return ok;
 }
 
-bool SecDbItemClearPersistentRef(SecDbItemRef item, CFErrorRef *error) {
-    bool ok = true;
-    const SecDbAttr *attr = SecDbClassAttrWithKind(item->class, kSecDbUUIDAttr, error);
-    if (attr) {
-        CFDictionaryRemoveValue(item->attributes, attr->name);
-    }
-    return ok;
-}
-
 
 sqlite3_int64 SecDbItemGetRowId(SecDbItemRef item, CFErrorRef *error) {
     sqlite3_int64 row_id = 0;
@@ -1446,6 +1437,7 @@ bool SecDbItemIsSyncable(SecDbItemRef item) {
     return false;
 }
 
+
 bool SecDbItemSetSyncable(SecDbItemRef item, bool sync, CFErrorRef *error)
 {
     return SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbSyncAttr, error), sync ? kCFBooleanTrue : kCFBooleanFalse, error);
@@ -1467,6 +1459,31 @@ bool SecDbItemIsTombstone(SecDbItemRef item) {
     if (SecDbItemGetBoolValue(item, SecDbClassAttrWithKind(item->class, kSecDbTombAttr, NULL), &is_tomb, NULL))
         return is_tomb;
     return false;
+}
+
+CFDataRef SecDbItemCopyKeyprint(SecDbItemRef item, CFErrorRef *error) {
+    CFMutableDictionaryRef attrs = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFDataRef data = NULL;
+    CFDataRef keyprint = NULL;
+
+    SecDbForEachAttrWithMask(item->class, attr, kSecDbInFlag | kSecDbPrimaryKeyFlag) {
+        CFTypeRef value = SecDbItemCopyValueForDb(item, attr, error);
+        require_quiet(value, out);
+
+        CFDictionarySetValue(attrs, attr->name, value);
+        CFReleaseNull(value);
+    }
+
+    data = CFPropertyListCreateDERData(kCFAllocatorDefault, attrs, error);
+    require_quiet(data, out);
+
+    keyprint = CFDataCopySHA256Digest(data, error);
+    require_quiet(keyprint, out);
+
+out:
+    CFReleaseNull(attrs);
+    CFReleaseNull(data);
+    return keyprint;
 }
 
 CFDataRef SecDbItemGetPrimaryKey(SecDbItemRef item, CFErrorRef *error) {
@@ -1573,7 +1590,7 @@ static void SecDbItemRecordUpdate(SecDbConnectionRef dbconn, SecDbItemRef delete
     SecDbRecordChange(dbconn, deleted, inserted);
 }
 
-static bool SecDbItemDoInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error) {
+bool SecDbItemDoInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error) {
     bool (^use_attr)(const SecDbAttr *attr) = ^bool(const SecDbAttr *attr) {
         return (attr->flags & kSecDbInFlag);
     };

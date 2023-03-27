@@ -332,6 +332,7 @@ SSL_LIBS = @SSL_LIBS@
 STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
+TEST_NGHTTPX = @TEST_NGHTTPX@
 USE_ARES = @USE_ARES@
 USE_BEARSSL = @USE_BEARSSL@
 USE_GNUTLS = @USE_GNUTLS@
@@ -501,7 +502,16 @@ GENERATEDCERTS = \
   Server-localhost-lastSAN-sv.key \
   Server-localhost-lastSAN-sv.pem \
   Server-localhost-lastSAN-sv.pub.der \
-  Server-localhost-lastSAN-sv.pub.pem
+  Server-localhost-lastSAN-sv.pub.pem \
+  stunnel-sv.crl \
+  stunnel-sv.crt \
+  stunnel-sv.csr \
+  stunnel-sv.der \
+  stunnel-sv.dhp \
+  stunnel-sv.key \
+  stunnel-sv.pem \
+  stunnel-sv.der \
+  stunnel-sv.pub.pem
 
 SRPFILES = \
   srp-verifier-conf \
@@ -829,7 +839,8 @@ clean-certs:
 
 build-certs: $(srcdir)/EdelCurlRoot-ca.cacert $(srcdir)/Server-localhost-sv.pem \
 	$(srcdir)/Server-localhost.nn-sv.pem $(srcdir)/Server-localhost0h-sv.pem \
-	$(srcdir)/Server-localhost-firstSAN-sv.pem $(srcdir)/Server-localhost-lastSAN-sv.pem
+	$(srcdir)/Server-localhost-firstSAN-sv.pem $(srcdir)/Server-localhost-lastSAN-sv.pem \
+	$(srcdir)/stunnel-sv.pem ../stunnel.pem
 
 $(srcdir)/EdelCurlRoot-ca.cacert:
 	cd $(srcdir); scripts/genroot.sh EdelCurlRoot
@@ -847,7 +858,13 @@ $(srcdir)/Server-localhost-firstSAN-sv.pem: $(srcdir)/EdelCurlRoot-ca.cacert
 	cd $(srcdir); scripts/genserv.sh Server-localhost-firstSAN EdelCurlRoot
 
 $(srcdir)/Server-localhost-lastSAN-sv.pem: $(srcdir)/EdelCurlRoot-ca.cacert
-	cd $(srcdir); scripts/genserv.sh Server-localhost-firstSAN EdelCurlRoot
+	cd $(srcdir); scripts/genserv.sh Server-localhost-lastSAN EdelCurlRoot
+
+$(srcdir)/stunnel-sv.pem: $(srcdir)/EdelCurlRoot-ca.cacert
+	cd $(srcdir); scripts/genserv.sh stunnel EdelCurlRoot
+
+../stunnel.pem: $(srcdir)/stunnel-sv.pem
+	cp $< $@
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

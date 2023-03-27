@@ -28,6 +28,7 @@
 
 #include <wtf/CompletionHandler.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/RunLoop.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 
@@ -66,6 +67,7 @@ private:
     Vector<RetainPtr<SCContentSharingSession>> m_pendingCaptureSessions;
     RetainPtr<WebDisplayMediaPromptHelper> m_promptHelper;
     CompletionHandler<void(std::optional<CaptureDevice>)> m_completionHandler;
+    std::unique_ptr<RunLoop::Timer> m_promptWatchdogTimer;
 };
 
 } // namespace WebCore

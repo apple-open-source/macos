@@ -4,6 +4,7 @@ Project               = apr
 UserType              = Administrator
 ToolType              = Commands
 GnuAfterInstall       = install-plist post-install munge-build-files
+Extra_CC_Flags        = -Wno-error=implicit-function-declaration
 Extra_Configure_Flags = --bindir=$(APR_TOOLCHAIN_PREFIX)/bin \
                         --with-installbuilddir=$(APR_TOOLCHAIN_PREFIX)/share/apr-1/build-1 \
                         --enable-dso=dlfcn

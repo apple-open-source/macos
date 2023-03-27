@@ -20,8 +20,8 @@
 			dstPath = "";
 			dstSubfolderSpec = 16;
 			files = (
-				DDE9931A278D0D8000F60D26 /* libWebKitAdditions.a in Product Dependencies */,
 				DDE9931D278D0DA400F60D26 /* JavaScriptCore.framework in Product Dependencies */,
+				DDE9931A278D0D8000F60D26 /* libWebKitAdditions.a in Product Dependencies */,
 			);
 			name = "Product Dependencies";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -31,7 +31,6 @@
 /* Begin PBXFileReference section */
 		1C60FE2F14E5F3CD006CD77D /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		1C60FE3114E5F3CD006CD77D /* DebugRelease.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = DebugRelease.xcconfig; sourceTree = "<group>"; };
-		1C60FE3214E5F3CD006CD77D /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
 		1C60FE3314E5F3CD006CD77D /* WebInspectorUIFramework.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = WebInspectorUIFramework.xcconfig; sourceTree = "<group>"; };
 		1C60FF1014E6D992006CD77D /* UserInterface */ = {isa = PBXFileReference; lastKnownFileType = folder; path = UserInterface; sourceTree = "<group>"; };
 		1C60FF1414E6E35D006CD77D /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; name = en; path = Localizations/en.lproj/localizedStrings.js; sourceTree = "<group>"; };
@@ -40,7 +39,6 @@
 		1C60FFE114E79B0F006CD77D /* copy-user-interface-resources.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "copy-user-interface-resources.pl"; sourceTree = "<group>"; };
 		1C78EE131760E115002F6AA5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1C78EE1617611340002F6AA5 /* WebInspectorUI.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = WebInspectorUI.c; sourceTree = "<group>"; };
-		A1B89B8F221E021000EB4CEA /* SDKVariant.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = SDKVariant.xcconfig; sourceTree = "<group>"; };
 		A54C2257148B23DF00373FA3 /* WebInspectorUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = WebInspectorUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDE992FB278D078100F60D26 /* libWebKitAdditions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libWebKitAdditions.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDE9931C278D0D9900F60D26 /* JavaScriptCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = JavaScriptCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -52,8 +50,6 @@
 			children = (
 				1C60FE2F14E5F3CD006CD77D /* Base.xcconfig */,
 				1C60FE3114E5F3CD006CD77D /* DebugRelease.xcconfig */,
-				A1B89B8F221E021000EB4CEA /* SDKVariant.xcconfig */,
-				1C60FE3214E5F3CD006CD77D /* Version.xcconfig */,
 				1C60FE3314E5F3CD006CD77D /* WebInspectorUIFramework.xcconfig */,
 			);
 			path = Configurations;
@@ -120,7 +116,6 @@
 				1C60FF1214E6D9AF006CD77D /* Copy User Interface Resources */,
 				1C78EE1417611302002F6AA5 /* Sources */,
 				6577FFC9276ACA680011AEC8 /* Create Symlink to Alt Root Path */,
-				6517571727C9AD6B00D9FE40 /* Copy Frameworks to Secondary Path */,
 			);
 			buildRules = (
 			);
@@ -178,24 +173,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [[ \"${ACTION}\" == \"installapi\" || \"${ACTION}\" == \"installhdrs\" ]]; then\n    exit\nfi\n\n/usr/bin/perl \"${SRCROOT}/Scripts/copy-user-interface-resources.pl\"\n";
-		};
-		6517571727C9AD6B00D9FE40 /* Copy Frameworks to Secondary Path */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Copy Frameworks to Secondary Path";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "export FRAMEWORKS_TO_COPY_TO_SECONDARY_PATH=\"WebInspectorUI\"\n\"${SRCROOT}/Scripts/copy-frameworks-to-secondary-path.sh\"\n";
 		};
 		6577FFC9276ACA680011AEC8 /* Create Symlink to Alt Root Path */ = {
 			isa = PBXShellScriptBuildPhase;

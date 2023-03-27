@@ -1483,7 +1483,7 @@ _SC_logMachPortReferences(const char *log_prefix, mach_port_t port)
 
 
 CFStringRef
-_SC_copyBacktrace()
+_SC_copyBacktrace(void)
 {
 	int			n;
 	void			*stack[64];

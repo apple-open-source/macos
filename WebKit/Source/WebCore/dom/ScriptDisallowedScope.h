@@ -61,7 +61,7 @@ public:
         return *this;
     }
 
-    static bool isEventAllowedInMainThread()
+    static bool isScriptAllowedInMainThread()
     {
         return !isInWebProcess() || !isMainThread() || !s_count;
     }
@@ -109,7 +109,31 @@ public:
 #endif
         }
     };
-    
+
+    class InMainThreadOfWebProcess {
+    public:
+        InMainThreadOfWebProcess()
+            : m_isInWebProcess(isInWebProcess())
+        {
+            ASSERT(isMainThread());
+            if (!m_isInWebProcess)
+                return;
+            ++s_count;
+        }
+
+        ~InMainThreadOfWebProcess()
+        {
+            ASSERT(isMainThread());
+            if (!m_isInWebProcess)
+                return;
+            ASSERT(s_count);
+            --s_count;
+        }
+
+    private:
+        bool m_isInWebProcess;
+    };
+
 #if ASSERT_ENABLED
     class EventAllowedScope {
     public:

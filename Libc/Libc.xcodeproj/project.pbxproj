@@ -241,6 +241,10 @@
 		928BD1081D76073600EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
 		92ABC7E91D375FC2000DF880 /* compatibility_hacks.c in Sources */ = {isa = PBXBuildFile; fileRef = 92ABC7E81D375FC2000DF880 /* compatibility_hacks.c */; };
 		92D763E01EA6DA3A001467FC /* dirstat.c in Sources */ = {isa = PBXBuildFile; fileRef = 92D763DC1EA6D9FB001467FC /* dirstat.c */; };
+		9C4FA78C268696D500BEC393 /* strtofp.c in Sources */ = {isa = PBXBuildFile; fileRef = 9CD764A42655AEF3004C0214 /* strtofp.c */; };
+		9CA393E42655ED85001F3BF3 /* strtofp.c in Sources */ = {isa = PBXBuildFile; fileRef = 9CD764A42655AEF3004C0214 /* strtofp.c */; };
+		9CA393E52655ED87001F3BF3 /* strtofp.c in Sources */ = {isa = PBXBuildFile; fileRef = 9CD764A42655AEF3004C0214 /* strtofp.c */; };
+		9CA393E62655EE66001F3BF3 /* strtofp.c in Sources */ = {isa = PBXBuildFile; fileRef = 9CD764A42655AEF3004C0214 /* strtofp.c */; };
 		A5913A6623A47C570055A220 /* subsystem.c in Sources */ = {isa = PBXBuildFile; fileRef = A5BF59BE23A20A6900B1FADA /* subsystem.c */; };
 		A5913A6723A47C630055A220 /* subsystem.c in Sources */ = {isa = PBXBuildFile; fileRef = A5BF59BE23A20A6900B1FADA /* subsystem.c */; };
 		A5913A6823A47C820055A220 /* subsystem.c in Sources */ = {isa = PBXBuildFile; fileRef = A5BF59BE23A20A6900B1FADA /* subsystem.c */; };
@@ -336,26 +340,12 @@
 		C0E343D71C582ECB00E749C2 /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C0E343D81C582ECB00E749C2 /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C0E343D91C582ECB00E749C2 /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C0E343DA1C582ECB00E749C2 /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C0E343DB1C582ECB00E749C2 /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C0E343DC1C582ECB00E749C2 /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C0E343DD1C582ECB00E749C2 /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C0E343DE1C582ECB00E749C2 /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C0E343DF1C582ECB00E749C2 /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C0E343E01C582ECB00E749C2 /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C0E343E11C582ECB00E749C2 /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C0E343E21C582ECB00E749C2 /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C0E343E31C582ECB00E749C2 /* gdtoa-strtoIg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */; };
-		C0E343E41C582ECB00E749C2 /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C0E343E51C582ECB00E749C2 /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C0E343E61C582ECB00E749C2 /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C0E343E71C582ECB00E749C2 /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C0E343E81C582ECB00E749C2 /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C0E343E91C582ECB00E749C2 /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
-		C0E343EA1C582ECB00E749C2 /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C0E343EB1C582ECB00E749C2 /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C0E343EC1C582ECB00E749C2 /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C0E343ED1C582ECB00E749C2 /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C0E343EE1C582ECB00E749C2 /* authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D5138D9E990028D27C /* authentication.c */; };
 		C0E343EF1C582ECB00E749C2 /* backtrace.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D7138D9E990028D27C /* backtrace.c */; };
 		C0E343F01C582ECB00E749C2 /* confstr.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536DB138D9E990028D27C /* confstr.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_CONFSTR"; }; };
@@ -889,18 +879,9 @@
 		C9257EFC138E1C6A00B3107C /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C9257EFD138E1C6A00B3107C /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C9257EFE138E1C6A00B3107C /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C9257EFF138E1C6A00B3107C /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C9257F00138E1C6A00B3107C /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C9257F01138E1C6A00B3107C /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C9257F02138E1C6A00B3107C /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C9257F03138E1C6A00B3107C /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C9257F04138E1C6A00B3107C /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C9257F05138E1C6A00B3107C /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C9257F06138E1C6A00B3107C /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C9257F07138E1C6A00B3107C /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C9257F09138E1C6A00B3107C /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C9257F0A138E1C6A00B3107C /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C9257F0B138E1C6A00B3107C /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C9257F0C138E1C6A00B3107C /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C9257F0D138E1C6A00B3107C /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C9257F0E138E1C6A00B3107C /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
@@ -1211,10 +1192,6 @@
 		C9421016138F23CA004BA536 /* runedepreciated.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B539EF138D9E990028D27C /* runedepreciated.c */; settings = {COMPILER_FLAGS = "-D__FBSDID=__RCSID"; }; };
 		C9421017138F23CA004BA536 /* setinvalidrune.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B539F1138D9E990028D27C /* setinvalidrune.c */; settings = {COMPILER_FLAGS = "-D__FBSDID=__RCSID"; }; };
 		C9421021138F2602004BA536 /* _ldtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53693138D9E980028D27C /* _ldtoa.c */; };
-		C9421022138F2661004BA536 /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C9421023138F2661004BA536 /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C9421024138F2661004BA536 /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C9421025138F2661004BA536 /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C942103913900C8A004BA536 /* creat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B535F8138D9E980028D27C /* creat.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_CREAT"; }; };
 		C942103A13900C8A004BA536 /* gethostid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B535FC138D9E980028D27C /* gethostid.c */; };
 		C942103B13900C8A004BA536 /* getwd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B535FE138D9E980028D27C /* getwd.c */; };
@@ -1272,26 +1249,12 @@
 		C942107313900C8A004BA536 /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C942107413900C8A004BA536 /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C942107513900C8A004BA536 /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C942107613900C8A004BA536 /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C942107713900C8A004BA536 /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C942107813900C8A004BA536 /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C942107913900C8A004BA536 /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C942107A13900C8A004BA536 /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C942107B13900C8A004BA536 /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C942107C13900C8A004BA536 /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C942107D13900C8A004BA536 /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C942107E13900C8A004BA536 /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C942107F13900C8A004BA536 /* gdtoa-strtoIg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */; };
-		C942108013900C8A004BA536 /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C942108113900C8A004BA536 /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C942108213900C8A004BA536 /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C942108313900C8A004BA536 /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C942108413900C8A004BA536 /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C942108513900C8A004BA536 /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
-		C942108613900C8A004BA536 /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C942108713900C8A004BA536 /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C942108813900C8A004BA536 /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C942108913900C8A004BA536 /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C942109313900C8A004BA536 /* authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D5138D9E990028D27C /* authentication.c */; };
 		C942109413900C8A004BA536 /* backtrace.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D7138D9E990028D27C /* backtrace.c */; };
 		C942109613900C8A004BA536 /* confstr.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536DB138D9E990028D27C /* confstr.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_CONFSTR"; }; };
@@ -1794,26 +1757,12 @@
 		C95B7F1E138F3C55004311DA /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C95B7F1F138F3C55004311DA /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C95B7F20138F3C55004311DA /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C95B7F21138F3C55004311DA /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C95B7F22138F3C55004311DA /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C95B7F23138F3C55004311DA /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C95B7F24138F3C55004311DA /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C95B7F25138F3C55004311DA /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C95B7F26138F3C55004311DA /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C95B7F27138F3C55004311DA /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C95B7F28138F3C55004311DA /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C95B7F29138F3C55004311DA /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C95B7F2A138F3C55004311DA /* gdtoa-strtoIg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */; };
-		C95B7F2B138F3C55004311DA /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C95B7F2C138F3C55004311DA /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C95B7F2D138F3C55004311DA /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C95B7F2E138F3C55004311DA /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C95B7F2F138F3C55004311DA /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C95B7F30138F3C55004311DA /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
-		C95B7F31138F3C55004311DA /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C95B7F32138F3C55004311DA /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C95B7F33138F3C55004311DA /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C95B7F34138F3C55004311DA /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C95B7F3E138F3C55004311DA /* authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D5138D9E990028D27C /* authentication.c */; };
 		C95B7F3F138F3C55004311DA /* backtrace.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D7138D9E990028D27C /* backtrace.c */; };
 		C95B7F41138F3C55004311DA /* confstr.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536DB138D9E990028D27C /* confstr.c */; };
@@ -2312,26 +2261,12 @@
 		C95B81C9138F52B0004311DA /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C95B81CA138F52B0004311DA /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C95B81CB138F52B0004311DA /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C95B81CC138F52B0004311DA /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C95B81CD138F52B0004311DA /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C95B81CE138F52B0004311DA /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C95B81CF138F52B0004311DA /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C95B81D0138F52B0004311DA /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C95B81D1138F52B0004311DA /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C95B81D2138F52B0004311DA /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C95B81D3138F52B0004311DA /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C95B81D4138F52B0004311DA /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C95B81D5138F52B0004311DA /* gdtoa-strtoIg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */; };
-		C95B81D6138F52B0004311DA /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C95B81D7138F52B0004311DA /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C95B81D8138F52B0004311DA /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C95B81D9138F52B0004311DA /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C95B81DA138F52B0004311DA /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C95B81DB138F52B0004311DA /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
-		C95B81DC138F52B0004311DA /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C95B81DD138F52B0004311DA /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C95B81DE138F52B0004311DA /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C95B81DF138F52B0004311DA /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C95B81E9138F52B0004311DA /* authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D5138D9E990028D27C /* authentication.c */; };
 		C95B81EA138F52B0004311DA /* backtrace.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D7138D9E990028D27C /* backtrace.c */; };
 		C95B81EC138F52B0004311DA /* confstr.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536DB138D9E990028D27C /* confstr.c */; };
@@ -2830,26 +2765,12 @@
 		C95B846F138F53DB004311DA /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C95B8470138F53DB004311DA /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C95B8471138F53DB004311DA /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C95B8472138F53DB004311DA /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C95B8473138F53DB004311DA /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C95B8474138F53DB004311DA /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C95B8475138F53DB004311DA /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C95B8476138F53DB004311DA /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C95B8477138F53DB004311DA /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C95B8478138F53DB004311DA /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C95B8479138F53DB004311DA /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C95B847A138F53DB004311DA /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C95B847B138F53DB004311DA /* gdtoa-strtoIg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */; };
-		C95B847C138F53DB004311DA /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C95B847D138F53DB004311DA /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C95B847E138F53DB004311DA /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C95B847F138F53DB004311DA /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C95B8480138F53DB004311DA /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C95B8481138F53DB004311DA /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
-		C95B8482138F53DB004311DA /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C95B8483138F53DB004311DA /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C95B8484138F53DB004311DA /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C95B8485138F53DB004311DA /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C95B848F138F53DB004311DA /* authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D5138D9E990028D27C /* authentication.c */; };
 		C95B8490138F53DB004311DA /* backtrace.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D7138D9E990028D27C /* backtrace.c */; };
 		C95B8492138F53DB004311DA /* confstr.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536DB138D9E990028D27C /* confstr.c */; };
@@ -3348,26 +3269,12 @@
 		C9765EF3138EC61900741512 /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C9765EF4138EC61900741512 /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C9765EF5138EC61900741512 /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C9765EF6138EC61900741512 /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C9765EF7138EC61900741512 /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C9765EF8138EC61900741512 /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C9765EF9138EC61900741512 /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C9765EFA138EC61900741512 /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C9765EFB138EC61900741512 /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C9765EFC138EC61900741512 /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C9765EFD138EC61900741512 /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C9765EFE138EC61900741512 /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C9765EFF138EC61900741512 /* gdtoa-strtoIg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */; };
-		C9765F00138EC61900741512 /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C9765F01138EC61900741512 /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C9765F02138EC61900741512 /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C9765F03138EC61900741512 /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C9765F04138EC61900741512 /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C9765F05138EC61900741512 /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
-		C9765F06138EC61900741512 /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C9765F07138EC61900741512 /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C9765F08138EC61900741512 /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C9765F09138EC61900741512 /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C9765F13138EC61900741512 /* authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D5138D9E990028D27C /* authentication.c */; };
 		C9765F14138EC61900741512 /* backtrace.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D7138D9E990028D27C /* backtrace.c */; };
 		C9765F16138EC61900741512 /* confstr.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536DB138D9E990028D27C /* confstr.c */; };
@@ -3872,26 +3779,12 @@
 		C97A6FD01517AF53005E1998 /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C97A6FD11517AF53005E1998 /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C97A6FD21517AF53005E1998 /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C97A6FD31517AF53005E1998 /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C97A6FD41517AF53005E1998 /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C97A6FD51517AF53005E1998 /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C97A6FD61517AF53005E1998 /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C97A6FD71517AF53005E1998 /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C97A6FD81517AF53005E1998 /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C97A6FD91517AF53005E1998 /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C97A6FDA1517AF53005E1998 /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C97A6FDB1517AF53005E1998 /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C97A6FDC1517AF53005E1998 /* gdtoa-strtoIg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */; };
-		C97A6FDD1517AF53005E1998 /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C97A6FDE1517AF53005E1998 /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C97A6FDF1517AF53005E1998 /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C97A6FE01517AF53005E1998 /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C97A6FE11517AF53005E1998 /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C97A6FE21517AF53005E1998 /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
-		C97A6FE31517AF53005E1998 /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C97A6FE41517AF53005E1998 /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C97A6FE51517AF53005E1998 /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C97A6FE61517AF53005E1998 /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C97A6FF01517AF53005E1998 /* authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D5138D9E990028D27C /* authentication.c */; };
 		C97A6FF11517AF53005E1998 /* backtrace.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D7138D9E990028D27C /* backtrace.c */; };
 		C97A6FF31517AF53005E1998 /* confstr.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536DB138D9E990028D27C /* confstr.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_CONFSTR"; }; };
@@ -4488,26 +4381,12 @@
 		C9EB300E138F6D880075BB52 /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C9EB300F138F6D880075BB52 /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C9EB3010138F6D880075BB52 /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C9EB3011138F6D880075BB52 /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C9EB3012138F6D880075BB52 /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C9EB3013138F6D880075BB52 /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C9EB3014138F6D880075BB52 /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C9EB3015138F6D880075BB52 /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C9EB3016138F6D880075BB52 /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C9EB3017138F6D880075BB52 /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C9EB3018138F6D880075BB52 /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C9EB3019138F6D880075BB52 /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C9EB301A138F6D880075BB52 /* gdtoa-strtoIg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */; };
-		C9EB301B138F6D880075BB52 /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C9EB301C138F6D880075BB52 /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C9EB301D138F6D880075BB52 /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C9EB301E138F6D880075BB52 /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C9EB301F138F6D880075BB52 /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C9EB3020138F6D880075BB52 /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
-		C9EB3021138F6D880075BB52 /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C9EB3022138F6D880075BB52 /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C9EB3023138F6D880075BB52 /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C9EB3024138F6D880075BB52 /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C9EB302E138F6D880075BB52 /* authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D5138D9E990028D27C /* authentication.c */; };
 		C9EB302F138F6D880075BB52 /* backtrace.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D7138D9E990028D27C /* backtrace.c */; };
 		C9EB3031138F6D880075BB52 /* confstr.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536DB138D9E990028D27C /* confstr.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_CONFSTR"; }; };
@@ -5006,26 +4885,12 @@
 		C9EB32B5138F75580075BB52 /* gdtoa-dmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53695138D9E980028D27C /* gdtoa-dmisc.c */; };
 		C9EB32B6138F75580075BB52 /* gdtoa-dtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53696138D9E980028D27C /* gdtoa-dtoa.c */; };
 		C9EB32B7138F75580075BB52 /* gdtoa-gdtoa.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */; };
-		C9EB32B8138F75580075BB52 /* gdtoa-gethex.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53698138D9E980028D27C /* gdtoa-gethex.c */; };
 		C9EB32B9138F75580075BB52 /* gdtoa-gmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */; };
-		C9EB32BA138F75580075BB52 /* gdtoa-hd_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */; };
-		C9EB32BB138F75580075BB52 /* gdtoa-hexnan.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */; };
 		C9EB32BC138F75580075BB52 /* gdtoa-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5369E138D9E980028D27C /* gdtoa-misc.c */; };
 		C9EB32BD138F75580075BB52 /* gdtoa-smisc.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A0138D9E980028D27C /* gdtoa-smisc.c */; };
-		C9EB32BE138F75580075BB52 /* gdtoa-strtod.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A1138D9E980028D27C /* gdtoa-strtod.c */; };
-		C9EB32BF138F75580075BB52 /* gdtoa-strtodg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */; };
-		C9EB32C0138F75580075BB52 /* gdtoa-strtof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A5138D9E980028D27C /* gdtoa-strtof.c */; };
-		C9EB32C1138F75580075BB52 /* gdtoa-strtoIg.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */; };
-		C9EB32C2138F75580075BB52 /* gdtoa-strtopdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */; };
-		C9EB32C3138F75580075BB52 /* gdtoa-strtopx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */; };
-		C9EB32C4138F75580075BB52 /* gdtoa-strtord.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AC138D9E980028D27C /* gdtoa-strtord.c */; };
 		C9EB32C5138F75580075BB52 /* gdtoa-sum.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AE138D9E980028D27C /* gdtoa-sum.c */; };
 		C9EB32C6138F75580075BB52 /* gdtoa-ulp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536AF138D9E980028D27C /* gdtoa-ulp.c */; };
 		C9EB32C7138F75580075BB52 /* glue.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B5138D9E980028D27C /* glue.c */; };
-		C9EB32C8138F75580075BB52 /* machdep_ldisd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B6138D9E980028D27C /* machdep_ldisd.c */; };
-		C9EB32C9138F75580075BB52 /* machdep_ldisdd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536B8138D9E980028D27C /* machdep_ldisdd.c */; };
-		C9EB32CA138F75580075BB52 /* machdep_ldisQ.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BA138D9E980028D27C /* machdep_ldisQ.c */; };
-		C9EB32CB138F75580075BB52 /* machdep_ldisx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536BB138D9E980028D27C /* machdep_ldisx.c */; };
 		C9EB32D5138F75580075BB52 /* authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D5138D9E990028D27C /* authentication.c */; };
 		C9EB32D6138F75580075BB52 /* backtrace.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536D7138D9E990028D27C /* backtrace.c */; };
 		C9EB32D8138F75580075BB52 /* confstr.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B536DB138D9E990028D27C /* confstr.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_CONFSTR"; }; };
@@ -5899,6 +5764,7 @@
 		92D763DC1EA6D9FB001467FC /* dirstat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dirstat.c; sourceTree = "<group>"; };
 		92D763E41EA6F887001467FC /* dirstat_collection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dirstat_collection.h; sourceTree = "<group>"; };
 		92D763E51EA6F887001467FC /* dirstat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dirstat.h; sourceTree = "<group>"; };
+		9CD764A42655AEF3004C0214 /* strtofp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = strtofp.c; sourceTree = "<group>"; };
 		A5BF59BD23A20A6900B1FADA /* subsystem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = subsystem.h; sourceTree = "<group>"; };
 		A5BF59BE23A20A6900B1FADA /* subsystem.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = subsystem.c; sourceTree = "<group>"; };
 		B122F2AD1432B8E600AF95D0 /* libTRE.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libTRE.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -6066,29 +5932,15 @@
 		C9B53695138D9E980028D27C /* gdtoa-dmisc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-dmisc.c"; sourceTree = "<group>"; };
 		C9B53696138D9E980028D27C /* gdtoa-dtoa.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-dtoa.c"; sourceTree = "<group>"; };
 		C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-gdtoa.c"; sourceTree = "<group>"; };
-		C9B53698138D9E980028D27C /* gdtoa-gethex.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-gethex.c"; sourceTree = "<group>"; };
 		C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-gmisc.c"; sourceTree = "<group>"; };
-		C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-hd_init.c"; sourceTree = "<group>"; };
-		C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-hexnan.c"; sourceTree = "<group>"; };
 		C9B5369E138D9E980028D27C /* gdtoa-misc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-misc.c"; sourceTree = "<group>"; };
 		C9B536A0138D9E980028D27C /* gdtoa-smisc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-smisc.c"; sourceTree = "<group>"; };
-		C9B536A1138D9E980028D27C /* gdtoa-strtod.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-strtod.c"; sourceTree = "<group>"; };
-		C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-strtodg.c"; sourceTree = "<group>"; };
-		C9B536A5138D9E980028D27C /* gdtoa-strtof.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-strtof.c"; sourceTree = "<group>"; };
-		C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-strtoIg.c"; sourceTree = "<group>"; };
-		C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-strtopdd.c"; sourceTree = "<group>"; };
-		C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-strtopx.c"; sourceTree = "<group>"; };
-		C9B536AC138D9E980028D27C /* gdtoa-strtord.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-strtord.c"; sourceTree = "<group>"; };
 		C9B536AE138D9E980028D27C /* gdtoa-sum.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-sum.c"; sourceTree = "<group>"; };
 		C9B536AF138D9E980028D27C /* gdtoa-ulp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "gdtoa-ulp.c"; sourceTree = "<group>"; };
 		C9B536B0138D9E980028D27C /* gdtoa.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = gdtoa.h; sourceTree = "<group>"; };
 		C9B536B2138D9E980028D27C /* gdtoa_fltrnds.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = gdtoa_fltrnds.h; sourceTree = "<group>"; };
 		C9B536B3138D9E980028D27C /* gdtoaimp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = gdtoaimp.h; sourceTree = "<group>"; };
 		C9B536B5138D9E980028D27C /* glue.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = glue.c; sourceTree = "<group>"; };
-		C9B536B6138D9E980028D27C /* machdep_ldisd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = machdep_ldisd.c; sourceTree = "<group>"; };
-		C9B536B8138D9E980028D27C /* machdep_ldisdd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = machdep_ldisdd.c; sourceTree = "<group>"; };
-		C9B536BA138D9E980028D27C /* machdep_ldisQ.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = machdep_ldisQ.c; sourceTree = "<group>"; };
-		C9B536BB138D9E980028D27C /* machdep_ldisx.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = machdep_ldisx.c; sourceTree = "<group>"; };
 		C9B536BD138D9E980028D27C /* gd_qnan.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = gd_qnan.h; sourceTree = "<group>"; };
 		C9B536BE138D9E980028D27C /* gdtoa.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; path = gdtoa.tgz; sourceTree = "<group>"; };
 		C9B536C1138D9E990028D27C /* __dirent.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = __dirent.h; sourceTree = "<group>"; };
@@ -7723,29 +7575,15 @@
 				C9B53695138D9E980028D27C /* gdtoa-dmisc.c */,
 				C9B53696138D9E980028D27C /* gdtoa-dtoa.c */,
 				C9B53697138D9E980028D27C /* gdtoa-gdtoa.c */,
-				C9B53698138D9E980028D27C /* gdtoa-gethex.c */,
 				C9B5369A138D9E980028D27C /* gdtoa-gmisc.c */,
-				C9B5369B138D9E980028D27C /* gdtoa-hd_init.c */,
-				C9B5369C138D9E980028D27C /* gdtoa-hexnan.c */,
 				C9B5369E138D9E980028D27C /* gdtoa-misc.c */,
 				C9B536A0138D9E980028D27C /* gdtoa-smisc.c */,
-				C9B536A1138D9E980028D27C /* gdtoa-strtod.c */,
-				C9B536A3138D9E980028D27C /* gdtoa-strtodg.c */,
-				C9B536A5138D9E980028D27C /* gdtoa-strtof.c */,
-				C9B536A7138D9E980028D27C /* gdtoa-strtoIg.c */,
-				C9B536A8138D9E980028D27C /* gdtoa-strtopdd.c */,
-				C9B536AA138D9E980028D27C /* gdtoa-strtopx.c */,
-				C9B536AC138D9E980028D27C /* gdtoa-strtord.c */,
 				C9B536AE138D9E980028D27C /* gdtoa-sum.c */,
 				C9B536AF138D9E980028D27C /* gdtoa-ulp.c */,
 				C9B536B0138D9E980028D27C /* gdtoa.h */,
 				C9B536B2138D9E980028D27C /* gdtoa_fltrnds.h */,
 				C9B536B3138D9E980028D27C /* gdtoaimp.h */,
 				C9B536B5138D9E980028D27C /* glue.c */,
-				C9B536B6138D9E980028D27C /* machdep_ldisd.c */,
-				C9B536B8138D9E980028D27C /* machdep_ldisdd.c */,
-				C9B536BA138D9E980028D27C /* machdep_ldisQ.c */,
-				C9B536BB138D9E980028D27C /* machdep_ldisx.c */,
 			);
 			path = FreeBSD;
 			sourceTree = "<group>";
@@ -8750,6 +8588,7 @@
 				C9B53CAF138D9E9A0028D27C /* NetBSD */,
 				C9B53CB4138D9E9A0028D27C /* OpenBSD */,
 				C9B53CBD138D9E9A0028D27C /* qsort_b.c */,
+				9CD764A42655AEF3004C0214 /* strtofp.c */,
 				C9B53CBE138D9E9A0028D27C /* strtod_l.3 */,
 				C9B53CBF138D9E9A0028D27C /* strtol_l.3 */,
 			);
@@ -10343,26 +10182,12 @@
 				C0E343D71C582ECB00E749C2 /* gdtoa-dmisc.c in Sources */,
 				C0E343D81C582ECB00E749C2 /* gdtoa-dtoa.c in Sources */,
 				C0E343D91C582ECB00E749C2 /* gdtoa-gdtoa.c in Sources */,
-				C0E343DA1C582ECB00E749C2 /* gdtoa-gethex.c in Sources */,
 				C0E343DB1C582ECB00E749C2 /* gdtoa-gmisc.c in Sources */,
-				C0E343DC1C582ECB00E749C2 /* gdtoa-hd_init.c in Sources */,
-				C0E343DD1C582ECB00E749C2 /* gdtoa-hexnan.c in Sources */,
 				C0E343DE1C582ECB00E749C2 /* gdtoa-misc.c in Sources */,
 				C0E343DF1C582ECB00E749C2 /* gdtoa-smisc.c in Sources */,
-				C0E343E01C582ECB00E749C2 /* gdtoa-strtod.c in Sources */,
-				C0E343E11C582ECB00E749C2 /* gdtoa-strtodg.c in Sources */,
-				C0E343E21C582ECB00E749C2 /* gdtoa-strtof.c in Sources */,
-				C0E343E31C582ECB00E749C2 /* gdtoa-strtoIg.c in Sources */,
-				C0E343E41C582ECB00E749C2 /* gdtoa-strtopdd.c in Sources */,
-				C0E343E51C582ECB00E749C2 /* gdtoa-strtopx.c in Sources */,
-				C0E343E61C582ECB00E749C2 /* gdtoa-strtord.c in Sources */,
 				C0E343E71C582ECB00E749C2 /* gdtoa-sum.c in Sources */,
 				C0E343E81C582ECB00E749C2 /* gdtoa-ulp.c in Sources */,
 				C0E343E91C582ECB00E749C2 /* glue.c in Sources */,
-				C0E343EA1C582ECB00E749C2 /* machdep_ldisd.c in Sources */,
-				C0E343EB1C582ECB00E749C2 /* machdep_ldisdd.c in Sources */,
-				C0E343EC1C582ECB00E749C2 /* machdep_ldisQ.c in Sources */,
-				C0E343ED1C582ECB00E749C2 /* machdep_ldisx.c in Sources */,
 				C0E343EE1C582ECB00E749C2 /* authentication.c in Sources */,
 				C0E343EF1C582ECB00E749C2 /* backtrace.c in Sources */,
 				C0E343F01C582ECB00E749C2 /* confstr.c in Sources */,
@@ -10667,6 +10492,7 @@
 				C0E345181C582ECB00E749C2 /* vswprintf.c in Sources */,
 				C0E345191C582ECB00E749C2 /* vswscanf.c in Sources */,
 				C0E3451A1C582ECB00E749C2 /* vwprintf.c in Sources */,
+				9CA393E42655ED85001F3BF3 /* strtofp.c in Sources */,
 				C0E3451B1C582ECB00E749C2 /* vwscanf.c in Sources */,
 				C0E3451C1C582ECB00E749C2 /* wbuf.c in Sources */,
 				C0E3451D1C582ECB00E749C2 /* wprintf.c in Sources */,
@@ -10895,18 +10721,9 @@
 				C9257EFC138E1C6A00B3107C /* gdtoa-dmisc.c in Sources */,
 				C9257EFD138E1C6A00B3107C /* gdtoa-dtoa.c in Sources */,
 				C9257EFE138E1C6A00B3107C /* gdtoa-gdtoa.c in Sources */,
-				C9257EFF138E1C6A00B3107C /* gdtoa-gethex.c in Sources */,
 				C9257F00138E1C6A00B3107C /* gdtoa-gmisc.c in Sources */,
-				C9257F01138E1C6A00B3107C /* gdtoa-hd_init.c in Sources */,
-				C9257F02138E1C6A00B3107C /* gdtoa-hexnan.c in Sources */,
 				C9257F03138E1C6A00B3107C /* gdtoa-misc.c in Sources */,
 				C9257F04138E1C6A00B3107C /* gdtoa-smisc.c in Sources */,
-				C9257F05138E1C6A00B3107C /* gdtoa-strtod.c in Sources */,
-				C9257F06138E1C6A00B3107C /* gdtoa-strtodg.c in Sources */,
-				C9257F07138E1C6A00B3107C /* gdtoa-strtof.c in Sources */,
-				C9257F09138E1C6A00B3107C /* gdtoa-strtopdd.c in Sources */,
-				C9257F0A138E1C6A00B3107C /* gdtoa-strtopx.c in Sources */,
-				C9257F0B138E1C6A00B3107C /* gdtoa-strtord.c in Sources */,
 				C9257F0C138E1C6A00B3107C /* gdtoa-sum.c in Sources */,
 				C9257F0D138E1C6A00B3107C /* gdtoa-ulp.c in Sources */,
 				C9257F0E138E1C6A00B3107C /* glue.c in Sources */,
@@ -11277,11 +11094,7 @@
 				C9D94359138EC0C600FB7ACC /* heapsort_b.c in Sources */,
 				C9D9435A138EC0C600FB7ACC /* heapsort_r.c in Sources */,
 				C9421021138F2602004BA536 /* _ldtoa.c in Sources */,
-				C9421022138F2661004BA536 /* machdep_ldisd.c in Sources */,
-				C9421023138F2661004BA536 /* machdep_ldisdd.c in Sources */,
-				C9421024138F2661004BA536 /* machdep_ldisQ.c in Sources */,
 				922D0C0A21BFA1530072834D /* timespec_get.c in Sources */,
-				C9421025138F2661004BA536 /* machdep_ldisx.c in Sources */,
 				C95B7ED7138F3BEA004311DA /* rune.c in Sources */,
 				C9EB2FC1138F6BB00075BB52 /* merge_b.c in Sources */,
 				C9EB2FC4138F6C5C0075BB52 /* psort.c in Sources */,
@@ -11378,26 +11191,12 @@
 				C942107313900C8A004BA536 /* gdtoa-dmisc.c in Sources */,
 				C942107413900C8A004BA536 /* gdtoa-dtoa.c in Sources */,
 				C942107513900C8A004BA536 /* gdtoa-gdtoa.c in Sources */,
-				C942107613900C8A004BA536 /* gdtoa-gethex.c in Sources */,
 				C942107713900C8A004BA536 /* gdtoa-gmisc.c in Sources */,
-				C942107813900C8A004BA536 /* gdtoa-hd_init.c in Sources */,
-				C942107913900C8A004BA536 /* gdtoa-hexnan.c in Sources */,
 				C942107A13900C8A004BA536 /* gdtoa-misc.c in Sources */,
 				C942107B13900C8A004BA536 /* gdtoa-smisc.c in Sources */,
-				C942107C13900C8A004BA536 /* gdtoa-strtod.c in Sources */,
-				C942107D13900C8A004BA536 /* gdtoa-strtodg.c in Sources */,
-				C942107E13900C8A004BA536 /* gdtoa-strtof.c in Sources */,
-				C942107F13900C8A004BA536 /* gdtoa-strtoIg.c in Sources */,
-				C942108013900C8A004BA536 /* gdtoa-strtopdd.c in Sources */,
-				C942108113900C8A004BA536 /* gdtoa-strtopx.c in Sources */,
-				C942108213900C8A004BA536 /* gdtoa-strtord.c in Sources */,
 				C942108313900C8A004BA536 /* gdtoa-sum.c in Sources */,
 				C942108413900C8A004BA536 /* gdtoa-ulp.c in Sources */,
 				C942108513900C8A004BA536 /* glue.c in Sources */,
-				C942108613900C8A004BA536 /* machdep_ldisd.c in Sources */,
-				C942108713900C8A004BA536 /* machdep_ldisdd.c in Sources */,
-				C942108813900C8A004BA536 /* machdep_ldisQ.c in Sources */,
-				C942108913900C8A004BA536 /* machdep_ldisx.c in Sources */,
 				C942109313900C8A004BA536 /* authentication.c in Sources */,
 				C942109413900C8A004BA536 /* backtrace.c in Sources */,
 				C942109613900C8A004BA536 /* confstr.c in Sources */,
@@ -11405,6 +11204,7 @@
 				C942109813900C8A004BA536 /* devname.c in Sources */,
 				C942109913900C8A004BA536 /* disklabel.c in Sources */,
 				C942109A13900C8A004BA536 /* errlst.c in Sources */,
+				9CA393E52655ED87001F3BF3 /* strtofp.c in Sources */,
 				C942109B13900C8A004BA536 /* filesec.c in Sources */,
 				C942109C13900C8A004BA536 /* _rand48.c in Sources */,
 				C942109D13900C8A004BA536 /* alarm.c in Sources */,
@@ -11922,26 +11722,12 @@
 				C95B7F1E138F3C55004311DA /* gdtoa-dmisc.c in Sources */,
 				C95B7F1F138F3C55004311DA /* gdtoa-dtoa.c in Sources */,
 				C95B7F20138F3C55004311DA /* gdtoa-gdtoa.c in Sources */,
-				C95B7F21138F3C55004311DA /* gdtoa-gethex.c in Sources */,
 				C95B7F22138F3C55004311DA /* gdtoa-gmisc.c in Sources */,
-				C95B7F23138F3C55004311DA /* gdtoa-hd_init.c in Sources */,
-				C95B7F24138F3C55004311DA /* gdtoa-hexnan.c in Sources */,
 				C95B7F25138F3C55004311DA /* gdtoa-misc.c in Sources */,
 				C95B7F26138F3C55004311DA /* gdtoa-smisc.c in Sources */,
-				C95B7F27138F3C55004311DA /* gdtoa-strtod.c in Sources */,
-				C95B7F28138F3C55004311DA /* gdtoa-strtodg.c in Sources */,
-				C95B7F29138F3C55004311DA /* gdtoa-strtof.c in Sources */,
-				C95B7F2A138F3C55004311DA /* gdtoa-strtoIg.c in Sources */,
-				C95B7F2B138F3C55004311DA /* gdtoa-strtopdd.c in Sources */,
-				C95B7F2C138F3C55004311DA /* gdtoa-strtopx.c in Sources */,
-				C95B7F2D138F3C55004311DA /* gdtoa-strtord.c in Sources */,
 				C95B7F2E138F3C55004311DA /* gdtoa-sum.c in Sources */,
 				C95B7F2F138F3C55004311DA /* gdtoa-ulp.c in Sources */,
 				C95B7F30138F3C55004311DA /* glue.c in Sources */,
-				C95B7F31138F3C55004311DA /* machdep_ldisd.c in Sources */,
-				C95B7F32138F3C55004311DA /* machdep_ldisdd.c in Sources */,
-				C95B7F33138F3C55004311DA /* machdep_ldisQ.c in Sources */,
-				C95B7F34138F3C55004311DA /* machdep_ldisx.c in Sources */,
 				C95B7F3E138F3C55004311DA /* authentication.c in Sources */,
 				C95B7F3F138F3C55004311DA /* backtrace.c in Sources */,
 				C95B7F41138F3C55004311DA /* confstr.c in Sources */,
@@ -12459,26 +12245,12 @@
 				C95B81C9138F52B0004311DA /* gdtoa-dmisc.c in Sources */,
 				C95B81CA138F52B0004311DA /* gdtoa-dtoa.c in Sources */,
 				C95B81CB138F52B0004311DA /* gdtoa-gdtoa.c in Sources */,
-				C95B81CC138F52B0004311DA /* gdtoa-gethex.c in Sources */,
 				C95B81CD138F52B0004311DA /* gdtoa-gmisc.c in Sources */,
-				C95B81CE138F52B0004311DA /* gdtoa-hd_init.c in Sources */,
-				C95B81CF138F52B0004311DA /* gdtoa-hexnan.c in Sources */,
 				C95B81D0138F52B0004311DA /* gdtoa-misc.c in Sources */,
 				C95B81D1138F52B0004311DA /* gdtoa-smisc.c in Sources */,
-				C95B81D2138F52B0004311DA /* gdtoa-strtod.c in Sources */,
-				C95B81D3138F52B0004311DA /* gdtoa-strtodg.c in Sources */,
-				C95B81D4138F52B0004311DA /* gdtoa-strtof.c in Sources */,
-				C95B81D5138F52B0004311DA /* gdtoa-strtoIg.c in Sources */,
-				C95B81D6138F52B0004311DA /* gdtoa-strtopdd.c in Sources */,
-				C95B81D7138F52B0004311DA /* gdtoa-strtopx.c in Sources */,
-				C95B81D8138F52B0004311DA /* gdtoa-strtord.c in Sources */,
 				C95B81D9138F52B0004311DA /* gdtoa-sum.c in Sources */,
 				C95B81DA138F52B0004311DA /* gdtoa-ulp.c in Sources */,
 				C95B81DB138F52B0004311DA /* glue.c in Sources */,
-				C95B81DC138F52B0004311DA /* machdep_ldisd.c in Sources */,
-				C95B81DD138F52B0004311DA /* machdep_ldisdd.c in Sources */,
-				C95B81DE138F52B0004311DA /* machdep_ldisQ.c in Sources */,
-				C95B81DF138F52B0004311DA /* machdep_ldisx.c in Sources */,
 				C95B81E9138F52B0004311DA /* authentication.c in Sources */,
 				C95B81EA138F52B0004311DA /* backtrace.c in Sources */,
 				C95B81EC138F52B0004311DA /* confstr.c in Sources */,
@@ -12996,26 +12768,12 @@
 				C95B846F138F53DB004311DA /* gdtoa-dmisc.c in Sources */,
 				C95B8470138F53DB004311DA /* gdtoa-dtoa.c in Sources */,
 				C95B8471138F53DB004311DA /* gdtoa-gdtoa.c in Sources */,
-				C95B8472138F53DB004311DA /* gdtoa-gethex.c in Sources */,
 				C95B8473138F53DB004311DA /* gdtoa-gmisc.c in Sources */,
-				C95B8474138F53DB004311DA /* gdtoa-hd_init.c in Sources */,
-				C95B8475138F53DB004311DA /* gdtoa-hexnan.c in Sources */,
 				C95B8476138F53DB004311DA /* gdtoa-misc.c in Sources */,
 				C95B8477138F53DB004311DA /* gdtoa-smisc.c in Sources */,
-				C95B8478138F53DB004311DA /* gdtoa-strtod.c in Sources */,
-				C95B8479138F53DB004311DA /* gdtoa-strtodg.c in Sources */,
-				C95B847A138F53DB004311DA /* gdtoa-strtof.c in Sources */,
-				C95B847B138F53DB004311DA /* gdtoa-strtoIg.c in Sources */,
-				C95B847C138F53DB004311DA /* gdtoa-strtopdd.c in Sources */,
-				C95B847D138F53DB004311DA /* gdtoa-strtopx.c in Sources */,
-				C95B847E138F53DB004311DA /* gdtoa-strtord.c in Sources */,
 				C95B847F138F53DB004311DA /* gdtoa-sum.c in Sources */,
 				C95B8480138F53DB004311DA /* gdtoa-ulp.c in Sources */,
 				C95B8481138F53DB004311DA /* glue.c in Sources */,
-				C95B8482138F53DB004311DA /* machdep_ldisd.c in Sources */,
-				C95B8483138F53DB004311DA /* machdep_ldisdd.c in Sources */,
-				C95B8484138F53DB004311DA /* machdep_ldisQ.c in Sources */,
-				C95B8485138F53DB004311DA /* machdep_ldisx.c in Sources */,
 				C95B848F138F53DB004311DA /* authentication.c in Sources */,
 				C95B8490138F53DB004311DA /* backtrace.c in Sources */,
 				C95B8492138F53DB004311DA /* confstr.c in Sources */,
@@ -13538,26 +13296,12 @@
 				C97A6FD01517AF53005E1998 /* gdtoa-dmisc.c in Sources */,
 				C97A6FD11517AF53005E1998 /* gdtoa-dtoa.c in Sources */,
 				C97A6FD21517AF53005E1998 /* gdtoa-gdtoa.c in Sources */,
-				C97A6FD31517AF53005E1998 /* gdtoa-gethex.c in Sources */,
 				C97A6FD41517AF53005E1998 /* gdtoa-gmisc.c in Sources */,
-				C97A6FD51517AF53005E1998 /* gdtoa-hd_init.c in Sources */,
-				C97A6FD61517AF53005E1998 /* gdtoa-hexnan.c in Sources */,
 				C97A6FD71517AF53005E1998 /* gdtoa-misc.c in Sources */,
 				C97A6FD81517AF53005E1998 /* gdtoa-smisc.c in Sources */,
-				C97A6FD91517AF53005E1998 /* gdtoa-strtod.c in Sources */,
-				C97A6FDA1517AF53005E1998 /* gdtoa-strtodg.c in Sources */,
-				C97A6FDB1517AF53005E1998 /* gdtoa-strtof.c in Sources */,
-				C97A6FDC1517AF53005E1998 /* gdtoa-strtoIg.c in Sources */,
-				C97A6FDD1517AF53005E1998 /* gdtoa-strtopdd.c in Sources */,
-				C97A6FDE1517AF53005E1998 /* gdtoa-strtopx.c in Sources */,
-				C97A6FDF1517AF53005E1998 /* gdtoa-strtord.c in Sources */,
 				C97A6FE01517AF53005E1998 /* gdtoa-sum.c in Sources */,
 				C97A6FE11517AF53005E1998 /* gdtoa-ulp.c in Sources */,
 				C97A6FE21517AF53005E1998 /* glue.c in Sources */,
-				C97A6FE31517AF53005E1998 /* machdep_ldisd.c in Sources */,
-				C97A6FE41517AF53005E1998 /* machdep_ldisdd.c in Sources */,
-				C97A6FE51517AF53005E1998 /* machdep_ldisQ.c in Sources */,
-				C97A6FE61517AF53005E1998 /* machdep_ldisx.c in Sources */,
 				25B34370288A026B00081FD8 /* stdio_init.c in Sources */,
 				C97A6FF01517AF53005E1998 /* authentication.c in Sources */,
 				C97A6FF11517AF53005E1998 /* backtrace.c in Sources */,
@@ -13899,6 +13643,7 @@
 				C97A715A1517AF53005E1998 /* lldiv.c in Sources */,
 				C97A715B1517AF53005E1998 /* lsearch.c in Sources */,
 				C97A715C1517AF53005E1998 /* merge.c in Sources */,
+				9CA393E62655EE66001F3BF3 /* strtofp.c in Sources */,
 				C97A715D1517AF53005E1998 /* putenv.c in Sources */,
 				C97A715E1517AF53005E1998 /* qsort.c in Sources */,
 				C97A715F1517AF53005E1998 /* qsort_r.c in Sources */,
@@ -14063,6 +13808,7 @@
 				147CDFDB1B7C232A00831EC6 /* clock_gettime.c in Sources */,
 				C9C2A97D138E058200287F00 /* brk.c in Sources */,
 				C9C2A97E138E058200287F00 /* bsd_signal.c in Sources */,
+				9C4FA78C268696D500BEC393 /* strtofp.c in Sources */,
 				C9C2A97F138E058200287F00 /* lchflags.c in Sources */,
 				C9C2A980138E058200287F00 /* lchmod.c in Sources */,
 				C9C2A981138E058200287F00 /* lutimes.c in Sources */,
@@ -14228,26 +13974,12 @@
 				C9765EF3138EC61900741512 /* gdtoa-dmisc.c in Sources */,
 				C9765EF4138EC61900741512 /* gdtoa-dtoa.c in Sources */,
 				C9765EF5138EC61900741512 /* gdtoa-gdtoa.c in Sources */,
-				C9765EF6138EC61900741512 /* gdtoa-gethex.c in Sources */,
 				C9765EF7138EC61900741512 /* gdtoa-gmisc.c in Sources */,
-				C9765EF8138EC61900741512 /* gdtoa-hd_init.c in Sources */,
-				C9765EF9138EC61900741512 /* gdtoa-hexnan.c in Sources */,
 				C9765EFA138EC61900741512 /* gdtoa-misc.c in Sources */,
 				C9765EFB138EC61900741512 /* gdtoa-smisc.c in Sources */,
-				C9765EFC138EC61900741512 /* gdtoa-strtod.c in Sources */,
-				C9765EFD138EC61900741512 /* gdtoa-strtodg.c in Sources */,
-				C9765EFE138EC61900741512 /* gdtoa-strtof.c in Sources */,
-				C9765EFF138EC61900741512 /* gdtoa-strtoIg.c in Sources */,
-				C9765F00138EC61900741512 /* gdtoa-strtopdd.c in Sources */,
-				C9765F01138EC61900741512 /* gdtoa-strtopx.c in Sources */,
-				C9765F02138EC61900741512 /* gdtoa-strtord.c in Sources */,
 				C9765F03138EC61900741512 /* gdtoa-sum.c in Sources */,
 				C9765F04138EC61900741512 /* gdtoa-ulp.c in Sources */,
 				C9765F05138EC61900741512 /* glue.c in Sources */,
-				C9765F06138EC61900741512 /* machdep_ldisd.c in Sources */,
-				C9765F07138EC61900741512 /* machdep_ldisdd.c in Sources */,
-				C9765F08138EC61900741512 /* machdep_ldisQ.c in Sources */,
-				C9765F09138EC61900741512 /* machdep_ldisx.c in Sources */,
 				C9765F13138EC61900741512 /* authentication.c in Sources */,
 				C9765F14138EC61900741512 /* backtrace.c in Sources */,
 				C9765F16138EC61900741512 /* confstr.c in Sources */,
@@ -14764,26 +14496,12 @@
 				C9EB300E138F6D880075BB52 /* gdtoa-dmisc.c in Sources */,
 				C9EB300F138F6D880075BB52 /* gdtoa-dtoa.c in Sources */,
 				C9EB3010138F6D880075BB52 /* gdtoa-gdtoa.c in Sources */,
-				C9EB3011138F6D880075BB52 /* gdtoa-gethex.c in Sources */,
 				C9EB3012138F6D880075BB52 /* gdtoa-gmisc.c in Sources */,
-				C9EB3013138F6D880075BB52 /* gdtoa-hd_init.c in Sources */,
-				C9EB3014138F6D880075BB52 /* gdtoa-hexnan.c in Sources */,
 				C9EB3015138F6D880075BB52 /* gdtoa-misc.c in Sources */,
 				C9EB3016138F6D880075BB52 /* gdtoa-smisc.c in Sources */,
-				C9EB3017138F6D880075BB52 /* gdtoa-strtod.c in Sources */,
-				C9EB3018138F6D880075BB52 /* gdtoa-strtodg.c in Sources */,
-				C9EB3019138F6D880075BB52 /* gdtoa-strtof.c in Sources */,
-				C9EB301A138F6D880075BB52 /* gdtoa-strtoIg.c in Sources */,
-				C9EB301B138F6D880075BB52 /* gdtoa-strtopdd.c in Sources */,
-				C9EB301C138F6D880075BB52 /* gdtoa-strtopx.c in Sources */,
-				C9EB301D138F6D880075BB52 /* gdtoa-strtord.c in Sources */,
 				C9EB301E138F6D880075BB52 /* gdtoa-sum.c in Sources */,
 				C9EB301F138F6D880075BB52 /* gdtoa-ulp.c in Sources */,
 				C9EB3020138F6D880075BB52 /* glue.c in Sources */,
-				C9EB3021138F6D880075BB52 /* machdep_ldisd.c in Sources */,
-				C9EB3022138F6D880075BB52 /* machdep_ldisdd.c in Sources */,
-				C9EB3023138F6D880075BB52 /* machdep_ldisQ.c in Sources */,
-				C9EB3024138F6D880075BB52 /* machdep_ldisx.c in Sources */,
 				C9EB302E138F6D880075BB52 /* authentication.c in Sources */,
 				C9EB302F138F6D880075BB52 /* backtrace.c in Sources */,
 				C9EB3031138F6D880075BB52 /* confstr.c in Sources */,
@@ -15302,26 +15020,12 @@
 				C9EB32B5138F75580075BB52 /* gdtoa-dmisc.c in Sources */,
 				C9EB32B6138F75580075BB52 /* gdtoa-dtoa.c in Sources */,
 				C9EB32B7138F75580075BB52 /* gdtoa-gdtoa.c in Sources */,
-				C9EB32B8138F75580075BB52 /* gdtoa-gethex.c in Sources */,
 				C9EB32B9138F75580075BB52 /* gdtoa-gmisc.c in Sources */,
-				C9EB32BA138F75580075BB52 /* gdtoa-hd_init.c in Sources */,
-				C9EB32BB138F75580075BB52 /* gdtoa-hexnan.c in Sources */,
 				C9EB32BC138F75580075BB52 /* gdtoa-misc.c in Sources */,
 				C9EB32BD138F75580075BB52 /* gdtoa-smisc.c in Sources */,
-				C9EB32BE138F75580075BB52 /* gdtoa-strtod.c in Sources */,
-				C9EB32BF138F75580075BB52 /* gdtoa-strtodg.c in Sources */,
-				C9EB32C0138F75580075BB52 /* gdtoa-strtof.c in Sources */,
-				C9EB32C1138F75580075BB52 /* gdtoa-strtoIg.c in Sources */,
-				C9EB32C2138F75580075BB52 /* gdtoa-strtopdd.c in Sources */,
-				C9EB32C3138F75580075BB52 /* gdtoa-strtopx.c in Sources */,
-				C9EB32C4138F75580075BB52 /* gdtoa-strtord.c in Sources */,
 				C9EB32C5138F75580075BB52 /* gdtoa-sum.c in Sources */,
 				C9EB32C6138F75580075BB52 /* gdtoa-ulp.c in Sources */,
 				C9EB32C7138F75580075BB52 /* glue.c in Sources */,
-				C9EB32C8138F75580075BB52 /* machdep_ldisd.c in Sources */,
-				C9EB32C9138F75580075BB52 /* machdep_ldisdd.c in Sources */,
-				C9EB32CA138F75580075BB52 /* machdep_ldisQ.c in Sources */,
-				C9EB32CB138F75580075BB52 /* machdep_ldisx.c in Sources */,
 				C9EB32D5138F75580075BB52 /* authentication.c in Sources */,
 				C9EB32D6138F75580075BB52 /* backtrace.c in Sources */,
 				C9EB32D8138F75580075BB52 /* confstr.c in Sources */,
@@ -16186,16 +15890,12 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				EXCLUDED_SOURCE_FILE_NAMES = (
-					"$(FreeBSD_EXCLUDED_SOURCE_GDTOA)",
-					"$(BASE_EXCLUDED_SOURCE_FILE_NAMES)",
-				);
+				EXCLUDED_SOURCE_FILE_NAMES = "$(BASE_EXCLUDED_SOURCE_FILE_NAMES)";
 				EXECUTABLE_PREFIX = lib;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INCLUDED_SOURCE_FILE_NAMES = "$(FreeBSD_INCLUDED_SOURCE_FILE_NAMES)";
 				PRODUCT_NAME = TRE;
 			};
 			name = Debug;
@@ -16205,13 +15905,9 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				EXCLUDED_SOURCE_FILE_NAMES = (
-					"$(FreeBSD_EXCLUDED_SOURCE_GDTOA)",
-					"$(BASE_EXCLUDED_SOURCE_FILE_NAMES)",
-				);
+				EXCLUDED_SOURCE_FILE_NAMES = "$(BASE_EXCLUDED_SOURCE_FILE_NAMES)";
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				INCLUDED_SOURCE_FILE_NAMES = "$(FreeBSD_INCLUDED_SOURCE_FILE_NAMES)";
 				PRODUCT_NAME = TRE;
 			};
 			name = Release;
@@ -16239,16 +15935,12 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				EXCLUDED_SOURCE_FILE_NAMES = (
-					"$(FreeBSD_EXCLUDED_SOURCE_GDTOA)",
-					"$(BASE_EXCLUDED_SOURCE_FILE_NAMES)",
-				);
+				EXCLUDED_SOURCE_FILE_NAMES = "$(BASE_EXCLUDED_SOURCE_FILE_NAMES)";
 				EXECUTABLE_PREFIX = lib;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INCLUDED_SOURCE_FILE_NAMES = "$(FreeBSD_INCLUDED_SOURCE_FILE_NAMES)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -16258,13 +15950,9 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				EXCLUDED_SOURCE_FILE_NAMES = (
-					"$(FreeBSD_EXCLUDED_SOURCE_GDTOA)",
-					"$(BASE_EXCLUDED_SOURCE_FILE_NAMES)",
-				);
+				EXCLUDED_SOURCE_FILE_NAMES = "$(BASE_EXCLUDED_SOURCE_FILE_NAMES)";
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				INCLUDED_SOURCE_FILE_NAMES = "$(FreeBSD_INCLUDED_SOURCE_FILE_NAMES)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

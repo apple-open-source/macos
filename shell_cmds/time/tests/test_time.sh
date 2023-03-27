@@ -57,4 +57,18 @@ if [ "$TIME_STATUS" -ne "127" ]; then
 	EXIT=5
 fi
 
+# All -l stats should go to the -o specified file, leaving stderr empty.
+echo TEST: check that the -o flag pushes all output to the file
+TIME_OFLAG=`$TIME -o time_stats -l true 2> ./should_be_empty`
+TIME_STATUS=$?
+if [ "$TIME_STATUS" -ne "0" ]; then
+	echo FAIL: time -o ... true should have succeeded.
+	EXIT=6
+fi
+
+if [ -s "should_be_empty" ]; then
+	echo FAIL: stderr should have been empty with -o specified
+	EXIT=7
+fi
+
 exit $EXIT

@@ -27,6 +27,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     var cuttlefish: FakeCuttlefishServer!
 
     var manateeKeySet: CKKSKeychainBackedKeySet!
+#if SEC_XR
+    var overrideBecomeiPad: Bool!
+#endif
 
     override static func setUp() {
         super.setUp()
@@ -45,6 +48,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         super.setUp()
 
 #if SEC_XR
+        self.overrideBecomeiPad = TPBecomeiPadOverride()
         TPClearBecomeiPadOverride()
 #endif
 
@@ -83,7 +87,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         self.manateeKeySet = nil
 
 #if SEC_XR
-        TPClearBecomeiPadOverride()
+        TPSetBecomeiPadOverride(self.overrideBecomeiPad)
 #endif
 
         autoreleasepool {
@@ -104,6 +108,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             }
         }
         super.tearDown()
+    }
+
+    override static func tearDown() {
     }
 
     func makeFakeKeyHierarchy(zoneID: CKRecordZone.ID) throws -> CKKSKeychainBackedKeySet {
@@ -3245,6 +3252,8 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                  policySecrets: containerEgoStableInfo!.policySecrets,
                                                  syncUserControllableViews: containerEgoStableInfo!.syncUserControllableViews,
                                                  secureElementIdentity: containerEgoStableInfo!.secureElementIdentity,
+                                                 walrusSetting: containerEgoStableInfo!.walrusSetting,
+                                                 webAccess: containerEgoStableInfo!.webAccess,
                                                  deviceName: containerEgoStableInfo!.deviceName,
                                                  serialNumber: containerEgoStableInfo!.serialNumber,
                                                  osVersion: containerEgoStableInfo!.osVersion,

@@ -36,12 +36,19 @@ static_assert(std::is_trivially_destructible<decltype(g_LastContext)>::value,
 
 void SetContextToAndroidOpenGLTLSSlot(gl::Context *value)
 {
-#if defined(ANGLE_PLATFORM_ANDROID)
+#if defined(ANGLE_USE_ANDROID_TLS_SLOT)
     if (angle::gUseAndroidOpenGLTlsSlot)
     {
         ANGLE_ANDROID_GET_GL_TLS()[angle::kAndroidOpenGLTlsSlot] = static_cast<void *>(value);
     }
 #endif
+}
+
+// Called only on Android platform
+[[maybe_unused]] void ThreadCleanupCallback(void *ptr)
+{
+    ANGLE_SCOPED_GLOBAL_LOCK();
+    angle::PthreadKeyDestructorCallback(ptr);
 }
 
 Thread *AllocateCurrentThread()
@@ -68,19 +75,18 @@ Thread *AllocateCurrentThread()
 #endif
 
 #if defined(ANGLE_PLATFORM_ANDROID)
-    static pthread_once_t keyOnce           = PTHREAD_ONCE_INIT;
-    static TLSIndex gProcessCleanupTLSIndex = TLS_INVALID_INDEX;
+    static pthread_once_t keyOnce          = PTHREAD_ONCE_INIT;
+    static TLSIndex gThreadCleanupTLSIndex = TLS_INVALID_INDEX;
 
-    // Create process cleanup TLS slot
-    auto CreateProcessCleanupTLSIndex = []() {
-        gProcessCleanupTLSIndex = CreateTLSIndex(angle::ProcessCleanupCallback);
+    // Create thread cleanup TLS slot
+    auto CreateThreadCleanupTLSIndex = []() {
+        gThreadCleanupTLSIndex = CreateTLSIndex(ThreadCleanupCallback);
     };
-    pthread_once(&keyOnce, CreateProcessCleanupTLSIndex);
-    ASSERT(gProcessCleanupTLSIndex != TLS_INVALID_INDEX);
+    pthread_once(&keyOnce, CreateThreadCleanupTLSIndex);
+    ASSERT(gThreadCleanupTLSIndex != TLS_INVALID_INDEX);
 
-    // Initialize process cleanup TLS slot
-    angle::gProcessCleanupRefCount++;
-    SetTLSValue(gProcessCleanupTLSIndex, thread);
+    // Initialize thread cleanup TLS slot
+    SetTLSValue(gThreadCleanupTLSIndex, thread);
 #endif  // ANGLE_PLATFORM_ANDROID
 
     ASSERT(thread);
@@ -219,7 +225,7 @@ void GenerateContextLostErrorOnContext(Context *context)
 {
     if (context && context->isContextLost())
     {
-        context->validationError(angle::EntryPoint::GLInvalid, GL_CONTEXT_LOST, err::kContextLost);
+        context->validationError(angle::EntryPoint::Invalid, GL_CONTEXT_LOST, err::kContextLost);
     }
 }
 

@@ -25,6 +25,18 @@
 namespace
 {
 #include "libANGLE/GLES1Shaders.inc"
+
+uint32_t GetLogicOpUniform(const gl::FramebufferAttachment *color, gl::LogicalOperation logicOp)
+{
+    const uint32_t red   = color->getRedSize();
+    const uint32_t green = color->getGreenSize();
+    const uint32_t blue  = color->getBlueSize();
+    const uint32_t alpha = color->getAlphaSize();
+
+    ASSERT(red <= 8 && green <= 8 && blue <= 8 && alpha <= 8);
+
+    return red | green << 4 | blue << 8 | alpha << 12 | static_cast<uint32_t>(logicOp) << 16;
+}
 }  // anonymous namespace
 
 namespace gl
@@ -101,13 +113,33 @@ angle::Result GLES1Renderer::prepareForDraw(PrimitiveMode mode, Context *context
 
         texCubeEnables[i] = gles1State.isTextureTargetEnabled(i, TextureType::CubeMap);
         tex2DEnables[i] =
-            !texCubeEnables[i] && (gles1State.isTextureTargetEnabled(i, TextureType::_2D));
+            !texCubeEnables[i] && gles1State.isTextureTargetEnabled(i, TextureType::_2D);
 
         Texture *curr2DTexture = glState->getSamplerTexture(i, TextureType::_2D);
         if (curr2DTexture)
         {
             tex2DFormats[i] = gl::GetUnsizedFormat(
                 curr2DTexture->getFormat(TextureTarget::_2D, 0).info->internalFormat);
+
+            // Handle GL_BGRA the same way we do GL_RGBA
+            if (tex2DFormats[i] == GL_BGRA_EXT)
+                tex2DFormats[i] = GL_RGBA;
+        }
+
+        Texture *currCubeTexture = glState->getSamplerTexture(i, TextureType::CubeMap);
+
+        // > If texturing is enabled for a texture unit at the time a primitive is rasterized, if
+        // > TEXTURE MIN FILTER is one that requires a mipmap, and if the texture image bound to the
+        // > enabled texture target is not complete, then it is as if texture mapping were disabled
+        // > for that texture unit.
+        if (tex2DEnables[i] && curr2DTexture && IsMipmapFiltered(curr2DTexture->getMinFilter()))
+        {
+            tex2DEnables[i] = curr2DTexture->isMipmapComplete();
+        }
+        if (texCubeEnables[i] && currCubeTexture &&
+            IsMipmapFiltered(currCubeTexture->getMinFilter()))
+        {
+            texCubeEnables[i] = curr2DTexture->isMipmapComplete();
         }
     }
 
@@ -199,6 +231,16 @@ angle::Result GLES1Renderer::prepareForDraw(PrimitiveMode mode, Context *context
     mShaderState.alphaTestFunc = gles1State.mAlphaTestFunc;
     mShaderState.fogMode       = gles1State.fogParameters().mode;
 
+    const bool hasLogicOpANGLE     = context->getExtensions().logicOpANGLE;
+    const bool hasFramebufferFetch = context->getExtensions().shaderFramebufferFetchEXT ||
+                                     context->getExtensions().shaderFramebufferFetchNonCoherentEXT;
+
+    if (!hasLogicOpANGLE && hasFramebufferFetch)
+    {
+        mShaderState.mGLES1StateEnabled[GLES1StateEnables::LogicOpThroughFramebufferFetch] =
+            gles1State.mLogicOpEnabled;
+    }
+
     // All the states set before this spot affect ubershader creation
 
     ANGLE_TRY(initializeRendererProgram(context, glState));
@@ -241,6 +283,33 @@ angle::Result GLES1Renderer::prepareForDraw(PrimitiveMode mode, Context *context
     }
     setUniform4fv(programObject, programState.drawTextureNormalizedCropRectLoc, kTexUnitCount,
                   reinterpret_cast<GLfloat *>(cropRectBuffer));
+
+    if (gles1State.isDirty(GLES1State::DIRTY_GLES1_LOGIC_OP) && hasLogicOpANGLE)
+    {
+        context->setLogicOpEnabled(gles1State.mLogicOpEnabled);
+        context->setLogicOp(gles1State.mLogicOp);
+    }
+    else if (hasFramebufferFetch)
+    {
+        const Framebuffer *drawFramebuffer           = glState->getDrawFramebuffer();
+        const FramebufferAttachment *colorAttachment = drawFramebuffer->getColorAttachment(0);
+
+        if (gles1State.mLogicOpEnabled)
+        {
+            if (gles1State.isDirty(GLES1State::DIRTY_GLES1_LOGIC_OP))
+            {
+                // Set up uniform value for logic op
+                setUniform1ui(programObject, programState.logicOpLoc,
+                              GetLogicOpUniform(colorAttachment, gles1State.mLogicOp));
+            }
+
+            // Issue a framebuffer fetch barrier if non-coherent
+            if (!context->getExtensions().shaderFramebufferFetchEXT)
+            {
+                context->framebufferFetchBarrier();
+            }
+        }
+    }
 
     // Client state / current vector enables
     if (gles1State.isDirty(GLES1State::DIRTY_GLES1_CLIENT_STATE_ENABLE) ||
@@ -555,16 +624,16 @@ angle::Result GLES1Renderer::compileShader(Context *context,
     Shader *shaderObject = getShader(shader);
     ANGLE_CHECK(context, shaderObject, "Missing shader object", GL_INVALID_OPERATION);
 
-    shaderObject->setSource(1, &src, nullptr);
+    shaderObject->setSource(context, 1, &src, nullptr);
     shaderObject->compile(context);
 
     *shaderOut = shader;
 
-    if (!shaderObject->isCompiled())
+    if (!shaderObject->isCompiled(context))
     {
-        GLint infoLogLength = shaderObject->getInfoLogLength();
+        GLint infoLogLength = shaderObject->getInfoLogLength(context);
         std::vector<char> infoLog(infoLogLength, 0);
-        shaderObject->getInfoLog(infoLogLength - 1, nullptr, infoLog.data());
+        shaderObject->getInfoLog(context, infoLogLength - 1, nullptr, infoLog.data());
 
         ERR() << "Internal GLES 1 shader compile failed. Info log: " << infoLog.data();
         ANGLE_CHECK(context, false, "GLES1Renderer shader compile failed.", GL_INVALID_OPERATION);
@@ -719,15 +788,20 @@ void GLES1Renderer::addShaderBoolClipPlaneArray(std::stringstream &outStream,
 
 void GLES1Renderer::addVertexShaderDefs(std::stringstream &outStream)
 {
+    addShaderDefine(outStream, GLES1StateEnables::Lighting, "enable_lighting");
+    addShaderDefine(outStream, GLES1StateEnables::ColorMaterial, "enable_color_material");
     addShaderDefine(outStream, GLES1StateEnables::DrawTexture, "enable_draw_texture");
     addShaderDefine(outStream, GLES1StateEnables::PointRasterization, "point_rasterization");
     addShaderDefine(outStream, GLES1StateEnables::RescaleNormal, "enable_rescale_normal");
     addShaderDefine(outStream, GLES1StateEnables::Normalize, "enable_normalize");
+    addShaderDefine(outStream, GLES1StateEnables::LightModelTwoSided, "light_model_two_sided");
+
+    // bool light_enables[kMaxLights] = bool[kMaxLights](...);
+    addShaderBoolLightArray(outStream, "light_enables", mShaderState.lightEnables);
 }
 
 void GLES1Renderer::addFragmentShaderDefs(std::stringstream &outStream)
 {
-    addShaderDefine(outStream, GLES1StateEnables::Lighting, "enable_lighting");
     addShaderDefine(outStream, GLES1StateEnables::Fog, "enable_fog");
     addShaderDefine(outStream, GLES1StateEnables::ClipPlanes, "enable_clip_planes");
     addShaderDefine(outStream, GLES1StateEnables::DrawTexture, "enable_draw_texture");
@@ -735,8 +809,6 @@ void GLES1Renderer::addFragmentShaderDefs(std::stringstream &outStream)
     addShaderDefine(outStream, GLES1StateEnables::PointSprite, "point_sprite_enabled");
     addShaderDefine(outStream, GLES1StateEnables::AlphaTest, "enable_alpha_test");
     addShaderDefine(outStream, GLES1StateEnables::ShadeModelFlat, "shade_model_flat");
-    addShaderDefine(outStream, GLES1StateEnables::ColorMaterial, "enable_color_material");
-    addShaderDefine(outStream, GLES1StateEnables::LightModelTwoSided, "light_model_two_sided");
 
     // bool enable_texture_2d[kMaxTexUnits] = bool[kMaxTexUnits](...);
     addShaderBoolTexArray(outStream, "enable_texture_2d", mShaderState.tex2DEnables);
@@ -750,9 +822,6 @@ void GLES1Renderer::addFragmentShaderDefs(std::stringstream &outStream)
     // bool point_sprite_coord_replace[kMaxTexUnits] = bool[kMaxTexUnits](...);
     addShaderBoolTexArray(outStream, "point_sprite_coord_replace",
                           mShaderState.pointSpriteCoordReplaces);
-
-    // bool light_enables[kMaxLights] = bool[kMaxLights](...);
-    addShaderBoolLightArray(outStream, "light_enables", mShaderState.lightEnables);
 
     // bool clip_plane_enables[kMaxClipPlanes] = bool[kMaxClipPlanes](...);
     addShaderBoolClipPlaneArray(outStream, "clip_plane_enables", mShaderState.clipPlaneEnables);
@@ -838,11 +907,23 @@ angle::Result GLES1Renderer::initializeRendererProgram(Context *context, State *
     ShaderProgramID vertexShader;
     ShaderProgramID fragmentShader;
 
+    // Set the count of texture units to a minimum (at least one for simplicity), to avoid requiring
+    // unnecessary vertex attributes and take up varying slots.
+    uint32_t maxTexUnitsEnabled = 1;
+    for (int i = 0; i < kTexUnitCount; i++)
+    {
+        if (mShaderState.texCubeEnables[i] || mShaderState.tex2DEnables[i])
+        {
+            maxTexUnitsEnabled = i + 1;
+        }
+    }
+
     std::stringstream GLES1DrawVShaderStateDefs;
     addVertexShaderDefs(GLES1DrawVShaderStateDefs);
 
     std::stringstream vertexStream;
     vertexStream << kGLES1DrawVShaderHeader;
+    vertexStream << kGLES1TexUnitsDefine << maxTexUnitsEnabled << "\n";
     vertexStream << GLES1DrawVShaderStateDefs.str();
     vertexStream << kGLES1DrawVShader;
 
@@ -853,9 +934,39 @@ angle::Result GLES1Renderer::initializeRendererProgram(Context *context, State *
     addFragmentShaderDefs(GLES1DrawFShaderStateDefs);
 
     std::stringstream fragmentStream;
+    fragmentStream << kGLES1DrawFShaderVersion;
+    if (mShaderState.mGLES1StateEnabled[GLES1StateEnables::LogicOpThroughFramebufferFetch])
+    {
+        if (context->getExtensions().shaderFramebufferFetchEXT)
+        {
+            fragmentStream << "#extension GL_EXT_shader_framebuffer_fetch : require\n";
+        }
+        else
+        {
+            fragmentStream << "#extension GL_EXT_shader_framebuffer_fetch_non_coherent : require\n";
+        }
+    }
     fragmentStream << kGLES1DrawFShaderHeader;
+    fragmentStream << kGLES1TexUnitsDefine << maxTexUnitsEnabled << "\n";
     fragmentStream << GLES1DrawFShaderStateDefs.str();
     fragmentStream << kGLES1DrawFShaderUniformDefs;
+    if (mShaderState.mGLES1StateEnabled[GLES1StateEnables::LogicOpThroughFramebufferFetch])
+    {
+        if (context->getExtensions().shaderFramebufferFetchEXT)
+        {
+            fragmentStream << kGLES1DrawFShaderFramebufferFetchOutputDef;
+        }
+        else
+        {
+            fragmentStream << kGLES1DrawFShaderFramebufferFetchNonCoherentOutputDef;
+        }
+        fragmentStream << kGLES1DrawFShaderLogicOpFramebufferFetchEnabled;
+    }
+    else
+    {
+        fragmentStream << kGLES1DrawFShaderOutputDef;
+        fragmentStream << kGLES1DrawFShaderLogicOpFramebufferFetchDisabled;
+    }
     fragmentStream << kGLES1DrawFShaderFunctions;
     fragmentStream << kGLES1DrawFShaderMultitexturing;
     fragmentStream << kGLES1DrawFShaderMain;
@@ -942,6 +1053,8 @@ angle::Result GLES1Renderer::initializeRendererProgram(Context *context, State *
 
     programState.clipPlanesLoc = programObject->getUniformLocation("clip_planes");
 
+    programState.logicOpLoc = programObject->getUniformLocation("logic_op");
+
     programState.pointSizeMinLoc = programObject->getUniformLocation("point_size_min");
     programState.pointSizeMaxLoc = programObject->getUniformLocation("point_size_max");
     programState.pointDistanceAttenuationLoc =
@@ -976,6 +1089,13 @@ void GLES1Renderer::setUniform1i(Context *context,
     if (location.value == -1)
         return;
     programObject->setUniform1iv(context, location, 1, &value);
+}
+
+void GLES1Renderer::setUniform1ui(Program *programObject, UniformLocation location, GLuint value)
+{
+    if (location.value == -1)
+        return;
+    programObject->setUniform1uiv(location, 1, &value);
 }
 
 void GLES1Renderer::setUniform1iv(Context *context,

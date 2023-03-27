@@ -17,6 +17,9 @@
 
 AUTHD_DEFINE_LOG
 
+static uint64_t global_auth_count;
+
+
 static Boolean AuthTokenEqualCallBack(const void *value1, const void *value2)
 {
     return (*(uint64_t*)value1) == (*(uint64_t*)value2);
@@ -71,6 +74,8 @@ struct _auth_token_s {
     bool sandboxed;
     char * code_url;
     
+    uint64_t auth_index;
+    
     credential_t credential;
 };
 
@@ -78,7 +83,7 @@ static void
 _auth_token_finalize(CFTypeRef value)
 {
     auth_token_t auth = (auth_token_t)value;
-    os_log_debug(AUTHD_LOG, "authtoken: finalizing");
+    os_log_debug(AUTHD_LOG, "authtoken: auth %llu finalizing", auth->auth_index);
     
     dispatch_barrier_sync(auth->dispatch_queue, ^{});
     
@@ -158,6 +163,7 @@ _auth_token_create(const audit_info_s * auditInfo, bool operateAsLeastPrivileged
         CFReleaseNull(auth);
         goto done;
     }
+    auth->auth_index = global_auth_count++;
     
     auth->context = auth_items_create();
     auth->auditInfo = *auditInfo;
@@ -224,7 +230,7 @@ auth_token_create(process_t proc, bool operateAsLeastPrivileged)
         }
     }
     
-    os_log_debug(AUTHD_LOG, "authtoken: created for PID %d", auth->auditInfo.pid);
+    os_log_debug(AUTHD_LOG, "authtoken: created auth %llu (PID %d)", auth->auth_index, auth->auditInfo.pid);
 
 done:
     return auth;
@@ -476,3 +482,7 @@ CFDataRef auth_token_get_encryption_key(auth_token_t auth)
 	return auth->encryption_key;
 }
 
+uint64_t auth_token_get_index(auth_token_t auth)
+{
+    return auth->auth_index;
+}

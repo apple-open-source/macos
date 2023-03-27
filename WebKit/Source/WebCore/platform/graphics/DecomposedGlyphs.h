@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,13 +29,12 @@
 #include "PositionedGlyphs.h"
 #include "RenderingResourceIdentifier.h"
 #include <wtf/HashSet.h>
-#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 
 namespace WebCore {
 
-class Font;
-
-class DecomposedGlyphs : public ThreadSafeRefCounted<DecomposedGlyphs, WTF::DestructionThread::Main>, public CanMakeWeakPtr<DecomposedGlyphs> {
+class DecomposedGlyphs final
+    : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<DecomposedGlyphs, WTF::DestructionThread::Main> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     class Observer {
@@ -46,12 +45,11 @@ public:
         Observer() = default;
     };
 
-    static WEBCORE_EXPORT Ref<DecomposedGlyphs> create(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode, RenderingResourceIdentifier = RenderingResourceIdentifier::generate());
-    static WEBCORE_EXPORT Ref<DecomposedGlyphs> create(PositionedGlyphs&&, const FloatRect& bounds, RenderingResourceIdentifier);
+    static WEBCORE_EXPORT Ref<DecomposedGlyphs> create(const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode, RenderingResourceIdentifier = RenderingResourceIdentifier::generate());
+    static WEBCORE_EXPORT Ref<DecomposedGlyphs> create(PositionedGlyphs&&, RenderingResourceIdentifier);
     WEBCORE_EXPORT ~DecomposedGlyphs();
 
     const PositionedGlyphs& positionedGlyphs() const { return m_positionedGlyphs; }
-    const FloatRect& bounds() const { return m_bounds; }
 
     void addObserver(Observer& observer) { m_observers.add(&observer); }
     void removeObserver(Observer& observer) { m_observers.remove(&observer); }
@@ -59,11 +57,10 @@ public:
     RenderingResourceIdentifier renderingResourceIdentifier() const { return m_renderingResourceIdentifier; }
 
 private:
-    DecomposedGlyphs(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode, RenderingResourceIdentifier);
-    DecomposedGlyphs(PositionedGlyphs&&, const FloatRect& bounds, RenderingResourceIdentifier);
+    DecomposedGlyphs(const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode, RenderingResourceIdentifier);
+    DecomposedGlyphs(PositionedGlyphs&&, RenderingResourceIdentifier);
 
     PositionedGlyphs m_positionedGlyphs;
-    FloatRect m_bounds;
     HashSet<Observer*> m_observers;
     RenderingResourceIdentifier m_renderingResourceIdentifier;
 };

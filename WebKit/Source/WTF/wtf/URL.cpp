@@ -557,20 +557,21 @@ template<typename StringType>
 static String percentEncodeCharacters(const StringType& input, bool(*shouldEncode)(UChar))
 {
     auto encode = [shouldEncode] (const StringType& input) {
-        CString utf8 = input.utf8();
-        auto* data = utf8.data();
-        StringBuilder builder;
-        auto length = utf8.length();
-        for (unsigned j = 0; j < length; j++) {
-            auto c = data[j];
-            if (shouldEncode(c)) {
-                builder.append('%');
-                builder.append(upperNibbleToASCIIHexDigit(c));
-                builder.append(lowerNibbleToASCIIHexDigit(c));
-            } else
-                builder.append(c);
-        }
-        return builder.toString();
+        auto result = input.tryGetUTF8([&](Span<const char> span) -> String {
+            StringBuilder builder;
+            for (unsigned j = 0; j < span.size(); j++) {
+                auto c = span[j];
+                if (shouldEncode(c)) {
+                    builder.append('%');
+                    builder.append(upperNibbleToASCIIHexDigit(c));
+                    builder.append(lowerNibbleToASCIIHexDigit(c));
+                } else
+                    builder.append(c);
+            }
+            return builder.toString();
+        });
+        RELEASE_ASSERT(result);
+        return result.value();
     };
 
     for (size_t i = 0; i < input.length(); ++i) {
@@ -866,6 +867,40 @@ String URL::strippedForUseAsReferrer() const
         StringView(m_string).left(m_userStart),
         StringView(m_string).substring(end, m_queryEnd - end)
     );
+}
+
+String URL::strippedForUseAsReferrerWithExplicitPort() const
+{
+    if (!m_isValid)
+        return m_string;
+
+    // Custom ports will appear in the URL string:
+    if (m_portLength)
+        return strippedForUseAsReferrer();
+
+    auto port = defaultPortForProtocol(protocol());
+    if (!port)
+        return strippedForUseAsReferrer();
+
+    unsigned end = credentialsEnd();
+
+    if (m_userStart == end && m_queryEnd == m_string.length())
+        return makeString(StringView(m_string).left(m_hostEnd), ':', static_cast<unsigned>(*port), StringView(m_string).substring(pathStart()));
+
+    return makeString(StringView(m_string).left(m_hostEnd), ':', static_cast<unsigned>(*port), StringView(m_string).substring(end, m_queryEnd - end));
+}
+
+String URL::strippedForUseAsReport() const
+{
+    if (!m_isValid)
+        return m_string;
+
+    unsigned end = credentialsEnd();
+
+    if (m_userStart == end && m_pathEnd == m_string.length())
+        return m_string;
+
+    return makeString(StringView(m_string).left(m_userStart), StringView(m_string).substring(end, m_pathEnd - end));
 }
 
 bool URL::isLocalFile() const
@@ -1284,18 +1319,44 @@ bool isEqualIgnoringQueryAndFragments(const URL& a, const URL& b)
     return substringIgnoringQueryAndFragments(a) == substringIgnoringQueryAndFragments(b);
 }
 
-void removeQueryParameters(URL& url, const HashSet<String>& keysToRemove)
+Vector<String> removeQueryParameters(URL& url, const HashSet<String>& keysToRemove)
 {
     if (keysToRemove.isEmpty())
-        return;
-    
+        return { };
+
+    return removeQueryParameters(url, [&](auto& parameter) {
+        return keysToRemove.contains(parameter);
+    });
+}
+
+Vector<String> removeQueryParameters(URL& url, Function<bool(const String&)>&& shouldRemove) 
+{
+    if (!url.hasQuery())
+        return { };
+
+    Vector<String> removedParameters;
     StringBuilder queryWithoutRemovalKeys;
-    for (auto& parameter : URLParser::parseURLEncodedForm(url.query())) {
-        if (!keysToRemove.contains(parameter.key))
-            queryWithoutRemovalKeys.append(queryWithoutRemovalKeys.isEmpty() ? "" : "&", parameter.key, '=', parameter.value);
+    for (auto bytes : url.query().split('&')) {
+        auto nameAndValue = URLParser::parseQueryNameAndValue(bytes);
+        if (!nameAndValue)
+            continue;
+
+        auto& key = nameAndValue->key;
+        if (key.isEmpty())
+            continue;
+
+        if (shouldRemove(key)) {
+            removedParameters.append(key);
+            continue;
+        }
+
+        queryWithoutRemovalKeys.append(queryWithoutRemovalKeys.isEmpty() ? "" : "&", bytes);
     }
-    
-    url.setQuery(queryWithoutRemovalKeys);
+
+    if (!removedParameters.isEmpty())
+        url.setQuery(queryWithoutRemovalKeys);
+
+    return removedParameters;
 }
 
 } // namespace WTF

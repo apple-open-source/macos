@@ -1,0 +1,30 @@
+{
+  "configurations" : [
+    {
+      "id" : "4A2FA653-1CCA-4D05-B273-18A13F1B6C98",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:hfs.xcodeproj",
+      "identifier" : "4DD3025A1538DB3A00001AA0",
+      "name" : "All_iOS"
+    },
+    "testRepetitionMode" : "retryOnFailure"
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:hfs.xcodeproj",
+        "identifier" : "D39F1547287D55BD00366492",
+        "name" : "hfs_xctests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -206,13 +206,14 @@ findex(hook functions)
 For the functions below, it is possible to define an array that has the
 same name as the function with `tt(_functions)' appended.  Any element in
 such an array is taken as the name of a function to execute; it is executed
-in the same context and with the same arguments as the basic function.  For
+in the same context and with the same arguments and same initial value of tt($?)
+as the basic function.  For
 example, if tt($chpwd_functions) is an array containing the values
 `tt(mychpwd)', `tt(chpwd_save_dirstack)', then the shell attempts to
 execute the functions `tt(chpwd)', `tt(mychpwd)' and
 `tt(chpwd_save_dirstack)', in that order.  Any function that does not exist
 is silently ignored.  A function found by this mechanism is referred to
-elsewhere as a `hook function'.  An error in any function causes subsequent
+elsewhere as a em(hook function).  An error in any function causes subsequent
 functions not to be run.  Note further that an error in a tt(precmd) hook
 causes an immediately following tt(periodic) function not to run (though
 it may run at the next opportunity).
@@ -275,7 +276,7 @@ the history file.  In case of a conflict, the first non-zero status
 value is taken.
 
 A hook function may call `tt(fc -p) var(...)' to switch the history
-context so that the history is saved in a different file from the
+context so that the history is saved in a different file from
 that in the global tt(HISTFILE) parameter.  This is handled specially:
 the history context is automatically restored after the processing
 of the history line is finished.

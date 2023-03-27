@@ -14,6 +14,8 @@
 	<true/>
 	<key>com.apple.coreduetd.context</key>
 	<true/>
+	<key>com.apple.osintelligence.inactivity</key>
+	<true/>
 	<key>com.apple.private.hid.client.event-monitor</key>
 	<true/>
 	<key>com.apple.private.iokit.rootdomain-set-property</key>

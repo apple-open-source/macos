@@ -77,8 +77,8 @@ void SecurityContext::enforceSandboxFlags(SandboxFlags mask, SandboxFlagsSource 
     m_sandboxFlags |= mask;
 
     // The SandboxOrigin is stored redundantly in the security origin.
-    if (isSandboxed(SandboxOrigin) && securityOriginPolicy() && !securityOriginPolicy()->origin().isUnique())
-        setSecurityOriginPolicy(SecurityOriginPolicy::create(SecurityOrigin::createUnique()));
+    if (isSandboxed(SandboxOrigin) && securityOriginPolicy() && !securityOriginPolicy()->origin().isOpaque())
+        setSecurityOriginPolicy(SecurityOriginPolicy::create(SecurityOrigin::createOpaque()));
 }
 
 bool SecurityContext::isSupportedSandboxPolicy(StringView policy)
@@ -188,7 +188,7 @@ PolicyContainer SecurityContext::policyContainer() const
 void SecurityContext::inheritPolicyContainerFrom(const PolicyContainer& policyContainer)
 {
     if (!contentSecurityPolicy())
-        setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { }, nullptr));
+        setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { }, nullptr, nullptr));
 
     contentSecurityPolicy()->inheritHeadersFrom(policyContainer.contentSecurityPolicyResponseHeaders);
     setCrossOriginOpenerPolicy(policyContainer.crossOriginOpenerPolicy);

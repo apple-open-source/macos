@@ -60,6 +60,11 @@
 @property FakeCKZone*          passwordsZone;
 @property (readonly) ZoneKeys* passwordsZoneKeys;
 
+@property CKRecordZoneID*      contactsZoneID;
+@property CKKSKeychainViewState* contactsView;
+@property FakeCKZone*          contactsZone;
+@property (readonly) ZoneKeys* contactsZoneKeys;
+
 @property CKRecordZoneID*      ptaZoneID;
 @property CKKSKeychainViewState* ptaView;
 @property FakeCKZone*          ptaZone;

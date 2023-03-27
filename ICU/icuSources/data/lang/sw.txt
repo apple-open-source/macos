@@ -89,6 +89,7 @@ sw{
         chk{"Kichukisi"}
         chm{"Kimari"}
         cho{"Kichoktao"}
+        cho_Latn{"Kichoktao"}
         chr{"Kicherokee"}
         chy{"Kicheyeni"}
         ckb{"Kikurdi cha Sorani"}

@@ -563,7 +563,6 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kPMAsyncAssertionActionTurnOff            "TurnedOff"
 #define kPMAsyncAssertionActionTurnOn             "TurnedOn"
 #define kPMAsyncAssertionActionNameChange         "NameChange"
-#define kPMAsyncAssertionActionOffloaded          "Offloaded"
 
 
 #pragma mark Private Assertion Dictionary Keys
@@ -832,10 +831,10 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  *                  restarted for system maintenance even when the assertion is active.
  *
  *                  A value of kCFBooleanFalse means that the system should NOT be restarted.
- *                  This is the default value when this key is not set.
+ *                  The default value is kCFBooleanTrue when this key is not set.
  *
  *                  This optional property can be set at the time of assertion creation and
- *                  cannot be changed later.
+ *                  cannot be changed later. This is only honored for kIOPMAssertPreventUserIdleSystemSleep and kIOPMAssertionTypeSystemIsActive assertions.
  */
 
 #define kIOPMAssertionAllowsDeviceRestart                   CFSTR("AllowsDeviceRestart")

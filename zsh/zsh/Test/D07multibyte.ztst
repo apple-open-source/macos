@@ -178,6 +178,13 @@
 >3
 ?(eval):1: command not found: hähä=3
 
+  expr='[[ é = [[:IDENT:]] ]]'
+  ( unsetopt posix_identifiers; eval $expr && echo ok unset )
+  ( setopt posix_identifiers;   eval $expr || echo ok set )
+0:Regression test for workers/47745
+>ok unset
+>ok set
+
   foo="Ølaf«Ødd«øpénëd«ån«àpple"
   print -l ${(s.«.)foo}
   ioh="Ἐν ἀρχῇ ἦν ὁ λόγος, καὶ ὁ λόγος ἦν πρὸς τὸν θεόν, καὶ θεὸς ἦν ὁ λόγος."
@@ -339,6 +346,18 @@
   printf "%4.3s\n" főobar
 0:Multibyte characters in printf widths
 > főo
+
+# TODO?: POSIX requires that printf should always compute width and
+# precision of '%s' conversion in bytes, while zsh computes them in
+# characters if multi-byte locale is in use.
+  ARGV0=sh $ZTST_testdir/../Src/zsh -c "printf '<%10s>\n' St$'\M-C\M-)'phane"
+0f:POSIX: width in %s should be computed in bytes, not in characters
+F:This is considered a bugfix in zsh
+>< Stéphane>
+
+  ARGV0=sh $ZTST_testdir/../Src/zsh -c "printf '<%7.5s>\n' St$'\M-C\M-)'phane"
+0f:POSIX: precision should also be computed in bytes, not in characers
+><  Stép>
 
 # We ask for case-insensitive sorting here (and supply upper case
 # characters) so that we exercise the logic in the shell that lowers the
@@ -570,6 +589,15 @@
 0:printf %q and quotestring and general metafy / token madness
 >你你
 
+ typeset foo
+ print -v foo 'ÖÓŐ'
+ echo $foo
+ printf -v foo 'ÖÓŐ'
+ echo $foo
+0:print and printf into a variable with multibyte text
+>ÖÓŐ
+>ÖÓŐ
+
 # This test is kept last as it introduces an additional
 # dependency on the system regex library.
   if zmodload zsh/regex 2>/dev/null; then
@@ -585,3 +613,31 @@
 >OK
 F:A failure here may indicate the system regex library does not
 F:support character sets outside the portable 7-bit range.
+
+  (
+    locale=$LANG
+    unset -m 'LC_*|LANG'
+    export LC_CTYPE=$locale
+    echo '\u276F'  # this works
+    () {
+      local LC_ALL=C
+    }  
+    echo '\u276F'  # this doesn't work
+  )
+0:locale gets restored when locale parameters go out of scope (regression test for 45772)
+>❯
+>❯
+
+  # Subshell for zmodload isolation
+  (
+    zmodload zsh/stat
+    typeset -A sizes
+    touch 50150-é 50150-Ą
+    # Using +size solely in order to make it easier to write the expectations
+    zstat +size -A sizes -nor -- 50150-*
+    print -r -- 50150-Ą $sizes[50150-Ą]
+    print -r -- 50150-é $sizes[50150-é]
+  )
+0:(workers/50150) zsh/stat with Unicode and metafication
+>50150-Ą 0
+>50150-é 0

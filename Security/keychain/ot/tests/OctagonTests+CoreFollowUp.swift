@@ -46,7 +46,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         account.trustState = .TRUSTED
         account.attemptedJoin = .ATTEMPTED
 
-        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Should be no error saving fake account metadata")
+        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "Should be no error saving fake account metadata")
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -68,8 +68,8 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
     func testAttemptedJoinNotAttemptedStateSOSEnabled() throws {
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.sosEnabled = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
+        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         // Prepare an identity, then pretend like securityd thought it was in the right account
         let containerName = OTCKContainerName
@@ -115,7 +115,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         account.trustState = .TRUSTED
         account.attemptedJoin = .NOTATTEMPTED
 
-        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Should be no error saving fake account metadata")
+        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "Should be no error saving fake account metadata")
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -138,9 +138,9 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Note that some errors mean "out of circle", so use NotReady here to avoid that
-        self.mockSOSAdapter.sosEnabled = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCError)
-        self.mockSOSAdapter.circleStatusError = NSError(domain: kSOSErrorDomain as String, code: kSOSErrorNotReady, userInfo: nil)
+        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCError)
+        self.mockSOSAdapter!.circleStatusError = NSError(domain: kSOSErrorDomain as String, code: kSOSErrorNotReady, userInfo: nil)
 
         // Prepare an identity, then pretend like securityd thought it was in the right account
         let containerName = OTCKContainerName
@@ -186,7 +186,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         account.trustState = .TRUSTED
         account.attemptedJoin = .NOTATTEMPTED
 
-        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Should be no error saving fake account metadata")
+        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "Should be no error saving fake account metadata")
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -204,7 +204,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
     func testAttemptedJoinNotAttemptedStateSOSDisabled() throws {
         self.startCKAccountStatusMock()
         // Octagon only examines the JoinState if SOS is enabled
-        self.mockSOSAdapter.sosEnabled = false
+        self.mockSOSAdapter!.sosEnabled = false
 
         // No need to mock not joining; Octagon won't have attempted a join if we just start it
         self.cuttlefishContext.startOctagonStateMachine()
@@ -271,7 +271,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         account.trustState = .TRUSTED
         account.attemptedJoin = .UNKNOWN
 
-        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Should be no error saving fake account metadata")
+        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "Should be no error saving fake account metadata")
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -294,7 +294,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
     func testPostCFUWhenApprovalCapablePeerJoins() throws {
         self.startCKAccountStatusMock()
         // Octagon only examines the JoinState if SOS is enabled
-        self.mockSOSAdapter.sosEnabled = false
+        self.mockSOSAdapter!.sosEnabled = false
 
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
@@ -308,7 +308,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         // Now, an iphone appears!
         let iphone = self.manager.context(forContainerName: OTCKContainerName,
                                           contextID: "asdf",
-                                          sosAdapter: self.mockSOSAdapter,
+                                          sosAdapter: self.mockSOSAdapter!,
                                           accountsAdapter: self.mockAuthKit2,
                                           authKitAdapter: self.mockAuthKit2,
                                           tooManyPeersAdapter: self.mockTooManyPeers,
@@ -333,7 +333,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
     func testDontPostCFUWhenApprovalIncapablePeerJoins() throws {
         self.startCKAccountStatusMock()
         // Octagon only examines the JoinState if SOS is enabled
-        self.mockSOSAdapter.sosEnabled = false
+        self.mockSOSAdapter!.sosEnabled = false
 
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
@@ -347,7 +347,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         // Now, a mac appears! macs cannot fix apple TVs.
         let mac = self.manager.context(forContainerName: OTCKContainerName,
                                        contextID: "asdf",
-                                       sosAdapter: self.mockSOSAdapter,
+                                       sosAdapter: self.mockSOSAdapter!,
                                        accountsAdapter: self.mockAuthKit2,
                                        authKitAdapter: self.mockAuthKit2,
                                        tooManyPeersAdapter: self.mockTooManyPeers,
@@ -372,14 +372,14 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
     func testDontPostCFUWhenCapablePeersAreUntrusted() throws {
         self.startCKAccountStatusMock()
         // Octagon only examines the JoinState if SOS is enabled
-        self.mockSOSAdapter.sosEnabled = false
+        self.mockSOSAdapter!.sosEnabled = false
 
         // An iPhone establishes some octagon state, then trusts a TV, then untrusts itself
         // This is techinically an invalid situation, since Cuttlefish should have rejected the untrust, but it should trigger the condition we're interested in
 
         let iphone = self.manager.context(forContainerName: OTCKContainerName,
                                           contextID: "firstPhone",
-                                          sosAdapter: self.mockSOSAdapter,
+                                          sosAdapter: self.mockSOSAdapter!,
                                           accountsAdapter: self.mockAuthKit2,
                                           authKitAdapter: self.mockAuthKit2,
                                           tooManyPeersAdapter: self.mockTooManyPeers,
@@ -433,7 +433,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         // Another iPhone resets the world
         let iphone2 = self.manager.context(forContainerName: OTCKContainerName,
                                            contextID: "firstPhone",
-                                           sosAdapter: self.mockSOSAdapter,
+                                           sosAdapter: self.mockSOSAdapter!,
                                            accountsAdapter: self.mockAuthKit3,
                                            authKitAdapter: self.mockAuthKit3,
                                            tooManyPeersAdapter: self.mockTooManyPeers,
@@ -457,7 +457,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
     func testPostCFUAfterSOSUpgradeFails() throws {
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())

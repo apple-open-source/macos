@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2015, 2017, 2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,7 +43,7 @@
 
 
 static char *
-elapsed()
+elapsed(void)
 {
 	size_t			n;
 	static char		str[128];

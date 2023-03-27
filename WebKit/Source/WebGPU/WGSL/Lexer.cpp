@@ -80,6 +80,9 @@ Token Lexer<T>::lex()
     case '@':
         shift();
         return makeToken(TokenType::Attribute);
+    case '*':
+        shift();
+        return makeToken(TokenType::Star);
     case '.': {
         shift();
         unsigned offset = currentOffset();
@@ -102,6 +105,19 @@ Token Lexer<T>::lex()
             shift();
             return makeToken(TokenType::Arrow);
         }
+        if (m_current == '-') {
+            shift();
+            return makeToken(TokenType::MinusMinus);
+        }
+        return makeToken(TokenType::Minus);
+        break;
+    case '+':
+        shift();
+        if (m_current == '+') {
+            shift();
+            return makeToken(TokenType::PlusPlus);
+        }
+        return makeToken(TokenType::Plus);
         break;
     case '0': {
         shift();
@@ -193,7 +209,7 @@ Token Lexer<T>::lex()
             while (isValidIdentifierCharacter(m_current))
                 shift();
             // FIXME: a trie would be more efficient here, look at JavaScriptCore/KeywordLookupGenerator.py for an example of code autogeneration that produces such a trie.
-            StringView view { startOfToken, currentTokenLength() };
+            String view(StringImpl::createWithoutCopying(startOfToken, currentTokenLength()));
             // FIXME: I don't think that true/false/f32/u32/i32/bool need to be their own tokens, they could just be regular identifiers.
             if (view == "true"_s)
                 return makeToken(TokenType::LiteralTrue);
@@ -231,13 +247,15 @@ Token Lexer<T>::lex()
                 return makeToken(TokenType::KeywordWorkgroup);
             if (view == "write"_s)
                 return makeToken(TokenType::KeywordWrite);
+            if (view == "array"_s)
+                return makeToken(TokenType::KeywordArray);
             if (view == "asm"_s || view == "bf16"_s || view == "const"_s || view == "do"_s || view == "enum"_s
                 || view == "f16"_s || view == "f64"_s || view == "handle"_s || view == "i8"_s || view == "i16"_s
                 || view == "i64"_s || view == "mat"_s || view == "premerge"_s || view == "regardless"_s
                 || view == "typedef"_s || view == "u8"_s || view == "u16"_s || view == "u64"_s || view == "unless"_s
                 || view == "using"_s || view == "vec"_s || view == "void"_s || view == "while"_s)
                 return makeToken(TokenType::ReservedWord);
-            return makeIdentifierToken(view);
+            return makeIdentifierToken(WTFMove(view));
         }
         break;
     }

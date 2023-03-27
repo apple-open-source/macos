@@ -47,34 +47,34 @@ JSC::JSValue JSIDBRequest::result(JSC::JSGlobalObject& lexicalGlobalObject) cons
 
     auto resultValue = result.releaseReturnValue();
     auto& resultWrapper = wrapped().resultWrapper();
-    return WTF::switchOn(resultValue, [] (IDBRequest::NullResultType result) {
+    return WTF::switchOn(resultValue, [] (const IDBRequest::NullResultType& result) {
         if (result == IDBRequest::NullResultType::Empty)
             return JSC::jsNull();
         return JSC::jsUndefined();
     }, [] (uint64_t number) {
         return toJS<IDLUnsignedLongLong>(number);
-    }, [&] (RefPtr<IDBCursor>& cursor) {
+    }, [&] (const RefPtr<IDBCursor>& cursor) {
         return cachedPropertyValue(throwScope, lexicalGlobalObject, *this, resultWrapper, [&](JSC::ThrowScope& throwScope) {
             return toJS<IDLInterface<IDBCursor>>(lexicalGlobalObject, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject), throwScope, cursor.get());
         });
-    }, [&] (RefPtr<IDBDatabase>& database) {
+    }, [&] (const RefPtr<IDBDatabase>& database) {
         return cachedPropertyValue(throwScope, lexicalGlobalObject, *this, resultWrapper, [&](JSC::ThrowScope& throwScope) {
             return toJS<IDLInterface<IDBDatabase>>(lexicalGlobalObject, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject), throwScope, database.get());
         });
-    }, [&] (IDBKeyData keyData) {
+    }, [&] (const IDBKeyData& keyData) {
         return cachedPropertyValue(throwScope, lexicalGlobalObject, *this, resultWrapper, [&](JSC::ThrowScope&) {
             return toJS<IDLIDBKeyData>(lexicalGlobalObject, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject), keyData);
         });
-    }, [&] (Vector<IDBKeyData> keyDatas) {
+    }, [&] (const Vector<IDBKeyData>& keyDatas) {
         return cachedPropertyValue(throwScope, lexicalGlobalObject, *this, resultWrapper, [&](JSC::ThrowScope&) {
             return toJS<IDLSequence<IDLIDBKeyData>>(lexicalGlobalObject, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject), keyDatas);
         });
-    }, [&] (IDBGetResult getResult) {
+    }, [&] (const IDBGetResult& getResult) {
         return cachedPropertyValue(throwScope, lexicalGlobalObject, *this, resultWrapper, [&](JSC::ThrowScope&) {
             auto result = deserializeIDBValueWithKeyInjection(lexicalGlobalObject, getResult.value(), getResult.keyData(), getResult.keyPath());
             return result ? result.value() : jsNull();
         });
-    }, [&] (IDBGetAllResult getAllResult) {
+    }, [&] (const IDBGetAllResult& getAllResult) {
         return cachedPropertyValue(throwScope, lexicalGlobalObject, *this, resultWrapper, [&](JSC::ThrowScope& throwScope) {
             auto& keys = getAllResult.keys();
             auto& values = getAllResult.values();

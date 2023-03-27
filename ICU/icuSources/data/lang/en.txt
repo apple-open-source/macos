@@ -64,6 +64,7 @@ en{
         ang{"Old English"}
         anp{"Angika"}
         apw{"Apache, Western"}
+        apw_Latn{"Apache, Western"}
         ar{"Arabic"}
         ar_001{"Modern Standard Arabic"}
         arc{"Aramaic"}
@@ -141,10 +142,12 @@ en{
         chm{"Mari"}
         chn{"Chinook Jargon"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chp{"Chipewyan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}
         cic{"Chickasaw"}
+        cic_Latn{"Chickasaw"}
         ckb{"Kurdish, Sorani"}
         clc{"Tsilhqot’in"}
         co{"Corsican"}

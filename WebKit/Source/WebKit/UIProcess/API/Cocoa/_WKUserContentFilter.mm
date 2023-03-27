@@ -32,7 +32,10 @@
 #import <WebCore/ContentExtensionError.h>
 #import <string>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 @implementation _WKUserContentFilter
+#pragma clang diagnostic pop
 
 #pragma mark WKObject protocol implementation
 
@@ -43,7 +46,10 @@
 
 @end
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 @implementation _WKUserContentFilter (WKPrivate)
+#pragma clang diagnostic pop
 
 - (id)_initWithWKContentRuleList:(WKContentRuleList*)contentRuleList
 {

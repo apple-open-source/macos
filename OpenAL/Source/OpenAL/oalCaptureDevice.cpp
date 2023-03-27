@@ -22,7 +22,7 @@
 **********************************************************************************************************************************/
 
 #import <AudioToolbox/AudioComponent.h>
-#include "OALCaptureDevice.h"
+#include "oalCaptureDevice.h"
 
 #define LOG_CAPTURE         0
 

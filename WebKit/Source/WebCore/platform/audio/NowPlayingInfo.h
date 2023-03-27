@@ -47,7 +47,28 @@ struct NowPlayingInfoArtwork {
     {
         return !(*this == other);
     }
+
+    template<class Encoder> void encode(Encoder&) const;
+    template<class Decoder> static std::optional<NowPlayingInfoArtwork> decode(Decoder&);
 };
+
+template<class Encoder> inline void NowPlayingInfoArtwork::encode(Encoder& encoder) const
+{
+    // Encoder of RefPtr<Image> will automatically decode the image and convert it to a BitmapImage/ShareableBitmap.
+    encoder << src << mimeType << image;
+}
+
+template<class Decoder> inline std::optional<NowPlayingInfoArtwork> NowPlayingInfoArtwork::decode(Decoder& decoder)
+{
+    auto src = decoder.template decode<String>();
+    auto mimeType = decoder.template decode<String>();
+    auto image = decoder.template decode<RefPtr<Image>>();
+
+    if (UNLIKELY(!decoder.isValid()))
+        return std::nullopt;
+
+    return { { WTFMove(*src), WTFMove(*mimeType), WTFMove(*image) } };
+}
 
 struct NowPlayingInfo {
     String title;

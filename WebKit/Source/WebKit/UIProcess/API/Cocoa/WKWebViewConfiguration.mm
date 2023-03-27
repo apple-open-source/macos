@@ -120,16 +120,20 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     LazyInitialized<RetainPtr<WKProcessPool>> _processPool;
     LazyInitialized<RetainPtr<WKPreferences>> _preferences;
     LazyInitialized<RetainPtr<WKUserContentController>> _userContentController;
+#if ENABLE(WK_WEB_EXTENSIONS)
+    RetainPtr<_WKWebExtensionController> _webExtensionController;
+    WeakObjCPtr<_WKWebExtensionController> _weakWebExtensionController;
+#endif
     LazyInitialized<RetainPtr<_WKVisitedLinkStore>> _visitedLinkStore;
     LazyInitialized<RetainPtr<WKWebsiteDataStore>> _websiteDataStore;
     LazyInitialized<RetainPtr<WKWebpagePreferences>> _defaultWebpagePreferences;
     WeakObjCPtr<WKWebView> _relatedWebView;
+    WeakObjCPtr<WKWebView> _webViewToCloneSessionStorageFrom;
     WeakObjCPtr<WKWebView> _alternateWebViewForNavigationGestures;
     RetainPtr<NSString> _groupIdentifier;
     std::optional<RetainPtr<NSString>> _applicationNameForUserAgent;
     NSTimeInterval _incrementalRenderingSuppressionTimeout;
     BOOL _respectsImageOrientation;
-    BOOL _printsBackgrounds;
     BOOL _allowsJavaScriptMarkup;
     BOOL _convertsPositionStyleOnCopy;
     BOOL _allowsMetaRefresh;
@@ -221,11 +225,9 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
 
 #if PLATFORM(IOS_FAMILY)
     _respectsImageOrientation = YES;
-    _printsBackgrounds = YES;
 #endif
 
 #if PLATFORM(MAC)
-    _printsBackgrounds = NO;
     _respectsImageOrientation = NO;
     _showsURLsInToolTips = NO;
     _serviceControlsEnabled = NO;
@@ -386,16 +388,24 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     configuration.defaultWebpagePreferences = self.defaultWebpagePreferences;
     configuration._visitedLinkStore = self._visitedLinkStore;
     configuration._relatedWebView = _relatedWebView.get().get();
+    configuration._webViewToCloneSessionStorageFrom = _webViewToCloneSessionStorageFrom.get().get();
     configuration._alternateWebViewForNavigationGestures = _alternateWebViewForNavigationGestures.get().get();
 #if PLATFORM(IOS_FAMILY)
     configuration._contentProviderRegistry = self._contentProviderRegistry;
+#endif
+
+#if ENABLE(WK_WEB_EXTENSIONS)
+    if (auto *controller = self->_webExtensionController.get())
+        configuration._webExtensionController = controller;
+
+    if (auto controller = self->_weakWebExtensionController.get())
+        configuration->_weakWebExtensionController = controller.get();
 #endif
 
     configuration->_suppressesIncrementalRendering = self->_suppressesIncrementalRendering;
     configuration->_applicationNameForUserAgent = self->_applicationNameForUserAgent;
 
     configuration->_respectsImageOrientation = self->_respectsImageOrientation;
-    configuration->_printsBackgrounds = self->_printsBackgrounds;
     configuration->_incrementalRenderingSuppressionTimeout = self->_incrementalRenderingSuppressionTimeout;
     configuration->_allowsJavaScriptMarkup = self->_allowsJavaScriptMarkup;
     configuration->_convertsPositionStyleOnCopy = self->_convertsPositionStyleOnCopy;
@@ -495,6 +505,47 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     _userContentController.set(userContentController);
 }
 
+- (_WKWebExtensionController *)_strongWebExtensionController
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    return _webExtensionController.get();
+#else
+    return nil;
+#endif
+}
+
+- (_WKWebExtensionController *)_webExtensionController
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    return self._weakWebExtensionController ?: _webExtensionController.get();
+#else
+    return nil;
+#endif
+}
+
+- (void)_setWebExtensionController:(_WKWebExtensionController *)webExtensionController
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    _webExtensionController = webExtensionController;
+#endif
+}
+
+- (_WKWebExtensionController *)_weakWebExtensionController
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    return _weakWebExtensionController.getAutoreleased();
+#else
+    return nil;
+#endif
+}
+
+- (void)_setWeakWebExtensionController:(_WKWebExtensionController *)webExtensionController
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    _weakWebExtensionController = webExtensionController;
+#endif
+}
+
 - (BOOL)upgradeKnownHostsToHTTPS
 {
     return _pageConfiguration->httpsUpgradeEnabled();
@@ -583,7 +634,10 @@ static NSString *defaultApplicationNameForUserAgent()
         return nil;
 
     auto handler = _pageConfiguration->urlSchemeHandlerForURLScheme(*canonicalScheme);
-    return handler ? static_cast<WebKit::WebURLSchemeHandlerCocoa*>(handler.get())->apiHandler() : nil;
+    if (!handler || !handler->isAPIHandler())
+        return nil;
+
+    return static_cast<WebKit::WebURLSchemeHandlerCocoa*>(handler.get())->apiHandler();
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -627,6 +681,16 @@ static NSString *defaultApplicationNameForUserAgent()
     _relatedWebView = relatedWebView;
 }
 
+- (WKWebView *)_webViewToCloneSessionStorageFrom
+{
+    return _webViewToCloneSessionStorageFrom.getAutoreleased();
+}
+
+- (void)_setWebViewToCloneSessionStorageFrom:(WKWebView *)webViewToCloneSessionStorageFrom
+{
+    _webViewToCloneSessionStorageFrom = webViewToCloneSessionStorageFrom;
+}
+
 - (WKWebView *)_alternateWebViewForNavigationGestures
 {
     return _alternateWebViewForNavigationGestures.getAutoreleased();
@@ -659,12 +723,12 @@ static NSString *defaultApplicationNameForUserAgent()
 
 - (BOOL)_printsBackgrounds
 {
-    return _printsBackgrounds;
+    return self.preferences.shouldPrintBackgrounds;
 }
 
 - (void)_setPrintsBackgrounds:(BOOL)printsBackgrounds
 {
-    _printsBackgrounds = printsBackgrounds;
+    self.preferences.shouldPrintBackgrounds = printsBackgrounds;
 }
 
 - (NSTimeInterval)_incrementalRenderingSuppressionTimeout

@@ -513,7 +513,7 @@ void VideoFullscreenManagerProxy::forEachSession(Function<void(VideoFullscreenMo
     }
 }
 
-void VideoFullscreenManagerProxy::requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier identifier, CompletionHandler<void(const ShareableBitmap::Handle&)>&& completionHandler)
+void VideoFullscreenManagerProxy::requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier identifier, CompletionHandler<void(const ShareableBitmapHandle&)>&& completionHandler)
 {
     auto* gpuProcess = GPUProcessProxy::singletonIfCreated();
     if (!gpuProcess) {
@@ -917,12 +917,8 @@ void VideoFullscreenManagerProxy::fullscreenMayReturnToInline(PlaybackSessionCon
 
 AVPlayerViewController *VideoFullscreenManagerProxy::playerViewController(PlaybackSessionContextIdentifier identifier) const
 {
-#if HAVE(PIP_CONTROLLER)
-    return nil;
-#else
     auto* interface = findInterface(identifier);
     return interface ? interface->avPlayerViewController() : nil;
-#endif
 }
 
 #endif // PLATFORM(IOS_FAMILY)

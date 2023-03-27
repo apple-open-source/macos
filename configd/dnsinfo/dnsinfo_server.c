@@ -86,7 +86,7 @@ static _dns_sync_handler_t	S_sync_handler	= NULL;
 
 
 static dispatch_queue_t
-_dnsinfo_server_queue()
+_dnsinfo_server_queue(void)
 {
 	static dispatch_once_t	once;
 	static dispatch_queue_t	q;
@@ -298,7 +298,7 @@ process_new_connection(xpc_connection_t c)
 
 
 static void
-add_state_handler()
+add_state_handler(void)
 {
 #if	!TARGET_OS_SIMULATOR
 	os_state_block_t	state_block;

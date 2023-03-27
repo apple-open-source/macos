@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <WebCore/FrameFlattening.h>
 #include <wtf/Forward.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -43,6 +44,7 @@ bool defaultInlineMediaPlaybackRequiresPlaysInlineAttribute();
 bool defaultJavaScriptCanOpenWindowsAutomatically();
 bool defaultPassiveTouchListenersAsDefaultOnDocument();
 bool defaultRequiresUserGestureToLoadVideo();
+bool defaultShowModalDialogEnabled();
 bool defaultWebSQLEnabled();
 bool defaultAllowContentSecurityPolicySourceStarToMatchAnyProtocol();
 #endif

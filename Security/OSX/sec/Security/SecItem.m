@@ -978,8 +978,20 @@ static TKClientTokenSession *SecTokenSessionCreate(CFStringRef token_id, SecCFDi
     NSError *err;
     TKClientTokenSession *session;
     if (isCryptoTokenKitAvailable()) {
+        NSDictionary *params = @{};
+#if TARGET_OS_OSX || TARGET_OS_IOS
+#if TARGET_OS_OSX
+        CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS;
+#elif TARGET_OS_IOS
+        CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlways;
+#endif
+        NSNumber *systemKeychainAlways = [(__bridge NSDictionary *)auth_params->dictionary objectForKey:(__bridge id)localSecUseSystemKeychainAlways];
+        if ([systemKeychainAlways isKindOfClass:NSNumber.class] && [systemKeychainAlways boolValue]) {
+            params = @{ @"forceSystemSession" /* TKClientTokenParameterForceSystemSession */ : @YES };
+        }
+#endif
         TKClientToken *token = [[getTKClientTokenClass() alloc] initWithTokenID:(__bridge NSString *)token_id];
-        session = [token sessionWithLAContext:authContext error:&err];
+        session = [[getTKClientTokenSessionClass() alloc] initWithToken:token LAContext:authContext parameters:params error:&err];
     } else {
         err = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:@{NSDebugDescriptionErrorKey: @"CryptoTokenKit is not available"}];
     }
@@ -1452,8 +1464,6 @@ static bool SecItemAuthDo(SecCFDictionaryCOW *auth_params, CFErrorRef *error, Se
         }
     }
 
-    ok = true;
-
 out:
     CFReleaseSafe(auth_options.mutable_dictionary);
     CFReleaseSafe(ac_pairs);
@@ -1494,6 +1504,19 @@ void SecItemAuthCopyParams(SecCFDictionaryCOW *auth_params, SecCFDictionaryCOW *
     if (acm_context != NULL) {
         CFDictionarySetValue(SecCFDictionaryCOWGetMutable(auth_params), kSecUseCredentialReference, acm_context);
     }
+
+    // Find out which keychain should be targetted.
+#if TARGET_OS_OSX || TARGET_OS_IOS
+#if TARGET_OS_OSX
+    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS;
+#elif TARGET_OS_IOS
+    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlways;
+#endif
+    CFTypeRef systemKeychainAlways = CFDictionaryGetValue(query->dictionary, localSecUseSystemKeychainAlways);
+    if (systemKeychainAlways != nil) {
+        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(auth_params), localSecUseSystemKeychainAlways, systemKeychainAlways);
+    }
+#endif
 }
 
 static SecItemAuthResult SecItemCreatePairsFromError(CFErrorRef *error, CFArrayRef *ac_pairs)
@@ -1924,7 +1947,8 @@ static bool SecTokenItemForEachMatching(CFDictionaryRef query, CFErrorRef *error
     CFMutableDictionaryRef list_query = NULL;
     CFTypeRef items = NULL;
     CFArrayRef ref_array = NULL;
-    CFDictionaryRef item_query = NULL, item_data = NULL;
+    CFMutableDictionaryRef item_query = NULL;
+    CFDictionaryRef item_data = NULL;
 
     // Query all items with data and persistent_ref, so that we can extract objectIDs and also identify originating
     // items in the keychain.
@@ -1950,10 +1974,15 @@ static bool SecTokenItemForEachMatching(CFDictionaryRef query, CFErrorRef *error
         CFAssignRetained(item_data, SecTokenItemValueCopy(data, error));
         require_quiet(item_data, out);
 
-        CFAssignRetained(item_query,
-                         CFDictionaryCreateForCFTypes(NULL,
-                                                      kSecValuePersistentRef, CFDictionaryGetValue(item, kSecValuePersistentRef),
-                                                      NULL));
+        CFAssignRetained(item_query, CFDictionaryCreateMutableForCFTypes(NULL));
+        CFDictionarySetValue(item_query, kSecValuePersistentRef, CFDictionaryGetValue(item, kSecValuePersistentRef));
+#if TARGET_OS_OSX && TARGET_CPU_ARM64 // not yet for embedded, nor for Intel
+        CFTypeRef sysKc = CFDictionaryGetValue(query, kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS);
+        if (sysKc) {
+            CFDictionarySetValue(item_query, kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS, sysKc);
+        }
+#endif
+
         require_quiet(perform(item_data, item_query, error), out);
     }
 
@@ -2395,22 +2424,60 @@ void SecItemFetchCurrentItemAcrossAllDevices(CFStringRef accessGroup,
                                              bool fetchCloudValue,
                                              void (^complete)(CFDataRef persistentRef, CFErrorRef error))
 {
-    os_activity_t activity = os_activity_create("SecItemFetchCurrentItemAcrossAllDevices", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    SecItemFetchCurrentItemDataAcrossAllDevices((__bridge NSString*)accessGroup,
+                                                (__bridge NSString*)identifier,
+                                                (__bridge NSString*)viewHint,
+                                                fetchCloudValue,
+                                                ^(SecItemCurrentItemData * _Nullable cip, NSError * _Nullable operror) {
+        complete((__bridge CFDataRef)cip.persistentRef, (__bridge CFErrorRef)operror);
+    });
+}
+
+@interface SecItemCurrentItemData ()
+- (instancetype)initWithPersistentRef:(NSData *)persistentRef;
+@property (strong, readwrite, nonnull) NSData *persistentRef;
+@property (strong, readwrite, nullable) NSDate *currentItemPointerModificationTime;
+@end
+
+@implementation SecItemCurrentItemData
+- (instancetype)initWithPersistentRef:(NSData *)persistentRef {
+    if ((self = [super init]) == nil) {
+        return nil;
+    }
+    self.persistentRef = persistentRef;
+    return self;
+}
+@end
+
+void
+SecItemFetchCurrentItemDataAcrossAllDevices(NSString *accessGroup,
+                                            NSString *identifier,
+                                            NSString *viewHint,
+                                            BOOL fetchCloudValue,
+                                            void (^complete)(SecItemCurrentItemData * _Nullable persistentRef, NSError * _Nullable error))
+{
+    os_activity_t activity = os_activity_create("SecItemFetchCurrentItemDataAcrossAllDevices", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
 
     @autoreleasepool {
         id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(false, ^(NSError *error) {
-            complete(NULL, (__bridge CFErrorRef) error);
+            complete(nil, error);
         });
-        [rpc secItemFetchCurrentItemAcrossAllDevices:(__bridge NSString*)accessGroup
-                                          identifier:(__bridge NSString*)identifier
-                                            viewHint:(__bridge NSString*)viewHint
+        [rpc secItemFetchCurrentItemAcrossAllDevices:accessGroup
+                                          identifier:identifier
+                                            viewHint:viewHint
                                      fetchCloudValue:fetchCloudValue
-                                            complete: ^(NSData* persistentRef, NSError* operror) {
-                                                complete((__bridge CFDataRef) persistentRef, (__bridge CFErrorRef) operror);
-                                            }];
+                                            complete: ^(NSData* persistentRef, NSDate * _Nullable cipModificationTime, NSError* operror) {
+            SecItemCurrentItemData *cip = nil;
+            if (persistentRef) {
+                cip = [[SecItemCurrentItemData alloc] initWithPersistentRef:persistentRef];
+                cip.currentItemPointerModificationTime = cipModificationTime;
+            }
+            complete(cip, operror);
+        }];
     }
 }
+
 
 void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^complete)(NSArray<NSDictionary *> *, NSError *))
 {

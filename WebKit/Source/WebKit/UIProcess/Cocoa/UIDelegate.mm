@@ -27,6 +27,7 @@
 #import "UIDelegate.h"
 
 #import "APIArray.h"
+#import "APIContextMenuElementInfoMac.h"
 #import "APIFrameInfo.h"
 #import "APIHitTestResult.h"
 #import "APIInspectorConfiguration.h"
@@ -52,7 +53,7 @@
 #import "WebEventFactory.h"
 #import "WebOpenPanelResultListenerProxy.h"
 #import "WebProcessProxy.h"
-#import "_WKContextMenuElementInfo.h"
+#import "_WKContextMenuElementInfoInternal.h"
 #import "_WKFrameHandleInternal.h"
 #import "_WKHitTestResultInternal.h"
 #import "_WKInspectorConfigurationInternal.h"
@@ -140,7 +141,6 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegateMethods.webViewDrawFooterInRectForPageWithTitleURL = [delegate respondsToSelector:@selector(_webView:drawFooterInRect:forPageWithTitle:URL:)];
     m_delegateMethods.webViewHeaderHeight = [delegate respondsToSelector:@selector(_webViewHeaderHeight:)];
     m_delegateMethods.webViewFooterHeight = [delegate respondsToSelector:@selector(_webViewFooterHeight:)];
-    m_delegateMethods.webViewDidExceedBackgroundResourceLimitWhileInForeground = [delegate respondsToSelector:@selector(_webView:didExceedBackgroundResourceLimitWhileInForeground:)];
     m_delegateMethods.webViewSaveDataToFileSuggestedFilenameMimeTypeOriginatingURL = [delegate respondsToSelector:@selector(_webView:saveDataToFile:suggestedFilename:mimeType:originatingURL:)];
     m_delegateMethods.webViewRunOpenPanelWithParametersInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:)];
     m_delegateMethods.webViewConfigurationForLocalInspector = [delegate respondsToSelector:@selector(_webView:configurationForLocalInspector:)];
@@ -166,6 +166,11 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
 #endif
     m_delegateMethods.webViewActionsForElementDefaultActions = [delegate respondsToSelector:@selector(_webView:actionsForElement:defaultActions:)];
     m_delegateMethods.webViewDidNotHandleTapAsClickAtPoint = [delegate respondsToSelector:@selector(_webView:didNotHandleTapAsClickAtPoint:)];
+    m_delegateMethods.webViewStatusBarWasTapped = [delegate respondsToSelector:@selector(_webViewStatusBarWasTapped:)];
+#endif
+#if PLATFORM(IOS)
+    m_delegateMethods.webViewLockScreenOrientation = [delegate respondsToSelector:@selector(_webViewLockScreenOrientation:lockType:)];
+    m_delegateMethods.webViewUnlockScreenOrientation = [delegate respondsToSelector:@selector(_webViewUnlockScreenOrientation:)];
 #endif
     m_delegateMethods.presentingViewControllerForWebView = [delegate respondsToSelector:@selector(_presentingViewControllerForWebView:)];
     m_delegateMethods.webViewIsMediaCaptureAuthorizedForFrameDecisionHandler = [delegate respondsToSelector:@selector(_webView:checkUserMediaPermissionForURL:mainFrameURL:frameIdentifier:decisionHandler:)] || [delegate respondsToSelector:@selector(_webView:includeSensitiveMediaDeviceDetails:)];
@@ -206,6 +211,9 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegateMethods.webViewRequestNotificationPermissionForSecurityOriginDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestNotificationPermissionForSecurityOrigin:decisionHandler:)];
     m_delegateMethods.webViewRequestCookieConsentWithMoreInfoHandlerDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestCookieConsentWithMoreInfoHandler:decisionHandler:)];
     m_delegateMethods.webViewDecidePolicyForModalContainerDecisionHandler = [delegate respondsToSelector:@selector(_webView:decidePolicyForModalContainer:decisionHandler:)];
+
+    m_delegateMethods.webViewUpdatedAppBadge = [delegate respondsToSelector:@selector(_webView:updatedAppBadge:fromSecurityOrigin:)];
+    m_delegateMethods.webViewUpdatedClientBadge = [delegate respondsToSelector:@selector(_webView:updatedClientBadge:fromSecurityOrigin:)];
 }
 
 #if ENABLE(CONTEXT_MENUS)
@@ -218,7 +226,7 @@ UIDelegate::ContextMenuClient::~ContextMenuClient()
 {
 }
 
-void UIDelegate::ContextMenuClient::menuFromProposedMenu(WebPageProxy&, NSMenu *menu, const WebHitTestResultData&, API::Object* userInfo, CompletionHandler<void(RetainPtr<NSMenu>&&)>&& completionHandler)
+void UIDelegate::ContextMenuClient::menuFromProposedMenu(WebPageProxy&, NSMenu *menu, const WebHitTestResultData& data, API::Object* userInfo, CompletionHandler<void(RetainPtr<NSMenu>&&)>&& completionHandler)
 {
     if (!m_uiDelegate)
         return completionHandler(menu);
@@ -232,11 +240,10 @@ void UIDelegate::ContextMenuClient::menuFromProposedMenu(WebPageProxy&, NSMenu *
     if (!delegate)
         return completionHandler(menu);
 
-    auto contextMenuElementInfo = adoptNS([[_WKContextMenuElementInfo alloc] init]);
-
+    auto contextMenuElementInfo = API::ContextMenuElementInfoMac::create(data);
     if (m_uiDelegate->m_delegateMethods.webViewGetContextMenuFromProposedMenuForElementUserInfoCompletionHandler) {
         auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:getContextMenuFromProposedMenu:forElement:userInfo:completionHandler:));
-        [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() getContextMenuFromProposedMenu:menu forElement:contextMenuElementInfo.get() userInfo:userInfo ? static_cast<id <NSSecureCoding>>(userInfo->wrapper()) : nil completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)] (NSMenu *menu) mutable {
+        [(id<WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() getContextMenuFromProposedMenu:menu forElement:wrapper(contextMenuElementInfo.get()) userInfo:userInfo ? static_cast<id<NSSecureCoding>>(userInfo->wrapper()) : nil completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)] (NSMenu *menu) mutable {
             if (checker->completionHandlerHasBeenCalled())
                 return;
             checker->didCallCompletionHandler();
@@ -247,9 +254,9 @@ void UIDelegate::ContextMenuClient::menuFromProposedMenu(WebPageProxy&, NSMenu *
     
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (m_uiDelegate->m_delegateMethods.webViewContextMenuForElement)
-        return completionHandler([(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() contextMenu:menu forElement:contextMenuElementInfo.get()]);
+        return completionHandler([(id<WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() contextMenu:menu forElement:wrapper(contextMenuElementInfo.get())]);
 
-    completionHandler([(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() contextMenu:menu forElement:contextMenuElementInfo.get() userInfo:userInfo ? static_cast<id <NSSecureCoding>>(userInfo->wrapper()) : nil]);
+    completionHandler([(id<WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() contextMenu:menu forElement:wrapper(contextMenuElementInfo.get()) userInfo:userInfo ? static_cast<id<NSSecureCoding>>(userInfo->wrapper()) : nil]);
     ALLOW_DEPRECATED_DECLARATIONS_END
 }
 #endif
@@ -264,7 +271,7 @@ UIDelegate::UIClient::~UIClient()
 }
 
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
-void UIDelegate::UIClient::mouseDidMoveOverElement(WebPageProxy&, const WebHitTestResultData& data, OptionSet<WebEvent::Modifier> modifiers, API::Object* userInfo)
+void UIDelegate::UIClient::mouseDidMoveOverElement(WebPageProxy&, const WebHitTestResultData& data, OptionSet<WebEventModifier> modifiers, API::Object* userInfo)
 {
     if (!m_uiDelegate)
         return;
@@ -580,6 +587,53 @@ void UIDelegate::UIClient::exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, 
     }).get()];
 }
 
+#if PLATFORM(IOS)
+static _WKScreenOrientationType toWKScreenOrientationType(WebCore::ScreenOrientationType lockType)
+{
+    switch (lockType) {
+    case WebCore::ScreenOrientationType::PortraitSecondary:
+        return _WKScreenOrientationTypePortraitSecondary;
+    case WebCore::ScreenOrientationType::LandscapePrimary:
+        return _WKScreenOrientationTypeLandscapePrimary;
+    case WebCore::ScreenOrientationType::LandscapeSecondary:
+        return _WKScreenOrientationTypeLandscapeSecondary;
+    case WebCore::ScreenOrientationType::PortraitPrimary:
+        break;
+    }
+    return _WKScreenOrientationTypePortraitPrimary;
+}
+#endif
+
+bool UIDelegate::UIClient::lockScreenOrientation(WebPageProxy&, WebCore::ScreenOrientationType orientation)
+{
+#if PLATFORM(IOS)
+    if (!m_uiDelegate)
+        return false;
+    if (!m_uiDelegate->m_delegateMethods.webViewLockScreenOrientation)
+        return false;
+    auto delegate = m_uiDelegate->m_delegate.get();
+    if (!delegate)
+        return false;
+
+    return [(id<WKUIDelegatePrivate>)delegate _webViewLockScreenOrientation:m_uiDelegate->m_webView.get().get() lockType:toWKScreenOrientationType(orientation)];
+#else
+    UNUSED_PARAM(orientation);
+    return false;
+#endif
+}
+
+void UIDelegate::UIClient::unlockScreenOrientation(WebPageProxy&)
+{
+#if PLATFORM(IOS)
+    if (!m_uiDelegate)
+        return;
+    if (!m_uiDelegate->m_delegateMethods.webViewUnlockScreenOrientation)
+        return;
+    if (auto delegate = m_uiDelegate->m_delegate.get())
+        [(id<WKUIDelegatePrivate>)delegate _webViewUnlockScreenOrientation:m_uiDelegate->m_webView.get().get()];
+#endif
+}
+
 static inline _WKFocusDirection toWKFocusDirection(WKFocusDirection direction)
 {
     switch (direction) {
@@ -881,33 +935,6 @@ void UIDelegate::UIClient::unfocus(WebPageProxy*)
         return;
     
     [(id <WKUIDelegatePrivate>)delegate _unfocusWebView:m_uiDelegate->m_webView.get().get()];
-}
-
-static _WKResourceLimit toWKResourceLimit(WKResourceLimit limit)
-{
-    switch (limit) {
-    case kWKResourceLimitMemory:
-        return _WKResourceLimitMemory;
-    case kWKResourceLimitCPU:
-        return _WKResourceLimitCPU;
-    }
-    ASSERT_NOT_REACHED();
-    return _WKResourceLimitMemory;
-}
-
-void UIDelegate::UIClient::didExceedBackgroundResourceLimitWhileInForeground(WebPageProxy&, WKResourceLimit limit)
-{
-    if (!m_uiDelegate)
-        return;
-
-    if (!m_uiDelegate->m_delegateMethods.webViewDidExceedBackgroundResourceLimitWhileInForeground)
-        return;
-    
-    auto delegate = m_uiDelegate->m_delegate.get();
-    if (!delegate)
-        return;
-    
-    [static_cast<id <WKUIDelegatePrivate>>(delegate) _webView:m_uiDelegate->m_webView.get().get() didExceedBackgroundResourceLimitWhileInForeground:toWKResourceLimit(limit)];
 }
 
 void UIDelegate::UIClient::didNotHandleWheelEvent(WebPageProxy*, const NativeWebWheelEvent& event)
@@ -1355,7 +1382,7 @@ void UIDelegate::UIClient::checkUserMediaPermissionForOrigin(WebPageProxy& page,
     URL requestFrameURL { frame.url() };
     URL mainFrameURL { mainFrame->url() };
 
-    [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() checkUserMediaPermissionForURL:requestFrameURL mainFrameURL:mainFrameURL frameIdentifier:frame.frameID().toUInt64() decisionHandler:decisionHandler.get()];
+    [(id<WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() checkUserMediaPermissionForURL:requestFrameURL mainFrameURL:mainFrameURL frameIdentifier:frame.frameID().object().toUInt64() decisionHandler:decisionHandler.get()];
 }
 
 void UIDelegate::UIClient::mediaCaptureStateDidChange(WebCore::MediaProducerMediaStateFlags state)
@@ -1544,6 +1571,20 @@ void UIDelegate::UIClient::didNotHandleTapAsClick(const WebCore::IntPoint& point
     [static_cast<id <WKUIDelegatePrivate>>(delegate) _webView:m_uiDelegate->m_webView.get().get() didNotHandleTapAsClickAtPoint:point];
 }
 
+void UIDelegate::UIClient::statusBarWasTapped()
+{
+    if (!m_uiDelegate)
+        return;
+
+    if (!m_uiDelegate->m_delegateMethods.webViewStatusBarWasTapped)
+        return;
+
+    auto delegate = m_uiDelegate->m_delegate.get();
+    if (!delegate)
+        return;
+
+    [static_cast<id <WKUIDelegatePrivate>>(delegate) _webViewStatusBarWasTapped:m_uiDelegate->m_webView.get().get()];
+}
 #endif // PLATFORM(IOS_FAMILY)
 
 PlatformViewController *UIDelegate::UIClient::presentingViewController()
@@ -1847,6 +1888,47 @@ void UIDelegate::UIClient::didDisableInspectorBrowserDomain(WebPageProxy&)
         return;
 
     [delegate _webViewDidDisableInspectorBrowserDomain:m_uiDelegate->m_webView.get().get()];
+}
+
+void UIDelegate::UIClient::updateAppBadge(WebPageProxy&, const WebCore::SecurityOriginData& origin, std::optional<uint64_t> badge)
+{
+    if (!m_uiDelegate)
+        return;
+
+    if (!m_uiDelegate->m_delegateMethods.webViewUpdatedAppBadge)
+        return;
+
+    auto delegate = (id <WKUIDelegatePrivate>)m_uiDelegate->m_delegate.get();
+    if (!delegate)
+        return;
+
+    NSNumber *nsBadge = nil;
+    if (badge)
+        nsBadge = @(*badge);
+
+
+    auto apiOrigin = API::SecurityOrigin::create(origin);
+    [delegate _webView:m_uiDelegate->m_webView.get().get() updatedAppBadge:nsBadge fromSecurityOrigin:wrapper(apiOrigin.get())];
+}
+
+void UIDelegate::UIClient::updateClientBadge(WebPageProxy&, const WebCore::SecurityOriginData& origin, std::optional<uint64_t> badge)
+{
+    if (!m_uiDelegate)
+        return;
+
+    if (!m_uiDelegate->m_delegateMethods.webViewUpdatedClientBadge)
+        return;
+
+    auto delegate = (id <WKUIDelegatePrivate>)m_uiDelegate->m_delegate.get();
+    if (!delegate)
+        return;
+
+    NSNumber *nsBadge = nil;
+    if (badge)
+        nsBadge = @(*badge);
+
+    auto apiOrigin = API::SecurityOrigin::create(origin);
+    [delegate _webView:m_uiDelegate->m_webView.get().get() updatedClientBadge:nsBadge fromSecurityOrigin:wrapper(apiOrigin.get())];
 }
 
 #if ENABLE(WEBXR)

@@ -12,30 +12,18 @@ check the changelog of the current development status, as one or more of these
 problems may have been fixed or changed somewhat since this was written.
 
  1. HTTP
- 1.2 Multiple methods in a single WWW-Authenticate: header
- 1.3 STARTTRANSFER time is wrong for HTTP POSTs
- 1.4 multipart formposts file name encoding
  1.5 Expect-100 meets 417
- 1.6 Unnecessary close when 401 received waiting for 100
- 1.7 Deflate error after all content was received
- 1.8 DoH is not used for all name resolves when enabled
- 1.11 CURLOPT_SEEKFUNCTION not called with CURLFORM_STREAM
 
  2. TLS
- 2.1 CURLINFO_SSL_VERIFYRESULT has limited support
- 2.2 DER in keychain
  2.3 Unable to use PKCS12 certificate with Secure Transport
  2.4 Secure Transport will not import PKCS#12 client certificates without a password
  2.5 Client cert handling with Issuer DN differs between backends
- 2.6 CURL_GLOBAL_SSL
  2.7 Client cert (MTLS) issues with Schannel
  2.8 Schannel disable CURLOPT_SSL_VERIFYPEER and verify hostname
  2.9 TLS session cache does not work with TFO
- 2.10 Store TLS context per transfer instead of per connection
  2.11 Schannel TLS 1.2 handshake bug in old Windows versions
  2.12 FTPS with Schannel times out file list operation
  2.13 CURLOPT_CERTINFO results in CURLE_OUT_OF_MEMORY with Schannel
- 2.14 Secure Transport disabling hostname validation also disables SNI
  2.15 Renegotiate from server may cause hang for OpenSSL backend
 
  3. Email protocols
@@ -53,10 +41,8 @@ problems may have been fixed or changed somewhat since this was written.
  5.1 OS400 port requires deprecated IBM library
  5.2 curl-config --libs contains private details
  5.3 curl compiled on OSX 10.13 failed to run on OSX 10.10
- 5.4 Build with statically built dependency
  5.5 cannot handle Unicode arguments in non-Unicode builds on Windows
  5.6 make distclean loops forever
- 5.7 Visual Studio project gaps
  5.8 configure finding libs in wrong directory
  5.9 Utilize Requires.private directives in libcurl.pc
  5.10 curl hangs on SMB upload over stdin
@@ -73,7 +59,6 @@ problems may have been fixed or changed somewhat since this was written.
  6.5 NTLM does not support password with § character
  6.6 libcurl can fail to try alternatives with --proxy-any
  6.7 Do not clear digest for single realm
- 6.8 RTSP authentication breaks without redirect support
  6.9 SHA-256 digest not supported in Windows SSPI builds
  6.10 curl never completes Negotiate over HTTP
  6.11 Negotiate on Windows fails
@@ -81,22 +66,13 @@ problems may have been fixed or changed somewhat since this was written.
  6.13 Negotiate against Hadoop HDFS
 
  7. FTP
- 7.1 FTP without or slow 220 response
- 7.2 FTP with CONNECT and slow server
  7.3 FTP with NOBODY and FAILONERROR
  7.4 FTP with ACCT
  7.5 ASCII FTP
- 7.6 FTP with NULs in URL parts
- 7.7 FTP and empty path parts in the URL
- 7.8 Premature transfer end but healthy control channel
  7.9 Passive transfer tries only one IP address
  7.10 FTPS needs session reuse
  7.11 FTPS upload data loss with TLS 1.3
  7.12 FTPS directory listing hangs on Windows with Schannel
-
- 8. TELNET
- 8.1 TELNET and time limitations do not work
- 8.2 Microsoft telnet server
 
  9. SFTP and SCP
  9.1 SFTP does not do CURLOPT_POSTQUOTE correct
@@ -106,12 +82,10 @@ problems may have been fixed or changed somewhat since this was written.
 
  10. SOCKS
  10.3 FTPS over SOCKS
- 10.4 active FTP over a SOCKS
 
  11. Internals
  11.1 Curl leaks .onion hostnames in DNS
  11.2 error buffer not set if connection to multiple addresses fails
- 11.3 Disconnects do not do verbose
  11.4 HTTP test server 'connection-monitor' problems
  11.5 Connection information when using TCP Fast Open
  11.7 signal-based resolver timeouts
@@ -119,7 +93,6 @@ problems may have been fixed or changed somewhat since this was written.
  11.9 DoH does not inherit all transfer options
  11.10 Blocking socket operations in non-blocking API
  11.11 A shared connection cache is not thread-safe
- 11.14 Multi perform hangs waiting for threaded resolver
  11.15 CURLOPT_OPENSOCKETPAIRFUNCTION is missing
  11.16 libcurl uses renames instead of locking for atomic operations
 
@@ -130,14 +103,9 @@ problems may have been fixed or changed somewhat since this was written.
  12.4 LDAPS with NSS is slow
 
  13. TCP/IP
- 13.1 --interface for ipv6 binds to unusable IP address
  13.2 Trying local ports fails on Windows
 
- 14. DICT
- 14.1 DICT responses show the underlying protocol
-
  15. CMake
- 15.1 use correct SONAME
  15.2 support build with GnuTLS
  15.3 unusable tool_hugehelp.c with MinGW
  15.4 build docs/curl.1
@@ -150,7 +118,6 @@ problems may have been fixed or changed somewhat since this was written.
  15.11 ExternalProject_Add does not set CURL_CA_PATH
  15.12 cannot enable LDAPS on Windows
  15.13 CMake build with MIT Kerberos does not work
- 15.14 cmake build is not thread-safe
 
  16. Applications
 
@@ -164,37 +131,12 @@ problems may have been fixed or changed somewhat since this was written.
  18. HTTP/3
  18.1 If the HTTP/3 server closes connection during upload curl hangs
  18.2 Transfer closed with n bytes remaining to read
- 18.4 timeout when reusing a http3 connection
+ 18.4 timeout when reusing an http3 connection
  18.9 connection migration does not work
 
 ==============================================================================
 
 1. HTTP
-
-1.2 Multiple methods in a single WWW-Authenticate: header
-
- The HTTP responses headers WWW-Authenticate: can provide information about
- multiple authentication methods as multiple headers or as several methods
- within a single header. The latter way, several methods in the same physical
- line, is not supported by libcurl's parser. (For no good reason.)
-
-1.3 STARTTRANSFER time is wrong for HTTP POSTs
-
- Wrong STARTTRANSFER timer accounting for POST requests Timer works fine with
- GET requests, but while using POST the time for CURLINFO_STARTTRANSFER_TIME
- is wrong. While using POST CURLINFO_STARTTRANSFER_TIME minus
- CURLINFO_PRETRANSFER_TIME is near to zero every time.
-
- https://github.com/curl/curl/issues/218
- https://curl.se/bug/view.cgi?id=1213
-
-1.4 multipart formposts file name encoding
-
- When creating multipart formposts. The file name part can be encoded with
- something beyond ascii but currently libcurl will only pass in the verbatim
- string the app provides. There are several browsers that already do this
- encoding. The key seems to be the updated draft to RFC2231:
- https://datatracker.ietf.org/doc/html/draft-reschke-rfc2231-in-http-02
 
 1.5 Expect-100 meets 417
 
@@ -203,53 +145,7 @@ problems may have been fixed or changed somewhat since this was written.
  the client application to redo the transfer after disabling Expect:.
  https://curl.se/mail/archive-2008-02/0043.html
 
-1.6 Unnecessary close when 401 received waiting for 100
-
- libcurl closes the connection if an HTTP 401 reply is received while it is
- waiting for the 100-continue response.
- https://curl.se/mail/lib-2008-08/0462.html
-
-1.7 Deflate error after all content was received
-
- There's a situation where we can get an error in an HTTP response that is
- compressed, when that error is detected after all the actual body contents
- have been received and delivered to the application. This is tricky, but is
- ultimately a broken server.
-
- See https://github.com/curl/curl/issues/2719
-
-1.8 DoH is not used for all name resolves when enabled
-
- Even if DoH is specified to be used, there are some name resolves that are
- done without it. This should be fixed. When the internal function
- `Curl_resolver_wait_resolv()` is called, it does not use DoH to complete the
- resolve as it otherwise should.
-
- See https://github.com/curl/curl/pull/3857 and
- https://github.com/curl/curl/pull/3850
-
-1.11 CURLOPT_SEEKFUNCTION not called with CURLFORM_STREAM
-
- When using libcurl to POST form data using a FILE* with the CURLFORM_STREAM
- option of curl_formadd(). I notice that if the connection drops at just the
- right time, the POST is reattempted without the data from the file. It seems
- like the file stream position is not getting reset to the beginning of the
- file. I found the CURLOPT_SEEKFUNCTION option and set that with a function
- that performs an fseek() on the FILE*. However, setting that did not seem to
- fix the issue or even get called. See https://github.com/curl/curl/issues/768
-
-
 2. TLS
-
-2.1 CURLINFO_SSL_VERIFYRESULT has limited support
-
- CURLINFO_SSL_VERIFYRESULT is only implemented for the OpenSSL, NSS and
- GnuTLS backends, so relying on this information in a generic app is flaky.
-
-2.2 DER in keychain
-
- Curl does not recognize certificates in DER format in keychain, but it works
- with PEM.  https://curl.se/bug/view.cgi?id=1065
 
 2.3 Unable to use PKCS12 certificate with Secure Transport
 
@@ -269,34 +165,6 @@ problems may have been fixed or changed somewhat since this was written.
 
  See https://github.com/curl/curl/issues/1411
 
-2.6 CURL_GLOBAL_SSL
-
- Since libcurl 7.57.0, the flag CURL_GLOBAL_SSL is a no-op. The change was
- merged in https://github.com/curl/curl/commit/d661b0afb571a
-
- It was removed since it was
-
- A) never clear for applications on how to deal with init in the light of
-    different SSL backends (the option was added back in the days when life
-    was simpler)
-
- B) multissl introduced dynamic switching between SSL backends which
-    emphasized (A) even more
-
- C) libcurl uses some TLS backend functionality even for non-TLS functions (to
-    get "good" random) so applications trying to avoid the init for
-    performance reasons would do wrong anyway
-
- D) not documented carefully so all this mostly just happened to work
-    for some users
-
- However, in spite of the problems with the feature, there were some users who
- apparently depended on this feature and who now claim libcurl is broken for
- them. The fix for this situation is not obvious as a downright revert of the
- patch is totally ruled out due to those reasons above.
-
- https://github.com/curl/curl/issues/2276
-
 2.7 Client cert (MTLS) issues with Schannel
 
  See https://github.com/curl/curl/issues/3145
@@ -310,16 +178,6 @@ problems may have been fixed or changed somewhat since this was written.
 2.9 TLS session cache does not work with TFO
 
  See https://github.com/curl/curl/issues/4301
-
-2.10 Store TLS context per transfer instead of per connection
-
- The GnuTLS `backend->cred` and the OpenSSL `backend->ctx` data and their
- proxy versions (and possibly other TLS backends), could be better moved to be
- stored in the Curl_easy handle instead of in per connection so that a single
- transfer that makes multiple connections can reuse the context and reduce
- memory consumption.
-
- https://github.com/curl/curl/issues/5102
 
 2.11 Schannel TLS 1.2 handshake bug in old Windows versions
 
@@ -338,20 +196,6 @@ problems may have been fixed or changed somewhat since this was written.
 2.13 CURLOPT_CERTINFO results in CURLE_OUT_OF_MEMORY with Schannel
 
  https://github.com/curl/curl/issues/8741
-
-2.14 Secure Transport disabling hostname validation also disables SNI
-
- SNI is the hostname that is sent by the TLS library to the server as part of
- the TLS handshake. Secure Transport does not send SNI when hostname validation
- is disabled. Servers that host multiple websites may not know which
- certificate to serve without SNI or which backend server to connect to. The
- server may serve the certificate of a default server or abort.
-
- If a server aborts a handshake then curl shows error "SSL peer handshake
- failed, the server most likely requires a client certificate to connect".
- In this case the error may also have been caused by lack of SNI.
-
- https://github.com/curl/curl/issues/6347
 
 2.15 Renegotiate from server may cause hang for OpenSSL backend
 
@@ -447,28 +291,6 @@ problems may have been fixed or changed somewhat since this was written.
 
  See https://github.com/curl/curl/issues/2905
 
-5.4 Build with statically built dependency
-
- The build scripts in curl (autotools, cmake and others) are primarily done to
- work with shared/dynamic third party dependencies. When linking with shared
- libraries, the dependency "chain" is handled automatically by the library
- loader - on all modern systems.
-
- If you instead link with a static library, we need to provide all the
- dependency libraries already at the link command line.
-
- Figuring out all the dependency libraries for a given library is hard, as it
- might also involve figuring out the dependencies of the dependencies and they
- may vary between platforms and even change between versions.
-
- When using static dependencies, the build scripts will mostly assume that
- you, the user, will provide all the necessary additional dependency libraries
- as additional arguments in the build. With configure, by setting LIBS/LDFLAGS
- on the command line.
-
- We welcome help to improve curl's ability to link with static libraries, but
- it is likely a task that we can never fully support.
-
 5.5 cannot handle Unicode arguments in non-Unicode builds on Windows
 
  If a URL or filename cannot be encoded using the user's current codepage then
@@ -488,20 +310,6 @@ problems may have been fixed or changed somewhat since this was written.
  never-ending loop.
 
  See https://github.com/curl/curl/issues/7716
-
-5.7 Visual Studio project gaps
-
- The Visual Studio projects lack some features that the autoconf and nmake
- builds offer, such as the following:
-
-  - support for zlib and nghttp2
-  - use of static runtime libraries
-  - add the test suite components
-
- In addition to this the following could be implemented:
-
-  - support for other development IDEs
-  - add PATH environment variables for third-party DLLs
 
 5.8 configure finding libs in wrong directory
 
@@ -619,15 +427,6 @@ problems may have been fixed or changed somewhat since this was written.
 
  https://github.com/curl/curl/issues/3267
 
-6.8 RTSP authentication breaks without redirect support
-
- RTSP authentication broke in 7.66.0. A work-around is to enable RTSP in
- CURLOPT_REDIR_PROTOCOLS. Authentication should however not be considered an
- actual redirect so a "proper" fix needs to be different and not require users
- to allow redirects to RTSP to work.
-
- See https://github.com/curl/curl/pull/4750
-
 6.9 SHA-256 digest not supported in Windows SSPI builds
 
  Windows builds of curl that have SSPI enabled use the native Windows API calls
@@ -663,23 +462,6 @@ problems may have been fixed or changed somewhat since this was written.
 
 7. FTP
 
-7.1 FTP without or slow 220 response
-
- If a connection is made to an FTP server but the server then just never sends
- the 220 response or otherwise is dead slow, libcurl will not acknowledge the
- connection timeout during that phase but only the "real" timeout - which may
- surprise users as it is probably considered to be the connect phase to most
- people. Brought up (and is being misunderstood) in:
- https://curl.se/bug/view.cgi?id=856
-
-7.2 FTP with CONNECT and slow server
-
- When doing FTP over a socks proxy or CONNECT through HTTP proxy and the multi
- interface is used, libcurl will fail if the (passive) TCP connection for the
- data transfer is not more or less instant as the code does not properly wait
- for the connect to be confirmed. See test case 564 for a first shot at a test
- case.
-
 7.3 FTP with NOBODY and FAILONERROR
 
  It seems sensible to be able to use CURLOPT_NOBODY and CURLOPT_FAILONERROR
@@ -705,39 +487,6 @@ problems may have been fixed or changed somewhat since this was written.
     form to his own internal form.
 
  Since 7.15.4 at least line endings are converted.
-
-7.6 FTP with NULs in URL parts
-
- FTP URLs passed to curl may contain NUL (0x00) in the RFC 1738 <user>,
- <password>, and <fpath> components, encoded as "%00". The problem is that
- curl_unescape does not detect this, but instead returns a shortened C string.
- From a strict FTP protocol standpoint, NUL is a valid character within RFC
- 959 <string>, so the way to handle this correctly in curl would be to use a
- data structure other than a plain C string, one that can handle embedded NUL
- characters. From a practical standpoint, most FTP servers would not
- meaningfully support NUL characters within RFC 959 <string>, anyway (e.g.,
- Unix pathnames may not contain NUL).
-
-7.7 FTP and empty path parts in the URL
-
- libcurl ignores empty path parts in FTP URLs, whereas RFC1738 states that
- such parts should be sent to the server as 'CWD ' (without an argument). The
- only exception to this rule, is that we knowingly break this if the empty
- part is first in the path, as then we use the double slashes to indicate that
- the user wants to reach the root dir (this exception SHALL remain even when
- this bug is fixed).
-
-7.8 Premature transfer end but healthy control channel
-
- When 'multi_done' is called before the transfer has been completed the normal
- way, it is considered a "premature" transfer end. In this situation, libcurl
- closes the connection assuming it does not know the state of the connection so
- it cannot be reused for subsequent requests.
-
- With FTP however, this is not necessarily true but there are a bunch of
- situations (listed in the ftp_done code) where it *could* keep the connection
- alive even in this situation - but the current code does not. Fixing this would
- allow libcurl to reuse FTP connections better.
 
 7.9 Passive transfer tries only one IP address
 
@@ -778,19 +527,6 @@ problems may have been fixed or changed somewhat since this was written.
 7.12 FTPS directory listing hangs on Windows with Schannel
 
  https://github.com/curl/curl/issues/9161
-
-8. TELNET
-
-8.1 TELNET and time limitations do not work
-
- When using telnet, the time limitation options do not work.
- https://curl.se/bug/view.cgi?id=846
-
-8.2 Microsoft telnet server
-
- There seems to be a problem when connecting to the Microsoft telnet server.
- https://curl.se/bug/view.cgi?id=649
-
 
 9. SFTP and SCP
 
@@ -833,10 +569,6 @@ problems may have been fixed or changed somewhat since this was written.
 
  libcurl does not support FTPS over a SOCKS proxy.
 
-10.4 active FTP over a SOCKS
-
- libcurl does not support active FTP over a SOCKS proxy
-
 
 11. Internals
 
@@ -854,24 +586,6 @@ problems may have been fixed or changed somewhat since this was written.
  only. But you only have IPv4 connectivity. libcurl will correctly fail with
  CURLE_COULDNT_CONNECT. But the error buffer set by CURLOPT_ERRORBUFFER
  remains empty. Issue: https://github.com/curl/curl/issues/544
-
-11.3 Disconnects do not do verbose
-
- Due to how libcurl keeps connections alive in the "connection pool" after use
- to potentially transcend the life-time of the initial easy handle that was
- used to drive the transfer over that connection, it uses a *separate* and
- internal easy handle when it shuts down the connection. That separate
- connection might not have the same settings as the original easy handle, and
- in particular it is often note-worthy that it does not have the same VERBOSE
- and debug callbacks setup so that an application will not get the protocol
- data for the disconnect phase of a transfer the same way it got all the other
- data.
-
- This is because the original easy handle might have already been freed at that
- point and the application might not at all be prepared that the callback
- would get called again long after the handle was freed.
-
- See for example https://github.com/curl/curl/issues/6995
 
 11.4 HTTP test server 'connection-monitor' problems
 
@@ -930,15 +644,6 @@ problems may have been fixed or changed somewhat since this was written.
 
  See https://github.com/curl/curl/issues/4915 and lib1541.c
 
-11.14 Multi perform hangs waiting for threaded resolver
-
- If a threaded resolver takes a long time to complete, libcurl can be blocked
- waiting for it for a longer time than expected - and longer than the set
- timeouts.
-
- See https://github.com/curl/curl/issues/2975 and
- https://github.com/curl/curl/issues/4852
-
 11.15 CURLOPT_OPENSOCKETPAIRFUNCTION is missing
 
  When libcurl creates sockets with socketpair(), those are not "exposed" in
@@ -995,14 +700,6 @@ problems may have been fixed or changed somewhat since this was written.
 
 13. TCP/IP
 
-13.1 --interface for ipv6 binds to unusable IP address
-
- Since IPv6 provides a lot of addresses with different scope, binding to an
- IPv6 address needs to take the proper care so that it does not bind to a
- locally scoped address as that is bound to fail.
-
- https://github.com/curl/curl/issues/686
-
 13.2 Trying local ports fails on Windows
 
  This makes '--local-port [range]' to not work since curl can't properly
@@ -1011,23 +708,7 @@ problems may have been fixed or changed somewhat since this was written.
 
  https://github.com/curl/curl/issues/8112
 
-14. DICT
-
-14.1 DICT responses show the underlying protocol
-
- When getting a DICT response, the protocol parts of DICT are not stripped off
- from the output.
-
- https://github.com/curl/curl/issues/1809
-
 15. CMake
-
-15.1 use correct SONAME
-
- The autotools build sets the SONAME properly according to VERSIONINFO in
- lib/Makefile.am and so should cmake to make comparable build.
-
- See https://github.com/curl/curl/pull/5935
 
 15.2 support build with GnuTLS
 
@@ -1099,15 +780,6 @@ problems may have been fixed or changed somewhat since this was written.
 
  https://github.com/curl/curl/issues/6904
 
-15.14 cmake build is not thread-safe
-
- The cmake build does not check for and verify presence of a working Atomic
- type, which then makes curl_global_init() to not build thread-safe on
- non-Windows platforms.
-
- Bug: https://github.com/curl/curl/issues/8973
- Partial fix: https://github.com/curl/curl/pull/8982
-
 16. Applications
 
 17. HTTP/2
@@ -1159,7 +831,7 @@ problems may have been fixed or changed somewhat since this was written.
 
  https://github.com/curl/curl/issues/8523
 
-18.4 timeout when reusing a http3 connection
+18.4 timeout when reusing an http3 connection
 
  HTTP/3 with quiche seems to not work and always timeout a subsequent transfer
  that reuses an already established connection

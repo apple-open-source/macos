@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -3821,7 +3821,7 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 		CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6NAT64Prefix,
 				     nat64_prefix);
 	    }
-	    else {
+	    else if (ipv4_dict == NULL) {
 		/* prefix isn't already known, discover PLAT if told to do so */
 		perform_plat_discovery = info_p->perform_plat_discovery;
 		if (perform_plat_discovery) {
@@ -3939,6 +3939,26 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 	   if_name(ifstate->if_p),
 	   entities_summary, extra_string);
     my_CFRelease(&entities_summary);
+    return;
+}
+
+void
+ServiceUnpublishCLAT46(ServiceRef service_p)
+{
+    if (service_clat46_is_active(service_p)) {
+	CFTypeRef	entity = kSCEntNetIPv4;
+	IFStateRef	ifstate = service_ifstate(service_p);
+	CFDictionaryRef	value = NULL;
+
+	my_log(LOG_NOTICE,
+	       "%s %s: unpublish IPv4 (CLAT46)",
+	       ipconfig_method_string(service_p->method),
+	       if_name(ifstate->if_p));
+	my_SCDynamicStoreSetService(S_scd_session,
+				    service_p->serviceID,
+				    &entity, &value, 1,
+				    service_p->no_publish);
+    }
     return;
 }
 

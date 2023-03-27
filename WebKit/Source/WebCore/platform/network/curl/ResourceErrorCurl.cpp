@@ -32,38 +32,29 @@
 
 namespace WebCore {
 
-ASCIILiteral ResourceError::curlErrorDomain = "CurlErrorDomain"_s;
-
-ResourceError ResourceError::httpError(int errorCode, const URL& failingURL, Type type)
+static const String& curlErrorDomain()
 {
-    return ResourceError(curlErrorDomain, errorCode, failingURL, CurlHandle::errorDescription(static_cast<CURLcode>(errorCode)), type);
+    static NeverDestroyed<const String> errorDomain(MAKE_STATIC_STRING_IMPL("CurlErrorDomain"));
+    return errorDomain;
 }
 
-ResourceError ResourceError::sslError(int errorCode, unsigned sslErrors, const URL& failingURL)
+ResourceError::ResourceError(int curlCode, const URL& failingURL, Type type)
+    : ResourceErrorBase(curlErrorDomain(), curlCode, failingURL, CurlHandle::errorDescription(static_cast<CURLcode>(curlCode)), type, IsSanitized::No)
 {
-    ResourceError resourceError = ResourceError::httpError(errorCode, failingURL);
-    resourceError.setSslErrors(sslErrors);
-    return resourceError;
 }
 
-bool ResourceError::isSSLConnectError() const
+bool ResourceError::isCertificationVerificationError() const
 {
-    return errorCode() == CURLE_SSL_CONNECT_ERROR;
+    return domain() == curlErrorDomain() && errorCode() == CURLE_PEER_FAILED_VERIFICATION;
 }
 
-bool ResourceError::isSSLCertVerificationError() const
+void ResourceError::doPlatformIsolatedCopy(const ResourceError&)
 {
-    return errorCode() == CURLE_PEER_FAILED_VERIFICATION;
 }
 
-void ResourceError::doPlatformIsolatedCopy(const ResourceError& other)
+bool ResourceError::platformCompare(const ResourceError&, const ResourceError&)
 {
-    m_sslErrors = other.m_sslErrors;
-}
-
-bool ResourceError::platformCompare(const ResourceError& a, const ResourceError& b)
-{
-    return a.sslErrors() == b.sslErrors();
+    return true;
 }
 
 } // namespace WebCore

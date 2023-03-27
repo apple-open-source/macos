@@ -78,6 +78,7 @@ fil{
         chk{"Chuukese"}
         chm{"Mari"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chr{"Cherokee"}
         chy{"Cheyenne"}
         ckb{"Central Kurdish"}

@@ -157,22 +157,22 @@ serverConvert(
     char_u	*res = data;
 
     *tofree = NULL;
-    if (client_enc != NULL && p_enc != NULL)
-    {
-	vimconv_T	vimconv;
+    if (client_enc == NULL || p_enc == NULL)
+	return res;
 
-	vimconv.vc_type = CONV_NONE;
-	if (convert_setup(&vimconv, client_enc, p_enc) != FAIL
-					      && vimconv.vc_type != CONV_NONE)
-	{
-	    res = string_convert(&vimconv, data, NULL);
-	    if (res == NULL)
-		res = data;
-	    else
-		*tofree = res;
-	}
-	convert_setup(&vimconv, NULL, NULL);
+    vimconv_T	vimconv;
+
+    vimconv.vc_type = CONV_NONE;
+    if (convert_setup(&vimconv, client_enc, p_enc) != FAIL
+	    && vimconv.vc_type != CONV_NONE)
+    {
+	res = string_convert(&vimconv, data, NULL);
+	if (res == NULL)
+	    res = data;
+	else
+	    *tofree = res;
     }
+    convert_setup(&vimconv, NULL, NULL);
     return res;
 }
 #endif
@@ -191,38 +191,38 @@ static char_u *build_drop_cmd(int filec, char **filev, int tabs, int sendReply);
     void
 exec_on_server(mparm_T *parmp)
 {
-    if (parmp->serverName_arg == NULL || *parmp->serverName_arg != NUL)
+    if (parmp->serverName_arg != NULL && *parmp->serverName_arg == NUL)
+	return;
+
+# ifdef MSWIN
+    // Initialise the client/server messaging infrastructure.
+    serverInitMessaging();
+# endif
+
+    /*
+     * When a command server argument was found, execute it.  This may
+     * exit Vim when it was successful.  Otherwise it's executed further
+     * on.  Remember the encoding used here in "serverStrEnc".
+     */
+    if (parmp->serverArg)
     {
-# ifdef MSWIN
-	// Initialise the client/server messaging infrastructure.
-	serverInitMessaging();
-# endif
-
-	/*
-	 * When a command server argument was found, execute it.  This may
-	 * exit Vim when it was successful.  Otherwise it's executed further
-	 * on.  Remember the encoding used here in "serverStrEnc".
-	 */
-	if (parmp->serverArg)
-	{
-	    cmdsrv_main(&parmp->argc, parmp->argv,
-				    parmp->serverName_arg, &parmp->serverStr);
-	    parmp->serverStrEnc = vim_strsave(p_enc);
-	}
-
-	// If we're still running, get the name to register ourselves.
-	// On Win32 can register right now, for X11 need to setup the
-	// clipboard first, it's further down.
-	parmp->servername = serverMakeName(parmp->serverName_arg,
-							      parmp->argv[0]);
-# ifdef MSWIN
-	if (parmp->servername != NULL)
-	{
-	    serverSetName(parmp->servername);
-	    vim_free(parmp->servername);
-	}
-# endif
+	cmdsrv_main(&parmp->argc, parmp->argv,
+		parmp->serverName_arg, &parmp->serverStr);
+	parmp->serverStrEnc = vim_strsave(p_enc);
     }
+
+    // If we're still running, get the name to register ourselves.
+    // On Win32 can register right now, for X11 need to setup the
+    // clipboard first, it's further down.
+    parmp->servername = serverMakeName(parmp->serverName_arg,
+	    parmp->argv[0]);
+# ifdef MSWIN
+    if (parmp->servername != NULL)
+    {
+	serverSetName(parmp->servername);
+	vim_free(parmp->servername);
+    }
+# endif
 }
 
 /*

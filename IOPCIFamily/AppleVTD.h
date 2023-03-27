@@ -170,6 +170,7 @@ typedef char vtd_registers_t_check[(sizeof(vtd_registers_t) == 0xc0) ? 1 : -1];
 #define kMaxUnits	(8)
 #define kIRCount	(512)
 #define kIRPageCount	(atop(kIRCount * sizeof(ir_descriptor_t)))
+#define kMaxMemRegions (64)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -357,6 +358,10 @@ public:
 	uint8_t           fDisabled;
 	bool              x2apic_mode;
 
+	uint64_t          fNumMemoryRanges;
+	uint64_t          fMemoryRangeBase[kMaxMemRegions];
+	uint64_t          fMemoryRangeLen[kMaxMemRegions];
+
 	static void install(IOWorkLoop * wl, uint32_t flags,
 						IOService * provider, const OSData * data,
 						IOPCIMessagedInterruptController  * messagedInterruptController);
@@ -365,6 +370,8 @@ public:
 	static void adjustDevice(IOService * device);
 	static void removeDevice(IOService * device);
 	static void relocateDevice(IOService * device, bool paused);
+	static void addMemoryRange(IOPhysicalAddress start, IOPhysicalLength length);
+	void reserveRanges(vtd_space_t *bf, bool systemMapper);
 
 	bool init(IOWorkLoop * wl, const OSData * data);
 
@@ -377,7 +384,7 @@ public:
 							uint32_t mapOptions, const IODMAMapSpecification * mapSpecification,
 							const upl_page_info_t * pageList);
 	void space_free(vtd_space_t * bf, vtd_vaddr_t addr, vtd_vaddr_t size);
-	void space_alloc_fixed(vtd_space_t * bf, vtd_vaddr_t addr, vtd_vaddr_t size);
+	void space_alloc_fixed(vtd_space_t * bf, vtd_vaddr_t addr, vtd_vaddr_t size, bool fault = true);
 	
 	IOReturn handleInterrupt(IOInterruptEventSource * source, int count);
 	IOReturn handleFault(IOInterruptEventSource * source, int count);

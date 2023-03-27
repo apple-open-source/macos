@@ -16,11 +16,11 @@
 #include "angle_deqp_libtester.h"
 #include "common/Optional.h"
 #include "common/angleutils.h"
+#include "common/base/anglebase/no_destructor.h"
 #include "common/debug.h"
 #include "common/platform.h"
 #include "common/string_utils.h"
 #include "common/system_utils.h"
-#include "common/third_party/base/anglebase/no_destructor.h"
 #include "platform/PlatformMethods.h"
 #include "tests/test_utils/runner/TestSuite.h"
 #include "util/OSWindow.h"
@@ -58,26 +58,29 @@ void HandlePlatformError(PlatformMethods *platform, const char *errorMessage)
 constexpr char kCTSRootPath[] = "third_party/VK-GL-CTS/src/";
 constexpr char kSupportPath[] = "src/tests/deqp_support/";
 
-#define OPENGL_CTS_DIR(PATH) "external/openglcts/data/mustpass/gles/" PATH
+#define GLES_CTS_DIR(PATH) "external/openglcts/data/mustpass/gles/" PATH
+#define GL_CTS_DIR(PATH) "external/openglcts/data/mustpass/gl/" PATH
 
 const char *gCaseListFiles[] = {
-    OPENGL_CTS_DIR("aosp_mustpass/main/gles2-master.txt"),
-    OPENGL_CTS_DIR("aosp_mustpass/main/gles3-master.txt"),
-    OPENGL_CTS_DIR("aosp_mustpass/main/gles31-master.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles2-master.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles3-master.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles31-master.txt"),
     "/android/cts/main/egl-master.txt",
-    OPENGL_CTS_DIR("khronos_mustpass/main/gles2-khr-master.txt"),
-    OPENGL_CTS_DIR("khronos_mustpass/main/gles3-khr-master.txt"),
-    OPENGL_CTS_DIR("khronos_mustpass/main/gles31-khr-master.txt"),
-    OPENGL_CTS_DIR("khronos_mustpass/main/gles32-khr-master.txt"),
-    OPENGL_CTS_DIR("aosp_mustpass/main/gles3-rotate-landscape.txt"),
-    OPENGL_CTS_DIR("aosp_mustpass/main/gles3-rotate-reverse-portrait.txt"),
-    OPENGL_CTS_DIR("aosp_mustpass/main/gles3-rotate-reverse-landscape.txt"),
-    OPENGL_CTS_DIR("aosp_mustpass/main/gles31-rotate-landscape.txt"),
-    OPENGL_CTS_DIR("aosp_mustpass/main/gles31-rotate-reverse-portrait.txt"),
-    OPENGL_CTS_DIR("aosp_mustpass/main/gles31-rotate-reverse-landscape.txt"),
+    GLES_CTS_DIR("khronos_mustpass/main/gles2-khr-master.txt"),
+    GLES_CTS_DIR("khronos_mustpass/main/gles3-khr-master.txt"),
+    GLES_CTS_DIR("khronos_mustpass/main/gles31-khr-master.txt"),
+    GLES_CTS_DIR("khronos_mustpass/main/gles32-khr-master.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles3-rotate-landscape.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles3-rotate-reverse-portrait.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles3-rotate-reverse-landscape.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles31-rotate-landscape.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles31-rotate-reverse-portrait.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles31-rotate-reverse-landscape.txt"),
+    GL_CTS_DIR("khronos_mustpass/main/gl46-master.txt"),
 };
 
-#undef OPENGL_CTS_DIR
+#undef GLES_CTS_DIR
+#undef GL_CTS_DIR
 
 const char *gTestExpectationsFiles[] = {
     "deqp_gles2_test_expectations.txt",         "deqp_gles3_test_expectations.txt",
@@ -87,6 +90,7 @@ const char *gTestExpectationsFiles[] = {
     "deqp_gles3_rotate_test_expectations.txt",  "deqp_gles3_rotate_test_expectations.txt",
     "deqp_gles3_rotate_test_expectations.txt",  "deqp_gles31_rotate_test_expectations.txt",
     "deqp_gles31_rotate_test_expectations.txt", "deqp_gles31_rotate_test_expectations.txt",
+    "deqp_gl46_test_expectations.txt",
 };
 
 using APIInfo = std::pair<const char *, GPUTestConfig::API>;
@@ -101,6 +105,8 @@ constexpr APIInfo kEGLDisplayAPIs[] = {
     {"angle-null", GPUTestConfig::kAPIUnknown},
     {"angle-swiftshader", GPUTestConfig::kAPISwiftShader},
     {"angle-vulkan", GPUTestConfig::kAPIVulkan},
+    {"win32", GPUTestConfig::kAPIUnknown},
+    {"x11", GPUTestConfig::kAPIUnknown},
 };
 
 constexpr char kdEQPEGLString[]     = "--deqp-egl-display-type=";
@@ -605,20 +611,22 @@ void HandleDisplayType(const char *displayTypeString)
         exit(1);
     }
 
-    if (strncmp(displayTypeString, "angle-", strlen("angle-")) != 0)
-    {
-        argStream << "angle-";
-    }
-
     argStream << displayTypeString;
     std::string arg = argStream.str();
+    gInitAPI        = FindAPIInfo(arg);
 
-    gInitAPI = FindAPIInfo(arg);
-
-    if (!gInitAPI)
+    if (!gInitAPI && strncmp(displayTypeString, "angle-", strlen("angle-")) != 0)
     {
-        std::cout << "Unknown ANGLE back-end API: " << displayTypeString << std::endl;
-        exit(1);
+        std::stringstream argStream2;
+        argStream2 << "angle-" << displayTypeString;
+        std::string arg2 = argStream2.str();
+        gInitAPI         = FindAPIInfo(arg2);
+
+        if (!gInitAPI)
+        {
+            std::cout << "Unknown API: " << displayTypeString << std::endl;
+            exit(1);
+        }
     }
 }
 
@@ -739,6 +747,10 @@ size_t GetTestModuleIndex()
 
 #ifdef ANGLE_DEQP_GLES31_ROTATE270_TESTS
     return 13;
+#endif
+
+#ifdef ANGLE_DEQP_GL_TESTS
+    return 14;
 #endif
 }
 

@@ -339,6 +339,13 @@ hist_in_word(int yesno)
 	histactive &= ~HA_INWORD;
 }
 
+/**/
+int
+hist_is_in_word(void)
+{
+    return (histactive & HA_INWORD) ? 1 : 0;
+}
+
 /* add a character to the current history word */
 
 static void
@@ -842,7 +849,7 @@ histsubchar(int c)
 		break;
 
 	    case 'A':
-		if (!chrealpath(&sline)) {
+		if (!chrealpath(&sline, 'A', 1)) {
 		    herrflush();
 		    zerr("modifier failed: A");
 		    return -1;
@@ -1854,7 +1861,11 @@ chabspath(char **junkptr)
 	return 1;
 
     if (**junkptr != '/') {
-	*junkptr = zhtricat(metafy(zgetcwd(), -1, META_HEAPDUP), "/", *junkptr);
+	char *here = zgetcwd();
+	if (here[strlen(here)-1] != '/')
+	    *junkptr = zhtricat(metafy(here, -1, META_HEAPDUP), "/", *junkptr);
+	else
+	    *junkptr = dyncat(here, *junkptr);
     }
 
     current = *junkptr;
@@ -1922,9 +1933,20 @@ chabspath(char **junkptr)
     return 1;
 }
 
+/*
+ * Resolve symlinks in junkptr.
+ *
+ * If mode is 'A', resolve dot-dot before symlinks.  Else, mode should be 'P'.
+ * Refer to the documentation of the :A and :P modifiers for details.
+ *
+ * use_heap is 1 if the result is to be allocated on the heap, 0 otherwise.
+ *
+ * Return 0 for error, non-zero for success.
+ */
+
 /**/
 int
-chrealpath(char **junkptr)
+chrealpath(char **junkptr, char mode, int use_heap)
 {
     char *str;
 #ifdef HAVE_REALPATH
@@ -1936,12 +1958,14 @@ chrealpath(char **junkptr)
 # endif
 #endif
 
+    DPUTS1(mode != 'A' && mode != 'P', "chrealpath: mode='%c' is invalid", mode);
+
     if (!**junkptr)
 	return 1;
 
-    /* Notice that this means ..'s are applied before symlinks are resolved! */
-    if (!chabspath(junkptr))
-	return 0;
+    if (mode == 'A')
+	if (!chabspath(junkptr))
+	    return 0;
 
 #ifndef HAVE_REALPATH
     return 1;
@@ -1989,14 +2013,15 @@ chrealpath(char **junkptr)
 	str++;
     }
 
+    use_heap = (use_heap ? META_HEAPDUP : META_DUP);
     if (real) {
-	*junkptr = metafy(str = bicat(real, nonreal), -1, META_HEAPDUP);
+	*junkptr = metafy(str = bicat(real, nonreal), -1, use_heap);
 	zsfree(str);
 #ifdef REALPATH_ACCEPTS_NULL
 	free(real);
 #endif
     } else {
-	*junkptr = metafy(nonreal, lastpos - nonreal + 1, META_HEAPDUP);
+	*junkptr = metafy(nonreal, lastpos - nonreal + 1, use_heap);
     }
 #endif
 
@@ -2227,20 +2252,25 @@ casemodify(char *str, int how)
 #endif
 	while (*str) {
 	    int c;
+	    int mod = 0;
 	    if (*str == Meta) {
-		c = str[1] ^ 32;
+		c = STOUC(str[1] ^ 32);
 		str += 2;
 	    } else
-		c = *str++;
+		c = STOUC(*str++);
 	    switch (how) {
 	    case CASMOD_LOWER:
-		if (isupper(c))
+		if (isupper(c)) {
 		    c = tolower(c);
+		    mod = 1;
+		}
 		break;
 
 	    case CASMOD_UPPER:
-		if (islower(c))
+		if (islower(c)) {
 		    c = toupper(c);
+		    mod = 1;
+		}
 		break;
 
 	    case CASMOD_CAPS:
@@ -2248,14 +2278,18 @@ casemodify(char *str, int how)
 		if (!ialnum(c))
 		    nextupper = 1;
 		else if (nextupper) {
-		    if (islower(c))
+		    if (islower(c)) {
 			c = toupper(c);
+			mod = 1;
+		    }
 		    nextupper = 0;
-		} else if (isupper(c))
+		} else if (isupper(c)) {
 		    c = tolower(c);
+		    mod = 1;
+		}
 		break;
 	    }
-	    if (imeta(c)) {
+	    if (mod && imeta(c)) {
 		*ptr2++ = Meta;
 		*ptr2++ = c ^ 32;
 	    } else
@@ -2575,11 +2609,13 @@ resizehistents(void)
 }
 
 static int
-readhistline(int start, char **bufp, int *bufsiz, FILE *in)
+readhistline(int start, char **bufp, int *bufsiz, FILE *in, int *readbytes)
 {
     char *buf = *bufp;
     if (fgets(buf + start, *bufsiz - start, in)) {
-	int len = start + strlen(buf + start);
+	int len = strlen(buf + start);
+	*readbytes += len;
+	len += start;
 	if (len == start)
 	    return -1;
 	if (buf[len - 1] != '\n') {
@@ -2588,16 +2624,23 @@ readhistline(int start, char **bufp, int *bufsiz, FILE *in)
 		    return -1;
 		*bufp = zrealloc(buf, 2 * (*bufsiz));
 		*bufsiz = 2 * (*bufsiz);
-		return readhistline(len, bufp, bufsiz, in);
+		return readhistline(len, bufp, bufsiz, in, readbytes);
 	    }
 	}
 	else {
+	    int spc;
 	    buf[len - 1] = '\0';
 	    if (len > 1 && buf[len - 2] == '\\') {
 		buf[--len - 1] = '\n';
 		if (!feof(in))
-		    return readhistline(len, bufp, bufsiz, in);
+		    return readhistline(len, bufp, bufsiz, in, readbytes);
 	    }
+
+	    spc = len - 2;
+	    while (spc >= 0 && buf[spc] == ' ')
+		spc--;
+	    if (spc != len - 2 && buf[spc] == '\\')
+		buf[--len - 1] = '\0';
 	}
 	return len;
     }
@@ -2616,7 +2659,7 @@ readhistfile(char *fn, int err, int readflags)
     short *words;
     struct stat sb;
     int nwordpos, nwords, bufsiz;
-    int searching, newflags, l, ret, uselex;
+    int searching, newflags, l, ret, uselex, readbytes;
 
     if (!fn && !(fn = getsparam("HISTFILE")))
 	return;
@@ -2648,7 +2691,7 @@ readhistfile(char *fn, int err, int readflags)
 	pushheap();
 	if (readflags & HFILE_FAST && lasthist.text) {
 	    if (lasthist.fpos < lasthist.fsiz) {
-		fseek(in, lasthist.fpos, 0);
+		fseek(in, lasthist.fpos, SEEK_SET);
 		searching = 1;
 	    }
 	    else {
@@ -2658,13 +2701,15 @@ readhistfile(char *fn, int err, int readflags)
 	} else
 	    searching = 0;
 
+	fpos = ftell(in);
+	readbytes = 0;
 	newflags = HIST_OLD | HIST_READ;
 	if (readflags & HFILE_FAST)
 	    newflags |= HIST_FOREIGN;
 	if (readflags & HFILE_SKIPOLD
 	 || (hist_ignore_all_dups && newflags & hist_skip_flags))
 	    newflags |= HIST_MAKEUNIQUE;
-	while (fpos = ftell(in), (l = readhistline(0, &buf, &bufsiz, in))) {
+	while (fpos += readbytes, readbytes = 0, (l = readhistline(0, &buf, &bufsiz, in, &readbytes))) {
 	    char *pt;
 	    int remeta = 0;
 
@@ -2723,7 +2768,7 @@ readhistfile(char *fn, int err, int readflags)
 		     && histstrcmp(pt, lasthist.text) == 0)
 			searching = 0;
 		    else {
-			fseek(in, 0, 0);
+			fseek(in, 0, SEEK_SET);
 			histfile_linect = 0;
 			searching = -1;
 		    }
@@ -2959,7 +3004,7 @@ savehistfile(char *fn, int err, int writeflags)
 
 	ret = 0;
 	for (; he && he->histnum <= xcurhist; he = down_histent(he)) {
-	    int count_backslashes = 0;
+	    int end_backslashes = 0;
 
 	    if ((writeflags & HFILE_SKIPDUPS && he->node.flags & HIST_DUP)
 	     || (writeflags & HFILE_SKIPFOREIGN && he->node.flags & HIST_FOREIGN)
@@ -2992,18 +3037,14 @@ savehistfile(char *fn, int err, int writeflags)
 		if (*t == '\n')
 		    if ((ret = fputc('\\', out)) < 0)
 			break;
-		if (*t == '\\')
-		    count_backslashes++;
-		else
-		    count_backslashes = 0;
+		end_backslashes = (*t == '\\' || (end_backslashes && *t == ' '));
 		if ((ret = fputc(*t, out)) < 0)
 		    break;
 	    }
 	    if (ret < 0)
 	    	break;
-	    if (count_backslashes && (count_backslashes % 2 == 0))
-		if ((ret = fputc(' ', out)) < 0)
-		    break;
+	    if (end_backslashes)
+		ret = fputc(' ', out);
 	    if (ret < 0 || (ret = fputc('\n', out)) < 0)
 		break;
 	}

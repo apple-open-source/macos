@@ -272,10 +272,10 @@ static RefPtr<CSSCalcExpressionNode> createCSS(const Length& length, const Rende
     return nullptr;
 }
 
-CSSCalcValue::CSSCalcValue(Ref<CSSCalcExpressionNode>&& expression, bool shouldClampToNonNegative)
+CSSCalcValue::CSSCalcValue(Ref<CSSCalcExpressionNode>&& expression, ShouldClampToNonNegative shouldClampToNonNegative)
     : CSSValue(CalculationClass)
     , m_expression(WTFMove(expression))
-    , m_shouldClampToNonNegative(shouldClampToNonNegative)
+    , m_shouldClampToNonNegative(shouldClampToNonNegative == ShouldClampToNonNegative::Yes)
 {
 }
 
@@ -301,14 +301,9 @@ void CSSCalcValue::setPermittedValueRange(ValueRange range)
     m_shouldClampToNonNegative = range != ValueRange::All;
 }
 
-void CSSCalcValue::collectDirectComputationalDependencies(HashSet<CSSPropertyID>& values) const
+void CSSCalcValue::collectComputedStyleDependencies(ComputedStyleDependencies& dependencies) const
 {
-    m_expression->collectDirectComputationalDependencies(values);
-}
-
-void CSSCalcValue::collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>& values) const
-{
-    m_expression->collectDirectRootComputationalDependencies(values);
+    m_expression->collectComputedStyleDependencies(dependencies);
 }
 
 String CSSCalcValue::customCSSText() const
@@ -397,7 +392,7 @@ RefPtr<CSSCalcValue> CSSCalcValue::create(CSSValueID function, const CSSParserTo
     auto expression = parser.parseCalc(tokens, function, allowsNegativePercentage);
     if (!expression)
         return nullptr;
-    auto result = adoptRef(new CSSCalcValue(expression.releaseNonNull(), range != ValueRange::All));
+    auto result = adoptRef(new CSSCalcValue(expression.releaseNonNull(), range != ValueRange::All ? ShouldClampToNonNegative::Yes : ShouldClampToNonNegative::No));
     LOG_WITH_STREAM(Calc, stream << "CSSCalcValue::create " << *result);
     return result;
 }
@@ -415,9 +410,14 @@ RefPtr<CSSCalcValue> CSSCalcValue::create(const CalculationValue& value, const R
 
     auto simplifiedExpression = CSSCalcOperationNode::simplify(expression.releaseNonNull());
 
-    auto result = adoptRef(new CSSCalcValue(WTFMove(simplifiedExpression), value.shouldClampToNonNegative()));
+    auto result = adoptRef(new CSSCalcValue(WTFMove(simplifiedExpression), value.shouldClampToNonNegative() ? ShouldClampToNonNegative::Yes : ShouldClampToNonNegative::No));
     LOG_WITH_STREAM(Calc, stream << "CSSCalcValue::create from CalculationValue: " << *result);
     return result;
+}
+
+RefPtr<CSSCalcValue> CSSCalcValue::create(Ref<CSSCalcExpressionNode>&& node, ShouldClampToNonNegative shouldClampToNonNegative)
+{
+    return adoptRef(*new CSSCalcValue(WTFMove(node), shouldClampToNonNegative));
 }
 
 TextStream& operator<<(TextStream& ts, const CSSCalcValue& value)

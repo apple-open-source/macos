@@ -31,6 +31,7 @@
 #include "HTTPHeaderMap.h"
 #include "NetworkLoadMetrics.h"
 #include "ParsedContentRange.h"
+#include <wtf/ArgumentCoder.h>
 #include <wtf/Box.h>
 #include <wtf/EnumTraits.h>
 #include <wtf/Markable.h>
@@ -64,6 +65,8 @@ public:
     static constexpr unsigned bitWidthOfType = 3;
     enum class Tainting : uint8_t { Basic, Cors, Opaque, Opaqueredirect };
     static constexpr unsigned bitWidthOfTainting = 2;
+    enum class Source : uint8_t { Unknown, Network, DiskCache, DiskCacheAfterValidation, MemoryCache, MemoryCacheAfterValidation, ServiceWorker, ApplicationCache, DOMCache, InspectorOverride };
+    static constexpr unsigned bitWidthOfSource = 4;
 
     static bool isRedirectionStatusCode(int code) { return code == 301 || code == 302 || code == 303 || code == 307 || code == 308; }
 
@@ -72,6 +75,9 @@ public:
         CrossThreadData& operator=(const CrossThreadData&) = delete;
         CrossThreadData() = default;
         CrossThreadData(CrossThreadData&&) = default;
+        CrossThreadData& operator=(CrossThreadData&&) = default;
+
+        WEBCORE_EXPORT CrossThreadData isolatedCopy() const;
 
         URL url;
         String mimeType;
@@ -87,9 +93,32 @@ public:
         bool isRedirected;
         bool isRangeRequested;
     };
+    
+    struct ResponseData {
+        URL m_url;
+        AtomString m_mimeType;
+        long long m_expectedContentLength;
+        AtomString m_textEncodingName;
+        AtomString m_httpStatusText;
+        AtomString m_httpVersion;
+        HTTPHeaderMap m_httpHeaderFields;
+        Box<WebCore::NetworkLoadMetrics> m_networkLoadMetrics;
 
-    CrossThreadData crossThreadData() const;
-    static ResourceResponse fromCrossThreadData(CrossThreadData&&);
+        short m_httpStatusCode;
+        std::optional<CertificateInfo> m_certificateInfo;
+        
+        ResourceResponseBase::Source m_source;
+        ResourceResponseBase::Type m_type;
+        ResourceResponseBase::Tainting m_tainting;
+
+        bool m_isRedirected;
+        UsedLegacyTLS m_usedLegacyTLS;
+        WasPrivateRelayed m_wasPrivateRelayed;
+        bool m_isRangeRequested;
+    };
+
+    WEBCORE_EXPORT CrossThreadData crossThreadData() const;
+    WEBCORE_EXPORT static ResourceResponse fromCrossThreadData(CrossThreadData&&);
 
     bool isNull() const { return m_isNull; }
     WEBCORE_EXPORT bool isInHTTPFamily() const;
@@ -168,8 +197,6 @@ public:
     WEBCORE_EXPORT std::optional<WallTime> lastModified() const;
     const ParsedContentRange& contentRange() const;
 
-    enum class Source : uint8_t { Unknown, Network, DiskCache, DiskCacheAfterValidation, MemoryCache, MemoryCacheAfterValidation, ServiceWorker, ApplicationCache, DOMCache, InspectorOverride };
-    static constexpr unsigned bitWidthOfSource = 4;
     static_assert(static_cast<unsigned>(Source::InspectorOverride) <= ((1U << bitWidthOfSource) - 1));
 
     WEBCORE_EXPORT Source source() const;
@@ -220,8 +247,10 @@ public:
 
     static bool equalForWebKitLegacyChallengeComparison(const ResourceResponse&, const ResourceResponse&);
 
-    template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static WARN_UNUSED_RETURN bool decode(Decoder&, ResourceResponseBase&);
+    template<class Encoder, typename = std::enable_if_t<!std::is_same_v<Encoder, IPC::Encoder>>>
+    void encode(Encoder&) const;
+    template<class Decoder, typename = std::enable_if_t<!std::is_same_v<Decoder, IPC::Decoder>>>
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ResourceResponseBase&);
 
     bool isRangeRequested() const { return m_isRangeRequested; }
     void setAsRangeRequested() { m_isRangeRequested = true; }
@@ -229,6 +258,10 @@ public:
     bool containsInvalidHTTPHeaders() const;
 
     WEBCORE_EXPORT static ResourceResponse dataURLResponse(const URL&, const DataURLDecoder::Result&);
+    
+    WEBCORE_EXPORT ResourceResponseBase(std::optional<ResponseData>);
+    
+    WEBCORE_EXPORT std::optional<ResponseData> getResponseData() const;
 
 protected:
     enum InitLevel {
@@ -266,6 +299,13 @@ protected:
 
     mutable std::optional<CertificateInfo> m_certificateInfo;
 
+    short m_httpStatusCode { 0 };
+
+    bool m_isNull : 1 { true };
+    unsigned m_initLevel : 3; // Controlled by ResourceResponse.
+    mutable UsedLegacyTLS m_usedLegacyTLS : bitWidthOfUsedLegacyTLS { UsedLegacyTLS::No };
+    mutable WasPrivateRelayed m_wasPrivateRelayed : bitWidthOfWasPrivateRelayed { WasPrivateRelayed::No };
+
 private:
     mutable Markable<Seconds, Seconds::MarkableTraits> m_age;
     mutable Markable<WallTime, WallTime::MarkableTraits> m_date;
@@ -274,28 +314,21 @@ private:
     mutable ParsedContentRange m_contentRange;
     mutable CacheControlDirectives m_cacheControlDirectives;
 
-    mutable bool m_haveParsedCacheControlHeader : 1;
-    mutable bool m_haveParsedAgeHeader : 1;
-    mutable bool m_haveParsedDateHeader : 1;
-    mutable bool m_haveParsedExpiresHeader : 1;
-    mutable bool m_haveParsedLastModifiedHeader : 1;
-    mutable bool m_haveParsedContentRangeHeader : 1;
-    bool m_isRedirected : 1;
-    bool m_isRangeRequested : 1;
-protected:
-    bool m_isNull : 1;
-    unsigned m_initLevel : 3; // Controlled by ResourceResponse.
-    mutable UsedLegacyTLS m_usedLegacyTLS : bitWidthOfUsedLegacyTLS;
-    mutable WasPrivateRelayed m_wasPrivateRelayed : bitWidthOfWasPrivateRelayed;
-private:
-    Tainting m_tainting : bitWidthOfTainting;
-    Source m_source : bitWidthOfSource;
-    Type m_type : bitWidthOfType;
-protected:
-    short m_httpStatusCode { 0 };
+    mutable bool m_haveParsedCacheControlHeader : 1 { false };
+    mutable bool m_haveParsedAgeHeader : 1 { false };
+    mutable bool m_haveParsedDateHeader : 1 { false };
+    mutable bool m_haveParsedExpiresHeader : 1 { false };
+    mutable bool m_haveParsedLastModifiedHeader : 1 { false };
+    mutable bool m_haveParsedContentRangeHeader : 1 { false };
+    bool m_isRedirected : 1 { false };
+    bool m_isRangeRequested : 1 { false };
+
+    Tainting m_tainting : bitWidthOfTainting { Tainting::Basic };
+    Source m_source : bitWidthOfSource { Source::Unknown };
+    Type m_type : bitWidthOfType { Type::Default };
 };
 
-template<class Encoder>
+template<class Encoder, typename>
 void ResourceResponseBase::encode(Encoder& encoder) const
 {
     encoder << m_isNull;
@@ -311,11 +344,6 @@ void ResourceResponseBase::encode(Encoder& encoder) const
     encoder << m_httpVersion;
     encoder << m_httpHeaderFields;
 
-    // We don't want to put the networkLoadMetrics info
-    // into the disk cache, because we will never use the old info.
-    if constexpr (Encoder::isIPCEncoder)
-        encoder << m_networkLoadMetrics;
-
     encoder << m_httpStatusCode;
     encoder << m_certificateInfo;
     encoder << m_source;
@@ -329,7 +357,7 @@ void ResourceResponseBase::encode(Encoder& encoder) const
     encoder << m_isRangeRequested;
 }
 
-template<class Decoder>
+template<class Decoder, typename>
 bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& response)
 {
     ASSERT(response.m_isNull);
@@ -383,15 +411,6 @@ bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& respon
     if (!httpHeaderFields)
         return false;
     response.m_httpHeaderFields = WTFMove(*httpHeaderFields);
-
-    // The networkLoadMetrics info is only send over IPC and not stored in disk cache.
-    if constexpr (Decoder::isIPCDecoder) {
-        std::optional<Box<NetworkLoadMetrics>> networkLoadMetrics;
-        decoder >> networkLoadMetrics;
-        if (!networkLoadMetrics)
-            return false;
-        response.m_networkLoadMetrics = WTFMove(*networkLoadMetrics);
-    }
 
     std::optional<short> httpStatusCode;
     decoder >> httpStatusCode;
@@ -454,7 +473,7 @@ bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& respon
 
 namespace WTF {
 
-template<> struct EnumTraits<WebCore::ResourceResponseBase::Type> {
+template<> struct EnumTraitsForPersistence<WebCore::ResourceResponseBase::Type> {
     using values = EnumValues<
         WebCore::ResourceResponseBase::Type,
         WebCore::ResourceResponseBase::Type::Basic,
@@ -466,7 +485,7 @@ template<> struct EnumTraits<WebCore::ResourceResponseBase::Type> {
     >;
 };
 
-template<> struct EnumTraits<WebCore::ResourceResponseBase::Tainting> {
+template<> struct EnumTraitsForPersistence<WebCore::ResourceResponseBase::Tainting> {
     using values = EnumValues<
         WebCore::ResourceResponseBase::Tainting,
         WebCore::ResourceResponseBase::Tainting::Basic,
@@ -476,8 +495,7 @@ template<> struct EnumTraits<WebCore::ResourceResponseBase::Tainting> {
     >;
 };
 
-
-template<> struct EnumTraits<WebCore::ResourceResponseBase::Source> {
+template<> struct EnumTraitsForPersistence<WebCore::ResourceResponseBase::Source> {
     using values = EnumValues<
         WebCore::ResourceResponseBase::Source,
         WebCore::ResourceResponseBase::Source::Unknown,

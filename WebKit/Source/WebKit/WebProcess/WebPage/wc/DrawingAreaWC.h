@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if USE(GRAPHICS_LAYER_WC)
+
 #include "DrawingArea.h"
 #include "GraphicsLayerWC.h"
 #include "RemoteWCLayerTreeHostProxy.h"
@@ -58,7 +60,7 @@ private:
     void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) override;
     void updatePreferences(const WebPreferencesStore&) override;
     bool shouldUseTiledBackingForFrameView(const WebCore::FrameView&) const override;
-    void didUpdate() override;
+    void displayDidRefresh() override;
     // GraphicsLayerWC::Observer
     void graphicsLayerAdded(GraphicsLayerWC&) override;
     void graphicsLayerRemoved(GraphicsLayerWC&) override;
@@ -94,3 +96,5 @@ private:
 };
 
 } // namespace WebKit
+
+#endif // USE(GRAPHICS_LAYER_WC)

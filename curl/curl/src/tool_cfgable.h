@@ -70,8 +70,9 @@ struct OperationConfig {
   char *postfields;
   curl_off_t postfieldsize;
   char *referer;
-  double timeout;
-  double connecttimeout;
+  char *query;
+  long timeout_ms;
+  long connecttimeout_ms;
   long maxredirs;
   curl_off_t max_filesize;
   char *output_dir;
@@ -215,7 +216,7 @@ struct OperationConfig {
   bool ftp_ssl_ccc;
   int ftp_ssl_ccc_mode;
   char *preproxy;
-  int socks5_gssapi_nec;    /* The NEC reference server does not protect the
+  bool socks5_gssapi_nec;   /* The NEC reference server does not protect the
                                encryption type exchange */
   unsigned long socks5_auth;/* auth bitmask for socks5 proxies */
   char *proxy_service_name; /* set authentication service name for HTTP and
@@ -254,11 +255,8 @@ struct OperationConfig {
   bool xattr;               /* store metadata in extended attributes */
   long gssapi_delegation;
   bool ssl_allow_beast;     /* allow this SSL vulnerability */
-  bool proxy_ssl_allow_beast; /* allow this SSL vulnerability for proxy*/
-
+  bool proxy_ssl_allow_beast; /* allow this SSL vulnerability for proxy */
   bool ssl_no_revoke;       /* disable SSL certificate revocation checks */
-  /*bool proxy_ssl_no_revoke; */
-
   bool ssl_revoke_best_effort; /* ignore SSL revocation offline/missing
                                   revocation list errors */
 
@@ -272,7 +270,7 @@ struct OperationConfig {
   bool abstract_unix_socket;      /* path to an abstract Unix domain socket */
   bool falsestart;
   bool path_as_is;
-  double expect100timeout;
+  long expect100timeout_ms;
   bool suppress_connect_headers;  /* suppress proxy CONNECT response headers
                                      from user callbacks */
   bool synthetic_error;           /* if TRUE, this is tool-internal error */

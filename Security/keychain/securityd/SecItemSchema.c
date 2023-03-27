@@ -1644,6 +1644,76 @@ const SecDbClass v_identity_class = {
 
 
 /*
+ * Version 12.6
+ */
+const SecDbSchema v12_6_schema = {
+    .majorVersion = 12,
+    .minorVersion = 6,
+    .classes = {
+        &v12_genp_class,
+        &v12_inet_class,
+        &v12_cert_class,
+        &v12_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_2_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_2_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+/*
+ * Version 12.5
+ */
+const SecDbSchema v12_5_schema = {
+    .majorVersion = 12,
+    .minorVersion = 5,
+    .classes = {
+        &v12_genp_class,
+        &v12_inet_class,
+        &v12_cert_class,
+        &v12_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_2_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_2_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+/*
  * Version 12.4
  */
 const SecDbSchema v12_4_schema = {
@@ -3568,6 +3638,8 @@ static const SecDbSchema v5_schema = {
 SecDbSchema const * const * kc_schemas = NULL;
 
 const SecDbSchema *v10_kc_schemas[] = {
+    &v12_6_schema,
+    &v12_5_schema,
     &v12_4_schema,
     &v12_3_schema,
     &v12_2_schema,

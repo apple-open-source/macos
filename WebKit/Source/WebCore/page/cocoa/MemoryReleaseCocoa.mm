@@ -27,7 +27,6 @@
 #import "MemoryRelease.h"
 
 #import "FontCache.h"
-#import "FontFamilySpecificationCoreText.h"
 #import "GCController.h"
 #import "HTMLNameCache.h"
 #import "IOSurfacePool.h"
@@ -47,9 +46,6 @@ namespace WebCore {
 
 void platformReleaseMemory(Critical)
 {
-    FontCache::invalidateAllFontCaches(FontCache::ShouldRunInvalidationCallback::No);
-    clearFontFamilySpecificationCoreTextCache();
-
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST)
     // FIXME: Remove this call to GSFontInitialize() once <rdar://problem/32886715> is fixed.
     GSFontInitialize();

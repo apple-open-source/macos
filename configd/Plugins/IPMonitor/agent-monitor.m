@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,7 @@
 #import "controller.h"
 
 static Boolean
-haveNetworkExtensionFramework()
+haveNetworkExtensionFramework(void)
 {
 	Boolean	haveFramework;
 

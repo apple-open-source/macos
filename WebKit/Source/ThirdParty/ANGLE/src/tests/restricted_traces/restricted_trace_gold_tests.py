@@ -11,8 +11,6 @@
 
 import argparse
 import contextlib
-import fnmatch
-import functools
 import json
 import logging
 import os
@@ -37,26 +35,15 @@ from skia_gold import angle_skia_gold_session_manager
 
 angle_path_util.AddDepsDirToPath('testing/scripts')
 import common
-import test_env
-import xvfb
 
 
-def IsWindows():
-    return sys.platform == 'cygwin' or sys.platform.startswith('win')
-
-
-DEFAULT_TEST_SUITE = 'angle_perftests'
-DEFAULT_TEST_PREFIX = 'TracePerfTest.Run/vulkan_'
-SWIFTSHADER_TEST_PREFIX = 'TracePerfTest.Run/vulkan_swiftshader_'
+DEFAULT_TEST_SUITE = angle_test_util.ANGLE_TRACE_TEST_SUITE
+DEFAULT_TEST_PREFIX = 'TraceTest.'
 DEFAULT_SCREENSHOT_PREFIX = 'angle_vulkan_'
 SWIFTSHADER_SCREENSHOT_PREFIX = 'angle_vulkan_swiftshader_'
 DEFAULT_BATCH_SIZE = 5
 DEFAULT_LOG = 'info'
 DEFAULT_GOLD_INSTANCE = 'angle'
-
-# Filters out stuff like: " I   72.572s run_tests_on_device(96071FFAZ00096) "
-ANDROID_LOGGING_PREFIX = r'I +\d+.\d+s \w+\(\w+\)  '
-ANDROID_BEGIN_SYSTEM_INFO = '>>ScopedMainEntryLogger'
 
 # Test expectations
 FAIL = 'FAIL'
@@ -121,29 +108,13 @@ def add_skia_gold_args(parser):
         'pre-authenticated. Meant for testing locally instead of on the bots.')
 
 
-@functools.lru_cache()
-def _use_adb(test_suite):
-    return android_helper.ApkFileExists(test_suite)
-
-
-def run_wrapper(test_suite, cmd_args, args, env, stdoutfile):
-    if _use_adb(args.test_suite):
-        return android_helper.RunTests(cmd_args, stdoutfile)[0]
-
-    cmd = [get_binary_name(test_suite)] + cmd_args
-
-    if args.xvfb:
-        return xvfb.run_executable(cmd, env, stdoutfile=stdoutfile)
-    else:
-        return test_env.run_command_with_output(cmd, env=env, stdoutfile=stdoutfile)
-
-
 def run_angle_system_info_test(sysinfo_args, args, env):
     with temporary_dir() as temp_dir:
-        tempfile_path = os.path.join(temp_dir, 'stdout')
         sysinfo_args += ['--render-test-output-dir=' + temp_dir]
 
-        if run_wrapper('angle_system_info_test', sysinfo_args, args, env, tempfile_path):
+        result, _, _ = angle_test_util.RunTestSuite(
+            'angle_system_info_test', sysinfo_args, env, use_xvfb=args.xvfb)
+        if result != 0:
             raise Exception('Error getting system info.')
 
         with open(os.path.join(temp_dir, 'angle_system_info.json')) as f:
@@ -166,13 +137,6 @@ def to_non_empty_string_or_none_dict(d, key):
     return 'None' if not key in d else to_non_empty_string_or_none(d[key])
 
 
-def get_binary_name(binary):
-    if IsWindows():
-        return '.\\%s.exe' % binary
-    else:
-        return './%s' % binary
-
-
 def get_skia_gold_keys(args, env):
     """Get all the JSON metadata that will be passed to golctl."""
     # All values need to be strings, otherwise goldctl fails.
@@ -186,11 +150,15 @@ def get_skia_gold_keys(args, env):
     if args.swiftshader:
         sysinfo_args.append('--swiftshader')
 
-    if _use_adb(args.test_suite):
+    if angle_test_util.IsAndroid():
         json_data = android_helper.AngleSystemInfo(sysinfo_args)
         logging.info(json_data)
+        os_name = 'Android'
+        os_version = android_helper.GetBuildFingerprint()
     else:
         json_data = run_angle_system_info_test(sysinfo_args, args, env)
+        os_name = to_non_empty_string_or_none(platform.system())
+        os_version = to_non_empty_string_or_none(platform.version())
 
     if len(json_data.get('gpus', [])) == 0 or not 'activeGPUIndex' in json_data:
         raise Exception('Error getting system info.')
@@ -202,8 +170,8 @@ def get_skia_gold_keys(args, env):
         'device_id': to_hex_or_none(active_gpu['deviceId']),
         'model_name': to_non_empty_string_or_none_dict(active_gpu, 'machineModelVersion'),
         'manufacturer_name': to_non_empty_string_or_none_dict(active_gpu, 'machineManufacturer'),
-        'os': to_non_empty_string_or_none(platform.system()),
-        'os_version': to_non_empty_string_or_none(platform.version()),
+        'os': os_name,
+        'os_version': os_version,
         'driver_version': to_non_empty_string_or_none_dict(active_gpu, 'driverVersion'),
         'driver_vendor': to_non_empty_string_or_none_dict(active_gpu, 'driverVendor'),
     }
@@ -256,8 +224,31 @@ def upload_test_result_to_skia_gold(args, gold_session_manager, gold_session, go
     if not os.path.isfile(png_file_name):
         raise Exception('Screenshot not found: ' + png_file_name)
 
+    # These arguments cause Gold to use the fuzzy inexact matching algorithm.
+    # It is set to allow up to 20k pixels to differ by 1 on a single channel,
+    # which is meant to help reduce triage overhead caused by new images from
+    # rounding differences.
+    #
+    # The max number of pixels is fairly arbitrary, but the diff threshold is
+    # intentional since we don't want to let in any changes that can't be
+    # attributed to rounding errors.
+    #
+    # An image that passes due to this logic is auto-approved as a new good
+    # image.
+    inexact_matching_args = [
+        '--add-test-optional-key',
+        'image_matching_algorithm:fuzzy',
+        '--add-test-optional-key',
+        'fuzzy_max_different_pixels:20000',
+        '--add-test-optional-key',
+        'fuzzy_pixel_delta_threshold:1',
+    ]
+
     status, error = gold_session.RunComparison(
-        name=image_name, png_file=png_file_name, use_luci=use_luci)
+        name=image_name,
+        png_file=png_file_name,
+        use_luci=use_luci,
+        inexact_matching_args=inexact_matching_args)
 
     artifact_name = os.path.basename(png_file_name)
     artifacts[artifact_name] = [artifact_name]
@@ -304,18 +295,15 @@ def _get_batches(traces, batch_size):
 
 
 def _get_gtest_filter_for_batch(args, batch):
-    prefix = SWIFTSHADER_TEST_PREFIX if args.swiftshader else DEFAULT_TEST_PREFIX
-    expanded = ['%s%s' % (prefix, trace) for trace in batch]
+    expanded = ['%s%s' % (DEFAULT_TEST_PREFIX, trace) for trace in batch]
     return '--gtest_filter=%s' % ':'.join(expanded)
 
 
 def _run_tests(args, tests, extra_flags, env, screenshot_dir, results, test_results):
     keys = get_skia_gold_keys(args, env)
 
-    if _use_adb(args.test_suite):
-        android_helper.PrepareTestSuite(args.test_suite)
-        if args.test_suite == DEFAULT_TEST_SUITE:
-            android_helper.RunSmokeTest()
+    if angle_test_util.IsAndroid() and args.test_suite == DEFAULT_TEST_SUITE:
+        android_helper.RunSmokeTest()
 
     with temporary_dir('angle_skia_gold_') as skia_gold_temp_dir:
         gold_properties = angle_skia_gold_properties.ANGLESkiaGoldProperties(args)
@@ -326,70 +314,61 @@ def _run_tests(args, tests, extra_flags, env, screenshot_dir, results, test_resu
         traces = [trace.split(' ')[0] for trace in tests]
 
         if args.isolated_script_test_filter:
-            filtered = []
-            for trace in traces:
-                # Apply test filter if present.
-                full_name = 'angle_restricted_trace_gold_tests.%s' % trace
-                if not fnmatch.fnmatch(full_name, args.isolated_script_test_filter):
-                    logging.info('Skipping test %s because it does not match filter %s' %
-                                 (full_name, args.isolated_script_test_filter))
-                else:
-                    filtered += [trace]
-            traces = filtered
+            traces = angle_test_util.FilterTests(traces, args.isolated_script_test_filter)
 
         batches = _get_batches(traces, args.batch_size)
 
         for batch in batches:
-            if _use_adb(args.test_suite):
+            if angle_test_util.IsAndroid():
                 android_helper.PrepareRestrictedTraces(batch)
 
             for iteration in range(0, args.flaky_retries + 1):
-                with common.temporary_file() as tempfile_path:
-                    # This is how we signal early exit
-                    if not batch:
-                        logging.debug('All tests in batch completed.')
-                        break
-                    if iteration > 0:
-                        logging.info('Test run failed, running retry #%d...' % iteration)
+                # This is how we signal early exit
+                if not batch:
+                    logging.debug('All tests in batch completed.')
+                    break
+                if iteration > 0:
+                    logging.info('Test run failed, running retry #%d...' % iteration)
 
-                    gtest_filter = _get_gtest_filter_for_batch(args, batch)
-                    cmd_args = [
-                        gtest_filter,
-                        '--one-frame-only',
-                        '--verbose-logging',
-                        '--enable-all-trace-tests',
-                        '--render-test-output-dir=%s' % screenshot_dir,
-                    ] + extra_flags
-                    batch_result = PASS if run_wrapper(args.test_suite, cmd_args, args, env,
-                                                       tempfile_path) == 0 else FAIL
+                gtest_filter = _get_gtest_filter_for_batch(args, batch)
+                cmd_args = [
+                    gtest_filter,
+                    '--one-frame-only',
+                    '--verbose-logging',
+                    '--render-test-output-dir=%s' % screenshot_dir,
+                    '--save-screenshots',
+                ] + extra_flags
+                if args.swiftshader:
+                    cmd_args += ['--use-angle=swiftshader']
+                result, _, json_results = angle_test_util.RunTestSuite(
+                    args.test_suite, cmd_args, env, use_xvfb=args.xvfb)
+                batch_result = PASS if result == 0 else FAIL
 
-                    with open(tempfile_path) as f:
-                        test_output = f.read() + '\n'
+                next_batch = []
+                for trace in batch:
+                    artifacts = {}
 
-                    next_batch = []
-                    for trace in batch:
-                        artifacts = {}
-
-                        if batch_result == PASS:
-                            test_prefix = SWIFTSHADER_TEST_PREFIX if args.swiftshader else DEFAULT_TEST_PREFIX
-                            trace_skipped_notice = '[  SKIPPED ] ' + test_prefix + trace + '\n'
-                            if trace_skipped_notice in test_output:
-                                result = SKIP
-                            else:
-                                logging.debug('upload test result: %s' % trace)
-                                result = upload_test_result_to_skia_gold(
-                                    args, gold_session_manager, gold_session, gold_properties,
-                                    screenshot_dir, trace, artifacts)
+                    if batch_result == PASS:
+                        test_name = DEFAULT_TEST_PREFIX + trace
+                        if json_results['tests'][test_name]['actual'] == 'SKIP':
+                            logging.info('Test skipped by suite: %s' % test_name)
+                            result = SKIP
                         else:
-                            result = batch_result
+                            logging.debug('upload test result: %s' % trace)
+                            result = upload_test_result_to_skia_gold(args, gold_session_manager,
+                                                                     gold_session, gold_properties,
+                                                                     screenshot_dir, trace,
+                                                                     artifacts)
+                    else:
+                        result = batch_result
 
-                        expected_result = SKIP if result == SKIP else PASS
-                        test_results[trace] = {'expected': expected_result, 'actual': result}
-                        if len(artifacts) > 0:
-                            test_results[trace]['artifacts'] = artifacts
-                        if result == FAIL:
-                            next_batch.append(trace)
-                    batch = next_batch
+                    expected_result = SKIP if result == SKIP else PASS
+                    test_results[trace] = {'expected': expected_result, 'actual': result}
+                    if len(artifacts) > 0:
+                        test_results[trace]['artifacts'] = artifacts
+                    if result == FAIL:
+                        next_batch.append(trace)
+                batch = next_batch
 
         # These properties are recorded after iteration to ensure they only happen once.
         for _, trace_results in test_results.items():
@@ -444,16 +423,14 @@ def main():
     add_skia_gold_args(parser)
 
     args, extra_flags = parser.parse_known_args()
-    angle_test_util.setupLogging(args.log.upper())
+    angle_test_util.SetupLogging(args.log.upper())
 
     env = os.environ.copy()
 
-    if 'GTEST_TOTAL_SHARDS' in env and int(env['GTEST_TOTAL_SHARDS']) != 1:
-        if 'GTEST_SHARD_INDEX' not in env:
-            logging.error('Sharding params must be specified together.')
-            sys.exit(1)
-        args.shard_count = int(env.pop('GTEST_TOTAL_SHARDS'))
-        args.shard_index = int(env.pop('GTEST_SHARD_INDEX'))
+    if angle_test_util.HasGtestShardsAndIndex(env):
+        args.shard_count, args.shard_index = angle_test_util.PopGtestShardsAndIndex(env)
+
+    angle_test_util.Initialize(args.test_suite)
 
     results = {
         'tests': {},
@@ -515,18 +492,5 @@ def main():
     return rc
 
 
-# This is not really a "script test" so does not need to manually add
-# any additional compile targets.
-def main_compile_targets(args):
-    json.dump([], args.output)
-
-
 if __name__ == '__main__':
-    # Conform minimally to the protocol defined by ScriptTest.
-    if 'compile_targets' in sys.argv:
-        funcs = {
-            'run': None,
-            'compile_targets': main_compile_targets,
-        }
-        sys.exit(common.run_script(sys.argv[1:], funcs))
     sys.exit(main())

@@ -32,13 +32,15 @@
 #include "GPUProcessConnection.h"
 #include "IPCSemaphore.h"
 #include "MessageReceiver.h"
-#include "RTCDecoderIdentifier.h"
-#include "RTCEncoderIdentifier.h"
 #include "RemoteVideoFrameIdentifier.h"
 #include "RemoteVideoFrameProxy.h"
 #include "SharedVideoFrame.h"
+#include "VideoCodecType.h"
+#include "VideoDecoderIdentifier.h"
+#include "VideoEncoderIdentifier.h"
+#include "WorkQueueMessageReceiver.h"
 #include <map>
-#include <webrtc/api/video/video_codec_type.h>
+#include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
@@ -59,31 +61,45 @@ namespace WebKit {
 
 class RemoteVideoFrameObjectHeapProxy;
 
-class LibWebRTCCodecs : public IPC::Connection::WorkQueueMessageReceiver, public GPUProcessConnection::Client {
+class LibWebRTCCodecs : public IPC::WorkQueueMessageReceiver, public GPUProcessConnection::Client {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<LibWebRTCCodecs> create();
     ~LibWebRTCCodecs();
 
     static void setCallbacks(bool useGPUProcess, bool useRemoteFrames);
+    static void setWebRTCMediaPipelineAdditionalLoggingEnabled(bool);
+    static void initializeIfNeeded();
 
-    enum class Type { H264, H265, VP9 };
+    std::optional<VideoCodecType> videoCodecTypeFromWebCodec(const String&);
+
+    using DecoderCallback = Function<void(RefPtr<WebCore::VideoFrame>&&, int64_t timestamp)>;
     struct Decoder {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        RTCDecoderIdentifier identifier;
-        Type type;
+        VideoDecoderIdentifier identifier;
+        VideoCodecType type;
         void* decodedImageCallback WTF_GUARDED_BY_LOCK(decodedImageCallbackLock) { nullptr };
+        DecoderCallback decoderCallback;
         Lock decodedImageCallbackLock;
         bool hasError { false };
         RefPtr<IPC::Connection> connection;
+        Deque<Function<void()>> flushCallbacks WTF_GUARDED_BY_LOCK(flushCallbacksLock);
+        Lock flushCallbacksLock;
     };
 
-    Decoder* createDecoder(Type);
-    int32_t releaseDecoder(Decoder&);
-    int32_t decodeFrame(Decoder&, uint32_t timeStamp, const uint8_t*, size_t, uint16_t width, uint16_t height);
-    void registerDecodeFrameCallback(Decoder&, void* decodedImageCallback);
+    Decoder* createDecoder(VideoCodecType);
+    void createDecoderAndWaitUntilReady(VideoCodecType, Function<void(Decoder&)>&&);
 
+    int32_t releaseDecoder(Decoder&);
+    void flushDecoder(Decoder&, Function<void()>&&);
+    void setDecoderFormatDescription(Decoder&, const uint8_t*, size_t, uint16_t width, uint16_t height);
+    int32_t decodeFrame(Decoder&, int64_t timeStamp, const uint8_t*, size_t, uint16_t width, uint16_t height);
+    void registerDecodeFrameCallback(Decoder&, void* decodedImageCallback);
+    void registerDecodedVideoFrameCallback(Decoder&, DecoderCallback&&);
+
+    using DescriptionCallback = Function<void(Span<const uint8_t>&&)>;
+    using EncoderCallback = Function<void(Span<const uint8_t>&&, bool isKeyFrame, int64_t timestamp)>;
     struct EncoderInitializationData {
         uint16_t width;
         uint16_t height;
@@ -95,22 +111,33 @@ public:
     struct Encoder {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        RTCEncoderIdentifier identifier;
-        webrtc::VideoCodecType codecType { webrtc::kVideoCodecGeneric };
+        VideoEncoderIdentifier identifier;
+        VideoCodecType type;
         Vector<std::pair<String, String>> parameters;
         std::optional<EncoderInitializationData> initializationData;
         void* encodedImageCallback WTF_GUARDED_BY_LOCK(encodedImageCallbackLock) { nullptr };
+        EncoderCallback encoderCallback;
+        DescriptionCallback descriptionCallback;
         Lock encodedImageCallbackLock;
         RefPtr<IPC::Connection> connection;
         SharedVideoFrameWriter sharedVideoFrameWriter;
         bool hasSentInitialEncodeRates { false };
+        bool useAnnexB { true };
+        bool isRealtime { true };
+        Deque<Function<void()>> flushCallbacks WTF_GUARDED_BY_LOCK(flushCallbacksLock);
+        Lock flushCallbacksLock;
     };
 
-    Encoder* createEncoder(Type, const std::map<std::string, std::string>&);
+    Encoder* createEncoder(VideoCodecType, const std::map<std::string, std::string>&);
+    void createEncoderAndWaitUntilReady(VideoCodecType, const std::map<std::string, std::string>&, bool isRealtime, bool useAnnexB, Function<void(Encoder&)>&&);
     int32_t releaseEncoder(Encoder&);
     int32_t initializeEncoder(Encoder&, uint16_t width, uint16_t height, unsigned startBitrate, unsigned maxBitrate, unsigned minBitrate, uint32_t maxFramerate);
+    int32_t encodeFrame(Encoder&, const WebCore::VideoFrame&, uint32_t timestamp, bool shouldEncodeAsKeyFrame);
     int32_t encodeFrame(Encoder&, const webrtc::VideoFrame&, bool shouldEncodeAsKeyFrame);
+    void flushEncoder(Encoder&, Function<void()>&&);
     void registerEncodeFrameCallback(Encoder&, void* encodedImageCallback);
+    void registerEncodedVideoFrameCallback(Encoder&, EncoderCallback&&);
+    void registerEncoderDescriptionCallback(Encoder&, DescriptionCallback&&);
     void setEncodeRates(Encoder&, uint32_t bitRate, uint32_t frameRate);
 
     CVPixelBufferPoolRef pixelBufferPool(size_t width, size_t height, OSType);
@@ -121,17 +148,23 @@ public:
     bool supportVP9VTB() const { return m_supportVP9VTB; }
     void setLoggingLevel(WTFLogLevel);
 
+    void setHasVP9ExtensionSupport(bool);
+    bool hasVP9ExtensionSupport() const { return m_hasVP9ExtensionSupport; }
+
 private:
     LibWebRTCCodecs();
     void ensureGPUProcessConnectionAndDispatchToThread(Function<void()>&&);
     void ensureGPUProcessConnectionOnMainThreadWithLock() WTF_REQUIRES_LOCK(m_connectionLock);
     void gpuProcessConnectionMayNoLongerBeNeeded();
 
-    void failedDecoding(RTCDecoderIdentifier);
-    void completedDecoding(RTCDecoderIdentifier, uint32_t timeStamp, uint32_t timeStampNs, RemoteVideoFrameProxy::Properties&&);
+    void failedDecoding(VideoDecoderIdentifier);
+    void flushDecoderCompleted(VideoDecoderIdentifier);
+    void completedDecoding(VideoDecoderIdentifier, int64_t timeStamp, int64_t timeStampNs, RemoteVideoFrameProxy::Properties&&);
     // FIXME: Will be removed once RemoteVideoFrameProxy providers are the only ones sending data.
-    void completedDecodingCV(RTCDecoderIdentifier, uint32_t timeStamp, uint32_t timeStampNs, RetainPtr<CVPixelBufferRef>&&);
-    void completedEncoding(RTCEncoderIdentifier, IPC::DataReference&&, const webrtc::WebKitEncodedFrameInfo&);
+    void completedDecodingCV(VideoDecoderIdentifier, int64_t timeStamp, int64_t timeStampNs, RetainPtr<CVPixelBufferRef>&&);
+    void completedEncoding(VideoEncoderIdentifier, IPC::DataReference&&, const webrtc::WebKitEncodedFrameInfo&);
+    void flushEncoderCompleted(VideoEncoderIdentifier);
+    void setEncodingDescription(WebKit::VideoEncoderIdentifier, IPC::DataReference&&);
     RetainPtr<CVPixelBufferRef> convertToBGRA(CVPixelBufferRef);
 
     // GPUProcessConnection::Client
@@ -145,11 +178,15 @@ private:
     template<typename Buffer> bool copySharedVideoFrame(LibWebRTCCodecs::Encoder&, IPC::Connection&, Buffer&&);
     WorkQueue& workQueue() const { return m_queue; }
 
+    Decoder* createDecoderInternal(VideoCodecType, Function<void(Decoder&)>&&);
+    Encoder* createEncoderInternal(VideoCodecType, const std::map<std::string, std::string>&, bool isRealtime, bool useAnnexB, Function<void(Encoder&)>&&);
+    template<typename Frame> int32_t encodeFrameInternal(Encoder&, const Frame&, bool shouldEncodeAsKeyFrame, WebCore::VideoFrame::Rotation, MediaTime, uint32_t);
+
 private:
-    HashMap<RTCDecoderIdentifier, std::unique_ptr<Decoder>> m_decoders WTF_GUARDED_BY_CAPABILITY(workQueue());
+    HashMap<VideoDecoderIdentifier, std::unique_ptr<Decoder>> m_decoders WTF_GUARDED_BY_CAPABILITY(workQueue());
 
     Lock m_encodersConnectionLock;
-    HashMap<RTCEncoderIdentifier, std::unique_ptr<Encoder>> m_encoders WTF_GUARDED_BY_CAPABILITY(workQueue());
+    HashMap<VideoEncoderIdentifier, std::unique_ptr<Encoder>> m_encoders WTF_GUARDED_BY_CAPABILITY(workQueue());
 
     std::atomic<bool> m_needsGPUProcessConnection;
 
@@ -164,7 +201,10 @@ private:
     size_t m_pixelBufferPoolHeight { 0 };
     bool m_supportVP9VTB { false };
     std::optional<WTFLogLevel> m_loggingLevel;
+    bool m_useGPUProcess { false };
     bool m_useRemoteFrames { false };
+    bool m_hasVP9ExtensionSupport { false };
+    bool m_enableAdditionalLogging { false };
 };
 
 } // namespace WebKit

@@ -44,6 +44,7 @@ enum {
     kSecDbNormalTransactionType,
     kSecDbExclusiveRemoteSOSTransactionType,
     kSecDbExclusiveRemoteCKKSTransactionType,
+    kSecDbExclusiveKCSharingTransactionType,
 };
 typedef CFOptionFlags SecDbTransactionType;
 
@@ -56,6 +57,7 @@ typedef CFOptionFlags SecDbTransactionPhase;
 
 enum SecDbTransactionSource {
     kSecDbSOSTransaction = 0,        // A remotely initated transaction (via SOS)
+    kSecDbKCSharingTransaction = 4,  // A transaction initiated by Keychain Item Sharing.
     kSecDbCKKSTransaction = 3,       // A transaction initiated by CKKS (either via remote notification or queue processing)
     kSecDbAPITransaction = 1,        // A user initated transaction.
     kSecDbInvalidTransaction = 2,    // An invalid transaction source (used for initialization)

@@ -366,6 +366,15 @@ __simple_bprintf(BUF *b, _esc_func esc, const char *fmt, va_list ap)
 		}
 		lflag = zero = width = 0;
 		for(;;) {
+			if ( strncmp(fmt, ".*s", 3) == 0 ) {
+				/* special case .*s used by std::string_view */
+				width = va_arg(ap, int);
+				cp = va_arg(ap, char *);
+				while(width-- > 0)
+					put_c(b, esc, *cp++);
+				fmt += 2;
+				break;
+			}
 			switch(*fmt) {
 			case '0':
 				zero++;

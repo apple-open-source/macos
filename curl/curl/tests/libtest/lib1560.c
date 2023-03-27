@@ -138,6 +138,25 @@ struct clearurlcase {
 };
 
 static const struct testcase get_parts_list[] ={
+  /* https://ℂᵤⓇℒ。𝐒🄴 */
+  {"https://"
+   "%e2%84%82%e1%b5%a4%e2%93%87%e2%84%92%e3%80%82%f0%9d%90%92%f0%9f%84%b4",
+   "https | [11] | [12] | [13] | ℂᵤⓇℒ。𝐒🄴 | [15] |"
+   " / | [16] | [17]",
+   0, 0, CURLUE_OK},
+  {"https://"
+   "%e2%84%82%e1%b5%a4%e2%93%87%e2%84%92%e3%80%82%f0%9d%90%92%f0%9f%84%b4",
+   "https | [11] | [12] | [13] | "
+   "%e2%84%82%e1%b5%a4%e2%93%87%e2%84%92%e3%80%82%f0%9d%90%92%f0%9f%84%b4 "
+   "| [15] | / | [16] | [17]",
+   0, CURLU_URLENCODE, CURLUE_OK},
+  {"https://"
+   "\xe2\x84\x82\xe1\xb5\xa4\xe2\x93\x87\xe2\x84\x92"
+   "\xe3\x80\x82\xf0\x9d\x90\x92\xf0\x9f\x84\xb4",
+   "https | [11] | [12] | [13] | "
+   "%e2%84%82%e1%b5%a4%e2%93%87%e2%84%92%e3%80%82%f0%9d%90%92%f0%9f%84%b4 "
+   "| [15] | / | [16] | [17]",
+   0, CURLU_URLENCODE, CURLUE_OK},
   {"https://user@example.net?he l lo",
    "https | user | [12] | [13] | example.net | [15] | / | he+l+lo | [17]",
    CURLU_ALLOW_SPACE, CURLU_URLENCODE, CURLUE_OK},
@@ -160,6 +179,10 @@ static const struct testcase get_parts_list[] ={
   {"https://exam=ple.net", "", 0, 0, CURLUE_BAD_HOSTNAME},
   {"https://exam;ple.net", "", 0, 0, CURLUE_BAD_HOSTNAME},
   {"https://example,net", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"https://example&net", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"https://example+net", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"https://example(net", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"https://example)net", "", 0, 0, CURLUE_BAD_HOSTNAME},
   {"https://example.net/}",
    "https | [11] | [12] | [13] | example.net | [15] | /} | [16] | [17]",
    0, 0, CURLUE_OK},
@@ -466,8 +489,8 @@ static const struct urltestcase get_url_list[] = {
   {"https://0xff.0xff.0377.255", "https://255.255.255.255/", 0, 0, CURLUE_OK},
   {"https://1.0xffffff", "https://1.255.255.255/", 0, 0, CURLUE_OK},
   /* IPv4 numerical overflows or syntax errors will not normalize */
-  {"https://+127.0.0.1", "https://+127.0.0.1/", 0, 0, CURLUE_OK},
-  {"https://+127.0.0.1", "https://%2B127.0.0.1/", 0, CURLU_URLENCODE,
+  {"https://a127.0.0.1", "https://a127.0.0.1/", 0, 0, CURLUE_OK},
+  {"https://\xff.127.0.0.1", "https://%FF.127.0.0.1/", 0, CURLU_URLENCODE,
    CURLUE_OK},
   {"https://127.-0.0.1", "https://127.-0.0.1/", 0, 0, CURLUE_OK},
   {"https://127.0. 1", "https://127.0.0.1/", 0, 0, CURLUE_BAD_HOSTNAME},
@@ -632,9 +655,9 @@ static int checkurl(const char *url, const char *out)
 /* !checksrc! disable SPACEBEFORECOMMA 1 */
 static const struct setcase set_parts_list[] = {
   {"https://example.com/",
-   "host=++,", /* '++' there's no automatic URL decode when settin this
+   "host=0xff,", /* '++' there's no automatic URL decode when settin this
                   part */
-   "https://++/",
+   "https://0xff/",
    0, /* get */
    0, /* set */
    CURLUE_OK, CURLUE_OK},

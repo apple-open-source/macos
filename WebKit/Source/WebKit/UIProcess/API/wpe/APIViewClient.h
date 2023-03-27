@@ -32,6 +32,7 @@ typedef struct OpaqueJSContext* JSGlobalContextRef;
 
 namespace WebKit {
 class DownloadProxy;
+class WebKitWebResourceLoadManager;
 }
 
 namespace WKWPE {
@@ -48,10 +49,10 @@ public:
     virtual bool isGLibBasedAPI() { return false; }
 
     virtual void frameDisplayed(WKWPE::View&) { }
-    virtual void handleDownloadRequest(WKWPE::View&, WebKit::DownloadProxy&) { }
     virtual void willStartLoad(WKWPE::View&) { }
     virtual void didChangePageID(WKWPE::View&) { }
     virtual void didReceiveUserMessage(WKWPE::View&, WebKit::UserMessage&&, CompletionHandler<void(WebKit::UserMessage&&)>&& completionHandler) { completionHandler(WebKit::UserMessage()); }
+    virtual WebKit::WebKitWebResourceLoadManager* webResourceLoadManager() { return nullptr; }
 };
 
 } // namespace API

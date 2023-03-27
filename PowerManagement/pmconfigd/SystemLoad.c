@@ -113,7 +113,7 @@ void xctUserActive_prime(void) {
 }
 #endif
 
-uint64_t getUserActivePostedLevels() {
+uint64_t getUserActivePostedLevels(void) {
     return gUserActive.postedLevels;
 }
 static void userActive_prime(void) {
@@ -197,7 +197,7 @@ void userActiveHandleRootDomainActivity(bool active)
     evaluateAdaptiveStandby();
 }
 
-static uint32_t getUserInactiveDuration()
+static uint32_t getUserInactiveDuration(void)
 {
 #if XCTEST
     return xctUserInactiveDuration;
@@ -586,7 +586,7 @@ static void shareTheSystemLoad(bool shouldNotify)
 
 
 
-static void evaluateHidIdleNotification()
+static void evaluateHidIdleNotification(void)
 {
 
     static dispatch_source_t hidIdleEval = 0;
@@ -727,7 +727,7 @@ void hidPropertyCallback( void * target, void * context, CFStringRef property, C
     });
 }
 
-static void registerForHidActivity()
+static void registerForHidActivity(void)
 {
 
     dispatch_async(sysloadQ, ^{
@@ -1096,7 +1096,7 @@ __private_extern__ void SystemLoadSystemPowerStateHasChanged(void)
 /*! SystemLoadUserActiveAssertions
  *  Called when new user-active assertion is created
  */
-static void setAssertionIdleNotificationTimer()
+static void setAssertionIdleNotificationTimer(void)
 {
     static dispatch_source_t assertionEval = 0;
     static bool assertionEvalSuspended = true;

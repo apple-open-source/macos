@@ -89,6 +89,11 @@ RefPtr<GraphicsLayerContentsDisplayDelegate> CanvasRenderingContext::layerConten
     return nullptr;
 }
 
+void CanvasRenderingContext::setContentsToLayer(GraphicsLayer& layer)
+{
+    layer.setContentsDisplayDelegate(layerContentsDisplayDelegate(), GraphicsLayer::ContentsLayerPurpose::Canvas);
+}
+
 PixelFormat CanvasRenderingContext::pixelFormat() const
 {
     return PixelFormat::BGRA8;
@@ -99,21 +104,21 @@ DestinationColorSpace CanvasRenderingContext::colorSpace() const
     return DestinationColorSpace::SRGB();
 }
 
-bool CanvasRenderingContext::wouldTaintOrigin(const CanvasPattern* pattern)
+bool CanvasRenderingContext::taintsOrigin(const CanvasPattern* pattern)
 {
     if (m_canvas.originClean() && pattern && !pattern->originClean())
         return true;
     return false;
 }
 
-bool CanvasRenderingContext::wouldTaintOrigin(const CanvasBase* sourceCanvas)
+bool CanvasRenderingContext::taintsOrigin(const CanvasBase* sourceCanvas)
 {
     if (m_canvas.originClean() && sourceCanvas && !sourceCanvas->originClean())
         return true;
     return false;
 }
 
-bool CanvasRenderingContext::wouldTaintOrigin(const HTMLImageElement* element)
+bool CanvasRenderingContext::taintsOrigin(const HTMLImageElement* element)
 {
     if (!element || !m_canvas.originClean())
         return false;
@@ -128,11 +133,11 @@ bool CanvasRenderingContext::wouldTaintOrigin(const HTMLImageElement* element)
 
     if (image->sourceURL().protocolIsData())
         return false;
-    
-    if (!image->hasSingleSecurityOrigin())
+
+    if (image->renderingTaintsOrigin())
         return true;
 
-    if (!cachedImage->isCORSSameOrigin())
+    if (cachedImage->isCORSCrossOrigin())
         return true;
 
     ASSERT(m_canvas.securityOrigin());
@@ -141,30 +146,20 @@ bool CanvasRenderingContext::wouldTaintOrigin(const HTMLImageElement* element)
     return false;
 }
 
-bool CanvasRenderingContext::wouldTaintOrigin(const HTMLVideoElement* video)
+bool CanvasRenderingContext::taintsOrigin(const HTMLVideoElement* video)
 {
 #if ENABLE(VIDEO)
-    // FIXME: This check is likely wrong when a redirect is involved. We need
-    // to test the finalURL. Please be careful when fixing this issue not to
-    // make currentSrc be the final URL because then the
-    // HTMLMediaElement.currentSrc DOM API would leak redirect destinations!
     if (!video || !m_canvas.originClean())
         return false;
 
-    if (!video->hasSingleSecurityOrigin())
-        return true;
-
-    if (!(video->player() && video->player()->didPassCORSAccessCheck()) && video->wouldTaintOrigin(*m_canvas.securityOrigin()))
-        return true;
-
+    return video->taintsOrigin(*m_canvas.securityOrigin());
 #else
     UNUSED_PARAM(video);
-#endif
-
     return false;
+#endif
 }
 
-bool CanvasRenderingContext::wouldTaintOrigin(const ImageBitmap* imageBitmap)
+bool CanvasRenderingContext::taintsOrigin(const ImageBitmap* imageBitmap)
 {
     if (!imageBitmap || !m_canvas.originClean())
         return false;
@@ -172,7 +167,7 @@ bool CanvasRenderingContext::wouldTaintOrigin(const ImageBitmap* imageBitmap)
     return !imageBitmap->originClean();
 }
 
-bool CanvasRenderingContext::wouldTaintOrigin(const URL& url)
+bool CanvasRenderingContext::taintsOrigin(const URL& url)
 {
     if (!m_canvas.originClean())
         return false;
@@ -185,7 +180,7 @@ bool CanvasRenderingContext::wouldTaintOrigin(const URL& url)
 
 void CanvasRenderingContext::checkOrigin(const URL& url)
 {
-    if (wouldTaintOrigin(url))
+    if (taintsOrigin(url))
         m_canvas.setOriginTainted();
 }
 

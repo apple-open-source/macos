@@ -50,7 +50,8 @@ RemoteVideoFrameProxy::Properties RemoteVideoFrameProxy::properties(WebKit::Remo
         videoFrame.isMirrored(),
         videoFrame.rotation(),
         expandedIntSize(videoFrame.presentationSize()),
-        videoFrame.pixelFormat()
+        videoFrame.pixelFormat(),
+        videoFrame.colorSpace()
     };
 }
 
@@ -70,7 +71,7 @@ void RemoteVideoFrameProxy::releaseUnused(IPC::Connection& connection, Propertie
 }
 
 RemoteVideoFrameProxy::RemoteVideoFrameProxy(IPC::Connection& connection, RemoteVideoFrameObjectHeapProxy& videoFrameObjectHeapProxy, Properties&& properties)
-    : VideoFrame(properties.presentationTime, properties.isMirrored, properties.rotation)
+    : VideoFrame(properties.presentationTime, properties.isMirrored, properties.rotation, WTFMove(properties.colorSpace))
     , m_connection(connection)
     , m_referenceTracker(properties.reference)
     , m_size(properties.size)
@@ -116,10 +117,9 @@ CVPixelBufferRef RemoteVideoFrameProxy::pixelBuffer() const
             });
             semaphore.wait();
         } else {
-            RetainPtr<CVPixelBufferRef> pixelBuffer;
-            auto result = m_connection->sendSync(Messages::RemoteVideoFrameObjectHeap::PixelBuffer(newReadReference()), Messages::RemoteVideoFrameObjectHeap::PixelBuffer::Reply(pixelBuffer), 0, defaultTimeout);
-            if (result)
-                m_pixelBuffer = WTFMove(pixelBuffer);
+            auto sendResult = m_connection->sendSync(Messages::RemoteVideoFrameObjectHeap::PixelBuffer(newReadReference()), 0, defaultTimeout);
+            if (sendResult)
+                std::tie(m_pixelBuffer) = sendResult.takeReply();
         }
     }
     // FIXME: Some code paths do not like empty pixel buffers.

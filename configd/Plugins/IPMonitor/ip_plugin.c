@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2023 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -178,7 +178,7 @@ __log_IPMonitor(void)
 static struct if_nameindex *	S_if_nameindex_cache;
 
 static dispatch_queue_t
-__my_if_nametoindex_queue()
+__my_if_nametoindex_queue(void)
 {
     static dispatch_once_t	once;
     static dispatch_queue_t	q;
@@ -954,7 +954,7 @@ keyChangeListApplyToStore(keyChangeListRef keys, SCDynamicStoreRef session)
 }
 
 static boolean_t
-S_is_network_boot()
+S_is_network_boot(void)
 {
     int mib[2];
     size_t len;
@@ -1131,20 +1131,20 @@ set_plat_discovery_locked(PLATDiscoveryOption option, CFStringRef interface)
 {
     switch (option) {
     case kPLATDiscoveryOptionStart:
-	my_log(LOG_DEBUG, "NAT64 Start %@", interface);
+	my_log(LOG_INFO, "NAT64 Start %@", interface);
 	my_CFSetAddValue(&S_nat64_prefix_requests, interface);
 	my_CFSetRemoveValue(&S_nat64_prefix_updates, interface);
 	my_CFSetRemoveValue(&S_nat64_cancel_prefix_requests, interface);
 	break;
     case kPLATDiscoveryOptionUpdate:
-	my_log(LOG_DEBUG, "NAT64 Update %@", interface);
+	my_log(LOG_INFO, "NAT64 Update %@", interface);
 	if (!my_CFSetContainsValue(S_nat64_prefix_requests, interface)) {
 	    my_CFSetAddValue(&S_nat64_prefix_updates, interface);
 	}
 	my_CFSetRemoveValue(&S_nat64_cancel_prefix_requests, interface);
 	break;
     case kPLATDiscoveryOptionCancel:
-	my_log(LOG_DEBUG, "NAT64 Cancel %@", interface);
+	my_log(LOG_INFO, "NAT64 Cancel %@", interface);
 	my_CFSetRemoveValue(&S_nat64_prefix_requests, interface);
 	my_CFSetRemoveValue(&S_nat64_prefix_updates, interface);
 	my_CFSetAddValue(&S_nat64_cancel_prefix_requests, interface);
@@ -5960,7 +5960,7 @@ done:
 
 #if	!TARGET_OS_IPHONE
 static __inline__ void
-empty_dns()
+empty_dns(void)
 {
     (void)unlink(VAR_RUN_RESOLV_CONF);
 }
@@ -7781,6 +7781,10 @@ inet_dgram_socket(void)
 static Boolean
 interface_order_changed(nwi_state_t old_state, nwi_state_t new_state)
 {
+	int i;
+	nwi_ifindex_t *old_scan;
+	nwi_ifindex_t *new_scan;
+
     if (old_state == NULL && new_state == NULL) {
 	// Both are NULL, nothing changed
 	return FALSE;
@@ -7801,9 +7805,6 @@ interface_order_changed(nwi_state_t old_state, nwi_state_t new_state)
 	return FALSE;
     }
 
-    int i;
-    nwi_ifindex_t *old_scan;
-    nwi_ifindex_t *new_scan;
     for (i = 0, old_scan = nwi_state_if_list(old_state), new_scan = nwi_state_if_list(new_state);
 	 i < new_state->if_list_count; i++, old_scan++, new_scan++) {
 	if (strcmp(old_state->ifstate_list[*old_scan].ifname, new_state->ifstate_list[*new_scan].ifname) != 0) {
@@ -8088,7 +8089,7 @@ process_nwi_changes(CFMutableStringRef	log_output,
 #pragma mark Network changed notification
 
 static dispatch_queue_t
-__network_change_queue()
+__network_change_queue(void)
 {
     static dispatch_once_t	once;
     static dispatch_queue_t	q;
@@ -8102,7 +8103,7 @@ __network_change_queue()
 
 // Note: must run on __network_change_queue()
 static void
-post_network_change_when_ready()
+post_network_change_when_ready(void)
 {
     int		    status;
 
@@ -8461,6 +8462,10 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	}
 	if (my_CFSetContainsValue(ipv6_service_changes, serviceID)) {
 	    changes |= (1 << kEntityTypeIPv6);
+	    if (get_service_state_entity(services_info, serviceID,
+					 kSCEntNetDNS) != NULL) {
+		nat64_changed = TRUE;
+	    }
 	}
 	if ((changes & (1 << kEntityTypeServiceOptions)) != 0) {
 	    /* if __Service__ (e.g. PrimaryRank) changed */
@@ -8797,7 +8802,7 @@ IPMonitorNotify(SCDynamicStoreRef session, CFArrayRef changed_keys,
 #endif
 
 static void
-watch_proxies()
+watch_proxies(void)
 {
     static dispatch_queue_t proxy_cb_queue;
 
@@ -9011,7 +9016,7 @@ ip_plugin_copy_patterns(void)
 }
 
 static void
-ip_plugin_init()
+ip_plugin_init(void)
 {
     if (S_is_network_boot() != 0) {
 	S_netboot = TRUE;

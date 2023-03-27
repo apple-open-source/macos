@@ -157,7 +157,7 @@ write_label(labelent_t *le, ctf_buf_t *b)
 static void
 write_objects(iidesc_t *idp, ctf_buf_t *b)
 {
-	ushort_t id = (idp ? idp->ii_dtype->t_id : 0);
+	uint32_t id = (idp ? idp->ii_dtype->t_id : 0);
 
 	ctf_buf_write(b, &id, sizeof (id));
 
@@ -167,8 +167,8 @@ write_objects(iidesc_t *idp, ctf_buf_t *b)
 static void
 write_functions(iidesc_t *idp, ctf_buf_t *b)
 {
-	ushort_t fdata[2];
-	ushort_t id;
+	uint32_t fdata[2];
+	uint32_t id;
 	int nargs;
 	int i;
 
@@ -216,7 +216,7 @@ write_sized_type_rec(ctf_buf_t *b, ctf_type_t *ctt, size_t size)
 	} else {
 		ctf_stype_t *cts = (ctf_stype_t *)ctt;
 
-		cts->ctt_size = (ushort_t)size;
+		cts->ctt_size = (uint32_t)size;
 		ctf_buf_write(b, cts, sizeof (*cts));
 	}
 }
@@ -246,9 +246,9 @@ write_type(tdesc_t *tp, ctf_buf_t *b)
 	ctf_member_t ctm;
 	ctf_lmember_t ctlm;
 	ctf_enum_t cte;
-	ushort_t id;
+	uint32_t id;
 
-	ctlm.ctlm_pad = 0;
+	// v4 -- ctlm.ctlm_pad = 0;
 
 	/*
 	 * There shouldn't be any holes in the type list (where a hole is
@@ -643,10 +643,8 @@ ctf_gen(iiburst_t *iiburst, size_t *resszp, int do_compress)
 	h.cth_stroff = ctf_buf_cur(buf);
 	h.cth_strlen = strtab_size(&buf->ctb_strtab);
 
-	/*
-	 * Encoded pointers are only supported in V3 or later
-	 */
-	h.cth_version = buf->nptrauth > 0 ? CTF_VERSION : CTF_VERSION_2;
+	/* Always produce CTFv4. */
+	h.cth_version = CTF_VERSION_4;
 
 	/*
 	 * We only do compression for ctfmerge, as ctfconvert is only
@@ -692,10 +690,10 @@ count_types(ctf_header_t *h, caddr_t data)
 		switch (CTF_INFO_KIND(ctt->ctt_info)) {
 		case CTF_K_INTEGER:
 		case CTF_K_FLOAT:
-			dptr += 4;
+			dptr += sizeof (uint32_t);
 			break;
 		case CTF_K_PTRAUTH:
-			dptr += 4;
+			dptr += sizeof (uint32_t);
 			break;
 		case CTF_K_POINTER:
 		case CTF_K_FORWARD:
@@ -704,7 +702,7 @@ count_types(ctf_header_t *h, caddr_t data)
 		case CTF_K_CONST:
 		case CTF_K_RESTRICT:
 		case CTF_K_FUNCTION:
-			dptr += sizeof (ushort_t) * (vlen + (vlen & 1));
+			dptr += sizeof (uint32_t) * (vlen + (vlen & 1));
 			break;
 		case CTF_K_ARRAY:
 			dptr += sizeof (ctf_array_t);
@@ -802,9 +800,9 @@ resurrect_objects(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 	caddr_t dptr;
 
 	symit_reset(si);
-	for (dptr = buf; dptr < buf + bufsz; dptr += 2) {
+	for (dptr = buf; dptr < buf + bufsz; dptr += sizeof (uint32_t)) {
 		/* LINTED - pointer alignment */
-		ushort_t id = *((ushort_t *)dptr);
+		uint32_t id = *((uint32_t *)dptr);
 		iidesc_t *ii;
 		GElf_Sym *sym;
 
@@ -844,16 +842,16 @@ resurrect_functions(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 	size_t bufsz = h->cth_typeoff - h->cth_funcoff;
 	caddr_t dptr = buf;
 	iidesc_t *ii;
-	ushort_t info;
-	ushort_t retid;
+	uint32_t info;
+	uint32_t retid;
 	GElf_Sym *sym;
 	int i;
 
 	symit_reset(si);
 	while (dptr < buf + bufsz) {
 		/* LINTED - pointer alignment */
-		info = *((ushort_t *)dptr);
-		dptr += 2;
+		info = *((uint32_t *)dptr);
+		dptr += sizeof (uint32_t);
 
 		if (!(sym = symit_next(si, STT_FUNC)) && info != 0)
 			parseterminate("Unexpected end of function symbols");
@@ -865,8 +863,8 @@ resurrect_functions(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 		}
 
 		/* LINTED - pointer alignment */
-		retid = *((ushort_t *)dptr);
-		dptr += 2;
+		retid = *((uint32_t *)dptr);
+		dptr += sizeof (uint32_t);
 
 		if (retid >= tdsize)
 			parseterminate("Reference to invalid type %d", retid);
@@ -883,9 +881,9 @@ resurrect_functions(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 			ii->ii_args =
 			    xmalloc(sizeof (tdesc_t *) * ii->ii_nargs);
 
-		for (i = 0; i < ii->ii_nargs; i++, dptr += 2) {
+		for (i = 0; i < ii->ii_nargs; i++, dptr += sizeof (uint32_t)) {
 			/* LINTED - pointer alignment */
-			ushort_t id = *((ushort_t *)dptr);
+			uint32_t id = *((uint32_t *)dptr);
 			if (id >= tdsize)
 				parseterminate("Reference to invalid type %d",
 				    id);
@@ -973,8 +971,8 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 			tdp->t_size = size;
 
 			/* LINTED - pointer alignment */
-			data = *((uint_t *)dptr);
-			dptr += sizeof (uint_t);
+			data = *((uint32_t *)dptr);
+			dptr += sizeof (uint32_t);
 			encoding = CTF_INT_ENCODING(data);
 
 			ip = xmalloc(sizeof (intr_t));
@@ -1000,8 +998,8 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 			tdp->t_size = size;
 
 			/* LINTED - pointer alignment */
-			data = *((uint_t *)dptr);
-			dptr += sizeof (uint_t);
+			data = *((uint32_t *)dptr);
+			dptr += sizeof (uint32_t);
 
 			ip = xcalloc(sizeof (intr_t));
 			ip->intr_type = INTR_REAL;
@@ -1113,8 +1111,8 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 
 			/* LINTED - pointer alignment */
 			vargs = nargs = 0;
-			if (vlen > 0 && *(ushort_t *)(dptr +
-			    (sizeof (ushort_t) * (vlen - 1))) == 0)
+			if (vlen > 0 && *(uint32_t *)(dptr +
+			    (sizeof (uint32_t) * (vlen - 1))) == 0)
 				vargs = 1;
 			nargs = vlen - vargs;
 
@@ -1125,15 +1123,15 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 
 			for (i = 0; i < vlen; i++) {
 				/* LINTED - pointer alignment */
-				argid = *(ushort_t *)dptr;
-				dptr += sizeof (ushort_t);
+				argid = *(uint32_t *)dptr;
+				dptr += sizeof (uint32_t);
 
 				if (argid != 0)
 					tdp->t_fndef->fn_args[i] = tdarr[argid];
 			}
 
 			if (vlen & 1)
-				dptr += sizeof (ushort_t);
+				dptr += sizeof (uint32_t);
 			break;
 
 		case CTF_K_RESTRICT:
@@ -1145,8 +1143,8 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 			tdp->t_type = PTRAUTH;
 
 			/* LINTED - pointer alignment */
-			data = *((uint_t *)dptr);
-			dptr += sizeof (uint_t);
+			data = *((uint32_t *)dptr);
+			dptr += sizeof (uint32_t);
 
 			pta = xcalloc(sizeof (ptrauth_t));
 			pta->pta_discriminator = CTF_PTRAUTH_DISCRIMINATOR(data);
@@ -1279,7 +1277,7 @@ ctf_load(char *file, caddr_t buf, size_t bufsz, symit_data_t *si, char *label)
 	if (h->cth_magic != CTF_MAGIC)
 		parseterminate("Corrupt CTF - bad magic 0x%x", h->cth_magic);
 
-	if (h->cth_version != CTF_VERSION_2 && h->cth_version != CTF_VERSION_3)
+	if (h->cth_version != CTF_VERSION_4)
 		parseterminate("Unknown CTF version %d", h->cth_version);
 
 	ctfdatasz = h->cth_stroff + h->cth_strlen;

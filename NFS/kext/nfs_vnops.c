@@ -438,6 +438,18 @@ nfs_dir_buf_cache_lookup_boundaries(struct nfsbuf *bp, int *sof, int *eof)
 	}
 }
 
+#if CONFIG_NFS4
+void
+nfs4_delegation_return_read(vfs_context_t ctx, nfsnode_t np, int nfsvers)
+{
+	/* Read delegation should be returned before sending SETATTR/RENAME/REMOVE/LINK/OPEN operations to the server */
+	if ((nfsvers >= NFS_VER4) && !(np->n_openflags & N_DELEG_RETURN) && (np->n_openflags & N_DELEG_READ)) {
+		NP(np, "nfs4_delegation_return_read: returning READ delegation for");
+		nfs4_delegation_return(np, 0, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+	}
+}
+#endif
+
 /*
  * Update nfsnode attributes to avoid extra getattr calls for each direntry.
  * This function should be called only if RDIRPLUS flag is enabled.
@@ -773,7 +785,7 @@ nfs_vnop_open(
 	vnode_t vp = ap->a_vp;
 	nfsnode_t np = VTONFS(vp);
 	struct nfsmount *nmp;
-	int error, accessMode, denyMode, opened = 0;
+	int error, accessMode, denyMode, opened = 0, skip_inuse_end = 0;
 	struct nfs_open_owner *noop = NULL;
 	struct nfs_open_file *nofp = NULL;
 	enum vtype vtype;
@@ -884,12 +896,13 @@ restart:
 	}
 #if CONFIG_NFS4
 	if (!error && (nofp->nof_flags & NFS_OPEN_FILE_REOPEN)) {
+		nfs_mount_state_in_use_end(nmp, 0);
 		error = nfs4_reopen(nofp, vfs_context_thread(ctx));
 		nofp = NULL;
 		if (!error) {
-			nfs_mount_state_in_use_end(nmp, 0);
 			goto restart;
 		}
+		skip_inuse_end = 1;
 	}
 #endif
 	if (!error) {
@@ -967,8 +980,9 @@ out:
 	if (nofp) {
 		nfs_open_file_clear_busy(nofp);
 	}
-	if (nfs_mount_state_in_use_end(nmp, error)) {
+	if ((skip_inuse_end && nfs_mount_state_error_should_restart(error)) || (!skip_inuse_end && nfs_mount_state_in_use_end(nmp, error))) {
 		nofp = NULL;
+		skip_inuse_end = 0;
 		goto restart;
 	}
 	if (error) {
@@ -1044,7 +1058,7 @@ nfs_vnop_close(
 	nfsnode_t np = VTONFS(vp);
 	struct nfsmount *nmp;
 	int error = 0, error1, nfsvers;
-	int fflag = ap->a_fflag;
+	int fflag = ap->a_fflag, skip_inuse_end = 0;
 	enum vtype vtype;
 	int accessMode, denyMode;
 	struct nfs_open_owner *noop = NULL;
@@ -1175,12 +1189,13 @@ restart:
 	error = nfs_open_file_find(np, noop, &nofp, 0, 0, 0);
 #if CONFIG_NFS4
 	if (!error && (nofp->nof_flags & NFS_OPEN_FILE_REOPEN)) {
+		nfs_mount_state_in_use_end(nmp, 0);
 		error = nfs4_reopen(nofp, NULL);
 		nofp = NULL;
 		if (!error) {
-			nfs_mount_state_in_use_end(nmp, 0);
 			goto restart;
 		}
+		skip_inuse_end = 1;
 	}
 #endif
 	if (error) {
@@ -1203,8 +1218,9 @@ out:
 	if (nofp) {
 		nfs_open_file_clear_busy(nofp);
 	}
-	if (nfs_mount_state_in_use_end(nmp, error)) {
+	if ((skip_inuse_end && nfs_mount_state_error_should_restart(error)) || (!skip_inuse_end && nfs_mount_state_in_use_end(nmp, error))) {
 		nofp = NULL;
+		skip_inuse_end = 0;
 		goto restart;
 	}
 	if (!error) {
@@ -2047,12 +2063,14 @@ restart:
 					error = EIO;
 				}
 				if (!error && (nofp->nof_flags & NFS_OPEN_FILE_REOPEN)) {
+					nfs_mount_state_in_use_end(nmp, 0);
 					error = nfs4_reopen(nofp, vfs_context_thread(ctx));
 					nofp = NULL;
 					if (!error) {
-						nfs_mount_state_in_use_end(nmp, 0);
 						goto restart;
 					}
+					nfs_open_owner_rele(noop);
+					return NFS_MAPERR(error);
 				}
 				if (!error) {
 					error = nfs_open_file_set_busy(nofp, vfs_context_thread(ctx));
@@ -2229,6 +2247,9 @@ restart:
 	}
 
 	if (!error) {
+#if CONFIG_NFS4
+		nfs4_delegation_return_read(ctx, np, nfsvers);
+#endif
 		error = nmp->nm_funcs->nf_setattr_rpc(np, vap, ctx);
 	}
 
@@ -2745,12 +2766,12 @@ nfs_vnop_readlink(
 
 
 	/* nfs_getattr() will check changed and purge caches */
-	if ((error = nfs_getattr(np, NULL, ctx, nfs_readlink_nocache ? NGA_UNCACHED : NGA_CACHED))) {
+	if ((error = nfs_getattr(np, NULL, ctx, nmp->nm_readlink_nocache ? NGA_UNCACHED : NGA_CACHED))) {
 		FSDBG(531, np, 0xd1e0001, 0, error);
 		return NFS_MAPERR(error);
 	}
 
-	if (nfs_readlink_nocache) {
+	if (nmp->nm_readlink_nocache) {
 		timeo = nfs_attrcachetimeout(np);
 		nanouptime(&ts);
 	}
@@ -2763,12 +2784,12 @@ retry:
 		return NFS_MAPERR(error);
 	}
 
-	if (nfs_readlink_nocache) {
+	if (nmp->nm_readlink_nocache) {
 		NFS_VNOP_DBG("timeo = %ld ts.tv_sec = %ld need refresh = %d cached = %d\n", timeo, ts.tv_sec,
-		    (np->n_rltim.tv_sec + timeo) < ts.tv_sec || nfs_readlink_nocache > 1,
+		    (np->n_rltim.tv_sec + timeo) < ts.tv_sec || nmp->nm_readlink_nocache > 1,
 		    ISSET(bp->nb_flags, NB_CACHE) == NB_CACHE);
 		/* n_rltim is synchronized by the associated nfs buf */
-		if (ISSET(bp->nb_flags, NB_CACHE) && ((nfs_readlink_nocache > 1) || ((np->n_rltim.tv_sec + timeo) < ts.tv_sec))) {
+		if (ISSET(bp->nb_flags, NB_CACHE) && ((nmp->nm_readlink_nocache > 1) || ((np->n_rltim.tv_sec + timeo) < ts.tv_sec))) {
 			SET(bp->nb_flags, NB_INVAL);
 			nfs_buf_release(bp, 0);
 			goto retry;
@@ -4760,8 +4781,11 @@ nfs_vnop_rename(
 		}
 	}
 #if CONFIG_NFS4
-	else if (tvp && (nmp->nm_vers >= NFS_VER4) && (tnp->n_openflags & N_DELEG_MASK)) {
-		nfs4_delegation_return(tnp, 0, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+	else {
+		if (tvp && (nfsvers >= NFS_VER4) && (tnp->n_openflags & N_DELEG_MASK)) {
+			nfs4_delegation_return(tnp, 0, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+		}
+		nfs4_delegation_return_read(ctx, fnp, nfsvers);
 	}
 #endif
 	error = nmp->nm_funcs->nf_rename_rpc(fdnp, fcnp->cn_nameptr, fcnp->cn_namelen,
@@ -5826,7 +5850,7 @@ nfs_invaldir_cookies(nfsnode_t dnp)
 		return;
 	}
 	dnp->n_eofcookie = 0;
-	dnp->n_cookieverf = 0;
+	// dnp->n_cookieverf = 0;
 	if (!dnp->n_cookiecache) {
 		return;
 	}
@@ -6409,7 +6433,7 @@ resend:
 			/* opaque values don't need swapping, but as long */
 			/* as we are consistent about it, it should be ok */
 			nfsm_chain_add_64(error, &nmreq, cookie);
-			nfsm_chain_add_64(error, &nmreq, dnp->n_cookieverf);
+			nfsm_chain_add_64(error, &nmreq, (cookie == 0) ? 0 : dnp->n_cookieverf);
 		} else {
 			nfsm_chain_add_32(error, &nmreq, cookie);
 		}
@@ -6709,6 +6733,9 @@ nfs_sillyrename(
 			nsp->nsr_namlen = sizeof(nsp->nsr_name) - 1;
 		}
 	}
+#if CONFIG_NFS4
+	nfs4_delegation_return_read(ctx, np, nmp->nm_vers);
+#endif
 
 	/* now, do the rename */
 	error = nmp->nm_funcs->nf_rename_rpc(dnp, cnp->cn_nameptr, cnp->cn_namelen,

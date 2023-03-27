@@ -398,7 +398,7 @@ unsigned int GetReservedVertexUniformVectors()
 
 unsigned int GetReservedFragmentUniformVectors()
 {
-    return 3;  // dx_ViewCoords, dx_DepthFront and dx_DepthRange.
+    return 4;  // dx_ViewCoords, dx_DepthFront, dx_DepthRange, dx_FragCoordoffset.
 }
 
 GLsizei GetSamplesCount(D3DMULTISAMPLE_TYPE type)
@@ -774,6 +774,9 @@ void GenerateCaps(IDirect3D9 *d3d9,
 
     // D3D9 cannot support constant color and alpha blend funcs together
     limitations->noSimultaneousConstantColorAndAlphaBlendFunc = true;
+
+    // D3D9 cannot support unclamped constant blend color
+    limitations->noUnclampedBlendColor = true;
 
     // D3D9 cannot support packing more than one variable to a single varying.
     // TODO(jmadill): Implement more sophisticated component packing in D3D9.

@@ -144,6 +144,8 @@ CF_ENUM(OSStatus) {
 	errSecCSInvalidEntitlements =		-66994, /* invalid entitlement plist */
 	errSecCSInvalidRuntimeVersion =		-66993, /* an invalid runtime version was explicitly set */
 	errSecCSRevokedNotarization =		-66992, /* notarization indicates this code has been revoked */
+	errSecCSCMSConstructionFailed =		-66991, /* CMS construction failed, see logs for deeper error */
+	errSecCSRemoteSignerFailed =		-66990, /* remote signing block did not return a signature */
 };
 
 /*

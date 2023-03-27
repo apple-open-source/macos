@@ -214,11 +214,11 @@ struct FeaturesGL : FeatureSetBase
                                          "Some tests have been seen to fail using worker contexts",
                                          &members, "http://crbug.com/849576"};
 
-    FeatureInfo limitMaxTextureSizeTo4096 = {"limitMaxTextureSizeTo4096",
-                                             FeatureCategory::OpenGLWorkarounds,
-                                             "Limit max texture size to 4096 to avoid frequent "
-                                             "out-of-memory errors",
-                                             &members, "http://crbug.com/927470"};
+    FeatureInfo limitWebglMaxTextureSizeTo4096 = {
+        "limitWebglMaxTextureSizeTo4096", FeatureCategory::OpenGLWorkarounds,
+        "Limit webgl max texture size to 4096 to avoid frequent "
+        "out-of-memory errors",
+        &members, "http://crbug.com/927470"};
 
     FeatureInfo limitMaxMSAASamplesTo4 = {
         "limitMaxMSAASamplesTo4", FeatureCategory::OpenGLWorkarounds,
@@ -340,6 +340,13 @@ struct FeaturesGL : FeatureSetBase
         "Decode and encode before generateMipmap for srgb format textures.", &members,
         "http://anglebug.com/4646"};
 
+    FeatureInfo emulateCopyTexImage2D = {
+        "emulateCopyTexImage2D",
+        FeatureCategory::OpenGLWorkarounds,
+        "Replace CopyTexImage2D with TexImage2D + CopyTexSubImage2D.",
+        &members,
+    };
+
     FeatureInfo emulateCopyTexImage2DFromRenderbuffers = {
         "emulateCopyTexImage2DFromRenderbuffers", FeatureCategory::OpenGLWorkarounds,
         "CopyTexImage2D spuriously returns errors on iOS when copying from renderbuffers.",
@@ -454,6 +461,48 @@ struct FeaturesGL : FeatureSetBase
         "disableTextureClampToBorder", FeatureCategory::OpenGLWorkarounds,
         "Imagination devices generate INVALID_ENUM when setting the texture border color.",
         &members, "https://anglebug.com/7405"};
+
+    FeatureInfo passHighpToPackUnormSnormBuiltins = {
+        "passHighpToPackUnormSnormBuiltins", FeatureCategory::OpenGLWorkarounds,
+        "packUnorm4x8 fails on Pixel 4 if it is not passed a highp vec4.", &members,
+        "http://anglebug.com/7527"};
+
+    FeatureInfo emulateClipDistanceState = {
+        "emulateClipDistanceState",
+        FeatureCategory::OpenGLWorkarounds,
+        "Some drivers ignore GL_CLIP_DISTANCEi_EXT state.",
+        &members,
+    };
+
+    FeatureInfo supportsFragmentShaderInterlockNV = {
+        "supportsFragmentShaderInterlockNV", FeatureCategory::OpenGLFeatures,
+        "Backend GL context supports NV_fragment_shader_interlock extension", &members,
+        "http://anglebug.com/7279"};
+
+    FeatureInfo supportsFragmentShaderOrderingINTEL = {
+        "supportsFragmentShaderOrderingINTEL", FeatureCategory::OpenGLFeatures,
+        "Backend GL context supports GL_INTEL_fragment_shader_ordering extension", &members,
+        "http://anglebug.com/7279"};
+
+    FeatureInfo supportsFragmentShaderInterlockARB = {
+        "supportsFragmentShaderInterlockARB", FeatureCategory::OpenGLFeatures,
+        "Backend GL context supports ARB_fragment_shader_interlock extension", &members,
+        "http://anglebug.com/7279"};
+
+    FeatureInfo supportsShaderFramebufferFetchEXT = {
+        "supportsShaderFramebufferFetchEXT", FeatureCategory::OpenGLFeatures,
+        "Backend GL context supports EXT_shader_framebuffer_fetch extension", &members,
+        "http://anglebug.com/7279"};
+
+    FeatureInfo supportsShaderFramebufferFetchNonCoherentEXT = {
+        "supportsShaderFramebufferFetchNonCoherentEXT", FeatureCategory::OpenGLFeatures,
+        "Backend GL context supports EXT_shader_framebuffer_fetch_non_coherent extension", &members,
+        "http://anglebug.com/7279"};
+
+    FeatureInfo supportsShaderPixelLocalStorageEXT = {
+        "supportsShaderPixelLocalStorageEXT", FeatureCategory::OpenGLFeatures,
+        "Backend GL context supports EXT_shader_pixel_local_storage extension", &members,
+        "http://anglebug.com/7279"};
 };
 
 inline FeaturesGL::FeaturesGL()  = default;

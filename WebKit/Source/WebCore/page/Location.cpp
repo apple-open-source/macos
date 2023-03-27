@@ -53,7 +53,7 @@ inline const URL& Location::url() const
     if (!frame())
         return aboutBlankURL();
 
-    const URL& url = frame()->document()->url();
+    const URL& url = frame()->document()->urlForBindings();
     if (!url.isValid())
         return aboutBlankURL(); // Use "about:blank" while the page is still loading (before we have a frame).
 
@@ -112,8 +112,10 @@ Ref<DOMStringList> Location::ancestorOrigins() const
     auto* frame = this->frame();
     if (!frame)
         return origins;
-    for (auto* ancestor = frame->tree().parent(); ancestor; ancestor = ancestor->tree().parent())
-        origins->append(ancestor->document()->securityOrigin().toString());
+    for (auto* ancestor = frame->tree().parent(); ancestor; ancestor = ancestor->tree().parent()) {
+        if (auto* localAncestor = dynamicDowncast<LocalFrame>(ancestor))
+            origins->append(localAncestor->document()->securityOrigin().toString());
+    }
     return origins;
 }
 
@@ -232,6 +234,9 @@ ExceptionOr<void> Location::replace(DOMWindow& activeWindow, DOMWindow& firstWin
     URL completedURL = firstFrame->document()->completeURL(urlString);
     if (!completedURL.isValid())
         return Exception { SyntaxError };
+
+    if (!activeWindow.document()->canNavigate(frame, completedURL))
+        return Exception { SecurityError };
 
     // We call DOMWindow::setLocation directly here because replace() always operates on the current frame.
     frame->document()->domWindow()->setLocation(activeWindow, completedURL, LockHistoryAndBackForwardList);

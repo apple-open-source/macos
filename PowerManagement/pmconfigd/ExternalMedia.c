@@ -143,7 +143,7 @@ static bool weLikeTheDisk(DADiskRef disk)
 /*****************************************************************************/
 
 
-static void adjustExternalDiskAssertion()
+static void adjustExternalDiskAssertion(void)
 {
     CFIndex	deviceCount = CFSetGetCount(gExternalMediaSet);
     

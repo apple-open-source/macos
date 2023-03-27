@@ -66,6 +66,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status);
 
 extern NSString* kSecEntitlementPrivateOctagonEscrow;
 extern NSString* kSecEntitlementPrivateOctagonSecureElement;
+extern NSString* kSecEntitlementPrivateOctagonWalrus;
 
 @interface OTConfigurationContext : NSObject
 @property (nonatomic, copy) NSString* context;
@@ -76,7 +77,9 @@ extern NSString* kSecEntitlementPrivateOctagonSecureElement;
 @property (nonatomic, copy, nullable) NSString* passwordEquivalentToken;
 @property (nonatomic) BOOL overrideEscrowCache; // SPI_DEPRECATED("use 'escrowFetchSource' instead", ios(14.0, 16.2));
 @property (nonatomic) OTEscrowRecordFetchSource escrowFetchSource;
+@property (nonatomic) BOOL octagonCapableRecordsExist;
 @property (nonatomic) BOOL overrideForSetupAccountScript; // this should only be used for the account setup script
+@property (nonatomic) BOOL overrideForJoinAfterRestore; // this should only be used in tests
 
 // Use this to inject your own OTControl object. It must be configured as synchronous.
 @property (nullable, strong) OTControl* otControl;
@@ -346,16 +349,6 @@ API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15
                             reply:(void(^)(SecRecoveryKey * _Nullable rk,
                                            NSError* _Nullable error))reply;
 
-// used by sbd to recover octagon data by providing a
-+ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
-                    recoveryKey:(NSString*)recoveryKey
-                          reply:(void(^)(NSError* _Nullable error))reply;
-
-// used by sbd to recover octagon data by providing a
-+ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
-                    recoveryKey:(NSString*)recoveryKey
-                     sosSuccess:(BOOL)sosSuccess
-                          reply:(void(^)(NSError* _Nullable error))reply;
 
 // Create a new custodian recovery key.
 + (void)createCustodianRecoveryKey:(OTConfigurationContext*)ctx
@@ -430,7 +423,14 @@ API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15
 * @param error Reports any error along the process
 * @return a new clique
 */
-+ (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data error:(NSError**)error;
++ (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data
+                        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+                   idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+notifyIdMS:(bool)notifyIdMS
+                                    error:(NSError**)error;
+
++ (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data
+                                    error:(NSError**)error;
 @end
 
 NS_ASSUME_NONNULL_END

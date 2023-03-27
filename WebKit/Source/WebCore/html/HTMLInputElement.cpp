@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  * Copyright (C) 2010-2021 Google Inc. All rights reserved.
@@ -44,6 +44,7 @@
 #include "Editor.h"
 #include "ElementInlines.h"
 #include "EventNames.h"
+#include "FileChooser.h"
 #include "FileInputType.h"
 #include "FileList.h"
 #include "FormController.h"
@@ -70,7 +71,7 @@
 #include "SearchInputType.h"
 #include "Settings.h"
 #include "StepRange.h"
-#include "StyleGeneratedImage.h"
+#include "StyleGradientImage.h"
 #include "TextControlInnerElements.h"
 #include "TypedElementDescendantIterator.h"
 #include <wtf/IsoMallocInlines.h>
@@ -156,7 +157,8 @@ const AtomString& HTMLInputElement::name() const
 
 Vector<FileChooserFileInfo> HTMLInputElement::filesFromFileInputFormControlState(const FormControlState& state)
 {
-    return FileInputType::filesFromFormControlState(state);
+    auto [files, _] = FileInputType::filesFromFormControlState(state);
+    return files;
 }
 
 HTMLElement* HTMLInputElement::containerElement() const
@@ -182,11 +184,6 @@ HTMLElement* HTMLInputElement::innerBlockElement() const
 HTMLElement* HTMLInputElement::innerSpinButtonElement() const
 {
     return m_inputType->innerSpinButtonElement();
-}
-
-HTMLElement* HTMLInputElement::capsLockIndicatorElement() const
-{
-    return m_inputType->capsLockIndicatorElement();
 }
 
 HTMLElement* HTMLInputElement::autoFillButtonElement() const
@@ -511,10 +508,11 @@ void HTMLInputElement::resignStrongPasswordAppearance()
 void HTMLInputElement::updateType()
 {
     ASSERT(m_inputType);
-    auto newType = InputType::create(*this, attributeWithoutSynchronization(typeAttr));
+    auto newType = InputType::createIfDifferent(*this, attributeWithoutSynchronization(typeAttr), m_inputType.get());
     m_hasType = true;
-    if (m_inputType->formControlType() == newType->formControlType())
+    if (!newType)
         return;
+    ASSERT(m_inputType->formControlType() != newType->formControlType());
 
     removeFromRadioButtonGroup();
     resignStrongPasswordAppearance();
@@ -625,7 +623,8 @@ void HTMLInputElement::subtreeHasChanged()
 {
     m_inputType->subtreeHasChanged();
     // When typing in an input field, childrenChanged is not called, so we need to force the directionality check.
-    calculateAndAdjustDirectionality();
+    if (selfOrPrecedingNodesAffectDirAuto())
+        updateEffectiveDirectionalityOfDirAuto();
 }
 
 const AtomString& HTMLInputElement::formControlType() const
@@ -635,9 +634,7 @@ const AtomString& HTMLInputElement::formControlType() const
 
 bool HTMLInputElement::shouldSaveAndRestoreFormControlState() const
 {
-    if (!m_inputType->shouldSaveAndRestoreFormControlState())
-        return false;
-    return HTMLTextFormControlElement::shouldSaveAndRestoreFormControlState();
+    return m_inputType->shouldSaveAndRestoreFormControlState();
 }
 
 FormControlState HTMLInputElement::saveFormControlState() const
@@ -678,11 +675,15 @@ bool HTMLInputElement::hasPresentationalHintsForAttribute(const QualifiedName& n
 void HTMLInputElement::collectPresentationalHintsForAttribute(const QualifiedName& name, const AtomString& value, MutableStyleProperties& style)
 {
     if (name == vspaceAttr) {
-        addHTMLLengthToStyle(style, CSSPropertyMarginTop, value);
-        addHTMLLengthToStyle(style, CSSPropertyMarginBottom, value);
+        if (isImageButton()) {
+            addHTMLLengthToStyle(style, CSSPropertyMarginTop, value);
+            addHTMLLengthToStyle(style, CSSPropertyMarginBottom, value);
+        }
     } else if (name == hspaceAttr) {
+        if (isImageButton()) {
         addHTMLLengthToStyle(style, CSSPropertyMarginLeft, value);
         addHTMLLengthToStyle(style, CSSPropertyMarginRight, value);
+        }
     } else if (name == alignAttr) {
         if (m_inputType->shouldRespectAlignAttribute())
             applyAlignmentAttributeToStyle(value, style);
@@ -715,7 +716,7 @@ inline void HTMLInputElement::initializeInputType()
     }
 
     m_hasType = true;
-    m_inputType = InputType::create(*this, type);
+    m_inputType = InputType::createIfDifferent(*this, type);
     updateWillValidateAndValidity();
     registerForSuspensionCallbackIfNeeded();
     runPostTypeUpdateTasks();
@@ -789,7 +790,7 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomStrin
         m_maxResults = value.isNull() ? -1 : std::min(parseHTMLInteger(value).value_or(0), maxSavedResults);
     else if (name == autosaveAttr || name == incrementalAttr)
         invalidateStyleForSubtree();
-    else if (name == maxAttr || name == minAttr || name == multipleAttr || name == patternAttr || name == precisionAttr || name == stepAttr)
+    else if (name == maxAttr || name == minAttr || name == multipleAttr || name == patternAttr || name == stepAttr)
         updateValidity();
 #if ENABLE(DATALIST_ELEMENT)
     else if (name == listAttr) {
@@ -898,7 +899,7 @@ bool HTMLInputElement::isSuccessfulSubmitButton() const
 {
     // HTML spec says that buttons must have names to be considered successful.
     // However, other browsers do not impose this constraint. So we do not.
-    return !isDisabledFormControl() && m_inputType->canBeSuccessfulSubmitButton();
+    return m_inputType->canBeSuccessfulSubmitButton();
 }
 
 bool HTMLInputElement::matchesDefaultPseudoClass() const
@@ -985,6 +986,9 @@ void HTMLInputElement::setIndeterminate(bool newValue)
 
     if (auto* renderer = this->renderer(); renderer && renderer->style().hasEffectiveAppearance())
         renderer->theme().stateChanged(*renderer, ControlStates::States::Checked);
+
+    if (auto* cache = document().existingAXObjectCache())
+        cache->valueChanged(this);
 }
 
 bool HTMLInputElement::sizeShouldIncludeDecoration(int& preferredSize) const
@@ -1051,6 +1055,8 @@ ExceptionOr<void> HTMLInputElement::setValue(const String& value, TextFieldEvent
     setLastChangeWasNotUserEdit();
     setFormControlValueMatchesRenderer(false);
     m_inputType->setValue(WTFMove(sanitizedValue), valueChanged, eventBehavior, selection);
+    if (selfOrPrecedingNodesAffectDirAuto())
+        updateEffectiveDirectionalityOfDirAuto();
 
     bool wasModifiedProgrammatically = eventBehavior == DispatchNoEvent;
     if (wasModifiedProgrammatically) {
@@ -1265,8 +1271,8 @@ ExceptionOr<void> HTMLInputElement::showPicker()
     // In cross-origin iframes it should throw a "SecurityError" DOMException except on file and color. In same-origin iframes it should work fine.
     // https://github.com/whatwg/html/issues/6909#issuecomment-917138991
     if (!m_inputType->allowsShowPickerAcrossFrames()) {
-        Frame& topFrame = frame->tree().top();
-        if (!frame->document()->securityOrigin().isSameOriginAs(topFrame.document()->securityOrigin()))
+        auto* localTopFrame = dynamicDowncast<LocalFrame>(frame->tree().top());
+        if (!localTopFrame || !frame->document()->securityOrigin().isSameOriginAs(localTopFrame->document()->securityOrigin()))
             return Exception { SecurityError, "Input showPicker() called from cross-origin iframe."_s };
     }
 
@@ -1338,11 +1344,6 @@ Vector<String> HTMLInputElement::acceptMIMETypes() const
 Vector<String> HTMLInputElement::acceptFileExtensions() const
 {
     return parseAcceptAttribute(attributeWithoutSynchronization(acceptAttr), isValidFileExtension);
-}
-
-String HTMLInputElement::accept() const
-{
-    return attributeWithoutSynchronization(acceptAttr);
 }
 
 String HTMLInputElement::alt() const
@@ -1857,9 +1858,9 @@ bool HTMLInputElement::isEnumeratable() const
     return m_inputType->isEnumeratable();
 }
 
-bool HTMLInputElement::supportLabels() const
+bool HTMLInputElement::isLabelable() const
 {
-    return m_inputType->supportLabels();
+    return m_inputType->isLabelable();
 }
 
 bool HTMLInputElement::shouldAppearChecked() const
@@ -1936,26 +1937,18 @@ bool HTMLInputElement::shouldAppearIndeterminate() const
 MediaCaptureType HTMLInputElement::mediaCaptureType() const
 {
     if (!isFileUpload())
-        return MediaCaptureTypeNone;
+        return MediaCaptureType::MediaCaptureTypeNone;
     
     auto& captureAttribute = attributeWithoutSynchronization(captureAttr);
     if (captureAttribute.isNull())
-        return MediaCaptureTypeNone;
+        return MediaCaptureType::MediaCaptureTypeNone;
     
     if (equalLettersIgnoringASCIICase(captureAttribute, "user"_s))
-        return MediaCaptureTypeUser;
+        return MediaCaptureType::MediaCaptureTypeUser;
     
-    return MediaCaptureTypeEnvironment;
+    return MediaCaptureType::MediaCaptureTypeEnvironment;
 }
 #endif
-
-bool HTMLInputElement::isInRequiredRadioButtonGroup()
-{
-    ASSERT(isRadioButton());
-    if (auto* buttons = radioButtonGroups())
-        return buttons->isInRequiredGroup(*this);
-    return false;
-}
 
 Vector<Ref<HTMLInputElement>> HTMLInputElement::radioButtonGroup() const
 {
@@ -2052,15 +2045,7 @@ void ListAttributeTargetObserver::idTargetChanged()
 }
 #endif
 
-ExceptionOr<void> HTMLInputElement::setRangeText(const String& replacement)
-{
-    if (!m_inputType->supportsSelectionAPI())
-        return Exception { InvalidStateError };
-
-    return HTMLTextFormControlElement::setRangeText(replacement);
-}
-
-ExceptionOr<void> HTMLInputElement::setRangeText(const String& replacement, unsigned start, unsigned end, const String& selectionMode)
+ExceptionOr<void> HTMLInputElement::setRangeText(StringView replacement, unsigned start, unsigned end, const String& selectionMode)
 {
     if (!m_inputType->supportsSelectionAPI())
         return Exception { InvalidStateError };
@@ -2144,18 +2129,23 @@ ExceptionOr<void> HTMLInputElement::setSelectionRangeForBindings(unsigned start,
     return { };
 }
 
-static Ref<CSSLinearGradientValue> autoFillStrongPasswordMaskImage()
+static Ref<StyleGradientImage> autoFillStrongPasswordMaskImage()
 {
-    CSSGradientColorStopList stops {
-        { CSSValuePool::singleton().createColorValue(Color::black), CSSValuePool::singleton().createValue(50, CSSUnitType::CSS_PERCENTAGE), { } },
-        { CSSValuePool::singleton().createColorValue(Color::transparentBlack), CSSValuePool::singleton().createValue(100, CSSUnitType::CSS_PERCENTAGE), { } }
+    Vector<StyleGradientImage::Stop> stops {
+        { Color::black, CSSPrimitiveValue::create(50, CSSUnitType::CSS_PERCENTAGE) },
+        { Color::transparentBlack, CSSPrimitiveValue::create(100, CSSUnitType::CSS_PERCENTAGE) }
     };
 
-    auto colorInterpolationMethod = CSSGradientColorInterpolationMethod::legacyMethod(AlphaPremultiplication::Unpremultiplied);
-    auto gradient = CSSLinearGradientValue::create(CSSGradientRepeat::NonRepeating, CSSGradientType::CSSLinearGradient, colorInterpolationMethod, WTFMove(stops));
-    gradient->setAngle(CSSValuePool::singleton().createValue(90, CSSUnitType::CSS_DEG));
-    gradient->resolveRGBColors();
-    return gradient;
+    return StyleGradientImage::create(
+        StyleGradientImage::LinearData {
+            {
+                CSSLinearGradientValue::Angle { CSSPrimitiveValue::create(90, CSSUnitType::CSS_DEG) }
+            },
+            CSSGradientRepeat::NonRepeating
+        },
+        CSSGradientColorInterpolationMethod::legacyMethod(AlphaPremultiplication::Unpremultiplied),
+        WTFMove(stops)
+    );
 }
 
 RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
@@ -2177,7 +2167,7 @@ RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
         textBlockStyle.setMaxWidth(Length { 100, LengthType::Percent });
         textBlockStyle.setColor(Color::black.colorWithAlphaByte(153));
         textBlockStyle.setTextOverflow(TextOverflow::Clip);
-        textBlockStyle.setMaskImage(StyleGeneratedImage::create(autoFillStrongPasswordMaskImage()));
+        textBlockStyle.setMaskImage(autoFillStrongPasswordMaskImage());
         // A stacking context is needed for the mask.
         if (textBlockStyle.hasAutoUsedZIndex())
             textBlockStyle.setUsedZIndex(0);

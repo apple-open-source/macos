@@ -29,10 +29,7 @@ class SurfaceMtl;
 class FramebufferMtl : public FramebufferImpl
 {
   public:
-    explicit FramebufferMtl(const gl::FramebufferState &state,
-                            ContextMtl *context,
-                            bool flipY,
-                            WindowSurfaceMtl *backbuffer);
+    explicit FramebufferMtl(const gl::FramebufferState &state, ContextMtl *context, bool flipY);
     ~FramebufferMtl() override;
     void destroy(const gl::Context *context) override;
 
@@ -97,6 +94,7 @@ class FramebufferMtl : public FramebufferImpl
     RenderTargetMtl *getDepthRenderTarget() const { return mDepthRenderTarget; }
     RenderTargetMtl *getStencilRenderTarget() const { return mStencilRenderTarget; }
 
+    void setFlipY(bool flipY) { mFlipY = flipY; }
     bool flipY() const { return mFlipY; }
 
     gl::Rectangle getCompleteRenderArea() const;
@@ -104,6 +102,10 @@ class FramebufferMtl : public FramebufferImpl
     WindowSurfaceMtl *getAttachedBackbuffer() const { return mBackbuffer; }
 
     bool renderPassHasStarted(ContextMtl *contextMtl) const;
+    bool renderPassHasDefaultWidthOrHeight() const
+    {
+        return mRenderPassDesc.defaultWidth > 0 || mRenderPassDesc.defaultHeight > 0;
+    }
     mtl::RenderCommandEncoder *ensureRenderPassStarted(const gl::Context *context);
 
     // Call this to notify FramebufferMtl whenever its render pass has started.
@@ -121,6 +123,8 @@ class FramebufferMtl : public FramebufferImpl
                                  const PackPixelsParams &packPixelsParams,
                                  const RenderTargetMtl *renderTarget,
                                  uint8_t *pixels) const;
+    void setBackbuffer(WindowSurfaceMtl *backbuffer) { mBackbuffer = backbuffer; }
+    WindowSurfaceMtl *getBackbuffer() const { return mBackbuffer; }
 
   private:
     void reset();
@@ -228,7 +232,7 @@ class FramebufferMtl : public FramebufferImpl
     bool mRenderPassCleanStart = false;
 
     WindowSurfaceMtl *mBackbuffer = nullptr;
-    const bool mFlipY             = false;
+    bool mFlipY                   = false;
 
     mtl::BufferRef mReadPixelBuffer;
 };

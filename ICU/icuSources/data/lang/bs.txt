@@ -103,6 +103,7 @@ bs{
         chm{"mari"}
         chn{"činukski žargon"}
         cho{"čoktav"}
+        cho_Latn{"čoktav"}
         chp{"čipvijanski"}
         chr{"čeroki"}
         chy{"čejenski"}

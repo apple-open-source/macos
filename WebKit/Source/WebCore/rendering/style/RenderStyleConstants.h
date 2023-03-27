@@ -419,15 +419,6 @@ enum class BoxDirection : uint8_t {
 
 // CSS3 Flexbox Properties
 
-enum class AlignContent : uint8_t {
-    FlexStart,
-    FlexEnd,
-    Center,
-    SpaceBetween,
-    SpaceAround,
-    Stretch
-};
-
 enum class FlexDirection : uint8_t {
     Row,
     RowReverse,
@@ -676,6 +667,8 @@ enum class ListStyleType : uint8_t {
     TraditionalChineseInformal,
     TraditionalChineseFormal,
     EthiopicNumeric,
+    // FIXME: handle counter-style: rdar://102988393.
+    CustomCounterStyle,
     String,
     None
 };
@@ -705,7 +698,6 @@ enum class WhiteSpace : uint8_t {
     PreWrap,
     PreLine,
     NoWrap,
-    KHTMLNoWrap,
     BreakSpaces
 };
 
@@ -775,11 +767,44 @@ enum class TextDecorationSkipInk : uint8_t {
     All
 };
 
+enum class TextGroupAlign : uint8_t {
+    None,
+    Start,
+    End,
+    Left,
+    Right,
+    Center
+};
+
 enum class TextUnderlinePosition : uint8_t {
     // FIXME: Implement support for 'under left' and 'under right' values.
     Auto,
     Under,
     FromFont
+};
+
+enum class LeadingTrim : uint8_t {
+    Normal,
+    Start,
+    End,
+    Both
+};
+
+enum class MarginTrimType : uint8_t {
+    BlockStart = 1 << 0,
+    BlockEnd = 1 << 1,
+    InlineStart = 1 << 2,
+    InlineEnd = 1 << 3
+};
+
+enum class TextEdgeType : uint8_t {
+    Leading,
+    Text,
+    CapHeight,
+    ExHeight,
+    Alphabetic,
+    CJKIdeographic,
+    CJKIdeographicInk
 };
 
 enum class TextZoom : uint8_t {
@@ -970,7 +995,6 @@ enum class Hyphens : uint8_t {
 };
 
 enum class SpeakAs : uint8_t {
-    Normal             = 0,
     SpellOut           = 1 << 0,
     Digits             = 1 << 1,
     LiteralPunctuation = 1 << 2,
@@ -1009,6 +1033,14 @@ enum class TextOrientation : uint8_t {
 enum class TextOverflow : uint8_t {
     Clip = 0,
     Ellipsis
+};
+
+enum class TextWrap : uint8_t {
+    Wrap,
+    NoWrap,
+    Balance,
+    Stable,
+    Pretty
 };
 
 enum class ImageRendering : uint8_t {
@@ -1086,6 +1118,16 @@ enum GridAutoFlow {
     AutoFlowColumnDense = InternalAutoFlowAlgorithmDense | InternalAutoFlowDirectionColumn
 };
 
+enum class MasonryAutoFlowPlacementAlgorithm {
+    Pack,
+    Next
+};
+
+enum class MasonryAutoFlowPlacementOrder {
+    DefiniteFirst,
+    Ordered
+};
+
 enum class AutoRepeatType : uint8_t {
     None,
     Fill,
@@ -1153,13 +1195,6 @@ enum class ScrollSnapStop : uint8_t {
     Always,
 };
 
-#if ENABLE(CSS_TRAILING_WORD)
-enum class TrailingWord : uint8_t {
-    Auto,
-    PartiallyBalanced
-};
-#endif
-
 // These are all minimized combinations of paint-order.
 enum class PaintOrder : uint8_t {
     Normal,
@@ -1214,6 +1249,12 @@ enum class ContainIntrinsicSizeType : uint8_t {
     None,
     Length,
     AutoAndLength
+};
+
+enum class ContentVisibility : uint8_t {
+    Visible,
+    Auto,
+    Hidden,
 };
 
 CSSBoxType transformBoxToCSSBoxType(TransformBox);
@@ -1278,6 +1319,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, LineBreak);
 WTF::TextStream& operator<<(WTF::TextStream&, LineSnap);
 WTF::TextStream& operator<<(WTF::TextStream&, ListStylePosition);
 WTF::TextStream& operator<<(WTF::TextStream&, ListStyleType);
+WTF::TextStream& operator<<(WTF::TextStream&, MarginTrimType);
 WTF::TextStream& operator<<(WTF::TextStream&, MarqueeBehavior);
 WTF::TextStream& operator<<(WTF::TextStream&, MarqueeDirection);
 WTF::TextStream& operator<<(WTF::TextStream&, MaskMode);
@@ -1312,12 +1354,16 @@ WTF::TextStream& operator<<(WTF::TextStream&, TextDecorationStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisFill);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisMark);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisPosition);
+WTF::TextStream& operator<<(WTF::TextStream&, TextGroupAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, TextJustify);
 WTF::TextStream& operator<<(WTF::TextStream&, TextOrientation);
 WTF::TextStream& operator<<(WTF::TextStream&, TextOverflow);
 WTF::TextStream& operator<<(WTF::TextStream&, TextSecurity);
 WTF::TextStream& operator<<(WTF::TextStream&, TextTransform);
 WTF::TextStream& operator<<(WTF::TextStream&, TextUnderlinePosition);
+WTF::TextStream& operator<<(WTF::TextStream&, TextWrap);
+WTF::TextStream& operator<<(WTF::TextStream&, LeadingTrim);
+WTF::TextStream& operator<<(WTF::TextStream&, TextEdgeType);
 WTF::TextStream& operator<<(WTF::TextStream&, TextZoom);
 WTF::TextStream& operator<<(WTF::TextStream&, TransformBox);
 WTF::TextStream& operator<<(WTF::TextStream&, TransformStyle3D);

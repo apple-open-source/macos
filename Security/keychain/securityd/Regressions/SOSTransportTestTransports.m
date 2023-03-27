@@ -62,23 +62,6 @@ CFMutableArrayRef message_transports = NULL;
     return SOSAccountHandleParametersChange(acct, data, &error);
 }
 
-
--(void) SOSTransportKeyParameterHandleNewAccount:(CKKeyParameterTest*) transport acct:(SOSAccount*) acct
-{
-    
-    if(key_transports){
-        CFArrayRemoveAllValue(key_transports, (__bridge CFTypeRef)(acct.key_transport));
-    }
-    if(message_transports){
-        CFArrayRemoveAllValue(message_transports, (__bridge CFTypeRef)acct.kvs_message_transport);
-    }
-    if(circle_transports)
-        CFArrayRemoveAllValue(circle_transports, (__bridge CFTypeRef)(acct.circle_transport));
-
-    SOSAccountSetToNew(acct);
-    SOSAccountResetToTest(acct, transport.name);
-}
-
 CFStringRef SOSTransportKeyParameterTestGetName(CKKeyParameterTest* transport){
     return transport.name;
 }

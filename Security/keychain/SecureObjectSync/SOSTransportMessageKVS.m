@@ -173,7 +173,7 @@ static bool sendToPeer(SOSMessage* transport, CFStringRef circleName, CFStringRe
     SOSMessageKVS* kvsTransport = (SOSMessageKVS*) transport;
     bool result = true;
     SOSAccount* account = [transport SOSTransportMessageGetAccount];
-    CFTypeRef dsid = SOSAccountGetValue(account, kSOSDSIDKey, error);
+    CFTypeRef dsid = SOSAccountGetCurrentDSID(account);
     
     if(dsid == NULL)
         dsid = kCFNull;

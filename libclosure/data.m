@@ -18,8 +18,10 @@
  * __NSAutoBlock__ and __NSGlobalBlock__.
  */
 
-#include <Foundation/NSObject.h>
+#include <objc/NSObject.h>
 #include "Block_private.h"
+
+@class NSZone;
 
 // the class for stack instances created by block expressions
 __attribute__((objc_nonlazy_class, visibility("hidden")))

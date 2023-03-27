@@ -38,12 +38,18 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init:(NSString*)containerName
            contextID:(NSString*)contextID
               reason:(CuttlefishResetReason)reason
+        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+notifyIdMS:(bool)notifyIdMS
        intendedState:(OctagonState*)intendedState
         dependencies:(OTOperationDependencies *)deps
           errorState:(OctagonState*)errorState
 cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
 
 @property CuttlefishResetReason resetReason;
+@property (nullable) NSString* idmsTargetContext;
+@property (nullable) NSString* idmsCuttlefishPassword;
+@property () bool notifyIdMS;
 @end
 
 NS_ASSUME_NONNULL_END

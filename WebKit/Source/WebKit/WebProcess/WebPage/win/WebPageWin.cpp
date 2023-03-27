@@ -68,43 +68,6 @@ void WebPage::getPlatformEditorState(Frame&, EditorState&) const
 {
 }
 
-bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboardEvent)
-{
-    if (keyboardEvent.type() != WebEvent::KeyDown && keyboardEvent.type() != WebEvent::RawKeyDown)
-        return false;
-
-    switch (keyboardEvent.windowsVirtualKeyCode()) {
-    case VK_LEFT:
-        scroll(m_page.get(), ScrollLeft, ScrollGranularity::Line);
-        break;
-    case VK_RIGHT:
-        scroll(m_page.get(), ScrollRight, ScrollGranularity::Line);
-        break;
-    case VK_UP:
-        scroll(m_page.get(), ScrollUp, ScrollGranularity::Line);
-        break;
-    case VK_DOWN:
-        scroll(m_page.get(), ScrollDown, ScrollGranularity::Line);
-        break;
-    case VK_HOME:
-        scroll(m_page.get(), ScrollUp, ScrollGranularity::Document);
-        break;
-    case VK_END:
-        scroll(m_page.get(), ScrollDown, ScrollGranularity::Document);
-        break;
-    case VK_PRIOR:
-        scroll(m_page.get(), ScrollUp, ScrollGranularity::Page);
-        break;
-    case VK_NEXT:
-        scroll(m_page.get(), ScrollDown, ScrollGranularity::Page);
-        break;
-    default:
-        return false;
-    }
-
-    return true;
-}
-
 bool WebPage::platformCanHandleRequest(const ResourceRequest&)
 {
     notImplemented();
@@ -232,10 +195,10 @@ const char* WebPage::interpretKeyEvent(const WebCore::KeyboardEvent* evt)
         keyDownCommandsMap = new HashMap<int, const char*>;
         keyPressCommandsMap = new HashMap<int, const char*>;
 
-        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyDownEntries); ++i)
+        for (size_t i = 0; i < std::size(keyDownEntries); ++i)
             keyDownCommandsMap->set(keyDownEntries[i].modifiers << 16 | keyDownEntries[i].virtualKey, keyDownEntries[i].name);
 
-        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyPressEntries); ++i)
+        for (size_t i = 0; i < std::size(keyPressEntries); ++i)
             keyPressCommandsMap->set(keyPressEntries[i].modifiers << 16 | keyPressEntries[i].charCode, keyPressEntries[i].name);
     }
 
@@ -270,7 +233,7 @@ bool WebPage::handleEditingKeyboardEvent(WebCore::KeyboardEvent& event)
 
     auto command = frame->editor().command(String::fromLatin1(interpretKeyEvent(&event)));
 
-    if (keyEvent->type() == PlatformEvent::RawKeyDown) {
+    if (keyEvent->type() == PlatformEvent::Type::RawKeyDown) {
         // WebKit doesn't have enough information about mode to decide
         // how commands that just insert text if executed via Editor
         // should be treated, so we leave it upon WebCore to either

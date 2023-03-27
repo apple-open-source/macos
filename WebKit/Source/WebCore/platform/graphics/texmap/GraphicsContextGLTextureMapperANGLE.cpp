@@ -27,7 +27,7 @@
 #include "config.h"
 #include "GraphicsContextGLTextureMapperANGLE.h"
 
-#if ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && !USE(NICOSIA) && USE(ANGLE)
+#if ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && !USE(NICOSIA)
 
 #include "ANGLEHeaders.h"
 #include "ANGLEUtilities.h"
@@ -52,8 +52,9 @@ GraphicsContextGLANGLE::GraphicsContextGLANGLE(GraphicsContextGLAttributes attri
 
 GraphicsContextGLANGLE::~GraphicsContextGLANGLE()
 {
-    bool success = makeContextCurrent();
-    ASSERT_UNUSED(success, success);
+    if (!makeContextCurrent())
+        return;
+
     if (m_texture)
         GL_DeleteTextures(1, &m_texture);
 
@@ -101,7 +102,7 @@ RefPtr<PixelBuffer> GraphicsContextGLANGLE::readCompositedResults()
     return readRenderingResults();
 }
 
-RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes& attributes)
+RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes& attributes, SerialFunctionDispatcher*)
 {
     return GraphicsContextGLTextureMapperANGLE::create(GraphicsContextGLAttributes { attributes });
 }
@@ -121,8 +122,8 @@ GraphicsContextGLTextureMapperANGLE::GraphicsContextGLTextureMapperANGLE(Graphic
 
 GraphicsContextGLTextureMapperANGLE::~GraphicsContextGLTextureMapperANGLE()
 {
-    bool success = makeContextCurrent();
-    ASSERT_UNUSED(success, success);
+    if (!makeContextCurrent())
+        return;
 
     if (m_compositorTexture)
         GL_DeleteTextures(1, &m_compositorTexture);
@@ -256,6 +257,11 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitializeContext()
 
 bool GraphicsContextGLTextureMapperANGLE::platformInitialize()
 {
+#if ENABLE(WEBGL2)
+    if (m_isForWebGL2)
+        GL_Enable(GraphicsContextGL::PRIMITIVE_RESTART_FIXED_INDEX);
+#endif
+
     m_texmapLayer = makeUnique<TextureMapperGCGLPlatformLayer>(*this);
     m_layerContentsDisplayDelegate = PlatformLayerDisplayDelegate::create(m_texmapLayer.get());
 
@@ -265,6 +271,23 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitialize()
     // We require this extension to render into the dmabuf-backed EGLImage.
     RELEASE_ASSERT(supportsExtension("GL_OES_EGL_image"_s));
     GL_RequestExtensionANGLE("GL_OES_EGL_image");
+
+    Vector<ASCIILiteral, 4> requiredExtensions;
+#if ENABLE(WEBGL2)
+    if (m_isForWebGL2) {
+        // For WebGL 2.0 occlusion queries to work.
+        requiredExtensions.append("GL_EXT_occlusion_query_boolean"_s);
+        requiredExtensions.append("GL_ANGLE_framebuffer_multisample"_s);
+    }
+#endif
+
+    for (auto& extension : requiredExtensions) {
+        if (!supportsExtension(extension)) {
+            LOG(WebGL, "Missing required extension. %s", extension.characters());
+            return false;
+        }
+        ensureExtensionEnabled(extension);
+    }
 
     validateAttributes();
     auto attributes = contextAttributes(); // They may have changed during validation.
@@ -381,4 +404,4 @@ void GraphicsContextGLTextureMapperANGLE::prepareForDisplay()
 
 } // namespace WebCore
 
-#endif // ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && !USE(NICOSIA) && USE(ANGLE)
+#endif // ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && !USE(NICOSIA)

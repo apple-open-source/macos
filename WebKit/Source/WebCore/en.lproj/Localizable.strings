@@ -55,9 +55,6 @@
 /* Visible name of Service Worker process. The argument is the application name. */
 "%@ Service Worker (%@)" = "%@ Service Worker (%@)";
 
-/* visible name of the WebAuthn process. The argument is the application name. */
-"%@ Web Authentication" = "%@ Web Authentication";
-
 /* Visible name of the web process. The argument is the application name. */
 "%@ Web Content" = "%@ Web Content";
 
@@ -67,11 +64,23 @@
 /* Visible name of the web process. The argument is the application name. */
 "%@ Web Content (Prewarmed)" = "%@ Web Content (Prewarmed)";
 
+/* Extension's process name that appears in Activity Monitor where the parameter is the name of the extension */
+"%@ Web Extension" = "%@ Web Extension";
+
 /* Visible name of Web Inspector's web process. The argument is the application name. */
 "%@ Web Inspector" = "%@ Web Inspector";
 
 /* Name of application's single WebCrypto master key in Keychain */
 "%@ WebCrypto Master Key" = "%@ WebCrypto Master Key";
+
+/* The domain and application using the camera and/or microphone. The first argument is domain, the second is the application name (iOS only). */
+"%@ in %%@" = "%@ in %%@";
+
+/* Label for an inspectable Web Extension background page */
+"%@ — Extension Background Page" = "%@ — Extension Background Page";
+
+/* Label for an inspectable Web Extension service worker */
+"%@ — Extension Service Worker" = "%@ — Extension Service Worker";
 
 /* Label to describe the number of files selected in a file upload control that allows multiple files */
 "%d files" = "%d files";
@@ -127,11 +136,11 @@
 /* WKErrorJavaScriptExceptionOccurred description */
 "A JavaScript exception occurred" = "A JavaScript exception occurred";
 
+/* Actual Size context menu item */
+"Actual Size" = "Actual Size";
+
 /* Label for the add money with Apple Pay button. */
 "Add money with Apple Pay" = "Add money with Apple Pay";
-
-/* Title for Save to Photos action button */
-"Save to Photos" = "Save to Photos";
 
 /* Add to Quick Note context menu item. */
 "Add to Quick Note" = "Add to Quick Note";
@@ -145,11 +154,8 @@
 /* Undo action name */
 "Align Right (Undo action name)" = "Align Right";
 
-/* Allow screen button title in window and screen sharing prompt */
-"Allow to Share Screen" = "Allow to Share Screen";
-
-/* Allow window button title in window and screen sharing prompt */
-"Allow to Share Window" = "Allow to Share Window";
+/* Action authorizing a webpage to access the user’s location. */
+"Allow" = "Allow";
 
 /* Button title in Storage Access API prompt */
 "Allow (cross-site cookie and website data access)" = "Allow";
@@ -171,6 +177,12 @@
 
 /* Allow button title in window sharing prompt */
 "Allow (window sharing)" = "Allow";
+
+/* Allow screen button title in window and screen sharing prompt */
+"Allow to Share Screen" = "Allow to Share Screen";
+
+/* Allow window button title in window and screen sharing prompt */
+"Allow to Share Window" = "Allow to Share Window";
 
 /* Message for requesting cross-site cookie and website data access. */
 "Allow “%@” and “%@” to use cookies and website data while browsing “%@”?" = "Allow “%@” and “%@” to use cookies and website data while browsing “%@”?";
@@ -199,8 +211,20 @@
 /* Message for user microphone access prompt */
 "Allow “%@” to use your microphone?" = "Allow “%@” to use your microphone?";
 
+/* WKWebExtensionErrorUnknown description */
+"An unknown error has occurred." = "An unknown error has occurred.";
+
+/* WKWebExtensionContextErrorUnknown description */
+"An unknown error has occurred. (WKWebExtensionContext)" = "An unknown error has occurred.";
+
 /* WKErrorUnknown description */
 "An unknown error occurred" = "An unknown error occurred";
+
+/* WKWebExtensionErrorUnsupportedManifestVersion description */
+"An unsupported `manifest_version` was specified." = "An unsupported `manifest_version` was specified.";
+
+/* WKWebExtensionContextErrorBaseURLAlreadyInUse description */
+"Another extension context is loaded with the same base URL." = "Another extension context is loaded with the same base URL.";
 
 /* Label for the plain Apple Pay button. */
 "Apple Pay" = "Apple Pay";
@@ -216,6 +240,9 @@
 
 /* Menu item label for automatic track selection behavior. */
 "Auto (Recommended) (text track)" = "Auto (Recommended)";
+
+/* Automatically Resize context menu item */
+"Automatically Resize" = "Automatically Resize";
 
 /* Back context menu item */
 "Back" = "Back";
@@ -262,6 +289,9 @@
 /* Undo action name */
 "Center (Undo action name)" = "Center";
 
+/* Lockdown Mode alert message */
+"Certain experiences and features may not function as expected. You can turn off Lockdown Mode for this app in Settings." = "Certain experiences and features may not function as expected. You can turn off Lockdown Mode for this app in Settings.";
+
 /* Undo action name */
 "Change Attributes (Undo action name)" = "Change Attributes";
 
@@ -280,9 +310,6 @@
 /* Label for the check out with Apple Pay button. */
 "Check out with Apple Pay" = "Check out with Apple Pay";
 
-/* Message for window sharing prompt */
-"Choose a window to share" = "Choose a window to share";
-
 /* title for a single file chooser button used in HTML forms */
 "Choose File" = "Choose File";
 
@@ -294,6 +321,9 @@
 
 /* Title for file button used in HTML forms for media files */
 "Choose Media (Single)" = "Choose Media (Single)";
+
+/* Message for window sharing prompt */
+"Choose a window to share" = "Choose a window to share";
 
 /* menu item in Recent Searches menu that empties menu's contents */
 "Clear Recent Searches" = "Clear Recent Searches";
@@ -334,14 +364,11 @@
 /* Copy context menu item */
 "Copy" = "Copy";
 
-/* Title for Copy Link or Image action button */
+/* Title for Copy Link and Image or Copy Image action button */
 "Copy (ActionSheet)" = "Copy";
 
 /* Copy Audio Address Location context menu item */
 "Copy Audio Address" = "Copy Audio Address";
-
-/* Copy Subject context menu item */
-"Copy Subject" = "Copy Subject";
 
 /* Copy Image context menu item */
 "Copy Image" = "Copy Image";
@@ -352,6 +379,9 @@
 /* Title for Copy Link button */
 "Copy Link (ActionSheet)" = "Copy Link";
 
+/* Title for Copy Subject */
+"Copy Subject" = "Copy Subject";
+
 /* Copy Video Address Location context menu item */
 "Copy Video Address" = "Copy Video Address";
 
@@ -360,6 +390,9 @@
 
 /* Undo action name */
 "Create Link (Undo action name)" = "Create Link";
+
+/* WKErrorCredentialNotFound description */
+"Credential could not be found" = "Credential could not be found";
 
 /* Cut context menu item */
 "Cut" = "Cut";
@@ -397,14 +430,14 @@
 /* Message for requesting cross-site cookie and website data access. */
 "Do you want to allow “%@” to use cookies and website data while browsing “%@”?" = "Do you want to allow “%@” to use cookies and website data while browsing “%@”?";
 
-/* Button title in Storage Access API prompt */
-"Don't Allow (cross-site cookie and website data access)" = "Don't Allow";
-
 /* Label for the donate with Apple Pay button. */
 "Donate with Apple Pay" = "Donate with Apple Pay";
 
 /* Title of the Done button for form controls. */
 "Done" = "Done";
+
+/* Button title in Storage Access API prompt */
+"Don’t Allow (cross-site cookie and website data access)" = "Don’t Allow";
 
 /* Disallow button title in geolocation prompt */
 "Don’t Allow (geolocation)" = "Don’t Allow";
@@ -417,6 +450,9 @@
 
 /* Disallow button title in user media prompt */
 "Don’t Allow (usermedia)" = "Don’t Allow";
+
+/* Action denying a webpage access to the user’s location. */
+"Don’t Allow (website location dialog)" = "Don’t Allow";
 
 /* Disallow button title in window and screen sharing prompt */
 "Don’t Allow (window and screen sharing)" = "Don’t Allow";
@@ -441,6 +477,24 @@
 
 /* Display name for easy reader (i.e. 3rd-grade level) text tracks. */
 "Easy Reader (text track)" = "Easy Reader";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for URL overrides */
+"Empty or invalid URL overrides manifest entry" = "Empty or invalid URL overrides manifest entry";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for background */
+"Empty or invalid `background` manifest entry." = "Empty or invalid `background` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for content_scripts */
+"Empty or invalid `content_scripts` manifest entry." = "Empty or invalid `content_scripts` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for default_icon in action only */
+"Empty or invalid `default_icon` for the `action` manifest entry." = "Empty or invalid `default_icon` for the `action` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for default_icon in browser_action or page_action */
+"Empty or invalid `default_icon` for the `browser_action` or `page_action` manifest entry." = "Empty or invalid `default_icon` for the `browser_action` or `page_action` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for externally_connectable */
+"Empty or invalid `externally_connectable` manifest entry." = "Empty or invalid `externally_connectable` manifest entry.";
 
 /* Video Enter Full Screen context menu item */
 "Enter Full Screen" = "Enter Full Screen";
@@ -475,6 +529,27 @@
 /* menu item */
 "Exit Picture in Picture" = "Exit Picture in Picture";
 
+/* WKWebExtensionContextErrorAlreadyLoaded description */
+"Extension context is already loaded." = "Extension context is already loaded.";
+
+/* WKWebExtensionContextErrorNotLoaded description */
+"Extension context is not loaded." = "Extension context is not loaded.";
+
+/* WKWebExtensionErrorInvalidActionIcon description for failing to load single image for action */
+"Failed to load image for `default_icon` in the `action` manifest entry." = "Failed to load image for `default_icon` in the `action` manifest entry.";
+
+/* WKWebExtensionErrorInvalidActionIcon description for failing to load single image for browser_action or page_action */
+"Failed to load image for `default_icon` in the `browser_action` or `page_action` manifest entry." = "Failed to load image for `default_icon` in the `browser_action` or `page_action` manifest entry.";
+
+/* WKWebExtensionErrorInvalidActionIcon description for failing to load images for action only */
+"Failed to load images in `default_icon` for the `action` manifest entry." = "Failed to load images in `default_icon` for the `action` manifest entry.";
+
+/* WKWebExtensionErrorInvalidActionIcon description for failing to load images for browser_action or page_action */
+"Failed to load images in `default_icon` for the `browser_action` or `page_action` manifest entry." = "Failed to load images in `default_icon` for the `browser_action` or `page_action` manifest entry.";
+
+/* WKWebExtensionErrorInvalidIcon description for failing to load images */
+"Failed to load images in `icons` manifest entry." = "Failed to load images in `icons` manifest entry.";
+
 /* The requested file doesn't exist */
 "File does not exist" = "File does not exist";
 
@@ -496,11 +571,11 @@
 /* Display name for text track kind 'forced'. */
 "Forced (text track)" = "Forced";
 
-/* Label for the save data format selector when saving data in Web Inspector */
-"Format:" = "Format:";
-
 /* Undo action name */
 "Format Block (Undo action name)" = "Formatting";
+
+/* Label for the save data format selector when saving data in Web Inspector */
+"Format:" = "Format:";
 
 /* Forward context menu item */
 "Forward" = "Forward";
@@ -565,6 +640,21 @@
 /* Inspect Element context menu item */
 "Inspect Element" = "Inspect Element";
 
+/* WKWebExtensionErrorInvalidBackgroundPersistence description */
+"Invalid `persistent` manifest entry." = "Invalid `persistent` manifest entry.";
+
+/* WKWebExtensionErrorInvalidBackgroundPersistence description for manifest v3 */
+"Invalid `persistent` manifest entry. A `manifest_version` greater-than or equal to `3` must be non-persistent." = "Invalid `persistent` manifest entry. A `manifest_version` greater-than or equal to `3` must be non-persistent.";
+
+/* WKWebExtensionErrorInvalidBackgroundPersistence description for service worker */
+"Invalid `persistent` manifest entry. A `service_worker` must be non-persistent." = "Invalid `persistent` manifest entry. A `service_worker` must be non-persistent.";
+
+/* WKWebExtensionErrorInvalidBackgroundPersistence description for iOS */
+"Invalid `persistent` manifest entry. A non-persistent background is required on iOS and iPadOS." = "Invalid `persistent` manifest entry. A non-persistent background is required on iOS and iPadOS.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for web_accessible_resources */
+"Invalid `web_accessible_resources` manifest entry." = "Invalid `web_accessible_resources` manifest entry.";
+
 /* Validation message for input form controls with a value not matching type */
 "Invalid value" = "Invalid value";
 
@@ -622,6 +712,9 @@
 /* 'Website' name displayed when local documents have stored local data */
 "Local documents on your computer" = "Local documents on your computer";
 
+/* Lockdown Mode alert title */
+"Lockdown Mode is Turned On For “%@“" = "Lockdown Mode is Turned On For “%@“";
+
 /* Title for Look Up action button */
 "Look Up" = "Look Up";
 
@@ -664,6 +757,18 @@
 /* Malware warning title */
 "Malware Website Warning" = "Malware Website Warning";
 
+/* WKWebExtensionErrorInvalidBackgroundContent description for missing background required keys */
+"Manifest `background` entry has missing or empty required key `scripts`, `page`, or `service_worker`." = "Manifest `background` entry has missing or empty required key `scripts`, `page`, or `service_worker`.";
+
+/* WKWebExtensionErrorInvalidContentScripts description for missing or empty 'js' and 'css' arrays */
+"Manifest `content_scripts` entry has missing or empty 'js' and 'css' arrays." = "Manifest `content_scripts` entry has missing or empty 'js' and 'css' arrays.";
+
+/* WKWebExtensionErrorInvalidContentScripts description for missing matches entry */
+"Manifest `content_scripts` entry has no specified `matches` entry." = "Manifest `content_scripts` entry has no specified `matches` entry.";
+
+/* WKWebExtensionErrorInvalidContentScripts description for unknown 'run_at' value */
+"Manifest `content_scripts` entry has unknown `run_at` value." = "Manifest `content_scripts` entry has unknown `run_at` value.";
+
 /* Validation message for input form controls requiring a constrained value according to pattern */
 "Match the requested format" = "Match the requested format";
 
@@ -676,11 +781,32 @@
 /* Label text to be used when a plugin is missing */
 "Missing Plug-in" = "Missing Plug-in";
 
+/* WKWebExtensionErrorInvalidManifestEntry description for action only */
+"Missing or empty `action` manifest entry." = "Missing or empty `action` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for browser_action or page_action */
+"Missing or empty `browser_action` or `page_action` manifest entry." = "Missing or empty `browser_action` or `page_action` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for description */
+"Missing or empty `description` manifest entry." = "Missing or empty `description` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for icons */
+"Missing or empty `icons` manifest entry." = "Missing or empty `icons` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for name */
+"Missing or empty `name` manifest entry." = "Missing or empty `name` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for version */
+"Missing or empty `version` manifest entry." = "Missing or empty `version` manifest entry.";
+
 /* Media Mute context menu item */
 "Mute" = "Mute";
 
 /* New Quick Note context menu item. */
 "New Quick Note" = "New Quick Note";
+
+/* Next Page context menu item */
+"Next Page" = "Next Page";
 
 /* No Guesses Found context menu item */
 "No Guesses Found" = "No Guesses Found";
@@ -691,6 +817,9 @@
 /* Label for only item in menu that appears when clicking on the search field image, when no searches have been performed */
 "No recent searches" = "No recent searches";
 
+/* WKWebExtensionErrorInvalidBackgroundPersistence description for webRequest events */
+"Non-persistent background content cannot listen to `webRequest` events." = "Non-persistent background content cannot listen to `webRequest` events.";
+
 /* Option in segmented control for choosing list type in text editing */
 "None" = "None";
 
@@ -700,11 +829,14 @@
 /* Option in segmented control for inserting a numbered list in text editing */
 "Numbered list" = "Numbered list";
 
-/* Label for OK button in alerts */
+/* Lockdown Mode alert OK button */
 "OK" = "OK";
 
 /* Title of the OK button for the number pad in zoomed form controls. */
 "OK (OK button title in extra zoomed number pad)" = "OK";
+
+/* OK button label in document password failure alert */
+"OK (password failure alert)" = "OK";
 
 /* Menu item label for the track that represents disabling closed captions. */
 "Off (text track)" = "Off";
@@ -769,6 +901,9 @@
 /* Media Pause context menu item */
 "Pause" = "Pause";
 
+/* Pause All Animations context menu item */
+"Pause All Animations" = "Pause All Animations";
+
 /* File Upload alert sheet button string for choosing an existing media item from the Photo Library */
 "Photo Library (file upload action sheet)" = "Photo Library";
 
@@ -777,6 +912,9 @@
 
 /* Media Play context menu item */
 "Play" = "Play";
+
+/* Play All Animations context menu item */
+"Play All Animations" = "Play All Animations";
 
 /* accessibility help text for enter full screen button */
 "Play movie in full screen mode" = "Play movie in full screen mode";
@@ -796,14 +934,20 @@
 /* WebKitErrorPlugInWillHandleLoad description */
 "Plug-in handled load" = "Plug-in handled load";
 
-/* Description of the primary type supported by the PDF pseudo plug-in. Visible in the Installed Plug-ins page in Safari. */
+/* Description of the primary type supported by the PDF pseudo plug-in. */
 "Portable Document Format" = "Portable Document Format";
+
+/* Description of the primary type supported by the PDF pseudo plug-in. Visible in the Installed Plug-ins page in Safari. */
+"Portable Document Format (Safari)" = "Portable Document Format";
 
 /* Description of the PostScript type supported by the PDF pseudo plug-in. Visible in the Installed Plug-ins page in Safari. */
 "PostScript" = "PostScript";
 
 /* Title for file upload progress view */
 "Preparing (file upload)" = "Preparing…";
+
+/* Previous Page context menu item */
+"Previous Page" = "Previous Page";
 
 /* Undo action name */
 "Raise Baseline (Undo action name)" = "Raise Baseline";
@@ -817,14 +961,14 @@
 /* Label for the reload with Apple Pay button. */
 "Reload with Apple Pay" = "Reload with Apple Pay";
 
-/* WKErrorContentRuleListStoreRemoveFailed description */
-"Removing a WKContentRuleList failed" = "Removing a WKContentRuleList failed";
-
 /* Remove Background menu item */
 "Remove Background" = "Remove Background";
 
 /* Undo action name */
 "Remove Background (Undo action name)" = "Remove Background";
+
+/* WKErrorContentRuleListStoreRemoveFailed description */
+"Removing a WKContentRuleList failed" = "Removing a WKContentRuleList failed";
 
 /* Label for the rent with Apple Pay button. */
 "Rent with Apple Pay" = "Rent with Apple Pay";
@@ -840,6 +984,9 @@
 
 /* Display name for SDH (i.e. deaf and/or hard of hearing) text tracks. */
 "SDH (text track)" = "SDH";
+
+/* Title for Save to Photos action button */
+"Save to Photos" = "Save to Photos";
 
 /* Title of the Search button for zoomed form controls. */
 "Search" = "Search";
@@ -910,6 +1057,9 @@
 /* Show fonts context menu item */
 "Show Fonts" = "Show Fonts";
 
+/* Media stats context menu item */
+"Show Media Stats" = "Show Media Stats";
+
 /* menu item title */
 "Show Spelling and Grammar" = "Show Spelling and Grammar";
 
@@ -921,6 +1071,12 @@
 
 /* Title of the context menu item to show when PDFPlugin was used instead of a blocked plugin */
 "Show in blocked plug-in" = "Show in blocked plug-in";
+
+/* Single Page context menu item */
+"Single Page" = "Single Page";
+
+/* Single Page Continuous context menu item */
+"Single Page Continuous" = "Single Page Continuous";
 
 /* Smart Copy/Paste context menu item */
 "Smart Copy/Paste" = "Smart Copy/Paste";
@@ -1039,6 +1195,9 @@
 /* WKErrorWebContentProcessTerminated description */
 "The Web Content process was terminated" = "The Web Content process was terminated";
 
+/* WKWebExtensionErrorBackgroundContentFailedToLoad description */
+"The background content failed to load due to an error." = "The background content failed to load due to an error.";
+
 /* WebKitErrorGeolocationLocationUnknown description */
 "The current location cannot be found." = "The current location cannot be found.";
 
@@ -1060,6 +1219,12 @@
 /* prompt string in authentication panel */
 "The user name or password you entered for this area on %@ was incorrect. Make sure you’re entering them correctly, and then try again." = "The user name or password you entered for this area on %@ was incorrect. Make sure you’re entering them correctly, and then try again.";
 
+/* WKErrorDuplicateCredential description */
+"This credential is already present" = "This credential is already present";
+
+/* WKErrorMalformedCredential description */
+"This credential is malformed" = "This credential is malformed";
+
 /* text that appears at the start of nearly-obsolete web pages in the form of a 'searchable index' */
 "This is a searchable index. Enter search keywords: " = "This is a searchable index. Enter search keywords: ";
 
@@ -1071,6 +1236,12 @@
 
 /* Unwanted software warning */
 "This website may try to trick you into installing software that harms your browsing experience, like changing your settings without your permission or showing you unwanted ads. Once installed, it may be difficult to remove." = "This website may try to trick you into installing software that harms your browsing experience, like changing your settings without your permission or showing you unwanted ads. Once installed, it may be difficult to remove.";
+
+/* Message informing the user that the website will have approximate location data */
+"This website will use your approximate location because “%@” currently has access to your approximate location." = "This website will use your approximate location because “%@” currently has access to your approximate location.";
+
+/* Message informing the user that the website will have precise location data */
+"This website will use your precise location because “%@” currently has access to your precise location." = "This website will use your precise location because “%@” currently has access to your precise location.";
 
 /* Informative text for requesting cross-site cookie and website data access. */
 "This will allow “%@” and “%@” to track your activity." = "This will allow “%@” and “%@” to track your activity.";
@@ -1111,6 +1282,12 @@
 /* Undo action name */
 "Turn Off Ligatures (Undo action name)" = "Turn Off Ligatures";
 
+/* Two Pages context menu item */
+"Two Pages" = "Two Pages";
+
+/* Two Pages Continuous context menu item */
+"Two Pages Continuous" = "Two Pages Continuous";
+
 /* Undo action name */
 "Typing (Undo action name)" = "Typing";
 
@@ -1119,6 +1296,27 @@
 
 /* accessibility role description for a URL field. */
 "URL field" = "URL field";
+
+/* WKWebExtensionErrorResourceNotFound description with file name */
+"Unable to find \"%@\" in the extension’s resources." = "Unable to find \"%@\" in the extension’s resources.";
+
+/* WKWebExtensionErrorResourceNotFound description with invalid file path */
+"Unable to find \"%@\" in the extension’s resources. It is an invalid path." = "Unable to find \"%@\" in the extension’s resources. It is an invalid path.";
+
+/* WKWebExtensionErrorInvalidDeclarativeNetRequest description */
+"Unable to parse `declarativeNetRequest` rules because of an unexpected error." = "Unable to parse `declarativeNetRequest` rules because of an unexpected error.";
+
+/* WKWebExtensionErrorInvalidDeclarativeNetRequest description, because of a JSON error */
+"Unable to parse `declarativeNetRequest` rules: %@" = "Unable to parse `declarativeNetRequest` rules: %@";
+
+/* WKWebExtensionErrorInvalidManifest description */
+"Unable to parse manifest because of an unexpected format." = "Unable to parse manifest because of an unexpected format.";
+
+/* WKWebExtensionErrorInvalidManifest description, because of a JSON error */
+"Unable to parse manifest: %@" = "Unable to parse manifest: %@";
+
+/* WKWebExtensionErrorInvalidResourceCodeSignature description with file name */
+"Unable to validate \"%@\" with the extension’s code signature. It likely has been modified since the extension was built." = "Unable to validate \"%@\" with the extension’s code signature. It likely has been modified since the extension was built.";
 
 /* Unacceptable TLS certificate error */
 "Unacceptable TLS certificate" = "Unacceptable TLS certificate";
@@ -1216,6 +1414,12 @@
 /* message in authentication panel */
 "Your password will be sent unencrypted." = "Your password will be sent unencrypted.";
 
+/* Zoom In Continuous context menu item */
+"Zoom In" = "Zoom In";
+
+/* Zoom Out context menu item */
+"Zoom Out" = "Zoom Out";
+
 /* HTTP result code string */
 "accepted" = "accepted";
 
@@ -1288,9 +1492,6 @@
 /* Label for the credit card AutoFill button inside a text field. */
 "credit card AutoFill" = "credit card AutoFill";
 
-/* Label for the loading AutoFill button inside a text field. */
-"loading AutoFill" = "loading AutoFill";
-
 /* The less good value description for a meter element. */
 "critical value" = "critical value";
 
@@ -1354,9 +1555,6 @@
 /* accessibility role description for a footer */
 "footer" = "footer";
 
-/* Suggestion role description for a suggestion group */
-"suggestion" = "suggestion";
-
 /* HTTP result code string */
 "forbidden" = "forbidden";
 
@@ -1398,6 +1596,9 @@
 
 /* accessibility role description for list marker */
 "list marker" = "list marker";
+
+/* Label for the loading AutoFill button inside a text field. */
+"loading AutoFill" = "loading AutoFill";
 
 /* An ARIA accessibility group that acts as a console log. */
 "log" = "log";
@@ -1603,6 +1804,9 @@
 /* HTTP result code string */
 "success" = "success";
 
+/* accessibility role description for a suggestion element */
+"suggestion" = "suggestion";
+
 /* accessibility role description for a summary element */
 "summary" = "summary";
 
@@ -1687,20 +1891,18 @@
 /* Message for requesting access to the device motion and orientation */
 "“%@” Would Like to Access Motion and Orientation" = "“%@” Would Like to Access Motion and Orientation";
 
-/* The domain and application using the camera and/or microphone. The first argument is domain, the second is the application name (iOS only). */
-"%@ in %%@" = "%@ in %%@";
-
 /* Allow the specified bundle to sign in to the specified website */
 "“%@” would like to sign in to “%@”." = "“%@” would like to sign in to “%@”.";
 
 /* Allow the specified bundle to use Touch ID to sign in to the specified website on this device */
 "“%@” would like to use Touch ID for “%@”." = "“%@” would like to use Touch ID for “%@”.";
 
+/* Prompt for a webpage to request location access. The parameter is the domain for the webpage. */
+"“%@” would like to use your current location." = "“%@” would like to use your current location.";
+
+/* Full Screen Warning Banner Content Text */
+"”%@” is in full screen.\nSwipe down to exit." = "”%@” is in full screen.\nSwipe down to exit.";
+
 /* Option in segmented control for choosing list type in text editing */
 "•" = "•";
 
-/* Lockdown Mode alert title */
-"Lockdown Mode is Turned On For “%@“" = "Lockdown Mode is Turned On For “%@“";
-
-/* Lockdown Mode alert message */
-"Certain experiences and features may not function as expected. You can turn off Lockdown Mode for this app in Settings." = "Certain experiences and features may not function as expected. You can turn off Lockdown Mode for this app in Settings.";

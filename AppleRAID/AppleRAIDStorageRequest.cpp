@@ -43,6 +43,8 @@ void AppleRAIDStorageRequest::free(void)
         
 	IODelete(srMemoryDescriptors, AppleRAIDMemoryDescriptor *, srRequestsAllocated);
 
+    if (srClientMemoryDescriptorLock != 0) IOLockFree(srClientMemoryDescriptorLock);
+
 	srMemoryDescriptors = 0;
     }
 
@@ -97,6 +99,9 @@ bool AppleRAIDStorageRequest::initWithAppleRAIDSet(AppleRAIDSet *set)
 	srMemoryDescriptors[index] = set->allocateMemoryDescriptor(this, index);
 	if (!srMemoryDescriptors[index]) return false;
     }
+
+	srClientMemoryDescriptorLock = IOLockAlloc();
+    if (srClientMemoryDescriptorLock == 0) return false;
     
     return true;
 }

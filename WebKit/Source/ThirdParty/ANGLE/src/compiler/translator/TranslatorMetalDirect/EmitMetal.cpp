@@ -83,7 +83,7 @@ class GenMetalTraverser : public TIntermTraverser
                       IdGen &idGen,
                       const PipelineStructs &pipelineStructs,
                       SymbolEnv &symbolEnv,
-                      TSymbolTable *symbolTable);
+                      const ShCompileOptions &compileOptions);
 
     void visitSymbol(TIntermSymbol *) override;
     void visitConstantUnion(TIntermConstantUnion *) override;
@@ -197,6 +197,7 @@ class GenMetalTraverser : public TIntermTraverser
     size_t mMainUniformBufferIndex        = 0;
     size_t mDriverUniformsBindingIndex    = 0;
     size_t mUBOArgumentBufferBindingIndex = 0;
+    bool mRasterOrderGroupsSupported      = false;
 };
 }  // anonymous namespace
 
@@ -212,16 +213,18 @@ GenMetalTraverser::GenMetalTraverser(const TCompiler &compiler,
                                      IdGen &idGen,
                                      const PipelineStructs &pipelineStructs,
                                      SymbolEnv &symbolEnv,
-                                     TSymbolTable *symbolTable)
+                                     const ShCompileOptions &compileOptions)
     : TIntermTraverser(true, false, false),
       mOut(out),
       mCompiler(compiler),
       mPipelineStructs(pipelineStructs),
       mSymbolEnv(symbolEnv),
       mIdGen(idGen),
-      mMainUniformBufferIndex(symbolTable->getDefaultUniformsBindingIndex()),
-      mDriverUniformsBindingIndex(symbolTable->getDriverUniformsBindingIndex()),
-      mUBOArgumentBufferBindingIndex(symbolTable->getUBOArgumentBufferBindingIndex())
+      mMainUniformBufferIndex(compileOptions.metal.defaultUniformsBindingIndex),
+      mDriverUniformsBindingIndex(compileOptions.metal.driverUniformsBindingIndex),
+      mUBOArgumentBufferBindingIndex(compileOptions.metal.UBOArgumentBufferBindingIndex),
+      mRasterOrderGroupsSupported(compileOptions.pls.fragmentSyncType ==
+                                  ShFragmentSynchronizationType::RasterOrderGroups_Metal)
 {}
 
 void GenMetalTraverser::emitIndentation()
@@ -655,7 +658,6 @@ static const char *GetOperatorString(TOperator op,
         case TOperator::EOpMemoryBarrier:
         case TOperator::EOpMemoryBarrierAtomicCounter:
         case TOperator::EOpMemoryBarrierBuffer:
-        case TOperator::EOpMemoryBarrierImage:
         case TOperator::EOpMemoryBarrierShared:
         case TOperator::EOpGroupMemoryBarrier:
         case TOperator::EOpAtomicAdd:
@@ -801,6 +803,10 @@ void GenMetalTraverser::emitPostQualifier(const EmitVariableDeclarationConfig &e
             mOut << " [[position]]";
             break;
 
+        case TQualifier::EvqClipDistance:
+            mOut << " [[clip_distance]] [" << decl.type().getOutermostArraySize() << "]";
+            break;
+
         case TQualifier::EvqPointSize:
             mOut << " [[point_size]]";
             break;
@@ -934,6 +940,30 @@ void GenMetalTraverser::emitBareTypeName(const TType &type, const EmitTypeConfig
                     emitNameOf(env);
                 }
             }
+            else if (IsImage(basicType))
+            {
+                mOut << "metal::texture2d<";
+                switch (type.getBasicType())
+                {
+                    case EbtImage2D:
+                        mOut << "float";
+                        break;
+                    case EbtIImage2D:
+                        mOut << "int";
+                        break;
+                    case EbtUImage2D:
+                        mOut << "uint";
+                        break;
+                    default:
+                        UNIMPLEMENTED();
+                        break;
+                }
+                if (type.getMemoryQualifier().readonly || type.getMemoryQualifier().writeonly)
+                {
+                    UNIMPLEMENTED();
+                }
+                mOut << ", metal::access::read_write>";
+            }
             else
             {
                 UNIMPLEMENTED();
@@ -1064,6 +1094,7 @@ void GenMetalTraverser::emitFieldDeclaration(const TField &field,
             break;
 
         case TQualifier::EvqFragmentOut:
+        case TQualifier::EvqFragmentInOut:
         case TQualifier::EvqFragData:
             if (mPipelineStructs.fragmentOut.external == &parent)
             {
@@ -1080,7 +1111,17 @@ void GenMetalTraverser::emitFieldDeclaration(const TField &field,
                     const TLayoutQualifier &layoutQualifier = type.getLayoutQualifier();
                     size_t index = layoutQualifier.locationsSpecified ? layoutQualifier.location
                                                                       : annotationIndices.color++;
-                    mOut << " [[color(" << index << ")]]";
+                    mOut << " [[color(" << index << ")";
+                    if (mRasterOrderGroupsSupported && qual == TQualifier::EvqFragmentInOut)
+                    {
+                        // Put fragment inouts in their own raster order group for better
+                        // parallelism.
+                        // NOTE: this is not required for the reads to be ordered and coherent.
+                        // TODO(anglebug.com/7279): Consider making raster order groups a PLS layout
+                        // qualifier?
+                        mOut << ", raster_order_group(0)";
+                    }
+                    mOut << "]]";
                 }
             }
             break;
@@ -1097,6 +1138,24 @@ void GenMetalTraverser::emitFieldDeclaration(const TField &field,
 
         default:
             break;
+    }
+
+    if (IsImage(type.getBasicType()))
+    {
+        if (type.getArraySizeProduct() != 1)
+        {
+            UNIMPLEMENTED();
+        }
+        mOut << " [[";
+        if (type.getLayoutQualifier().rasterOrdered)
+        {
+            mOut << "raster_order_group(0), ";
+        }
+        mOut << "texture(" << mMainTextureIndex << ")]]";
+        TranslatorMetalReflection *reflection = mtl::getTranslatorMetalReflection(&mCompiler);
+        reflection->addRWTextureBinding(type.getLayoutQualifier().binding,
+                                        static_cast<int>(mMainTextureIndex));
+        ++mMainTextureIndex;
     }
 }
 
@@ -1143,13 +1202,15 @@ static std::map<Name, size_t> BuildExternalAttributeIndexMap(
             ++attributeIndex;  // TODO: Might need to increment more if shader var type is a matrix.
         }
 
-        const size_t cols = internalType.isMatrix() ? internalType.getCols() : 1;
+        const size_t cols =
+            (internalType.isMatrix() && !externalFields[externalIndex]->type()->isMatrix())
+                ? internalType.getCols()
+                : 1;
 
         for (size_t c = 0; c < cols; ++c)
         {
             const TField &externalField = *externalFields[externalIndex];
             const Name externalName     = Name(externalField);
-            ASSERT(!externalField.type()->isMatrix());
 
             externalNameToAttributeIndex[externalName] = attributeIndex;
 
@@ -1262,21 +1323,6 @@ void GenMetalTraverser::emitStructDeclaration(const TType &type)
         mOut << ";\n";
     }
 
-    if (!mPipelineStructs.matches(structure, true, true))
-    {
-        MetalLayoutOfConfig layoutConfig;
-        layoutConfig.treatSamplersAsTextureEnv = true;
-        Layout layout                          = MetalLayoutOf(type, layoutConfig);
-        size_t pad = (kDefaultStructAlignmentSize - layout.sizeOf) % kDefaultStructAlignmentSize;
-        if (pad != 0)
-        {
-            emitIndentation();
-            mOut << "char ";
-            EmitName(mOut, mIdGen.createNewName("pad"));
-            mOut << "[" << pad << "];\n";
-        }
-    }
-
     emitCloseBrace();
 }
 
@@ -1288,7 +1334,17 @@ void GenMetalTraverser::emitOrdinaryVariableDeclaration(
     etConfig.evdConfig = &evdConfig;
 
     const TType &type = decl.type();
-    emitType(type, etConfig);
+    if (type.getQualifier() == TQualifier::EvqClipDistance)
+    {
+        // Clip distance output uses float[n] type instead of metal::array.
+        // The element count is emitted after the post qualifier.
+        ASSERT(type.getBasicType() == TBasicType::EbtFloat);
+        mOut << "float";
+    }
+    else
+    {
+        emitType(type, etConfig);
+    }
     if (decl.symbolType() != SymbolType::Empty)
     {
         mOut << " ";
@@ -1309,6 +1365,8 @@ void GenMetalTraverser::emitVariableDeclaration(const VarDecl &decl,
         {
             if (type.isStructSpecifier() && !evdConfig.disableStructSpecifier)
             {
+                // It's invalid to declare a struct inside a function argument. When emitting a
+                // function parameter, the callsite should set evdConfig.disableStructSpecifier.
                 ASSERT(!evdConfig.isParameter);
                 emitStructDeclaration(type);
                 if (symbolType != SymbolType::Empty)
@@ -1785,13 +1843,17 @@ void GenMetalTraverser::emitFunctionReturn(const TFunction &func)
     if (isMain)
     {
         const TStructure *structure = returnType.getStruct();
-        ASSERT(structure != nullptr);
         if (mPipelineStructs.fragmentOut.matches(*structure))
         {
+            if (mCompiler.isEarlyFragmentTestsSpecified())
+            {
+                mOut << "[[early_fragment_tests]]\n";
+            }
             mOut << "fragment ";
         }
         else if (mPipelineStructs.vertexOut.matches(*structure))
         {
+            ASSERT(structure != nullptr);
             mOut << "vertex __VERTEX_OUT(";
             isVertexMain = true;
         }
@@ -1813,12 +1875,13 @@ void GenMetalTraverser::emitFunctionParameter(const TFunction &func, const TVari
     const TStructure *structure = type.getStruct();
 
     EmitVariableDeclarationConfig evdConfig;
-    evdConfig.isParameter       = true;
-    evdConfig.isMainParameter   = isMain;
-    evdConfig.emitPostQualifier = isMain;
-    evdConfig.isUBO             = mSymbolEnv.isUBO(param);
-    evdConfig.isPointer         = mSymbolEnv.isPointer(param);
-    evdConfig.isReference       = mSymbolEnv.isReference(param);
+    evdConfig.isParameter            = true;
+    evdConfig.disableStructSpecifier = true;  // It's invalid to declare a struct in a function arg.
+    evdConfig.isMainParameter        = isMain;
+    evdConfig.emitPostQualifier      = isMain;
+    evdConfig.isUBO                  = mSymbolEnv.isUBO(param);
+    evdConfig.isPointer              = mSymbolEnv.isPointer(param);
+    evdConfig.isReference            = mSymbolEnv.isReference(param);
     emitVariableDeclaration(VarDecl(param), evdConfig);
 
     if (isMain)
@@ -1860,7 +1923,7 @@ void GenMetalTraverser::emitFunctionParameter(const TFunction &func, const TVari
         {
             mOut << " [[texture(" << (mMainTextureIndex) << ")]]";
             const std::string originalName = reflection->getOriginalName(param.uniqueId().get());
-            reflection->addTextureBinding(originalName, mMainSamplerIndex);
+            reflection->addTextureBinding(originalName, mMainTextureIndex);
             mMainTextureIndex += type.getArraySizeProduct();
         }
         else if (Name(param) == Pipeline{Pipeline::Type::InstanceId, nullptr}.getStructInstanceName(
@@ -1891,7 +1954,8 @@ bool GenMetalTraverser::visitFunctionDefinition(Visit, TIntermFunctionDefinition
     {
         const TType &returnType     = func.getReturnType();
         const TStructure *structure = returnType.getStruct();
-        isTraversingVertexMain      = (mPipelineStructs.vertexOut.matches(*structure));
+        isTraversingVertexMain      = (mPipelineStructs.vertexOut.matches(*structure)) &&
+                                 mCompiler.getShaderType() == GL_VERTEX_SHADER;
     }
     emitIndentation();
     emitFunctionSignature(func);
@@ -1950,6 +2014,9 @@ GenMetalTraverser::FuncToName GenMetalTraverser::BuildFuncToName()
     putAngle("textureProjLodOffset");
     putAngle("textureProjOffset");
     putAngle("textureSize");
+    putAngle("imageLoad");
+    putAngle("imageStore");
+    putAngle("memoryBarrierImage");
 
     return map;
 }
@@ -2056,11 +2123,9 @@ bool GenMetalTraverser::visitAggregate(Visit, TIntermAggregate *aggregateNode)
                     return nullptr;
                 };
 
-                ASSERT(!args.empty());
                 const TType *argType0 = getArgType(0);
                 const TType *argType1 = getArgType(1);
                 const TType *argType2 = getArgType(2);
-                ASSERT(argType0);
 
                 const char *opName = GetOperatorString(op, retType, argType0, argType1, argType2);
 
@@ -2481,7 +2546,7 @@ bool sh::EmitMetal(TCompiler &compiler,
                    const PipelineStructs &pipelineStructs,
                    SymbolEnv &symbolEnv,
                    const ProgramPreludeConfig &ppc,
-                   TSymbolTable *symbolTable)
+                   const ShCompileOptions &compileOptions)
 {
     TInfoSinkBase &out = compiler.getInfoSink().obj;
 
@@ -2538,7 +2603,8 @@ bool sh::EmitMetal(TCompiler &compiler,
 #else
         TInfoSinkBase &outWrapper = out;
 #endif
-        GenMetalTraverser gen(compiler, outWrapper, idGen, pipelineStructs, symbolEnv, symbolTable);
+        GenMetalTraverser gen(compiler, outWrapper, idGen, pipelineStructs, symbolEnv,
+                              compileOptions);
         root.traverse(&gen);
     }
 

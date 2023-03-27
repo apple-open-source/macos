@@ -26,14 +26,18 @@
 
 #if __OBJC2__
 
+NS_ASSUME_NONNULL_BEGIN
+
 #import "SFAnalytics.h"
 #import "SFAnalyticsSQLiteStore.h"
 @interface SFAnalytics (SignIn)
 /* Typical SFA clients do not need this.  SignIn Metrics needs this */
-@property (nonatomic) SFAnalyticsSQLiteStore* database;
+@property (nonatomic, nullable) SFAnalyticsSQLiteStore* database;
 /*queue from SFA exposed for testing only, this queue is used to protected db accesses and should NOT be used directly*/
 @property (nonatomic) dispatch_queue_t queue;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif // objc2
 #endif /* SFAnalytics_Internal_h */

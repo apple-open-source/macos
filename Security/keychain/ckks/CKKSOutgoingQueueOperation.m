@@ -146,7 +146,7 @@
 
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
         if (self.deps.syncingPolicy.isInheritedAccount || ![self.deps.syncingPolicy isSyncingEnabledForView:viewState.zoneID.zoneName]) {
-            ckkserror("ckksoutgoing", viewState, "Item syncing for this view is disabled");
+            ckksnotice("ckksoutgoing", viewState, "Item syncing for this view is disabled");
             continue;
         }
         
@@ -308,7 +308,7 @@
 
             if([recordsToSave count] == 0 && [recordIDsToDelete count] == 0) {
                 // Nothing to do! exit.
-                ckksnotice("ckksoutgoing", viewState.zoneID, "Nothing in outgoing queue to process");
+                ckksinfo("ckksoutgoing", viewState.zoneID, "Nothing in outgoing queue to process");
                 if(self.deps.currentOutgoingQueueOperationGroup) {
                     ckksinfo("ckksoutgoing", viewState.zoneID, "End of operation group: %@", self.deps.currentOutgoingQueueOperationGroup);
                     self.deps.currentOutgoingQueueOperationGroup = nil;
@@ -619,6 +619,7 @@
     [self.operationQueue addOperation:modifyComplete];
 
     // If this was a "full upload", or we errored in any way, then kick off another queue process. There might be more items to send!
+    ckksnotice("ckksoutgoing", viewState.zoneID, "Considering retry after a %@ upload with error: %@", fullUpload ? @"full" : @"non-full", self.error);
     if(fullUpload || self.error) {
         // If we think the network is iffy, though, wait for it to come back
         bool networkError = ckerror && [self.deps.reachabilityTracker isNetworkError:ckerror];
@@ -626,8 +627,16 @@
         // But wait for the network to be available!
         OctagonPendingFlag* pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagProcessOutgoingQueue
                                                                         conditions:networkError ? OctagonPendingConditionsNetworkReachable : 0
-                                                                    delayInSeconds:.4];
+                                                                    delayInSeconds:.2];
         [self.deps.flagHandler handlePendingFlag:pendingFlag];
+
+        if((fullUpload && self.error == nil) || [self isCKErrorBadEtagOnly:self.error]) {
+            // Allow ourselves a quick upload token, since a successful full upload can be immediately followed by another upload, and an etag failure can be retried immediately
+            OctagonPendingFlag* pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagOutgoingQueueOperationRateToken
+                                                                            conditions:0
+                                                                        delayInSeconds:.2];
+            [self.deps.flagHandler handlePendingFlag:pendingFlag];
+        }
     }
 }
 
@@ -742,6 +751,35 @@
     return !anyOtherErrors;
 }
 
-@end;
+- (bool)isCKErrorBadEtagOnly:(NSError*)ckerror {
+    if([ckerror.domain isEqualToString:CKErrorDomain] && (ckerror.code == CKErrorPartialFailure)) {
+        bool anyOtherErrors = false;
+
+        NSMutableDictionary<CKRecordID*, NSError*>* failedRecords = ckerror.userInfo[CKPartialErrorsByItemIDKey];
+        if(failedRecords == nil) {
+            return false;
+        }
+
+        for(CKRecordID* recordID in failedRecords) {
+            NSError* recordError = failedRecords[recordID];
+
+            if([recordError.domain isEqualToString: CKErrorDomain] && recordError.code == CKErrorServerRecordChanged) {
+                // this is fine!
+            } else if([recordError.domain isEqualToString: CKErrorDomain] && recordError.code == CKErrorBatchRequestFailed) {
+                // also fine!
+            } else {
+                // Some other error than ServerRecordChanged + CKErrorBatchRequestFailed
+                anyOtherErrors |= true;
+                break;
+            }
+        }
+
+        return !anyOtherErrors;
+    } else {
+        return false;
+    }
+}
+
+@end
 
 #endif

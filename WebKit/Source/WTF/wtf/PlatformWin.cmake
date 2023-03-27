@@ -38,6 +38,7 @@ if (USE_CF)
         cf/CFURLExtras.h
         cf/SpanCF.h
         cf/TypeCastsCF.h
+        cf/VectorCF.h
 
         text/cf/StringConcatenateCF.h
         text/cf/TextBreakIteratorCF.h
@@ -53,7 +54,7 @@ if (USE_CF)
         text/cf/StringViewCF.cpp
     )
 
-    list(APPEND WTF_LIBRARIES ${COREFOUNDATION_LIBRARY})
+    list(APPEND WTF_LIBRARIES Apple::CoreFoundation)
 endif ()
 
 set(WTF_OUTPUT_NAME WTF${DEBUG_SUFFIX})

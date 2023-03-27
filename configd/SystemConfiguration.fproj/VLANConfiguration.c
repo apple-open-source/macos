@@ -55,7 +55,7 @@
 /* ---------- VLAN support ---------- */
 
 static int
-inet_dgram_socket()
+inet_dgram_socket(void)
 {
 	int	s;
 
@@ -278,7 +278,7 @@ addAvailableInterfaces(CFMutableArrayRef available, CFArrayRef interfaces,
 
 
 CFArrayRef
-SCVLANInterfaceCopyAvailablePhysicalInterfaces()
+SCVLANInterfaceCopyAvailablePhysicalInterfaces(void)
 {
 	CFMutableArrayRef	available;
 #if	!TARGET_OS_IPHONE
@@ -306,7 +306,7 @@ SCVLANInterfaceCopyAvailablePhysicalInterfaces()
 			if (excluded == NULL) {
 				excluded = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 			}
-			__SCBridgeInterfaceListCollectMembers(bridge_interfaces, excluded);
+			__SCBridgeInterfaceListCollectMembers(bridge_interfaces, excluded, FALSE);
 		}
 
 		CFRelease(prefs);

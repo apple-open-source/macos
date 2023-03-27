@@ -1,9 +1,7 @@
 # Tests for _arguments.
 
 %prep
-  if [[ $OSTYPE = cygwin ]]; then
-    ZTST_unimplemented="the zsh/zpty module does not work on Cygwin"
-  elif ( zmodload zsh/zpty 2>/dev/null ); then
+  if ( zmodload zsh/zpty 2>/dev/null ); then
     . $ZTST_srcdir/comptest
     mkdir comp.tmp
     cd comp.tmp
@@ -103,6 +101,28 @@
 >DESCRIPTION:{option}
 >NO:{+o}
 >NO:{-o}
+
+ tst_arguments -s -{a,b,c} \!-{d,e,f} \!+{d,e,f}
+ comptest $'tst -ad\t\024\t\bef\t'
+0:mix of + and - and exclusion of stacked options
+>line: {tst -ad}{}
+>DESCRIPTION:{option}
+>NO:{-b}
+>NO:{-c}
+>line: {tst -da}{}
+>DESCRIPTION:{option}
+>NO:{-b}
+>NO:{-c}
+>line: {tst -def}{}
+>DESCRIPTION:{option}
+>NO:{-a}
+>NO:{-b}
+>NO:{-c}
+
+ tst_arguments -s -{a,b,c} +{a,b,c}
+ comptest $'tst -a +b +c\t'
+0:mix of + and - and exclusion of stacked options
+>line: {tst -a +b +ca}{}
 
  tst_arguments '-o:1:(a):2:(b)'
  comptest $'tst \t\t\t'
@@ -231,8 +251,14 @@
 
  tst_arguments '-a:one: :two' ':descr:{compadd -Q - $opt_args[-a]}'
  comptest $'tst -a 1:x \\2 \t'
-0:opt_args with multiple arguments and quoting of colons and backslashes
+0:opt_args with multiple arguments and quoting of colons and backslashes, part #1: default behaviour
 >line: {tst -a 1:x \2 1\:x:\\2 }{}
+
+ # Same as previous test, except with -0 and (qqqq) added
+ tst_arguments -0 : '-a:one: :two' ':descr:{compadd -Q - ${(qqqq)opt_args[-a]}}'
+ comptest $'tst -a 1:x \\2 \t'
+0:opt_args with multiple arguments and quoting of colons and backslashes, part #2: NUL escaping
+>line: {tst -a 1:x \2 $'1:x\0\\2' }{}
 
  tst_arguments -a -b
  comptest $'tst  rest -\t\C-w\eb\C-b-\t'
@@ -355,6 +381,12 @@
 0:allowed option before --
 >line: {tst -x }{ --}
 
+ tst_arguments -S '1:one' '2:two'
+ comptest $'tst -- -- \t'
+0:only first of duplicate -- is ignored
+>line: {tst -- -- }{}
+>DESCRIPTION:{two}
+
  tst_arguments -x :word
  comptest $'tst word -\t'
 0:option after a word
@@ -385,6 +417,25 @@
  comptest $'tst -a -x m\t'
 0:continue completion after rest argument that looks like an option
 >line: {tst -a -x more }{}
+
+ tst_arguments -A '-*' -a -b '*: :(words)'
+ comptest $'tst -x -\t'
+0:word matching -A pattern doesn't exclude options
+>line: {tst -x -}{}
+>DESCRIPTION:{option}
+>NO:{-a}
+>NO:{-b}
+
+ tst_arguments -A '-*' -a -b '1:word:(word)'
+ comptest $'tst -x \t'
+0:unrecognised word matching -A pattern not treated as a rest argument
+>line: {tst -x word }{}
+
+ tst_arguments -A "-*" '(3)-a' '1:one' '2:two' '3:three' '4:four' '*:extra'
+ comptest $'tst x -a \t'
+0:exclusion from option following word matching -A pattern should not apply
+>line: {tst x -a }{}
+>DESCRIPTION:{three}
 
  tst_arguments '*-v'
  comptest $'tst -v -\t'
@@ -473,6 +524,16 @@
 >NO:{-a}
 >NO:{-b}
 >NO:{-v}
+
+ tst_arguments -a -b -c '(-a)1:one' '(-b)2:two' '(-c)*:extra'
+ comptest $'tst  x y z\e6\C-b-\t'
+0:exclude option from normal argument to the right of the cursor
+>line: {tst -}{ x y z}
+>DESCRIPTION:{one}
+>DESCRIPTION:{option}
+>NO:{-a}
+>NO:{-b}
+>NO:{-c}
 
  tst_arguments -a - set1 -d - set2 '(set2)-m' -n -o ':arg:(x)' - set2 -x
  comptest $'tst -m \t'

@@ -1480,6 +1480,9 @@
         [self addGenericPassword: @"data" account: [NSString stringWithFormat:@"account-delete-me-%03lu", count]];
     }
 
+    // By modifying these delays, this test can check whether the 'full' upload quick retry is functioning.
+    [self.defaultCKKS.outgoingQueueOperationScheduler changeDelays:10*NSEC_PER_USEC continuingDelay:60*NSEC_PER_SEC];
+
     [self expectCKModifyItemRecords: SecCKKSOutgoingQueueItemsAtOnce currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
     [self expectCKModifyItemRecords: SecCKKSOutgoingQueueItemsAtOnce currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
     [self expectCKModifyItemRecords: 50 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];

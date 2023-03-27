@@ -115,7 +115,8 @@ public:
                        UInt32 reportLength,
                        AbsoluteTime timestamp,
                        bool *shouldTickle = 0,
-                       IOOptionBits options = 0);
+                       IOOptionBits options = 0,
+                       IOReturn *error = nullptr);
     
     OSArray *getElements() { return _reserved->elements; }
     OSArray *getFlattenedElements() { return _reserved->flattenedElements; }

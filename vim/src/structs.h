@@ -1387,6 +1387,7 @@ typedef signed char int8_T;
 
 typedef double	float_T;
 
+typedef struct typval_S typval_T;
 typedef struct listvar_S list_T;
 typedef struct dictvar_S dict_T;
 typedef struct partial_S partial_T;
@@ -1406,6 +1407,9 @@ typedef struct {
 typedef struct isn_S isn_T;	    // instruction
 typedef struct dfunc_S dfunc_T;	    // :def function
 
+typedef struct type_S type_T;
+typedef struct ufunc_S ufunc_T;
+
 typedef struct jobvar_S job_T;
 typedef struct readq_S readq_T;
 typedef struct writeq_S writeq_T;
@@ -1415,6 +1419,8 @@ typedef struct channel_S channel_T;
 typedef struct cctx_S cctx_T;
 typedef struct ectx_S ectx_T;
 typedef struct instr_S instr_T;
+typedef struct class_S class_T;
+typedef struct object_S object_T;
 
 typedef enum
 {
@@ -1434,16 +1440,18 @@ typedef enum
     VAR_JOB,		// "v_job" is used
     VAR_CHANNEL,	// "v_channel" is used
     VAR_INSTR,		// "v_instr" is used
+    VAR_CLASS,		// "v_class" is used (also used for interface)
+    VAR_OBJECT,		// "v_object" is used
 } vartype_T;
 
 // A type specification.
-typedef struct type_S type_T;
 struct type_S {
     vartype_T	    tt_type;
     int8_T	    tt_argcount;    // for func, incl. vararg, -1 for unknown
     int8_T	    tt_min_argcount; // number of non-optional arguments
     char_u	    tt_flags;	    // TTFLAG_ values
     type_T	    *tt_member;	    // for list, dict, func return type
+				    // for class: class_T
     type_T	    **tt_args;	    // func argument types, allocated
 };
 
@@ -1452,34 +1460,122 @@ typedef struct {
     type_T	*type_decl;	    // declared type or equal to type_current
 } type2_T;
 
-#define TTFLAG_VARARGS	0x01	    // func args ends with "..."
-#define TTFLAG_BOOL_OK	0x02	    // can be converted to bool
-#define TTFLAG_STATIC	0x04	    // one of the static types, e.g. t_any
-#define TTFLAG_CONST	0x08	    // cannot be changed
+#define TTFLAG_VARARGS	    0x01    // func args ends with "..."
+#define TTFLAG_BOOL_OK	    0x02    // can be converted to bool
+#define TTFLAG_FLOAT_OK	    0x04    // number can be used/converted to float
+#define TTFLAG_NUMBER_OK    0x08    // number can be used for a float
+#define TTFLAG_STATIC	    0x10    // one of the static types, e.g. t_any
+#define TTFLAG_CONST	    0x20    // cannot be changed
+#define TTFLAG_SUPER	    0x40    // object from "super".
+
+typedef enum {
+    ACCESS_PRIVATE,	// read/write only inside th class
+    ACCESS_READ,	// read everywhere, write only inside th class
+    ACCESS_ALL		// read/write everywhere
+} omacc_T;
+
+/*
+ * Entry for an object or class member variable.
+ */
+typedef struct {
+    char_u	*ocm_name;   // allocated
+    omacc_T	ocm_access;
+    type_T	*ocm_type;
+    char_u	*ocm_init;   // allocated
+} ocmember_T;
+
+// used for the lookup table of a class member index and object method index
+typedef struct itf2class_S itf2class_T;
+struct itf2class_S {
+    itf2class_T	*i2c_next;
+    class_T	*i2c_class;
+    int		i2c_is_method;	    // TRUE for method indexes
+    // array with ints follows
+};
+
+#define CLASS_INTERFACE	    1
+#define CLASS_EXTENDED	    2	    // another class extends this one
+
+// "class_T": used for v_class of typval of VAR_CLASS
+// Also used for an interface (class_flags has CLASS_INTERFACE).
+struct class_S
+{
+    char_u	*class_name;		// allocated
+    int		class_flags;		// CLASS_ flags
+
+    int		class_refcount;
+    int		class_copyID;		// used by garbage collection
+
+    class_T	*class_extends;		// parent class or NULL
+
+    // interfaces declared for the class
+    int		class_interface_count;
+    char_u	**class_interfaces;	// allocated array of names
+    class_T	**class_interfaces_cl;	// interfaces (counts as reference)
+    itf2class_T	*class_itf2class;	// member index lookup tables
+
+    // class members: "static varname"
+    int		class_class_member_count;
+    ocmember_T	*class_class_members;	// allocated
+    typval_T	*class_members_tv;	// allocated array of class member vals
+
+    // class functions: "static def SomeMethod()"
+    int		class_class_function_count;	    // total count
+    int		class_class_function_count_child;   // count without "extends"
+    ufunc_T	**class_class_functions;	// allocated
+
+    // object members: "this.varname"
+    int		class_obj_member_count;
+    ocmember_T	*class_obj_members;	// allocated
+
+    // object methods: "def SomeMethod()"
+    int		class_obj_method_count;		    // total count
+    int		class_obj_method_count_child;	    // count without "extends"
+    ufunc_T	**class_obj_methods;	// allocated
+
+    garray_T	class_type_list;	// used for type pointers
+    type_T	class_type;		// type used for the class
+    type_T	class_object_type;	// same as class_type but VAR_OBJECT
+};
+
+// Used for v_object of typval of VAR_OBJECT.
+// The member variables follow in an array of typval_T.
+struct object_S
+{
+    class_T	*obj_class;	    // class this object is created for;
+				    // pointer adds to class_refcount
+    int		obj_refcount;
+
+    object_T	*obj_next_used;	    // for list headed by "first_object"
+    object_T	*obj_prev_used;	    // for list headed by "first_object"
+    int		obj_copyID;	    // used by garbage collection
+};
 
 /*
  * Structure to hold an internal variable without a name.
  */
-typedef struct
+struct typval_S
 {
     vartype_T	v_type;
     char	v_lock;	    // see below: VAR_LOCKED, VAR_FIXED
     union
     {
 	varnumber_T	v_number;	// number value
-	float_T		v_float;	// floating number value
-	char_u		*v_string;	// string value (can be NULL!)
-	list_T		*v_list;	// list value (can be NULL!)
-	dict_T		*v_dict;	// dict value (can be NULL!)
+	float_T		v_float;	// floating point number value
+	char_u		*v_string;	// string value (can be NULL)
+	list_T		*v_list;	// list value (can be NULL)
+	dict_T		*v_dict;	// dict value (can be NULL)
 	partial_T	*v_partial;	// closure: function with args
 #ifdef FEAT_JOB_CHANNEL
-	job_T		*v_job;		// job value (can be NULL!)
-	channel_T	*v_channel;	// channel value (can be NULL!)
+	job_T		*v_job;		// job value (can be NULL)
+	channel_T	*v_channel;	// channel value (can be NULL)
 #endif
-	blob_T		*v_blob;	// blob value (can be NULL!)
+	blob_T		*v_blob;	// blob value (can be NULL)
 	instr_T		*v_instr;	// instructions to execute
+	class_T		*v_class;	// class value (can be NULL)
+	object_T	*v_object;	// object value (can be NULL)
     }		vval;
-} typval_T;
+};
 
 // Values for "dv_scope".
 #define VAR_SCOPE     1	// a:, v:, s:, etc. scope dictionaries
@@ -1663,7 +1759,7 @@ typedef enum {
  * Structure to hold info for a user function.
  * When adding a field check copy_lambda_to_global_func().
  */
-typedef struct
+struct ufunc_S
 {
     int		uf_varargs;	// variable nr of arguments (old style)
     int		uf_flags;	// FC_ flags
@@ -1671,6 +1767,10 @@ typedef struct
     int		uf_cleared;	// func_clear() was already called
     def_status_T uf_def_status; // UF_NOT_COMPILED, UF_TO_BE_COMPILED, etc.
     int		uf_dfunc_idx;	// only valid if uf_def_status is UF_COMPILED
+
+    class_T	*uf_class;	// for object method and constructor; does not
+				// count for class_refcount
+
     garray_T	uf_args;	// arguments, including optional arguments
     garray_T	uf_def_args;	// default argument expressions
     int		uf_args_visible; // normally uf_args.ga_len, less when
@@ -1731,7 +1831,7 @@ typedef struct
     char_u	uf_name[4];	// name of function (actual size equals name);
 				// can start with <SNR>123_ (<SNR> is K_SPECIAL
 				// KS_EXTRA KE_SNR)
-} ufunc_T;
+};
 
 // flags used in uf_flags
 #define FC_ABORT    0x01	// abort function on error
@@ -1749,6 +1849,9 @@ typedef struct
 #define FC_COPY	    0x1000	// copy of another function by
 				// copy_lambda_to_global_func()
 #define FC_LAMBDA   0x2000	// one line "return {expr}"
+
+#define FC_OBJECT   0x4000	// object method
+#define FC_NEW	    0x8000	// constructor
 
 #define MAX_FUNC_ARGS	20	// maximum number of function arguments
 #define VAR_SHORT_LEN	20	// short variable name length
@@ -2030,10 +2133,10 @@ typedef struct
 # endif
 #else
 // dummy typedefs for use in function prototypes
-typedef struct
+struct ufunc_S
 {
     int	    dummy;
-} ufunc_T;
+};
 typedef struct
 {
     int	    dummy;
@@ -2071,6 +2174,7 @@ typedef struct {
     int		fe_evaluate;	// actually evaluate expressions
     partial_T	*fe_partial;	// for extra arguments
     dict_T	*fe_selfdict;	// Dictionary for "self"
+    object_T	*fe_object;	// object, e.g. for "this.Func()"
     typval_T	*fe_basetv;	// base for base->method()
     type_T	*fe_check_type;	// type from funcref or NULL
     int		fe_found_var;	// if the function is not found then give an
@@ -3616,8 +3720,11 @@ struct window_S
 				    // window
 #endif
 
-    // five fields that are only used when there is a WinScrolled autocommand
+    // six fields that are only used when there is a WinScrolled autocommand
     linenr_T	w_last_topline;	    // last known value for w_topline
+#ifdef FEAT_DIFF
+    int		w_last_topfill;	    // last known value for w_topfill
+#endif
     colnr_T	w_last_leftcol;	    // last known value for w_leftcol
     colnr_T	w_last_skipcol;	    // last known value for w_skipcol
     int		w_last_width;	    // last known value for w_width
@@ -4675,6 +4782,7 @@ typedef struct {
     textprop_T	*cts_text_props;	// text props (allocated)
     char	cts_has_prop_with_text; // TRUE if if a property inserts text
     int		cts_cur_text_width;     // width of current inserted text
+    int		cts_prop_lines;		// nr of properties above or below
     int		cts_first_char;		// width text props above the line
     int		cts_with_trailing;	// include size of trailing props with
 					// last character

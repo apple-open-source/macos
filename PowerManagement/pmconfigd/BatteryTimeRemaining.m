@@ -316,7 +316,8 @@ static void (^energyPrefsNotificationHandler)(void);
 static bool getVactState(void);
 static bool isVactSupported(void) __attribute__((unused));
 STATIC void updateVactState(void);
-#endif
+STATIC CF_RETURNS_RETAINED CFMutableDictionaryRef readBatteryHealthPersistentData(void);
+#endif // TARGET_OS_OSX
 
 static void _internal_dispatch_assert_queue(dispatch_queue_t queue) {
 #if !XCTEST
@@ -1328,7 +1329,7 @@ static void publish_IOPSBatteryGetWarningLevel(
     return;
 }
 
-static CFDictionaryRef getActiveBatteryDictionary(void)
+static CFDictionaryRef getActiveBatteryDictionary_sync(void)
 {
     _internal_dispatch_assert_queue(batteryTimeRemainingQ);
     for (int i=0; i<kPSMaxCount; i++) {
@@ -1345,6 +1346,19 @@ static CFDictionaryRef getActiveBatteryDictionary(void)
         }
     }
     return NULL;
+}
+
+__private_extern__ CFDictionaryRef getActiveBatteryDictionary(void)
+{
+    __block CFDictionaryRef battery;
+    dispatch_sync(batteryTimeRemainingQ, ^() {
+        battery = getActiveBatteryDictionary_sync();
+        if (battery) {
+            CFRetain(battery);
+        }
+    });
+
+    return battery;
 }
 
 static bool publish_IOPSGetTimeRemainingEstimate(
@@ -1388,7 +1402,7 @@ static bool publish_IOPSGetTimeRemainingEstimate(
     /* These bits feed the SPI IOKit:IOPSGetSupportedPowerSources()
      *      - battery supported, UPS supported, active power sourecs
      */
-    if (getActiveBatteryDictionary()) {
+    if (getActiveBatteryDictionary_sync()) {
         powerSourcesBitsForNotify |= kPSTimeRemainingNotifyBattSupportBit;
     }
     if (getActiveUPSDictionary_sync()) {
@@ -2017,7 +2031,7 @@ void removeKeyFromBatteryHealthDataPrefs(CFStringRef key)
     _CFPreferencesSynchronizeWithContainer(CFSTR(kBatteryHealthPrefsAppName), kCFPreferencesCurrentUser, kCFPreferencesCurrentHost, CFSTR(kBatteryHealthPrefsContainer));
 }
 
-CFDictionaryRef copyBatteryHealthDataFromPrefs( )
+CFDictionaryRef copyBatteryHealthDataFromPrefs(void)
 {
     CFDictionaryRef dict = NULL;
     CFIndex count;
@@ -2056,7 +2070,7 @@ CFDictionaryRef copyBatteryHealthDataFromPrefs( )
     return dict;
 }
 
-CFDictionaryRef copyPowerlogBatteryHealthData()
+CFDictionaryRef copyPowerlogBatteryHealthData(void)
 {
     CFDictionaryRef oldBHData = NULL;
     container_error_t localError = CONTAINER_ERROR_NONE;
@@ -2256,6 +2270,8 @@ static bool calib0RelevantDevice(void)
                                    MGPROD_N141S,
                                    MGPROD_N144S,
                                    MGPROD_N146S,
+                                   MGPROD_N157B,
+                                   MGPROD_N158B,
                                    nil);
 #endif /* HAS_MOBILE_GESTALT */
     return relevant;
@@ -2550,14 +2566,13 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef b
     CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), prevNccp);
 
     nccp = rawToNominal(ncc, designCap);
-
-
     if (!IS_IN_NOMINAL_RANGE(nccp)) {
         ERROR_LOG("Failed to calculate Nominal Capacity percentage. NominalCapacity:%d DesignCapacity:%d\n",
                 ncc, designCap);
         *svcFlags |= kBHSvcFlagNCCNotDet;
         return;
     }
+
 
     // NOTE: nccp_cc_filtering is assumed to be true before we read SMC key. Assuming 'nccp_cc_filtering' is false can
     // lead to sudden drop on MaxCapacity on devices that support CycleCount based filtering.
@@ -4342,7 +4357,7 @@ static int getActivePSType_sync(void)
 {
     _internal_dispatch_assert_queue(batteryTimeRemainingQ);
     int rc = kIOPSProvidedByAC;
-    CFDictionaryRef activeBattery = getActiveBatteryDictionary();
+    CFDictionaryRef activeBattery = getActiveBatteryDictionary_sync();
     CFDictionaryRef activeUPS = getActiveUPSDictionary_sync();
     CFStringRef     ps_state = NULL;
 

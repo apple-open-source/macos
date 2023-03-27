@@ -560,9 +560,6 @@ Could be worth adding to the API.
 - (BOOL)_dashboardBehavior:(WebDashboardBehavior)behavior;
 #endif
 
-+ (void)_setShouldUseFontSmoothing:(BOOL)f;
-+ (BOOL)_shouldUseFontSmoothing;
-
 #if !TARGET_OS_IPHONE
 // These two methods are useful for a test harness that needs a consistent appearance for the focus rings
 // regardless of OS X version.
@@ -1018,8 +1015,8 @@ typedef struct WebEdgeInsets {
 - (void)clearNotifications:(NSArray *)notificationIDs;
 - (WebNotificationPermission)policyForOrigin:(WebSecurityOrigin *)origin;
 
-- (void)webView:(WebView *)webView didShowNotification:(uint64_t)notificationID;
-- (void)webView:(WebView *)webView didClickNotification:(uint64_t)notificationID;
+- (void)webView:(WebView *)webView didShowNotification:(NSString *)notificationID;
+- (void)webView:(WebView *)webView didClickNotification:(NSString *)notificationID;
 - (void)webView:(WebView *)webView didCloseNotifications:(NSArray *)notificationIDs;
 @end
 
@@ -1038,11 +1035,12 @@ typedef struct WebEdgeInsets {
 - (void)_setNotificationProvider:(id<WebNotificationProvider>)notificationProvider;
 - (id<WebNotificationProvider>)_notificationProvider;
 
-- (void)_notificationDidShow:(uint64_t)notificationID;
-- (void)_notificationDidClick:(uint64_t)notificationID;
+- (void)_notificationDidShow:(NSString *)notificationID;
+- (void)_notificationDidClick:(NSString *)notificationID;
 - (void)_notificationsDidClose:(NSArray *)notificationIDs;
 
-- (uint64_t)_notificationIDForTesting:(JSValueRef)jsNotification;
+- (NSString *)_notificationIDForTesting:(JSValueRef)jsNotification;
+- (void)_clearNotificationPermissionState;
 @end
 
 @interface WebView (WebViewFontSelection)

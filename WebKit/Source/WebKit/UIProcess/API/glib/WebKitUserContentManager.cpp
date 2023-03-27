@@ -28,6 +28,7 @@
 #include "WebKitUserContentPrivate.h"
 #include "WebKitWebContextPrivate.h"
 #include "WebScriptMessageHandler.h"
+#include <wtf/CompletionHandler.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/WTFGType.h>
 
@@ -57,9 +58,9 @@ struct _WebKitUserContentManagerPrivate {
  * webkit_user_content_manager_add_style_sheet().
  *
  * To use a #WebKitUserContentManager, it must be created using
- * webkit_user_content_manager_new(), and then passed to
- * webkit_web_view_new_with_user_content_manager(). User style
- * sheets can be created with webkit_user_style_sheet_new().
+ * webkit_user_content_manager_new(), and then used to construct
+ * a #WebKitWebView. User style sheets can be created with
+ * webkit_user_style_sheet_new().
  *
  * User style sheets can be added and removed at any time, but
  * they will affect the web pages loaded afterwards.
@@ -67,10 +68,11 @@ struct _WebKitUserContentManagerPrivate {
  * Since: 2.6
  */
 
-WEBKIT_DEFINE_TYPE(WebKitUserContentManager, webkit_user_content_manager, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitUserContentManager, webkit_user_content_manager, G_TYPE_OBJECT)
 
 enum {
     SCRIPT_MESSAGE_RECEIVED,
+    SCRIPT_MESSAGE_WITH_REPLY_RECEIVED,
 
     LAST_SIGNAL
 };
@@ -89,8 +91,8 @@ static void webkit_user_content_manager_class_init(WebKitUserContentManagerClass
      * @js_result: the #WebKitJavascriptResult holding the value received from the JavaScript world.
      *
      * This signal is emitted when JavaScript in a web view calls
-     * <code>window.webkit.messageHandlers.&lt;name&gt;.postMessage()</code>, after registering
-     * <code>&lt;name&gt;</code> using
+     * <code>window.webkit.messageHandlers.<name>.postMessage()</code>, after registering
+     * <code><name></code> using
      * webkit_user_content_manager_register_script_message_handler()
      *
      * Since: 2.8
@@ -104,6 +106,41 @@ static void webkit_user_content_manager_class_init(WebKitUserContentManagerClass
             g_cclosure_marshal_VOID__BOXED,
             G_TYPE_NONE, 1,
             WEBKIT_TYPE_JAVASCRIPT_RESULT);
+
+    /**
+     * WebKitUserContentManager::script-message-with-reply-received:
+     * @manager: the #WebKitUserContentManager
+     * @js_result: the #WebKitJavascriptResult holding the value received from the JavaScript world.
+     * @reply: the #WebKitScriptMessageReply to send the reply to the script message.
+     *
+     * This signal is emitted when JavaScript in a web view calls
+     * <code>window.webkit.messageHandlers.<name>.postMessage()</code>, after registering
+     * <code><name></code> using
+     * webkit_user_content_manager_register_script_message_handler_with_reply()
+     *
+     * The given @reply can be used to send a return value with
+     * webkit_script_message_reply_return_value() or an error message with
+     * webkit_script_message_reply_return_error_message(). If none of them are
+     * called, an automatic reply with an undefined value will be sent.
+     *
+     * It is possible to handle the reply asynchronously, by simply calling
+     * g_object_ref() on the @reply and returning %TRUE.
+     *
+     * Returns: %TRUE to stop other handlers from being invoked for the event.
+     *    %FALSE to propagate the event further.
+     *
+     * Since: 2.40
+     */
+    signals[SCRIPT_MESSAGE_WITH_REPLY_RECEIVED] =
+        g_signal_new(
+            "script-message-with-reply-received",
+            G_TYPE_FROM_CLASS(gObjectClass),
+            static_cast<GSignalFlags>(G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED),
+            0, g_signal_accumulator_true_handled, nullptr,
+            g_cclosure_marshal_generic,
+            G_TYPE_BOOLEAN, 2,
+            WEBKIT_TYPE_JAVASCRIPT_RESULT,
+            WEBKIT_TYPE_SCRIPT_MESSAGE_REPLY);
 }
 
 /**
@@ -126,6 +163,7 @@ WebKitUserContentManager* webkit_user_content_manager_new()
  * @stylesheet: A #WebKitUserStyleSheet
  *
  * Adds a #WebKitUserStyleSheet to the given #WebKitUserContentManager.
+ *
  * The same #WebKitUserStyleSheet can be reused with multiple
  * #WebKitUserContentManager instances.
  *
@@ -176,6 +214,7 @@ void webkit_user_content_manager_remove_all_style_sheets(WebKitUserContentManage
  * @script: A #WebKitUserScript
  *
  * Adds a #WebKitUserScript to the given #WebKitUserContentManager.
+ *
  * The same #WebKitUserScript can be reused with multiple
  * #WebKitUserContentManager instances.
  *
@@ -222,12 +261,138 @@ void webkit_user_content_manager_remove_all_scripts(WebKitUserContentManager* ma
     manager->priv->userContentController->removeAllUserScripts();
 }
 
+/**
+ * WebKitScriptMessageReply: (ref-func webkit_script_message_reply_ref) (unref-func webkit_script_message_reply_unref)
+ *
+ * A reply for a script message received.
+ * If no reply has been sent by the user, an automatically generated reply with
+ * undefined value with be sent.
+ *
+ * Since: 2.40
+ */
+struct _WebKitScriptMessageReply {
+    _WebKitScriptMessageReply(WTF::Function<void(API::SerializedScriptValue*, const String&)>&& completionHandler)
+        : completionHandler(WTFMove(completionHandler))
+        , referenceCount(1)
+    {
+    }
+
+    void sendValue(JSCValue* value)
+    {
+        auto serializedValue = API::SerializedScriptValue::createFromJSCValue(value);
+        completionHandler(serializedValue.get(), { });
+    }
+
+    void sendErrorMessage(const char* errorMessage)
+    {
+        completionHandler(nullptr, String::fromUTF8(errorMessage));
+    }
+
+    ~_WebKitScriptMessageReply()
+    {
+        if (completionHandler) {
+            auto value = adoptGRef(jsc_value_new_undefined(API::SerializedScriptValue::sharedJSCContext()));
+            sendValue(value.get());
+        }
+    }
+
+    WTF::CompletionHandler<void(API::SerializedScriptValue*, const String&)> completionHandler;
+    int referenceCount;
+};
+
+G_DEFINE_BOXED_TYPE(WebKitScriptMessageReply, webkit_script_message_reply, webkit_script_message_reply_ref, webkit_script_message_reply_unref)
+
+/**
+ * webkit_script_message_reply_ref:
+ * @script_message_reply: A #WebKitScriptMessageReply
+ *
+ * Atomically increments the reference count of @script_message_reply by one.
+ *
+ * Returns: the @script_message_reply passed in.
+ *
+ * Since: 2.40
+ */
+WebKitScriptMessageReply*
+webkit_script_message_reply_ref(WebKitScriptMessageReply* scriptMessageReply)
+{
+    g_return_val_if_fail(scriptMessageReply, nullptr);
+    g_atomic_int_inc(&scriptMessageReply->referenceCount);
+    return scriptMessageReply;
+}
+
+/**
+ * webkit_script_message_reply_unref:
+ * @script_message_reply: A #WebKitScriptMessageReply
+ *
+ * Atomically decrements the reference count of @script_message_reply by one.
+ *
+ * If the reference count drops to 0, all the memory allocated by the
+ * #WebKitScriptMessageReply is released. This function is MT-safe and may
+ * be called from any thread.
+ *
+ * Since: 2.40
+ */
+void webkit_script_message_reply_unref(WebKitScriptMessageReply* scriptMessageReply)
+{
+    g_return_if_fail(scriptMessageReply);
+    if (g_atomic_int_dec_and_test(&scriptMessageReply->referenceCount)) {
+        scriptMessageReply->~WebKitScriptMessageReply();
+        fastFree(scriptMessageReply);
+    }
+}
+
+WebKitScriptMessageReply* webKitScriptMessageReplyCreate(WTF::Function<void(API::SerializedScriptValue*, const String&)>&& completionHandler)
+{
+    WebKitScriptMessageReply* scriptMessageReply = static_cast<WebKitScriptMessageReply*>(fastMalloc(sizeof(WebKitScriptMessageReply)));
+    new (scriptMessageReply) WebKitScriptMessageReply(WTFMove(completionHandler));
+    return scriptMessageReply;
+}
+
+/**
+ * webkit_script_message_reply_return_value:
+ * @script_message_reply: A #WebKitScriptMessageReply
+ * @reply_value: Reply value of the provided script message
+ *
+ * Reply to a script message with a value.
+ *
+ * This function can be called twice for passing the reply value in.
+ *
+ * Since: 2.40
+ */
+void webkit_script_message_reply_return_value(WebKitScriptMessageReply* message, JSCValue* replyValue)
+{
+    g_return_if_fail(message != nullptr);
+    g_return_if_fail(message->completionHandler);
+
+    message->sendValue(replyValue);
+}
+
+/**
+ * webkit_script_message_reply_return_error_message:
+ * @script_message_reply: A #WebKitScriptMessageReply
+ * @error_message: An error message to return as specified by the user's script message
+ *
+ * Reply to a script message with an error message.
+ *
+ * Since: 2.40
+ */
+void
+webkit_script_message_reply_return_error_message(WebKitScriptMessageReply* message, const char* errorMessage)
+{
+    g_return_if_fail(message != nullptr);
+    g_return_if_fail(errorMessage != nullptr);
+    g_return_if_fail(message->completionHandler);
+
+    message->sendErrorMessage(errorMessage);
+}
+
 class ScriptMessageClientGtk final : public WebScriptMessageHandler::Client {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ScriptMessageClientGtk(WebKitUserContentManager* manager, const char* handlerName)
+    ScriptMessageClientGtk(WebKitUserContentManager* manager, const char* handlerName, bool supportsAsyncReply)
         : m_handlerName(g_quark_from_string(handlerName))
         , m_manager(manager)
+        , m_supportsAsyncReply(supportsAsyncReply)
     {
     }
 
@@ -240,18 +405,25 @@ public:
 
     bool supportsAsyncReply() override
     {
-        return false;
+        return m_supportsAsyncReply;
     }
-    
-    void didPostMessageWithAsyncReply(WebPageProxy&, FrameInfoData&&, API::ContentWorld&, WebCore::SerializedScriptValue&, WTF::Function<void(API::SerializedScriptValue*, const String&)>&&) override
+
+    void didPostMessageWithAsyncReply(WebPageProxy&, FrameInfoData&&, API::ContentWorld&, WebCore::SerializedScriptValue& serializedScriptValue, WTF::Function<void(API::SerializedScriptValue*, const String&)>&& completionHandler) override
     {
+        WebKitJavascriptResult* jsResult = webkitJavascriptResultCreate(serializedScriptValue);
+        WebKitScriptMessageReply* message = webKitScriptMessageReplyCreate(WTFMove(completionHandler));
+        gboolean returnValue;
+        g_signal_emit(m_manager, signals[SCRIPT_MESSAGE_WITH_REPLY_RECEIVED], m_handlerName, jsResult, message, &returnValue);
+        webkit_javascript_result_unref(jsResult);
+        webkit_script_message_reply_unref(message);
     }
-    
+
     virtual ~ScriptMessageClientGtk() { }
 
 private:
     GQuark m_handlerName;
     WebKitUserContentManager* m_manager;
+    bool m_supportsAsyncReply;
 };
 
 /**
@@ -259,8 +431,10 @@ private:
  * @manager: A #WebKitUserContentManager
  * @name: Name of the script message channel
  *
- * Registers a new user script message handler. After it is registered,
- * scripts can use `window.webkit.messageHandlers.&lt;name&gt;.postMessage(value)`
+ * Registers a new user script message handler.
+ *
+ * After it is registered,
+ * scripts can use `window.webkit.messageHandlers.<name>.postMessage(value)`
  * to send messages. Those messages are received by connecting handlers
  * to the #WebKitUserContentManager::script-message-received signal. The
  * handler name is used as the detail of the signal. To avoid race
@@ -289,7 +463,7 @@ gboolean webkit_user_content_manager_register_script_message_handler(WebKitUserC
     g_return_val_if_fail(name, FALSE);
 
     Ref<WebScriptMessageHandler> handler =
-        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), AtomString::fromUTF8(name), API::ContentWorld::pageContentWorld());
+        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name, false), AtomString::fromUTF8(name), API::ContentWorld::pageContentWorld());
     return manager->priv->userContentController->addUserScriptMessageHandler(handler.get());
 }
 
@@ -317,10 +491,48 @@ void webkit_user_content_manager_unregister_script_message_handler(WebKitUserCon
 }
 
 /**
+ * webkit_user_content_manager_register_script_message_handler_with_reply:
+ * @manager: A #WebKitUserContentManager
+ * @name: Name of the script message channel
+ * @world_name (nullable): the name of a #WebKitScriptWorld
+ *
+ * Registers a new user script message handler in script world with name @world_name.
+ *
+ * Different from webkit_user_content_manager_register_script_message_handler(),
+ * when using this function to register the handler, the connected signal is
+ * script-message-with-reply-received, and a reply provided by the user is expected.
+ * Otherwise, the user will receive a default undefined value.
+ *
+ * If %NULL is passed as the @world_name, the default world will be used.
+ * See webkit_user_content_manager_register_script_message_handler() for full description.
+ *
+ * Registering a script message handler will fail if the requested
+ * name has been already registered before.
+ *
+ * The registered handler can be unregistered by using
+ * #webkit_user_content_manager_unregister_script_message_handler() and
+ * #webkit_user_content_manager_unregister_script_message_handler_in_world().
+ *
+ * Returns: %TRUE if message handler was registered successfully, or %FALSE otherwise.
+ *
+ * Since: 2.40
+ */
+gboolean webkit_user_content_manager_register_script_message_handler_with_reply(WebKitUserContentManager* manager, const char* name, const char* worldName)
+{
+    g_return_val_if_fail(WEBKIT_IS_USER_CONTENT_MANAGER(manager), FALSE);
+    g_return_val_if_fail(name, FALSE);
+
+    auto handler = WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name, true), AtomString::fromUTF8(name), worldName ? webkitContentWorld(worldName) : API::ContentWorld::pageContentWorld());
+    return manager->priv->userContentController->addUserScriptMessageHandler(handler.get());
+}
+
+/**
  * webkit_user_content_manager_register_script_message_handler_in_world:
  * @manager: A #WebKitUserContentManager
  * @name: Name of the script message channel
  * @world_name: the name of a #WebKitScriptWorld
+ *
+ * Registers a new user script message handler in script world.
  *
  * Registers a new user script message handler in script world with name @world_name.
  * See webkit_user_content_manager_register_script_message_handler() for full description.
@@ -339,7 +551,7 @@ gboolean webkit_user_content_manager_register_script_message_handler_in_world(We
     g_return_val_if_fail(worldName, FALSE);
 
     Ref<WebScriptMessageHandler> handler =
-        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), AtomString::fromUTF8(name), webkitContentWorld(worldName));
+        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name, false), AtomString::fromUTF8(name), webkitContentWorld(worldName));
     return manager->priv->userContentController->addUserScriptMessageHandler(handler.get());
 }
 
@@ -375,6 +587,7 @@ void webkit_user_content_manager_unregister_script_message_handler_in_world(WebK
  * @filter: A #WebKitUserContentFilter
  *
  * Adds a #WebKitUserContentFilter to the given #WebKitUserContentManager.
+ *
  * The same #WebKitUserContentFilter can be reused with multiple
  * #WebKitUserContentManager instances.
  *
@@ -413,6 +626,8 @@ void webkit_user_content_manager_remove_filter(WebKitUserContentManager* manager
  * webkit_user_content_manager_remove_filter_by_id:
  * @manager: A #WebKitUserContentManager
  * @filter_id: Filter identifier
+ *
+ * Removes a filter by the given identifier.
  *
  * Removes a filter from the given #WebKitUserContentManager given the
  * identifier of a #WebKitUserContentFilter as returned by

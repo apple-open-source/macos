@@ -52,6 +52,8 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         // FIXME: Provide dedicated UI to toggle Network Interception globally?
         this._interceptionEnabled = true;
 
+        this._emulatedCondition = WI.NetworkManager.EmulatedCondition.None;
+
         // COMPATIBILITY (iOS 14.0): Inspector.activateExtraDomains was removed in favor of a declared debuggable type
         WI.notifications.addEventListener(WI.Notification.ExtraDomainsActivated, this._extraDomainsActivated, this);
 
@@ -192,10 +194,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
         if (target.hasDomain("Network")) {
             target.NetworkAgent.enable();
-
-            // COMPATIBILITY (iOS 10.3): Network.setDisableResourceCaching did not exist.
-            if (target.hasCommand("Network.setResourceCachingDisabled"))
-                target.NetworkAgent.setResourceCachingDisabled(WI.settings.resourceCachingDisabled.value);
+            target.NetworkAgent.setResourceCachingDisabled(WI.settings.resourceCachingDisabled.value);
 
             // COMPATIBILITY (iOS 13.0): Network.setInterceptionEnabled did not exist.
             if (target.hasCommand("Network.setInterceptionEnabled")) {
@@ -208,6 +207,8 @@ WI.NetworkManager = class NetworkManager extends WI.Object
                 }
             }
         }
+
+        this._applyEmulatedCondition(target);
 
         if (target.type === WI.TargetType.Worker)
             this.adoptOrphanedResourcesForTarget(target);
@@ -247,6 +248,28 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             if (target.hasCommand("Network.setInterceptionEnabled"))
                 target.NetworkAgent.setInterceptionEnabled(this._interceptionEnabled);
         }
+    }
+
+    get emulatedCondition()
+    {
+        return this._emulatedCondition;
+    }
+
+    set emulatedCondition(condition)
+    {
+        console.assert(Object.values(WI.NetworkManager.EmulatedCondition).includes(condition), condition);
+        console.assert(WI.settings.experimentalEnableNetworkEmulatedCondition.value);
+        console.assert(InspectorBackend.hasCommand("Network.setEmulatedConditions"));
+
+        if (condition === this._emulatedCondition)
+            return;
+
+        this._emulatedCondition = condition;
+
+        for (let target of WI.targets)
+            this._applyEmulatedCondition(target);
+
+        this.dispatchEventToListeners(WI.NetworkManager.Event.EmulatedConditionChanged);
     }
 
     frameForIdentifier(frameId)
@@ -685,7 +708,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             requestSentWalltime: walltime,
             referrerPolicy: request.referrerPolicy,
             integrity: request.integrity,
-            initiatorCallFrames: this._initiatorCallFramesFromPayload(initiator),
+            initiatorStackTrace: this._initiatorStackTraceFromPayload(initiator),
             initiatorSourceCodeLocation: this._initiatorSourceCodeLocationFromPayload(initiator),
             initiatorNode: this._initiatorNodeFromPayload(initiator),
         });
@@ -705,12 +728,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         console.assert(url);
         if (!url)
             return;
-
-        // COMPATIBILITY(iOS 10.3): `walltime` did not exist in 10.3 and earlier.
-        if (!InspectorBackend.hasEvent("Network.webSocketWillSendHandshakeRequest", "walltime")) {
-            request = arguments[2];
-            walltime = NaN;
-        }
 
         // FIXME: <webkit.org/b/168475> Web Inspector: Correctly display iframe's and worker's WebSockets
 
@@ -790,23 +807,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         resource.addFrame(payloadData, payloadLength, isOutgoing, opcode, timestamp, elapsedTime);
     }
 
-    markResourceRequestAsServedFromMemoryCache(requestIdentifier)
-    {
-        // Ignore this while waiting for the whole frame/resource tree.
-        if (this._waitingForMainFrameResourceTreePayload)
-            return;
-
-        let resource = this._resourceRequestIdentifierMap.get(requestIdentifier);
-
-        // We might not have a resource if the inspector was opened during the page load (after resourceRequestWillBeSent is called).
-        // We don't want to assert in this case since we do likely have the resource, via Page.getResourceTree. The Resource
-        // just doesn't have a requestIdentifier for us to look it up.
-        if (!resource)
-            return;
-
-        resource.legacyMarkServedFromMemoryCache();
-    }
-
     resourceRequestWasServedFromMemoryCache(requestIdentifier, frameIdentifier, loaderIdentifier, cachedResourcePayload, timestamp, initiator)
     {
         // Ignore this while waiting for the whole frame/resource tree.
@@ -825,7 +825,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             requestIdentifier,
             requestMethod: "GET",
             requestSentTimestamp: elapsedTime,
-            initiatorCallFrames: this._initiatorCallFramesFromPayload(initiator),
+            initiatorStackTrace: this._initiatorStackTraceFromPayload(initiator),
             initiatorSourceCodeLocation: this._initiatorSourceCodeLocationFromPayload(initiator),
             initiatorNode: this._initiatorNodeFromPayload(initiator),
         });
@@ -884,10 +884,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             // Associate the resource with the requestIdentifier so it can be found in future loading events.
             this._resourceRequestIdentifierMap.set(requestIdentifier, resource);
         }
-
-        // COMPATIBILITY (iOS 10.3): `fromDiskCache` is legacy, replaced by `source`.
-        if (response.fromDiskCache)
-            resource.legacyMarkServedFromDiskCache();
 
         resource.updateForResponse(response.url, response.mimeType, type, response.headers, response.status, response.statusText, elapsedTime, response.timing, response.source, response.security);
     }
@@ -1188,16 +1184,20 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         target.addResource(resource);
     }
 
-    _initiatorCallFramesFromPayload(initiatorPayload)
+    _initiatorStackTraceFromPayload(initiatorPayload)
     {
         if (!initiatorPayload)
             return null;
 
-        let callFrames = initiatorPayload.stackTrace;
-        if (!callFrames)
+        let stackTrace = initiatorPayload.stackTrace;
+        if (!stackTrace)
             return null;
 
-        return callFrames.map((payload) => WI.CallFrame.fromPayload(WI.assumingMainTarget(), payload));
+        // COMPATIBILITY (macOS 13.0, iOS 16.0): `stackTrace` was an array of `Console.CallFrame`.
+        if (Array.isArray(stackTrace))
+            stackTrace = {callFrames: stackTrace};
+
+        return WI.StackTrace.fromPayload(WI.assumingMainTarget(), stackTrace);
     }
 
     _initiatorSourceCodeLocationFromPayload(initiatorPayload)
@@ -1209,10 +1209,10 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         var lineNumber = NaN;
         var columnNumber = 0;
 
-        if (initiatorPayload.stackTrace && initiatorPayload.stackTrace.length) {
-            var stackTracePayload = initiatorPayload.stackTrace;
-            for (var i = 0; i < stackTracePayload.length; ++i) {
-                var callFramePayload = stackTracePayload[i];
+        // COMPATIBILITY (macOS 13.0, iOS 16.0): `stackTrace` was an array of `Console.CallFrame`.
+        let callFramesPayload = Array.isArray(initiatorPayload.stackTrace) ? initiatorPayload.stackTrace : initiatorPayload.stackTrace?.callFrames;
+        if (callFramesPayload?.length) {
+            for (let callFramePayload of callFramesPayload) {
                 if (!callFramePayload.url || callFramePayload.url === "[native code]")
                     continue;
 
@@ -1433,6 +1433,18 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         }
     }
 
+    _applyEmulatedCondition(target)
+    {
+        if (!WI.settings.experimentalEnableNetworkEmulatedCondition.value)
+            return;
+
+        // COMPATIBILITY (macOS 13.0, iOS 16.0): Network.setEmulatedConditions did not exist.
+        if (!target.hasCommand("Network.setEmulatedConditions"))
+            return;
+
+        target.NetworkAgent.setEmulatedConditions(this._emulatedCondition.bytesPerSecondLimit);
+    }
+
     _dispatchFrameWasAddedEvent(frame)
     {
         this.dispatchEventToListeners(WI.NetworkManager.Event.FrameWasAdded, {frame});
@@ -1607,6 +1619,51 @@ WI.NetworkManager = class NetworkManager extends WI.Object
     }
 };
 
+WI.NetworkManager.EmulatedCondition = {
+    // Keep this first.
+    None: {
+        id: "none",
+        bytesPerSecondLimit: 0,
+        get displayName() { return WI.UIString("No throttling", "Label indicating that network throttling is inactive."); }
+    },
+
+    Mobile3G: {
+        id: "mobile-3g",
+        bytesPerSecondLimit: 780 * 1000 / 8, // 780kbps
+        get displayName() { return WI.UIString("3G", "Label indicating that network activity is being simulated with 3G connectivity."); }
+    },
+
+    DSL: {
+        id: "dsl",
+        bytesPerSecondLimit: 2 * 1000 * 1000 / 8, // 2mbps
+        get displayName() { return WI.UIString("DSL", "Label indicating that network activity is being simulated with DSL connectivity."); }
+    },
+
+    Edge: {
+        id: "edge",
+        bytesPerSecondLimit: 240 * 1000 / 8, // 240kbps
+        get displayName() { return WI.UIString("Edge", "Label indicating that network activity is being simulated with Edge connectivity."); }
+    },
+
+    LTE: {
+        id: "lte",
+        bytesPerSecondLimit: 50 * 1000 * 1000 / 8, // 50mbps
+        get displayName() { return WI.UIString("LTE", "Label indicating that network activity is being simulated with LTE connectivity"); }
+    },
+
+    WiFi: {
+        id: "wifi",
+        bytesPerSecondLimit: 40 * 1000 * 1000 / 8, // 40mbps
+        get displayName() { return WI.UIString("Wi-Fi", "Label indicating that network activity is being simulated with Wi-Fi connectivity"); }
+    },
+
+    WiFi802_11ac: {
+        id: "wifi-802_11ac",
+        bytesPerSecondLimit: 250 * 1000 * 1000 / 8, // 250mbps
+        get displayName() { return WI.UIString("Wi-Fi 802.11ac", "Label indicating that network activity is being simulated with Wi-Fi 802.11ac connectivity"); }
+    },
+};
+
 WI.NetworkManager.Event = {
     FrameWasAdded: "network-manager-frame-was-added",
     FrameWasRemoved: "network-manager-frame-was-removed",
@@ -1616,4 +1673,5 @@ WI.NetworkManager.Event = {
     BootstrapScriptDestroyed: "network-manager-bootstrap-script-destroyed",
     LocalResourceOverrideAdded: "network-manager-local-resource-override-added",
     LocalResourceOverrideRemoved: "network-manager-local-resource-override-removed",
+    EmulatedConditionChanged: "network-manager-emulated-condition-changed",
 };

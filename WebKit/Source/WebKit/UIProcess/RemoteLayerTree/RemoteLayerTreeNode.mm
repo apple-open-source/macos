@@ -75,6 +75,9 @@ void RemoteLayerTreeNode::detachFromParent()
         return;
     }
 #endif
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    [interactionRegionsLayer() removeFromSuperlayer];
+#endif
     [layer() removeFromSuperlayer];
 }
 
@@ -86,12 +89,16 @@ void RemoteLayerTreeNode::setEventRegion(const WebCore::EventRegion& eventRegion
 void RemoteLayerTreeNode::initializeLayer()
 {
     [layer() setValue:[NSValue valueWithPointer:this] forKey:WKRemoteLayerTreeNodePropertyKey];
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    m_interactionRegionsLayer = adoptNS([[CALayer alloc] init]);
+    [m_interactionRegionsLayer setName:@"InteractionRegions Container"];
+#endif
 }
 
 WebCore::GraphicsLayer::PlatformLayerID RemoteLayerTreeNode::layerID(CALayer *layer)
 {
     auto* node = forCALayer(layer);
-    return node ? node->layerID() : 0;
+    return node ? node->layerID() : WebCore::GraphicsLayer::PlatformLayerID { };
 }
 
 RemoteLayerTreeNode* RemoteLayerTreeNode::forCALayer(CALayer *layer)
@@ -101,7 +108,7 @@ RemoteLayerTreeNode* RemoteLayerTreeNode::forCALayer(CALayer *layer)
 
 NSString *RemoteLayerTreeNode::appendLayerDescription(NSString *description, CALayer *layer)
 {
-    NSString *layerDescription = [NSString stringWithFormat:@" layerID = %llu \"%@\"", WebKit::RemoteLayerTreeNode::layerID(layer), layer.name ? layer.name : @""];
+    NSString *layerDescription = [NSString stringWithFormat:@" layerID = %llu \"%@\"", WebKit::RemoteLayerTreeNode::layerID(layer).object().toUInt64(), layer.name ? layer.name : @""];
     return [description stringByAppendingString:layerDescription];
 }
 

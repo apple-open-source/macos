@@ -38,6 +38,9 @@
 #import <OctagonTrust/OTEscrowRecordMetadataClientMetadata.h>
 #import <OctagonTrust/OTSecureElementPeerIdentity.h>
 #import <OctagonTrust/OTCurrentSecureElementIdentities.h>
+#import <OctagonTrust/OTAccountSettings.h>
+#import <OctagonTrust/OTWalrus.h>
+#import <OctagonTrust/OTWebAccess.h>
 #import <OctagonTrust/OTNotifications.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -144,6 +147,36 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
  */
 - (OTCurrentSecureElementIdentities* _Nullable)fetchTrustedSecureElementIdentities:(NSError**)error;
 
+/* *
+ * @abstract       Set account settings.
+ * @param settings  A protobuf of account settings (walrus.enabled = true/false and/or webAccess.enabled = true/false)
+ * @param error     An error parameter
+ * @return BOOL     Whether or not the invocation was successful
+ */
+- (BOOL)setAccountSetting:(OTAccountSettings*)settings error:(NSError**)error;
+
+/* *
+ * @abstract Fetches this device's settings (walrus and web access).
+ * @param error  An error parameter
+ */
+- (OTAccountSettings* _Nullable)fetchAccountSettings:(NSError**)error;
+
+/* *
+ * @abstract Fetches account settings (walrus and web access).
+ * @param configurationContext  containing parameters to setup OTClique
+ * @param error                 An error parameter
+ */
++ (OTAccountSettings* _Nullable)fetchAccountWideSettings:(OTConfigurationContext*)configurationContext error:(NSError**)error;
+
+/* *
+ * @abstract Fetches account settings (walrus and web access).
+ * @param forceFetch            Always fetch current data from cuttlefish
+ * @param configurationContext  containing parameters to setup OTClique
+ * @param error                 An error parameter
+ */
++ (OTAccountSettings* _Nullable)fetchAccountWideSettingsWithForceFetch:(bool)forceFetch
+                                                         configuration:(OTConfigurationContext*)configurationContext
+                                                                 error:(NSError**)error;
 
 /* *
  * @abstract        Wait for the download and recovery of 'priority' keychain items.
@@ -169,6 +202,44 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
   */
 - (BOOL)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
                            error:(NSError**)error;
+
+/* *
+  * @abstract                       Create and Set a Recovery Key
+  * @param ctx                      Configuration context containing parameters to setup OTClique
+  * @param error                    An error parameter: filled in if the call times out or if recovery key creation/setting fails
+  * @return NSString                The recovery key
+  */
++ (NSString * _Nullable)createAndSetRecoveryKeyWithContext:(OTConfigurationContext*)ctx error:(NSError**)error;
+
+
+/* *
+  * @abstract                        Check Octagon and SOS if a recovery key exists
+  * @param ctx                       Configuration context containing parameters to setup OTClique
+  * @param error                     An error parameter: filled in if the call times out or fails in any way
+  * @return BOOL                     Whether or not a recovery key is set in Octagon and SOS
+  */
++ (BOOL)isRecoveryKeySet:(OTConfigurationContext*)ctx error:(NSError**)error;
+
+/* *
+  * @abstract                        Use a recovery key to recover account trust
+  * @param ctx                       Configuration context containing parameters to setup OTClique
+  * @param recoveryKey               The recoveryKeyString used to recover trust
+  * @param error                     An error parameter: filled in if the call times out or fails in any way
+  * @return BOOL                     Whether or not we joined Octagon and SOS
+  */
++ (BOOL)recoverWithRecoveryKey:(OTConfigurationContext*)ctx
+                   recoveryKey:(NSString*)recoveryKey
+                         error:(NSError**)error;
+
+/* *
+  * @abstract                        Remove recovery key
+  * @param ctx                       Configuration context containing parameters to setup OTClique
+  * @param error                     An error parameter: filled in if the call times out or fails in any way
+  * @return BOOL                     Whether or not recovery key was removed
+  */
+- (BOOL)removeRecoveryKey:(OTConfigurationContext*)ctx
+                    error:(NSError**)error;
+
 
 /* *
  * @abstract                        Preflight (dry-run) recover using a recovery key.

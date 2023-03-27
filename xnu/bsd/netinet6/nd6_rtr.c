@@ -196,8 +196,7 @@ static unsigned int nddr_debug;                 /* debug flags */
 static struct zone *nddr_zone;                  /* zone for nd_defrouter */
 #define NDDR_ZONE_NAME  "nd6_defrouter"         /* zone name */
 
-static ZONE_DEFINE(ndprtr_zone, "nd6_pfxrouter",
-    sizeof(struct nd_pfxrouter), ZC_NONE);
+static KALLOC_TYPE_DEFINE(ndprtr_zone, struct nd_pfxrouter, NET_KT_DEFAULT);
 
 #define TWOHOUR         (120*60)
 extern int nd6_process_rti;                     /* Default to 0 for now */

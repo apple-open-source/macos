@@ -28,6 +28,8 @@
 
 #if ENABLE(SEC_ITEM_SHIM)
 
+#include "Connection.h"
+#include "Logging.h"
 #include "SecItemRequestData.h"
 #include "SecItemResponseData.h"
 #include "SecItemShimProxyMessages.h"
@@ -36,12 +38,29 @@
 
 namespace WebKit {
 
+#define MESSAGE_CHECK_COMPLETION(assertion, connection, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, &connection, completion)
+
+// We received these dictionaries over IPC so they shouldn't contain any "in-memory" objects (rdar://104253249).
+static bool dictionaryContainsInMemoryObject(CFDictionaryRef dictionary)
+{
+    if (!dictionary)
+        return false;
+
+    // kSecUseItemList is deprecated on iOS 12+.
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    if (CFDictionaryContainsKey(dictionary, kSecUseItemList))
+        return true;
+ALLOW_DEPRECATED_DECLARATIONS_END
+
+    return CFDictionaryContainsKey(dictionary, kSecValueRef);
+}
+
 SecItemShimProxy& SecItemShimProxy::singleton()
 {
     static SecItemShimProxy* proxy;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        proxy = adoptRef(new SecItemShimProxy).leakRef();
+        proxy = new SecItemShimProxy;
     });
     return *proxy;
 }
@@ -58,25 +77,28 @@ SecItemShimProxy::~SecItemShimProxy()
 
 void SecItemShimProxy::initializeConnection(IPC::Connection& connection)
 {
-    connection.addWorkQueueMessageReceiver(Messages::SecItemShimProxy::messageReceiverName(), m_queue.get(), *this);
+    connection.addMessageReceiver(m_queue.get(), *this, Messages::SecItemShimProxy::messageReceiverName());
 }
 
-void SecItemShimProxy::secItemRequest(const SecItemRequestData& request, CompletionHandler<void(std::optional<SecItemResponseData>&&)>&& response)
+void SecItemShimProxy::secItemRequest(IPC::Connection& connection, const SecItemRequestData& request, CompletionHandler<void(std::optional<SecItemResponseData>&&)>&& response)
 {
+    MESSAGE_CHECK_COMPLETION(!dictionaryContainsInMemoryObject(request.query()), connection, response(SecItemResponseData { errSecParam, nullptr }));
+    MESSAGE_CHECK_COMPLETION(!dictionaryContainsInMemoryObject(request.attributesToMatch()), connection, response(SecItemResponseData { errSecParam, nullptr }));
+
     switch (request.type()) {
-    case SecItemRequestData::Invalid:
+    case SecItemRequestData::Type::Invalid:
         LOG_ERROR("SecItemShimProxy::secItemRequest received an invalid data request. Please file a bug if you know how you caused this.");
         response(SecItemResponseData { errSecParam, nullptr });
         break;
 
-    case SecItemRequestData::CopyMatching: {
+    case SecItemRequestData::Type::CopyMatching: {
         CFTypeRef resultObject = nullptr;
         OSStatus resultCode = SecItemCopyMatching(request.query(), &resultObject);
         response(SecItemResponseData { resultCode, adoptCF(resultObject) });
         break;
     }
 
-    case SecItemRequestData::Add: {
+    case SecItemRequestData::Type::Add: {
         // Return value of SecItemAdd is often ignored. Even if it isn't, we don't have the ability to
         // serialize SecKeychainItemRef.
         OSStatus resultCode = SecItemAdd(request.query(), nullptr);
@@ -84,13 +106,13 @@ void SecItemShimProxy::secItemRequest(const SecItemRequestData& request, Complet
         break;
     }
 
-    case SecItemRequestData::Update: {
+    case SecItemRequestData::Type::Update: {
         OSStatus resultCode = SecItemUpdate(request.query(), request.attributesToMatch());
         response(SecItemResponseData { resultCode, nullptr });
         break;
     }
 
-    case SecItemRequestData::Delete: {
+    case SecItemRequestData::Type::Delete: {
         OSStatus resultCode = SecItemDelete(request.query());
         response(SecItemResponseData { resultCode, nullptr });
         break;
@@ -98,9 +120,9 @@ void SecItemShimProxy::secItemRequest(const SecItemRequestData& request, Complet
     }
 }
 
-void SecItemShimProxy::secItemRequestSync(const SecItemRequestData& data, CompletionHandler<void(std::optional<SecItemResponseData>&&)>&& completionHandler)
+void SecItemShimProxy::secItemRequestSync(IPC::Connection& connection, const SecItemRequestData& data, CompletionHandler<void(std::optional<SecItemResponseData>&&)>&& completionHandler)
 {
-    secItemRequest(data, WTFMove(completionHandler));
+    secItemRequest(connection, data, WTFMove(completionHandler));
 }
 
 } // namespace WebKit

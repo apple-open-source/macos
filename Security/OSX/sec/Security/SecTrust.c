@@ -361,6 +361,7 @@ OSStatus SecTrustAddToInputCertificates(SecTrustRef trust, CFTypeRef certificate
         CFReleaseNull(trust->_certificates);
         trust->_certificates = (CFArrayRef)newCertificates;
     });
+    SecTrustSetNeedsEvaluation(trust);
 
     return errSecSuccess;
 }
@@ -1759,10 +1760,27 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
                 if (bundleID && !CFStringHasPrefix(bundleID, CFSTR("com.apple."))) {
                     static dispatch_once_t onceToken;
                     static os_log_t runtimeLog = NULL;
+                    static uint64_t faultsSinceStartTime = 0;
+                    static CFAbsoluteTime startTime = 0;
                     dispatch_once(&onceToken, ^{
                         runtimeLog = os_log_create(OS_LOG_SUBSYSTEM_RUNTIME_ISSUES, "Security");
                     });
-                    os_log_fault(runtimeLog, "This method should not be called on the main thread as it may lead to UI unresponsiveness.");
+                    CFAbsoluteTime curTime = CFAbsoluteTimeGetCurrent();
+                    if (curTime < startTime) {
+                        // we're throttled and waiting until startTime to resume
+                        faultsSinceStartTime = 0;
+                    } else {
+                        // log the fault and see if we need to throttle
+                        os_log_fault(runtimeLog, "__delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.");
+                        faultsSinceStartTime++;
+                        if (!SecFrameworkIsRunningInXcode() && faultsSinceStartTime > 10) {
+                            // more than 10 faults in the past minute, and we aren't running in Xcode
+                            startTime = curTime + (60*5); // throttle for 5 minutes
+                        } else if ((curTime - startTime) > 60) {
+                            startTime = curTime; // if not throttled, reset counters after 1 minute
+                            faultsSinceStartTime = 0;
+                        }
+                    }
                 }
             }
         }

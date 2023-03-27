@@ -58,7 +58,7 @@ public:
 
     void animationTimingDidChange(WebAnimation&) override;
     void removeAnimation(WebAnimation&) override;
-    void transitionDidComplete(RefPtr<CSSTransition>);
+    void transitionDidComplete(Ref<CSSTransition>&&);
 
     void animationAcceleratedRunningStateDidChange(WebAnimation&);
     void detachFromDocument();
@@ -78,6 +78,8 @@ public:
     WEBCORE_EXPORT unsigned numberOfActiveAnimationsForTesting() const;
     WEBCORE_EXPORT Vector<std::pair<String, double>> acceleratedAnimationsForElement(Element&) const;    
     WEBCORE_EXPORT unsigned numberOfAnimationTimelineInvalidationsForTesting() const;
+
+    Seconds convertTimelineTimeToOriginRelativeTime(Seconds) const;
 
     std::optional<FramesPerSecond> maximumFrameRate() const;
 

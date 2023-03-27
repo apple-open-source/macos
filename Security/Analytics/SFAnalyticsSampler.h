@@ -27,6 +27,8 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface SFAnalyticsSampler : NSObject
 
 @property (nonatomic) NSTimeInterval samplingInterval;
@@ -39,6 +41,8 @@
 - (void)resumeSampling;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif
 #endif

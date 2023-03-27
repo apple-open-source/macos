@@ -82,10 +82,10 @@ public:
     void stopProducingData() { m_source->stop(); }
     bool isProducingData() { return m_source->isProducingData(); }
 
-    bool isIsolated() const { return m_source->isIsolated(); }
-
     bool muted() const;
     void setMuted(bool muted) { m_source->setMuted(muted); }
+
+    void setIsInBackground(bool value) { m_source->setIsInBackground(value); }
 
     bool isCaptureTrack() const;
 

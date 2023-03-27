@@ -109,6 +109,9 @@ void logReply(const Connection& connection, MessageName messageName, const T&...
     if (!sizeof...(T))
         return;
 
+    if (LOG_CHANNEL(IPCMessages).state != WTFLogChannelState::On)
+        return;
+
     auto stream = textStreamForLogging(connection, messageName, nullptr, ForReply::Yes);
 
     unsigned argIndex = 0;
@@ -125,264 +128,196 @@ void logReply(const Connection& connection, MessageName messageName, const T&...
 
 // Dispatch functions with no reply arguments.
 
-template <typename C, typename MF, typename ArgsTuple, size_t... ArgsIndex>
-void callMemberFunctionImpl(C* object, MF function, ArgsTuple&& args, std::index_sequence<ArgsIndex...>)
+template<typename T, typename U, typename MF, typename ArgsTuple>
+void callMemberFunction(T* object, MF U::* function, ArgsTuple&& tuple)
 {
-    (object->*function)(std::get<ArgsIndex>(std::forward<ArgsTuple>(args))...);
-}
-
-template<typename C, typename MF, typename ArgsTuple, typename ArgsIndices = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
-void callMemberFunction(ArgsTuple&& args, C* object, MF function)
-{
-    callMemberFunctionImpl(object, function, std::forward<ArgsTuple>(args), ArgsIndices());
+    std::apply(
+        [&](auto&&... args) {
+            (object->*function)(std::forward<decltype(args)>(args)...);
+        }, std::forward<ArgsTuple>(tuple));
 }
 
 // Dispatch functions with synchronous reply arguments.
 
-template <typename C, typename MF, typename CH, typename ArgsTuple, size_t... ArgsIndex>
-void callMemberFunctionImpl(C* object, MF function, CompletionHandler<CH>&& completionHandler, ArgsTuple&& args, std::index_sequence<ArgsIndex...>)
+template<typename T, typename U, typename MF, typename ArgsTuple, typename CH>
+void callMemberFunction(T* object, MF U::* function, ArgsTuple&& tuple, CompletionHandler<CH>&& completionHandler)
 {
-    (object->*function)(std::get<ArgsIndex>(std::forward<ArgsTuple>(args))..., WTFMove(completionHandler));
-}
-
-template<typename C, typename MF, typename CH, typename ArgsTuple, typename ArgsIndices = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
-void callMemberFunction(ArgsTuple&& args, CompletionHandler<CH>&& completionHandler, C* object, MF function)
-{
-    callMemberFunctionImpl(object, function, WTFMove(completionHandler), std::forward<ArgsTuple>(args), ArgsIndices());
+    std::apply(
+        [&](auto&&... args) {
+            (object->*function)(std::forward<decltype(args)>(args)..., WTFMove(completionHandler));
+        }, std::forward<ArgsTuple>(tuple));
 }
 
 // Dispatch functions with connection parameter with synchronous reply arguments.
 
-template <typename C, typename MF, typename CH, typename ArgsTuple, size_t... ArgsIndex>
-void callMemberFunctionImpl(Connection& connection, C* object, MF function, CompletionHandler<CH>&& completionHandler, ArgsTuple&& args, std::index_sequence<ArgsIndex...>)
+template<typename T, typename U, typename MF, typename ArgsTuple, typename CH>
+void callMemberFunction(T* object, MF U::* function, Connection& connection, ArgsTuple&& tuple, CompletionHandler<CH>&& completionHandler)
 {
-    (object->*function)(connection, std::get<ArgsIndex>(std::forward<ArgsTuple>(args))..., WTFMove(completionHandler));
-}
-
-template<typename C, typename MF, typename CH, typename ArgsTuple, typename ArgsIndices = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
-void callMemberFunction(Connection& connection, ArgsTuple&& args, CompletionHandler<CH>&& completionHandler, C* object, MF function)
-{
-    callMemberFunctionImpl(connection, object, function, WTFMove(completionHandler), std::forward<ArgsTuple>(args), ArgsIndices());
+    std::apply(
+        [&](auto&&... args) {
+            (object->*function)(connection, std::forward<decltype(args)>(args)..., WTFMove(completionHandler));
+        }, std::forward<ArgsTuple>(tuple));
 }
 
 // Dispatch functions with connection parameter with no reply arguments.
 
-template <typename C, typename MF, typename ArgsTuple, size_t... ArgsIndex>
-void callMemberFunctionImpl(C* object, MF function, Connection& connection, ArgsTuple&& args, std::index_sequence<ArgsIndex...>)
+template<typename T, typename U, typename MF, typename ArgsTuple>
+void callMemberFunction(T* object, MF U::* function, Connection& connection, ArgsTuple&& tuple)
 {
-    (object->*function)(connection, std::get<ArgsIndex>(std::forward<ArgsTuple>(args))...);
+    std::apply(
+        [&](auto&&... args) {
+            (object->*function)(connection, std::forward<decltype(args)>(args)...);
+        }, std::forward<ArgsTuple>(tuple));
 }
 
-template<typename C, typename MF, typename ArgsTuple, typename ArgsIndices = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
-void callMemberFunction(Connection& connection, ArgsTuple&& args, C* object, MF function)
-{
-    callMemberFunctionImpl(object, function, connection, std::forward<ArgsTuple>(args), ArgsIndices());
-}
+// MethodSignatureValidation template works on function types of message-handling methods,
+// deducing the expected list of argument types that a given method is expecting along with
+// properly handling the possible initial Connection& argument and the possible final
+// CompletionHandler<>&& argument.
+// Once the template instantiations traverse across the method's arguments, the MessageArguments
+// type alias will present a tuple of method's expected argument types that the handleMessage()
+// variants can use for validation against the argument types specified by the message.
+// In case a CompletionHandler argument is present, the CompletionHandlerArguments type alias
+// will hold a list of the handler's expected argument types that again can be used for validation
+// against the message's specified reply types, and the CompletionHandlerType type alias will
+// provide that exact CompletionHandler type to enable proper construction of the object.
 
-template<typename T>
-struct CompletionHandlerTypeDeduction;
+template<typename MessageArgumentTypesTuple, typename MethodArgumentTypesTuple> struct MethodSignatureValidationImpl { };
 
-// The following two partial specializations enable retrieval of the parameter type at the specified index position.
-// This allows retrieving the exact type of the parameter where the CompletionHandler is expected in a given
-// synchronous-reply method.
+template<typename... MessageArgumentTypes, typename MethodArgumentType, typename... MethodArgumentTypes>
+struct MethodSignatureValidationImpl<std::tuple<MessageArgumentTypes...>, std::tuple<MethodArgumentType, MethodArgumentTypes...>>
+    : MethodSignatureValidationImpl<std::tuple<MessageArgumentTypes..., MethodArgumentType>, std::tuple<MethodArgumentTypes...>> { };
 
-template<typename R, typename C, typename... Args>
-struct CompletionHandlerTypeDeduction<R(C::*)(Args...)> {
-    template<size_t N, typename = std::enable_if_t<(N < sizeof...(Args))>>
-    using Type = std::remove_cvref_t<typename std::tuple_element_t<N, std::tuple<Args...>>>;
+template<typename... MessageArgumentTypes>
+struct MethodSignatureValidationImpl<std::tuple<Connection&, MessageArgumentTypes...>, std::tuple<>>
+: MethodSignatureValidationImpl<std::tuple<MessageArgumentTypes...>, std::tuple<>> {
+    static constexpr bool expectsConnectionArgument = true;
 };
 
-template<typename R, typename C, typename... Args>
-struct CompletionHandlerTypeDeduction<R(C::*)(Args...) const> {
-    template<size_t N, typename = std::enable_if_t<(N < sizeof...(Args))>>
-    using Type = std::remove_cvref_t<typename std::tuple_element_t<N, std::tuple<Args...>>>;
+template<typename... MessageArgumentTypes>
+struct MethodSignatureValidationImpl<std::tuple<MessageArgumentTypes...>, std::tuple<>> {
+    static constexpr bool expectsConnectionArgument = false;
+    using MessageArguments = std::tuple<std::remove_cvref_t<MessageArgumentTypes>...>;
 };
 
-// CompletionHandlerValidation::matchingTypes<ReplyType>() expects both CHType and ReplyType
-// to be specializations of the CompletionHandler template. CHType is the type specified in
-// the IPC handling method on the C++ class. ReplyType is the type generated from the IPC
-// message specification (and can still be used in the C++ method). Validation passes if both
-// types are indeed specializations of the CompletionHandler template and all the decayed
-// parameter types match between the two CompletionHandler specializations.
-
-struct CompletionHandlerValidation {
-    template<typename CHType>
-    struct ValidCompletionHandlerType : std::false_type { };
-
-    template<size_t N, typename TupleType>
-    using ParameterType = std::remove_cvref_t<std::tuple_element_t<N, TupleType>>;
-
-    template<typename CHArgsTuple, typename ReplyArgsTuple, size_t... Indices>
-    static constexpr bool matchingParameters(std::index_sequence<Indices...>)
-    {
-        return (std::is_same_v<ParameterType<Indices, CHArgsTuple>, ParameterType<Indices, ReplyArgsTuple>> && ...);
-    }
-
-    template<typename CHType, typename ReplyType>
-    static constexpr bool matchingTypes()
-    {
-        using CHInTypes = typename CHType::InTypes;
-        using ReplyInTypes = typename ReplyType::InTypes;
-
-        return ValidCompletionHandlerType<CHType>::value && ValidCompletionHandlerType<ReplyType>::value
-            && (std::tuple_size_v<CHInTypes> == std::tuple_size_v<ReplyInTypes>)
-            && matchingParameters<CHInTypes, ReplyInTypes>(std::make_index_sequence<std::tuple_size_v<CHInTypes>>());
-    }
+template<typename... MessageArgumentTypes, typename... CompletionHandlerArgumentTypes>
+struct MethodSignatureValidationImpl<std::tuple<MessageArgumentTypes...>, std::tuple<CompletionHandler<void(CompletionHandlerArgumentTypes...)>&&>>
+    : MethodSignatureValidationImpl<std::tuple<MessageArgumentTypes...>, std::tuple<>> {
+    using CompletionHandlerArguments = std::tuple<std::remove_cvref_t<CompletionHandlerArgumentTypes>...>;
+    using CompletionHandlerType = CompletionHandler<void(CompletionHandlerArgumentTypes...)>;
 };
 
-// This specialization is used in matchingTypes() and affirms that the passed-in CHType or
-// ReplyType is indeed a proper CompletionHandler type.
+template<typename FunctionType> struct MethodSignatureValidation { };
 
-template<typename... InTypes>
-struct CompletionHandlerValidation::ValidCompletionHandlerType<CompletionHandler<void(InTypes...)>> : std::true_type { };
+template<typename R, typename... MethodArgumentTypes>
+struct MethodSignatureValidation<R(MethodArgumentTypes...)>
+    : MethodSignatureValidationImpl<std::tuple<>, std::tuple<MethodArgumentTypes...>> { };
+
+template<typename R, typename... MethodArgumentTypes>
+struct MethodSignatureValidation<R(MethodArgumentTypes...) const>
+    : MethodSignatureValidation<R(MethodArgumentTypes...)> { };
 
 // Main dispatch functions
 
-template<typename T>
-struct CodingType {
-    typedef std::remove_const_t<std::remove_reference_t<T>> Type;
-};
-
-template<typename... Ts>
-struct CodingType<std::tuple<Ts...>> {
-    typedef std::tuple<typename CodingType<Ts>::Type...> Type;
-};
-
-template<typename T, typename C, typename MF>
-void handleMessage(Connection& connection, Decoder& decoder, C* object, MF function)
+template<typename MessageType, typename T, typename U, typename MF>
+void handleMessage(Connection& connection, Decoder& decoder, T* object, MF U::* function)
 {
-    auto arguments = decoder.decode<typename CodingType<typename T::Arguments>::Type>();
+    using ValidationType = MethodSignatureValidation<MF>;
+    static_assert(std::is_same_v<typename ValidationType::MessageArguments, typename MessageType::Arguments>);
+
+    auto arguments = decoder.decode<typename MessageType::Arguments>();
     if (UNLIKELY(!arguments))
         return;
 
-    logMessage(connection, T::name(), object, *arguments);
-    callMemberFunction(WTFMove(*arguments), object, function);
+    logMessage(connection, MessageType::name(), object, *arguments);
+    if constexpr (ValidationType::expectsConnectionArgument)
+        callMemberFunction(object, function, connection, WTFMove(*arguments));
+    else
+        callMemberFunction(object, function, WTFMove(*arguments));
 }
 
-template<typename T, typename C, typename MF>
-void handleMessageWantsConnection(Connection& connection, Decoder& decoder, C* object, MF function)
+template<typename MessageType, typename T, typename U, typename MF>
+bool handleMessageSynchronous(Connection& connection, Decoder& decoder, UniqueRef<Encoder>& replyEncoder, T* object, MF U::* function)
 {
-    auto arguments = decoder.decode<typename CodingType<typename T::Arguments>::Type>();
-    if (UNLIKELY(!arguments))
-        return;
+    using ValidationType = MethodSignatureValidation<MF>;
+    static_assert(std::is_same_v<typename ValidationType::MessageArguments, typename MessageType::Arguments>);
 
-    logMessage(connection, T::name(), object, *arguments);
-    callMemberFunction(connection, WTFMove(*arguments), object, function);
-}
-
-template<typename T, typename C, typename MF>
-bool handleMessageSynchronous(Connection& connection, Decoder& decoder, UniqueRef<Encoder>& replyEncoder, C* object, MF function)
-{
-    auto arguments = decoder.decode<typename CodingType<typename T::Arguments>::Type>();
+    auto arguments = decoder.decode<typename MessageType::Arguments>();
     if (UNLIKELY(!arguments))
         return false;
 
-    using CompletionHandlerFromMF = typename CompletionHandlerTypeDeduction<MF>::template Type<std::tuple_size_v<typename T::Arguments>>;
-    static_assert(CompletionHandlerValidation::template matchingTypes<CompletionHandlerFromMF, typename T::DelayedReply>());
+    static_assert(std::is_same_v<typename ValidationType::CompletionHandlerArguments, typename MessageType::ReplyArguments>);
+    using CompletionHandlerType = typename ValidationType::CompletionHandlerType;
 
-    logMessage(connection, T::name(), object, *arguments);
-    callMemberFunction(WTFMove(*arguments),
-        CompletionHandlerFromMF([replyEncoder = WTFMove(replyEncoder), connection = Ref { connection }] (auto&&... args) mutable {
-            logReply(connection, T::name(), args...);
+    CompletionHandlerType completionHandler(
+        [replyEncoder = WTFMove(replyEncoder), connection = Ref { connection }] (auto&&... args) mutable {
+            logReply(connection, MessageType::name(), args...);
             (replyEncoder.get() << ... << std::forward<decltype(args)>(args));
             connection->sendSyncReply(WTFMove(replyEncoder));
-        }),
-        object, function);
+        });
+
+    logMessage(connection, MessageType::name(), object, *arguments);
+    if constexpr (ValidationType::expectsConnectionArgument)
+        callMemberFunction(object, function, connection, WTFMove(*arguments), WTFMove(completionHandler));
+    else
+        callMemberFunction(object, function, WTFMove(*arguments), WTFMove(completionHandler));
     return true;
 }
 
-template<typename T, typename C, typename MF>
-bool handleMessageSynchronousWantsConnection(Connection& connection, Decoder& decoder, UniqueRef<Encoder>& replyEncoder, C* object, MF function)
+template<typename MessageType, typename T, typename U, typename MF>
+void handleMessageSynchronous(StreamServerConnection& connection, Decoder& decoder, T* object, MF U::* function)
 {
-    auto arguments = decoder.decode<typename CodingType<typename T::Arguments>::Type>();
-    if (UNLIKELY(!arguments))
-        return false;
-    
-    using CompletionHandlerFromMF = typename CompletionHandlerTypeDeduction<MF>::template Type<1 + std::tuple_size_v<typename T::Arguments>>;
-    static_assert(CompletionHandlerValidation::template matchingTypes<CompletionHandlerFromMF, typename T::DelayedReply>());
+    using ValidationType = MethodSignatureValidation<MF>;
+    static_assert(std::is_same_v<typename ValidationType::MessageArguments, typename MessageType::Arguments>);
 
-    logMessage(connection, T::name(), object, *arguments);
-    callMemberFunction(connection, WTFMove(*arguments),
-        CompletionHandlerFromMF([replyEncoder = WTFMove(replyEncoder), connection = Ref { connection }] (auto&&... args) mutable {
-            logReply(connection, T::name(), args...);
-            (replyEncoder.get() << ... << std::forward<decltype(args)>(args));
-            connection->sendSyncReply(WTFMove(replyEncoder));
-        }),
-        object, function);
-    return true;
-}
-
-template<typename T, typename C, typename MF>
-void handleMessageSynchronous(StreamServerConnection& connection, Decoder& decoder, C* object, MF function)
-{
     Connection::SyncRequestID syncRequestID;
     if (UNLIKELY(!decoder.decode(syncRequestID)))
         return;
 
-    auto arguments = decoder.decode<typename CodingType<typename T::Arguments>::Type>();
+    auto arguments = decoder.decode<typename MessageType::Arguments>();
     if (UNLIKELY(!arguments))
         return;
 
-    using CompletionHandlerFromMF = typename CompletionHandlerTypeDeduction<MF>::template Type<std::tuple_size_v<typename T::Arguments>>;
-    static_assert(CompletionHandlerValidation::template matchingTypes<CompletionHandlerFromMF, typename T::DelayedReply>());
+    static_assert(std::is_same_v<typename ValidationType::CompletionHandlerArguments, typename MessageType::ReplyArguments>);
+    using CompletionHandlerType = typename ValidationType::CompletionHandlerType;
 
-    logMessage(connection.connection(), T::name(), object, *arguments);
-    callMemberFunction(WTFMove(*arguments),
-        CompletionHandlerFromMF([syncRequestID, connection = Ref { connection }] (auto&&... args) mutable {
-            logReply(connection->connection(), T::name(), args...);
-            connection->sendSyncReply<T>(syncRequestID, std::forward<decltype(args)>(args)...);
-        }),
-        object, function);
+    logMessage(connection.connection(), MessageType::name(), object, *arguments);
+    callMemberFunction(object, function, WTFMove(*arguments),
+        CompletionHandlerType([syncRequestID, connection = Ref { connection }] (auto&&... args) mutable {
+            logReply(connection->connection(), MessageType::name(), args...);
+            connection->sendSyncReply<MessageType>(syncRequestID, std::forward<decltype(args)>(args)...);
+        }));
 }
 
-template<typename T, typename C, typename MF>
-void handleMessageAsync(Connection& connection, Decoder& decoder, C* object, MF function)
+template<typename MessageType, typename T, typename U, typename MF>
+void handleMessageAsync(Connection& connection, Decoder& decoder, T* object, MF U::* function)
 {
-    auto listenerID = decoder.decode<uint64_t>();
-    if (UNLIKELY(!listenerID))
-        return;
+    using ValidationType = MethodSignatureValidation<MF>;
+    static_assert(std::is_same_v<typename ValidationType::MessageArguments, typename MessageType::Arguments>);
 
-    auto arguments = decoder.decode<typename CodingType<typename T::Arguments>::Type>();
+    auto arguments = decoder.decode<typename MessageType::Arguments>();
     if (UNLIKELY(!arguments))
         return;
-
-    using CompletionHandlerFromMF = typename CompletionHandlerTypeDeduction<MF>::template Type<std::tuple_size_v<typename T::Arguments>>;
-    static_assert(CompletionHandlerValidation::template matchingTypes<CompletionHandlerFromMF, typename T::AsyncReply>());
-
-    logMessage(connection, T::name(), object, *arguments);
-    callMemberFunction(WTFMove(*arguments),
-        CompletionHandlerFromMF { [listenerID = *listenerID, connection = Ref { connection }] (auto&&... args) mutable {
-            auto encoder = makeUniqueRef<Encoder>(T::asyncMessageReplyName(), listenerID);
-            logReply(connection, T::name(), args...);
-            (encoder.get() << ... << std::forward<decltype(args)>(args));
-            connection->sendSyncReply(WTFMove(encoder));
-        }, T::callbackThread },
-        object, function);
-}
-
-template<typename T, typename C, typename MF>
-void handleMessageAsyncWantsConnection(Connection& connection, Decoder& decoder, C* object, MF function)
-{
-    auto listenerID = decoder.decode<uint64_t>();
-    if (UNLIKELY(!listenerID))
+    auto replyID = decoder.decode<Connection::AsyncReplyID>();
+    if (UNLIKELY(!replyID))
         return;
 
-    auto arguments = decoder.decode<typename CodingType<typename T::Arguments>::Type>();
-    if (UNLIKELY(!arguments))
-        return;
+    static_assert(std::is_same_v<typename ValidationType::CompletionHandlerArguments, typename MessageType::ReplyArguments>);
+    using CompletionHandlerType = typename ValidationType::CompletionHandlerType;
 
-    using CompletionHandlerFromMF = typename CompletionHandlerTypeDeduction<MF>::template Type<1 + std::tuple_size_v<typename T::Arguments>>;
-    static_assert(CompletionHandlerValidation::template matchingTypes<CompletionHandlerFromMF, typename T::AsyncReply>());
-
-    logMessage(connection, T::name(), object, *arguments);
-    callMemberFunction(connection, WTFMove(*arguments),
-        CompletionHandlerFromMF { [listenerID = *listenerID, connection = Ref { connection }] (auto&&... args) mutable {
-            auto encoder = makeUniqueRef<Encoder>(T::asyncMessageReplyName(), listenerID);
-            logReply(connection, T::name(), args...);
+    CompletionHandlerType completionHandler {
+        [replyID = *replyID, connection = Ref { connection }] (auto&&... args) mutable {
+            auto encoder = makeUniqueRef<Encoder>(MessageType::asyncMessageReplyName(), replyID.toUInt64());
+            logReply(connection, MessageType::name(), args...);
             (encoder.get() << ... << std::forward<decltype(args)>(args));
             connection->sendSyncReply(WTFMove(encoder));
-        }, T::callbackThread },
-        object, function);
+        }, MessageType::callbackThread };
+
+    logMessage(connection, MessageType::name(), object, *arguments);
+    if constexpr (ValidationType::expectsConnectionArgument)
+        callMemberFunction(object, function, connection, WTFMove(*arguments), WTFMove(completionHandler));
+    else
+        callMemberFunction(object, function, WTFMove(*arguments), WTFMove(completionHandler));
 }
 
 } // namespace IPC

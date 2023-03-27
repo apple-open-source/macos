@@ -11,19 +11,18 @@
 #import <Security/AuthorizationTagsPriv.h>
 #import <SoftLinking/SoftLinking.h>
 #import <os/log.h>
-
-#if TARGET_OS_OSX && TARGET_CPU_ARM64
+#import <sys/stat.h>
 
 SOFT_LINK_FRAMEWORK(Frameworks, LocalAuthentication)
 SOFT_LINK_CLASS(LocalAuthentication, LAContext)
 
 NSUUID *currentRecoveryVolumeUUID(void);
+static Boolean verifyUser(void);
 
-static Boolean isInFVUnlock(void)
+Boolean isInFVUnlock(void)
 {
-    return YES;
     // temporary solution until we find a better way
-  //  return getenv("__OSINSTALL_ENVIRONMENT") != NULL;
+    return getenv("__OSINSTALL_ENVIRONMENT") != NULL;
 }
 
 #define kEFISystemVolumeUUIDVariableName "SystemVolumeUUID"
@@ -134,7 +133,7 @@ static Boolean verifyUser(void)
     return NO;
 }
 
-static int enforcementWorker(const char operation, NSUUID *volumeUuid)
+OSStatus recoverySetup(void)
 {
     // first ensure we are in a Recovery
     if (!isInFVUnlock()) {
@@ -147,10 +146,42 @@ static int enforcementWorker(const char operation, NSUUID *volumeUuid)
         fprintf(stderr, "Unable to verify an administrator\n");
         return -3;
     }
+    return noErr;
+}
+
+OSStatus verifyVolume(const char *uuid)
+{
+    NSUUID *systemVolumeUuid = [[NSUUID UUID] initWithUUIDString:@(uuid)];
+    if (!systemVolumeUuid) {
+        fprintf(stderr, "System volume UUID %s was not recognized\n", uuid);
+        return -4;
+    }
+    // look if system volume exists at all
+    CFArrayRef cfUsers;
+    OSStatus status = AuthorizationCopyPreloginUserDatabase(uuid, 0, &cfUsers);
+    NSArray *users = CFBridgingRelease(cfUsers);
+    if (status) {
+        fprintf(stderr, "System volume error %d\n", (int)status);
+        return -5;
+    }
+    if (users.count == 0) {
+        fprintf(stderr, "System volume with UUID %s is not supported\n", uuid);
+        return -6;
+    }
+
+    return 0;
+}
+
+static OSStatus enforcementWorker(const char operation, NSUUID *volumeUuid)
+{
+    OSStatus retval = recoverySetup();
+    if (retval != noErr) {
+        return retval;
+    }
     
-    // then call authd
+    // call authd
     Boolean enabled = false;
-    OSStatus retval = AuthorizationHandlePreloginOverride(volumeUuid.UUIDString.UTF8String, operation, &enabled);
+    retval = AuthorizationHandlePreloginOverride(volumeUuid.UUIDString.UTF8String, operation, &enabled);
     switch (operation) {
         case kAuthorizationOverrideOperationSet:
             if (retval != noErr) {
@@ -181,26 +212,14 @@ static int enforcementWorker(const char operation, NSUUID *volumeUuid)
     return retval;
 }
 
-static int skipScEnforcement(int argc, char * const *argv)
+static OSStatus skipScEnforcement(int argc, char * const *argv)
 {
-    NSUUID *systemVolumeUuid = [[NSUUID UUID] initWithUUIDString:[[NSString alloc] initWithUTF8String:argv[1]]];
-    if (!systemVolumeUuid) {
-        fprintf(stderr, "System volume UUID %s was not recognized\n", argv[1]);
-        return -4;
+    OSStatus retval = verifyVolume(argv[1]);
+    if (retval != noErr) {
+        return retval;
     }
-    // look if system volume exists at all
-    CFArrayRef cfUsers;
-    OSStatus status = AuthorizationCopyPreloginUserDatabase(argv[1], 0, &cfUsers);
-    NSArray *users = CFBridgingRelease(cfUsers);
-    if (status) {
-        fprintf(stderr, "System volume error\n");
-        return -5;
-    }
-    if (users.count == 0) {
-        fprintf(stderr, "System volume with UUID %s is not supported\n", argv[1]);
-        return -6;
-    }
-    
+    NSUUID *systemVolumeUuid = [[NSUUID UUID] initWithUUIDString:@(argv[1])];
+
     if (!strcmp("set", argv[2])) {
         return enforcementWorker(kAuthorizationOverrideOperationSet, systemVolumeUuid);
     } else if (!strcmp("reset", argv[2])) {
@@ -210,6 +229,33 @@ static int skipScEnforcement(int argc, char * const *argv)
     }
     
     return SHOW_USAGE_MESSAGE;
+}
+
+OSStatus fvUnlockWriteResetDb(const char *uuid)
+{
+    os_log_debug(OS_LOG_DEFAULT, "Resetting authdb database for %s", uuid);
+    
+    NSString *prefix = @"";
+    struct stat sb;
+
+    NSString *template = [NSString stringWithFormat:@"/Volumes/Preboot/%s/var/db", uuid];
+    
+    if (!(stat(template.UTF8String, &sb) == 0 && S_ISDIR(sb.st_mode))) {
+        os_log_debug(OS_LOG_DEFAULT, "Using System path");
+        prefix = @"/System";
+    }
+    NSString *filePath = [NSString stringWithFormat:@"%@/Volumes/Preboot/%s/var/db/.authdbreset", prefix, uuid];
+
+    // place marker requiring database reset
+    mode_t mode = S_IRUSR | S_IWUSR;
+    int fd = creat(filePath.UTF8String, mode);
+    if (fd != -1) {
+        close(fd);
+        return noErr;
+    } else {
+        fprintf(stderr, "Failed to reset Authorization database: %d\n", errno);
+        return errno;
+    }
 }
 
 int fvunlock(int argc, char * const *argv) {
@@ -224,5 +270,3 @@ int fvunlock(int argc, char * const *argv) {
 out:
     return result;
 }
-
-#endif

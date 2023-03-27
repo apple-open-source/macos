@@ -64,6 +64,7 @@ static KEY keylist[] = {
 	{"btime",		F_BTIME,	NEEDVALUE},
 	{"cksum",		F_CKSUM,	NEEDVALUE},
 	{"ctime",		F_CTIME,	NEEDVALUE},
+	{"dataless",		F_DATALESS,	NEEDVALUE},
 	{"flags",		F_FLAGS,	NEEDVALUE},
 	{"gid",			F_GID,		NEEDVALUE},
 	{"gname",		F_GNAME,	NEEDVALUE},

@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2022-12-01</string>
+		<string>2023-02-15</string>
 		<key>OpenSourceLicense</key>
 		<string>Uganda</string>
 		<key>OpenSourceLicenseFile</key>
@@ -12,9 +12,9 @@
 		<key>OpenSourceProject</key>
 		<string>vim</string>
 		<key>OpenSourceURL</key>
-		<string>https://github.com/vim/vim/archive/v9.0.0981.tar.gz</string>
+		<string>https://github.com/vim/vim/archive/v9.0.1313.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>9.0.0981</string>
+		<string>9.0.1313</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.vim.org/</string>
 		<key>OpenSourceModifications</key>

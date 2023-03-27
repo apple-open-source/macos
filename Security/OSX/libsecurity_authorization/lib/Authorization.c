@@ -592,38 +592,6 @@ OSStatus AuthorizationFreeItemSet(AuthorizationItemSet *set)
     return errAuthorizationSuccess;
 }
 
-OSStatus AuthorizationEnableSmartCard(AuthorizationRef authRef, Boolean enable)
-{
-    OSStatus status = errAuthorizationInternal;
-    xpc_object_t message = NULL;
-    xpc_object_t reply = NULL;
-    AuthorizationBlob *blob = NULL;
-
-    // Send
-    message = xpc_dictionary_create(NULL, NULL, 0);
-    require_action(message != NULL, done, status = errAuthorizationInternal);
-    require_action(authRef != NULL, done, status = errAuthorizationInvalidRef);
-    blob = (AuthorizationBlob *)authRef;
-    xpc_dictionary_set_uint64(message, AUTH_XPC_TYPE, AUTHORIZATION_ENABLE_SMARTCARD);
-    xpc_dictionary_set_data(message, AUTH_XPC_BLOB, blob, sizeof(AuthorizationBlob));
-    xpc_dictionary_set_bool(message, AUTH_XPC_DATA, enable);
-    
-    // Reply
-    xpc_connection_t conn = get_authorization_connection();
-    require_action(conn != NULL, done, status = errAuthorizationInternal);
-    reply = xpc_connection_send_message_with_reply_sync(conn, message);
-    require_action(reply != NULL, done, status = errAuthorizationInternal);
-    require_action(xpc_get_type(reply) != XPC_TYPE_ERROR, done, status = errAuthorizationInternal);
-    
-    status = (OSStatus)xpc_dictionary_get_int64(reply, AUTH_XPC_STATUS);
-
-done:
-    xpc_release_safe(message);
-    xpc_release_safe(reply);
-    return status;
-}
-
-
 OSStatus AuthorizationRightGet(const char *rightName,
                       CFDictionaryRef *rightDefinition)
 {

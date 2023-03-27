@@ -11,7 +11,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
     }
 
     func testSaveAndLoad() throws {
-        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil),
+        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil),
                              "Before doing anything, loading a non-existent account state should fail")
 
         let state: OTAccountMetadataClassC! = OTAccountMetadataClassC()
@@ -20,10 +20,10 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         state.trustState = .TRUSTED
         state.cdpState = .ENABLED
 
-        XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
+        XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "saving to the keychain should work")
 
         do {
-            let state2 = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let state2 = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertNotNil(state2)
             XCTAssertEqual(state2.peerID, state.peerID, "peer ID persists through keychain")
             XCTAssertEqual(state2.icloudAccountState, state.icloudAccountState, "account state persists through keychain")
@@ -35,7 +35,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
     }
 
     func testSilentOverwrite() throws {
-        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil),
+        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil),
                              "Before doing anything, loading a non-existent account state should fail")
 
         let state: OTAccountMetadataClassC! = OTAccountMetadataClassC()
@@ -43,16 +43,16 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         state.icloudAccountState = .ACCOUNT_AVAILABLE
         state.trustState = .TRUSTED
 
-        XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
+        XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "saving to the keychain should work")
 
         state.peerID = "no wait another peer id"
         state.icloudAccountState = .ACCOUNT_AVAILABLE
         state.trustState = .UNTRUSTED
 
-        XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
+        XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "saving to the keychain should work")
 
         do {
-            let state2 = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let state2 = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertNotNil(state2)
             XCTAssertEqual(state2.peerID, "no wait another peer id", "peer ID persists through keychain")
             XCTAssertEqual(state2.icloudAccountState, .ACCOUNT_AVAILABLE, "account state persists through keychain")
@@ -73,11 +73,11 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         state2.icloudAccountState = .ACCOUNT_AVAILABLE
         state2.trustState = .UNTRUSTED
 
-        XCTAssertNoThrow(try state1.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
-        XCTAssertNoThrow(try state2.saveToKeychain(forContainer: "second_container", contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
+        XCTAssertNoThrow(try state1.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "saving to the keychain should work")
+        XCTAssertNoThrow(try state2.saveToKeychain(forContainer: "second_container", contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "saving to the keychain should work")
 
         do {
-            let state1reloaded = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let state1reloaded = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertNotNil(state1reloaded)
             XCTAssertEqual(state1reloaded.peerID, state1.peerID, "peer ID persists through keychain")
             XCTAssertEqual(state1reloaded.icloudAccountState, state1.icloudAccountState, "account state persists through keychain")
@@ -87,7 +87,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         }
 
         do {
-            let state2reloaded = try OTAccountMetadataClassC.loadFromKeychain(forContainer: "second_container", contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let state2reloaded = try OTAccountMetadataClassC.loadFromKeychain(forContainer: "second_container", contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertNotNil(state2reloaded)
             XCTAssertEqual(state2reloaded.peerID, state2.peerID, "peer ID persists through keychain")
             XCTAssertEqual(state2reloaded.icloudAccountState, state2.icloudAccountState, "account state persists through keychain")
@@ -108,11 +108,11 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         state2.icloudAccountState = .ACCOUNT_AVAILABLE
         state2.trustState = .UNTRUSTED
 
-        XCTAssertNoThrow(try state1.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
-        XCTAssertNoThrow(try state2.saveToKeychain(forContainer: OTCKContainerName, contextID: "second_context", personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
+        XCTAssertNoThrow(try state1.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "saving to the keychain should work")
+        XCTAssertNoThrow(try state2.saveToKeychain(forContainer: OTCKContainerName, contextID: "second_context", personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "saving to the keychain should work")
 
         do {
-            let state1reloaded = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let state1reloaded = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertNotNil(state1reloaded)
             XCTAssertEqual(state1reloaded.peerID, state1.peerID, "peer ID persists through keychain")
             XCTAssertEqual(state1reloaded.icloudAccountState, state1.icloudAccountState, "account state persists through keychain")
@@ -122,7 +122,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         }
 
         do {
-            let state2reloaded = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: "second_context", personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let state2reloaded = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: "second_context", personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertNotNil(state2reloaded)
             XCTAssertEqual(state2reloaded.peerID, state2.peerID, "peer ID persists through keychain")
             XCTAssertEqual(state2reloaded.icloudAccountState, state2.icloudAccountState, "account state persists through keychain")
@@ -133,7 +133,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
     }
 
     func testLoadCorruptedAccountState() throws {
-        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil),
+        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil),
                              "Before doing anything, loading a non-existent account state should fail")
 
         let state: OTAccountMetadataClassC! = OTAccountMetadataClassC()
@@ -144,7 +144,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         XCTAssertNoThrow(try TestsObjectiveC.saveCoruptDataToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext), "saving to the keychain should work")
 
         do {
-            let state2 = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let state2 = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertNotNil(state2)
             XCTAssertNil(state2.peerID, "peerID should be nil")
             XCTAssertEqual(state2.icloudAccountState, OTAccountMetadataClassC_AccountState.UNKNOWN, "account state should be OTAccountMetadataClassC_AccountState_UNKNOWN")
@@ -159,11 +159,11 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         state.peerID = "asdf"
         state.icloudAccountState = .ACCOUNT_AVAILABLE
         state.trustState = .TRUSTED
-        XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
+        XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "saving to the keychain should work")
 
-        let deleted: Bool = try OTAccountMetadataClassC.deleteFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+        let deleted: Bool = try OTAccountMetadataClassC.deleteFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
         XCTAssertTrue(deleted, "deleteFromKeychain should return true")
-        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil))
+        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil))
     }
 }
 

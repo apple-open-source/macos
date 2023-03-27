@@ -23,7 +23,7 @@ with a `testcase` tag, which encompasses the remainder of the file.
 # Preprocessing
 
 When a test is to be executed, the source file is first preprocessed and
-variables are substituted by the their respective contents and the output
+variables are substituted by their respective contents and the output
 version of the test file is stored as `log/testNUM`. That version is what will
 be read and used by the test servers.
 
@@ -70,7 +70,7 @@ string may contain `%HH` hexadecimal codes:
 
     %repeat[<number> x <string>]%
 
-For example, to insert the word hello a 100 times:
+For example, to insert the word hello 100 times:
 
     %repeat[100 x hello]%
 
@@ -114,7 +114,7 @@ Available substitute variables include:
 - `%CLIENT6IP` - IPv6 address of the client running curl
 - `%CLIENTIP` - IPv4 address of the client running curl
 - `%CURL` - Path to the curl executable
-- `%FILE_PWD` - Current directory, on windows prefixed with a slash
+- `%FILE_PWD` - Current directory, on Windows prefixed with a slash
 - `%FTP6PORT` - IPv6 port number of the FTP server
 - `%FTPPORT` - Port number of the FTP server
 - `%FTPSPORT` - Port number of the FTPS server
@@ -196,14 +196,14 @@ When using curl built with Hyper, the keywords must include HTTP or HTTPS for
 'hyper mode' to kick in and make line ending checks work for tests.
 ## `<reply>`
 
-### `<data [nocheck="yes"] [sendzero="yes"] [base64="yes"] [hex="yes"] [nonewline="yes"]>`
+### `<data [nocheck="yes"] [sendzero="yes"] [base64="yes"] [hex="yes"] [nonewline="yes"] [crlf="yes"]>`
 
 data to be sent to the client on its request and later verified that it
 arrived safely. Set `nocheck="yes"` to prevent the test script from verifying
 the arrival of this data.
 
 If the data contains `swsclose` anywhere within the start and end tag, and
-this is a HTTP test, then the connection will be closed by the server after
+this is an HTTP test, then the connection will be closed by the server after
 this response is sent. If not, the connection will be kept persistent.
 
 If the data contains `swsbounce` anywhere within the start and end tag, the
@@ -225,22 +225,26 @@ and used as "raw" data.
 `nonewline=yes` means that the last byte (the trailing newline character)
 should be cut off from the data before sending or comparing it.
 
+`crlf=yes` forces *header* newlines to become CRLF even if not written so in
+the source file. Note that this makes runtests.pl parse and "guess" what is a
+header and what is not in order to apply the CRLF line endings appropriately.
+
 For FTP file listings, the `<data>` section will be used *only* if you make
 sure that there has been a CWD done first to a directory named `test-[NUM]`
 where `NUM` is the test case number. Otherwise the ftp server can't know from
 which test file to load the list content.
 
-### `<dataNUM>`
+### `<dataNUM [crlf="yes"]>`
 
 Send back this contents instead of the <data> one. The `NUM` is set by:
 
  - The test number in the request line is >10000 and this is the remainder
    of [test case number]%10000.
  - The request was HTTP and included digest details, which adds 1000 to `NUM`
- - If a HTTP request is NTLM type-1, it adds 1001 to `NUM`
- - If a HTTP request is NTLM type-3, it adds 1002 to `NUM`
- - If a HTTP request is Basic and `NUM` is already >=1000, it adds 1 to `NUM`
- - If a HTTP request is Negotiate, `NUM` gets incremented by one for each
+ - If an HTTP request is NTLM type-1, it adds 1001 to `NUM`
+ - If an HTTP request is NTLM type-3, it adds 1002 to `NUM`
+ - If an HTTP request is Basic and `NUM` is already >=1000, it adds 1 to `NUM`
+ - If an HTTP request is Negotiate, `NUM` gets incremented by one for each
    request with Negotiate authorization header on the same test case.
 
 Dynamically changing `NUM` in this way allows the test harness to be used to
@@ -257,7 +261,7 @@ a connect prefix.
 ### `<socks>`
 Address type and address details as logged by the SOCKS proxy.
 
-### `<datacheck [mode="text"] [nonewline="yes"]>`
+### `<datacheck [mode="text"] [nonewline="yes"] [crlf="yes"]>`
 if the data is sent but this is what should be checked afterwards. If
 `nonewline=yes` is set, runtests will cut off the trailing newline from the
 data before comparing with the one actually received by the client.
@@ -265,7 +269,7 @@ data before comparing with the one actually received by the client.
 Use the `mode="text"` attribute if the output is in text mode on platforms
 that have a text/binary difference.
 
-### `<datacheckNUM [nonewline="yes"] [mode="text"]>`
+### `<datacheckNUM [nonewline="yes"] [mode="text"] [crlf="yes"]>`
 The contents of numbered `datacheck` sections are appended to the non-numbered
 one.
 
@@ -307,6 +311,7 @@ about to issue.
    appear at once when a file is transferred
 - `RETRNOSIZE` - Make sure the RETR response doesn't contain the size of the
   file
+- `RETRSIZE [size]` - Force RETR response to contain the specified size
 - `NOSAVE` - Don't actually save what is received
 - `SLOWDOWN` - Send FTP responses with 0.01 sec delay between each byte
 - `PASVBADIP` - makes PASV send back an illegal IP in its 227 response
@@ -561,16 +566,19 @@ changing protocol data such as port numbers or user-agent strings.
 One perl op per line that operates on the protocol dump. This is pretty
 advanced. Example: `s/^EPRT .*/EPRT stripped/`.
 
-### `<protocol [nonewline="yes"]>`
+### `<protocol [nonewline="yes"] crlf="yes">`
 
 the protocol dump curl should transmit, if `nonewline` is set, we will cut off
 the trailing newline of this given data before comparing with the one actually
 sent by the client The `<strip>` and `<strippart>` rules are applied before
 comparisons are made.
 
+`crlf=yes` forces the newlines to become CRLF even if not written so in the
+test.
+
 ### `<proxy [nonewline="yes"]>`
 
-The protocol dump curl should transmit to a HTTP proxy (when the http-proxy
+The protocol dump curl should transmit to an HTTP proxy (when the http-proxy
 server is used), if `nonewline` is set, we will cut off the trailing newline
 of this given data before comparing with the one actually sent by the client
 The `<strip>` and `<strippart>` rules are applied before comparisons are made.
@@ -584,7 +592,7 @@ have a text/binary difference.
 If `nonewline` is set, we will cut off the trailing newline of this given data
 before comparing with the one actually received by the client
 
-### `<stdout [mode="text"] [nonewline="yes"]>`
+### `<stdout [mode="text"] [nonewline="yes"] [crlf="yes"]>`
 This verifies that this data was passed to stdout.
 
 Use the mode="text" attribute if the output is in text mode on platforms that
@@ -592,6 +600,9 @@ have a text/binary difference.
 
 If `nonewline` is set, we will cut off the trailing newline of this given data
 before comparing with the one actually received by the client
+
+`crlf=yes` forces the newlines to become CRLF even if not written so in the
+test.
 
 ### `<file name="log/filename" [mode="text"]>`
 The file's contents must be identical to this after the test is complete. Use

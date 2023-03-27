@@ -1604,7 +1604,7 @@ SecKeyGeneratePairInternal(
 
     bool forceIOSKey = false;
     if (_CFMZEnabled()) {
-        // On Marzipan, always go iOS SecItem/SecKey route, do not drag CSSM keys in.
+        // On Catalyst, always go iOS SecItem/SecKey route, do not drag CSSM keys in.
         forceIOSKey = true;
     } else {
         CFTypeRef tokenID = GetAttributeFromParams(parameters, kSecAttrTokenID, NULL);

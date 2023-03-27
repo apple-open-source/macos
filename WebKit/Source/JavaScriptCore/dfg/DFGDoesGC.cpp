@@ -171,9 +171,6 @@ bool doesGC(Graph& graph, Node* node)
     case LoadKeyFromMapBucket:
     case LoadValueFromMapBucket:
     case ExtractValueFromWeakMapGet:
-    case WeakMapGet:
-    case WeakSetAdd:
-    case WeakMapSet:
     case Unreachable:
     case ExtractOSREntryLocal:
     case ExtractCatchLocal:
@@ -205,6 +202,7 @@ bool doesGC(Graph& graph, Node* node)
     case GetTypedArrayByteOffset:
     case GetTypedArrayByteOffsetAsInt52:
     case GetPrototypeOf:
+    case GetWebAssemblyInstanceExports:
     case PutStructure:
     case GetByOffset:
     case GetGetterSetterByOffset:
@@ -261,6 +259,7 @@ bool doesGC(Graph& graph, Node* node)
     case DataViewGetFloat:
     case DataViewSet:
     case PutByOffset:
+    case WeakMapGet:
         return false;
 
 #if ASSERT_ENABLED
@@ -273,7 +272,7 @@ bool doesGC(Graph& graph, Node* node)
     case CreateClonedArguments:
     case CreateArgumentsButterfly:
     case Call:
-    case CallEval:
+    case CallDirectEval:
     case CallForwardVarargs:
     case CallObjectConstructor:
     case CallVarargs:
@@ -291,6 +290,7 @@ bool doesGC(Graph& graph, Node* node)
     case DirectConstruct:
     case DirectTailCall:
     case DirectTailCallInlinedCaller:
+    case CallWasm:
     case ForceOSRExit:
     case FunctionToString:
     case GetById:
@@ -343,6 +343,7 @@ bool doesGC(Graph& graph, Node* node)
     case ResolveScopeForHoistingFuncDeclInEval:
     case Return:
     case StringCharAt:
+    case StringLocaleCompare:
     case TailCall:
     case TailCallForwardVarargs:
     case TailCallForwardVarargsInlinedCaller:
@@ -365,6 +366,7 @@ bool doesGC(Graph& graph, Node* node)
     case ObjectCreate:
     case ObjectKeys:
     case ObjectGetOwnPropertyNames:
+    case ObjectToString:
     case AllocatePropertyStorage:
     case ReallocatePropertyStorage:
     case Arrayify:
@@ -377,6 +379,7 @@ bool doesGC(Graph& graph, Node* node)
     case NewInternalFieldObject:
     case Spread:
     case NewArrayWithSize:
+    case NewArrayWithSpecies:
     case NewArrayBuffer:
     case NewRegexp:
     case NewStringObject:
@@ -400,7 +403,9 @@ bool doesGC(Graph& graph, Node* node)
     case StrCat:
     case StringReplace:
     case StringReplaceRegExp:
+    case StringReplaceString:
     case StringSlice:
+    case StringSubstring:
     case StringValueOf:
     case CreateRest:
     case ToLowerCase:
@@ -411,6 +416,7 @@ bool doesGC(Graph& graph, Node* node)
     case ParseInt: // We might resolve a rope even though we don't clobber anything.
     case SetAdd:
     case MapSet:
+    case MapOrSetDelete:
     case ValueBitAnd:
     case ValueBitOr:
     case ValueBitXor:
@@ -593,6 +599,14 @@ bool doesGC(Graph& graph, Node* node)
         default:
             return true;
         }
+
+    // WeakSet / WeakMap storages are not GC-managed buffer, thus adding an element does not cause GC,
+    // unless we throw an error due to key type. An error can be thrown even though a key is Symbol
+    // if the Symbol key is not registered one.
+    case WeakSetAdd:
+        return node->child2().useKind() != ObjectUse;
+    case WeakMapSet:
+        return graph.varArgChild(node, 1).useKind() != ObjectUse;
 
     case LastNodeType:
         RELEASE_ASSERT_NOT_REACHED();

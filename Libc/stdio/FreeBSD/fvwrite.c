@@ -36,6 +36,7 @@ static char sccsid[] = "@(#)fvwrite.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/fvwrite.c,v 1.19 2009/11/25 04:21:42 wollman Exp $");
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -82,11 +83,12 @@ __sfvwrite(fp, uio)
 	}
 	if (fp->_flags & __SNBF) {
 		/*
-		 * Unbuffered: write up to BUFSIZ bytes at a time.
+		 * Unbuffered: write up to INT_MAX bytes at a time, to not truncate
+		 * the value of len if it is greater than 2^31 bytes.
 		 */
 		do {
 			GETIOV(;);
-			w = _swrite(fp, p, MIN(len, BUFSIZ));
+			w = _swrite(fp, p, MIN(len, INT_MAX));
 			if (w <= 0)
 				goto err;
 			p += w;
@@ -96,7 +98,8 @@ __sfvwrite(fp, uio)
 		/*
 		 * Fully buffered: fill partially full buffer, if any,
 		 * and then flush.  If there is no partial buffer, write
-		 * one _bf._size byte chunk directly (without copying).
+		 * entire payload directly (without copying) up to a multiple of
+		 * the buffer size.
 		 *
 		 * String output is a special case: write as many bytes
 		 * as fit, but pretend we wrote everything.  This makes
@@ -140,7 +143,12 @@ __sfvwrite(fp, uio)
 				if (__fflush(fp))
 					goto err;
 			} else if (len >= (w = fp->_bf._size)) {
-				/* write directly */
+				/* write directly up to INT_MAX or greatest multiple of buffer
+				 * size (whatever is smaller), keeping in the memory buffer the
+				 * remaining part of payload that is smaller than buffer size.
+				 */
+				if (w != 0)
+					w = MIN(w * (len / w), INT_MAX);
 				w = _swrite(fp, p, w);
 				if (w <= 0)
 					goto err;

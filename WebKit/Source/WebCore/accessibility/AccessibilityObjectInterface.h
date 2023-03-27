@@ -822,8 +822,8 @@ class AXCoreObject : public ThreadSafeRefCounted<AXCoreObject> {
 public:
     virtual ~AXCoreObject() = default;
 
-    virtual void setObjectID(AXID) = 0;
-    virtual AXID objectID() const = 0;
+    void setObjectID(AXID axID) { m_id = axID; }
+    AXID objectID() const { return m_id; }
 
     // When the corresponding WebCore object that this accessible object
     // represents is deleted, it must be detached.
@@ -1067,7 +1067,8 @@ public:
     virtual AccessibilityCurrentState currentState() const = 0;
     virtual bool supportsCurrent() const = 0;
     String currentValue() const;
-    virtual const String keyShortcutsValue() const = 0;
+    virtual bool supportsKeyShortcuts() const = 0;
+    virtual String keyShortcuts() const = 0;
 
     virtual bool isModalNode() const = 0;
 
@@ -1289,7 +1290,6 @@ public:
 
     virtual bool isValueAutofillAvailable() const = 0;
     virtual AutoFillButtonType valueAutofillButtonType() const = 0;
-    virtual bool hasARIAValueNow() const = 0;
 
     // Used by an ARIA tree to get all its rows.
     virtual void ariaTreeRows(AccessibilityChildrenVector&) = 0;
@@ -1408,15 +1408,22 @@ public:
     virtual String innerHTML() const = 0;
     virtual String outerHTML() const = 0;
 
-    
 #if PLATFORM(COCOA) && ENABLE(MODEL_ELEMENT)
     virtual Vector<RetainPtr<id>> modelElementChildren() = 0;
 #endif
-    
+
+protected:
+    AXCoreObject() = default;
+    explicit AXCoreObject(AXID axID)
+        : m_id(axID)
+    { }
+
 private:
     // Detaches this object from the objects it references and it is referenced by.
     virtual void detachRemoteParts(AccessibilityDetachmentType) = 0;
+    virtual void detachPlatformWrapper(AccessibilityDetachmentType) = 0;
 
+    AXID m_id;
 #if PLATFORM(COCOA)
     RetainPtr<WebAccessibilityObjectWrapper> m_wrapper;
 #elif PLATFORM(WIN)
@@ -1424,7 +1431,6 @@ private:
 #elif USE(ATSPI)
     RefPtr<AccessibilityObjectAtspi> m_wrapper;
 #endif
-    virtual void detachPlatformWrapper(AccessibilityDetachmentType) = 0;
 };
 
 inline Vector<AXID> axIDs(const AXCoreObject::AccessibilityChildrenVector& objects)
@@ -1492,7 +1498,6 @@ inline void AXCoreObject::detach(AccessibilityDetachmentType detachmentType)
     detachWrapper(detachmentType);
     if (detachmentType != AccessibilityDetachmentType::ElementChanged)
         detachRemoteParts(detachmentType);
-    setObjectID({ });
 }
 
 #if ENABLE(ACCESSIBILITY)
@@ -1529,6 +1534,41 @@ T* findAncestor(const T& object, bool includeSelf, const F& matches)
     }
 
     return nullptr;
+}
+
+template<typename T>
+T* focusableAncestor(T& startObject)
+{
+    return findAncestor<T>(startObject, false, [] (const auto& ancestor) {
+        return ancestor.canSetFocusAttribute();
+    });
+}
+
+template<typename T>
+T* editableAncestor(T& startObject)
+{
+    return findAncestor<T>(startObject, false, [] (const auto& ancestor) {
+        return ancestor.isTextControl();
+    });
+}
+
+template<typename T>
+T* highestEditableAncestor(T& startObject)
+{
+    T* editableAncestor = startObject.editableAncestor();
+    T* previousEditableAncestor = nullptr;
+    while (editableAncestor) {
+        if (editableAncestor == previousEditableAncestor) {
+            if (T* parent = editableAncestor->parentObject()) {
+                editableAncestor = parent->editableAncestor();
+                continue;
+            }
+            break;
+        }
+        previousEditableAncestor = editableAncestor;
+        editableAncestor = editableAncestor->editableAncestor();
+    }
+    return previousEditableAncestor;
 }
 
 template<typename T>

@@ -38,6 +38,7 @@ env -i \
 	HOME="${HOME}" \
 	$EXTRA_ARGS \
 	TOOLCHAINS="${TOOLCHAINS}" \
+	RC_ProjectName="${RC_ProjectName}" \
 	xcrun -sdk "${SDKROOT}" xcodebuild install \
 		-target zic \
 		-sdk "macosxinternal" \

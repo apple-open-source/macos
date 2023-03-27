@@ -28,6 +28,7 @@
 
 #if ENABLE(WEBGL)
 #import "GraphicsContextGLCocoa.h" // NOLINT
+#import "GraphicsLayerContentsDisplayDelegate.h"
 #import "PlatformCALayer.h"
 #import "ProcessIdentity.h"
 
@@ -73,7 +74,7 @@ public:
         }
         if (m_displayBuffer && displayBuffer->surface() == m_displayBuffer->surface())
             return;
-        m_displayBuffer = IOSurface::createFromSurface(displayBuffer->surface(), DestinationColorSpace::SRGB());
+        m_displayBuffer = IOSurface::createFromSurface(displayBuffer->surface(), { });
     }
 
 private:
@@ -105,19 +106,21 @@ private:
     // DisplayConfigurationMonitor::Client overrides.
     void displayWasReconfigured() final;
 #endif
-    WebProcessGraphicsContextGLCocoa(GraphicsContextGLAttributes&&);
+    WebProcessGraphicsContextGLCocoa(GraphicsContextGLAttributes&&, SerialFunctionDispatcher*);
 
     Ref<DisplayBufferDisplayDelegate> m_layerContentsDisplayDelegate;
-    friend RefPtr<GraphicsContextGL> WebCore::createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes&);
+    friend RefPtr<GraphicsContextGL> WebCore::createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes&, SerialFunctionDispatcher*);
     friend class GraphicsContextGLOpenGL;
 };
 
-WebProcessGraphicsContextGLCocoa::WebProcessGraphicsContextGLCocoa(GraphicsContextGLAttributes&& attributes)
+WebProcessGraphicsContextGLCocoa::WebProcessGraphicsContextGLCocoa(GraphicsContextGLAttributes&& attributes, SerialFunctionDispatcher* dispatcher)
     : GraphicsContextGLCocoa(WTFMove(attributes), { })
     , m_layerContentsDisplayDelegate(DisplayBufferDisplayDelegate::create(!attributes.alpha, attributes.devicePixelRatio))
 {
 #if PLATFORM(MAC)
-    DisplayConfigurationMonitor::singleton().addClient(*this);
+    DisplayConfigurationMonitor::singleton().addClient(*this, dispatcher);
+#else
+    UNUSED_PARAM(dispatcher);
 #endif
 }
 
@@ -143,9 +146,9 @@ void WebProcessGraphicsContextGLCocoa::displayWasReconfigured()
 
 }
 
-RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes& attributes)
+RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes& attributes, SerialFunctionDispatcher* dispatcher)
 {
-    auto context = adoptRef(new WebProcessGraphicsContextGLCocoa(GraphicsContextGLAttributes { attributes }));
+    auto context = adoptRef(new WebProcessGraphicsContextGLCocoa(GraphicsContextGLAttributes { attributes }, dispatcher));
     if (!context->initialize())
         return nullptr;
     return context;

@@ -186,6 +186,12 @@ typedef enum {
 #if HAVE(PROHIBIT_PRIVACY_PROXY)
 @property (setter=_setProhibitPrivacyProxy:) BOOL _prohibitPrivacyProxy;
 #endif
+#if HAVE(PRIVACY_PROXY_FAIL_CLOSED_FOR_UNREACHABLE_HOSTS)
+@property (setter=_setPrivacyProxyFailClosedForUnreachableHosts:) BOOL _privacyProxyFailClosedForUnreachableHosts;
+#endif
+#if ENABLE(TRACKER_DISPOSITION)
+@property (setter=_setNeedsNetworkTrackingPrevention:) BOOL _needsNetworkTrackingPrevention;
+#endif
 @end
 
 @interface NSURLProtocol ()
@@ -303,6 +309,9 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 #if ENABLE(SERVER_PRECONNECT)
 @property (nonatomic, assign) BOOL _preconnect;
 #endif
+#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+@property (readwrite, assign) int64_t _bytesPerSecondLimit;
+#endif
 @end
 
 @interface NSURLSessionTaskTransactionMetrics ()
@@ -357,12 +366,10 @@ enum : NSUInteger {
     NSHTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain = 3,
 };
 
-#if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)
 @interface NSURLSessionTask ()
 @property (nonatomic, copy, nullable) NSArray<NSHTTPCookie*>* (^_cookieTransformCallback)(NSArray<NSHTTPCookie*>* cookies);
 @property (nonatomic, readonly, nullable) NSArray<NSString*>* _resolvedCNAMEChain;
 @end
-#endif
 
 #endif // defined(__OBJC__)
 
@@ -509,6 +516,10 @@ WTF_EXTERN_C_END
 
 @interface NSMutableURLRequest (Staging_88972294)
 @property (setter=_setPrivacyProxyFailClosedForUnreachableNonMainHosts:) BOOL _privacyProxyFailClosedForUnreachableNonMainHosts;
+@end
+
+@interface NSURLSessionConfiguration (Staging_102778152)
+@property (nonatomic) BOOL _skipsStackTraceCapture;
 @end
 
 #endif // defined(__OBJC__)

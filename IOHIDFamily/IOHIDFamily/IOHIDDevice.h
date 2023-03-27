@@ -34,6 +34,7 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/IOEventSource.h>
 #include <IOKit/hid/IOHIDDeviceTypes.h>
+#include <IOKit/IOReporter.h>
 #include <HIDDriverKit/IOHIDDevice.h>
 #include <sys/queue.h>
 
@@ -117,6 +118,8 @@ private:
         IOTimerEventSource          * asyncTimer;
         uint32_t                      asyncTimeout;
         bool                          settingTimeout;
+        IOSimpleReporter            * eventReporter;
+        OSSet                       * reporterList;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -185,6 +188,15 @@ private:
     void runSyncReportAsync();
 
     void CommitComplete(void * param, IOReturn status, UInt32 remaining);
+    
+    /*
+     * IOReporter methods
+     */
+    void createReporters(void);
+    
+    IOReturn configureReport(IOReportChannelList *channels, IOReportConfigureAction action, void *result, void *destination) APPLE_KEXT_OVERRIDE;
+    
+    IOReturn updateReport(IOReportChannelList *channels, IOReportUpdateAction action, void *result, void *destination) APPLE_KEXT_OVERRIDE;
 
 protected:
 

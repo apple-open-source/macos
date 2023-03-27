@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
 
 #include "ArgumentCoders.h"
 #include "Decoder.h"
@@ -269,7 +269,7 @@ private:
     Ref<SuspendableWorkQueue> m_statisticsQueue;
     std::unique_ptr<ResourceLoadStatisticsStore> m_statisticsStore;
 
-    RunLoop::Timer<WebResourceLoadStatisticsStore> m_dailyTasksTimer;
+    RunLoop::Timer m_dailyTasksTimer;
 
     WebCore::ResourceLoadStatistics::IsEphemeral m_isEphemeral { WebCore::ResourceLoadStatistics::IsEphemeral::No };
     HashSet<RegistrableDomain> m_domainsWithEphemeralUserInteraction;

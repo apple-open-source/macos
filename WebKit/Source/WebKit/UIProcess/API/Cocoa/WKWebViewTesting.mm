@@ -31,6 +31,7 @@
 #import "MediaSessionCoordinatorProxyPrivate.h"
 #import "PlaybackSessionManagerProxy.h"
 #import "PrintInfo.h"
+#import "RemoteScrollingCoordinatorProxy.h"
 #import "UserMediaProcessManager.h"
 #import "ViewGestureController.h"
 #import "WebPageProxy.h"
@@ -68,15 +69,69 @@
 
 @implementation WKWebView (WKTesting)
 
+- (NSString *)_caLayerTreeAsText
+{
+    TextStream ts(TextStream::LineMode::MultipleLine);
+
+    {
+        TextStream::GroupScope scope(ts);
+        ts << "CALayer tree root ";
+        dumpCALayer(ts, self.layer, true);
+    }
+
+    return ts.release();
+}
+
+static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
+{
+    auto rectToString = [] (auto rect) {
+        return makeString("[x: ", rect.origin.x, " y: ", rect.origin.x, " width: ", rect.size.width, " height: ", rect.size.height, "]");
+    };
+
+    auto pointToString = [] (auto point) {
+        return makeString("[x: ", point.x, " y: ", point.x, "]");
+    };
+
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    if ([layer valueForKey:@"WKInteractionRegion"])
+        ts.dumpProperty("type", "interaction");
+    if ([layer valueForKey:@"WKInteractionRegionOcclusion"])
+        ts.dumpProperty("type", "occlusion");
+#endif
+
+    ts.dumpProperty("layer bounds", rectToString(layer.bounds));
+
+    if (layer.position.x || layer.position.y)
+        ts.dumpProperty("layer position", pointToString(layer.position));
+
+    if (layer.zPosition)
+        ts.dumpProperty("layer zPosition", makeString(layer.zPosition));
+
+    if (layer.anchorPoint.x != 0.5 || layer.anchorPoint.y != 0.5)
+        ts.dumpProperty("layer anchorPoint", pointToString(layer.anchorPoint));
+
+    if (layer.anchorPointZ)
+        ts.dumpProperty("layer anchorPointZ", makeString(layer.anchorPointZ));
+
+    if (traverse && layer.sublayers.count > 0) {
+        TextStream::GroupScope scope(ts);
+        ts << "sublayers";
+        for (CALayer *sublayer in layer.sublayers) {
+            TextStream::GroupScope scope(ts);
+            dumpCALayer(ts, sublayer, true);
+        }
+    }
+}
+
 - (void)_addEventAttributionWithSourceID:(uint8_t)sourceID destinationURL:(NSURL *)destination sourceDescription:(NSString *)sourceDescription purchaser:(NSString *)purchaser reportEndpoint:(NSURL *)reportEndpoint optionalNonce:(NSString *)nonce applicationBundleID:(NSString *)bundleID ephemeral:(BOOL)ephemeral
 {
     WebCore::PrivateClickMeasurement measurement(
         WebCore::PrivateClickMeasurement::SourceID(sourceID),
-        WebCore::PrivateClickMeasurement::SourceSite(reportEndpoint),
-        WebCore::PrivateClickMeasurement::AttributionDestinationSite(destination),
+        WebCore::PCM::SourceSite(reportEndpoint),
+        WebCore::PCM::AttributionDestinationSite(destination),
         bundleID,
         WallTime::now(),
-        ephemeral ? WebCore::PrivateClickMeasurement::AttributionEphemeral::Yes : WebCore::PrivateClickMeasurement::AttributionEphemeral::No
+        ephemeral ? WebCore::PCM::AttributionEphemeral::Yes : WebCore::PCM::AttributionEphemeral::No
     );
     if (nonce)
         measurement.setEphemeralSourceNonce({ nonce });
@@ -138,6 +193,15 @@
 {
     // For subclasses to override;
     return NO;
+}
+
+- (NSString *)_scrollingTreeAsText
+{
+    WebKit::RemoteScrollingCoordinatorProxy* coordinator = _page->scrollingCoordinatorProxy();
+    if (!coordinator)
+        return @"";
+
+    return coordinator->scrollingTreeAsText();
 }
 
 - (void)_setScrollingUpdatesDisabledForTesting:(BOOL)disabled
@@ -220,12 +284,12 @@
         _page->process().sendProcessDidResume(WebKit::ProcessThrottlerClient::ResumeReason::ForegroundActivity);
 }
 
-- (void)_setAssertionTypeForTesting:(int)value
+- (void)_setThrottleStateForTesting:(int)value
 {
     if (!_page)
         return;
 
-    _page->process().setAssertionTypeForTesting(static_cast<WebKit::ProcessAssertionType>(value));
+    _page->process().setThrottleStateForTesting(static_cast<WebKit::ProcessThrottleState>(value));
 }
 
 - (BOOL)_hasServiceWorkerBackgroundActivityForTesting
@@ -381,6 +445,12 @@
     _page->dumpPrivateClickMeasurement([completionHandler = makeBlockPtr(completionHandler)](const String& privateClickMeasurement) {
         completionHandler(privateClickMeasurement);
     });
+}
+
+- (BOOL)_shouldBypassGeolocationPromptForTesting
+{
+    // For subclasses to override.
+    return NO;
 }
 
 - (void)_didShowContextMenu

@@ -1,4 +1,4 @@
-.TH "ZSHBUILTINS" "1" "February 12, 2022" "zsh 5\&.8\&.1"
+.TH "ZSHBUILTINS" "1" "May 14, 2022" "zsh 5\&.9"
 .SH "NAME"
 zshbuiltins \- zsh built\-in commands
 .\" Yodl file: Zsh/builtins.yo
@@ -77,8 +77,18 @@ For each \fIname\fP with a corresponding \fIvalue\fP, define an alias
 with that value\&.  A trailing space in \fIvalue\fP causes the next word
 to be checked for alias expansion\&.  If the \fB\-g\fP flag is present,
 define a global alias; global aliases are expanded even if they do not
-occur in command position\&.
+occur in command position:
 .RS
+.PP
+.RS
+.nf
+\fB% perldoc \-\-help 2>&1 | grep \&'built\-in functions'
+    \-f   Search Perl built\-in functions
+% alias \-g HG=\&'\-\-help 2>&1 | grep'
+% perldoc HG \&'built\-in functions'
+    \-f   Search Perl built\-in functions\fP
+.fi
+.RE
 .PP
 If the \fB\-s\fP flag is present, define a suffix alias: if the command
 word on a command line is in the form `\fItext\fP\fB\&.\fP\fIname\fP\&', where
@@ -770,7 +780,7 @@ Do nothing and return an exit status of 1\&.
 
 .TP
 .PD 0
-\fBfc\fP [ \fB\-e\fP \fIename\fP ] [ \fB\-LI\fP ] [ \fB\-m\fP \fImatch\fP ] [ \fIold\fP\fB=\fP\fInew\fP \&.\&.\&. ] [ \fIfirst\fP [ \fIlast\fP ] ]
+\fBfc\fP [ \fB\-e\fP \fIename\fP ] [ \fB\-s\fP ] [ \fB\-LI\fP ] [ \fB\-m\fP \fImatch\fP ] [ \fIold\fP\fB=\fP\fInew\fP \&.\&.\&. ] [ \fIfirst\fP [ \fIlast\fP ] ]
 .TP
 .PD 0
 \fBfc \-l \fP[ \fB\-LI\fP ] [ \fB\-nrdfEiD\fP ] [ \fB\-t\fP \fItimefmt\fP ] [ \fB\-m\fP \fImatch\fP ]
@@ -801,7 +811,8 @@ specifies the most recent event beginning with the given string\&.  All
 substitutions \fIold\fP\fB=\fP\fInew\fP, if any, are then performed on the
 text of the events\&.
 .PP
-In addition to the number range,
+The range of events selected by numbers can be narrowed further by the
+following flags\&.
 .PD 0
 .TP
 \fB\-I\fP
@@ -813,8 +824,8 @@ restricts to only local events (not from other shells, see
 considered local when read at startup)
 .TP
 \fB\-m\fP
-takes the first argument as a pattern (should be quoted) and
-only the history events matching this pattern are considered
+takes the first argument as a pattern (which should be
+quoted) and only the history events matching this pattern are considered
 .PD
 .PP
 If \fIfirst\fP is not specified, it will be set to \-1 (the most recent
@@ -833,6 +844,7 @@ the parameter \fBEDITOR\fP is used; if that is not set a builtin default,
 usually `\fBvi\fP\&' is used\&.  If \fIename\fP is `\fB\-\fP', no editor is invoked\&.
 When editing is complete, the edited command is executed\&.
 .PP
+The flag `\fB\-s\fP\&' is equivalent to `\fB\-e \-\fP'\&.
 The flag \fB\-r\fP reverses the order of the events and the
 flag \fB\-n\fP suppresses event numbers when listing\&.
 .PP
@@ -936,7 +948,8 @@ point numbers are not permitted\&.
 \fBfunctions +M\fP [ \fB\-m\fP ] \fImathfn\fP \&.\&.\&. 
 Equivalent to \fBtypeset \-f\fP, with the exception of the \fB\-c\fP, \fB\-x\fP,
 \fB\-M\fP and \fB\-W\fP options\&.  For \fBfunctions \-u\fP and \fBfunctions \-U\fP,
-see \fBautoload\fP, which provides additional options\&.
+see \fBautoload\fP, which provides additional options\&.  For \fBfunctions \-t\fP
+and \fBfunctions \-T\fP, see \fBtypeset \-f\fP\&.
 .RS
 .PP
 The \fB\-x\fP option indicates that any functions output will have
@@ -957,6 +970,8 @@ without affecting the other\&.  A typical idiom is that \fIoldfn\fP is the
 name of a library shell function which is then redefined to call
 \fBnewfn\fP, thereby installing a modified version of the function\&.
 .PP
+\fIThe \fP\fB\-M\fP\fI and \fP\fB+M\fP\fI flags\fP
+.PP
 Use of the \fB\-M\fP option may not be combined with any of the options
 handled by \fBtypeset \-f\fP\&.
 .PP
@@ -976,9 +991,65 @@ expressions\&.  The name of the function in \fB$0\fP is \fImathfn\fP (not
 \fIshellfn\fP as would usually be the case), provided the option
 \fBFUNCTION_ARGZERO\fP is in effect\&.  The positional parameters in the shell
 function correspond to the arguments of the mathematical function call\&.
-The result of the last arithmetical expression evaluated
-inside the shell function (even if it is a form that normally only returns
-a status) gives the result of the mathematical function\&.
+.PP
+The result of the last arithmetical expression evaluated inside the shell
+function gives the result of the mathematical function\&.  This is not limited to
+arithmetic substitutions of the form \fB$((\fP\fI\&.\&.\&.\fP\fB))\fP,
+but also includes arithmetical expressions evaluated in any other way, including
+by the \fBlet\fP builtin,
+by \fB((\fP\fI\&.\&.\&.\fP\fB))\fP statements,
+and even
+by the \fBreturn\fP builtin
+and
+by array subscripts\&.
+Therefore, care must be taken not to use syntactical constructs that perform
+arithmetic evaluation after evaluating what is to be the result of the function\&.
+For example:
+.PP
+.RS
+.nf
+\fB# WRONG
+zmath_cube() {
+  (( $1 * $1 * $1 ))
+  return 0
+}
+functions \-M cube 1 1 zmath_cube
+print $(( cube(3) ))\fP
+.fi
+.RE
+.PP
+This will print `\fB0\fP\&' because of the \fBreturn\fP\&.
+.PP
+Commenting the \fBreturn\fP out would lead to a different problem: the
+\fB((\fP\fI\&.\&.\&.\fP\fB))\fP statement would become
+the last statement in the function, so the \fIreturn status\fP (\fB$?\fP) of the
+function would be non\-zero (indicating failure) whenever the \fIarithmetic
+result\fP of the function would happen to be zero (numerically):
+.PP
+.RS
+.nf
+\fB# WRONG
+zmath_cube() {
+  (( $1 * $1 * $1 ))
+}
+functions \-M cube 1 1 zmath_cube
+print $(( cube(0) ))\fP
+.fi
+.RE
+.PP
+Instead, the \fBtrue\fP builtin can be used:
+.PP
+.RS
+.nf
+\fB# RIGHT
+zmath_cube() {
+  (( $1 * $1 * $1 ))
+  true
+}
+functions \-M cube 1 1 zmath_cube
+print $(( cube(3) ))\fP
+.fi
+.RE
 .PP
 If the additional option \fB\-s\fP is given to \fBfunctions \-M\fP, the
 argument to the function is a single string: anything between the
@@ -986,6 +1057,16 @@ opening and matching closing parenthesis is passed to the function as a
 single argument, even if it includes commas or white space\&.  The minimum
 and maximum argument specifiers must therefore be 1 if given\&.  An empty
 argument list is passed as a zero\-length string\&.
+Thus, the following string function takes a single argument, including
+the commas, and prints 11:
+.PP
+.RS
+.nf
+\fBstringfn() { (( $#1 )); true }
+functions \-Ms stringfn
+print $(( stringfn(foo,bar,rod) ))\fP
+.fi
+.RE
 .PP
 \fBfunctions \-M\fP with no arguments lists all such user\-defined functions in
 the same form as a definition\&.  With the additional option \fB\-m\fP and
@@ -997,27 +1078,6 @@ additional option \fB\-m\fP the arguments are treated as patterns and
 all functions whose \fImathfn\fP matches the pattern are removed\&.  Note
 that the shell function implementing the behaviour is not removed
 (regardless of whether its name coincides with \fImathfn\fP)\&.
-.PP
-For example, the following prints the cube of 3:
-.PP
-.RS
-.nf
-\fBzmath_cube() { (( $1 * $1 * $1 )) }
-functions \-M cube 1 1 zmath_cube
-print $(( cube(3) ))\fP
-.fi
-.RE
-.PP
-The following string function takes a single argument, including
-the commas, so prints 11:
-.PP
-.RS
-.nf
-\fBstringfn() { (( $#1 )) }
-functions \-Ms stringfn
-print $(( stringfn(foo,bar,rod) ))\fP
-.fi
-.RE
 .RE
 .TP
 \fBgetcap\fP
@@ -1049,7 +1109,8 @@ is stored in \fBOPTARG\fP\&.
 The first option to be examined may be changed by explicitly assigning
 to \fBOPTIND\fP\&.  \fBOPTIND\fP has an initial value of \fB1\fP, and is
 normally set to \fB1\fP upon entry to a shell function and restored
-upon exit (this is disabled by the \fBPOSIX_BUILTINS\fP option)\&.  \fBOPTARG\fP
+upon exit\&.  (The \fBPOSIX_BUILTINS\fP option disables this, and also changes
+the way the value is calculated to match other shells\&.)  \fBOPTARG\fP
 is not reset and retains its value from the most recent call to
 \fBgetopts\fP\&.  If either of \fBOPTIND\fP or \fBOPTARG\fP is explicitly
 unset, it remains unset, and the index or option argument is not
@@ -1141,6 +1202,28 @@ The \fB\-Z\fP option replaces the shell\&'s argument and environment space with
 the given string, truncated if necessary to fit\&.  This will normally be
 visible in \fBps\fP (\fIps\fP(1)) listings\&.  This feature is typically
 used by daemons, to indicate their state\&.
+.PP
+Full job control is only available in the top\-level interactive shell,
+not in commands run in the left hand side of pipelines or within
+the \fB(\fP\fI\&.\&.\&.\fP\fB)\fP construct\&.  However, a snapshot
+of the job state at that point is taken, so it is still possible
+to use the \fBjobs\fP builtin, or any parameter providing job information\&.
+This gives information about the state of jobs at the point the subshell
+was created\&.  If background processes are created within the subshell,
+then instead information about those processes is provided\&.
+.PP
+For example,
+.PP
+.RS
+.nf
+\fBsleep 10 &    # Job in background
+(             # Shell forks
+jobs          # Shows information about "sleep 10 &"
+sleep 5 &     # Process in background (no job control)
+jobs          # Shows information about "sleep 5 &"
+)\fP
+.fi
+.RE
 .RE
 .TP
 .PD 0
@@ -1315,10 +1398,6 @@ with the command `\fBzmodload \-F zsh/rlimits b:limit\fP\&'\&.
 Same as \fBtypeset\fP, except that the options \fB\-g\fP, and
 \fB\-f\fP are not permitted\&.  In this case the \fB\-x\fP option does not force
 the use of \fB\-g\fP, i\&.e\&. exported variables will be local to functions\&.
-.TP
-\fBlog\fP
-List all users currently logged in who are affected by
-the current setting of the \fBwatch\fP parameter\&.
 .TP
 \fBlogout\fP [ \fIn\fP ]
 Same as \fBexit\fP, except that it only works in a login shell\&.
@@ -1575,7 +1654,7 @@ Same as \fBfc \-e \-\fP\&.
 \fBread \fP[ \fB\-rszpqAclneE\fP ] [ \fB\-t\fP [ \fInum\fP ] ] [ \fB\-k\fP [ \fInum\fP ] ] [ \fB\-d\fP \fIdelim\fP ]
 .TP
 .PD
-\fB     \fP[ \fB\-u\fP \fIn\fP ] [ \fIname\fP[\fB?\fP\fIprompt\fP] ] [ \fIname\fP \&.\&.\&.  ]
+\fB     \fP[ \fB\-u\fP \fIn\fP ] [ [\fIname\fP][\fB?\fP\fIprompt\fP] ] [ \fIname\fP \&.\&.\&.  ]
 Read one line and break it into fields using the characters
 in \fB$IFS\fP as separators, except as noted below\&.
 The first field is assigned to the first \fIname\fP, the second field
@@ -1714,10 +1793,20 @@ Same as \fBhash \-r\fP\&.
 \fBreturn\fP [ \fIn\fP ]
 Causes a shell function or `\fB\&.\fP\&' script to return to
 the invoking script with the return status specified by
-an arithmetic expression \fIn\fP\&. If \fIn\fP
+an arithmetic expression \fIn\fP\&.  
+For example, the following prints `\fB42\fP\&':
+.RS
+.PP
+.RS
+.nf
+\fB() { integer foo=40; return "foo + 2" }
+echo $?\fP
+.fi
+.RE
+.PP
+If \fIn\fP
 is omitted, the return status is that of the last command
 executed\&.
-.RS
 .PP
 If \fBreturn\fP was executed from a trap in a \fBTRAP\fP\fINAL\fP function,
 the effect is different for zero and non\-zero return status\&.  With zero
@@ -1726,7 +1815,7 @@ will return to whatever it was previously processing; with a non\-zero
 status, the shell will behave as interrupted except that the return
 status of the trap is retained\&.  Note that the numeric value of the signal
 which caused the trap is passed as the first argument, so the statement
-`\fBreturn $((128+$1))\fP\&' will return the same status as if the signal
+`\fBreturn "128+$1"\fP\&' will return the same status as if the signal
 had not been trapped\&.
 .RE
 .TP
@@ -1980,7 +2069,8 @@ unfreezing the tty does not guarantee settings made on the
 command line are preserved\&.  Strings of commands run between
 editing the command line will see a consistent tty state\&.
 See also the shell variable \fBSTTY\fP for a means of initialising
-the tty before running external commands\&.
+the tty before running external commands and/or freezing the tty
+around a single command\&.
 .RE
 .TP
 \fBtype\fP [ \fB\-wfpamsS\fP ] \fIname\fP \&.\&.\&.
@@ -2013,7 +2103,11 @@ function completes\&.  See
 retain their special attributes when made local\&.
 .PP
 For each \fIname\fP\fB=\fP\fIvalue\fP assignment, the parameter
-\fIname\fP is set to \fIvalue\fP\&.
+\fIname\fP is set to \fIvalue\fP\&.  If the assignment is omitted and \fIname\fP
+does \fInot\fP refer to an existing parameter, a new parameter is intialized
+to empty string, zero, or empty array (as appropriate), \fIunless\fP the
+shell option \fBTYPESET_TO_UNSET\fP is set\&.  When that option is set,
+the parameter attributes are recorded but the parameter remains unset\&.
 .PP
 If the shell option \fBTYPESET_SILENT\fP is not set, for each remaining
 \fIname\fP that refers to a parameter that is already set, the name and
@@ -2101,7 +2195,7 @@ a set of three normal command line arguments to \fBtypeset\fP after
 expansion\&.  Hence it is not possible to assign to multiple arrays by
 this means\&.
 .PP
-Note that each interface to any of the commands my be disabled
+Note that each interface to any of the commands may be disabled
 separately\&.  For example, `\fBdisable \-r typeset\fP\&' disables the reserved
 word interface to \fBtypeset\fP, exposing the builtin interface, while
 `\fBdisable typeset\fP\&' disables the builtin\&.  Note that disabling the
@@ -2514,7 +2608,7 @@ will report an error if this fails\&.
 .TP
 \fBumask\fP [ \fB\-S\fP ] [ \fImask\fP ]
 The umask is set to \fImask\fP\&.  \fImask\fP can be either
-an octal number or a symbolic value as described in \fIchmod\fP(1)\&.
+an octal number or a symbolic value as described in the \fIchmod\fP(1) man page\&.
 If \fImask\fP is omitted, the current value is printed\&.  The \fB\-S\fP
 option causes the mask to be printed as a symbolic value\&.  Otherwise,
 the mask is printed as an octal number\&.  Note that in

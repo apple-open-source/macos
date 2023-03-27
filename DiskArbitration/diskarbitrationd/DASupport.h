@@ -74,7 +74,7 @@ extern const CFStringRef kDAPreferenceAutoMountDisableKey;           /* ( CFBool
 extern const CFStringRef kDAPreferenceEnableUserFSMountExternalKey;  /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceEnableUserFSMountInternalKey;  /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceEnableUserFSMountRemovableKey; /* ( CFBoolean ) */
-extern const CFStringRef kDAPreferenceFileSystemDisableUserFSKey;     /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceMountMethodkey;                 /* ( CFString ) */
 extern const CFStringRef kDAPreferenceDisableEjectNotificationKey;   /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceDisableUnreadableNotificationKey; /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceDisableUnrepairableNotificationKey; /* ( CFBoolean ) */

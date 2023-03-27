@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Justin Haygood (jhaygood@reaktix.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,12 +36,18 @@
 #include <mutex>
 #include <sqlite3.h>
 #include <thread>
+#include <wtf/FastMalloc.h>
 #include <wtf/FileSystem.h>
 #include <wtf/Lock.h>
 #include <wtf/Scope.h>
 #include <wtf/Threading.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenateNumbers.h>
+
+#if !USE(SYSTEM_MALLOC)
+#include <bmalloc/BPlatform.h>
+#define ENABLE_SQLITE_FAST_MALLOC (BENABLE(MALLOC_SIZE) && BENABLE(MALLOC_GOOD_SIZE))
+#endif
 
 namespace WebCore {
 
@@ -75,6 +81,28 @@ static void initializeSQLiteIfNecessary()
 
 static Lock isDatabaseOpeningForbiddenLock;
 static bool isDatabaseOpeningForbidden WTF_GUARDED_BY_LOCK(isDatabaseOpeningForbiddenLock) { false };
+
+void SQLiteDatabase::useFastMalloc()
+{
+#if ENABLE(SQLITE_FAST_MALLOC)
+    int returnCode = sqlite3_config(SQLITE_CONFIG_LOOKASIDE, 0, 0);
+    RELEASE_LOG_ERROR_IF(returnCode != SQLITE_OK, SQLDatabase, "Unable to reduce lookaside buffer size: %d", returnCode);
+
+    static sqlite3_mem_methods fastMallocMethods = {
+        [](int n) { return fastMalloc(n); },
+        fastFree,
+        [](void *p, int n) { return fastRealloc(p, n); },
+        [](void *p) { return static_cast<int>(fastMallocSize(p)); },
+        [](int n) { return static_cast<int>(fastMallocGoodSize(n)); },
+        [](void*) { return SQLITE_OK; },
+        [](void*) { },
+        nullptr
+    };
+
+    returnCode = sqlite3_config(SQLITE_CONFIG_MALLOC, &fastMallocMethods);
+    RELEASE_LOG_ERROR_IF(returnCode != SQLITE_OK, SQLDatabase, "Unable to replace SQLite malloc: %d", returnCode);
+#endif
+}
 
 void SQLiteDatabase::setIsDatabaseOpeningForbidden(bool isForbidden)
 {
@@ -633,11 +661,13 @@ bool SQLiteDatabase::isAutoCommitOn() const
 
 bool SQLiteDatabase::turnOnIncrementalAutoVacuum()
 {
-    auto statement = prepareStatement("PRAGMA auto_vacuum"_s);
-    if (!statement)
-        return false;
-
-    int autoVacuumMode = statement->columnInt(0);
+    int autoVacuumMode = AutoVacuumNone;
+    {
+        auto statement = prepareStatement("PRAGMA auto_vacuum"_s);
+        if (!statement)
+            return false;
+        autoVacuumMode = statement->columnInt(0);
+    }
 
     // Check if we got an error while trying to get the value of the auto_vacuum flag.
     // If we got a SQLITE_BUSY error, then there's probably another transaction in

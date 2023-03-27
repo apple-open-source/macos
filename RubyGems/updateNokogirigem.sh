@@ -13,6 +13,7 @@ gunzip metadata.gz checksums.yaml.gz
 patch < "$PROJROOT/patches/0001-Patch-nokogiri-gem-to-build-correctly.patch"
 rm data.tar.gz
 pushd data
+patch -p1 < "$PROJROOT/patches/0002-Patch-nokogiri-103206449.patch"
 tar cvf ../data.tar *
 popd
 rm -rf data

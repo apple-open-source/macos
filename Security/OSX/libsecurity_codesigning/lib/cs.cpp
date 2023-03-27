@@ -37,7 +37,8 @@ CFObjects::CFObjects()
 	: Code("SecCode"),
 	  StaticCode("SecStaticCode"),
 	  Requirement("SecRequirements"),
-	  CodeSigner("SecCodeSigner")
+	  CodeSigner("SecCodeSigner"),
+      CodeSignerRemote("SecCodeSignerRemote")
 {
 }
 

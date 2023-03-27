@@ -372,6 +372,8 @@ class IOPCIConfigurator : public IOService
     uint32_t                fBridgeCount;
     uint32_t                fDeviceCount;
     uint32_t				fNextID;
+    uint64_t                fResetStartTime;
+    uint64_t                fResetWaitTime;
 #if ACPI_SUPPORT
 	uint8_t				 	fAddedHost64;
 #endif /* ACPI_SUPPORT */

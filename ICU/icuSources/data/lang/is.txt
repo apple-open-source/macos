@@ -98,6 +98,7 @@ is{
         chm{"marí"}
         chn{"sínúk"}
         cho{"sjoktá"}
+        cho_Latn{"sjoktá"}
         chp{"sípevíska"}
         chr{"Cherokee-mál"}
         chy{"sjeyen"}

@@ -26,6 +26,7 @@
 
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
+#include "AbortableTaskQueue.h"
 #include "GStreamerCommon.h"
 #include "GStreamerEMEUtilities.h"
 #include "ImageOrientation.h"
@@ -102,7 +103,6 @@ class AudioSourceProviderGStreamer;
 class AudioTrackPrivateGStreamer;
 class InbandMetadataTextTrackPrivateGStreamer;
 class InbandTextTrackPrivateGStreamer;
-class MediaPlayerRequestInstallMissingPluginsCallback;
 class VideoTrackPrivateGStreamer;
 
 #if USE(TEXTURE_MAPPER_DMABUF)
@@ -131,7 +131,6 @@ public:
     virtual ~MediaPlayerPrivateGStreamer();
 
     static void registerMediaEngine(MediaEngineRegistrar);
-    static MediaPlayer::SupportsType extendedSupportsType(const MediaEngineSupportParameters&, MediaPlayer::SupportsType);
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
 
     bool hasVideo() const final { return m_hasVideo; }
@@ -178,8 +177,7 @@ public:
     MediaTime minMediaTimeSeekable() const final { return MediaTime::zeroTime(); }
     bool didLoadingProgress() const final;
     unsigned long long totalBytes() const final;
-    bool hasSingleSecurityOrigin() const final;
-    std::optional<bool> wouldTaintOrigin(const SecurityOrigin&) const final;
+    std::optional<bool> isCrossOrigin(const SecurityOrigin&) const final;
     void simulateAudioInterruption() final;
 #if ENABLE(WEB_AUDIO)
     AudioSourceProvider* audioSourceProvider() final;
@@ -216,6 +214,7 @@ public:
     bool copyVideoTextureToPlatformTexture(GraphicsContextGL*, PlatformGLObject, GCGLenum, GCGLint, GCGLenum, GCGLenum, GCGLenum, bool, bool) override;
     RefPtr<NativeImage> nativeImageForCurrentTime() override;
 #endif
+    RefPtr<VideoFrame> videoFrameForCurrentTime() override;
 
     void updateEnabledVideoTrack();
     void updateEnabledAudioTrack();
@@ -246,6 +245,10 @@ public:
     const void* mediaPlayerLogIdentifier() { return logIdentifier(); }
     const Logger& mediaPlayerLogger() { return logger(); }
 #endif
+
+    // This AbortableTaskQueue must be aborted everytime a flush is sent downstream from the main thread
+    // to avoid deadlocks from threads in the playback pipeline waiting for the main thread.
+    AbortableTaskQueue& sinkTaskQueue() { return m_sinkTaskQueue; }
 
 protected:
     enum MainThreadNotification {
@@ -342,7 +345,7 @@ protected:
     bool m_didDownloadFinish { false };
     bool m_didErrorOccur { false };
     mutable bool m_isEndReached { false };
-    mutable bool m_isLiveStream { false };
+    mutable std::optional<bool> m_isLiveStream;
     bool m_isPaused { true };
     float m_playbackRate { 1 };
     GstState m_currentState { GST_STATE_NULL };
@@ -379,9 +382,6 @@ protected:
 
 #if USE(GSTREAMER_GL)
     std::unique_ptr<VideoTextureCopierGStreamer> m_videoTextureCopier;
-    GRefPtr<GstGLColorConvert> m_colorConvert;
-    GRefPtr<GstCaps> m_colorConvertInputCaps;
-    GRefPtr<GstCaps> m_colorConvertOutputCaps;
 #endif
 
     ImageOrientation m_videoSourceOrientation;
@@ -400,6 +400,11 @@ protected:
     std::optional<GstVideoDecoderPlatform> m_videoDecoderPlatform;
 
     String errorMessage() const override { return m_errorMessage; }
+
+    void incrementDecodedVideoFramesCount() { m_decodedVideoFrames++; }
+    uint64_t decodedVideoFramesCount() const { return m_decodedVideoFrames; }
+
+    bool updateVideoSinkStatistics();
 
 private:
     class TaskAtMediaTimeScheduler {
@@ -431,7 +436,7 @@ private:
 
     bool isPlayerShuttingDown() const { return m_isPlayerShuttingDown.load(); }
     MediaTime maxTimeLoaded() const;
-    void setVideoSourceOrientation(ImageOrientation);
+    bool setVideoSourceOrientation(ImageOrientation);
     MediaTime platformDuration() const;
     bool isMuted() const;
     void commitLoad();
@@ -441,6 +446,8 @@ private:
     GstElement* createVideoSink();
     GstElement* createAudioSink();
     GstElement* audioSink() const;
+
+    bool isMediaStreamPlayer() const;
 
     friend class MediaPlayerFactoryGStreamer;
     static void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>&);
@@ -452,7 +459,8 @@ private:
     MediaTime playbackPosition() const;
 
     virtual void updateStates();
-    virtual void asyncStateChangeDone();
+    void finishSeek();
+    virtual void asyncStateChangeDone() { }
 
     void createGSTPlayBin(const URL&);
 
@@ -481,6 +489,7 @@ private:
 
     void configureDepayloader(GstElement*);
     void configureVideoDecoder(GstElement*);
+    void configureElement(GstElement*);
 
     void setPlaybinURL(const URL& urlString);
 
@@ -518,8 +527,8 @@ private:
     bool m_hasAudio { false };
     Condition m_drawCondition;
     Lock m_drawLock;
-    RunLoop::Timer<MediaPlayerPrivateGStreamer> m_drawTimer WTF_GUARDED_BY_LOCK(m_drawLock);
-    RunLoop::Timer<MediaPlayerPrivateGStreamer> m_readyTimerHandler;
+    RunLoop::Timer m_drawTimer WTF_GUARDED_BY_LOCK(m_drawLock);
+    RunLoop::Timer m_readyTimerHandler;
 #if USE(TEXTURE_MAPPER_GL)
 #if USE(NICOSIA)
     RefPtr<Nicosia::ContentLayer> m_nicosiaLayer;
@@ -556,7 +565,6 @@ private:
     std::unique_ptr<AudioSourceProviderGStreamer> m_audioSourceProvider;
 #endif
     GRefPtr<GstElement> m_downloadBuffer;
-    Vector<RefPtr<MediaPlayerRequestInstallMissingPluginsCallback>> m_missingPluginCallbacks;
 
     HashMap<AtomString, Ref<AudioTrackPrivateGStreamer>> m_audioTracks;
     HashMap<AtomString, Ref<VideoTrackPrivateGStreamer>> m_videoTracks;
@@ -571,12 +579,10 @@ private:
     uint64_t m_networkReadPosition { 0 };
     mutable uint64_t m_readPositionAtLastDidLoadingProgress { 0 };
 
-    HashSet<RefPtr<WebCore::SecurityOrigin>> m_origins;
-    std::optional<bool> m_hasTaintedOrigin { std::nullopt };
-
     GRefPtr<GstElement> m_fpsSink { nullptr };
     uint64_t m_totalVideoFrames { 0 };
     uint64_t m_droppedVideoFrames { 0 };
+    uint64_t m_decodedVideoFrames { 0 };
 
     DataMutex<TaskAtMediaTimeScheduler> m_TaskAtMediaTimeSchedulerDataMutex;
 
@@ -599,6 +605,8 @@ private:
 #endif
 
     GRefPtr<GstStreamCollection> m_streamCollection;
+
+    AbortableTaskQueue m_sinkTaskQueue;
 };
 
 }

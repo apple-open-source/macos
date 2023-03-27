@@ -544,7 +544,7 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
     }
 }
 
-static CFStringRef getLocalNetBIOSNameUsingHostName()
+static CFStringRef getLocalNetBIOSNameUsingHostName(void)
 {
 	CFMutableStringRef NetBIOSName = NULL;
 	char buf[_POSIX_HOST_NAME_MAX+1], *cp;

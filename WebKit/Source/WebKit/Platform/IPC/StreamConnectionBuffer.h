@@ -25,11 +25,14 @@
 
 #pragma once
 
-#include "Decoder.h"
 #include "SharedMemory.h"
 #include <wtf/Atomics.h>
+#include <wtf/Ref.h>
+#include <wtf/Span.h>
 
 namespace IPC {
+class Decoder;
+class Encoder;
 
 // StreamConnectionBuffer is a shared "bi-partite" circular buffer supporting variable length messages, specific data
 // alignment with mandated minimum size. StreamClientConnection and StreamServerConnection use StreamConnectionBuffer to
@@ -66,11 +69,16 @@ namespace IPC {
 //   This would move the alignedSpan implementation to the StreamConnectionBuffer.
 // * All atomic variable loads are untrusted, so they're clamped. Violations are not reported, though.
 class StreamConnectionBuffer {
+    WTF_MAKE_NONCOPYABLE(StreamConnectionBuffer);
 public:
-    explicit StreamConnectionBuffer(size_t memorySize);
-    StreamConnectionBuffer(StreamConnectionBuffer&&);
     ~StreamConnectionBuffer();
-    StreamConnectionBuffer& operator=(StreamConnectionBuffer&&);
+
+    struct Handle {
+        WebKit::SharedMemory::Handle memory;
+        void encode(Encoder&) const;
+        static std::optional<Handle> decode(Decoder&);
+    };
+    Handle createHandle();
 
     size_t wrapOffset(size_t offset) const
     {
@@ -109,21 +117,25 @@ public:
     size_t dataSize() const { return m_dataSize; }
 
     static constexpr size_t maximumSize() { return std::min(static_cast<size_t>(ClientOffset::serverIsSleepingTag), static_cast<size_t>(ClientOffset::serverIsSleepingTag)) - 1; }
-    void encode(Encoder&) const;
-    static std::optional<StreamConnectionBuffer> decode(Decoder&);
 
     Span<uint8_t> headerForTesting();
     Span<uint8_t> dataForTesting();
 
-private:
+protected:
     StreamConnectionBuffer(Ref<WebKit::SharedMemory>&&);
+    StreamConnectionBuffer(StreamConnectionBuffer&&) = default;
+    StreamConnectionBuffer& operator=(StreamConnectionBuffer&&) = default;
 
     struct Header {
         Atomic<ServerOffset> serverOffset;
         // Padding so that the variables mostly accessed by different processes do not share a cache line.
         // This is an attempt to avoid cache-line induced reduction of parallel access.
-        alignas(sizeof(uint64_t[2])) Atomic<ClientOffset> clientOffset;
+        // Use 128 bytes since that's the cache line size on ARM64, and enough to cover other platforms where 64 bytes is common.
+        alignas(128) Atomic<ClientOffset> clientOffset;
     };
+
+#undef HEADER_POINTER_ALIGNMENT
+
     Header& header() const { return *reinterpret_cast<Header*>(m_sharedMemory->data()); }
     static constexpr size_t headerSize() { return roundUpToMultipleOf<alignof(std::max_align_t)>(sizeof(Header)); }
 

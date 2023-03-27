@@ -87,6 +87,7 @@ __kpi_unavailable const OSSymbol *		   gIOPCIHPTypeKey;
 __kpi_unavailable const OSSymbol *		   gIOPCIThunderboltKey;
 __kpi_unavailable const OSSymbol *		   gIOPCIHotplugCapableKey;
 __kpi_unavailable const OSSymbol *		   gIOPCITunnelL1EnableKey;
+__kpi_unavailable const OSSymbol *		   gIOPCIExpressLinkStatusKey;
 
 __kpi_unavailable const OSSymbol *           gIOPlatformDeviceMessageKey;
 __kpi_unavailable const OSSymbol *           gIOPlatformDeviceASPMEnableKey;
@@ -99,6 +100,7 @@ __kpi_unavailable const OSSymbol *           gIOPlatformDeviceRelocatedKey;
 __kpi_unavailable const OSSymbol *           gIOPolledInterfaceActiveKey;
 __kpi_unavailable const OSSymbol *           gIOPCIDeviceHiddenKey;
 __kpi_unavailable const OSSymbol *           gIOPCIDeviceChangedKey;
+__kpi_unavailable const OSSymbol *           gIOPCILinkUpTimeoutKey;
 __exported_pop
 
 uint32_t gIOPCIFlags = 0
@@ -529,6 +531,8 @@ void IOPCIBridge::initialize(void)
 		= OSSymbol::withCStringNoCopy(kIOPlatformDeviceRelocatedKey);
 	gIOPCIDeviceChangedKey
 		= OSSymbol::withCStringNoCopy(kIOPCIDeviceChangedKey);
+	gIOPCILinkUpTimeoutKey
+		= OSSymbol::withCStringNoCopy(kIOPCILinkUpTimeoutKey);
 	gIOPlatformGetMessagedInterruptAddressKey
 		= OSSymbol::withCStringNoCopy(kIOPlatformGetMessagedInterruptAddressKey);
 	gIOPlatformGetMessagedInterruptControllerKey
@@ -553,6 +557,7 @@ void IOPCIBridge::initialize(void)
 	gIOPCITunnelledKey          = OSSymbol::withCStringNoCopy(kIOPCITunnelledKey);
 	gIOPCIHPTypeKey             = OSSymbol::withCStringNoCopy(kIOPCIHPTypeKey);
 	gIOPCITunnelL1EnableKey     = OSSymbol::withCStringNoCopy(kIOPCITunnelL1EnableKey);
+	gIOPCIExpressLinkStatusKey  = OSSymbol::withCStringNoCopy(kIOPCIExpressLinkStatusKey);
 	gIOPCIThunderboltKey        = OSSymbol::withCStringNoCopy("PCI-Thunderbolt");
 	gIOPCIHotplugCapableKey     = OSSymbol::withCStringNoCopy("PCIHotplugCapable");
 	gIOPolledInterfaceActiveKey = OSSymbol::withCStringNoCopy(kIOPolledInterfaceActiveKey);
@@ -2827,6 +2832,8 @@ IOReturn parseDevASPMDefaultBootArg(uint32_t vidDid, uint16_t *expressASPMDefaul
 	return kIOReturnError;
 }
 
+#define kDefaultLinkUpTimeoutMS 2000
+
 void IOPCIBridge::probeBusGated( probeBusParams *params )
 {
     IORegistryEntry *  found;
@@ -2928,6 +2935,11 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 #else
                     nub->reserved->expressASPMDefault = nub->reserved->aspmCaps & ~kIOPCIExpressClkReq;
 #endif
+
+					if ((data = OSDynamicCast(OSData, nub->getProperty(kIOPCISlotMaxLinkWidthKey, gIODTPlane))))
+					{
+						nub->setProperty(kIOPCIExpressMaxLinkWidthOverrideKey, *((uint32_t *) data->getBytesNoCopy()), 32);
+					}
                 }
 				if (nub->reserved->expressCapability && nub->reserved->latencyToleranceCapability
 				 && (data = OSDynamicCast(OSData, nub->getProperty(kIOPCIExpressMaxLatencyKey, gIODTPlane))))
@@ -3046,6 +3058,11 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 					}
 				}
 
+				if  (nub->reserved->configEntry->hostBridgeEntry)
+				{
+					nub->reserved->expressMaxReadRequestSize = nub->reserved->configEntry->hostBridgeEntry->expressEndpointMaxReadRequestSize;
+				}
+
                 capa = 0;
                 if (nub->extendedFindPCICapability(kIOPCIFPBCapability, &capa))
                 {
@@ -3057,6 +3074,16 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
                 {
                     nub->reserved->ptmCapability = capa;
                 }
+
+				nub->reserved->probeTimeMS = kDefaultLinkUpTimeoutMS;
+				if (nub->propertyExists(gIOPCILinkUpTimeoutKey, gIODTPlane, 0))
+				{
+					OSData *data = OSDynamicCast(OSData, nub->getProperty(gIOPCILinkUpTimeoutKey, gIODTPlane, 0));
+					if (data)
+					{
+						nub->reserved->probeTimeMS = *((uint32_t *)data->getBytesNoCopy());
+					}
+				}
 
                 nub->release();
             }
@@ -3118,6 +3145,10 @@ bool IOPCIBridge::addBridgeMemoryRange( IOPhysicalAddress start,
     // fix - ACPIPCI makes this up for hosts with zero space
     if ((0x80000000 == start) && (0x7f000000 == length))
         return (false);
+
+#if ACPI_SUPPORT
+	AppleVTD::addMemoryRange(start, length);
+#endif
 
     ok = IOPCIRangeListAddRange(&reserved->rangeLists[kIOPCIResourceTypeMemory],
                                 kIOPCIResourceTypeMemory, 
@@ -3817,7 +3848,126 @@ enum {
 	kIntsAER = 0x00000002,
 };
 
+void IOPCI2PCIBridge::handleAEREvent(bool synchronous)
+{
+    IOPCIEventSource *eventSrc = NULL;
+    uint8_t intsPending = 0;
+    IOPCIAERRoot * root;
+    int num = 0;
 
+    if ((root = fAERRoot))
+    {
+        enum { kNeedMask = ((1 << 2) | (1 << 0)) };
+
+        uint32_t status = fBridgeDevice->configRead32(fBridgeDevice->reserved->aerCapability + 0x30);
+        if (0 != (kNeedMask & status))
+        {
+            IOInterruptState ints;
+            uint8_t          nextIdx;
+
+            nextIdx = root->fAERWriteIndex + 1;
+            if (nextIdx == kAERISRNum) nextIdx = 0;
+            if (nextIdx != root->fAERReadIndex)
+            {
+                root->fISRErrors[root->fAERWriteIndex].status = status;
+                root->fISRErrors[root->fAERWriteIndex].source = fBridgeDevice->configRead32(fBridgeDevice->reserved->aerCapability + 0x34);
+                root->fAERWriteIndex = nextIdx;
+            }
+            intsPending |= kIntsAER;
+        }
+        fBridgeDevice->configWrite16(fBridgeDevice->reserved->aerCapability + 0x30, status);
+
+        if (kIntsAER & intsPending)
+        {
+            IOPCIAddressSpace  space;
+            IOService *        result;
+            IOPCIDevice *      device;
+            IOPCIEventSource * src;
+            IOReturn           ret;
+            uint8_t            nextIdx;
+            uint32_t           correctable, source, rstatus, status, mask, severity;
+            IOPCIEvent		   newEvent;
+
+            while (root->fAERReadIndex != root->fAERWriteIndex)
+            {
+                rstatus = root->fISRErrors[root->fAERReadIndex].status;
+                source  = root->fISRErrors[root->fAERReadIndex].source;
+                nextIdx = root->fAERReadIndex + 1;
+                if (nextIdx == kAERISRNum) nextIdx = 0;
+                root->fAERReadIndex = nextIdx;
+
+                DLOG("%s: AER root status %x\n", fLogName, rstatus);
+                for (correctable = 0; correctable < 2; correctable++, source <<= 16)
+                {
+                    if (!((correctable ? 1 : 4) & rstatus)) continue;
+                    space.s.busNum      = (source >> 24);
+                    space.s.deviceNum   = (31 & (source >> 19));
+                    space.s.functionNum = (7  & (source >> 16));
+
+                    configOpParams cp = {.device = this, .op = kConfigOpFindEntry, .result = &result, .arg = &space};
+                    ret = configOp(&cp);
+                    DLOG("AER source %d %d %d: find %x %p %s 0x%qx\n",
+                            space.s.busNum, space.s.deviceNum, space.s.functionNum, ret, result,
+                            result ? result->getName() : "",
+                            result ? result->getRegistryEntryID() : 0);
+                    if (kIOReturnSuccess != ret) continue;
+
+                    if ((device = OSDynamicCast(IOPCIDevice, result))
+                         && device->reserved->aerCapability)
+                    {
+                        status   = device->configRead32(device->reserved->aerCapability + (correctable ? 0x10 : 0x04));
+                        device->configWrite32(device->reserved->aerCapability + (correctable ? 0x10 : 0x04), status);
+                        mask     = device->configRead32(device->reserved->aerCapability + (correctable ? 0x14 : 0x08));
+                        severity = (correctable ? 0 : device->configRead32(device->reserved->aerCapability + 0x0c));
+                        newEvent.data[0] = status;
+                        newEvent.data[1] = device->configRead32(device->reserved->aerCapability + 0x1c);
+                        newEvent.data[2] = device->configRead32(device->reserved->aerCapability + 0x20);
+                        newEvent.data[3] = device->configRead32(device->reserved->aerCapability + 0x24);
+                        newEvent.data[4] = device->configRead32(device->reserved->aerCapability + 0x28);
+
+                        DLOG("AER %scorrectable status 0x%08x sev 0x%08x TLP 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+                                correctable ? "" : "un", status, severity,
+                                newEvent.data[1], newEvent.data[2], newEvent.data[3], newEvent.data[4]);
+
+                        if (status & ~mask)
+                        {
+                            IOPCIHostBridgeData *vars = ((IOPCIBridge*)this)->reserved->hostBridgeData;
+                            IOSimpleLockLock(vars->_eventSourceLock);
+
+                            queue_iterate(&vars->_eventSourceQueue, src, IOPCIEventSource *, fQ)
+                            {
+                                if (src->fRoot && (this != src->fRoot)) continue;
+                                nextIdx = src->fWriteIndex + 1;
+                                if (nextIdx == kIOPCIEventNum) nextIdx = 0;
+                                if (nextIdx != src->fReadIndex)
+                                {
+                                    src->fEvents[src->fWriteIndex].event =
+                                        correctable ? kIOPCIEventCorrectableError
+                                                    : ((status & severity) ? kIOPCIEventFatalError : kIOPCIEventNonFatalError);
+                                    device->retain();
+                                    src->fEvents[src->fWriteIndex].reporter = device;
+                                    memcpy(&src->fEvents[src->fWriteIndex].data[0],
+                                            &newEvent.data[0],
+                                            sizeof(src->fEvents[src->fWriteIndex].data));
+                                    src->fWriteIndex = nextIdx;
+                                }
+                                if (src->isEnabled()) src->signalWorkAvailable();
+                                eventSrc = src;
+                            }
+                            IOSimpleLockUnlock(vars->_eventSourceLock);
+                        }
+                    }
+                    result->release();
+                }
+            }
+        }
+    }
+
+    if (synchronous && eventSrc != NULL)
+    {
+        eventSrc->checkForWork();
+    }
+}
 
 void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, int count __unused)
 {
@@ -4015,7 +4165,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
                 {
                     // present
                     fBridgeDevice->setProperty(kIOPCIOnlineKey, true);
-                    probeTimeMS = 2000;
+                    probeTimeMS = fBridgeDevice->reserved->probeTimeMS;
                 }
             }
 
@@ -4032,122 +4182,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
         }
 	}
 
-
-    IOPCIAERRoot * root;
-    if ((root = fAERRoot))
-    {
-        enum { kNeedMask = ((1 << 2) | (1 << 0)) };
-
-        uint32_t status = fBridgeDevice->configRead32(fBridgeDevice->reserved->aerCapability + 0x30);
-        if (0 != (kNeedMask & status))
-        {
-            IOInterruptState ints;
-            uint8_t          nextIdx;
-
-            ints    = IOSimpleLockLockDisableInterrupt(fISRLock);
-            nextIdx = root->fAERWriteIndex + 1;
-            if (nextIdx == kAERISRNum) nextIdx = 0;
-            if (nextIdx != root->fAERReadIndex)
-            {
-                root->fISRErrors[root->fAERWriteIndex].status = status;
-                root->fISRErrors[root->fAERWriteIndex].source = fBridgeDevice->configRead32(fBridgeDevice->reserved->aerCapability + 0x34);
-                root->fAERWriteIndex = nextIdx;
-            }
-            IOSimpleLockUnlockEnableInterrupt(fISRLock, ints);
-            intsPending |= kIntsAER;
-        }
-        fBridgeDevice->configWrite16(fBridgeDevice->reserved->aerCapability + 0x30, status);
-
-        if (kIntsAER & intsPending)
-        {
-            IOPCIAERRoot *     root = fAERRoot;
-            IOPCIAddressSpace  space;
-            IOInterruptState   ints;
-            IOService *        result;
-            IOPCIDevice *      device;
-            IOPCIEventSource * src;
-            IOReturn           ret;
-            uint8_t            nextIdx;
-            uint32_t           correctable, source, rstatus, status, mask, severity;
-            IOPCIEvent		   newEvent;
-
-            ints = IOSimpleLockLockDisableInterrupt(fISRLock);
-            while (root->fAERReadIndex != root->fAERWriteIndex)
-            {
-                rstatus = root->fISRErrors[root->fAERReadIndex].status;
-                source  = root->fISRErrors[root->fAERReadIndex].source;
-                nextIdx = root->fAERReadIndex + 1;
-                if (nextIdx == kAERISRNum) nextIdx = 0;
-                root->fAERReadIndex = nextIdx;
-                IOSimpleLockUnlockEnableInterrupt(fISRLock, ints);
-
-                DLOG("%s: AER root status %x\n", fLogName, rstatus);
-                for (correctable = 0; correctable < 2; correctable++, source <<= 16)
-                {
-                    if (!((correctable ? 1 : 4) & rstatus)) continue;
-                    space.s.busNum      = (source >> 24);
-                    space.s.deviceNum   = (31 & (source >> 19));
-                    space.s.functionNum = (7  & (source >> 16));
-
-                    configOpParams cp = {.device = this, .op = kConfigOpFindEntry, .result = &result, .arg = &space};
-                    ret = configOp(&cp);
-                    DLOG("AER source %d %d %d: find %x %p %s 0x%qx\n",
-                            space.s.busNum, space.s.deviceNum, space.s.functionNum, ret, result,
-                            result ? result->getName() : "",
-                            result ? result->getRegistryEntryID() : 0);
-                    if (kIOReturnSuccess != ret) continue;
-
-                    if ((device = OSDynamicCast(IOPCIDevice, result))
-                         && device->reserved->aerCapability)
-                    {
-                        status   = device->configRead32(device->reserved->aerCapability + (correctable ? 0x10 : 0x04));
-                        device->configWrite32(device->reserved->aerCapability + (correctable ? 0x10 : 0x04), status);
-                        mask     = device->configRead32(device->reserved->aerCapability + (correctable ? 0x14 : 0x08));
-                        severity = (correctable ? 0 : device->configRead32(device->reserved->aerCapability + 0x0c));
-                        newEvent.data[0] = status;
-                        newEvent.data[1] = device->configRead32(device->reserved->aerCapability + 0x1c);
-                        newEvent.data[2] = device->configRead32(device->reserved->aerCapability + 0x20);
-                        newEvent.data[3] = device->configRead32(device->reserved->aerCapability + 0x24);
-                        newEvent.data[4] = device->configRead32(device->reserved->aerCapability + 0x28);
-
-                        DLOG("AER %scorrectable status 0x%08x sev 0x%08x TLP 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
-                                correctable ? "" : "un", status, severity,
-                                newEvent.data[1], newEvent.data[2], newEvent.data[3], newEvent.data[4]);
-
-                        if (status & ~mask)
-                        {
-                            IOPCIHostBridgeData *vars = ((IOPCIBridge*)this)->reserved->hostBridgeData;
-                            IOSimpleLockLock(vars->_eventSourceLock);
-
-                            queue_iterate(&vars->_eventSourceQueue, src, IOPCIEventSource *, fQ)
-                            {
-                                if (src->fRoot && (this != src->fRoot)) continue;
-                                nextIdx = src->fWriteIndex + 1;
-                                if (nextIdx == kIOPCIEventNum) nextIdx = 0;
-                                if (nextIdx != src->fReadIndex)
-                                {
-                                    src->fEvents[src->fWriteIndex].event =
-                                        correctable ? kIOPCIEventCorrectableError
-                                                    : ((status & severity) ? kIOPCIEventFatalError : kIOPCIEventNonFatalError);
-                                    device->retain();
-                                    src->fEvents[src->fWriteIndex].reporter = device;
-                                    memcpy(&src->fEvents[src->fWriteIndex].data[0],
-                                            &newEvent.data[0],
-                                            sizeof(src->fEvents[src->fWriteIndex].data));
-                                    src->fWriteIndex = nextIdx;
-                                }
-                                if (src->isEnabled()) src->signalWorkAvailable();
-                            }
-                            IOSimpleLockUnlock(vars->_eventSourceLock);
-                        }
-                    }
-                    result->release();
-                }
-                ints = IOSimpleLockLockDisableInterrupt(fISRLock);
-            }
-            IOSimpleLockUnlockEnableInterrupt(fISRLock, ints);
-        }
-    }
+	handleAEREvent(false);
 }
 
 void IOPCI2PCIBridge::timerProbe(IOTimerEventSource * es)
@@ -5890,7 +5925,7 @@ IOReturn IOPCIBridge::resetDeviceGated(tIOPCIDeviceResetTypes *_type, tIOPCIDevi
 
 			// manual-enable-s2r ports deassert PERST in response to system wake events, before
 			// its IOPower tree has performed setPowerState(). Skip this step in that case.
-			if (child == NULL || (bridgeDevice->getProperty("manual-enable-s2r") && getPowerState() == kIOPCIDeviceOffState))
+			if (child == NULL || ((bridgeDevice->getProperty("manual-enable-s2r") || bridgeDevice->getProperty("manual-enable-s2r-ep")) && getPowerState() == kIOPCIDeviceOffState))
 			{
 				continue;
 			}

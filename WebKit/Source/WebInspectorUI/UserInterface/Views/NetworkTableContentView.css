@@ -33,6 +33,16 @@
     --scope-bar-background-opacity-override: 0.5;
 }
 
+.network-condition-scope-bar.default-item-selected:not(:hover) {
+    --scope-bar-text-color-override: var(--text-color);
+    --scope-bar-background-color-override: transparent;
+    --scope-bar-border-color-override: var(--border-color);
+}
+
+.network-condition-scope-bar.default-item-selected:hover {
+    --scope-bar-background-opacity-override: 0.5;
+}
+
 .network-other-filters-button > .glyph {
     width: 16px;
     height: 16px;
@@ -85,6 +95,26 @@
 
 .network-table > .table li:not(.filler) .cell.name {
     cursor: pointer;
+}
+
+.network-table.highlight-initiated > .table li:not(:hover, .selected, .initiated) .cell {
+    color: var(--text-color-transparent);
+}
+
+.network-table.highlight-initiated > .table li:not(:hover, .selected, .initiated) .cell > * {
+    color: var(--text-color);
+    opacity: 0.4;
+}
+
+.network-table.highlight-initiated > .table li.initiated .cell.name::after {
+    display: inline-block;
+    float: inline-end;
+    width: 4px;
+    height: 4px;
+    margin-top: 8px;
+    content: "";
+    background-color: var(--glyph-color-active);
+    border-radius: 50%;
 }
 
 .network-table > .table .cell.dom-node.name .icon {
@@ -389,6 +419,11 @@ body[dir=rtl] .waterfall.network .block {
     padding-inline-start: 4px;
     -webkit-user-select: all;
     font-variant-numeric: tabular-nums;
+}
+
+.network-table .reference-page-link-container {
+    position: absolute;
+    inset-inline-end: 6px;
 }
 
 @media (prefers-color-scheme: dark) {

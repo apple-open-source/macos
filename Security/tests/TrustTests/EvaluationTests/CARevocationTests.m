@@ -185,6 +185,7 @@ static NSDate *s_date_20201020 = nil;
 
     CFReleaseNull(leaf);
     CFReleaseNull(ca);
+    CFReleaseNull(rootSPKIHash);
 }
 @end
 

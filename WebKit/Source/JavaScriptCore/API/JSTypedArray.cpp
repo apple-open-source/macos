@@ -44,34 +44,33 @@ using namespace JSC;
 
 // Helper functions.
 
-inline JSTypedArrayType toJSTypedArrayType(TypedArrayType type)
+inline JSTypedArrayType toJSTypedArrayType(JSC::JSType type)
 {
     switch (type) {
-    case JSC::TypeDataView:
-    case NotTypedArray:
-        return kJSTypedArrayTypeNone;
-    case TypeInt8:
+    case JSC::Int8ArrayType:
         return kJSTypedArrayTypeInt8Array;
-    case TypeUint8:
+    case JSC::Uint8ArrayType:
         return kJSTypedArrayTypeUint8Array;
-    case TypeUint8Clamped:
+    case JSC::Uint8ClampedArrayType:
         return kJSTypedArrayTypeUint8ClampedArray;
-    case TypeInt16:
+    case JSC::Int16ArrayType:
         return kJSTypedArrayTypeInt16Array;
-    case TypeUint16:
+    case JSC::Uint16ArrayType:
         return kJSTypedArrayTypeUint16Array;
-    case TypeInt32:
+    case JSC::Int32ArrayType:
         return kJSTypedArrayTypeInt32Array;
-    case TypeUint32:
+    case JSC::Uint32ArrayType:
         return kJSTypedArrayTypeUint32Array;
-    case TypeFloat32:
+    case JSC::Float32ArrayType:
         return kJSTypedArrayTypeFloat32Array;
-    case TypeFloat64:
+    case JSC::Float64ArrayType:
         return kJSTypedArrayTypeFloat64Array;
-    case TypeBigInt64:
+    case JSC::BigInt64ArrayType:
         return kJSTypedArrayTypeBigInt64Array;
-    case TypeBigUint64:
+    case JSC::BigUint64ArrayType:
         return kJSTypedArrayTypeBigUint64Array;
+    default:
+        return kJSTypedArrayTypeNone;
     }
     RELEASE_ASSERT_NOT_REACHED();
 }
@@ -108,7 +107,7 @@ inline TypedArrayType toTypedArrayType(JSTypedArrayType type)
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-static JSObject* createTypedArray(JSGlobalObject* globalObject, JSTypedArrayType type, RefPtr<ArrayBuffer>&& buffer, size_t offset, size_t length)
+static JSObject* createTypedArray(JSGlobalObject* globalObject, JSTypedArrayType type, RefPtr<ArrayBuffer>&& buffer, size_t offset, std::optional<size_t> length)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -116,29 +115,13 @@ static JSObject* createTypedArray(JSGlobalObject* globalObject, JSTypedArrayType
         throwOutOfMemoryError(globalObject, scope);
         return nullptr;
     }
+    bool isResizableOrGrowableShared = buffer->isResizableOrGrowableShared();
     switch (type) {
-    case kJSTypedArrayTypeInt8Array:
-        return JSInt8Array::create(globalObject, globalObject->typedArrayStructure(TypeInt8), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeInt16Array:
-        return JSInt16Array::create(globalObject, globalObject->typedArrayStructure(TypeInt16), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeInt32Array:
-        return JSInt32Array::create(globalObject, globalObject->typedArrayStructure(TypeInt32), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeUint8Array:
-        return JSUint8Array::create(globalObject, globalObject->typedArrayStructure(TypeUint8), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeUint8ClampedArray:
-        return JSUint8ClampedArray::create(globalObject, globalObject->typedArrayStructure(TypeUint8Clamped), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeUint16Array:
-        return JSUint16Array::create(globalObject, globalObject->typedArrayStructure(TypeUint16), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeUint32Array:
-        return JSUint32Array::create(globalObject, globalObject->typedArrayStructure(TypeUint32), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeFloat32Array:
-        return JSFloat32Array::create(globalObject, globalObject->typedArrayStructure(TypeFloat32), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeFloat64Array:
-        return JSFloat64Array::create(globalObject, globalObject->typedArrayStructure(TypeFloat64), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeBigInt64Array:
-        return JSBigInt64Array::create(globalObject, globalObject->typedArrayStructure(TypeBigInt64), WTFMove(buffer), offset, length);
-    case kJSTypedArrayTypeBigUint64Array:
-        return JSBigUint64Array::create(globalObject, globalObject->typedArrayStructure(TypeBigUint64), WTFMove(buffer), offset, length);
+#define JSC_TYPED_ARRAY_FACTORY(type) case kJSTypedArrayType##type##Array: { \
+        return JS##type##Array::create(globalObject, globalObject->typedArrayStructure(Type##type, isResizableOrGrowableShared), WTFMove(buffer), offset, length.value()); \
+    }
+    FOR_EACH_TYPED_ARRAY_TYPE_EXCLUDING_DATA_VIEW(JSC_TYPED_ARRAY_FACTORY)
+#undef JSC_TYPED_ARRAY_CHECK
     case kJSTypedArrayTypeArrayBuffer:
     case kJSTypedArrayTypeNone:
         RELEASE_ASSERT_NOT_REACHED();
@@ -163,7 +146,7 @@ JSTypedArrayType JSValueGetTypedArrayType(JSContextRef ctx, JSValueRef valueRef,
     if (jsDynamicCast<JSArrayBuffer*>(object))
         return kJSTypedArrayTypeArrayBuffer;
 
-    return toJSTypedArrayType(object->classInfo()->typedArrayStorageType);
+    return toJSTypedArrayType(object->type());
 }
 
 JSObjectRef JSObjectMakeTypedArray(JSContextRef ctx, JSTypedArrayType arrayType, size_t length, JSValueRef* exception)
@@ -226,7 +209,10 @@ JSObjectRef JSObjectMakeTypedArrayWithArrayBuffer(JSContextRef ctx, JSTypedArray
     RefPtr<ArrayBuffer> buffer = jsBuffer->impl();
     unsigned elementByteSize = elementSize(toTypedArrayType(arrayType));
 
-    JSObject* result = createTypedArray(globalObject, arrayType, WTFMove(buffer), 0, buffer->byteLength() / elementByteSize);
+    std::optional<size_t> length;
+    if (!buffer->isResizableOrGrowableShared())
+        length = buffer->byteLength() / elementByteSize;
+    JSObject* result = createTypedArray(globalObject, arrayType, WTFMove(buffer), 0, length);
     if (handleExceptionIfNeeded(scope, ctx, exception) == ExceptionStatus::DidThrow)
         return nullptr;
     return toRef(result);
@@ -287,7 +273,7 @@ size_t JSObjectGetTypedArrayByteLength(JSContextRef, JSObjectRef objectRef, JSVa
     JSObject* object = toJS(objectRef);
 
     if (JSArrayBufferView* typedArray = jsDynamicCast<JSArrayBufferView*>(object))
-        return typedArray->length() * elementSize(typedArray->classInfo()->typedArrayStorageType);
+        return typedArray->byteLength();
 
     return 0;
 }

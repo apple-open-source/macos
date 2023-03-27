@@ -135,6 +135,7 @@ extern int	diff_format, diff_algorithm, status;
 #else
 extern int     diff_format, diff_context, diff_algorithm, status;
 #endif /* __APPLE__ */
+extern bool	diff_algorithm_set;
 extern int	tabsize, width;
 extern char	*start, *ifdefname, *diffargs, *label[2];
 extern char	*ignore_pats, *most_recent_pat;
@@ -144,9 +145,13 @@ extern struct	stat stb1, stb2;
 extern struct	excludes *excludes_list;
 extern regex_t	ignore_re, most_recent_re;
 extern bool	unix2003_compat;	/* __APPLE__ */
+#ifdef __APPLE__
+extern bool	posix;			/* __APPLE__ */
+#endif	/* __APPLE__ */
 
 int	diffreg(char *, char *, int, int);
 int	diffreg_new(char *, char *, int, int);
+bool	can_libdiff(int);
 void	diffdir(char *, char *, int);
 #ifdef __APPLE__
 void   print_status(int, char *, const struct stat *, char *,

@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_PROGRESSFUNCTION 3 "October 12, 2022" "libcurl 7.86.0" "curl_easy_setopt options"
+.TH CURLOPT_PROGRESSFUNCTION 3 "November 14, 2022" "libcurl 7.87.0" "curl_easy_setopt options"
 
 .SH NAME
 CURLOPT_PROGRESSFUNCTION \- progress meter callback
@@ -111,8 +111,9 @@ All
  curl_easy_setopt(curl_handle, CURLOPT_PROGRESSFUNCTION, progress_callback);
 .fi
 .SH AVAILABILITY
-Deprecated in 7.32.0.
+Deprecated since 7.32.0.
 .SH RETURN VALUE
 Returns CURLE_OK.
 .SH "SEE ALSO"
 .BR CURLOPT_VERBOSE "(3), " CURLOPT_NOPROGRESS "(3), "
+.BR CURLOPT_XFERINFOFUNCTION "(3)"

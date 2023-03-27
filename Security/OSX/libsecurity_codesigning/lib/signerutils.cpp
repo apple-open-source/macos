@@ -366,8 +366,14 @@ void InternalRequirements::operator () (const Requirements *given, const Require
 //
 PreSigningContext::PreSigningContext(const SecCodeSigner::Signer &signer)
 {
-	// construct a cert chain
-	if (signer.signingIdentity() != SecIdentityRef(kCFNull)) {
+	// Check if we already have a provided certificate chain and just use that...
+	if (signer.signingCertificateChain()) {
+		mCerts = signer.signingCertificateChain();
+		secinfo("signer", "signing context setup with existing cert chain: %@", mCerts.get());
+		this->certs = mCerts;
+	} else if (signer.signingIdentity() != SecIdentityRef(kCFNull)) {
+		// Otherwise, try to construct a cert chain.
+		secinfo("signer", "looking at identity to create cert chain: %@", signer.signingIdentity());
 		CFRef<SecCertificateRef> signingCert;
 		MacOSError::check(SecIdentityCopyCertificate(signer.signingIdentity(), &signingCert.aref()));
 		CFRef<SecPolicyRef> policy = SecPolicyCreateWithProperties(kSecPolicyAppleCodeSigning, NULL);

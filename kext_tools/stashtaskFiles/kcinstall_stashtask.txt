@@ -1,0 +1,1 @@
+This project does not have automated CI coverage. Make sure your local tests succeed as noted in README.md.

@@ -56,7 +56,7 @@ _unregister_auth_tokens(const void *value, void *context)
 static void
 _destroy_zombie_tokens(process_t proc)
 {
-    os_log_debug(AUTHD_LOG, "destroy zombies, %ld auth tokens", CFBagGetCount(proc->authTokens));
+    os_log_debug(AUTHD_LOG, "process: destroy zombies, %ld auth tokens", CFBagGetCount(proc->authTokens));
     _cf_bag_iterate(proc->authTokens, ^bool(CFTypeRef value) {
         auth_token_t auth = (auth_token_t)value;
         os_log_debug(AUTHD_LOG, "process:, creator=%i, zombie=%i, process_cout=%ld", auth_token_is_creator(auth, proc), auth_token_check_state(auth, auth_token_state_zombie), auth_token_get_process_count(auth));
@@ -71,9 +71,7 @@ static void
 _process_finalize(CFTypeRef value)
 {
     process_t proc = (process_t)value;
-
-    os_log_debug(AUTHD_LOG, "process deallocated");
-    
+  
     dispatch_barrier_sync(proc->dispatch_queue, ^{
         CFBagApplyFunction(proc->authTokens, _unregister_auth_tokens, proc);
     });
@@ -144,8 +142,15 @@ process_create(const audit_info_s * auditInfo, session_t session)
 
     // to have at least some code URL just for case later methods fail
     int retval = proc_pidpath(proc->auditInfo.pid, proc->code_url, sizeof(proc->code_url));
-    if ( retval <= 0 ) {
-        os_log_error(AUTHD_LOG, "process: PID %d pidpathfailed %d", proc->auditInfo.pid, retval);
+    if (retval == 0) {
+        int err = errno;
+        if (err == ESRCH) {
+            os_log_error(AUTHD_LOG, "process: PID %d does not exist", proc->auditInfo.pid);
+            CFReleaseNull(proc);
+            goto done;
+        } else {
+            os_log_error(AUTHD_LOG, "process: PID %d pidpathfailed %d", proc->auditInfo.pid, err);
+        }
     }
     
     CFMutableDictionaryRef codeDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);

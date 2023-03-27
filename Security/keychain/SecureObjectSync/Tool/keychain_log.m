@@ -105,11 +105,10 @@ keychain_log(int argc, char * const *argv)
         switch  (ch) {
 
             case 'i':
-                SOSCCDumpCircleInformation();
-                SOSCCDumpEngineInformation();
+                if(SOSCCDumpCircleInformation()) {
+                    SOSCCDumpEngineInformation();
+                }
                 break;
-
-
             case 'D':
                 (void)SOSCCDumpCircleKVSInformation(optarg);
                 break;

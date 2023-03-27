@@ -27,148 +27,33 @@
 #include "KeyboardScrollingAnimator.h"
 
 #include "EventNames.h"
+#include "FrameView.h"
 #include "PlatformKeyboardEvent.h"
+#include "ScrollAnimator.h"
 #include "ScrollTypes.h"
-#include "ScrollableArea.h"
-#include "WritingMode.h"
 #include <wtf/SortedArrayMap.h>
 
 namespace WebCore {
 
-enum class KeyboardScrollingKey : uint8_t {
-    LeftArrow,
-    RightArrow,
-    UpArrow,
-    DownArrow,
-    Space,
-    PageUp,
-    PageDown
-};
-
-KeyboardScrollingAnimator::KeyboardScrollingAnimator(ScrollAnimator& scrollAnimator, ScrollingEffectsController& scrollController)
-    : m_scrollAnimator(scrollAnimator)
-    , m_scrollController(scrollController)
+KeyboardScrollingAnimator::KeyboardScrollingAnimator(ScrollableArea& scrollableArea)
+    : m_scrollableArea(scrollableArea)
 {
 }
 
-RectEdges<bool> KeyboardScrollingAnimator::scrollableDirectionsFromPosition(FloatPoint position) const
+const std::optional<KeyboardScrollingKey> keyboardScrollingKeyForKeyboardEvent(const KeyboardEvent& event)
 {
-    auto minimumScrollPosition = m_scrollAnimator.scrollableArea().minimumScrollPosition();
-    auto maximumScrollPosition = m_scrollAnimator.scrollableArea().maximumScrollPosition();
+    auto* platformEvent = event.underlyingPlatformEvent();
+    if (!platformEvent)
+        return { };
 
-    RectEdges<bool> edges;
+    // PlatformEvent::Type::Char is a "keypress" event.
+    if (!(platformEvent->type() == PlatformEvent::Type::RawKeyDown || platformEvent->type() == PlatformEvent::Type::Char))
+        return { };
 
-    edges.setTop(position.y() > minimumScrollPosition.y());
-    edges.setBottom(position.y() < maximumScrollPosition.y());
-    edges.setLeft(position.x() > minimumScrollPosition.x());
-    edges.setRight(position.x() < maximumScrollPosition.x());
-
-    return edges;
-}
-
-static BoxSide boxSideForDirection(ScrollDirection direction)
-{
-    switch (direction) {
-    case ScrollDirection::ScrollUp:
-        return BoxSide::Top;
-    case ScrollDirection::ScrollDown:
-        return BoxSide::Bottom;
-    case ScrollDirection::ScrollLeft:
-        return BoxSide::Left;
-    case ScrollDirection::ScrollRight:
-        return BoxSide::Right;
-    }
-    ASSERT_NOT_REACHED();
-    return BoxSide::Top;
-}
-
-static FloatSize perpendicularAbsoluteUnitVector(ScrollDirection direction)
-{
-    switch (direction) {
-    case ScrollDirection::ScrollUp:
-    case ScrollDirection::ScrollDown:
-        return { 1, 0 };
-    case ScrollDirection::ScrollLeft:
-    case ScrollDirection::ScrollRight:
-        return { 0, 1 };
-    }
-    ASSERT_NOT_REACHED();
-    return { };
-}
-
-void KeyboardScrollingAnimator::updateKeyboardScrollPosition(MonotonicTime currentTime)
-{
-    auto force = FloatSize { };
-    auto axesToApplySpring = FloatSize { 1, 1 };
-    KeyboardScrollParameters params = KeyboardScrollParameters::parameters();
-
-    if (m_currentKeyboardScroll) {
-        auto scrollableDirections = scrollableDirectionsFromPosition(m_scrollAnimator.currentPosition());
-        auto direction = m_currentKeyboardScroll->direction;
-
-        if (scrollableDirections.at(boxSideForDirection(direction))) {
-            // Apply the scrolling force. Only apply the spring in the perpendicular axis,
-            // otherwise it drags against the direction of motion.
-            axesToApplySpring = perpendicularAbsoluteUnitVector(direction);
-            force = m_currentKeyboardScroll->force;
-        } else {
-            // The scroll view cannot scroll in this direction, and is rubber-banding.
-            // Apply a constant and significant force; otherwise, the force for a
-            // single-line increment is not strong enough to rubber-band perceptibly.
-            force = unitVectorForScrollDirection(direction).scaled(params.rubberBandForce);
-        }
-
-        if (fabs(m_velocity.width()) >= fabs(m_currentKeyboardScroll->maximumVelocity.width()))
-            force.setWidth(0);
-
-        if (fabs(m_velocity.height()) >= fabs(m_currentKeyboardScroll->maximumVelocity.height()))
-            force.setHeight(0);
-    }
-
-    ScrollPosition idealPosition = m_scrollAnimator.scrollableArea().constrainedScrollPosition(IntPoint(m_currentKeyboardScroll ? m_scrollAnimator.currentPosition() : m_idealPosition));
-    FloatSize displacement = m_scrollAnimator.currentPosition() - idealPosition;
-
-    auto springForce = -displacement.scaled(params.springStiffness) - m_velocity.scaled(params.springDamping);
-    force += springForce * axesToApplySpring;
-
-    float frameDuration = (currentTime - m_timeAtLastFrame).value();
-    m_timeAtLastFrame = currentTime;
-
-    FloatSize acceleration = force.scaled(1. / params.springMass);
-    m_velocity += acceleration.scaled(frameDuration);
-    FloatPoint newPosition = m_scrollAnimator.currentPosition() + m_velocity.scaled(frameDuration);
-
-    m_scrollAnimator.scrollToPositionWithoutAnimation(newPosition);
-
-    if (!m_scrollTriggeringKeyIsPressed && m_velocity.diagonalLengthSquared() < 1) {
-        m_scrollController.didStopKeyboardScrolling();
-        m_velocity = { };
-    }
-}
-
-float KeyboardScrollingAnimator::scrollDistance(ScrollDirection direction, ScrollGranularity granularity) const
-{
-    auto scrollbar = m_scrollAnimator.scrollableArea().scrollbarForDirection(direction);
-    if (scrollbar) {
-        switch (granularity) {
-        case ScrollGranularity::Line:
-            return scrollbar->lineStep();
-        case ScrollGranularity::Page:
-            return scrollbar->pageStep();
-        case ScrollGranularity::Document:
-            return scrollbar->totalSize();
-        case ScrollGranularity::Pixel:
-            return scrollbar->pixelStep();
-        }
-    }
-
-    return 0;
-}
-
-static std::optional<KeyboardScrollingKey> keyboardScrollingKeyFromEvent(const PlatformKeyboardEvent& event)
-{
-    static constexpr std::pair<ComparableASCIILiteral, KeyboardScrollingKey> mappings[] = {
+    static constexpr std::pair<PackedASCIILiteral<uint64_t>, KeyboardScrollingKey> mappings[] = {
         { "Down", KeyboardScrollingKey::DownArrow },
+        { "End", KeyboardScrollingKey::End },
+        { "Home", KeyboardScrollingKey::Home },
         { "Left", KeyboardScrollingKey::LeftArrow },
         { "PageDown", KeyboardScrollingKey::PageDown },
         { "PageUp", KeyboardScrollingKey::PageUp },
@@ -177,43 +62,23 @@ static std::optional<KeyboardScrollingKey> keyboardScrollingKeyFromEvent(const P
     };
     static constexpr SortedArrayMap map { mappings };
 
-    auto identifier = event.keyIdentifier();
+    auto identifier = platformEvent->keyIdentifier();
     if (auto* result = map.tryGet(identifier))
         return *result;
 
-    if (event.text().characterStartingAt(0) == ' ')
+    if (platformEvent->text().characterStartingAt(0) == ' ')
         return KeyboardScrollingKey::Space;
 
     return { };
 }
 
-std::optional<KeyboardScroll> KeyboardScrollingAnimator::keyboardScrollForKeyboardEvent(const PlatformKeyboardEvent& event) const
+const std::optional<ScrollDirection> scrollDirectionForKeyboardEvent(const KeyboardEvent& event)
 {
-    auto key = keyboardScrollingKeyFromEvent(event);
+    auto key = keyboardScrollingKeyForKeyboardEvent(event);
     if (!key)
         return { };
 
     // FIXME (bug 227459): This logic does not account for writing-mode.
-    auto granularity = [&] {
-        switch (key.value()) {
-        case KeyboardScrollingKey::LeftArrow:
-        case KeyboardScrollingKey::RightArrow:
-            return event.altKey() ? ScrollGranularity::Page : ScrollGranularity::Line;
-        case KeyboardScrollingKey::UpArrow:
-        case KeyboardScrollingKey::DownArrow:
-            if (event.metaKey())
-                return ScrollGranularity::Document;
-            if (event.altKey())
-                return ScrollGranularity::Page;
-            return ScrollGranularity::Line;
-        case KeyboardScrollingKey::Space:
-        case KeyboardScrollingKey::PageUp:
-        case KeyboardScrollingKey::PageDown:
-            return ScrollGranularity::Page;
-        };
-        RELEASE_ASSERT_NOT_REACHED();
-    }();
-
     auto direction = [&] {
         switch (key.value()) {
         case KeyboardScrollingKey::LeftArrow:
@@ -222,9 +87,11 @@ std::optional<KeyboardScroll> KeyboardScrollingAnimator::keyboardScrollForKeyboa
             return ScrollDirection::ScrollRight;
         case KeyboardScrollingKey::UpArrow:
         case KeyboardScrollingKey::PageUp:
+        case KeyboardScrollingKey::Home:
             return ScrollDirection::ScrollUp;
         case KeyboardScrollingKey::DownArrow:
         case KeyboardScrollingKey::PageDown:
+        case KeyboardScrollingKey::End:
             return ScrollDirection::ScrollDown;
         case KeyboardScrollingKey::Space:
             return event.shiftKey() ? ScrollDirection::ScrollUp : ScrollDirection::ScrollDown;
@@ -232,6 +99,87 @@ std::optional<KeyboardScroll> KeyboardScrollingAnimator::keyboardScrollForKeyboa
         RELEASE_ASSERT_NOT_REACHED();
     }();
 
+    return direction;
+}
+
+const std::optional<ScrollGranularity> scrollGranularityForKeyboardEvent(const KeyboardEvent& event)
+{
+    auto key = keyboardScrollingKeyForKeyboardEvent(event);
+    if (!key)
+        return { };
+
+    // FIXME (bug 227459): This logic does not account for writing-mode.
+    switch (key.value()) {
+    case KeyboardScrollingKey::LeftArrow:
+    case KeyboardScrollingKey::RightArrow:
+        if (event.shiftKey() || event.metaKey())
+            return { };
+        if (event.altKey())
+            return ScrollGranularity::Page;
+        return ScrollGranularity::Line;
+    case KeyboardScrollingKey::UpArrow:
+    case KeyboardScrollingKey::DownArrow:
+        if (event.metaKey())
+            return ScrollGranularity::Document;
+        if (event.altKey())
+            return ScrollGranularity::Page;
+        return ScrollGranularity::Line;
+    case KeyboardScrollingKey::Space:
+    case KeyboardScrollingKey::PageUp:
+    case KeyboardScrollingKey::PageDown:
+        return ScrollGranularity::Page;
+    case KeyboardScrollingKey::Home:
+    case KeyboardScrollingKey::End:
+        return ScrollGranularity::Document;
+    };
+
+    RELEASE_ASSERT_NOT_REACHED();
+    return { };
+}
+
+float KeyboardScrollingAnimator::scrollDistance(ScrollDirection direction, ScrollGranularity granularity) const
+{
+    auto scrollbar = m_scrollableArea.scrollbarForDirection(direction);
+    if (!scrollbar)
+        return false;
+
+    float step = 0;
+    switch (granularity) {
+    case ScrollGranularity::Line:
+        step = scrollbar->lineStep();
+        break;
+    case ScrollGranularity::Page:
+        step = scrollbar->pageStep();
+        break;
+    case ScrollGranularity::Document:
+        step = scrollbar->totalSize();
+        break;
+    case ScrollGranularity::Pixel:
+        step = scrollbar->pixelStep();
+        break;
+    }
+
+    auto axis = axisFromDirection(direction);
+    if (granularity == ScrollGranularity::Page && axis == ScrollEventAxis::Vertical)
+        step = m_scrollableArea.adjustVerticalPageScrollStepForFixedContent(step);
+
+    return step;
+}
+
+RectEdges<bool> KeyboardScrollingAnimator::rubberbandableDirections() const
+{
+    RectEdges<bool> edges;
+
+    edges.setTop(m_scrollableArea.allowsVerticalScrolling());
+    edges.setBottom(edges.top());
+    edges.setLeft(m_scrollableArea.allowsHorizontalScrolling());
+    edges.setRight(edges.left());
+
+    return edges;
+}
+
+std::optional<KeyboardScroll> KeyboardScrollingAnimator::makeKeyboardScroll(ScrollDirection direction, ScrollGranularity granularity) const
+{
     float distance = scrollDistance(direction, granularity);
 
     if (!distance)
@@ -248,88 +196,30 @@ std::optional<KeyboardScroll> KeyboardScrollingAnimator::keyboardScrollForKeyboa
     return scroll;
 }
 
-bool KeyboardScrollingAnimator::beginKeyboardScrollGesture(const PlatformKeyboardEvent& event)
+bool KeyboardScrollingAnimator::beginKeyboardScrollGesture(ScrollDirection direction, ScrollGranularity granularity, bool isKeyRepeat)
 {
-    auto scroll = keyboardScrollForKeyboardEvent(event);
+    auto scroll = makeKeyboardScroll(direction, granularity);
     if (!scroll)
         return false;
 
-    m_currentKeyboardScroll = scroll;
-
-    // PlatformEvent::Char is a "keypress" event.
-    if (!(event.type() == PlatformEvent::RawKeyDown || event.type() == PlatformEvent::Char))
-        return false;
-
-    auto scrollableDirections = scrollableDirectionsFromPosition(m_scrollAnimator.currentPosition());
-    auto direction = m_currentKeyboardScroll->direction;
-    if (!scrollableDirections.at(boxSideForDirection(direction))) {
-        m_scrollTriggeringKeyIsPressed = false;
-        m_scrollController.didStopKeyboardScrolling();
-        m_velocity = { };
-        return false;
-    }
-
     if (m_scrollTriggeringKeyIsPressed)
-        return true;
+        return false;
 
-    if (m_currentKeyboardScroll->granularity == ScrollGranularity::Document) {
-        m_velocity = { };
-        stopKeyboardScrollAnimation();
-        auto newPosition = IntPoint(m_scrollAnimator.currentPosition() + m_currentKeyboardScroll->offset);
-        m_scrollAnimator.scrollToPositionWithAnimation(newPosition);
+    if (!rubberbandableDirections().at(boxSideForDirection(direction)))
+        return false;
+
+    if (granularity == ScrollGranularity::Document || (!isKeyRepeat && granularity == ScrollGranularity::Page)) {
+        m_scrollableArea.endKeyboardScroll(false);
+        auto newPosition = IntPoint(m_scrollableArea.scrollAnimator().currentPosition() + scroll->offset);
+        m_scrollableArea.scrollAnimator().scrollToPositionWithAnimation(newPosition);
         return true;
     }
 
-    m_timeAtLastFrame = MonotonicTime::now();
     m_scrollTriggeringKeyIsPressed = true;
 
-    m_idealPositionForMinimumTravel = m_scrollAnimator.currentPosition() + m_currentKeyboardScroll->offset;
-    m_scrollController.willBeginKeyboardScrolling();
+    m_scrollableArea.beginKeyboardScroll(*scroll);
 
     return true;
-}
-
-static ScrollPosition farthestPointInDirection(FloatPoint a, FloatPoint b, ScrollDirection direction)
-{
-    switch (direction) {
-    case ScrollDirection::ScrollUp:
-        return ScrollPosition(a.x(), std::min(a.y(), b.y()));
-    case ScrollDirection::ScrollDown:
-        return ScrollPosition(a.x(), std::max(a.y(), b.y()));
-    case ScrollDirection::ScrollLeft:
-        return ScrollPosition(std::min(a.x(), b.x()), a.y());
-    case ScrollDirection::ScrollRight:
-        return ScrollPosition(std::max(a.x(), b.x()), a.y());
-    }
-
-    ASSERT_NOT_REACHED();
-    return { };
-}
-
-void KeyboardScrollingAnimator::stopKeyboardScrollAnimation()
-{
-    if (!m_currentKeyboardScroll)
-        return;
-
-    auto params = KeyboardScrollParameters::parameters();
-
-    // Determine the settling position of the spring, conserving the system's current energy.
-    // Kinetic = elastic potential
-    // 1/2 * m * v^2 = 1/2 * k * x^2
-    // x = sqrt(v^2 * m / k)
-    auto displacementMagnitudeSquared = (m_velocity * m_velocity).scaled(params.springMass / params.springStiffness);
-    FloatSize displacement = {
-        std::copysign(sqrt(displacementMagnitudeSquared.width()), m_velocity.width()),
-        std::copysign(sqrt(displacementMagnitudeSquared.height()), m_velocity.height())
-    };
-
-    // If the spring would settle before the minimum travel distance
-    // for an instantaneous tap, move the settling position of the spring
-    // out to that point.
-    ScrollPosition farthestPoint = farthestPointInDirection(m_scrollAnimator.currentPosition() + displacement, m_idealPositionForMinimumTravel, m_currentKeyboardScroll->direction);
-    m_idealPosition = m_scrollAnimator.scrollableArea().constrainedScrollPosition(farthestPoint);
-
-    m_currentKeyboardScroll = std::nullopt;
 }
 
 void KeyboardScrollingAnimator::handleKeyUpEvent()
@@ -337,8 +227,15 @@ void KeyboardScrollingAnimator::handleKeyUpEvent()
     if (!m_scrollTriggeringKeyIsPressed)
         return;
 
-    stopKeyboardScrollAnimation();
     m_scrollTriggeringKeyIsPressed = false;
+
+    m_scrollableArea.endKeyboardScroll(false);
+}
+
+void KeyboardScrollingAnimator::stopScrollingImmediately()
+{
+    m_scrollTriggeringKeyIsPressed = false;
+    m_scrollableArea.endKeyboardScroll(true);
 }
 
 } // namespace WebCore

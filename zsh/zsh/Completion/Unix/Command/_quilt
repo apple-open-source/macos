@@ -6,6 +6,8 @@ local verbose='(-h)-v[verbose, more user friendly output]'
 local color='(-h)--color=[use syntax coloring]:color:(always auto never)'
 local pstyle='(-h)-p+[select patch style]:patch style:((0\:exclude\ top-level\ directory 1\:use\ .orig\ on\ top-level\ directory ab\:use\ a\ or\ b\ as\ top-level\ directory))'
 local -a pform rcfile
+local k
+
 pform=(
   '(-U -c -C -h)-u[create a unified diff]'
   '(-u -c -C -h)-U+[create a unified diff with num lines of context]:lines'
@@ -34,25 +36,92 @@ _quilt_unapplied() {
 
 _arguments $help \
   '--trace[run the command in bash trace mode]' \
-  '--quiltrc=[use the specified configuration file]:files:_files' \
+  '--quiltrc=[use the specified configuration file]:file:_files' \
   '--version[print the version number and exit]' \
-  ':quilt command:(add annotate applied delete diff edit files fold fork graph
-    grep header import mail new next patches pop previous push refresh remove
-    rename revert series setup snapshot top unapplied upgrade)' \
+  ':quilt command:->cmd' \
   '*:: :->subcmd' && return
 
-[[ -z $state ]] && return 1
+case $state in
+  ('')
+    return 1
+    ;;
+
+  (cmd) 
+    # Divide the subcommands to categories.  The categorization is our own;
+    # it's not based on any preexisting categorization in the quilt docs.
+    local -a manip=(
+      add:'add files to a patch'
+      delete:'remove a patch from the series'
+      edit:'add files to the topmost patch and open them in $EDITOR'
+      fold:'integrate an external patch into the topmost patch'
+      fork:'replace the topmost patch with a copy'
+      import:'add external patches to the series'
+      new:'add an empty patch to the series'
+      refresh:'update a patch with in-tree edits'
+      remove:'remove files from a given patch'
+      rename:"change a patch's name"
+    )
+    local -a tree=(
+      pop:'unapply a patch to the tree'
+      push:'apply a patch to the tree'
+      revert:'discard in-tree changes to files in a given patch'
+    )
+    local -a other=(
+      grep:'print file lines matching pattern'
+      header:"print or change a patch's prologue"
+      mail:'send patches by email'
+      setup:'initialize a source tree'
+      snapshot:'save a snapshot of the tree to diff against'
+      upgrade:'upgrade quilt metadata'
+    )
+    local -a interrogate=(
+      annotate:'show which patches modify which lines'
+      applied:'print the list of patches up to a given patch'
+      diff:'print differences between files'
+      files:'print the list of files that a given patch changes'
+      graph:'generate a patches dependency graph'
+      next:'print the name of the patch that follows a given patch'
+      patches:'print the list of patches that touch a given file'
+      previous:'print the name of the patch that precedes a given patch'
+      series:'print the list of all patches'
+      top:'print the name of the last applied patch'
+      unapplied:'print the list of patches following a given patch'
+    )
+    local -A cmdtypes=(
+      [manip]='series manipulator commands'
+      [tree]='tree manipulator commands'
+      [other]='other commands'
+      [interrogate]='series interrogator commands'
+    )
+    local ret=1
+    _tags ${cmdtypes// /-}
+    while _tags; do
+      for k in ${(ok)cmdtypes}; do
+        if _requested ${cmdtypes[$k]// /-}
+        then
+          _describe -t ${cmdtypes[$k]// /-} ${cmdtypes[$k]} $k &&
+            ret=0
+        fi
+      done
+    done
+    return ret
+    ;;
+
+  (subcmd)
+    ;;
+esac
+
 rcfile=( ${opt_args[--quiltrc]:+--quiltrc=${opt_args[--quiltrc]}} )
 case $words[1] in
   add)
     _arguments -S $help \
       '-P+[specify patch to add files to]:patch:_quilt_applied' \
-      '*:files:_files' && return
+      '*:file:_files' && return
   ;;
   annotate)
     _arguments $help \
       '-P[stop checking for changes at the specified rather than the topmost patch]:patch:_quilt_series' \
-      ':files:_files' && return
+      ':file:_files' && return
   ;;
   applied) _arguments $help ':quilt series:_quilt_series' && return ;;
   delete)
@@ -73,9 +142,9 @@ case $words[1] in
       '(-P -z)--snapshot[diff against snapshot]' \
       '--diff=[use the specified utility for generating the diff]:diff utility:_command_names -e' \
       '--sort[sort files by name]' \
-      '*:files:_files' && return
+      '*:file:_files' && return
   ;;
-  edit) _arguments $help '*:files:_files' && return ;;
+  edit) _arguments $help '*:file:_files' && return ;;
   files)
     _arguments -s $help $verbose \
       '-a[list all files in all applied patches]' \
@@ -118,14 +187,14 @@ case $words[1] in
       '-P+[patch filename to use inside quilt]:quilt select patch filename: ' \
       '-f[overwrite/update existing patches]' \
       '-d+[header resolution when overwriting in existing patch]:resolution:((a\:all\ headers n\:new\ headers o\:old\ headers))' \
-      '*:files:_files' && return
+      '*:file:_files' && return
   ;;
   mail)
     _arguments $help \
       '(-h -M)-m[introduction text to use]:introduction text' \
       '(-h -m)-M[read introduction text from file]:file:_files' \
       '--prefix=[use an alternate prefix in the bracketed part of the subjects generated]:quilt select prefix: ' \
-      '--mbox=[store all messages in the specified file in mbox format]:files:_files' \
+      '--mbox=[store all messages in the specified file in mbox format]:file:_files' \
       '--send[send the messages directly]' \
       '--sender=[specify envelope sender address to use]:sender:_email_addresses -c' \
       '--from=[from header]:address:_email_addresses' \
@@ -133,13 +202,13 @@ case $words[1] in
       '*--to=[append a recipient to the To header]:recipient:_email_addresses' \
       '*--cc=[append a recipient to the Cc header]:recipient:_email_addresses' \
       '*--bcc=[append a recipient to the Bcc header]:recipient:_email_addresses' \
-      '--signature=[append specified signature file to messages]:files:_files' \
+      '--signature=[append specified signature file to messages]:file:_files' \
       '--reply-to=[add reply address to message]:address:_email_addresses' \
       '*:patch:_quilt_series' && return
   ;;
   new) _arguments $help $pstyle ':patch name' && return ;;
   next) _arguments $help ':patch:_quilt_series' && return ;;
-  patches) _arguments -S $help $verbose $color '*:files:_files' && return ;;
+  patches) _arguments -S $help $verbose $color '*:file:_files' && return ;;
   pop)
     _arguments -s $help $verbose \
       '-a[remove all applied patches]' \
@@ -184,7 +253,7 @@ case $words[1] in
   revert)
     _arguments $help \
       '-P[revert changes in the named patch]:patch:_quilt_series' \
-      '*:files:_files' && return
+      '*:file:_files' && return
   ;;
   series) _arguments $help $verbose $color && return ;;
   setup)
@@ -192,7 +261,9 @@ case $words[1] in
       '-d[specify path prefix for resulting source tree]:prefix:_files -W / -P /' \
       '--sourcedir[specify location of package sources]:directory:_directories' \
       '--fuzz=[set the maximum fuzz factor]:factor' \
-      ':files:_files' && return
+      '(--fast)--slow[use the original, slow method to process the spec file]' \
+      '(--slow)--fast[use an alternative, faster method to process the spec file]' \
+      ':file:_files' && return
   ;;
   snapshot) _arguments $help '-d[only remove current snapshot]' && return ;;
   unapplied) _arguments $help ':patch:_quilt_series' && return ;;

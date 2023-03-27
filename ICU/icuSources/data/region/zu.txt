@@ -267,7 +267,7 @@ zu{
         TM{"i-Turkmenistan"}
         TN{"i-Tunisia"}
         TO{"i-Tonga"}
-        TR{"i-Turkey"}
+        TR{"i-Türkiye"}
         TT{"i-Trinidad ne-Tobago"}
         TV{"i-Tuvalu"}
         TW{"i-Taiwan"}

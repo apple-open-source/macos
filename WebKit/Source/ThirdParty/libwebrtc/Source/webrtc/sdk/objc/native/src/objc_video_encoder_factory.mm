@@ -117,7 +117,6 @@ class ObjCVideoEncoder : public VideoEncoder {
                                             ScalingSettings::kOff;
 
     info.is_hardware_accelerated = true;
-    info.has_internal_source = false;
     return info;
   }
 
@@ -158,14 +157,6 @@ std::vector<SdpVideoFormat> ObjCVideoEncoderFactory::GetImplementations() const 
   return GetSupportedFormats();
 }
 
-VideoEncoderFactory::CodecInfo ObjCVideoEncoderFactory::QueryVideoEncoder(
-    const SdpVideoFormat &format) const {
-
-  VideoEncoderFactory::CodecInfo codec_info;
-  codec_info.has_internal_source = false;
-  return codec_info;
-}
-
 std::unique_ptr<VideoEncoder> ObjCVideoEncoderFactory::CreateVideoEncoder(
     const SdpVideoFormat &format) {
   RTCVideoCodecInfo *info = [[RTCVideoCodecInfo alloc] initWithNativeSdpVideoFormat:format];
@@ -173,7 +164,7 @@ std::unique_ptr<VideoEncoder> ObjCVideoEncoderFactory::CreateVideoEncoder(
   // Because of symbol conflict, isKindOfClass doesn't work as expected.
   // See https://bugs.webkit.org/show_bug.cgi?id=198782.
   // if ([encoder isKindOfClass:[RTCWrappedNativeVideoEncoder class]]) {
-  if ([info.name isEqual:@"VP8"] || [info.name isEqual:@"VP9"]) {
+  if ([info.name isEqual:@"VP8"] || [info.name isEqual:@"VP9"] || [info.name isEqual:@"AV1"]) {
     return [(RTCWrappedNativeVideoEncoder *)encoder releaseWrappedEncoder];
   } else {
     return std::unique_ptr<ObjCVideoEncoder>(new ObjCVideoEncoder(encoder));

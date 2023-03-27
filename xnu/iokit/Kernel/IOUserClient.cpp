@@ -48,6 +48,7 @@
 #include <sys/proc.h>
 #include <sys/kauth.h>
 #include <sys/codesign.h>
+#include <sys/code_signing.h>
 
 #include <mach/sdt.h>
 #include <os/hash.h>
@@ -469,11 +470,7 @@ IOUserIterator::init( void )
 		return false;
 	}
 
-	lock = IOLockAlloc();
-	if (!lock) {
-		return false;
-	}
-
+	IOLockInlineInit(&lock);
 	return true;
 }
 
@@ -483,19 +480,17 @@ IOUserIterator::free()
 	if (userIteratorObject) {
 		userIteratorObject->release();
 	}
-	if (lock) {
-		IOLockFree(lock);
-	}
+	IOLockInlineDestroy(&lock);
 	OSObject::free();
 }
 
 void
 IOUserIterator::reset()
 {
-	IOLockLock(lock);
+	IOLockLock(&lock);
 	assert(OSDynamicCast(OSIterator, userIteratorObject));
 	((OSIterator *)userIteratorObject)->reset();
-	IOLockUnlock(lock);
+	IOLockUnlock(&lock);
 }
 
 bool
@@ -503,10 +498,10 @@ IOUserIterator::isValid()
 {
 	bool ret;
 
-	IOLockLock(lock);
+	IOLockLock(&lock);
 	assert(OSDynamicCast(OSIterator, userIteratorObject));
 	ret = ((OSIterator *)userIteratorObject)->isValid();
-	IOLockUnlock(lock);
+	IOLockUnlock(&lock);
 
 	return ret;
 }
@@ -523,14 +518,14 @@ IOUserIterator::copyNextObject()
 {
 	OSObject * ret = NULL;
 
-	IOLockLock(lock);
+	IOLockLock(&lock);
 	if (userIteratorObject) {
 		ret = ((OSIterator *)userIteratorObject)->getNextObject();
 		if (ret) {
 			ret->retain();
 		}
 	}
-	IOLockUnlock(lock);
+	IOLockUnlock(&lock);
 
 	return ret;
 }
@@ -694,9 +689,9 @@ iokit_client_died( io_object_t obj, ipc_port_t /* port */,
 	case IKOT_IOKIT_CONNECT:
 		if ((client = OSDynamicCast( IOUserClient, obj ))) {
 			IOStatisticsClientCall();
-			IORWLockWrite(client->lock);
+			IORWLockWrite(&client->lock);
 			client->clientDied();
-			IORWLockUnlock(client->lock);
+			IORWLockUnlock(&client->lock);
 		}
 		break;
 	case IKOT_IOKIT_OBJECT:
@@ -951,7 +946,7 @@ IOServiceUserNotification::handler( void * ref,
 	bool                sendPing = false;
 	mach_msg_size_t     msgSize, payloadSize;
 
-	IOTakeLock( lock );
+	IOTakeLock( &lock );
 
 	count = newSet->getCount();
 	if (count < kMaxOutstanding) {
@@ -961,7 +956,7 @@ IOServiceUserNotification::handler( void * ref,
 		}
 	}
 
-	IOUnlock( lock );
+	IOUnlock( &lock );
 
 	if (kIOServiceTerminatedNotificationType == msgType) {
 		IOMachPort::setHoldDestroy( newService, IKOT_IOKIT_OBJECT );
@@ -1022,7 +1017,7 @@ IOServiceUserNotification::copyNextObject()
 	unsigned int        count;
 	OSObject *          result;
 
-	IOLockLock(lock);
+	IOLockLock(&lock);
 
 	count = newSet->getCount();
 	if (count) {
@@ -1034,7 +1029,7 @@ IOServiceUserNotification::copyNextObject()
 		armed = true;
 	}
 
-	IOLockUnlock(lock);
+	IOLockUnlock(&lock);
 
 	return result;
 }
@@ -1236,6 +1231,10 @@ IOServiceMessageUserNotification::copyNextObject()
 OSDefineMetaClassAndAbstractStructors( IOUserClient, IOService )
 
 IOLock       * gIOUserClientOwnersLock;
+
+static_assert(offsetof(IOUserClient, __opaque_end) -
+    offsetof(IOUserClient, __opaque_start) == sizeof(void *) * 9,
+    "ABI check: Opaque ivars for IOUserClient must be 9 void * big");
 
 void
 IOUserClient::initialize( void )
@@ -1493,54 +1492,29 @@ OSObject *
 IOUserClient::copyClientEntitlement( task_t task,
     const char * entitlement )
 {
-	OSDictionary *entitlements;
-	OSObject *value;
+	void *entitlement_object = NULL;
 
-	#if PMAP_CS_ENABLE && !CONFIG_X86_64_COMPAT
-	if (pmap_cs_enabled() && amfi->query_context_to_object) {
-		struct CEQueryContext queryCtx = {};
-		size_t entlen = strlen(entitlement);
-		CEQuery_t query = {
-			/*
-			 *       We only select the dict value, if it exists this we will get
-			 *       a value CEQueryContext back to points to pmap backed memory
-			 */
-			CESelectDictValueDynamic((const uint8_t*)entitlement, entlen)
-		};
-		if (task == current_task()) {
-			// NULL task means current task, which translated to the current pmap
-			if (!pmap_query_entitlements(NULL, query, 1, &queryCtx)) {
-				return NULL;
-			}
-		} else {
-			vm_map_t task_map = get_task_map_reference(task);
-			if (task_map) {
-				pmap_t pmap = vm_map_get_pmap(task_map);
-				if (!pmap || !pmap_query_entitlements(pmap, query, 1, &queryCtx)) {
-					vm_map_deallocate(task_map);
-					return NULL;
-				}
-				vm_map_deallocate(task_map);
-			}
-		}
-		value = (OSObject*)amfi->query_context_to_object(&queryCtx);
-		return value;
+	if (task == NULL) {
+		task = current_task();
 	}
-	#endif
 
-	entitlements = copyClientEntitlements(task);
-	if (entitlements == NULL) {
+	/* Validate input arguments */
+	if (task == kernel_task || entitlement == NULL) {
 		return NULL;
 	}
+	proc_t proc = (proc_t)get_bsdtask_info(task);
 
-	/* Fetch the entitlement value from the dictionary. */
-	value = entitlements->getObject(entitlement);
-	if (value != NULL) {
-		value->retain();
+	kern_return_t ret = amfi->OSEntitlements.copyEntitlementAsOSObjectWithProc(
+		proc,
+		entitlement,
+		&entitlement_object);
+
+	if (ret != KERN_SUCCESS) {
+		return NULL;
 	}
+	assert(entitlement_object != NULL);
 
-	entitlements->release();
-	return value;
+	return (OSObject*)entitlement_object;
 }
 
 OSObject *
@@ -1621,6 +1595,8 @@ IOUserClient::reserve()
 	}
 	setTerminateDefer(NULL, true);
 	IOStatisticsRegisterCounter();
+	IORWLockInlineInit(&lock);
+	IOLockInlineInit(&filterLock);
 
 	return true;
 }
@@ -1811,7 +1787,7 @@ IOUserClient::filterForTask(task_t task, io_filter_policy_t addFilterPolicy)
 	io_filter_policy_t filterPolicy;
 
 	filterPolicy = 0;
-	IOLockLock(filterLock);
+	IOLockLock(&filterLock);
 
 	for (elem = reserved->filterPolicies; elem && (elem->task != task); elem = elem->next) {
 	}
@@ -1830,7 +1806,7 @@ IOUserClient::filterForTask(task_t task, io_filter_policy_t addFilterPolicy)
 		filterPolicy = addFilterPolicy;
 	}
 
-	IOLockUnlock(filterLock);
+	IOLockUnlock(&filterLock);
 	return filterPolicy;
 }
 
@@ -1839,12 +1815,6 @@ IOUserClient::free()
 {
 	if (mappings) {
 		mappings->release();
-	}
-	if (lock) {
-		IORWLockFree(lock);
-	}
-	if (filterLock) {
-		IOLockFree(filterLock);
 	}
 
 	IOStatisticsUnregisterCounter();
@@ -1863,6 +1833,8 @@ IOUserClient::free()
 			IOFreeType(elem, IOUCFilterPolicy);
 		}
 		IOFreeType(reserved, ExpansionData);
+		IORWLockInlineDestroy(&lock);
+		IOLockInlineDestroy(&filterLock);
 	}
 
 	super::free();
@@ -3193,10 +3165,10 @@ is_io_connect_get_notification_semaphore(
 	CHECK( IOUserClient, connection, client );
 
 	IOStatisticsClientCall();
-	IORWLockWrite(client->lock);
+	IORWLockWrite(&client->lock);
 	ret = client->getNotificationSemaphore((UInt32) notification_type,
 	    semaphore );
-	IORWLockUnlock(client->lock);
+	IORWLockUnlock(&client->lock);
 
 	return ret;
 }
@@ -3265,9 +3237,9 @@ is_io_registry_iterator_enter_entry(
 {
 	CHECKLOCKED( IORegistryIterator, iterator, iter );
 
-	IOLockLock(oIter->lock);
+	IOLockLock(&oIter->lock);
 	iter->enterEntry();
-	IOLockUnlock(oIter->lock);
+	IOLockUnlock(&oIter->lock);
 
 	return kIOReturnSuccess;
 }
@@ -3281,9 +3253,9 @@ is_io_registry_iterator_exit_entry(
 
 	CHECKLOCKED( IORegistryIterator, iterator, iter );
 
-	IOLockLock(oIter->lock);
+	IOLockLock(&oIter->lock);
 	didIt = iter->exitEntry();
-	IOLockUnlock(oIter->lock);
+	IOLockUnlock(&oIter->lock);
 
 	return didIt ? kIOReturnSuccess : kIOReturnNoDevice;
 }
@@ -4067,7 +4039,7 @@ is_io_registry_entry_set_properties
 				    client = OSDynamicCast(IOUserClient, entry);
 
 				if (client && client->defaultLockingSetProperties) {
-					IORWLockWrite(client->lock);
+					IORWLockWrite(&client->lock);
 				}
 
 				if (!client && (kOSBooleanTrue == entry->getProperty(gIORegistryEntryDefaultLockingSetPropertiesKey))) {
@@ -4079,7 +4051,7 @@ is_io_registry_entry_set_properties
 				}
 
 				if (client && client->defaultLockingSetProperties) {
-					IORWLockUnlock(client->lock);
+					IORWLockUnlock(&client->lock);
 				}
 				if (service && props && service->hasUserServer()) {
 					res = service->UserSetProperties(props);
@@ -4347,9 +4319,8 @@ is_io_service_open_extended(
 			if (client->sharedInstance) {
 				IOLockLock(gIOUserClientOwnersLock);
 			}
-			if (!client->lock) {
-				client->lock       = IORWLockAlloc();
-				client->filterLock = IOLockAlloc();
+			if (!client->opened) {
+				client->opened = true;
 
 				client->messageAppSuspended = (NULL != client->getProperty(kIOUserClientMessageAppSuspendedKey));
 				{
@@ -4500,9 +4471,9 @@ is_io_service_close(
 	IOStatisticsClientCall();
 
 	if (client->sharedInstance || OSCompareAndSwap8(0, 1, &client->closed)) {
-		IORWLockWrite(client->lock);
+		IORWLockWrite(&client->lock);
 		client->clientClose();
-		IORWLockUnlock(client->lock);
+		IORWLockUnlock(&client->lock);
 	} else {
 		IOLog("ignored is_io_service_close(0x%qx,%s)\n",
 		    client->getRegistryEntryID(), client->getName());
@@ -4543,10 +4514,10 @@ is_io_connect_set_notification_port(
 	CHECK( IOUserClient, connection, client );
 
 	IOStatisticsClientCall();
-	IORWLockWrite(client->lock);
+	IORWLockWrite(&client->lock);
 	ret = client->registerNotificationPort( port, notification_type,
 	    (io_user_reference_t) reference );
-	IORWLockUnlock(client->lock);
+	IORWLockUnlock(&client->lock);
 	return ret;
 }
 
@@ -4562,10 +4533,10 @@ is_io_connect_set_notification_port_64(
 	CHECK( IOUserClient, connection, client );
 
 	IOStatisticsClientCall();
-	IORWLockWrite(client->lock);
+	IORWLockWrite(&client->lock);
 	ret = client->registerNotificationPort( port, notification_type,
 	    reference );
-	IORWLockUnlock(client->lock);
+	IORWLockUnlock(&client->lock);
 	return ret;
 }
 
@@ -4592,11 +4563,11 @@ is_io_connect_map_memory_into_task
 
 	IOStatisticsClientCall();
 	if (client->defaultLocking) {
-		IORWLockWrite(client->lock);
+		IORWLockWrite(&client->lock);
 	}
 	map = client->mapClientMemory64( memory_type, into_task, flags, *address );
 	if (client->defaultLocking) {
-		IORWLockUnlock(client->lock);
+		IORWLockUnlock(&client->lock);
 	}
 
 	if (map) {
@@ -4707,11 +4678,11 @@ is_io_connect_unmap_memory_from_task
 
 	IOStatisticsClientCall();
 	if (client->defaultLocking) {
-		IORWLockWrite(client->lock);
+		IORWLockWrite(&client->lock);
 	}
 	err = client->clientMemoryForType((UInt32) memory_type, &options, &memory );
 	if (client->defaultLocking) {
-		IORWLockUnlock(client->lock);
+		IORWLockUnlock(&client->lock);
 	}
 
 	if (memory && (kIOReturnSuccess == err)) {
@@ -4783,11 +4754,11 @@ is_io_connect_add_client(
 
 	IOStatisticsClientCall();
 	if (client->defaultLocking) {
-		IORWLockWrite(client->lock);
+		IORWLockWrite(&client->lock);
 	}
 	ret = client->connectClient( to );
 	if (client->defaultLocking) {
-		IORWLockUnlock(client->lock);
+		IORWLockUnlock(&client->lock);
 	}
 	return ret;
 }
@@ -6352,9 +6323,9 @@ IOUserClient::callExternalMethod(uint32_t selector, IOExternalMethodArguments * 
 
 	if (defaultLocking) {
 		if (defaultLockingSingleThreadExternalMethod) {
-			IORWLockWrite(lock);
+			IORWLockWrite(&lock);
 		} else {
-			IORWLockRead(lock);
+			IORWLockRead(&lock);
 		}
 	}
 	if (uc2022) {
@@ -6363,7 +6334,7 @@ IOUserClient::callExternalMethod(uint32_t selector, IOExternalMethodArguments * 
 		ret = externalMethod(selector, args);
 	}
 	if (defaultLocking) {
-		IORWLockUnlock(lock);
+		IORWLockUnlock(&lock);
 	}
 	return ret;
 }

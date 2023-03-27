@@ -30,15 +30,9 @@
 int
 lchflags(const char *path, unsigned int flags)
 {
-	struct stat s;
-	struct attrlist a;
-
-	if(lstat(path, &s) < 0)
-		return -1;
-	if((s.st_mode & S_IFMT) != S_IFLNK)
-		return chflags(path, flags);
-	bzero(&a, sizeof(a));
-	a.bitmapcount = ATTR_BIT_MAP_COUNT;
-	a.commonattr = ATTR_CMN_FLAGS;
+	struct attrlist a = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr = ATTR_CMN_FLAGS
+	};
 	return setattrlist(path, &a, &flags, sizeof(unsigned int), FSOPT_NOFOLLOW);
 }

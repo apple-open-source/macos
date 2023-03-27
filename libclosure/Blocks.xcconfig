@@ -1,0 +1,30 @@
+GCC_PREPROCESSOR_DEFINITIONS = HAVE_OBJC=1 HAVE_UNWIND=1
+GCC_PREPROCESSOR_DEFINITIONS[sdk=macos*][arch=i386] = HAVE_OBJC=0
+GCC_PREPROCESSOR_DEFINITIONS[sdk=driverkit*] = HAVE_OBJC=0 HAVE_UNWIND=0
+
+SYSTEM_LDFLAGS = -L/usr/lib/system/
+SYSTEM_LDFLAGS[sdk=driverkit*] = -L$(SDKROOT)$(SYSTEM_PREFIX)/usr/lib/system/
+
+OBJC_LDFLAGS = -Wl,-upward-lobjc -Wl,-alias_list,$(SRCROOT)/Blocks.alias
+OBJC_LDFLAGS[sdk=macos*][arch=i386] =
+OBJC_LDFLAGS[sdk=driverkit*] =
+
+DIRTY_LDFLAGS = -Wl,-dirty_data_list,$(SRCROOT)/Blocks.dirty
+DIRTY_LDFLAGS[sdk=driverkit*] =
+DIRTY_LDFLAGS[sdk=macos*] =
+
+OTHER_CFLAGS = -fexceptions
+OTHER_CFLAGS[sdk=driverkit*] =
+
+
+OTHER_LDFLAGS = -nostdlib $(SYSTEM_LDFLAGS) $(OBJC_LDFLAGS) -lsystem_platform -lsystem_malloc -Wl,-upward-lsystem_c -ldyld -Wl,-umbrella,System $(DIRTY_LDFLAGS) -lunwind -lcompiler_rt
+OTHER_LDFLAGS[sdk=driverkit*] = -nostdlib $(SYSTEM_LDFLAGS) $(OBJC_LDFLAGS) -lsystem_platform -lsystem_malloc -Wl,-upward-lsystem_c -ldyld -Wl,-umbrella,System $(DIRTY_LDFLAGS)
+
+OTHER_TAPI_FLAGS = -umbrella System
+
+
+PRIVATE_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/local/include
+PRIVATE_HEADERS_FOLDER_PATH[sdk=driverkit*] = $(DRIVERKITROOT)/Runtime/usr/local/include
+
+PUBLIC_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/include
+PUBLIC_HEADERS_FOLDER_PATH[sdk=driverkit*] = $(DRIVERKITROOT)/Runtime/usr/include

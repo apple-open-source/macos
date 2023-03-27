@@ -55,7 +55,7 @@ exit:
     return iError;
 }
 
-int DIROPS_RemoveInternal( UVFSFileNode psDirNode, const char *pcUTF8Name )
+int DIROPS_RemoveInternal( UVFSFileNode psDirNode, const char *pcUTF8Name, UVFSFileNode victimNode )
 {
     int iErr = 0;
     vnode_t psParentVnode               = (vnode_t)psDirNode;
@@ -66,7 +66,11 @@ int DIROPS_RemoveInternal( UVFSFileNode psDirNode, const char *pcUTF8Name )
         return ENOTDIR;
     }
 
-    iErr = DIROPS_LookupInternal( psDirNode, pcUTF8Name, &psFileNode );
+    if (victimNode == NULL) {
+        return EINVAL;
+    }
+
+    psFileNode = victimNode;
     if ( iErr != 0 )
     {
         goto exit;
@@ -88,9 +92,7 @@ int DIROPS_RemoveInternal( UVFSFileNode psDirNode, const char *pcUTF8Name )
     sCompName.cn_hash               = 0;
     sCompName.cn_consume            = (int)strlen(pcUTF8Name);
 
-    iErr = hfs_vnop_remove(psParentVnode,psVnode, &sCompName, VNODE_REMOVE_NODELETEBUSY | VNODE_REMOVE_SKIP_NAMESPACE_EVENT );
-
-    LFHFS_Reclaim(psFileNode, 0);
+    iErr = hfs_vnop_remove(psParentVnode,psVnode, &sCompName, 0);
 
 exit:
     return iErr;
@@ -201,12 +203,12 @@ exit:
 }
 
 int
-LFHFS_Remove ( UVFSFileNode psDirNode, const char *pcUTF8Name, __unused UVFSFileNode victimNode)
+LFHFS_Remove ( UVFSFileNode psDirNode, const char *pcUTF8Name, UVFSFileNode victimNode)
 {
     LFHFS_LOG(LEVEL_DEBUG, "LFHFS_Remove\n");
     VERIFY_NODE_IS_VALID(psDirNode);
 
-    int iErr = DIROPS_RemoveInternal( psDirNode, pcUTF8Name );
+    int iErr = DIROPS_RemoveInternal( psDirNode, pcUTF8Name, victimNode );
     return iErr;
 }
 

@@ -41,7 +41,7 @@ kln{
         sv{"kutitab Sweden"}
         ta{"kutitab Tamil"}
         th{"kutitab Thailand"}
-        tr{"kutitab Turkey"}
+        tr{"kutitab Türkiye"}
         uk{"kutitab Ukraine"}
         ur{"kutitab Urdu"}
         vi{"kutitab Vietnam"}

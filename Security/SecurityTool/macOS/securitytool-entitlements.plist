@@ -4,5 +4,7 @@
 <dict>
 	<key>com.apple.authorization.smartcard.override</key>
 	<true/>
+	<key>com.apple.private.CoreAuthentication.SPI</key>
+	<true/>
 </dict>
 </plist>

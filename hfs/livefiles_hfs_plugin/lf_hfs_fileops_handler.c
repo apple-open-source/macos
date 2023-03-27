@@ -329,7 +329,7 @@ int LFHFS_Create ( UVFSFileNode psNode, const char *pcName, const UVFSFileAttrib
         //In case of a failure in setAttr, need to remove the created file
         if (iError)
         {
-            DIROPS_RemoveInternal(psParentVnode, pcName);
+            DIROPS_RemoveInternal(psParentVnode, pcName, *ppsOutNode);
             LFHFS_Reclaim((vnode_t) *ppsOutNode, 0);
         }
     }

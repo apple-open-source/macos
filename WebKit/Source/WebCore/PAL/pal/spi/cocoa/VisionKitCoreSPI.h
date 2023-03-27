@@ -166,7 +166,7 @@ NS_ASSUME_NONNULL_END
 @property (nonatomic, readonly) BOOL shouldWrap;
 @end
 
-#if HAVE(VK_IMAGE_TRANSLATION_SUPPORT)
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 #if __has_include(<VisionKitCore/VKCImageAnalysisTranslation.h>)
 #import <VisionKitCore/VKCImageAnalysisTranslation.h>
@@ -177,11 +177,22 @@ NS_ASSUME_NONNULL_BEGIN
 @interface VKCTranslatedParagraph : NSObject
 @property (nonatomic, readonly) VKQuad *quad;
 @property (nonatomic, readonly) NSString *text;
+@property (nonatomic, readonly) BOOL isPassthrough;
 @end
 
 @interface VKCImageAnalysisTranslation : NSObject
 @property (nonatomic, readonly) NSArray<VKCTranslatedParagraph *> *paragraphs;
 @end
+
+NS_ASSUME_NONNULL_END
+
+#endif
+
+#if __has_include(<VisionKitCore/VKCImageAnalysis.h>)
+#import <VisionKitCore/VKCImageAnalysis.h>
+#else
+
+NS_ASSUME_NONNULL_BEGIN
 
 @interface VKCImageAnalysis : VKImageAnalysis
 - (NSAttributedString *)_attributedStringForRange:(NSRange)range;
@@ -189,17 +200,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)translateFrom:(NSString *)sourceLanguage to:(NSString *)targetLanguage withCompletion:(void (^)(VKCImageAnalysisTranslation *translation, NSError *))completion;
 @end
 
-@interface VKCTranslatedParagraph (Staging_93280734)
-@property (nonatomic, readonly) BOOL isPassthrough;
-@end
-
 NS_ASSUME_NONNULL_END
 
 #endif
-
-#endif // HAVE(VK_IMAGE_TRANSLATION_SUPPORT)
-
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 #if __has_include(<VisionKitCore/VKImageClass_Private.h>)
 #import <VisionKitCore/VKImageClass_Private.h>

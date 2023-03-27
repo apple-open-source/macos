@@ -28,6 +28,7 @@
 
 #include "ConstructAbility.h"
 #include "ConstructorKind.h"
+#include "ImplementationVisibility.h"
 
 namespace JSC {
 
@@ -42,6 +43,6 @@ class SourceCode;
 class UnlinkedFunctionExecutable;
 class VM;
 
-JS_EXPORT_PRIVATE UnlinkedFunctionExecutable* createBuiltinExecutable(VM&, const SourceCode&, const Identifier&, ConstructorKind, ConstructAbility);
+JS_EXPORT_PRIVATE UnlinkedFunctionExecutable* createBuiltinExecutable(VM&, const SourceCode&, const Identifier&, ImplementationVisibility, ConstructorKind, ConstructAbility);
     
 } // namespace JSC

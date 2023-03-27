@@ -430,6 +430,10 @@ statf(int indent, FTSENT *p)
 		uint64_t xattr_count = get_xattr_count(p->fts_accpath);
 		output(indent, &offset, "nxattr=%llu", xattr_count);
 	}
+	if (keys & F_DATALESS) {
+		uint64_t dataless = IS_DATALESS(p->fts_statp);
+		output(indent, &offset, "dataless=%llu", dataless);
+	}
 	
 	(void)putchar('\n');
 }
@@ -465,11 +469,15 @@ statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *p
 
 	if ((p = fts_children(t, 0)) == NULL) {
 		error = errno;
+		// If we are requesting the dataless keyword, don't fail if we EDEADLK
+		// because that means we didn't try to materialize the file, we just skip.
 		if (error) {
-			RECORD_FAILURE(85, error);
-			errc(1, error, "%s", RP(parent));
+			if (!(error == EDEADLK && (keys & F_DATALESS))) {
+				RECORD_FAILURE(85, error);
+				errc(1, error, "%s", RP(parent));
+				return (1);
+			}
 		}
-		return (1);
 	}
 
 	bzero(g, sizeof(g));

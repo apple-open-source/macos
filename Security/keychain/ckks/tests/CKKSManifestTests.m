@@ -190,6 +190,10 @@
     }
     
     NSError* error = nil;
+    XCTAssertNotNil(unknownItem, @"Unknown item should be set");
+    if (unknownItem == nil) {
+        return;
+    }
     XCTAssertNotNil(_egoManifest, @"have an ego manifest");
     XCTAssertFalse([_egoManifest validateItem:unknownItem withError:&error], @"erroneously validated an unknown item against the manifest");
     XCTAssertNotNil(error, @"failed to generate error when trying to validate an unknown item against the manifest");

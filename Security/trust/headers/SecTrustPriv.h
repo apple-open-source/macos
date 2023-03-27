@@ -528,7 +528,7 @@ CFArrayRef SecTrustGetAppleAnchors(void);
  @function SecTrustSetURLRequestAttribution
  @abstract Set NSURLRequestAttribution state for any network request made for this trust evaluation
  @param trust Trust object to modify
- @param uint64_t NSURLRequestAttribution value
+ @param attribution NSURLRequestAttribution value
  */
 OSStatus SecTrustSetURLRequestAttribution(SecTrustRef trust, uint64_t attribution);
 typedef CF_OPTIONS(uint32_t, SecTrustResetFlags) {
@@ -545,8 +545,6 @@ typedef CF_OPTIONS(uint32_t, SecTrustResetFlags) {
 
 /*!
  @function SecTrustResetSettings
- @abstract
- @param
  */
 bool SecTrustResetSettings(SecTrustResetFlags flags, CFErrorRef* error);
 

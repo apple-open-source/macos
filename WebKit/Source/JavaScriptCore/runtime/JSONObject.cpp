@@ -507,7 +507,7 @@ bool Stringifier::Holder::appendNextProperty(Stringifier& stringifier, StringBui
     // First time through, initialize.
     if (!m_index) {
         if (m_isArray) {
-            uint64_t length = static_cast<uint64_t>(toLength(globalObject, m_object));
+            uint64_t length = toLength(globalObject, m_object);
             RETURN_IF_EXCEPTION(scope, false);
             if (UNLIKELY(length > std::numeric_limits<uint32_t>::max())) {
                 throwOutOfMemoryError(globalObject, scope);
@@ -520,7 +520,7 @@ bool Stringifier::Holder::appendNextProperty(Stringifier& stringifier, StringBui
             if (stringifier.m_usingArrayReplacer) {
                 m_propertyNames = stringifier.m_arrayReplacerPropertyNames.data();
                 m_size = m_propertyNames->propertyNameVector().size();
-            } else if (m_structure && m_object->structureID() == m_structure->id() && canPerformFastPropertyEnumerationForJSONStringify(m_structure)) {
+            } else if (m_structure && m_object->structureID() == m_structure->id() && m_structure->canPerformFastPropertyEnumeration()) {
                 m_structure->forEachProperty(vm, [&](const PropertyTableEntry& entry) -> bool {
                     if (entry.attributes() & PropertyAttribute::DontEnum)
                         return true;
@@ -1046,7 +1046,7 @@ void FastStringifier::append(JSValue value)
             return;
         }
         m_buffer[m_length++] = '{';
-        if (UNLIKELY(!canPerformFastPropertyEnumerationForJSONStringify(&structure))) {
+        if (UNLIKELY(!structure.canPerformFastPropertyEnumeration())) {
             recordFastPropertyEnumerationFailure(object);
             return;
         }
@@ -1258,7 +1258,7 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
 
                 JSObject* array = asObject(inValue);
                 markedStack.appendWithCrashOnOverflow(array);
-                uint64_t length = static_cast<uint64_t>(toLength(m_globalObject, array));
+                uint64_t length = toLength(m_globalObject, array);
                 RETURN_IF_EXCEPTION(scope, { });
                 if (UNLIKELY(length > std::numeric_limits<uint32_t>::max())) {
                     throwOutOfMemoryError(m_globalObject, scope);
@@ -1439,7 +1439,7 @@ JSC_DEFINE_HOST_FUNCTION(jsonProtoFuncStringify, (JSGlobalObject* globalObject, 
     return result.isNull() ? encodedJSUndefined() : JSValue::encode(jsString(globalObject->vm(), WTFMove(result)));
 }
 
-JSValue JSONParse(JSGlobalObject* globalObject, const String& json)
+JSValue JSONParse(JSGlobalObject* globalObject, StringView json)
 {
     if (json.isNull())
         return JSValue();
@@ -1451,6 +1451,31 @@ JSValue JSONParse(JSGlobalObject* globalObject, const String& json)
 
     LiteralParser<UChar> jsonParser(globalObject, json.characters16(), json.length(), StrictJSON);
     return jsonParser.tryLiteralParse();
+}
+
+JSValue JSONParseWithException(JSGlobalObject* globalObject, StringView json)
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    if (json.isNull())
+        return JSValue();
+
+    if (json.is8Bit()) {
+        LiteralParser<LChar> jsonParser(globalObject, json.characters8(), json.length(), StrictJSON);
+        JSValue result = jsonParser.tryLiteralParse();
+        RETURN_IF_EXCEPTION(scope, { });
+        if (!result)
+            throwSyntaxError(globalObject, scope, jsonParser.getErrorMessage());
+        return result;
+    }
+
+    LiteralParser<UChar> jsonParser(globalObject, json.characters16(), json.length(), StrictJSON);
+    JSValue result = jsonParser.tryLiteralParse();
+    RETURN_IF_EXCEPTION(scope, { });
+    if (!result)
+        throwSyntaxError(globalObject, scope, jsonParser.getErrorMessage());
+    return result;
 }
 
 String JSONStringify(JSGlobalObject* globalObject, JSValue value, JSValue space)

@@ -63,7 +63,7 @@ static bool SOSTransportCircleKVSUpdateKVS(NSDictionary *changes, CFErrorRef *er
         return true;
     }
     
-    CFTypeRef dsid = SOSAccountGetValue(account, kSOSDSIDKey, error);
+    CFTypeRef dsid = SOSAccountGetCurrentDSID(account);
     if(dsid == NULL)
         dsid = kCFNull;
     
@@ -279,8 +279,12 @@ fail:
 
 -(bool) kvsSendOfficialDSID:(CFStringRef) dsid err:(CFErrorRef *)error
 {
-    NSDictionary *changes = @{(__bridge NSString*)kSOSKVSOfficialDSIDKey : (__bridge NSString*)dsid};
-    bool success = SOSTransportCircleKVSUpdateKVS(changes, error);
+    bool success = true;
+    if(dsid) {
+        CFDataRef dsidData = CFStringCreateExternalRepresentation(kCFAllocatorDefault, dsid, kCFStringEncodingUTF8, '?');
+        [self kvsAddToPendingChanges:kSOSKVSOfficialDSIDKey data: dsidData];
+        CFReleaseNull(dsidData);
+    }
     return success;
 }
 
@@ -291,9 +295,9 @@ fail:
     require_quiet(retirement_data, fail);
 
     CFStringRef retirement_key = SOSRetirementKeyCreateWithCircleNameAndPeer((__bridge CFStringRef)(self.circleName), SOSPeerInfoGetPeerID(peer));
-    if (retirement_key)
+    if (retirement_key) {
         [self kvsAddToPendingChanges:retirement_key data:retirement_data];
-    
+    }
     CFReleaseNull(retirement_key);
     CFReleaseNull(retirement_data);
     return true;

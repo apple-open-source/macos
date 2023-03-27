@@ -150,7 +150,7 @@ static void tests(void)
 
 int secd_90_sos_circle_legacy_test(int argc, char *const *argv) {
 #if SOS_ENABLED
-    plan_tests(1);
+    plan_tests(33);
     secd_test_setup_temp_keychain(__FUNCTION__, NULL); // if the test has been run on this system this will generate one more "ok" test
     tests();
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);

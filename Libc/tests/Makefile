@@ -27,6 +27,9 @@ ASAN_DYLIB_PATH := /usr/appleinternal/lib/sanitizers/
 
 OTHER_LDFLAGS := -umbrella System -L/usr/lib/system -lsystem_collections
 
+strtod: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
+strtof: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
+strtold: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
 nxheap: OTHER_CFLAGS += -Wno-cast-align
 strlcat: OTHER_CFLAGS += -Wno-pointer-arith
 psort: OTHER_CFLAGS += -Wno-cast-qual -Wno-sign-conversion

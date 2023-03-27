@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,28 @@ using namespace WebCore;
 
 namespace WebCore {
 
+static NSMutableArray<NSString*>* cameraCaptureDeviceTypes()
+{
+    ASSERT(isMainThread());
+    NSMutableArray<NSString*>* deviceTypes = [[NSMutableArray alloc] initWithArray:
+        @[AVCaptureDeviceTypeBuiltInWideAngleCamera,
+          AVCaptureDeviceTypeBuiltInTelephotoCamera,
+          AVCaptureDeviceTypeBuiltInUltraWideCamera,
+#if PLATFORM(MAC)
+          AVCaptureDeviceTypeExternalUnknown,
+#endif
+        ]
+    ];
+    if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeDeskViewCamera())
+        [deviceTypes addObject:AVCaptureDeviceTypeDeskViewCamera];
+    if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeBuiltInDualWideCamera())
+        [deviceTypes addObject:AVCaptureDeviceTypeBuiltInDualWideCamera];
+    if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeBuiltInTripleCamera())
+        [deviceTypes addObject:AVCaptureDeviceTypeBuiltInTripleCamera];
+
+    return deviceTypes;
+}
+
 void AVCaptureDeviceManager::computeCaptureDevices(CompletionHandler<void()>&& callback)
 {
     if (!m_isInitialized) {
@@ -91,21 +113,14 @@ inline static bool deviceIsAvailable(AVCaptureDevice *device)
     return true;
 }
 
-static RetainPtr<NSArray<AVCaptureDevice *>> currentCameras()
+RetainPtr<NSArray> AVCaptureDeviceManager::currentCameras()
 {
     AVCaptureDeviceDiscoverySession *discoverySession = [PAL::getAVCaptureDeviceDiscoverySessionClass()
-        discoverySessionWithDeviceTypes:
-            @[AVCaptureDeviceTypeBuiltInWideAngleCamera,
-              AVCaptureDeviceTypeBuiltInTelephotoCamera,
-              AVCaptureDeviceTypeBuiltInUltraWideCamera,
-              AVCaptureDeviceTypeDeskViewCamera,
-#if PLATFORM(MAC)
-              AVCaptureDeviceTypeExternalUnknown,
-#endif
-            ]
+        discoverySessionWithDeviceTypes:m_avCaptureDeviceTypes.get()
         mediaType:AVMediaTypeVideo
         position:AVCaptureDevicePositionUnspecified
     ];
+
     return discoverySession.devices;
 }
 
@@ -236,7 +251,8 @@ AVCaptureDeviceManager& AVCaptureDeviceManager::singleton()
 }
 
 AVCaptureDeviceManager::AVCaptureDeviceManager()
-    : m_objcObserver(adoptNS([[WebCoreAVCaptureDeviceManagerObserver alloc] initWithCallback: this]))
+    : m_objcObserver(adoptNS([[WebCoreAVCaptureDeviceManagerObserver alloc] initWithCallback:this]))
+    , m_avCaptureDeviceTypes(adoptNS(cameraCaptureDeviceTypes()))
     , m_dispatchQueue(WorkQueue::create("com.apple.WebKit.AVCaptureDeviceManager"))
 {
 }
@@ -299,7 +315,7 @@ void AVCaptureDeviceManager::registerForDeviceNotifications()
     if (!m_callback)
         return;
 
-    if (![keyPath isEqualToString:@"suspended"] && ![keyPath isEqualToString:@"systemPreferredCamera"])
+    if (![keyPath isEqualToString:@"suspended"] && ![keyPath isEqualToString:@"systemPreferredCamera"] && ![keyPath isEqualToString:@"devices"])
         return;
 
     RunLoop::main().dispatch([self, protectedSelf = retainPtr(self)] {

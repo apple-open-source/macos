@@ -85,8 +85,8 @@ struct cmgroup {
 #define CGF_NOSORT   1		/* don't sort this group */
 #define CGF_LINES    2		/* these are to be printed on different lines */
 #define CGF_HASDL    4		/* has display strings printed on separate lines */
-#define CGF_UNIQALL  8		/* remove all duplicates */
-#define CGF_UNIQCON 16		/* remove consecutive duplicates */
+#define CGF_UNIQALL  8		/* remove consecutive duplicates (if neither are set, */
+#define CGF_UNIQCON 16		/* don't deduplicate */        /* remove all dupes)   */
 #define CGF_PACKED  32		/* LIST_PACKED for this group */
 #define CGF_ROWS    64		/* LIST_ROWS_FIRST for this group */
 #define CGF_FILES   128		/* contains file names */
@@ -140,6 +140,7 @@ struct cmatch {
 #define CMF_ALL      (1<<13)	/* a match representing all other matches */
 #define CMF_DUMMY    (1<<14)	/* unselectable dummy match */
 #define CMF_MORDER   (1<<15)    /* order by matches, not display strings */
+#define CMF_DELETE   (1<<16)    /* used for deduplication of unsorted matches, don't set */
 
 /* Stuff for completion matcher control. */
 
@@ -299,7 +300,7 @@ struct menuinfo {
 #define CAF_NOSORT   2    /* compadd -V: don't sort */
 #define CAF_MATCH    4    /* compadd without -U: do matching */
 #define CAF_UNIQCON  8    /* compadd -2: don't deduplicate */
-#define CAF_UNIQALL 16    /* compadd -1: deduplicate */
+#define CAF_UNIQALL 16    /* compadd -1: deduplicate consecutive only */
 #define CAF_ARRAYS  32    /* compadd -a or -k: array/assoc parameter names */
 #define CAF_KEYS    64    /* compadd -k: assoc parameter names */
 #define CAF_ALL    128    /* compadd -C: _all_matches */
@@ -329,7 +330,7 @@ struct cadata {
     char *exp;			/* explanation (-X) */
     char *apar;			/* array to store matches in (-A) */
     char *opar;			/* array to store originals in (-O) */
-    char *dpar;			/* array to delete non-matches in (-D) */
+    char **dpar;		/* arrays to delete non-matches in (-D) */
     char *disp;			/* array with display lists (-d) */
     char *mesg;			/* message to show unconditionally (-x) */
     int dummies;               /* add that many dummy matches */

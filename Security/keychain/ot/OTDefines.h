@@ -44,6 +44,66 @@ extern NSString* const OctagonEventAttributeTimeSinceLastPostedFollowUp;
 extern NSString* const CuttlefishTrustZone;
 extern NSString* const TrustedPeersHelperErrorDomain;
 
+/* Octagon Errors, preserved here to include all no-longer-present error code */
+#if 0
+typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
+    //OTErrorNoColumn                         = 1,
+    //OTErrorKeyGeneration                    = 2,
+    //OTErrorEmptySecret                      = 3,
+    //OTErrorEmptyDSID                        = 4,
+    OTErrorNoIdentity                       = 5,
+    //OTErrorRestoreFailed                    = 6,
+    //OTErrorRestoredPeerEncryptionKeyFailure = 7,
+    //OTErrorRestoredPeerSigningKeyFailure    = 8,
+    //OTErrorEntropyCreationFailure           = 9,
+    OTErrorDeserializationFailure           = 10,
+    //OTErrorDecryptFailure                   = 11,
+    //OTErrorPrivateKeyFailure                = 12,
+    //OTErrorEscrowSigningSPKI                = 13,
+    //OTErrorBottleID                         = 14,
+    //OTErrorOTLocalStore                     = 15,
+    //OTErrorOTCloudStore                     = 16,
+    //OTErrorEmptyEscrowRecordID              = 17,
+    //OTErrorNoBottlePeerRecords              = 18,
+    //OTErrorCoreFollowUp                     = 19,
+    OTErrorFeatureNotEnabled                = 20,
+    OTErrorCKCallback                       = 21,
+    //OTErrorRampInit                         = 22,
+    OTErrorCKTimeOut                        = 23,
+    OTErrorNoNetwork                        = 24,
+    OTErrorNotSignedIn                      = 25,
+    OTErrorRecordNotFound                   = 26,
+    //OTErrorNoEscrowKeys                     = 27,
+    //OTErrorBottleUpdate                     = 28,
+    OTErrorNotSupported                     = 29,
+    OTErrorUnexpectedStateTransition        = 30,
+    OTErrorNoSuchContext                    = 31,
+    //OTErrorTimeout                          = 32,
+    //OTErrorMasterKey                        = 33,
+    //OTErrorNotTrusted                       = 34,
+    OTErrorLimitedPeer                      = 35,
+    //OTErrorNoOctagonKeysInSOS               = 36,
+    //OTErrorNeedsAuthentication              = 37,
+    OTErrorOctagonAdapter                   = 38,
+    OTErrorSOSAdapter                       = 39,
+    //OctagonErrorNoAccount                   = 40,
+    OTErrorRecoveryKeyMalformed             = 41,
+    //OTAuthKitNoAltDSID                      = 42,
+    OTErrorAuthKitAKDeviceListRequestContextClass = 43,
+    OTErrorAuthKitNoPrimaryAccount          = 44,
+    OTErrorAuthKitNoAuthenticationController = 45,
+    OTErrorAuthKitMachineIDMissing          = 46,
+    OTErrorAuthKitPrimaryAccountHaveNoDSID  = 47,
+    OTErrorFailedToLeaveClique              = 48,
+    OTErrorSyncPolicyMissing                = 49,
+    OTErrorRequiredLibrariesNotPresent      = 50,
+    OTErrorFailedToSetWalrus                = 51,
+    OTErrorFailedToSetWebAccess             = 52,
+    OTErrorNoAccountSettingsSet             = 53,
+    OTErrorBadUUID                          = 54,
+    OTErrorUserControllableViewsUnavailable = 55,
+};
+#endif /* 0 */
 
 #define OTMasterSecretLength 72
 
@@ -89,6 +149,7 @@ typedef NS_ENUM(NSInteger, CuttlefishErrorCode) {
     CuttlefishErrorResetFailed = 1039,
     CuttlefishErrorViewZoneDeletionFailed = 1040,
     CuttlefishErrorAddCustodianRecoveryKeyFailed = 1041,
+    CuttlefishErrorResultGraphHasNoPotentiallyTrustedPeersWithRecoveryKey = 1042,
 
     // For testing error handling. Never returned from actual cuttlefish.
     // Should not be retried.

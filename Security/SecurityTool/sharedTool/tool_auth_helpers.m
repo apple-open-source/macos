@@ -11,6 +11,10 @@
 #include "debugging.h"
 #endif // !TARGET_OS_TV && !TARGET_OS_BRIDGE
 
+#if TARGET_OS_OSX
+#include <os/variant_private.h>
+#endif
+
 #include <os/feature_private.h>
 
 #include "tool_auth_helpers.h"
@@ -65,6 +69,13 @@ bool authRequired(void) {
 #if TARGET_OS_TV || TARGET_OS_BRIDGE
     return false;
 #else
+#if TARGET_OS_OSX
+    if (os_variant_is_darwinos("com.apple.security")) {
+        fprintf(stderr, "Authentication skipped on this subplatform!\n");
+        return false;
+    }
+#endif
+
     if (os_feature_enabled(Security, SecSkipSecurityToolAuth)) {
         fprintf(stderr,
                 "WARNING! Authentication skipped. It is required starting in iOS 17.0 / macOS 14.0.\n"

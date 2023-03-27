@@ -38,6 +38,7 @@
 #include <WebCore/LayoutMilestone.h>
 #include <WebCore/Model.h>
 #include <WebCore/PlatformCALayer.h>
+#include <WebCore/ScrollTypes.h>
 #include <WebCore/TransformationMatrix.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -55,57 +56,58 @@ class Encoder;
 
 namespace WebKit {
 
+enum class LayerChange : uint64_t {
+    NameChanged                         = 1LLU << 1,
+    ChildrenChanged                     = 1LLU << 2,
+    PositionChanged                     = 1LLU << 3,
+    BoundsChanged                       = 1LLU << 4,
+    BackgroundColorChanged              = 1LLU << 5,
+    AnchorPointChanged                  = 1LLU << 6,
+    BorderWidthChanged                  = 1LLU << 7,
+    BorderColorChanged                  = 1LLU << 8,
+    OpacityChanged                      = 1LLU << 9,
+    TransformChanged                    = 1LLU << 10,
+    SublayerTransformChanged            = 1LLU << 11,
+    HiddenChanged                       = 1LLU << 12,
+    GeometryFlippedChanged              = 1LLU << 13,
+    DoubleSidedChanged                  = 1LLU << 14,
+    MasksToBoundsChanged                = 1LLU << 15,
+    OpaqueChanged                       = 1LLU << 16,
+    ContentsHiddenChanged               = 1LLU << 17,
+    MaskLayerChanged                    = 1LLU << 18,
+    ClonedContentsChanged               = 1LLU << 19,
+    ContentsRectChanged                 = 1LLU << 20,
+    ContentsScaleChanged                = 1LLU << 21,
+    CornerRadiusChanged                 = 1LLU << 22,
+    ShapeRoundedRectChanged             = 1LLU << 23,
+    ShapePathChanged                    = 1LLU << 24,
+    MinificationFilterChanged           = 1LLU << 25,
+    MagnificationFilterChanged          = 1LLU << 26,
+    BlendModeChanged                    = 1LLU << 27,
+    WindRuleChanged                     = 1LLU << 28,
+    SpeedChanged                        = 1LLU << 29,
+    TimeOffsetChanged                   = 1LLU << 30,
+    BackingStoreChanged                 = 1LLU << 31,
+    BackingStoreAttachmentChanged       = 1LLU << 32,
+    FiltersChanged                      = 1LLU << 33,
+    AnimationsChanged                   = 1LLU << 34,
+    AntialiasesEdgesChanged             = 1LLU << 35,
+    CustomAppearanceChanged             = 1LLU << 36,
+    UserInteractionEnabledChanged       = 1LLU << 37,
+    EventRegionChanged                  = 1LLU << 38,
+    ScrollingNodeIDChanged              = 1LLU << 39,
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    SeparatedChanged                    = 1LLU << 40,
+#if HAVE(CORE_ANIMATION_SEPARATED_PORTALS)
+    SeparatedPortalChanged              = 1LLU << 41,
+    DescendentOfSeparatedPortalChanged  = 1LLU << 42,
+#endif
+#endif
+};
+
 class RemoteLayerTreeTransaction {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    enum LayerChange {
-        NameChanged                         = 1LLU << 1,
-        ChildrenChanged                     = 1LLU << 2,
-        PositionChanged                     = 1LLU << 3,
-        BoundsChanged                       = 1LLU << 4,
-        BackgroundColorChanged              = 1LLU << 5,
-        AnchorPointChanged                  = 1LLU << 6,
-        BorderWidthChanged                  = 1LLU << 7,
-        BorderColorChanged                  = 1LLU << 8,
-        OpacityChanged                      = 1LLU << 9,
-        TransformChanged                    = 1LLU << 10,
-        SublayerTransformChanged            = 1LLU << 11,
-        HiddenChanged                       = 1LLU << 12,
-        GeometryFlippedChanged              = 1LLU << 13,
-        DoubleSidedChanged                  = 1LLU << 14,
-        MasksToBoundsChanged                = 1LLU << 15,
-        OpaqueChanged                       = 1LLU << 16,
-        ContentsHiddenChanged               = 1LLU << 17,
-        MaskLayerChanged                    = 1LLU << 18,
-        ClonedContentsChanged               = 1LLU << 19,
-        ContentsRectChanged                 = 1LLU << 20,
-        ContentsScaleChanged                = 1LLU << 21,
-        CornerRadiusChanged                 = 1LLU << 22,
-        ShapeRoundedRectChanged             = 1LLU << 23,
-        ShapePathChanged                    = 1LLU << 24,
-        MinificationFilterChanged           = 1LLU << 25,
-        MagnificationFilterChanged          = 1LLU << 26,
-        BlendModeChanged                    = 1LLU << 27,
-        WindRuleChanged                     = 1LLU << 28,
-        SpeedChanged                        = 1LLU << 29,
-        TimeOffsetChanged                   = 1LLU << 30,
-        BackingStoreChanged                 = 1LLU << 31,
-        BackingStoreAttachmentChanged       = 1LLU << 32,
-        FiltersChanged                      = 1LLU << 33,
-        AnimationsChanged                   = 1LLU << 34,
-        EdgeAntialiasingMaskChanged         = 1LLU << 35,
-        CustomAppearanceChanged             = 1LLU << 36,
-        UserInteractionEnabledChanged       = 1LLU << 37,
-        EventRegionChanged                  = 1LLU << 38,
-#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
-        SeparatedChanged                    = 1LLU << 39,
-#if HAVE(CORE_ANIMATION_SEPARATED_PORTALS)
-        SeparatedPortalChanged              = 1LLU << 40,
-        DescendentOfSeparatedPortalChanged  = 1LLU << 41,
-#endif
-#endif
-    };
-
     struct LayerCreationProperties {
         WTF_MAKE_STRUCT_FAST_ALLOCATED;
         LayerCreationProperties();
@@ -118,6 +120,7 @@ public:
 
         uint32_t hostingContextID;
         float hostingDeviceScaleFactor;
+        bool preservesFlip;
         
 #if ENABLE(MODEL_ELEMENT)
         RefPtr<WebCore::Model> model;
@@ -154,45 +157,49 @@ public:
         Vector<WebCore::GraphicsLayer::PlatformLayerID> children;
 
         Vector<std::pair<String, PlatformCAAnimationRemote::Properties>> addedAnimations;
-        HashSet<String> keyPathsOfAnimationsToRemove;
+        HashSet<String> keysOfAnimationsToRemove;
 
         WebCore::FloatPoint3D position;
-        WebCore::FloatPoint3D anchorPoint;
+        WebCore::FloatPoint3D anchorPoint { 0.5, 0.5, 0 };
         WebCore::FloatRect bounds;
-        WebCore::FloatRect contentsRect;
+        WebCore::FloatRect contentsRect { 0, 0, 1, 1 };
         std::unique_ptr<RemoteLayerBackingStore> backingStore;
         std::unique_ptr<WebCore::FilterOperations> filters;
         WebCore::Path shapePath;
-        WebCore::GraphicsLayer::PlatformLayerID maskLayerID;
-        WebCore::GraphicsLayer::PlatformLayerID clonedLayerID;
-        double timeOffset;
-        float speed;
-        float contentsScale;
-        float cornerRadius;
-        float borderWidth;
-        float opacity;
-        WebCore::Color backgroundColor;
-        WebCore::Color borderColor;
-        unsigned edgeAntialiasingMask;
-        WebCore::GraphicsLayer::CustomAppearance customAppearance;
-        WebCore::PlatformCALayer::FilterType minificationFilter;
-        WebCore::PlatformCALayer::FilterType magnificationFilter;
-        WebCore::BlendMode blendMode;
-        WebCore::WindRule windRule;
-        bool hidden;
-        bool backingStoreAttached;
-        bool geometryFlipped;
-        bool doubleSided;
-        bool masksToBounds;
-        bool opaque;
-        bool contentsHidden;
-        bool userInteractionEnabled;
+        Markable<WebCore::GraphicsLayer::PlatformLayerID> maskLayerID;
+        Markable<WebCore::GraphicsLayer::PlatformLayerID> clonedLayerID;
+#if ENABLE(SCROLLING_THREAD)
+        WebCore::ScrollingNodeID scrollingNodeID { 0 };
+#endif
+        double timeOffset { 0 };
+        float speed { 1 };
+        float contentsScale { 1 };
+        float cornerRadius { 0 };
+        float borderWidth { 0 };
+        float opacity { 1 };
+        WebCore::Color backgroundColor { WebCore::Color::transparentBlack };
+        WebCore::Color borderColor { WebCore::Color::black };
+        WebCore::GraphicsLayer::CustomAppearance customAppearance { WebCore::GraphicsLayer::CustomAppearance::None };
+        WebCore::PlatformCALayer::FilterType minificationFilter { WebCore::PlatformCALayer::FilterType::Linear };
+        WebCore::PlatformCALayer::FilterType magnificationFilter { WebCore::PlatformCALayer::FilterType::Linear };
+        WebCore::BlendMode blendMode { WebCore::BlendMode::Normal };
+        WebCore::WindRule windRule { WebCore::WindRule::NonZero };
+        bool antialiasesEdges { true };
+        bool hidden { false };
+        bool backingStoreAttached { true };
+        bool geometryFlipped { false };
+        bool doubleSided { false };
+        bool masksToBounds { false };
+        bool opaque { false };
+        bool contentsHidden { false };
+        bool userInteractionEnabled { true };
         WebCore::EventRegion eventRegion;
+
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
-        bool isSeparated;
+        bool isSeparated { false };
 #if HAVE(CORE_ANIMATION_SEPARATED_PORTALS)
-        bool isSeparatedPortal;
-        bool isDescendentOfSeparatedPortal;
+        bool isSeparatedPortal { false };
+        bool isDescendentOfSeparatedPortal { false };
 #endif
 #endif
     };
@@ -223,7 +230,7 @@ public:
     Vector<WebCore::GraphicsLayer::PlatformLayerID> destroyedLayers() const { return m_destroyedLayerIDs; }
     Vector<WebCore::GraphicsLayer::PlatformLayerID> layerIDsWithNewlyUnreachableBackingStore() const { return m_layerIDsWithNewlyUnreachableBackingStore; }
 
-    Vector<RefPtr<PlatformCALayerRemote>>& changedLayers() { return m_changedLayers; }
+    HashSet<RefPtr<PlatformCALayerRemote>>& changedLayers() { return m_changedLayers; }
 
     const LayerPropertiesMap& changedLayerProperties() const { return m_changedLayerProperties; }
     LayerPropertiesMap& changedLayerProperties() { return m_changedLayerProperties; }
@@ -260,7 +267,12 @@ public:
 
     bool scaleWasSetByUIProcess() const { return m_scaleWasSetByUIProcess; }
     void setScaleWasSetByUIProcess(bool scaleWasSetByUIProcess) { m_scaleWasSetByUIProcess = scaleWasSetByUIProcess; }
-    
+
+#if PLATFORM(MAC)
+    WebCore::GraphicsLayer::PlatformLayerID pageScalingLayerID() const { return m_pageScalingLayerID.value(); }
+    void setPageScalingLayerID(WebCore::GraphicsLayer::PlatformLayerID layerID) { m_pageScalingLayerID = layerID; }
+#endif
+
     uint64_t renderTreeSize() const { return m_renderTreeSize; }
     void setRenderTreeSize(uint64_t renderTreeSize) { m_renderTreeSize = renderTreeSize; }
 
@@ -315,7 +327,7 @@ public:
 
 private:
     WebCore::GraphicsLayer::PlatformLayerID m_rootLayerID;
-    Vector<RefPtr<PlatformCALayerRemote>> m_changedLayers; // Only used in the Web process.
+    HashSet<RefPtr<PlatformCALayerRemote>> m_changedLayers; // Only used in the Web process.
     LayerPropertiesMap m_changedLayerProperties; // Only used in the UI process.
 
     Vector<LayerCreationProperties> m_createdLayers;
@@ -334,6 +346,11 @@ private:
     WebCore::Color m_themeColor;
     WebCore::Color m_pageExtendedBackgroundColor;
     WebCore::Color m_sampledPageTopColor;
+
+#if PLATFORM(MAC)
+    Markable<WebCore::GraphicsLayer::PlatformLayerID> m_pageScalingLayerID; // Only used for non-delegated scaling.
+#endif
+
     double m_pageScaleFactor { 1 };
     double m_minimumScaleFactor { 1 };
     double m_maximumScaleFactor { 1 };
@@ -357,58 +374,3 @@ private:
 };
 
 } // namespace WebKit
-
-namespace WTF {
-
-template<> struct EnumTraits<WebKit::RemoteLayerTreeTransaction::LayerChange> {
-    using values = EnumValues<
-        WebKit::RemoteLayerTreeTransaction::LayerChange,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::NameChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::ChildrenChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::PositionChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::BoundsChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::BackgroundColorChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::AnchorPointChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::BorderWidthChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::BorderColorChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::OpacityChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::TransformChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::SublayerTransformChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::HiddenChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::GeometryFlippedChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::DoubleSidedChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::MasksToBoundsChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::OpaqueChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::ContentsHiddenChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::MaskLayerChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::ClonedContentsChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::ContentsRectChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::ContentsScaleChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::CornerRadiusChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::ShapeRoundedRectChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::ShapePathChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::MinificationFilterChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::MagnificationFilterChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::BlendModeChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::WindRuleChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::SpeedChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::TimeOffsetChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::BackingStoreChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::BackingStoreAttachmentChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::FiltersChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::AnimationsChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::EdgeAntialiasingMaskChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::CustomAppearanceChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::UserInteractionEnabledChanged,
-        WebKit::RemoteLayerTreeTransaction::LayerChange::EventRegionChanged
-#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
-        , WebKit::RemoteLayerTreeTransaction::LayerChange::SeparatedChanged
-#if HAVE(CORE_ANIMATION_SEPARATED_PORTALS)
-        , WebKit::RemoteLayerTreeTransaction::LayerChange::SeparatedPortalChanged
-        , WebKit::RemoteLayerTreeTransaction::LayerChange::DescendentOfSeparatedPortalChanged
-#endif
-#endif
-    >;
-};
-
-} // namespace WTF

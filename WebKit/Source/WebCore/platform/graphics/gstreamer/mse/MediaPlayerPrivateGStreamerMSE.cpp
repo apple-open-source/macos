@@ -54,6 +54,74 @@
 #include <wtf/URL.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/AtomStringHash.h>
+#include <wtf/text/StringToIntegerConversion.h>
+
+namespace {
+struct VideoDecodingLimits {
+    unsigned mediaMaxWidth = 0;
+    unsigned mediaMaxHeight = 0;
+    unsigned mediaMaxFrameRate = 0;
+    VideoDecodingLimits(unsigned mediaMaxWidth, unsigned mediaMaxHeight, unsigned mediaMaxFrameRate)
+        : mediaMaxWidth(mediaMaxWidth)
+        , mediaMaxHeight(mediaMaxHeight)
+        , mediaMaxFrameRate(mediaMaxFrameRate)
+        {
+        }
+};
+}
+
+#ifdef VIDEO_DECODING_LIMIT
+static std::optional<VideoDecodingLimits> videoDecoderLimitsDefaults()
+{
+    // VIDEO_DECODING_LIMIT should be in format: WIDTHxHEIGHT@FRAMERATE.
+    String videoDecodingLimit(String::fromUTF8(VIDEO_DECODING_LIMIT));
+
+    if (videoDecodingLimit.isEmpty())
+        return { };
+
+    Vector<String> entries;
+
+    // Extract frame rate part from the VIDEO_DECODING_LIMIT: WIDTHxHEIGHT@FRAMERATE.
+    videoDecodingLimit.split('@', [&entries](StringView item) {
+        entries.append(item.toString());
+    });
+
+    if (entries.size() != 2)
+        return { };
+
+    auto frameRate = parseIntegerAllowingTrailingJunk<unsigned>(entries[1]);
+
+    if (!frameRate.has_value())
+        return { };
+
+    String widthAndHeight = entries[0];
+    entries.clear();
+
+    // Extract WIDTH and HEIGHT from: WIDTHxHEIGHT.
+    widthAndHeight.split('x', [&entries](StringView item) {
+        entries.append(item.toString());
+    });
+
+    if (entries.size() != 2)
+        return { };
+
+    auto width = parseIntegerAllowingTrailingJunk<unsigned>(entries[0]);
+
+    if (!width.has_value())
+        return { };
+
+    auto height = parseIntegerAllowingTrailingJunk<unsigned>(entries[1]);
+
+    if (!height.has_value())
+        return { };
+
+    return { VideoDecodingLimits(width.value(), height.value(), frameRate.value()) };
+}
+#endif
+
+// We shouldn't accept media that the player can't actually play.
+// AAC supports up to 96 channels.
+#define MEDIA_MAX_AAC_CHANNELS 96
 
 static const char* dumpReadyState(WebCore::MediaPlayer::ReadyState readyState)
 {
@@ -192,6 +260,17 @@ bool MediaPlayerPrivateGStreamerMSE::doSeek(const MediaTime& position, float rat
     return true;
 }
 
+void MediaPlayerPrivateGStreamerMSE::setNetworkState(MediaPlayer::NetworkState networkState)
+{
+    if (networkState == m_mediaSourceNetworkState)
+        return;
+
+    m_mediaSourceNetworkState = networkState;
+    m_networkState = networkState;
+    updateStates();
+    m_player->networkStateChanged();
+}
+
 void MediaPlayerPrivateGStreamerMSE::setReadyState(MediaPlayer::ReadyState mediaSourceReadyState)
 {
     // Something important to bear in mind is that the readyState we get here comes from MediaSource.
@@ -275,7 +354,7 @@ void MediaPlayerPrivateGStreamerMSE::sourceSetup(GstElement* sourceElement)
 void MediaPlayerPrivateGStreamerMSE::updateStates()
 {
     bool shouldBePlaying = !m_isPaused && readyState() >= MediaPlayer::ReadyState::HaveFutureData;
-    GST_DEBUG_OBJECT(pipeline(), "shouldBePlaying = %d, m_isPipelinePlaying = %d", static_cast<int>(shouldBePlaying), static_cast<int>(m_isPipelinePlaying));
+    GST_DEBUG_OBJECT(pipeline(), "shouldBePlaying = %s, m_isPipelinePlaying = %s", boolForPrinting(shouldBePlaying), boolForPrinting(m_isPipelinePlaying));
     if (shouldBePlaying && !m_isPipelinePlaying) {
         if (!changePipelineState(GST_STATE_PLAYING))
             GST_ERROR_OBJECT(pipeline(), "Setting the pipeline to PLAYING failed");
@@ -360,6 +439,18 @@ void MediaPlayerPrivateGStreamerMSE::getSupportedTypes(HashSet<String, ASCIICase
 
 MediaPlayer::SupportsType MediaPlayerPrivateGStreamerMSE::supportsType(const MediaEngineSupportParameters& parameters)
 {
+    static std::optional<VideoDecodingLimits> videoDecodingLimits;
+#ifdef VIDEO_DECODING_LIMIT
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+        videoDecodingLimits = videoDecoderLimitsDefaults();
+        if (!videoDecodingLimits) {
+            GST_WARNING("Parsing VIDEO_DECODING_LIMIT failed");
+            ASSERT_NOT_REACHED();
+        }
+    });
+#endif
+
     MediaPlayer::SupportsType result = MediaPlayer::SupportsType::IsNotSupported;
     if (!parameters.isMediaSource)
         return result;
@@ -373,13 +464,32 @@ MediaPlayer::SupportsType MediaPlayerPrivateGStreamerMSE::supportsType(const Med
         return result;
     }
 
+    unsigned channels = parseIntegerAllowingTrailingJunk<unsigned>(parameters.type.parameter("channels"_s)).value_or(0);
+    if (channels > MEDIA_MAX_AAC_CHANNELS)
+        return result;
+
+    bool ok;
+    float width = parameters.type.parameter("width"_s).toFloat(&ok);
+    if (!ok)
+        width = 0;
+    float height = parameters.type.parameter("height"_s).toFloat(&ok);
+    if (!ok)
+        height = 0;
+
+    if (videoDecodingLimits && (width > videoDecodingLimits->mediaMaxWidth || height > videoDecodingLimits->mediaMaxHeight))
+        return result;
+
+    float frameRate = parameters.type.parameter("framerate"_s).toFloat(&ok);
+    // Limit frameRate only in case of highest supported resolution.
+    if (ok && videoDecodingLimits && width == videoDecodingLimits->mediaMaxWidth && height == videoDecodingLimits->mediaMaxHeight && frameRate > videoDecodingLimits->mediaMaxFrameRate)
+        return result;
+
     GST_DEBUG("Checking mime-type \"%s\"", parameters.type.raw().utf8().data());
     auto& gstRegistryScanner = GStreamerRegistryScannerMSE::singleton();
     result = gstRegistryScanner.isContentTypeSupported(GStreamerRegistryScanner::Configuration::Decoding, parameters.type, parameters.contentTypesRequiringHardwareSupport);
 
-    auto finalResult = extendedSupportsType(parameters, result);
-    GST_DEBUG("Supported: %s", convertEnumerationToString(finalResult).utf8().data());
-    return finalResult;
+    GST_DEBUG("Supported: %s", convertEnumerationToString(result).utf8().data());
+    return result;
 }
 
 MediaTime MediaPlayerPrivateGStreamerMSE::maxMediaTimeSeekable() const

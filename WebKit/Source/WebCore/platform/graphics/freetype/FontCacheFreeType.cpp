@@ -25,7 +25,6 @@
 
 #include "CairoUniquePtr.h"
 #include "CairoUtilities.h"
-#include "CharacterProperties.h"
 #include "FcUniquePtr.h"
 #include "FloatConversion.h"
 #include "Font.h"
@@ -35,6 +34,7 @@
 #include FT_TRUETYPE_IDS_H
 #include "RefPtrCairo.h"
 #include "RefPtrFontconfig.h"
+#include "StyleFontSizeFunctions.h"
 #include "UTF16UChar32Iterator.h"
 #include <cairo-ft.h>
 #include <cairo.h>
@@ -82,7 +82,7 @@ static int fontWeightToFontconfigWeight(FontSelectionValue weight)
     return FC_WEIGHT_ULTRABLACK;
 }
 
-static bool configurePatternForFontDescription(FcPattern* pattern, const FontDescription& fontDescription)
+bool FontCache::configurePatternForFontDescription(FcPattern* pattern, const FontDescription& fontDescription)
 {
     if (!FcPatternAddInteger(pattern, FC_SLANT, fontDescription.italic() ? FC_SLANT_ITALIC : FC_SLANT_ROMAN))
         return false;
@@ -101,7 +101,7 @@ static void getFontPropertiesFromPattern(FcPattern* pattern, const FontDescripti
         fixedWidth = true;
 
     syntheticBold = false;
-    bool descriptionAllowsSyntheticBold = fontDescription.fontSynthesis() & FontSynthesisWeight;
+    bool descriptionAllowsSyntheticBold = fontDescription.hasAutoFontSynthesisWeight();
     if (descriptionAllowsSyntheticBold && isFontWeightBold(fontDescription.weight())) {
         // The FC_EMBOLDEN property instructs us to fake the boldness of the font.
         FcBool fontConfigEmbolden = FcFalse;
@@ -117,161 +117,16 @@ static void getFontPropertiesFromPattern(FcPattern* pattern, const FontDescripti
     // We requested an italic font, but Fontconfig gave us one that was neither oblique nor italic.
     syntheticOblique = false;
     int actualFontSlant;
-    bool descriptionAllowsSyntheticOblique = fontDescription.fontSynthesis() & FontSynthesisStyle;
+    bool descriptionAllowsSyntheticOblique = fontDescription.hasAutoFontSynthesisStyle();
     if (descriptionAllowsSyntheticOblique && fontDescription.italic()
         && FcPatternGetInteger(pattern, FC_SLANT, 0, &actualFontSlant) == FcResultMatch) {
         syntheticOblique = actualFontSlant == FC_SLANT_ROMAN;
     }
 }
 
-struct CachedPattern {
-    // The pattern is owned by the CachedFontSet.
-    FcPattern* pattern { nullptr };
-    FcCharSet* charSet { nullptr };
-};
-
-class CachedFontSet {
-    WTF_MAKE_NONCOPYABLE(CachedFontSet); WTF_MAKE_FAST_ALLOCATED;
-public:
-    explicit CachedFontSet(RefPtr<FcPattern>&& pattern)
-        : m_pattern(WTFMove(pattern))
-    {
-        FcResult result;
-        m_fontSet.reset(FcFontSort(nullptr, m_pattern.get(), FcTrue, nullptr, &result));
-        for (int i = 0; i < m_fontSet->nfont; ++i) {
-            FcPattern* pattern = m_fontSet->fonts[i];
-            FcCharSet* charSet;
-
-            if (FcPatternGetCharSet(pattern, FC_CHARSET, 0, &charSet) == FcResultMatch)
-                m_patterns.append({ pattern, charSet });
-        }
-    }
-
-    RefPtr<FcPattern> bestForCharacters(const UChar* characters, unsigned length)
-    {
-        if (m_patterns.isEmpty()) {
-            FcResult result;
-            return adoptRef(FcFontMatch(nullptr, m_pattern.get(), &result));
-        }
-
-        FcUniquePtr<FcCharSet> fontConfigCharSet(FcCharSetCreate());
-        UTF16UChar32Iterator iterator(characters, length);
-        UChar32 character = iterator.next();
-        bool hasNonIgnorableCharacters = false;
-        while (character != iterator.end()) {
-            if (!isDefaultIgnorableCodePoint(character)) {
-                FcCharSetAddChar(fontConfigCharSet.get(), character);
-                hasNonIgnorableCharacters = true;
-            }
-            character = iterator.next();
-        }
-
-        FcPattern* bestPattern = nullptr;
-        int minScore = std::numeric_limits<int>::max();
-        if (hasNonIgnorableCharacters) {
-            for (const auto& cachedPattern : m_patterns) {
-                if (!cachedPattern.charSet)
-                    continue;
-
-                int score = FcCharSetSubtractCount(fontConfigCharSet.get(), cachedPattern.charSet);
-                if (!score)
-                    return adoptRef(FcFontRenderPrepare(nullptr, m_pattern.get(), cachedPattern.pattern));
-
-                if (score < minScore) {
-                    bestPattern = cachedPattern.pattern;
-                    minScore = score;
-                }
-            }
-        }
-
-        if (bestPattern)
-            return adoptRef(FcFontRenderPrepare(nullptr, m_pattern.get(), bestPattern));
-
-        // If there aren't fonts with the given characters or all characters are ignorable, the first one is the best match.
-        return adoptRef(FcFontRenderPrepare(nullptr, m_pattern.get(), m_patterns[0].pattern));
-    }
-
-private:
-    RefPtr<FcPattern> m_pattern;
-    FcUniquePtr<FcFontSet> m_fontSet;
-    Vector<CachedPattern> m_patterns;
-};
-
-struct FallbackFontDescriptionKey {
-    FontDescriptionKey descriptionKey;
-    bool coloredFont { false };
-
-    FallbackFontDescriptionKey() = default;
-
-    FallbackFontDescriptionKey(const FontDescription& description, FontCache::PreferColoredFont preferColoredFont)
-        : descriptionKey(description)
-        , coloredFont(preferColoredFont == FontCache::PreferColoredFont::Yes)
-    {
-    }
-
-    explicit FallbackFontDescriptionKey(WTF::HashTableDeletedValueType deletedValue)
-        : descriptionKey(deletedValue)
-    {
-    }
-
-    bool operator==(const FallbackFontDescriptionKey& other) const
-    {
-        return descriptionKey == other.descriptionKey && coloredFont == other.coloredFont;
-    }
-
-    bool operator!=(const FallbackFontDescriptionKey& other) const
-    {
-        return !(*this == other);
-    }
-
-    bool isHashTableDeletedValue() const { return descriptionKey.isHashTableDeletedValue(); }
-
-};
-
-inline void add(Hasher& hasher, const FallbackFontDescriptionKey& key)
-{
-    add(hasher, key.descriptionKey, key.coloredFont);
-}
-
-struct FallbackFontDescriptionKeyHash {
-    static unsigned hash(const FallbackFontDescriptionKey& key) { return computeHash(key); }
-    static bool equal(const FallbackFontDescriptionKey& a, const FallbackFontDescriptionKey& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = true;
-};
-
-using SystemFallbackFontSetCache = HashMap<FallbackFontDescriptionKey, std::unique_ptr<CachedFontSet>, FallbackFontDescriptionKeyHash, SimpleClassHashTraits<FallbackFontDescriptionKey>>;
-static SystemFallbackFontSetCache& systemFallbackFontSetCache()
-{
-    // FIXME: This should be moved to FontCache since it can be accessed from worker threads.
-    static NeverDestroyed<SystemFallbackFontSetCache> cache;
-    return cache.get();
-}
-
 RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font&, IsForPlatformFont, PreferColoredFont preferColoredFont, const UChar* characters, unsigned length)
 {
-    auto addResult = systemFallbackFontSetCache().ensure(FallbackFontDescriptionKey(description, preferColoredFont), [&description, preferColoredFont]() -> std::unique_ptr<CachedFontSet> {
-        RefPtr<FcPattern> pattern = adoptRef(FcPatternCreate());
-        FcPatternAddBool(pattern.get(), FC_SCALABLE, FcTrue);
-#ifdef FC_COLOR
-        if (preferColoredFont == PreferColoredFont::Yes)
-            FcPatternAddBool(pattern.get(), FC_COLOR, FcTrue);
-#else
-        UNUSED_VARIABLE(preferColoredFont);
-#endif
-        if (!configurePatternForFontDescription(pattern.get(), description))
-            return nullptr;
-
-        FcConfigSubstitute(nullptr, pattern.get(), FcMatchPattern);
-        cairo_ft_font_options_substitute(getDefaultCairoFontOptions(), pattern.get());
-        FcDefaultSubstitute(pattern.get());
-
-        return makeUnique<CachedFontSet>(WTFMove(pattern));
-    });
-
-    if (!addResult.iterator->value)
-        return nullptr;
-
-    RefPtr<FcPattern> resultPattern = addResult.iterator->value->bestForCharacters(characters, length);
+    RefPtr<FcPattern> resultPattern = m_fontSetCache.bestForCharacters(description, preferColoredFont == PreferColoredFont::Yes, characters, length);
     if (!resultPattern)
         return nullptr;
 
@@ -285,7 +140,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
 
 void FontCache::platformPurgeInactiveFontData()
 {
-    systemFallbackFontSetCache().clear();
+    m_fontSetCache.clear();
 }
 
 static Vector<String> patternToFamilies(FcPattern& pattern)
@@ -607,14 +462,20 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
             FcPatternAddString(resultPattern.get(), FC_FONT_VARIATIONS, reinterpret_cast<const FcChar8*>(variants.utf8().data()));
     }
 #endif
-    auto platformData = makeUnique<FontPlatformData>(fontFace.get(), WTFMove(resultPattern), fontDescription.computedPixelSize(), fixedWidth, syntheticBold, syntheticOblique, fontDescription.orientation());
+
+    auto size = fontDescription.computedPixelSize();
+    FontPlatformData platformData(fontFace.get(), WTFMove(resultPattern), size, fixedWidth, syntheticBold, syntheticOblique, fontDescription.orientation());
+
+    platformData.updateSizeWithFontSizeAdjust(fontDescription.fontSizeAdjust());
+    auto platformDataUniquePtr = makeUnique<FontPlatformData>(platformData);
+
     // Verify that this font has an encoding compatible with Fontconfig. Fontconfig currently
     // supports three encodings in FcFreeTypeCharIndex: Unicode, Symbol and AppleRoman.
     // If this font doesn't have one of these three encodings, don't select it.
-    if (!platformData->hasCompatibleCharmap())
+    if (!platformDataUniquePtr->hasCompatibleCharmap())
         return nullptr;
 
-    return platformData;
+    return platformDataUniquePtr;
 }
 
 std::optional<ASCIILiteral> FontCache::platformAlternateFamilyName(const String&)

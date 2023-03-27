@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "February 12, 2022" "zsh 5\&.8\&.1"
+.TH "ZSHCONTRIB" "1" "May 14, 2022" "zsh 5\&.9"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -41,7 +41,7 @@ distribution in your home directory, you would use the commands:
 .RS
 .nf
 \fBmkdir ~/zsh_help
-perl ~/zsh\-5\&.8\&.1/Util/helpfiles ~/zsh_help\fP
+perl ~/zsh\-5\&.9/Util/helpfiles ~/zsh_help\fP
 .fi
 .RE
 .PP
@@ -181,7 +181,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-5\&.8\&.1/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-5\&.9/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -237,7 +237,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-5\&.8\&.1/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-5\&.9/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -374,7 +374,7 @@ is added to the array of widgets to be invoked in the given hook context\&.
 Widgets are invoked in the order they were added, with
 .RS
 .nf
-\fB\fBzle \fP\fIwidgetname\fP\fB \-Nw \-\- "$@"\fP\fP
+\fB\fBzle \fP\fIwidgetname\fP\fB \-Nw \-f "nolast" \-\- "$@"\fP\fP
 .fi
 .RE
 .PP
@@ -494,7 +494,7 @@ allows you to edit the list of directories, one per line\&.  The
 list can be edited to any extent you like; no sanity checking is
 performed\&.  Completion is available\&.  No quoting is necessary (except for
 newlines, where I have in any case no sympathy); directories are in
-unabbreviated from and contain an absolute path, i\&.e\&. they start with \fB/\fP\&.
+unabbreviated form and contain an absolute path, i\&.e\&. they start with \fB/\fP\&.
 Usually the first entry should be left as the current directory\&.
 .TP
 \fB\-p \&'\fP\fIpattern\fP\fB'\fP
@@ -647,7 +647,7 @@ changes to descendant directories; earlier directories on the
 list are not pruned\&.  For example, changing from ~pws/yet/another
 to ~pws/some/other/dir does not cause ~pws to be pruned\&.
 .TP
-\fBpattern:\fIpattern\fP\fP
+\fBpattern:\fP\fIpattern\fP
 Gives a zsh pattern for directories that should not be
 added to the recent list (if not already there)\&.  This element
 can be repeated to add different patterns\&.  For example,
@@ -705,7 +705,7 @@ more details\&.
 .PP
 The dynamic directory naming system is described in the subsection
 \fIDynamic named directories\fP of
-the section \fIFilename Expansion\fP in \fIexpn\fP(1)\&.  In this, a reference to
+the section \fIFilename Expansion\fP in \fIzshexpn\fP(1)\&.  In this, a reference to
 \fB~[\fP\fI\&.\&.\&.\fP\fB]\fP is expanded by a function found by the hooks
 mechanism\&.
 .PP
@@ -754,7 +754,7 @@ Then arrange for the wrapper to be run as a zsh_directory_name hook:
 .PP
 .RS
 .nf
-\fBautoload \-Uz add\-zsh\-hook zsh_diretory_name_generic zdn_mywrapper
+\fBautoload \-Uz add\-zsh\-hook zsh_directory_name_generic zdn_mywrapper
 add\-zsh\-hook \-U zsh_directory_name zdn_mywrapper\fP
 .fi
 .RE
@@ -1269,7 +1269,7 @@ This is used by the Perforce backend (\fBp4\fP) to decide if it should
 contact the Perforce server to find out if a directory is managed
 by Perforce\&.  This is the only reliable way of doing this, but runs
 the risk of a delay if the server name cannot be found\&.  If the
-server (more specifically, the \fBhost\fP\fB:\fP\fBport\fP pair describing the
+server (more specifically, the \fIhost\fP\fB:\fP\fIport\fP pair describing the
 server) cannot be contacted, its name is put into the associative array
 \fBvcs_info_p4_dead_servers\fP and is not contacted again during the session
 until it is removed by hand\&.  If you do not set this style, the \fBp4\fP
@@ -1288,7 +1288,7 @@ If there are two different ways of gathering
 information, you can select the simpler one by setting this style to true;
 the default is to use the not\-that\-simple code, which is potentially a lot
 slower but might be more accurate in all possible cases\&. This style is
-used by the \fBbzr\fP and \fBhg\fP backends\&. In the case of \fBhg\fP it will invoke
+used by the \fBbzr\fP, \fBhg\fP, and \fBgit\fP backends\&. In the case of \fBhg\fP it will invoke
 the external hexdump program to parse the binary dirstate cache file; this
 method will not return the local revision number\&.
 .TP
@@ -1343,7 +1343,7 @@ This boolean style controls whether a backend should attempt to gather a list
 of unapplied patches (for example with Mercurial Queue patches)\&.
 .RS
 .PP
-Used by the \fBquilt\fP and \fBhg\fP backends\&.
+Used by the \fBquilt\fP, \fBhg\fP, and \fBgit\fP backends\&.
 .RE
 .PP
 The default values for these styles in all contexts are:
@@ -1504,7 +1504,7 @@ The \fBquilt\fP `standalone\&' backend sets this expando to the same value as th
 \fB%Q\fP
 Quilt series information\&.
 When quilt is used (either in `addon\&' mode or as a `standalone' backend),
-this expando is set to quilt series\&' \fBpatch\-format\fP string\&.
+this expando is set to the quilt series\&' \fBpatch\-format\fP string\&.
 The \fBset\-patch\-format\fP hook and \fBnopatch\-format\fP style are honoured\&.
 .RS
 .PP
@@ -1516,7 +1516,8 @@ In \fBbranchformat\fP these replacements are done:
 .PD 0
 .TP
 \fB%b\fP
-The branch name\&.
+The branch name\&. For \fBhg\fP, the branch name can include a
+topic name\&.
 .TP
 \fB%r\fP
 The current revision number or the \fBhgrevformat\fP style for
@@ -1613,7 +1614,7 @@ a directory that holds quilt\&'s patches needs to be found\&. That directory is
 configurable via the `\fBQUILT_PATCHES\fP\&' environment variable\&. If that
 variable exists its value is used, otherwise the value `\fBpatches\fP\&' is
 assumed\&. The value from \fB$QUILT_PATCHES\fP can be overwritten using the
-`\fBquilt\-patches\fP\&' style\&. (Note: you can use \fBvcs_info\fP to keep the value
+`\fBquilt\-patch\-dir\fP\&' style\&. (Note: you can use \fBvcs_info\fP to keep the value
 of \fB$QUILT_PATCHES\fP correct all the time via the \fBpost\-quilt\fP hook)\&.
 .PP
 When the directory in question is found, quilt is assumed to be active\&. To
@@ -1714,7 +1715,7 @@ See \fBHooks in vcs_info\fP
 below for details\&.
 .TP
 \fBvcs_info_lastmsg\fP
-Outputs the last \fB${vcs_info_msg_*_}\fP value\&.
+Outputs the current values of \fB${vcs_info_msg_*_}\fP\&.
 Takes into account the value of the \fBuse\-prompt\-escapes\fP style in
 \fB\&':vcs_info:formats:command:\-all\-'\fP\&. It also only prints \fBmax\-exports\fP
 values\&.
@@ -1867,9 +1868,16 @@ is generated; the \fBuse\-quilt\fP zstyle must be true for \fBquilt\fP (the \fBm
 and \fBstgit\fP backends are active by default)\&.
 .RS
 .PP
-This hook gets the names of all applied patches which \fBvcs_info\fP collected
-so far in the opposite order, which means that the first argument is the
+The arguments to this hook describe applied patches 
+in the opposite order, which means that the first argument is the
 top\-most patch and so forth\&.
+.PP
+When the patches\&' log messages can be extracted, those are embedded
+within each argument after a space, so each argument is of the form
+`\fIpatch\-name\fP \fIfirst line of the log message\fP\&', where \fIpatch\-name\fP
+contains no whitespace\&. The \fBmq\fP backend passes arguments of
+the form `\fIpatch name\fP\&', with possible embedded spaces, but without
+extracting the patch\&'s log message\&.
 .PP
 When setting \fBret\fP to non\-zero, the string in
 \fB${hook_com[applied\-string]}\fP will be
@@ -1877,6 +1885,10 @@ available as \fB%p\fP in the \fBpatch\-format\fP and \fBnopatch\-format\fP style
 This hook is, in concert with \fBset\-patch\-format\fP, responsible for
 \fB%\fP\-escaping that value for use in the prompt\&.
 (See the \fBOddities\fP section\&.)
+.PP
+The \fBquilt\fP backend passes to this hook the inputs
+\fB${hook_com[quilt\-patches\-dir]}\fP and, if it has been
+determined, \fB${hook_com[quilt\-pc\-dir]}\fP\&.
 .RE
 .TP
 \fBgen\-unapplied\-string\fP
@@ -1886,8 +1898,10 @@ generated; the \fBget\-unapplied\fP style must be true\&.
 .RS
 .PP
 This hook gets the names of all unapplied patches which \fBvcs_info\fP
-collected so far in order, which means that the first argument is
+in order, which means that the first argument is
 the patch next\-in\-line to be applied and so forth\&.
+.PP
+The format of each argument is as for \fBgen\-applied\-string\fP, above\&.
 .PP
 When setting \fBret\fP to non\-zero, the string in
 \fB${hook_com[unapplied\-string]}\fP will be available as \fB%u\fP in the
@@ -1895,6 +1909,10 @@ When setting \fBret\fP to non\-zero, the string in
 This hook is, in concert with \fBset\-patch\-format\fP, responsible for
 \fB%\fP\-escaping that value for use in the prompt\&.
 (See the \fBOddities\fP section\&.)
+.PP
+The \fBquilt\fP backend passes to this hook the inputs
+\fB${hook_com[quilt\-patches\-dir]}\fP and, if it has been
+determined, \fB${hook_com[quilt\-pc\-dir]}\fP\&.
 .RE
 .TP
 \fBgen\-mqguards\-string\fP
@@ -1993,6 +2011,10 @@ This hook is, in concert with the \fBgen\-applied\-string\fP or
 \fBgen\-unapplied\-string\fP hooks if they are defined, responsible for
 \fB%\fP\-escaping the final \fBpatch\-format\fP value for use in the prompt\&.
 (See the \fBOddities\fP section\&.)
+.PP
+The \fBquilt\fP backend passes to this hook the inputs
+\fB${hook_com[quilt\-patches\-dir]}\fP and, if it has been
+determined, \fB${hook_com[quilt\-pc\-dir]}\fP\&.
 .RE
 .TP
 \fBset\-message\fP
@@ -2081,22 +2103,38 @@ Display the revision number in yellow for \fBbzr\fP and \fBsvn\fP:
 .RS
 .nf
 \fBzstyle \&':vcs_info:(svn|bzr):*' \e 
+       branchformat \&'%b%%F{yellow}:%r'\fP
+.fi
+.RE
+.PP
+The doubled percent sign is explained in
+the \fBOddities\fP section\&.
+.PP
+Alternatively, one can use the raw colour codes directly:
+.PP
+.RS
+.nf
+\fBzstyle \&':vcs_info:(svn|bzr):*' \e 
        branchformat \&'%b%{'${fg[yellow]}'%}:%r'\fP
 .fi
 .RE
 .PP
-If you want colors, make sure you enclose the color codes in \fB%{\fP\fI\&.\&.\&.\fP\fB%}\fP
+Normally when a variable is interpolated into a format string, the variable
+needs to be \fB%\fP\-escaped\&. In this example we skipped that because we assume
+the value of \fB${fg[yellow]}\fP doesn\&'t contain any \fB%\fP signs\&.
+.PP
+Make sure you enclose the color codes in \fB%{\fP\fI\&.\&.\&.\fP\fB%}\fP
 if you want to use the string provided by \fBvcs_info\fP in prompts\&.
 .PP
 Here is how to print the VCS information as a command (not in a prompt):
 .RS
 .nf
-\fBalias vcsi=\&'vcs_info command; vcs_info_lastmsg'\fP
+\fBvcsi() { vcs_info interactive; vcs_info_lastmsg }\fP
 .fi
 .RE
 .PP
 This way, you can even define different formats for output via
-\fBvcs_info_lastmsg\fP in the \&'\fB:vcs_info:*:command:*\fP' namespace\&.
+\fBvcs_info_lastmsg\fP in the \&'\fB:vcs_info:*:interactive:*\fP' namespace\&.
 .PP
 Now as promised, some code that uses hooks:
 say, you\&'d like to replace the string `svn' by `subversion' in
@@ -2210,7 +2248,7 @@ This concludes our guided tour through zsh\&'s \fBvcs_info\fP\&.
 .PP
 You should make sure all the functions from the \fBFunctions/Prompts\fP
 directory of the source distribution are available; they all begin with
-the string `\fBprompt_\fP\&' except for the special function`\fBpromptinit\fP'\&.
+the string `\fBprompt_\fP\&' except for the special function `\fBpromptinit\fP'\&.
 You also need the `\fBcolors\fP\&' and `\fBadd\-zsh\-hook\fP' functions from
 \fBFunctions/Misc\fP\&.
 All these functions may already be installed on your system; if not,
@@ -2334,31 +2372,36 @@ setopts (\fBpromptbang\fP, etc\&.) are turned on, all other prompt\-related
 options are turned off\&.  The \fBprompt_opts\fP array preserves setopts even
 beyond the scope of \fBlocaloptions\fP, should your function need that\&.
 .TP
-Modify precmd and preexec
-Use of \fBadd\-zsh\-hook\fP is recommended\&.  The \fBprecmd\fP and \fBpreexec\fP
-hooks are automatically adjusted if the prompt theme changes or is
-disabled\&.
+Modify hooks
+Use of \fBadd\-zsh\-hook\fP and \fBadd\-zle\-hook\-widget\fP is recommended (see
+the \fBManipulating Hook Functions\fP section above)\&.
+All hooks that follow the naming pattern \fBprompt_\fP\fItheme\fP\fB_\fP\fIhook\fP
+are automatically removed when the prompt theme changes or is disabled\&.
 .TP
 Declare cleanup
 If your function makes any other changes that should be undone when the
 theme is disabled, your setup function may call
 .RS
+.PP
+.RS
 .nf
 \fBprompt_cleanup \fIcommand\fP\fP
 .fi
 .RE
+.PP
 where \fIcommand\fP should be suitably quoted\&.  If your theme is ever
 disabled or replaced by another, \fIcommand\fP is executed with \fBeval\fP\&.
 You may declare more than one such cleanup hook\&.
+.RE
 .TP
 Define preview
-Define or autoload a function \fBprompt_\fIname\fP_preview\fP to display
+Define or autoload a function \fBprompt_\fP\fIname\fP\fB_preview\fP to display
 a simulated version of your prompt\&.  A simple default previewer is
 defined by \fBpromptinit\fP for themes that do not define their own\&.
 This preview function is called by `\fBprompt \-p\fP\&'\&.
 .TP
 Provide help
-Define or autoload a function \fBprompt_\fIname\fP_help\fP to display
+Define or autoload a function \fBprompt_\fP\fIname\fP\fB_help\fP to display
 documentation or help text for your theme\&.
 This help function is called by `\fBprompt \-h\fP\&'\&.
 .PP
@@ -2669,7 +2712,7 @@ directly\&.
 .RE
 .TP
 \fBbracketed\-paste\-magic\fP
-The \fBbracketed\-paste\fP widget (see subsection Miscellaneous in
+The \fBbracketed\-paste\fP widget (see the subsection `Miscellaneous\&' in
 \fIzshzle\fP(1))
 inserts pasted text literally into the editor buffer rather than interpret
 it as keystrokes\&.  This disables some common usages where the self\-insert
@@ -2855,6 +2898,16 @@ Edit the command line using your visual editor, as in \fBksh\fP\&.
 .RS
 .nf
 \fBbindkey \-M vicmd v edit\-command\-line\fP
+.fi
+.RE
+.PP
+The editor to be used can also be specified using the \fBeditor\fP style in
+the context of the widget\&. It is specified as an array of command and
+arguments:
+.PP
+.RS
+.nf
+\fBzstyle :zle:edit\-command\-line editor gvim \-f\fP
 .fi
 .RE
 .RE
@@ -3811,7 +3864,7 @@ investigate the command word found\&.  The default is \fBwhence \-c\fP\&.
 .TP
 \fBzcalc\-auto\-insert\fP
 This function is useful together with the \fBzcalc\fP function described in
-the section Mathematical Functions\&.
+the section `Mathematical Functions\&'\&.
 It should be bound to a key representing a binary operator such
 as `\fB+\fP\&', `\fB\-\fP', `\fB*\fP' or `\fB/\fP'\&.  When running in zcalc,
 if the key occurs at the start of the line or immediately following
@@ -4252,7 +4305,8 @@ Calling \fBzsh\-mime\-setup\fP with the option
 \fB\-v\fP causes verbose output to be shown during the setup operation\&.
 .PP
 The system respects the \fBmailcap\fP flags \fBneedsterminal\fP and
-\fBcopiousoutput\fP, see \fImailcap\fP(4)\&.
+\fBcopiousoutput\fP; see \fImailcap\fP(4) or \fImailcap\fP(5)
+(the man page\&'s name varies across platforms)\&.
 .PP
 The functions use the following styles, which are defined with the
 \fBzstyle\fP builtin command (see \fIzshmodules\fP(1))\&.  They should be defined
@@ -4330,7 +4384,7 @@ types even if they are executable\&.  As this example shows, the complete
 file name is matched against the pattern, regardless of how the file
 was passed to the handler\&.  The file is resolved to a full path using
 the \fB:P\fP modifier described in
-the subsection Modifiers in \fIzshexpn\fP(1);
+the subsection `Modifiers\&' in \fIzshexpn\fP(1);
 this means that symbolic links are resolved where possible, so that
 links into other file systems behave in the correct fashion\&.
 .RE
@@ -4995,6 +5049,11 @@ Same as \fBzed \-f\fP\&.  This function does not appear in the zsh
 distribution, but can be created by linking \fBzed\fP to the name \fBfned\fP
 in some directory in your \fBfpath\fP\&.
 .TP
+\fBhisted\fP [ [ \fIname\fP ] \fIsize\fP ]
+Same as \fBzed \-h\fP\&.  This function does not appear in the zsh
+distribution, but can be created by linking \fBzed\fP to the name \fBhisted\fP
+in some directory in your \fBfpath\fP\&.
+.TP
 \fBis\-at\-least\fP \fIneeded\fP [ \fIpresent\fP ]
 Perform a greater\-than\-or\-equal\-to comparison of two strings having the
 format of a zsh version number; that is, a string of numbers and text with
@@ -5031,7 +5090,7 @@ See also the \fBpager\fP, \fBprompt\fP and \fBrprompt\fP styles below\&.
 .TP
 \fBregexp\-replace\fP \fIvar\fP \fIregexp\fP \fIreplace\fP
 Use regular expressions to perform a global search and replace operation
-on a variable\&.  POSIX extended regular expressions are used,
+on a variable\&.  POSIX extended regular expressions (ERE) are used,
 unless the option \fBRE_MATCH_PCRE\fP has been set, in which case
 Perl\-compatible regular expressions are used
 (this requires the shell to be linked against the \fBpcre\fP
@@ -5050,6 +5109,9 @@ and arithmetic expressions which will be replaced:  in particular, a
 reference to \fB$MATCH\fP will be replaced by the text matched by the pattern\&.
 .PP
 The return status is 0 if at least one match was performed, else 1\&.
+.PP
+Note that if using POSIX EREs, the \fB^\fP or word boundary operators
+(where available) may not work properly\&.
 .RE
 .TP
 \fBrun\-help\fP \fIcmd\fP
@@ -5096,26 +5158,30 @@ your search path, in order to be found and used by \fBrun\-help\fP\&.
 .PD 0
 .TP
 .PD 0
-run\-help\-git
+\fBrun\-help\-btrfs\fP
 .TP
 .PD 0
-run\-help\-ip
+\fBrun\-help\-git\fP
 .TP
 .PD 0
-run\-help\-openssl
+\fBrun\-help\-ip\fP
 .TP
 .PD 0
-run\-help\-p4
+\fBrun\-help\-openssl\fP
 .TP
 .PD 0
-run\-help\-sudo
+\fBrun\-help\-p4\fP
 .TP
 .PD 0
-run\-help\-svk
+\fBrun\-help\-sudo\fP
+.TP
+.PD 0
+\fBrun\-help\-svk\fP
 .TP
 .PD
 \fBrun\-help\-svn\fP
 Assistant functions for the
+\fBbtrfs\fP,
 \fBgit\fP,
 \fBip\fP,
 \fBopenssl\fP,
@@ -5233,13 +5299,16 @@ counts the number of arguments passed to each execution of \fIcommand\fP,
 \fIincluding\fP any \fIarg\fP list\&.  Also, any time \fB\-i\fP or \fB\-I\fP is used,
 each \fIinput\fP is processed separately as if by `\fB\-L\fP \fB1\fP\&'\&.
 .PP
-For details of the other \fBzargs\fP options, see \fIxargs\fP(1) (but note
+For details of the other \fBzargs\fP options, see the \fIxargs\fP(1) man page (but note
 the difference in function between \fBzargs\fP and \fBxargs\fP) or run
 \fBzargs\fP with the \fB\-\fP\fB\-help\fP option\&.
 .RE
 .TP
 .PD 0
 \fBzed\fP [ \fB\-f\fP [ \fB\-x\fP \fInum\fP ] ] \fIname\fP
+.TP
+.PD 0
+\fBzed\fP [ \fB\-h\fP [ \fIname\fP ] \fIsize\fP ]
 .TP
 .PD
 \fBzed \-b\fP
@@ -5257,7 +5326,14 @@ the given number of spaces; `\fB\-x 2\fP\&' is consistent with the layout
 of functions distributed with the shell\&.
 .PP
 Without \fB\-f\fP, \fIname\fP is the path name of the file to edit, which need
-not exist; it is created on write, if necessary\&.
+not exist; it is created on write, if necessary\&.  With \fB\-h\fP, the file is
+presumed to contain history events\&.
+.PP
+When no file name is provided for \fB\-h\fP the current shell history is edited
+in place\&.  The history is renumbered when zed exits successfully\&.
+.PP
+When editing history, multi\-line events must have a trailing backslash on
+every line before the last\&.
 .PP
 While editing, the function sets the main keymap to \fBzed\fP and the
 vi command keymap to \fBzed\-vicmd\fP\&.  These will be copied from the existing
@@ -5273,16 +5349,19 @@ suitable for putting into a startup file\&.  Note that, if rerun,
 this will overwrite the existing \fBzed\fP and \fBzed\-vicmd\fP keymaps\&.
 .PP
 Completion is available, and styles may be set with the context prefix
-`\fB:completion:zed\fP\&'\&.
+`\fB:completion:zed:\fP\&'\&.
 .PP
-A zle widget \fBzed\-set\-file\-name\fP is available\&.  This can be called by
-name from within zed using `\fB\eex zed\-set\-file\-name\fP\&' (note, however, that
-because of zed\&'s rebindings you will have to type \fB^j\fP at the end instead
-of the return key), or can be bound to a key in either of the \fBzed\fP or
-\fBzed\-vicmd\fP keymaps after `\fBzed \-b\fP\&' has been run\&.  When the widget is
-called, it prompts for a new name for the file being edited\&.  When zed
-exits the file will be written under that name and the original file will
-be left alone\&.  The widget has no effect with `\fBzed \-f\fP\&'\&.
+A zle widget \fBzed\-set\-file\-name\fP is available\&.  This can be called
+by name from within zed using `\fB\eex zed\-set\-file\-name\fP\&' or can be
+bound to a key in either of the \fBzed\fP or \fBzed\-vicmd\fP keymaps after
+`\fBzed \-b\fP\&' has been run\&.  When the widget is called, it prompts for
+a new name for the file being edited\&.  When zed exits the file will be
+written under that name and the original file will be left alone\&.  The
+widget has no effect when invoked from `\fBzed \-f\fP\&'\&.  The completion
+context is changed to `\fB:completion:zed\-set\-file\-name:\fP\&'\&.  When editing
+the current history with `\fBzed \-h\fP\&', the history is first updated and
+then the file is written, but the global setting of \fBHISTFILE\fP is not
+altered\&.
 .PP
 While \fBzed\-set\-file\-name\fP is running, zed uses the keymap
 \fBzed\-normal\-keymap\fP, which is linked from the main keymap in effect
@@ -5332,7 +5411,7 @@ the same result, the destination was an existing regular file and \fB\-f\fP
 was not given) causes the entire function to abort without doing
 anything\&.
 .PP
-In addition to pattern replacement, the variable \fB$f\fP can be referrred
+In addition to pattern replacement, the variable \fB$f\fP can be referred
 to in the second (replacement) argument\&.  This makes it possible to
 use variable substitution to alter the argument; see examples below\&.
 .PP

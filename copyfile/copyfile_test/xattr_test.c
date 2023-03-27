@@ -26,6 +26,14 @@
 
 #define BACKUP_XF_POSTFIX	"#B"
 
+#define METADATA_XATTR_PREFIX			"com.apple.metadata:"
+#define SPOTLIGHT_COLLABORATION_XATTR	METADATA_XATTR_PREFIX "kMDItemCollaborationIdentifier"
+#define SPOTLIGHT_SHARED_XATTR			METADATA_XATTR_PREFIX "kMDItemIsShared"
+#define SPOTLIGHT_USERROLE_XATTR		METADATA_XATTR_PREFIX "kMDItemSharedItemCurrentUserRole"
+#define SPOTLIGHT_OWNER_XATTR			METADATA_XATTR_PREFIX "kMDItemOwnerName"
+#define SPOTLIGHT_FAVORITE_XATTR		METADATA_XATTR_PREFIX "kMDItemFavoriteRank"
+#define OTHER_METADATA_XATTR			METADATA_XATTR_PREFIX "puzzlebub"
+
 bool do_xattr_flags_test(__unused const char *apfs_test_directory, __unused size_t block_size) {
 	// The idea here is to verify that the xattr_preserve_for_intent(3) API family returns sane results.
 	printf("START [xattr_flags]\n");
@@ -33,6 +41,23 @@ bool do_xattr_flags_test(__unused const char *apfs_test_directory, __unused size
 	// The resource fork should be preserved on copies, but not safe saves.
 	assert_equal_int(xattr_preserve_for_intent(XATTR_RESOURCEFORK_NAME, XATTR_OPERATION_INTENT_COPY), 1);
 	assert_equal_int(xattr_preserve_for_intent(XATTR_RESOURCEFORK_NAME, XATTR_OPERATION_INTENT_SAVE), 0);
+
+	// Spotlight xattrs should not be preserved for copy or share.
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_COLLABORATION_XATTR, XATTR_OPERATION_INTENT_COPY), 0);
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_SHARED_XATTR, XATTR_OPERATION_INTENT_COPY), 0);
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_USERROLE_XATTR, XATTR_OPERATION_INTENT_COPY), 0);
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_OWNER_XATTR, XATTR_OPERATION_INTENT_COPY), 0);
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_FAVORITE_XATTR, XATTR_OPERATION_INTENT_COPY), 0);
+
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_COLLABORATION_XATTR, XATTR_OPERATION_INTENT_SHARE), 0);
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_SHARED_XATTR, XATTR_OPERATION_INTENT_SHARE), 0);
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_USERROLE_XATTR, XATTR_OPERATION_INTENT_SHARE), 0);
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_OWNER_XATTR, XATTR_OPERATION_INTENT_SHARE), 0);
+	assert_equal_int(xattr_preserve_for_intent(SPOTLIGHT_FAVORITE_XATTR, XATTR_OPERATION_INTENT_SHARE), 0);
+
+	// However, other "com.apple.metadata" xattrs should be preserved for copy and safe save.
+	assert_equal_int(xattr_preserve_for_intent(OTHER_METADATA_XATTR, XATTR_OPERATION_INTENT_COPY), 1);
+	assert_equal_int(xattr_preserve_for_intent(OTHER_METADATA_XATTR, XATTR_OPERATION_INTENT_SAVE), 1);
 
 	// Verify that xattr_flags_from_name()/xattr_name_with_flags() recognize the backup xattr flag.
 	assert_equal_ll(xattr_flags_from_name(SMALL_XATTR_NAME BACKUP_XF_POSTFIX), XATTR_FLAG_ONLY_BACKUP);

@@ -34,6 +34,7 @@
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
 #import <WebCore/ScriptExecutionContext.h>
+#import <WebCore/SecurityOrigin.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/Scope.h>
@@ -48,44 +49,38 @@ using namespace WebCore;
 - (id)initWithPermissionHandler:(NotificationClient::PermissionHandler&&)permissionHandler;
 @end
 
-static uint64_t generateNotificationID()
-{
-    static uint64_t uniqueNotificationID = 1;
-    return uniqueNotificationID++;
-}
-
 WebNotificationClient::WebNotificationClient(WebView *webView)
     : m_webView(webView)
 {
 }
 
-bool WebNotificationClient::show(Notification& notification, CompletionHandler<void()>&& callback)
+bool WebNotificationClient::show(ScriptExecutionContext&, NotificationData&& notification, RefPtr<NotificationResources>&&, CompletionHandler<void()>&& callback)
 {
     auto scope = makeScopeExit([&callback] { callback(); });
 
     if (![m_webView _notificationProvider])
         return false;
 
-    uint64_t notificationID = generateNotificationID();
-    RetainPtr<WebNotification> webNotification = adoptNS([[WebNotification alloc] initWithCoreNotification:&notification notificationID:notificationID]);
-    m_notificationMap.set(&notification, webNotification);
+    auto notificationID = notification.notificationID;
+    RetainPtr<WebNotification> webNotification = adoptNS([[WebNotification alloc] initWithCoreNotification:WTFMove(notification)]);
+    m_notificationMap.set(notificationID, webNotification);
 
     [[m_webView _notificationProvider] showNotification:webNotification.get() fromWebView:m_webView];
     return true;
 }
 
-void WebNotificationClient::cancel(Notification& notification)
+void WebNotificationClient::cancel(NotificationData&& notification)
 {
-    WebNotification *webNotification = m_notificationMap.get(&notification).get();
+    WebNotification *webNotification = m_notificationMap.get(notification.notificationID).get();
     if (!webNotification)
         return;
 
     [[m_webView _notificationProvider] cancelNotification:webNotification];
 }
 
-void WebNotificationClient::notificationObjectDestroyed(Notification& notification)
+void WebNotificationClient::notificationObjectDestroyed(NotificationData&& notification)
 {
-    RetainPtr<WebNotification> webNotification = m_notificationMap.take(&notification);
+    RetainPtr<WebNotification> webNotification = m_notificationMap.take(notification.notificationID);
     if (!webNotification)
         return;
 
@@ -97,6 +92,11 @@ void WebNotificationClient::notificationControllerDestroyed()
     delete this;
 }
 
+void WebNotificationClient::clearNotificationPermissionState()
+{
+    m_notificationPermissionRequesters.clear();
+}
+
 void WebNotificationClient::requestPermission(ScriptExecutionContext& context, WebNotificationPolicyListener *listener)
 {
     SEL selector = @selector(webView:decidePolicyForNotificationRequestFromOrigin:listener:);
@@ -106,6 +106,9 @@ void WebNotificationClient::requestPermission(ScriptExecutionContext& context, W
     m_everRequestedPermission = true;
 
     auto webOrigin = adoptNS([[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:context.securityOrigin()]);
+
+    // Add origin to list of origins that have requested permission to use the Notifications API.
+    m_notificationPermissionRequesters.add(context.securityOrigin()->data());
     
     CallUIDelegate(m_webView, selector, webOrigin.get(), listener);
 }
@@ -126,6 +129,12 @@ NotificationClient::Permission WebNotificationClient::checkPermission(ScriptExec
         return NotificationClient::Permission::Denied;
     auto webOrigin = adoptNS([[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:context->securityOrigin()]);
     WebNotificationPermission permission = [[m_webView _notificationProvider] policyForOrigin:webOrigin.get()];
+
+    // To reduce fingerprinting, if the origin has not requested permission to use the
+    // Notifications API, and the permission state is "denied", return "default" instead.
+    if (permission == WebNotificationPermissionDenied && !m_notificationPermissionRequesters.contains(context->securityOrigin()->data()))
+        return NotificationClient::Permission::Default;
+
     switch (permission) {
         case WebNotificationPermissionAllowed:
             return NotificationClient::Permission::Granted;
@@ -136,11 +145,6 @@ NotificationClient::Permission WebNotificationClient::checkPermission(ScriptExec
         default:
             return NotificationClient::Permission::Default;
     }
-}
-
-uint64_t WebNotificationClient::notificationIDForTesting(WebCore::Notification* notification)
-{
-    return [m_notificationMap.get(notification).get() notificationID];
 }
 
 @implementation WebNotificationPolicyListener

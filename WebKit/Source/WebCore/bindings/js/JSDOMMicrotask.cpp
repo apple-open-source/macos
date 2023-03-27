@@ -33,6 +33,7 @@
 #include <JavaScriptCore/JSGlobalObject.h>
 #include <JavaScriptCore/JSObjectInlines.h>
 #include <JavaScriptCore/StrongInlines.h>
+#include <JavaScriptCore/VMTrapsInlines.h>
 
 namespace WebCore {
 using namespace JSC;
@@ -78,7 +79,7 @@ void JSDOMMicrotask::run(JSGlobalObject* globalObject)
 
     if (UNLIKELY(globalObject->hasDebugger())) {
         JSC::DeferTerminationForAWhile deferTerminationForAWhile(vm);
-        globalObject->debugger()->willRunMicrotask();
+        globalObject->debugger()->willRunMicrotask(globalObject, identifier());
         scope.clearException();
     }
 
@@ -92,7 +93,7 @@ void JSDOMMicrotask::run(JSGlobalObject* globalObject)
 
     if (UNLIKELY(globalObject->hasDebugger())) {
         JSC::DeferTerminationForAWhile deferTerminationForAWhile(vm);
-        globalObject->debugger()->didRunMicrotask();
+        globalObject->debugger()->didRunMicrotask(globalObject, identifier());
         scope.clearException();
     }
 }

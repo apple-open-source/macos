@@ -24,7 +24,7 @@
 #pragma once
 
 #include "FilterResults.h"
-#include "ImageBuffer.h"
+#include "FilterTargetSwitcher.h"
 #include "RenderSVGResourceContainer.h"
 #include "SVGFilter.h"
 #include "SVGUnitTypes.h"
@@ -47,7 +47,7 @@ public:
     RefPtr<SVGFilter> filter;
     FilterResults results;
 
-    RefPtr<ImageBuffer> sourceImage;
+    std::unique_ptr<FilterTargetSwitcher> targetSwitcher;
     FloatRect sourceImageRect;
 
     GraphicsContext* savedContext { nullptr };
@@ -61,6 +61,7 @@ public:
     virtual ~RenderSVGResourceFilter();
 
     inline SVGFilterElement& filterElement() const;
+    bool isIdentity() const;
 
     void removeAllClientsFromCache(bool markForInvalidation = true) override;
     void removeClientFromCache(RenderElement&, bool markForInvalidation = true) override;

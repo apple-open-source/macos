@@ -26,51 +26,106 @@
 #include "config.h"
 #include "WebsiteDataStoreConfiguration.h"
 
+#include "UnifiedOriginStorageLevel.h"
 #include "WebPushDaemonConnectionConfiguration.h"
 #include "WebsiteDataStore.h"
 
 namespace WebKit {
 
-WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(IsPersistent isPersistent, WillCopyPathsFromExistingConfiguration willCopyPaths)
+WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(IsPersistent isPersistent, ShouldInitializePaths shouldInitializePaths)
     : m_isPersistent(isPersistent)
-    , m_shouldUseCustomStoragePaths(WebsiteDataStore::defaultShouldUseCustomStoragePaths())
+    , m_unifiedOriginStorageLevel(WebsiteDataStore::defaultUnifiedOriginStorageLevel())
     , m_perOriginStorageQuota(WebsiteDataStore::defaultPerOriginQuota())
 {
-    if (isPersistent == IsPersistent::Yes && willCopyPaths == WillCopyPathsFromExistingConfiguration::No) {
-        setApplicationCacheDirectory(WebsiteDataStore::defaultApplicationCacheDirectory());
-        setCacheStorageDirectory(WebsiteDataStore::defaultCacheStorageDirectory());
-        setGeneralStorageDirectory(WebsiteDataStore::defaultGeneralStorageDirectory());
-        setNetworkCacheDirectory(WebsiteDataStore::defaultNetworkCacheDirectory());
-        setAlternativeServicesDirectory(WebsiteDataStore::defaultAlternativeServicesDirectory());
-        setMediaCacheDirectory(WebsiteDataStore::defaultMediaCacheDirectory());
-        setIndexedDBDatabaseDirectory(WebsiteDataStore::defaultIndexedDBDatabaseDirectory());
-        setServiceWorkerRegistrationDirectory(WebsiteDataStore::defaultServiceWorkerRegistrationDirectory());
-        setWebSQLDatabaseDirectory(WebsiteDataStore::defaultWebSQLDatabaseDirectory());
-        setLocalStorageDirectory(WebsiteDataStore::defaultLocalStorageDirectory());
-        setMediaKeysStorageDirectory(WebsiteDataStore::defaultMediaKeysStorageDirectory());
-        setResourceLoadStatisticsDirectory(WebsiteDataStore::defaultResourceLoadStatisticsDirectory());
-        setDeviceIdHashSaltsStorageDirectory(WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory());
-        setJavaScriptConfigurationDirectory(WebsiteDataStore::defaultJavaScriptConfigurationDirectory());
-#if ENABLE(ARKIT_INLINE_PREVIEW)
-        setModelElementCacheDirectory(WebsiteDataStore::defaultModelElementCacheDirectory());
+    if (isPersistent == IsPersistent::Yes && shouldInitializePaths == ShouldInitializePaths::Yes) {
+#if PLATFORM(GTK) || PLATFORM(WPE)
+        // Storing data outside the permitted base cache and data directories is a serious error.
+        // Use WebsiteDataStore::createWithBaseDirectories instead.
+        RELEASE_ASSERT_NOT_REACHED();
+#else
+        // Other ports do not require use of the base directories.
+        initializePaths();
 #endif
+
 #if PLATFORM(IOS)
         setPCMMachServiceName("com.apple.webkit.adattributiond.service"_s);
 #endif
     }
 }
 
+#if PLATFORM(COCOA)
+
+WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(const UUID& identifier)
+    : m_isPersistent(IsPersistent::Yes)
+    , m_unifiedOriginStorageLevel(WebsiteDataStore::defaultUnifiedOriginStorageLevel())
+    , m_identifier(identifier)
+    , m_baseCacheDirectory(WebsiteDataStore::defaultWebsiteDataStoreDirectory(identifier))
+    , m_baseDataDirectory(WebsiteDataStore::defaultWebsiteDataStoreDirectory(identifier))
+    , m_perOriginStorageQuota(WebsiteDataStore::defaultPerOriginQuota())
+#if PLATFORM(IOS)
+    , m_pcmMachServiceName("com.apple.webkit.adattributiond.service"_s)
+#endif
+{
+    ASSERT(m_identifier);
+
+    initializePaths();
+}
+
+#endif
+
+#if !PLATFORM(COCOA)
+WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(const String& baseCacheDirectory, const String& baseDataDirectory)
+    : m_isPersistent(IsPersistent::Yes)
+    , m_unifiedOriginStorageLevel(WebsiteDataStore::defaultUnifiedOriginStorageLevel())
+    , m_baseCacheDirectory(baseCacheDirectory)
+    , m_baseDataDirectory(baseDataDirectory)
+    , m_perOriginStorageQuota(WebsiteDataStore::defaultPerOriginQuota())
+{
+    initializePaths();
+}
+#endif
+
+void WebsiteDataStoreConfiguration::initializePaths()
+{
+    setApplicationCacheDirectory(WebsiteDataStore::defaultApplicationCacheDirectory(m_baseCacheDirectory));
+    setCacheStorageDirectory(WebsiteDataStore::defaultCacheStorageDirectory(m_baseCacheDirectory));
+    setGeneralStorageDirectory(WebsiteDataStore::defaultGeneralStorageDirectory(m_baseCacheDirectory));
+    setNetworkCacheDirectory(WebsiteDataStore::defaultNetworkCacheDirectory(m_baseCacheDirectory));
+    setMediaCacheDirectory(WebsiteDataStore::defaultMediaCacheDirectory(m_baseCacheDirectory));
+#if USE(GLIB) || PLATFORM(COCOA)
+    setHSTSStorageDirectory(WebsiteDataStore::defaultHSTSStorageDirectory(m_baseCacheDirectory));
+#endif
+#if ENABLE(ARKIT_INLINE_PREVIEW)
+    setModelElementCacheDirectory(WebsiteDataStore::defaultModelElementCacheDirectory());
+#endif
+
+    setAlternativeServicesDirectory(WebsiteDataStore::defaultAlternativeServicesDirectory(m_baseDataDirectory));
+    setIndexedDBDatabaseDirectory(WebsiteDataStore::defaultIndexedDBDatabaseDirectory(m_baseDataDirectory));
+    setServiceWorkerRegistrationDirectory(WebsiteDataStore::defaultServiceWorkerRegistrationDirectory(m_baseDataDirectory));
+    setWebSQLDatabaseDirectory(WebsiteDataStore::defaultWebSQLDatabaseDirectory(m_baseDataDirectory));
+    setLocalStorageDirectory(WebsiteDataStore::defaultLocalStorageDirectory(m_baseDataDirectory));
+    setMediaKeysStorageDirectory(WebsiteDataStore::defaultMediaKeysStorageDirectory(m_baseDataDirectory));
+    setResourceLoadStatisticsDirectory(WebsiteDataStore::defaultResourceLoadStatisticsDirectory(m_baseDataDirectory));
+    setDeviceIdHashSaltsStorageDirectory(WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory(m_baseDataDirectory));
+    setJavaScriptConfigurationDirectory(WebsiteDataStore::defaultJavaScriptConfigurationDirectory(m_baseDataDirectory));
+#if PLATFORM(COCOA)
+    setCookieStorageFile(WebsiteDataStore::defaultCookieStorageFile(m_baseDataDirectory));
+#endif
+}
+
 Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
 {
-    auto copy = WebsiteDataStoreConfiguration::create(m_isPersistent, WillCopyPathsFromExistingConfiguration::Yes);
+    auto copy = WebsiteDataStoreConfiguration::create(m_isPersistent, ShouldInitializePaths::No);
 
+    copy->m_baseCacheDirectory = this->m_baseCacheDirectory;
+    copy->m_baseDataDirectory = this->m_baseDataDirectory;
     copy->m_serviceWorkerProcessTerminationDelayEnabled = this->m_serviceWorkerProcessTerminationDelayEnabled;
     copy->m_fastServerTrustEvaluationEnabled = this->m_fastServerTrustEvaluationEnabled;
     copy->m_networkCacheSpeculativeValidationEnabled = this->m_networkCacheSpeculativeValidationEnabled;
     copy->m_staleWhileRevalidateEnabled = this->m_staleWhileRevalidateEnabled;
     copy->m_cacheStorageDirectory = this->m_cacheStorageDirectory;
     copy->m_generalStorageDirectory = this->m_generalStorageDirectory;
-    copy->m_shouldUseCustomStoragePaths = this->m_shouldUseCustomStoragePaths;
+    copy->m_unifiedOriginStorageLevel = this->m_unifiedOriginStorageLevel;
     copy->m_perOriginStorageQuota = this->m_perOriginStorageQuota;
     copy->m_networkCacheDirectory = this->m_networkCacheDirectory;
     copy->m_applicationCacheDirectory = this->m_applicationCacheDirectory;
@@ -85,7 +140,6 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
     copy->m_alternativeServicesDirectory = this->m_alternativeServicesDirectory;
     copy->m_deviceIdHashSaltsStorageDirectory = this->m_deviceIdHashSaltsStorageDirectory;
     copy->m_resourceLoadStatisticsDirectory = this->m_resourceLoadStatisticsDirectory;
-    copy->m_privateClickMeasurementStorageDirectory = this->m_privateClickMeasurementStorageDirectory;
     copy->m_javaScriptConfigurationDirectory = this->m_javaScriptConfigurationDirectory;
     copy->m_cookieStorageFile = this->m_cookieStorageFile;
     copy->m_sourceApplicationBundleIdentifier = this->m_sourceApplicationBundleIdentifier;
@@ -112,6 +166,9 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
     copy->m_allowsHSTSWithUntrustedRootCertificate = this->m_allowsHSTSWithUntrustedRootCertificate;
     copy->m_pcmMachServiceName = this->m_pcmMachServiceName;
     copy->m_webPushMachServiceName = this->m_webPushMachServiceName;
+    copy->m_webPushPartitionString = this->m_webPushPartitionString;
+    copy->m_trackingPreventionDebugModeEnabled = this->m_trackingPreventionDebugModeEnabled;
+    copy->m_identifier = m_identifier;
 #if PLATFORM(COCOA)
     if (m_proxyConfiguration)
         copy->m_proxyConfiguration = adoptCF(CFDictionaryCreateCopy(nullptr, this->m_proxyConfiguration.get()));
@@ -128,7 +185,7 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
 
 WebPushD::WebPushDaemonConnectionConfiguration WebsiteDataStoreConfiguration::webPushDaemonConnectionConfiguration() const
 {
-    return { m_webPushDaemonUsesMockBundlesForTesting, { } };
+    return { m_webPushDaemonUsesMockBundlesForTesting, { }, m_webPushPartitionString, m_identifier };
 }
 
 } // namespace WebKit

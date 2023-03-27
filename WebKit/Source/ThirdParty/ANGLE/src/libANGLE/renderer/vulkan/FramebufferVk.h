@@ -29,16 +29,7 @@ class WindowSurfaceVk;
 class FramebufferVk : public FramebufferImpl
 {
   public:
-    // Factory methods so we don't have to use constructors with overloads.
-    static FramebufferVk *CreateUserFBO(RendererVk *renderer, const gl::FramebufferState &state);
-
-    // The passed-in SurfaceVk must be destroyed after this FBO is destroyed. Our Surface code is
-    // ref-counted on the number of 'current' contexts, so we shouldn't get any dangling surface
-    // references. See Surface::setIsCurrent(bool).
-    static FramebufferVk *CreateDefaultFBO(RendererVk *renderer,
-                                           const gl::FramebufferState &state,
-                                           WindowSurfaceVk *backbuffer);
-
+    FramebufferVk(RendererVk *renderer, const gl::FramebufferState &state);
     ~FramebufferVk() override;
     void destroy(const gl::Context *context) override;
 
@@ -131,7 +122,8 @@ class FramebufferVk : public FramebufferImpl
         vk::ImageOrBufferViewSubresourceSerial resolveImageViewSerial);
 
     angle::Result getFramebuffer(ContextVk *contextVk,
-                                 vk::Framebuffer **framebufferOut,
+                                 vk::MaybeImagelessFramebuffer *framebufferOut,
+                                 RenderTargetVk *resolveRenderTargetIn,
                                  const vk::ImageView *resolveImageViewIn,
                                  const SwapchainResolveMode swapchainResolveMode);
 
@@ -141,18 +133,66 @@ class FramebufferVk : public FramebufferImpl
     {
         mReadOnlyDepthFeedbackLoopMode = readOnlyDepthFeedbackModeEnabled;
     }
+    void setReadOnlyStencilFeedbackLoopMode(bool readOnlyStencilFeedbackModeEnabled)
+    {
+        mReadOnlyStencilFeedbackLoopMode = readOnlyStencilFeedbackModeEnabled;
+    }
     bool isReadOnlyDepthFeedbackLoopMode() const { return mReadOnlyDepthFeedbackLoopMode; }
-    void updateRenderPassReadOnlyDepthMode(ContextVk *contextVk,
+    bool isReadOnlyStencilFeedbackLoopMode() const { return mReadOnlyStencilFeedbackLoopMode; }
+    void updateRenderPassDepthReadOnlyMode(ContextVk *contextVk,
                                            vk::RenderPassCommandBufferHelper *renderPass);
+    void updateRenderPassStencilReadOnlyMode(ContextVk *contextVk,
+                                             vk::RenderPassCommandBufferHelper *renderPass);
 
     void switchToFramebufferFetchMode(ContextVk *contextVk, bool hasFramebufferFetch);
 
     void removeColorResolveAttachment(uint32_t colorIndexGL);
 
+    void setBackbuffer(WindowSurfaceVk *backbuffer) { mBackbuffer = backbuffer; }
+    WindowSurfaceVk *getBackbuffer() const { return mBackbuffer; }
+
+    void releaseCurrentFramebuffer(ContextVk *contextVk);
+
+    const QueueSerial &getLastRenderPassQueueSerial() const { return mLastRenderPassQueueSerial; }
+
+    bool hasAnyExternalAttachments() const { return mIsExternalColorAttachments.any(); }
+
+    bool hasFrontBufferUsage() const
+    {
+        return (mAttachmentHasFrontBufferUsage & mState.getColorAttachmentsMask()).any();
+    }
+
+    enum class RenderTargetImage
+    {
+        AttachmentImage,
+        ResolveImage
+    };
+
+    struct RenderTargetInfo
+    {
+        RenderTargetInfo()
+            : renderTarget(nullptr), renderTargetImage(RenderTargetImage::AttachmentImage)
+        {}
+        RenderTargetInfo(RenderTargetVk *renderTarget, RenderTargetImage renderTargetImage)
+            : renderTarget(renderTarget), renderTargetImage(renderTargetImage)
+        {}
+        RenderTargetVk *renderTarget;
+        RenderTargetImage renderTargetImage;
+    };
+
+    angle::Result getAttachmentsAndRenderTargets(
+        ContextVk *contextVk,
+        const vk::ImageView *resolveImageViewIn,
+        RenderTargetVk *resolveRenderTargetIn,
+        vk::FramebufferAttachmentsVector<VkImageView> *attachments,
+        vk::FramebufferAttachmentsVector<RenderTargetInfo> *renderTargetsInfoOut);
+
   private:
-    FramebufferVk(RendererVk *renderer,
-                  const gl::FramebufferState &state,
-                  WindowSurfaceVk *backbuffer);
+    enum class ClearWithCommand
+    {
+        Always,
+        OptimizeWithLoadOp,
+    };
 
     // The 'in' rectangles must be clipped to the scissor and FBO. The clipping is done in 'blit'.
     angle::Result blitWithCommand(ContextVk *contextVk,
@@ -198,7 +238,12 @@ class FramebufferVk : public FramebufferImpl
                                 const VkClearColorValue &clearColorValue,
                                 const VkClearDepthStencilValue &clearDepthStencilValue);
     void redeferClears(ContextVk *contextVk);
-    void clearWithCommand(ContextVk *contextVk, const gl::Rectangle &scissoredRenderArea);
+    void redeferClearsForReadFramebuffer(ContextVk *contextVk);
+    void redeferClearsImpl(ContextVk *contextVk);
+    void clearWithCommand(ContextVk *contextVk,
+                          const gl::Rectangle &scissoredRenderArea,
+                          ClearWithCommand behavior,
+                          vk::ClearValuesArray *clears);
     void clearWithLoadOp(ContextVk *contextVk);
     void updateActiveColorMasks(size_t colorIndex, bool r, bool g, bool b, bool a);
     void updateRenderPassDesc(ContextVk *contextVk);
@@ -218,6 +263,10 @@ class FramebufferVk : public FramebufferImpl
     RenderTargetVk *getReadPixelsRenderTarget(GLenum format) const;
     VkImageAspectFlagBits getReadPixelsAspectFlags(GLenum format) const;
 
+    void updateRenderPassDepthStencilReadOnlyMode(ContextVk *contextVk,
+                                                  VkImageAspectFlags dsAspectFlags,
+                                                  vk::RenderPassCommandBufferHelper *renderPass);
+
     VkClearValue getCorrectedColorClearValue(size_t colorIndexGL,
                                              const VkClearColorValue &clearColor) const;
 
@@ -226,7 +275,6 @@ class FramebufferVk : public FramebufferImpl
     void insertCache(ContextVk *contextVk,
                      const vk::FramebufferDesc &desc,
                      vk::FramebufferHelper &&newFramebuffer);
-    void resetCache(ContextVk *contextVk);
 
     WindowSurfaceVk *mBackbuffer;
 
@@ -243,22 +291,32 @@ class FramebufferVk : public FramebufferImpl
     // contain the mask to apply to the alpha channel when drawing.
     gl::DrawBufferMask mEmulatedAlphaAttachmentMask;
 
+    // mCurrentFramebufferDesc is used to detect framebuffer changes using its serials. Therefore,
+    // it must be maintained even when using the imageless framebuffer extension.
     vk::FramebufferDesc mCurrentFramebufferDesc;
+
     // The framebuffer cache actually owns the Framebuffer object and manages its lifetime. We just
     // store the current VkFramebuffer handle here that associated with mCurrentFramebufferDesc.
     vk::Framebuffer mCurrentFramebuffer;
 
-    // Track references to the cached Framebuffer object that created out of this object
-    vk::FramebufferCacheManager mFramebufferCacheManager;
-
     vk::ClearValuesArray mDeferredClears;
 
-    // Tracks if we are in depth feedback loop. Depth read only feedback loop is a special kind of
-    // depth stencil read only mode. When we are in feedback loop, we must flush renderpass to exit
-    // the loop instead of update the layout.
+    // Tracks if we are in depth/stencil *read-only* feedback loop.  This is specially allowed as
+    // both usages (attachment and texture) are read-only.  When switching away from read-only
+    // feedback loop, the render pass is broken is to accommodate the new writable layout.
     bool mReadOnlyDepthFeedbackLoopMode;
+    bool mReadOnlyStencilFeedbackLoopMode;
 
-    gl::DrawBufferMask mIsAHBColorAttachments;
+    // Whether any of the color attachments are an external image such as dmabuf, AHB etc.  In such
+    // cases, some optimizations are disabled such as deferred clears because the results need to be
+    // made externally available.
+    gl::DrawBufferMask mIsExternalColorAttachments;
+    gl::DrawBufferMask mAttachmentHasFrontBufferUsage;
+
+    bool mIsCurrentFramebufferCached;
+
+    // Serial of the render pass this framebuffer has opened, if any.
+    QueueSerial mLastRenderPassQueueSerial;
 };
 }  // namespace rx
 

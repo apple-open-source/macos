@@ -79,9 +79,11 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
     const char *docBuffer, *docUrl;
     size_t maxSize, docSize, consumed, initialChunkSize, chunkSize, maxChunkSize;
     int opts, outSize;
+    xmlCharEncoding encoding;
 
     xmlFuzzDataInit(data, size);
-    opts = xmlFuzzReadInt();
+    encoding = (xmlCharEncoding)(xmlFuzzDataHash() % 23); /* 0-22 */
+    opts = xmlFuzzReadInt() | XML_PARSE_NONET;
 
     /* Lower maximum size when processing entities for now. */
     maxSize = opts & XML_PARSE_NOENT ? 50000 : 500000;
@@ -99,7 +101,7 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
 
     /* Pull parser */
 
-    doc = xmlReadMemory(docBuffer, docSize, docUrl, NULL, opts);
+    doc = xmlReadMemory(docBuffer, docSize, docUrl, xmlGetCharEncodingName(encoding), opts);
     if (opts & XML_PARSE_XINCLUDE)
         xmlXIncludeProcessFlags(doc, opts);
     /* Also test the serializer. */
@@ -134,7 +136,7 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
 
     /* Reader */
 
-    reader = xmlReaderForMemory(docBuffer, docSize, NULL, NULL, opts);
+    reader = xmlReaderForMemory(docBuffer, docSize, NULL, xmlGetCharEncodingName(encoding), opts);
     if (reader == NULL)
         goto exit;
     while (xmlTextReaderRead(reader) == 1) {
@@ -157,18 +159,18 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
 
     /* SAX parser */
 
-    inputBuffer = xmlParserInputBufferCreateMem((const char*)data, (int)size, XML_CHAR_ENCODING_NONE);
+    inputBuffer = xmlParserInputBufferCreateMem(docBuffer, (int)docSize, encoding);
     if (inputBuffer) {
         ctxt = xmlNewParserCtxt();
         if (ctxt) {
-            xmlCtxtUseOptions(ctxt, opts);
+            xmlCtxtUseOptions(ctxt, opts | XML_PARSE_NOENT);
             xmlSAXHandlerPtr handler = &xmlSAXHandlerStruct;
             if (xmlFuzzDataHash() % 5 == 0)
                 handler->error = &errorCallback;
             xmlSAXHandlerPtr old_sax = ctxt->sax;
             ctxt->sax = handler;
             ctxt->userData = ctxt;
-            xmlParserInputPtr inputStream = xmlNewIOInputStream(ctxt, inputBuffer, XML_CHAR_ENCODING_NONE);
+            xmlParserInputPtr inputStream = xmlNewIOInputStream(ctxt, inputBuffer, encoding);
             if (inputStream) {
                 inputPush(ctxt, inputStream);
                 xmlParseDocument(ctxt);

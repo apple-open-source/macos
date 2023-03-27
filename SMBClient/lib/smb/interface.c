@@ -217,13 +217,13 @@ releaseNetworkInterfaceVector(struct network_interface_info_vector* vector)
  */
 static int
 createNetworkInterfaceVector(struct network_interface_info_vector** responseVector,
-                 uint32_t *vector_length, uint32_t *extra_data_size)
+                             uint32_t *vector_length, uint32_t *extra_data_size)
 {
-    int sockfd;
+    int sockfd = 0;
     int err = 0;
-    struct ifaddrs *ifaddr, *ifa;
-    struct ifmediareq ifmr;
-    struct smb_ifmedia_desc *desc;
+    struct ifaddrs *ifaddr = NULL, *ifa = NULL;
+    struct ifmediareq ifmr = {0};
+    struct smb_ifmedia_desc *desc = NULL;
     struct network_interface_info_vector* interfaceInfoItem = NULL;
     *vector_length = 0;
     *extra_data_size = 0;
@@ -231,21 +231,22 @@ createNetworkInterfaceVector(struct network_interface_info_vector** responseVect
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         os_log_error(OS_LOG_DEFAULT,
-                 "%s: failed to open socket, with error [%d]",
-                 __FUNCTION__, errno);
+                     "%s: failed to open socket, with error [%d]",
+                     __FUNCTION__, errno);
         return errno;
     }
 
     if (getifaddrs(&ifaddr) < 0) {
         os_log_error(OS_LOG_DEFAULT,
-                 "%s: failed to get getifaddrs info, with error [%d]",
-                 __FUNCTION__, errno);
+                     "%s: failed to get getifaddrs info, with error [%d]",
+                     __FUNCTION__, errno);
         close(sockfd);
         return errno;
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         memset(&ifmr, 0, sizeof(struct ifmediareq));
+        link_speed = 0;
 
         /* Skip invalid address */
         if (ifa->ifa_addr == NULL) {
@@ -260,7 +261,7 @@ createNetworkInterfaceVector(struct network_interface_info_vector** responseVect
 
         /* Query interface media */
         strcpy(ifmr.ifm_name, ifa->ifa_name);
-        if(ioctl(sockfd, SIOCGIFXMEDIA, &ifmr)) {
+        if (ioctl(sockfd, SIOCGIFXMEDIA, &ifmr)) {
             continue;
         }
 
@@ -274,12 +275,31 @@ createNetworkInterfaceVector(struct network_interface_info_vector** responseVect
          * Ethernet ports but does not apply to Wi-Fi.
          */
         if (IFM_TYPE(ifmr.ifm_active) == IFM_ETHER) {
-            // convert IFM_SUBTYPE to speed[b]
-            uint64_t invalid_speed = -1;
-            for (desc = &ifm_subtype_ethernet_descriptions[0];
-                desc->speed != invalid_speed; desc++) {
-                if (IFM_SUBTYPE(ifmr.ifm_active) == desc->ifmt_word) {
-                    link_speed = desc->speed;
+            /* Does the interface support the subtype? */
+            if (IFM_SUBTYPE(ifmr.ifm_active) != 0) {
+                /* convert IFM_SUBTYPE to speed[b] */
+                uint64_t invalid_speed = -1;
+                for (desc = &ifm_subtype_ethernet_descriptions[0]; desc->speed != invalid_speed; desc++) {
+                    if (IFM_SUBTYPE(ifmr.ifm_active) == desc->ifmt_word) {
+                        link_speed = desc->speed;
+                    }
+                }
+            }
+            else {
+                /*
+                 * <102215013> No IFM_SUBTYPE found.
+                 * Is it Ethernet over Thunderbolt bridge ("bridge#")?
+                 *
+                 * Note: We can possibly remove the check for "bridge" once
+                 * <103029620> gets resolved.
+                 */
+                if (strncmp("bridge", ifmr.ifm_name, strlen("bridge")) == 0) {
+                    /* Its Ethernet over Thunderbolt, so hardcode to 10 gbps */
+                    link_speed = 10000000000;
+                }
+                else {
+                    os_log_error(OS_LOG_DEFAULT, "%s: IFM_SUBTYPE is 0 for interface <%s>?",
+                                 __FUNCTION__, ifa->ifa_name);
                 }
             }
         } else if ((IFM_TYPE(ifmr.ifm_active) == IFM_IEEE80211)) {
@@ -291,8 +311,8 @@ createNetworkInterfaceVector(struct network_interface_info_vector** responseVect
 
         if (link_speed == 0) {
             os_log_error(OS_LOG_DEFAULT,
-                     "%s: could not get %s speed -- set it to 990Mb",
-                     __FUNCTION__, ifa->ifa_name);
+                         "%s: could not get %s speed -- set it to 990Mb",
+                         __FUNCTION__, ifa->ifa_name);
             link_speed = 990000000;
         }
 

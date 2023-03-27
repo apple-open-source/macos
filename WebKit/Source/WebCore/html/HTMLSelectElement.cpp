@@ -3,9 +3,9 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Google Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
@@ -69,7 +69,7 @@ using namespace HTMLNames;
 static const unsigned maxSelectItems = 10000;
 
 HTMLSelectElement::HTMLSelectElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
-    : HTMLFormControlElementWithState(tagName, document, form)
+    : HTMLFormControlElement(tagName, document, form)
     , m_typeAhead(this)
     , m_size(0)
     , m_lastOnChangeIndex(-1)
@@ -247,11 +247,10 @@ void HTMLSelectElement::remove(int optionIndex)
 
 String HTMLSelectElement::value() const
 {
-    for (auto* item : listItems()) {
-        if (is<HTMLOptionElement>(*item)) {
-            HTMLOptionElement& option = downcast<HTMLOptionElement>(*item);
-            if (option.selected())
-                return option.value();
+    for (auto& item : listItems()) {
+        if (auto* option = dynamicDowncast<HTMLOptionElement>(item.get())) {
+            if (option->selected())
+                return option->value();
         }
     }
     return emptyString();
@@ -261,9 +260,9 @@ void HTMLSelectElement::setValue(const String& value)
 {
     // Find the option with value() matching the given parameter and make it the current selection.
     unsigned optionIndex = 0;
-    for (auto* item : listItems()) {
-        if (is<HTMLOptionElement>(*item)) {
-            if (downcast<HTMLOptionElement>(*item).value() == value) {
+    for (auto& item : listItems()) {
+        if (auto* option = dynamicDowncast<HTMLOptionElement>(item.get())) {
+            if (option->value() == value) {
                 setSelectedIndex(optionIndex);
                 return;
             }
@@ -282,7 +281,7 @@ bool HTMLSelectElement::hasPresentationalHintsForAttribute(const QualifiedName& 
         return false;
     }
 
-    return HTMLFormControlElementWithState::hasPresentationalHintsForAttribute(name);
+    return HTMLFormControlElement::hasPresentationalHintsForAttribute(name);
 }
 
 void HTMLSelectElement::parseAttribute(const QualifiedName& name, const AtomString& value)
@@ -305,7 +304,7 @@ void HTMLSelectElement::parseAttribute(const QualifiedName& name, const AtomStri
     } else if (name == multipleAttr)
         parseMultipleAttribute(value);
     else
-        HTMLFormControlElementWithState::parseAttribute(name, value);
+        HTMLFormControlElement::parseAttribute(name, value);
 }
 
 int HTMLSelectElement::defaultTabIndex() const
@@ -317,14 +316,14 @@ bool HTMLSelectElement::isKeyboardFocusable(KeyboardEvent* event) const
 {
     if (renderer())
         return isFocusable();
-    return HTMLFormControlElementWithState::isKeyboardFocusable(event);
+    return HTMLFormControlElement::isKeyboardFocusable(event);
 }
 
 bool HTMLSelectElement::isMouseFocusable() const
 {
     if (renderer())
         return isFocusable();
-    return HTMLFormControlElementWithState::isMouseFocusable();
+    return HTMLFormControlElement::isMouseFocusable();
 }
 
 bool HTMLSelectElement::canSelectAll() const
@@ -345,7 +344,7 @@ RenderPtr<RenderElement> HTMLSelectElement::createElementRenderer(RenderStyle&& 
 
 bool HTMLSelectElement::childShouldCreateRenderer(const Node& child) const
 {
-    if (!HTMLFormControlElementWithState::childShouldCreateRenderer(child))
+    if (!HTMLFormControlElement::childShouldCreateRenderer(child))
         return false;
 #if !PLATFORM(IOS_FAMILY)
     if (!usesMenuList())
@@ -407,7 +406,7 @@ void HTMLSelectElement::childrenChanged(const ChildChange& change)
     ASSERT(change.affectsElements != ChildChange::AffectsElements::Unknown);
 
     if (change.affectsElements == ChildChange::AffectsElements::No) {
-        HTMLFormControlElementWithState::childrenChanged(change);
+        HTMLFormControlElement::childrenChanged(change);
         return;
     }
 
@@ -417,12 +416,11 @@ void HTMLSelectElement::childrenChanged(const ChildChange& change)
     updateValidity();
     m_lastOnChangeSelection.clear();
 
-    HTMLFormControlElementWithState::childrenChanged(change);
+    HTMLFormControlElement::childrenChanged(change);
 }
 
 void HTMLSelectElement::optionElementChildrenChanged()
 {
-    setRecalcListItems();
     updateValidity();
     if (auto* cache = document().existingAXObjectCache())
         cache->childrenChanged(this);
@@ -462,8 +460,10 @@ ExceptionOr<void> HTMLSelectElement::setItem(unsigned index, HTMLOptionElement* 
         return { };
     }
 
-    if (index > maxSelectItems - 1)
-        index = maxSelectItems - 1;
+    if (index >= length() && index >= maxSelectItems) {
+        document().addConsoleMessage(MessageSource::Other, MessageLevel::Warning, makeString("Blocked attempt to expand the option list and set an option at index. The maximum list length is ", maxSelectItems, '.'));
+        return { };
+    }
 
     int diff = index - length();
     
@@ -539,7 +539,7 @@ bool HTMLSelectElement::willRespondToMouseClickEventsWithEditability(Editability
     UNUSED_PARAM(editability);
     return !isDisabledFormControl();
 #else
-    return HTMLFormControlElementWithState::willRespondToMouseClickEventsWithEditability(editability);
+    return HTMLFormControlElement::willRespondToMouseClickEventsWithEditability(editability);
 #endif
 }
 
@@ -764,13 +764,13 @@ void HTMLSelectElement::setOptionsChangedOnRenderer()
     }
 }
 
-const Vector<HTMLElement*>& HTMLSelectElement::listItems() const
+const Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>>& HTMLSelectElement::listItems() const
 {
     if (m_shouldRecalcListItems)
         recalcListItems();
     else {
 #if ASSERT_ENABLED
-        Vector<HTMLElement*> items = m_listItems;
+        Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>> items = m_listItems;
         recalcListItems(false);
         ASSERT(items == m_listItems);
 #endif
@@ -882,7 +882,7 @@ void HTMLSelectElement::selectOption(int optionIndex, SelectOptionFlags flags)
 
     RefPtr<HTMLElement> element;
     if (listIndex >= 0)
-        element = items[listIndex];
+        element = items[listIndex].get();
 
     if (shouldDeselect)
         deselectItemsWithoutValidation(element.get());
@@ -958,7 +958,7 @@ void HTMLSelectElement::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, 
     // dispatching change events during blur event dispatch.
     if (usesMenuList())
         saveLastSelection();
-    HTMLFormControlElementWithState::dispatchFocusEvent(WTFMove(oldFocusedElement), options);
+    HTMLFormControlElement::dispatchFocusEvent(WTFMove(oldFocusedElement), options);
 }
 
 void HTMLSelectElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
@@ -968,7 +968,7 @@ void HTMLSelectElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
     // This matches other browsers' behavior.
     if (usesMenuList())
         dispatchChangeEventForMenuList();
-    HTMLFormControlElementWithState::dispatchBlurEvent(WTFMove(newFocusedElement));
+    HTMLFormControlElement::dispatchBlurEvent(WTFMove(newFocusedElement));
 }
 
 void HTMLSelectElement::deselectItemsWithoutValidation(HTMLElement* excludeElement)
@@ -1095,7 +1095,7 @@ void HTMLSelectElement::reset()
         } else
             option.setSelectedState(false);
 
-        if (!firstOption)
+        if (!firstOption && !option.isDisabledFormControl())
             firstOption = &option;
     }
 
@@ -1532,7 +1532,7 @@ void HTMLSelectElement::defaultEventHandler(Event& event)
 
 #if !PLATFORM(IOS_FAMILY)
     if (isDisabledFormControl()) {
-        HTMLFormControlElementWithState::defaultEventHandler(event);
+        HTMLFormControlElement::defaultEventHandler(event);
         return;
     }
 
@@ -1554,7 +1554,7 @@ void HTMLSelectElement::defaultEventHandler(Event& event)
             return;
         }
     }
-    HTMLFormControlElementWithState::defaultEventHandler(event);
+    HTMLFormControlElement::defaultEventHandler(event);
 }
 
 int HTMLSelectElement::lastSelectedListIndex() const
@@ -1602,7 +1602,7 @@ Node::InsertedIntoAncestorResult HTMLSelectElement::insertedIntoAncestor(Inserti
     // items yet - but for innerHTML and related methods, this method is called
     // after the whole subtree is constructed.
     recalcListItems();
-    return HTMLFormControlElementWithState::insertedIntoAncestor(insertionType, parentOfInsertedTree);
+    return HTMLFormControlElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
 }
 
 void HTMLSelectElement::accessKeySetSelectedIndex(int index)

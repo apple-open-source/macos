@@ -377,17 +377,22 @@ copy_file(const FTSENT *entp, int dne)
 			warn("%s: fchmod failed", to.p_path);
 		/* do these before setfile in case copyfile changes mtime */
 		if (!Xflag && S_ISREG(fs->st_mode)) { /* skip devices, etc */
-			if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_XATTR) < 0)
+			if (fcopyfile(from_fd, to_fd, NULL,
+			    COPYFILE_XATTR) < 0) {
 				warn("%s: could not copy extended attributes to %s",
 				    entp->fts_path, to.p_path);
+				rval = 1;
+			}
 		}
 		if (pflag && setfile(fs, to_fd))
 			rval = 1;
 		if (pflag) {
 			/* If this ACL denies writeattr then setfile will fail... */
-			if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0)
+			if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0) {
 				warn("%s: could not copy ACL to %s",
 				    entp->fts_path, to.p_path);
+				rval = 1;
+			}
 		}
 #else  /* !__APPLE__ */
 		if (pflag && setfile(fs, to_fd))
@@ -432,10 +437,14 @@ copy_link(const FTSENT *p, int exists)
 		return (1);
 	}
 #ifdef __APPLE__
-	if (!Xflag)
-		if (copyfile(p->fts_path, to.p_path, NULL, COPYFILE_XATTR | COPYFILE_NOFOLLOW_SRC) <0)
+	if (!Xflag) {
+		if (copyfile(p->fts_path, to.p_path, NULL,
+		    COPYFILE_XATTR | COPYFILE_NOFOLLOW_SRC) < 0) {
 			warn("%s: could not copy extended attributes to %s",
 			     p->fts_path, to.p_path);
+			return (1);
+		}
+	}
 #endif
 	return (pflag ? setfile(p->fts_statp, -1) : 0);
 }

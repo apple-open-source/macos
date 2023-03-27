@@ -16,7 +16,7 @@ diff/diff.1	freebsd	usr.bin/diff/diff.1	8cf449db88b2c7a505bc241a78f9736b43f2ede5
 diff/diff.c	freebsd	usr.bin/diff/diff.c	93b7af1d854db2a92dc9fcca70e068a159385f4d
 diff/diff.h	freebsd	usr.bin/diff/diff.h	f4be3645a14d4faa5a51846054318ccf77c9cd5e
 diff/diffdir.c	freebsd	usr.bin/diff/diffdir.c	3931c072c63d5a51d83157009e7f7510e08da80c
-diff/diffreg.c	freebsd	usr.bin/diff/diffreg.c	4be7d087c2b566f4910683836be279d55c1a81c6
+diff/diffreg.c	freebsd	usr.bin/diff/diffreg.c	54d65fdd5643f61a816c1d028b53039290ed1d92
 diff/pr.c	freebsd	usr.bin/diff/pr.c	f7d6e97e4bf1fe4c70d5b0ef9fdf649bf07e1c91
 diff/pr.h	freebsd	usr.bin/diff/pr.h	6fa5bf0832efe8a894f612968c5afe1ad91f3a03
 diff/tests/Bflag_C.out	freebsd	usr.bin/diff/tests/Bflag_C.out	e68edb8cf06a796453378b98d963692c838c400f
@@ -24,7 +24,7 @@ diff/tests/Bflag_D.out	freebsd	usr.bin/diff/tests/Bflag_D.out	e68edb8cf06a796453
 diff/tests/Bflag_F.out	freebsd	usr.bin/diff/tests/Bflag_F.out	e68edb8cf06a796453378b98d963692c838c400f
 diff/tests/d_mallocv1.in	freebsd	contrib/netbsd-tests/usr.bin/diff/d_mallocv1.in	57718be8fa0bd5edc11ab9a72e68cc71982939a6
 diff/tests/d_mallocv2.in	freebsd	contrib/netbsd-tests/usr.bin/diff/d_mallocv2.in	57718be8fa0bd5edc11ab9a72e68cc71982939a6
-diff/tests/diff_test.sh	freebsd	usr.bin/diff/tests/diff_test.sh	efba49ee5a64f8f56f49e58887484284d785d542
+diff/tests/diff_test.sh	freebsd	usr.bin/diff/tests/diff_test.sh	8bf187f35b6298b7848c5ecf45b0b714327090d9
 diff/tests/functionname.in	freebsd	usr.bin/diff/tests/functionname.in	85eeb6ea62d45c5df893a16b87969bd7313a3dbb
 diff/tests/functionname_c.in	freebsd	usr.bin/diff/tests/functionname_c.in	85eeb6ea62d45c5df893a16b87969bd7313a3dbb
 diff/tests/functionname_c.out	freebsd	usr.bin/diff/tests/functionname_c.out	85eeb6ea62d45c5df893a16b87969bd7313a3dbb
@@ -40,6 +40,8 @@ diff/tests/input1.in	freebsd	usr.bin/diff/tests/input1.in	3bbe3f672e37e4f609adb3
 diff/tests/input2.in	freebsd	usr.bin/diff/tests/input2.in	3bbe3f672e37e4f609adb3be3a6476edce2243ec
 diff/tests/input_c1.in	freebsd	usr.bin/diff/tests/input_c1.in	3bbe3f672e37e4f609adb3be3a6476edce2243ec
 diff/tests/input_c2.in	freebsd	usr.bin/diff/tests/input_c2.in	3bbe3f672e37e4f609adb3be3a6476edce2243ec
+diff/tests/side_by_side_tabbed_a.in	freebsd	usr.bin/diff/tests/side_by_side_tabbed_a.in	8bf187f35b6298b7848c5ecf45b0b714327090d9
+diff/tests/side_by_side_tabbed_b.in	freebsd	usr.bin/diff/tests/side_by_side_tabbed_b.in	8bf187f35b6298b7848c5ecf45b0b714327090d9
 diff/tests/simple.out	freebsd	usr.bin/diff/tests/simple.out	3bbe3f672e37e4f609adb3be3a6476edce2243ec
 diff/tests/simple_b.out	freebsd	usr.bin/diff/tests/simple_b.out	3bbe3f672e37e4f609adb3be3a6476edce2243ec
 diff/tests/simple_e.out	freebsd	usr.bin/diff/tests/simple_e.out	3bbe3f672e37e4f609adb3be3a6476edce2243ec

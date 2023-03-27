@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -58,7 +58,7 @@
 /* ---------- Bond support ---------- */
 
 static int
-inet_dgram_socket()
+inet_dgram_socket(void)
 {
 	int	s;
 
@@ -340,7 +340,8 @@ SCBondInterfaceCopyAvailableMemberInterfaces(SCPreferencesRef prefs)
 	// exclude Bridge [member] interfaces
 	interfaces = SCBridgeInterfaceCopyAll(prefs);
 	if (interfaces != NULL) {
-		__SCBridgeInterfaceListCollectMembers(interfaces, excluded);
+		__SCBridgeInterfaceListCollectMembers(interfaces, excluded,
+						      FALSE);
 		CFRelease(interfaces);
 	}
 
@@ -1161,7 +1162,7 @@ isA_SCBondStatus(CFTypeRef obj)
 
 
 CFTypeID
-SCBondStatusGetTypeID()
+SCBondStatusGetTypeID(void)
 {
 	pthread_once(&bondStatus_init, __SCBondStatusInitialize);	/* initialize runtime */
 	return __kSCBondStatusTypeID;

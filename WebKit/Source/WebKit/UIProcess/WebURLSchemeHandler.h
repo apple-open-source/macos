@@ -43,7 +43,7 @@ struct URLSchemeTaskParameters;
 class WebPageProxy;
 class WebProcessProxy;
 
-using SyncLoadCompletionHandler = CompletionHandler<void(const WebCore::ResourceResponse&, const WebCore::ResourceError&, const Vector<uint8_t>&)>;
+using SyncLoadCompletionHandler = CompletionHandler<void(const WebCore::ResourceResponse&, const WebCore::ResourceError&, Vector<uint8_t>&&)>;
 
 class WebURLSchemeHandler : public RefCounted<WebURLSchemeHandler> {
     WTF_MAKE_NONCOPYABLE(WebURLSchemeHandler);
@@ -56,6 +56,8 @@ public:
     void stopTask(WebPageProxy&, WebCore::ResourceLoaderIdentifier taskIdentifier);
     void stopAllTasksForPage(WebPageProxy&, WebProcessProxy*);
     void taskCompleted(WebPageProxyIdentifier, WebURLSchemeTask&);
+
+    virtual bool isAPIHandler() { return false; }
 
 protected:
     WebURLSchemeHandler();

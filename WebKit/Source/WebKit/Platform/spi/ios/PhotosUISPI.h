@@ -23,21 +23,29 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if HAVE(PHOTOS_UI)
+
+#import <PhotosUI/PhotosUI.h>
+
 #if USE(APPLE_INTERNAL_SDK)
 
-#if HAVE(PHOTOS_UI_PRIVATE)
+#if HAVE(PX_ACTIVITY_PROGRESS_CONTROLLER)
+#import <PhotosUICore/PXActivityProgressController.h>
+#else
 #import <PhotosUIPrivate/PUActivityProgressController.h>
-#elif HAVE(PHOTOS_UI)
-#import <PhotosUI/PUActivityProgressController.h>
 #endif
+
+#import <PhotosUI/PHPicker_Private.h>
 
 #else
 
 #import "UIKitSPI.h"
 
-#if HAVE(PHOTOS_UI)
-
+#if HAVE(PX_ACTIVITY_PROGRESS_CONTROLLER)
+@interface PXActivityProgressController : NSObject
+#else
 @interface PUActivityProgressController : NSObject
+#endif
 
 @property (nonatomic, copy) NSString *title;
 
@@ -52,6 +60,12 @@
 
 @end
 
-#endif // HAVE(PHOTOS_UI)
+@interface PHPickerConfiguration ()
+
+@property (nonatomic, setter=_setAllowsDownscaling:) BOOL _allowsDownscaling;
+
+@end
 
 #endif // USE(APPLE_INTERNAL_SDK)
+
+#endif // HAVE(PHOTOS_UI)

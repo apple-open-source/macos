@@ -217,19 +217,48 @@ shinbufrestore(void)
 static int
 shingetchar(void)
 {
-    int nread;
+    int nread, rsize = isset(SHINSTDIN) ? 1 : SHINBUFSIZE;
 
     if (shinbufptr < shinbufendptr)
 	return STOUC(*shinbufptr++);
 
     shinbufreset();
-    do {
-	errno = 0;
-	nread = read(SHIN, shinbuffer, SHINBUFSIZE);
-    } while (nread < 0 && errno == EINTR);
-    if (nread <= 0)
-	return -1;
-    shinbufendptr = shinbuffer + nread;
+#ifdef USE_LSEEK
+    if (rsize == 1 && lseek(SHIN, 0, SEEK_CUR) != (off_t)-1)
+	rsize = SHINBUFSIZE;
+    if (rsize > 1) {
+	do {
+	    errno = 0;
+	    nread = read(SHIN, shinbuffer, rsize);
+	} while (nread < 0 && errno == EINTR);
+	if (nread <= 0)
+	    return -1;
+	if (isset(SHINSTDIN) &&
+	    (shinbufendptr = memchr(shinbuffer, '\n', nread))) {
+	    shinbufendptr++;
+	    rsize = (shinbufendptr - shinbuffer);
+	    if (nread > rsize &&
+		lseek(SHIN, -(nread - rsize), SEEK_CUR) < 0)
+		zerr("lseek(%d, %d): %e", SHIN, -(nread - rsize), errno);
+	} else
+	    shinbufendptr = shinbuffer + nread;
+	return STOUC(*shinbufptr++);
+    }
+#endif
+    for (;;) {
+       errno = 0;
+       nread = read(SHIN, shinbufendptr, 1);
+       if (nread > 0) {
+           /* Use line buffering (POSIX requirement) */
+           if (*shinbufendptr++ == '\n')
+               break;
+           if (shinbufendptr == shinbuffer + SHINBUFSIZE)
+               break;
+       } else if (nread == 0 || errno != EINTR)
+           break;
+    }
+    if (shinbufendptr == shinbuffer)
+        return -1;
     return STOUC(*shinbufptr++);
 }
 
@@ -595,9 +624,9 @@ stuff(char *fn)
 	zerr("can't open %s", fn);
 	return 1;
     }
-    fseek(in, 0, 2);
+    fseek(in, 0, SEEK_END);
     len = ftell(in);
-    fseek(in, 0, 0);
+    fseek(in, 0, SEEK_SET);
     buf = (char *)zalloc(len + 1);
     if (!(fread(buf, len, 1, in))) {
 	zerr("read error on %s", fn);

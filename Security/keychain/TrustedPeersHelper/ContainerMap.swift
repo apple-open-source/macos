@@ -305,6 +305,20 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
             return CuttlefishAPI.FetchRecoverableTlksharesOperation(request: request)
         }, completion: completion)
     }
+
+    public func removeRecoveryKey(_ request: RemoveRecoveryKeyRequest,
+                                  completion: @escaping (Result<RemoveRecoveryKeyResponse, Error>) -> Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.RemoveRecoveryKeyOperation(request: request)
+        }, completion: completion)
+    }
+
+    public func performAtoprvactions(_ request: PerformATOPRVActionsRequest,
+                                     completion: @escaping (Result<PerformATOPRVActionsResponse, any Error>) -> Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.PerformAtoprvactionsOperation(request: request)
+        }, completion: completion)
+    }
 }
 
 protocol CKOperationRunner {

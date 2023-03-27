@@ -29,6 +29,7 @@
 #if PLATFORM(MAC)
 
 #import "AudioSessionRoutingArbitratorProxy.h"
+#import "WKNSData.h"
 #import "WKWebViewMac.h"
 #import "_WKFrameHandleInternal.h"
 #import "WebPageProxy.h"
@@ -80,7 +81,9 @@
 
 - (NSRect)_candidateRect
 {
-    return _page->editorState().postLayoutData().selectionBoundingRect;
+    if (!_page->editorState().postLayoutData)
+        return NSZeroRect;
+    return _page->editorState().postLayoutData->selectionBoundingRect;
 }
 
 - (void)viewDidChangeEffectiveAppearance

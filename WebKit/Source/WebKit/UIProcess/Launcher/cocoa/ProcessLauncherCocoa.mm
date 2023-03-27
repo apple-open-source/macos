@@ -27,17 +27,20 @@
 #import "ProcessLauncher.h"
 
 #import "Logging.h"
-#import "ReasonSPI.h"
 #import "WebPreferencesDefaultValues.h"
+#import "XPCUtilities.h"
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <crt_externs.h>
 #import <mach-o/dyld.h>
 #import <mach/mach_error.h>
+#import <mach/mach_init.h>
+#import <mach/mach_traps.h>
 #import <mach/machine.h>
 #import <pal/spi/cocoa/ServersSPI.h>
 #import <spawn.h>
 #import <sys/param.h>
 #import <sys/stat.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/FileSystem.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/RunLoop.h>
@@ -57,7 +60,7 @@ namespace WebKit {
 
 static const char* webContentServiceName(bool nonValidInjectedCodeAllowed, ProcessLauncher::Client* client)
 {
-    if (client && client->shouldEnableCaptivePortalMode())
+    if (client && client->shouldEnableLockdownMode())
         return "com.apple.WebKit.WebContent.CaptivePortal";
 
     return nonValidInjectedCodeAllowed ? "com.apple.WebKit.WebContent.Development" : "com.apple.WebKit.WebContent";
@@ -75,23 +78,6 @@ static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptio
         return "com.apple.WebKit.GPU";
 #endif
     }
-}
-
-static bool shouldLeakBoost(const ProcessLauncher::LaunchOptions& launchOptions)
-{
-#if PLATFORM(IOS_FAMILY)
-    UNUSED_PARAM(launchOptions);
-    // On iOS, we don't need to leak a boost message because RunningBoard process assertions give us the
-    // right priorities.
-    return false;
-#else
-    // On Mac, leak a boost onto the NetworkProcess and GPUProcess.
-#if ENABLE(GPU_PROCESS)
-    if (launchOptions.processType == ProcessLauncher::ProcessType::GPU)
-        return true;
-#endif
-    return launchOptions.processType == ProcessLauncher::ProcessType::Network;
-#endif
 }
 
 void ProcessLauncher::launchProcess()
@@ -137,16 +123,10 @@ void ProcessLauncher::launchProcess()
         xpc_dictionary_set_value(initializationMessage.get(), "OverrideLanguages", languages.get());
     }
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     xpc_dictionary_set_string(initializationMessage.get(), "WebKitBundleVersion", [[NSBundle bundleWithIdentifier:@"com.apple.WebKit"].infoDictionary[(__bridge NSString *)kCFBundleVersionKey] UTF8String]);
 #endif
     xpc_connection_set_bootstrap(m_xpcConnection.get(), initializationMessage.get());
-
-    if (shouldLeakBoost(m_launchOptions)) {
-        auto preBootstrapMessage = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
-        xpc_dictionary_set_string(preBootstrapMessage.get(), "message-name", "pre-bootstrap");
-        xpc_connection_send_message(m_xpcConnection.get(), preBootstrapMessage.get());
-    }
 
     // Create the listening port.
     mach_port_t listeningPort = MACH_PORT_NULL;
@@ -185,7 +165,7 @@ void ProcessLauncher::launchProcess()
             xpc_dictionary_set_bool(bootstrapMessage.get(), "disable-jit", true);
         if (m_client->shouldEnableSharedArrayBuffer())
             xpc_dictionary_set_bool(bootstrapMessage.get(), "enable-shared-array-buffer", true);
-        if (m_client->shouldEnableCaptivePortalMode())
+        if (m_client->shouldEnableLockdownMode())
             xpc_dictionary_set_bool(bootstrapMessage.get(), "enable-captive-portal-mode", true);
     }
 
@@ -215,7 +195,7 @@ void ProcessLauncher::launchProcess()
 
     xpc_dictionary_set_value(bootstrapMessage.get(), "extra-initialization-data", extraInitializationData.get());
 
-    auto errorHandlerImpl = [weakProcessLauncher = WeakPtr { *this }, listeningPort, logName = CString(name)] (xpc_object_t event) {
+    Function<void(xpc_object_t)> errorHandlerImpl = [weakProcessLauncher = ThreadSafeWeakPtr { *this }, listeningPort, logName = CString(name)] (xpc_object_t event) {
         ASSERT(!event || xpc_get_type(event) == XPC_TYPE_ERROR);
 
         auto processLauncher = weakProcessLauncher.get();
@@ -253,28 +233,32 @@ void ProcessLauncher::launchProcess()
         processLauncher->didFinishLaunchingProcess(0, IPC::Connection::Identifier());
     };
 
-    auto eventHandler = [errorHandlerImpl = WTFMove(errorHandlerImpl), eventHandler = m_client->xpcEventHandler()] (xpc_object_t event) mutable {
+    Function<void(xpc_object_t)> eventHandler = [errorHandlerImpl = WTFMove(errorHandlerImpl), xpcEventHandler = m_client->xpcEventHandler()] (xpc_object_t event) mutable {
 
         if (!event || xpc_get_type(event) == XPC_TYPE_ERROR) {
-            RunLoop::main().dispatch([errorHandlerImpl = WTFMove(errorHandlerImpl), event = OSObjectPtr(event)] {
-                errorHandlerImpl(event.get());
+            RunLoop::main().dispatch([errorHandlerImpl = std::exchange(errorHandlerImpl, nullptr), event = OSObjectPtr(event)] {
+                if (errorHandlerImpl)
+                    errorHandlerImpl(event.get());
+                else if (event.get() != XPC_ERROR_CONNECTION_INVALID)
+                    LOG_ERROR("Multiple errors while launching: %@", event.get());
             });
             return;
         }
 
-        if (eventHandler) {
-            RunLoop::main().dispatch([eventHandler = eventHandler, event = OSObjectPtr(event)] {
-                eventHandler->handleXPCEvent(event.get());
+        if (xpcEventHandler) {
+            RunLoop::main().dispatch([xpcEventHandler = xpcEventHandler, event = OSObjectPtr(event)] {
+                xpcEventHandler->handleXPCEvent(event.get());
             });
         }
     };
 
-    xpc_connection_set_event_handler(m_xpcConnection.get(), eventHandler);
+    auto eventHandlerBlock = makeBlockPtr(WTFMove(eventHandler));
+    xpc_connection_set_event_handler(m_xpcConnection.get(), eventHandlerBlock.get());
 
     xpc_connection_resume(m_xpcConnection.get());
 
     if (UNLIKELY(m_launchOptions.shouldMakeProcessLaunchFailForTesting)) {
-        eventHandler(nullptr);
+        eventHandlerBlock(nullptr);
         return;
     }
 
@@ -339,13 +323,6 @@ void ProcessLauncher::terminateXPCConnection()
     xpc_connection_cancel(m_xpcConnection.get());
     terminateWithReason(m_xpcConnection.get(), WebKit::ReasonCode::Invalidation, "ProcessLauncher::platformInvalidate");
     m_xpcConnection = nullptr;
-}
-
-void terminateWithReason(xpc_connection_t connection, ReasonCode, const char*)
-{
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    xpc_connection_kill(connection, SIGKILL);
-    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 } // namespace WebKit

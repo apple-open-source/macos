@@ -295,7 +295,7 @@ static std::pair<bool, bool> axesFlippedForWritingModeAndDirection(WritingMode w
     return std::make_pair(hasVerticalWritingMode ? blockAxisFlipped : inlineAxisFlipped, hasVerticalWritingMode ? inlineAxisFlipped : blockAxisFlipped);
 }
 
-void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const RenderBox& scrollingElementBox, const RenderStyle& scrollingElementStyle, LayoutRect viewportRectInBorderBoxCoordinates, WritingMode writingMode, TextDirection textDirection)
+void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const RenderBox& scrollingElementBox, const RenderStyle& scrollingElementStyle, LayoutRect viewportRectInBorderBoxCoordinates, WritingMode writingMode, TextDirection textDirection, Element* focusedElement)
 {
     auto scrollSnapType = scrollingElementStyle.scrollSnapType();
     const auto& boxesWithScrollSnapPositions = scrollingElementBox.view().boxesWithScrollSnapPositions();
@@ -304,13 +304,13 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
         return;
     }
 
-    auto addOrUpdateStopForSnapOffset = [](HashMap<LayoutUnit, SnapOffset<LayoutUnit>>& offsets, LayoutUnit newOffset, ScrollSnapStop stop, bool hasSnapAreaLargerThanViewport, size_t snapAreaIndices)
+    auto addOrUpdateStopForSnapOffset = [](HashMap<LayoutUnit, SnapOffset<LayoutUnit>>& offsets, LayoutUnit newOffset, ScrollSnapStop stop, bool hasSnapAreaLargerThanViewport, ElementIdentifier snapTargetID, bool isFocused, size_t snapAreaIndices)
     {
         if (!offsets.isValidKey(newOffset))
             return;
 
         auto offset = offsets.ensure(newOffset, [&] {
-            return SnapOffset<LayoutUnit> { newOffset, stop, hasSnapAreaLargerThanViewport, { } };
+            return SnapOffset<LayoutUnit> { newOffset, stop, hasSnapAreaLargerThanViewport, snapTargetID, isFocused, { } };
         });
 
         // If the offset already exists, we ensure that it has ScrollSnapStop::Always, when appropriate.
@@ -324,6 +324,7 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
     HashMap<LayoutUnit, SnapOffset<LayoutUnit>> verticalSnapOffsetsMap;
     HashMap<LayoutUnit, SnapOffset<LayoutUnit>> horizontalSnapOffsetsMap;
     Vector<LayoutRect> snapAreas;
+    Vector<ElementIdentifier> snapAreasIDs;
 
     auto maxScrollOffset = scrollableArea.maximumScrollOffset();
     maxScrollOffset.clampNegativeToZero();
@@ -385,16 +386,19 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
         auto snapAreaOriginRelativeToBorderEdge = scrollSnapArea.location() - scrollSnapPort.location();
         LayoutRect scrollSnapAreaAsOffsets(scrollableArea.scrollOffsetFromPosition(roundedIntPoint(snapAreaOriginRelativeToBorderEdge)), scrollSnapArea.size());
         snapAreas.append(scrollSnapAreaAsOffsets);
-
+        
+        auto isFocused = child->element() ? focusedElement == child->element() : false;
+        auto identifier = child->element() ? child->element()->identifier() : makeObjectIdentifier<ElementIdentifierType>(0);
+        snapAreasIDs.append(identifier);
         if (snapsHorizontally) {
             auto absoluteScrollXPosition = computeScrollSnapAlignOffset(scrollSnapArea.x(), scrollSnapArea.maxX(), xAlign, areaXAxisFlipped) - computeScrollSnapAlignOffset(scrollSnapPort.x(), scrollSnapPort.maxX(), xAlign, areaXAxisFlipped);
             auto absoluteScrollOffset = clampTo<int>(scrollableArea.scrollOffsetFromPosition({ roundToInt(absoluteScrollXPosition), 0 }).x(), 0, maxScrollOffset.x());
-            addOrUpdateStopForSnapOffset(horizontalSnapOffsetsMap, absoluteScrollOffset, stop, scrollSnapAreaAsOffsets.width() > scrollSnapPort.width(), snapAreas.size() - 1);
+            addOrUpdateStopForSnapOffset(horizontalSnapOffsetsMap, absoluteScrollOffset, stop, scrollSnapAreaAsOffsets.width() > scrollSnapPort.width(), identifier, isFocused, snapAreas.size() - 1);
         }
         if (snapsVertically) {
             auto absoluteScrollYPosition = computeScrollSnapAlignOffset(scrollSnapArea.y(), scrollSnapArea.maxY(), yAlign, areaYAxisFlipped) - computeScrollSnapAlignOffset(scrollSnapPort.y(), scrollSnapPort.maxY(), yAlign, areaYAxisFlipped);
             auto absoluteScrollOffset = clampTo<int>(scrollableArea.scrollOffsetFromPosition({ 0, roundToInt(absoluteScrollYPosition) }).y(), 0, maxScrollOffset.y());
-            addOrUpdateStopForSnapOffset(verticalSnapOffsetsMap, absoluteScrollOffset, stop, scrollSnapAreaAsOffsets.height() > scrollSnapPort.height(), snapAreas.size() - 1);
+            addOrUpdateStopForSnapOffset(verticalSnapOffsetsMap, absoluteScrollOffset, stop, scrollSnapAreaAsOffsets.height() > scrollSnapPort.height(), identifier, isFocused, snapAreas.size() - 1);
         }
 
         if (!snapAreas.isEmpty())
@@ -422,7 +426,8 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
         scrollSnapType.strictness,
         horizontalSnapOffsets,
         verticalSnapOffsets,
-        snapAreas
+        snapAreas,
+        snapAreasIDs
     });
 }
 
@@ -442,7 +447,7 @@ static ScrollSnapOffsetsInfo<OutputType, OutputRectType> convertOffsetInfo(const
     auto convertOffsets = [scaleFactor](const Vector<SnapOffset<InputType>>& input)
     {
         return input.map([scaleFactor](auto& offset) -> SnapOffset<OutputType> {
-            return { convertOffsetUnit(offset.offset, scaleFactor), offset.stop, offset.hasSnapAreaLargerThanViewport, offset.snapAreaIndices };
+            return { convertOffsetUnit(offset.offset, scaleFactor), offset.stop, offset.hasSnapAreaLargerThanViewport, offset.snapTargetID, offset.isFocused, offset.snapAreaIndices };
         });
     };
 
@@ -461,6 +466,7 @@ static ScrollSnapOffsetsInfo<OutputType, OutputRectType> convertOffsetInfo(const
         convertOffsets(input.horizontalSnapOffsets),
         convertOffsets(input.verticalSnapOffsets),
         convertRects(input.snapAreas),
+        input.snapAreasIDs
     };
 }
 
@@ -483,14 +489,20 @@ std::pair<UnitType, std::optional<unsigned>> static ensureVisibleTarget(const In
 {
     const auto& snapOffsetsHorizontal = info.offsetsForAxis(ScrollEventAxis::Horizontal);
     const auto& snapOffsetsVertical = info.offsetsForAxis(ScrollEventAxis::Vertical);
-
+    
     if (horizontal.second && vertical.second && !offsetHasVisibleSnapArea(info, snapOffsetsHorizontal[*horizontal.second], snapOffsetsVertical[*vertical.second], ScrollEventAxis::Horizontal, viewportSize) && !offsetHasVisibleSnapArea(info, snapOffsetsVertical[*vertical.second], snapOffsetsHorizontal[*horizontal.second], ScrollEventAxis::Vertical, viewportSize)) {
-        auto horizontalSnapArea = info.snapAreas[snapOffsetsHorizontal[*horizontal.second].snapAreaIndices[findCompatibleSnapArea(info, snapOffsetsHorizontal[*horizontal.second], ScrollEventAxis::Horizontal, viewportSize, scrollDestinationOffset)]];
-        auto verticalSnapArea = info.snapAreas[snapOffsetsVertical[*vertical.second].snapAreaIndices[findCompatibleSnapArea(info, snapOffsetsVertical[*vertical.second], ScrollEventAxis::Vertical, viewportSize, scrollDestinationOffset)]];
         
-        auto closerSnapArea = (horizontalSnapArea.x() - scrollDestinationOffset.x()) * (horizontalSnapArea.x() - scrollDestinationOffset.x()) + (horizontalSnapArea.y() - scrollDestinationOffset.y()) * (horizontalSnapArea.y() - scrollDestinationOffset.y()) > (verticalSnapArea.x() - scrollDestinationOffset.x()) * (verticalSnapArea.x() - scrollDestinationOffset.x()) + (verticalSnapArea.y() - scrollDestinationOffset.y()) * (verticalSnapArea.y() - scrollDestinationOffset.y()) ? verticalSnapArea : horizontalSnapArea;
-        horizontal = { closerSnapArea.x(), std::nullopt };
-        vertical = { closerSnapArea.y(), std::nullopt };
+        auto compatibleHorizontalSnapArea = findCompatibleSnapArea(info, snapOffsetsHorizontal[*horizontal.second], ScrollEventAxis::Horizontal, viewportSize, scrollDestinationOffset);
+        auto compatibleVerticalSnapArea = findCompatibleSnapArea(info, snapOffsetsVertical[*vertical.second], ScrollEventAxis::Vertical, viewportSize, scrollDestinationOffset);
+
+        if (compatibleHorizontalSnapArea != notFound && compatibleVerticalSnapArea != notFound) {
+            auto horizontalSnapArea = info.snapAreas[snapOffsetsHorizontal[*horizontal.second].snapAreaIndices[compatibleHorizontalSnapArea]];
+            auto verticalSnapArea = info.snapAreas[snapOffsetsVertical[*vertical.second].snapAreaIndices[compatibleVerticalSnapArea]];
+            
+            auto closerSnapArea = (horizontalSnapArea.x() - scrollDestinationOffset.x()) * (horizontalSnapArea.x() - scrollDestinationOffset.x()) + (horizontalSnapArea.y() - scrollDestinationOffset.y()) * (horizontalSnapArea.y() - scrollDestinationOffset.y()) > (verticalSnapArea.x() - scrollDestinationOffset.x()) * (verticalSnapArea.x() - scrollDestinationOffset.x()) + (verticalSnapArea.y() - scrollDestinationOffset.y()) * (verticalSnapArea.y() - scrollDestinationOffset.y()) ? verticalSnapArea : horizontalSnapArea;
+            horizontal = { closerSnapArea.x(), std::nullopt };
+            vertical = { closerSnapArea.y(), std::nullopt };
+        }
     }
     return axis == ScrollEventAxis::Horizontal ? horizontal : vertical;
 }

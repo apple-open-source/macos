@@ -34,10 +34,10 @@ OBJC_CLASS GCController;
 OBJC_CLASS GCControllerAxisInput;
 OBJC_CLASS GCControllerButtonInput;
 OBJC_CLASS GCControllerElement;
-OBJC_CLASS GCExtendedGamepad;
-OBJC_CLASS GCGamepad;
 
 namespace WebCore {
+
+class GameControllerHapticEngines;
 
 class GameControllerGamepad : public PlatformGamepad {
     WTF_MAKE_NONCOPYABLE(GameControllerGamepad);
@@ -46,22 +46,27 @@ public:
 
     const Vector<SharedGamepadValue>& axisValues() const final { return m_axisValues; }
     const Vector<SharedGamepadValue>& buttonValues() const final { return m_buttonValues; }
+    void playEffect(GamepadHapticEffectType, const GamepadEffectParameters&, CompletionHandler<void(bool)>&&) final;
+    void stopEffects(CompletionHandler<void()>&&) final;
 
     const char* source() const final { return "GameController"_s; }
 
+    void noLongerHasAnyClient();
+
 private:
-    void setupAsExtendedGamepad();
-    void setupAsGamepad();
+    void setupElements();
+
+#if HAVE(WIDE_GAMECONTROLLER_SUPPORT)
+    GameControllerHapticEngines& ensureHapticEngines();
+#endif
 
     RetainPtr<GCController> m_gcController;
 
     Vector<SharedGamepadValue> m_axisValues;
     Vector<SharedGamepadValue> m_buttonValues;
-
-    RetainPtr<GCGamepad> m_gamepad;
-    RetainPtr<GCExtendedGamepad> m_extendedGamepad;
-
-    bool m_hadButtonPresses { false };
+#if HAVE(WIDE_GAMECONTROLLER_SUPPORT)
+    std::unique_ptr<GameControllerHapticEngines> m_hapticEngines;
+#endif
 };
 
 

@@ -33,6 +33,7 @@
 #include "FloatRoundedRect.h"
 #include "Gradient.h"
 #include "ImageBuffer.h"
+#include "ImageOrientation.h"
 #include "IntRect.h"
 #include "MediaPlayer.h"
 #include "MediaPlayerPrivate.h"
@@ -81,9 +82,15 @@ void GraphicsContext::restore()
         m_stack.clear();
 }
 
-void GraphicsContext::updateState(GraphicsContextState& state, const std::optional<GraphicsContextState>& lastDrawingState)
+void GraphicsContext::mergeLastChanges(const GraphicsContextState& state, const std::optional<GraphicsContextState>& lastDrawingState)
 {
-    m_state.mergeChanges(state, lastDrawingState);
+    m_state.mergeLastChanges(state, lastDrawingState);
+    didUpdateState(m_state);
+}
+
+void GraphicsContext::mergeAllChanges(const GraphicsContextState& state)
+{
+    m_state.mergeAllChanges(state);
     didUpdateState(m_state);
 }
 
@@ -267,6 +274,11 @@ RefPtr<ImageBuffer> GraphicsContext::createAlignedImageBuffer(const FloatRect& r
     return createScaledImageBuffer(rect, scaleFactor(), colorSpace, renderingMode(), renderingMethod);
 }
 
+void GraphicsContext::drawNativeImage(NativeImage& image, const FloatSize& imageSize, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions& options)
+{
+    image.draw(*this, imageSize, destination, source, options);
+}
+
 void GraphicsContext::drawSystemImage(SystemImage& systemImage, const FloatRect& destinationRect)
 {
     systemImage.draw(*this, destinationRect);
@@ -365,6 +377,11 @@ void GraphicsContext::drawFilteredImageBuffer(ImageBuffer* sourceImage, const Fl
 void GraphicsContext::drawPattern(ImageBuffer& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
     image.drawPattern(*this, destRect, tileRect, patternTransform, phase, spacing, options);
+}
+
+void GraphicsContext::drawControlPart(ControlPart& part, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle& style)
+{
+    part.draw(*this, borderRect, deviceScaleFactor, style);
 }
 
 void GraphicsContext::clipRoundedRect(const FloatRoundedRect& rect)
@@ -597,6 +614,11 @@ Vector<FloatPoint> GraphicsContext::centerLineAndCutOffCorners(bool isVerticalLi
 void GraphicsContext::paintFrameForMedia(MediaPlayer& player, const FloatRect& destination)
 {
     player.playerPrivate()->paintCurrentFrameInContext(*this, destination);
+}
+
+void GraphicsContext::paintVideoFrame(VideoFrame& frame, const FloatRect& destination, bool shouldDiscardAlpha)
+{
+    frame.paintInContext(*this, destination, ImageOrientation::None, shouldDiscardAlpha);
 }
 #endif
 

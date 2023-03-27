@@ -64,8 +64,6 @@ static void setAppleLanguagesPreference()
 
 static void XPCServiceEventHandler(xpc_connection_t peer)
 {
-    static NeverDestroyed<OSObjectPtr<xpc_object_t>> priorityBoostMessage;
-
     OSObjectPtr<xpc_connection_t> retainedPeerConnection(peer);
 
     xpc_connection_set_target_queue(peer, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
@@ -109,7 +107,7 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
             }
 
             CFBundleRef webKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit"));
-            typedef void (*InitializerFunction)(xpc_connection_t, xpc_object_t, xpc_object_t);
+            typedef void (*InitializerFunction)(xpc_connection_t, xpc_object_t);
             InitializerFunction initializerFunctionPtr = reinterpret_cast<InitializerFunction>(CFBundleGetFunctionPointerForName(webKitBundle, entryPointFunctionName));
             if (!initializerFunctionPtr) {
                 RELEASE_LOG_FAULT(IPC, "Exiting: Unable to find entry point in WebKit.framework with name: %s", [(__bridge NSString *)entryPointFunctionName UTF8String]);
@@ -132,19 +130,11 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
                 dup2(fd, STDERR_FILENO);
 
             WorkQueue::main().dispatchSync([initializerFunctionPtr, event = OSObjectPtr<xpc_object_t>(event), retainedPeerConnection] {
-                initializerFunctionPtr(retainedPeerConnection.get(), event.get(), priorityBoostMessage.get().get());
+                initializerFunctionPtr(retainedPeerConnection.get(), event.get());
 
                 setAppleLanguagesPreference();
             });
 
-            priorityBoostMessage.get() = nullptr;
-            return;
-        }
-
-        // Leak a boost onto the NetworkProcess.
-        if (!strcmp(messageName, "pre-bootstrap")) {
-            assert(!priorityBoostMessage.get());
-            priorityBoostMessage.get() = event;
             return;
         }
 
@@ -154,7 +144,7 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
     xpc_connection_resume(peer);
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 
 NEVER_INLINE NO_RETURN_DUE_TO_CRASH static void crashDueWebKitFrameworkVersionMismatch()
 {
@@ -185,7 +175,7 @@ int XPCServiceMain(int, const char**)
             return true;
         });
 #endif
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 #if ASAN_ENABLED
         // EXC_RESOURCE on ASAN builds freezes the process for several minutes: rdar://65027596
         if (char *disableFreezingOnExcResource = getenv("DISABLE_FREEZING_ON_EXC_RESOURCE")) {

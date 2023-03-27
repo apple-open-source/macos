@@ -85,7 +85,8 @@ angle::Result RenderbufferVk::setStorageImpl(const gl::Context *context,
 
     const bool isRenderToTexture = mode == gl::MultisamplingMode::MultisampledRenderToTexture;
     const bool hasRenderToTextureEXT =
-        renderer->getFeatures().supportsMultisampledRenderToSingleSampled.enabled;
+        renderer->getFeatures().supportsMultisampledRenderToSingleSampled.enabled ||
+        renderer->getFeatures().supportsMultisampledRenderToSingleSampledGOOGLEX.enabled;
 
     // Transfer and sampled usage are used for various utilities such as readback or blit.
     VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
@@ -107,6 +108,13 @@ angle::Result RenderbufferVk::setStorageImpl(const gl::Context *context,
         usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
     }
 
+    VkImageCreateFlags createFlags = vk::kVkImageCreateFlagsNone;
+    if (isRenderToTexture &&
+        renderer->getFeatures().supportsMultisampledRenderToSingleSampled.enabled)
+    {
+        createFlags |= VK_IMAGE_CREATE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_BIT_EXT;
+    }
+
     const uint32_t imageSamples = isRenderToTexture ? 1 : samples;
 
     bool robustInit = contextVk->isRobustResourceInitEnabled();
@@ -114,11 +122,12 @@ angle::Result RenderbufferVk::setStorageImpl(const gl::Context *context,
     VkExtent3D extents = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1u};
     ANGLE_TRY(mImage->initExternal(contextVk, gl::TextureType::_2D, extents,
                                    format.getIntendedFormatID(), textureFormatID, imageSamples,
-                                   usage, vk::kVkImageCreateFlagsNone, vk::ImageLayout::Undefined,
-                                   nullptr, gl::LevelIndex(0), 1, 1, robustInit, false));
+                                   usage, createFlags, vk::ImageLayout::Undefined, nullptr,
+                                   gl::LevelIndex(0), 1, 1, robustInit, false));
 
     VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    ANGLE_TRY(mImage->initMemory(contextVk, false, renderer->getMemoryProperties(), flags));
+    ANGLE_TRY(mImage->initMemory(contextVk, false, renderer->getMemoryProperties(), flags,
+                                 vk::MemoryAllocationType::RenderBufferStorageImage));
 
     // If multisampled render to texture, an implicit multisampled image is created which is used as
     // the color or depth/stencil attachment.  At the end of the render pass, this image is
@@ -191,8 +200,10 @@ angle::Result RenderbufferVk::setStorageEGLImageTarget(const gl::Context *contex
         vk::CommandBufferAccess access;
         access.onExternalAcquireRelease(mImage);
         ANGLE_TRY(contextVk->getOutsideRenderPassCommandBuffer(access, &commandBuffer));
-        mImage->changeLayoutAndQueue(contextVk, aspect, vk::ImageLayout::ColorAttachment,
+        mImage->changeLayoutAndQueue(contextVk, aspect, vk::ImageLayout::ColorWrite,
                                      rendererQueueFamilyIndex, commandBuffer);
+
+        ANGLE_TRY(contextVk->onEGLImageQueueChange());
     }
 
     mRenderTarget.init(mImage, &mImageViews, nullptr, nullptr, imageVk->getImageLevel(),
@@ -298,8 +309,8 @@ void RenderbufferVk::releaseImage(ContextVk *contextVk)
     else
     {
         mRenderTarget.release(contextVk);
-        mImage->collectViewGarbage(renderer, &mImageViews);
-        mImage->collectViewGarbage(renderer, &mMultisampledImageViews);
+        mImageViews.release(renderer, mImage->getResourceUse());
+        mMultisampledImageViews.release(renderer, mImage->getResourceUse());
     }
 
     if (mImage && mOwnsImage)

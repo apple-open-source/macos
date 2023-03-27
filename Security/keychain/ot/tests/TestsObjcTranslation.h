@@ -17,6 +17,9 @@
 
 @class OTSecureElementPeerIdentity;
 @class OTCurrentSecureElementIdentities;
+@class OTAccountSettings;
+@class OTWalrus;
+@class OTWebAccess;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -27,10 +30,6 @@ NS_ASSUME_NONNULL_BEGIN
                       recoveryKey:(NSString*)recoveryKey
                             reply:(void(^)(void* rk,
                                            NSError* _Nullable error))reply;
-
-+ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
-                    recoveryKey:(NSString*)recoveryKey
-                          reply:(void(^)(NSError* _Nullable error))reply;
 
 + (BOOL)saveCoruptDataToKeychainForContainer:(NSString*)containerName
                                    contextID:(NSString*)contextID
@@ -71,8 +70,28 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (OTCurrentSecureElementIdentities* _Nullable)fetchTrustedSecureElementIdentities:(NSError**)error;
 
+- (BOOL)setAccountSetting:(OTAccountSettings*)setting error:(NSError**)error;
+
+- (OTAccountSettings* _Nullable)fetchAccountSettings:(NSError**)error;
+
++ (OTAccountSettings* _Nullable)fetchAccountWideSettings:(OTConfigurationContext*)context error:(NSError**)error;
+
++ (OTAccountSettings* _Nullable)fetchAccountWideSettingsWithForceFetch:(bool)forceFetch
+                                                         configuration:(OTConfigurationContext*)configurationContext
+                                                                 error:(NSError**)error;
 
 - (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error;
+
+- (NSString*)createAndSetRecoveryKeyWithContext:(OTConfigurationContext*)context error:(NSError**)error;
+
++ (BOOL)isRecoveryKeySet:(OTConfigurationContext*)ctx error:(NSError**)error;
+
++ (BOOL)recoverWithRecoveryKey:(OTConfigurationContext*)ctx
+                   recoveryKey:(NSString*)recoveryKey
+                         error:(NSError**)error;
+
+- (BOOL)removeRecoveryKeyWithContext:(OTConfigurationContext*)context
+                               error:(NSError**)error;
 
 - (bool)preflightRecoveryKey:(OTConfigurationContext*)context recoveryKey:(NSString*)recoveryKey error:(NSError**)error;
 @end

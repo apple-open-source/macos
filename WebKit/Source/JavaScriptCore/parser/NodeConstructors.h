@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2009-2018 Apple Inc. All rights reserved.
+ *  Copyright (C) 2009-2023 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -250,36 +250,39 @@ namespace JSC {
     {
     }
 
+    inline PropertyNode::PropertyNode(const Identifier& name, Type type, SuperBinding superBinding, ClassElementTag tag)
+        : m_name(&name)
+        , m_type(type)
+        , m_needsSuperBinding(superBinding == SuperBinding::Needed)
+        , m_classElementTag(static_cast<unsigned>(tag))
+    {
+        ASSERT(name.impl());
+    }
+
     inline PropertyNode::PropertyNode(const Identifier& name, ExpressionNode* assign, Type type, SuperBinding superBinding, ClassElementTag tag)
         : m_name(&name)
-        , m_expression(nullptr)
         , m_assign(assign)
         , m_type(type)
         , m_needsSuperBinding(superBinding == SuperBinding::Needed)
         , m_classElementTag(static_cast<unsigned>(tag))
-        , m_isOverriddenByDuplicate(false)
     {
+        ASSERT(name.impl());
     }
     
     inline PropertyNode::PropertyNode(ExpressionNode* assign, Type type, SuperBinding superBinding, ClassElementTag tag)
-        : m_name(nullptr)
-        , m_expression(nullptr)
-        , m_assign(assign)
+        : m_assign(assign)
         , m_type(type)
         , m_needsSuperBinding(superBinding == SuperBinding::Needed)
         , m_classElementTag(static_cast<unsigned>(tag))
-        , m_isOverriddenByDuplicate(false)
     {
     }
 
     inline PropertyNode::PropertyNode(ExpressionNode* name, ExpressionNode* assign, Type type, SuperBinding superBinding, ClassElementTag tag)
-        : m_name(nullptr)
-        , m_expression(name)
+        : m_expression(name)
         , m_assign(assign)
         , m_type(type)
         , m_needsSuperBinding(superBinding == SuperBinding::Needed)
         , m_classElementTag(static_cast<unsigned>(tag))
-        , m_isOverriddenByDuplicate(false)
     {
     }
 
@@ -290,8 +293,8 @@ namespace JSC {
         , m_type(type)
         , m_needsSuperBinding(superBinding == SuperBinding::Needed)
         , m_classElementTag(static_cast<unsigned>(tag))
-        , m_isOverriddenByDuplicate(false)
     {
+        ASSERT(ident.impl());
     }
 
     inline PropertyListNode::PropertyListNode(const JSTokenLocation& location, PropertyNode* node)
@@ -404,6 +407,14 @@ namespace JSC {
         , m_expr(expr)
         , m_args(args)
         , m_isOptionalCall(isOptionalCall)
+    {
+        ASSERT(divot.offset >= divotStart.offset);
+    }
+
+    inline StaticBlockFunctionCallNode::StaticBlockFunctionCallNode(const JSTokenLocation& location, ExpressionNode* expr, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
+        : ExpressionNode(location)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
+        , m_expr(expr)
     {
         ASSERT(divot.offset >= divotStart.offset);
     }

@@ -41,3 +41,7 @@ Changes to curl_config.h post-configure:
   (4) Enable USE_NGHTTP2.  Because our nghttp2 is at a non-standard path and we
       don't install the pkgconfig support, the configure script cannot
       configure it automatically.
+
+Manual Testing:
+
+Right now we don't have automated tests running, even if they did they won't catch every error. In addition to doing basic curl test on well known URLs it's good to test both SSL backends available. This can be done soley on a macOS hosts.  By default macOS use libressl curl can be set to SecureTransport with the follow environment variable change 'CURL_SSL_BACKEND='Secure-Transport'

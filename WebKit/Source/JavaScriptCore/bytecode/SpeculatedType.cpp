@@ -39,6 +39,7 @@
 #include "JSCellInlines.h"
 #include "JSDataView.h"
 #include "JSFunction.h"
+#include "JSGenericTypedArrayView.h"
 #include "JSMap.h"
 #include "JSSet.h"
 #include "JSWeakMap.h"
@@ -503,8 +504,7 @@ SpeculatedType speculationFromClassInfoInheritance(const ClassInfo* classInfo)
     if (classInfo == ProxyObject::info())
         return SpecProxyObject;
 
-    static_assert(std::is_final_v<JSDataView>);
-    if (classInfo == JSDataView::info())
+    if (classInfo->isSubClassOf(JSDataView::info()))
         return SpecDataViewObject;
 
     if (classInfo->isSubClassOf(StringObject::info()))
@@ -523,9 +523,13 @@ SpeculatedType speculationFromClassInfoInheritance(const ClassInfo* classInfo)
     if (classInfo->isSubClassOf(JSPromise::info()))
         return SpecPromiseObject;
     
-    if (isTypedView(classInfo->typedArrayStorageType))
-        return speculationFromTypedArrayType(classInfo->typedArrayStorageType);
-    
+#define JSC_TYPED_ARRAY_CHECK(type) do { \
+        if (classInfo->isSubClassOf(JS ## type ## Array::info())) \
+            return Spec ## type ## Array; \
+    } while (0);
+    FOR_EACH_TYPED_ARRAY_TYPE_EXCLUDING_DATA_VIEW(JSC_TYPED_ARRAY_CHECK)
+#undef JSC_TYPED_ARRAY_CHECK
+
     if (classInfo->isSubClassOf(JSObject::info()))
         return SpecObjectOther;
     

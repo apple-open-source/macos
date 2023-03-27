@@ -68,6 +68,7 @@
 #include <Security/SecCmsSignerInfo.h>
 #include <Security/SecCodePriv.h>
 #include <Security/SecCodeSigner.h>
+#include <Security/SecCodeSignerRemote.h>
 #include <Security/SecCoreAnalytics.h>
 #include <Security/SecDH.h>
 #include <Security/SecECKey.h>
@@ -123,6 +124,7 @@
 #include <Security/SOSAnalytics.h>
 #include <Security/SOSControlHelper.h>
 #include <Security/X509Templates.h>
+
 
 #if SEC_OS_OSX_INCLUDES
 #include <Security/AuthorizationPriv.h>

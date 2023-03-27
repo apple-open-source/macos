@@ -21,6 +21,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         } else {
             self.intendedCKKSZones = Set([
                 CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
+                CKRecordZone.ID(zoneName: "Contacts"),
                 CKRecordZone.ID(zoneName: "Manatee"),
                 CKRecordZone.ID(zoneName: "Mail"),
                 CKRecordZone.ID(zoneName: "MFi"),
@@ -86,6 +87,22 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.addGenericPassword("asdf",
                                 account: "Mail-test",
                                 viewHint: kSecAttrViewHintMail as String)
+
+        self.verifyDatabaseMocks()
+#endif // tvos test skip
+    }
+
+    func testHandleContactsItemAdd() throws {
+#if os(tvOS)
+        throw XCTSkip("aTV does not participate in Mail view")
+#else
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        self.expectCKModifyItemRecords(1, currentKeyPointerRecords: 1, zoneID: CKRecordZone.ID(zoneName: "Contacts"))
+        self.addGenericPassword("asdf",
+                                account: "Contacts-test",
+                                viewHint: kSecAttrViewHintContacts as String)
 
         self.verifyDatabaseMocks()
 #endif // tvos test skip
@@ -360,7 +377,7 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testUpgradePeerToHaveUserSyncableViewsOpinionViaAskingSOS() throws {
-        self.mockSOSAdapter.safariViewEnabled = true
+        self.mockSOSAdapter!.safariViewEnabled = true
 
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
@@ -412,7 +429,7 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testUpgradePeerToHaveUserSyncableViewsOpinionViaPeersOpinion() throws {
-        self.mockSOSAdapter.sosEnabled = false
+        self.mockSOSAdapter!.sosEnabled = false
 
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
@@ -464,7 +481,7 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testUpgradePeerToHaveUserSyncableViewsOpinionWhileLocked() throws {
-        self.mockSOSAdapter.safariViewEnabled = true
+        self.mockSOSAdapter!.safariViewEnabled = true
 
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
@@ -529,7 +546,7 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testHandleFailureUpgradingPeerToHaveUserSyncableViewsOpinion() throws {
-        self.mockSOSAdapter.safariViewEnabled = true
+        self.mockSOSAdapter!.safariViewEnabled = true
 
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
@@ -672,7 +689,7 @@ class OctagonCKKSTests: OctagonTestsBase {
 
     func testSignInWithDelayedHSA2StatusAndAttemptFetchUserControllableViewsSyncingStatus() throws {
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Device is signed out
         self.mockAuthKit.removePrimaryAccount()

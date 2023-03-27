@@ -34,6 +34,7 @@
 #include <Security/SecStaticCodePriv.h>
 #include <Security/SecRequirementPriv.h>
 #include <Security/SecCodeSigner.h>
+#include <Security/SecCodeSignerRemote.h>
 #include <Security/SecBasePriv.h>
 #include <security_utilities/globalizer.h>
 #include <security_utilities/seccfobject.h>
@@ -65,6 +66,7 @@ struct CFObjects {
 	CFClass StaticCode;
 	CFClass Requirement;
 	CFClass CodeSigner;
+	CFClass CodeSignerRemote;
 
 	ThreadNexus<PerThread> perThread;
 	

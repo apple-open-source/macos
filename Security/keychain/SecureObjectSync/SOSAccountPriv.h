@@ -159,6 +159,7 @@ void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
 - (bool) sosIsEnabled;
 - (NSString *) sosIsEnabledString;
 - (bool) sosEvaluateIfNeeded;
+- (void)triggerRingUpdateNow:(void ((^))(NSError *error))reply;
 
 #if OCTAGON
 - (void)triggerBackupForPeers:(NSArray<NSString*>*)backupPeer;
@@ -275,7 +276,7 @@ bool SOSAccountRetrieveCloudParameters(SOSAccount* account, SecKeyRef *newKey,
                                        CFDataRef *newParameters, CFErrorRef* error);
 
 //DSID
-void SOSAccountAssertDSID(SOSAccount* account, CFStringRef dsid);
+bool SOSAccountAssertDSID(SOSAccount* account, CFStringRef dsid);
 
 //
 // Key extraction
@@ -359,9 +360,11 @@ CFDataRef SOSPiggyBackBlobCopyEncodedData(SOSGenCountRef gencount, SecKeyRef pub
 NSData *SOSPiggyCreateInitialSyncData(NSArray<NSData*> *identities, NSArray<NSDictionary *>* tlks);
 NSDictionary * SOSPiggyCopyInitialSyncData(const uint8_t** der, const uint8_t *der_end);
 NSArray<NSDictionary*>* SOSAccountSortTLKS(NSArray<NSDictionary*>* tlks);
+NSMutableArray * SOSAccountScanForDeletions(CFDictionaryRef keysAndValues, CFSetRef peerIDs, CFSetRef retiredPeerIDs);
 #endif
 
 bool SOSAccountCleanupAllKVSKeys(SOSAccount* account, CFErrorRef* error);
+bool SOSAccountCleanupAllKVSKeysIfScheduled(SOSAccount* account, CFErrorRef* error);
 
 @end
 

@@ -95,7 +95,7 @@ struct _WebKitCookieManagerPrivate {
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitCookieManager, webkit_cookie_manager, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitCookieManager, webkit_cookie_manager, G_TYPE_OBJECT)
 
 static inline SoupCookiePersistentStorageType toSoupCookiePersistentStorageType(WebKitCookiePersistentStorage kitStorage)
 {
@@ -174,6 +174,8 @@ WebKitCookieManager* webkitCookieManagerCreate(WebKitWebsiteDataManager* dataMan
  * @filename: the filename to read to/write from
  * @storage: a #WebKitCookiePersistentStorage
  *
+ * Set non-session cookies.
+ *
  * Set the @filename where non-session cookies are stored persistently using
  * @storage as the format to read/write the cookies.
  * Cookies are initially read from @filename to create an initial set of cookies.
@@ -204,6 +206,7 @@ void webkit_cookie_manager_set_persistent_storage(WebKitCookieManager* manager, 
  * @policy: a #WebKitCookieAcceptPolicy
  *
  * Set the cookie acceptance policy of @cookie_manager as @policy.
+ *
  * Note that ITP has its own way to handle third-party cookies, so when it's enabled,
  * and @policy is set to %WEBKIT_COOKIE_POLICY_ACCEPT_NO_THIRD_PARTY, %WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS
  * will be used instead. Once disabled, the policy will be set back to %WEBKIT_COOKIE_POLICY_ACCEPT_NO_THIRD_PARTY.
@@ -225,6 +228,7 @@ void webkit_cookie_manager_set_accept_policy(WebKitCookieManager* manager, WebKi
  * @user_data: (closure): the data to pass to callback function
  *
  * Asynchronously get the cookie acceptance policy of @cookie_manager.
+ *
  * Note that when policy was set to %WEBKIT_COOKIE_POLICY_ACCEPT_NO_THIRD_PARTY and
  * ITP is enabled, this will return %WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS.
  * See also webkit_website_data_manager_set_itp_enabled().
@@ -316,6 +320,8 @@ gboolean webkit_cookie_manager_add_cookie_finish(WebKitCookieManager* manager, G
  * @callback: (scope async): a #GAsyncReadyCallback to call when the request is satisfied
  * @user_data: (closure): the data to pass to callback function
  *
+ * Asynchronously get a list of #SoupCookie from @cookie_manager.
+ *
  * Asynchronously get a list of #SoupCookie from @cookie_manager associated with @uri, which
  * must be either an HTTP or an HTTPS URL.
  *
@@ -348,6 +354,7 @@ void webkit_cookie_manager_get_cookies(WebKitCookieManager* manager, const gchar
  * @error: return location for error or %NULL to ignore
  *
  * Finish an asynchronous operation started with webkit_cookie_manager_get_cookies().
+ *
  * The return value is a #GSList of #SoupCookie instances which should be released
  * with g_list_free_full() and soup_cookie_free().
  *
@@ -409,7 +416,7 @@ gboolean webkit_cookie_manager_delete_cookie_finish(WebKitCookieManager* manager
     return g_task_propagate_boolean(G_TASK(result), error);
 }
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
 /**
  * webkit_cookie_manager_get_domains_with_cookies:
  * @cookie_manager: a #WebKitCookieManager
@@ -456,6 +463,7 @@ void webkit_cookie_manager_get_domains_with_cookies(WebKitCookieManager* manager
  * @error: return location for error or %NULL to ignore
  *
  * Finish an asynchronous operation started with webkit_cookie_manager_get_domains_with_cookies().
+ *
  * The return value is a %NULL terminated list of strings which should
  * be released with g_strfreev().
  *
@@ -498,7 +506,7 @@ void webkit_cookie_manager_delete_cookies_for_domain(WebKitCookieManager* manage
  * webkit_cookie_manager_delete_all_cookies:
  * @cookie_manager: a #WebKitCookieManager
  *
- * Delete all cookies of @cookie_manager
+ * Delete all cookies of @cookie_manager.
  *
  * Deprecated: 2.16: Use webkit_website_data_manager_clear() instead.
  */

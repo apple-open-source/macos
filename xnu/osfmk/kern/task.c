@@ -615,6 +615,18 @@ task_get_platform_binary(task_t task)
 	return (task_ro_flags_get(task) & TFRO_PLATFORM) != 0;
 }
 
+boolean_t
+task_is_a_corpse(task_t task)
+{
+	return (task_ro_flags_get(task) & TFRO_CORPSE) != 0;
+}
+
+void
+task_set_corpse(task_t task)
+{
+	return task_ro_flags_set(task, TFRO_CORPSE);
+}
+
 void
 task_set_immovable_pinned(task_t task)
 {
@@ -809,9 +821,13 @@ task_wait_to_return(void)
 
 #if CONFIG_MACF
 	/*
-	 * Before jumping to userspace and allowing this process to execute any code,
-	 * notify any interested parties.
+	 * Before jumping to userspace and allowing this process
+	 * to execute any code, make sure its credentials are cached,
+	 * and notify any interested parties.
 	 */
+	extern void mach_kauth_cred_thread_update(void);
+
+	mach_kauth_cred_thread_update();
 	mac_proc_notify_exec_complete(current_proc());
 #endif
 
@@ -991,8 +1007,8 @@ task_init(void)
 	/*
 	 * Create the kernel task as the first task.
 	 */
-	if (task_create_internal(TASK_NULL, NULL, NULL, FALSE,
-	    is_64bit, is_64bit, TF_NONE, TPF_NONE, TWF_NONE, kernel_task) != KERN_SUCCESS) {
+	if (task_create_internal(TASK_NULL, NULL, NULL, FALSE, is_64bit,
+	    is_64bit, TF_NONE, TF_NONE, TPF_NONE, TWF_NONE, kernel_task) != KERN_SUCCESS) {
 		panic("task_init");
 	}
 
@@ -1322,9 +1338,10 @@ task_create_internal(
 	proc_ro_t          proc_ro,
 	coalition_t        *parent_coalitions __unused,
 	boolean_t          inherit_memory,
-	boolean_t          is_64bit __unused,
+	boolean_t          is_64bit,
 	boolean_t          is_64bit_data,
 	uint32_t           t_flags,
+	uint32_t           t_flags_ro,
 	uint32_t           t_procflags,
 	uint8_t            t_returnwaitflags,
 	task_t             child_task)
@@ -1382,16 +1399,22 @@ task_create_internal(
 	} else {
 		unsigned int pmap_flags = is_64bit ? PMAP_CREATE_64BIT : 0;
 		pmap_t pmap = pmap_create_options(ledger, 0, pmap_flags);
+		vm_map_t new_map;
+
 		if (pmap == NULL) {
 			counter_free(&new_task->faults);
 			ledger_dereference(ledger);
 			task_ref_count_fini(new_task);
 			return KERN_RESOURCE_SHORTAGE;
 		}
-		new_task->map = vm_map_create_options(pmap,
+		new_map = vm_map_create_options(pmap,
 		    (vm_map_offset_t)(VM_MIN_ADDRESS),
 		    (vm_map_offset_t)(VM_MAX_ADDRESS),
 		    VM_MAP_CREATE_PAGEABLE);
+		if (parent_task) {
+			vm_map_inherit_limits(new_map, parent_task->map);
+		}
+		new_task->map = new_map;
 	}
 
 	if (new_task->map == NULL) {
@@ -1405,13 +1428,6 @@ task_create_internal(
 	new_task->sched_group = sched_group_create();
 #endif
 
-	/* Inherit address space and memlock limit from parent */
-	if (parent_task) {
-		vm_map_set_size_limit(new_task->map, parent_task->map->size_limit);
-		vm_map_set_data_limit(new_task->map, parent_task->map->data_limit);
-		vm_map_set_user_wire_limit(new_task->map, (vm_size_t)parent_task->map->user_wire_limit);
-	}
-
 	lck_mtx_init(&new_task->lock, &task_lck_grp, &task_lck_attr);
 	queue_init(&new_task->threads);
 	new_task->suspend_count = 0;
@@ -1423,12 +1439,12 @@ task_create_internal(
 	new_task->halting = FALSE;
 	new_task->priv_flags = 0;
 	new_task->t_flags = t_flags;
+	task_ro_data.t_flags_ro = t_flags_ro;
 	new_task->t_procflags = t_procflags;
 	new_task->t_returnwaitflags = t_returnwaitflags;
 	new_task->returnwait_inheritor = current_thread();
 	new_task->importance = 0;
 	new_task->crashed_thread_id = 0;
-	new_task->exec_token = 0;
 	new_task->watchports = NULL;
 	new_task->t_rr_ranges = NULL;
 
@@ -4812,7 +4828,7 @@ task_set_security_tokens(
 	audit_token_t    audit_token,
 	host_priv_t      host_priv)
 {
-	ipc_port_t       host_port;
+	ipc_port_t       host_port = IP_NULL;
 	kern_return_t    kr;
 
 	if (task == TASK_NULL) {
@@ -7163,12 +7179,6 @@ is_kerneltask(task_t t)
 	}
 
 	return FALSE;
-}
-
-boolean_t
-is_corpsetask(task_t t)
-{
-	return task_is_a_corpse(t);
 }
 
 boolean_t

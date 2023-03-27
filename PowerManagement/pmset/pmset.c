@@ -933,7 +933,7 @@ io_registry_entry_t _getRootDomain(void)
 }
 
 
-static void swd_debugTrig()
+static void swd_debugTrig(void)
 {
     io_service_t                rootDomainService = IO_OBJECT_NULL;
     io_connect_t                gRootDomainConnect = IO_OBJECT_NULL;
@@ -972,7 +972,7 @@ exit:
 }
 
 
-static void displaySleepNow()
+static void displaySleepNow(void)
 {
 #if SLSDISPLAYMANAGER
     CGError err = SLSDisplayManagerRequestDisplaysIdle();
@@ -7509,7 +7509,8 @@ static void show_details_for_UUID( char **argv ) {
   CFRelease(uuid);
 }
 
-static void _print_uuid_string(){
+static void _print_uuid_string(void)
+{
     CFStringRef     _uuid = IOPMSleepWakeCopyUUID();
     char            str[kMaxLongStringLength];
 

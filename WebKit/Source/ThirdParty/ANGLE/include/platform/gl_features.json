@@ -258,10 +258,10 @@
             "issue": "http://crbug.com/849576"
         },
         {
-            "name": "limit_max_texture_size_to_4096",
+            "name": "limit_webgl_max_texture_size_to_4096",
             "category": "Workarounds",
             "description": [
-                "Limit max texture size to 4096 to avoid frequent ",
+                "Limit webgl max texture size to 4096 to avoid frequent ",
                 "out-of-memory errors"
             ],
             "issue": "http://crbug.com/927470"
@@ -453,6 +453,13 @@
             "issue": "http://anglebug.com/4646"
         },
         {
+            "name": "emulate_CopyTexImage2D",
+            "category": "Workarounds",
+            "description": [
+                "Replace CopyTexImage2D with TexImage2D + CopyTexSubImage2D."
+            ]
+        },
+        {
             "name": "emulate_CopyTexImage2D_from_renderbuffers",
             "category": "Workarounds",
             "description": [
@@ -628,6 +635,69 @@
                 "Imagination devices generate INVALID_ENUM when setting the texture border color."
             ],
             "issue": "https://anglebug.com/7405"
+        },
+        {
+            "name": "pass_highp_to_pack_unorm_snorm_builtins",
+            "category": "Workarounds",
+            "description": [
+                "packUnorm4x8 fails on Pixel 4 if it is not passed a highp vec4."
+            ],
+            "issue": "http://anglebug.com/7527"
+        },
+        {
+            "name": "emulate_clip_distance_state",
+            "category": "Workarounds",
+            "description": [
+                "Some drivers ignore GL_CLIP_DISTANCEi_EXT state."
+            ]
+        },
+        {
+            "name": "supports_fragment_shader_interlock_NV",
+            "category": "Features",
+            "description": [
+                "Backend GL context supports NV_fragment_shader_interlock extension"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "supports_fragment_shader_ordering_INTEL",
+            "category": "Features",
+            "description": [
+                "Backend GL context supports GL_INTEL_fragment_shader_ordering extension"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "supports_fragment_shader_interlock_ARB",
+            "category": "Features",
+            "description": [
+                "Backend GL context supports ARB_fragment_shader_interlock extension"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "supports_shader_framebuffer_fetch_EXT",
+            "category": "Features",
+            "description": [
+                "Backend GL context supports EXT_shader_framebuffer_fetch extension"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "supports_shader_framebuffer_fetch_non_coherent_EXT",
+            "category": "Features",
+            "description": [
+                "Backend GL context supports EXT_shader_framebuffer_fetch_non_coherent extension"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "supports_shader_pixel_local_storage_EXT",
+            "category": "Features",
+            "description": [
+                "Backend GL context supports EXT_shader_pixel_local_storage extension"
+            ],
+            "issue": "http://anglebug.com/7279"
         }
     ]
 }

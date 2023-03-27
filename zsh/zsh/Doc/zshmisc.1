@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "February 12, 2022" "zsh 5\&.8\&.1"
+.TH "ZSHMISC" "1" "May 14, 2022" "zsh 5\&.9"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -256,7 +256,9 @@ for each selection until a break or end\-of\-file is encountered\&.
 .TP
 \fB(\fP \fIlist\fP \fB)\fP
 Execute \fIlist\fP in a subshell\&.  Traps set by the \fBtrap\fP builtin
-are reset to their default values while executing \fIlist\fP\&.
+are reset to their default values while executing \fIlist\fP; an
+exception is that ignored signals will continue to be ignored
+if the option \fBPOSIXTRAPS\fP is set\&.
 .TP
 \fB{\fP \fIlist\fP \fB}\fP
 Execute \fIlist\fP\&.
@@ -326,7 +328,7 @@ execution of \fIalways\-list\fP, just like \fBbreak\fP and \fBcontinue\fP\&.
 .RE
 .TP
 .PD 0
-\fBfunction\fP \fIword\fP \&.\&.\&. [ \fB()\fP ] [ \fIterm\fP ] \fB{\fP \fIlist\fP \fB}\fP
+\fBfunction\fP [ \fB\-T\fP ] \fIword\fP \&.\&.\&. [ \fB()\fP ] [ \fIterm\fP ] \fB{\fP \fIlist\fP \fB}\fP
 .TP
 .PD 0
 \fIword\fP \&.\&.\&. \fB()\fP [ \fIterm\fP ] \fB{\fP \fIlist\fP \fB}\fP
@@ -340,6 +342,16 @@ are usually only useful for setting traps\&.
 The body of the function is the \fIlist\fP between
 the \fB{\fP and \fB}\fP\&.  See the section `Functions\&'\&.
 .RS
+.PP
+The options of \fBfunction\fP have the following meanings:
+.PP
+.PD 0
+.TP
+.PD
+\-T
+Enable tracing for this function, as though with \fBfunctions \-T\fP\&.  See the
+documentation of the \fB\-f\fP option to the \fBtypeset\fP builtin, in
+\fIzshbuiltins\fP(1)\&.
 .PP
 If the option \fBSH_GLOB\fP is set for compatibility with other shells, then
 whitespace may appear between the left and right parentheses when
@@ -387,6 +399,8 @@ else the end of the test will not be recognized\&.  For the
 \fBfor\fP, \fBrepeat\fP, \fBcase\fP and \fBselect\fP commands no such special form
 for the arguments is necessary, but the other condition (the special form
 of \fIsublist\fP or use of the \fBSHORT_LOOPS\fP option) still applies\&.
+The \fBSHORT_REPEAT\fP option is available to enable the short version only
+for the \fBrepeat\fP command\&.
 .PP
 .PD 0
 .TP
@@ -572,6 +586,11 @@ position (if it could be the first word of a simple command),
 or if the alias is global\&.
 If the replacement text ends with a space, the next word in the shell input
 is always eligible for purposes of alias expansion\&.
+.PP
+It is an error for the function name, \fIword\fP, in the sh\-compatible function
+definition syntax `\fIword\fP \fB()\fP \&.\&.\&.\&' to be a word that resulted
+from alias expansion, unless the \fBALIAS_FUNC_DEF\fP option is set\&.
+.PP
 An alias is defined using the \fBalias\fP builtin; global aliases
 may be defined using the \fB\-g\fP option to that builtin\&.
 .PP
@@ -607,6 +626,19 @@ word \fBfoo\fP, alias expansion may be avoided by quoting part of the
 word, e\&.g\&. \fB\efoo\fP\&.  Any form of quoting works, although there is
 nothing to prevent an alias being defined for the quoted form such as
 \fB\efoo\fP as well\&.
+.PP
+In particular, note that quoting must be used when using \fBunalias\fP to remove
+global aliases:
+.PP
+.RS
+.nf
+\fB% alias \-g foo=bar
+% unalias foo
+unalias: no such hash table element: bar
+% unalias \efoo
+% \fP
+.fi
+.RE
 .PP
 When \fBPOSIX_ALIASES\fP is set, only plain unquoted strings are eligible
 for aliasing\&.  The \fBalias\fP builtin does not reject ineligible aliases,
@@ -660,34 +692,6 @@ is too late to expand the newly defined alias\&.  This is often
 a problem in shell scripts, functions, and code executed with `\fBsource\fP\&'
 or `\fB\&.\fP\&'\&.  Consequently, use of functions rather than aliases is
 recommended in non\-interactive code\&.
-.PP
-Note also the unhelpful interaction of aliases and function definitions:
-.PP
-.RS
-.nf
-\fBalias func=\&'noglob func'
-func() {
-    echo Do something with $*
-}\fP
-.fi
-.RE
-.PP
-Because aliases are expanded in function definitions, this causes the
-following command to be executed:
-.PP
-.RS
-.nf
-\fBnoglob func() {
-    echo Do something with $*
-}\fP
-.fi
-.RE
-.PP
-which defines \fBnoglob\fP as well as \fBfunc\fP as functions with the
-body given\&.  To avoid this, either quote the name \fBfunc\fP or use the
-alternative function definition form `\fBfunction func\fP\&'\&.  Ensuring the
-alias is defined after the function works but is problematic if the
-code fragment might be re\-executed\&.
 .PP
 .SH "QUOTING"
 A character may be \fIquoted\fP (that is, made
@@ -810,7 +814,8 @@ tabs are stripped from \fIword\fP and from the document\&.
 Perform shell expansion on \fIword\fP and pass the result
 to standard input\&.  This is known as a \fIhere\-string\fP\&.
 Compare the use of \fIword\fP in here\-documents above, where \fIword\fP
-does not undergo shell expansion\&.
+does not undergo shell expansion\&.  The result will have a trailing newline
+after it\&.
 .TP
 .PD 0
 \fB<&\fP \fInumber\fP
@@ -1169,9 +1174,24 @@ is invoked as described in the section `Functions\&'\&.  If there exists
 a shell builtin by that name, the builtin is invoked\&.
 .PP
 Otherwise, the shell searches each element of \fB$path\fP for a
-directory containing an executable file by that name\&.  If the
-search is unsuccessful, the shell prints an error message and returns
-a nonzero exit status\&.
+directory containing an executable file by that name\&.
+.PP
+If execution fails: an error message is printed, and one of the
+following values is returned\&.
+.PP
+.PD 0
+.TP
+127
+The search was unsuccessful\&.  The error message is
+`\fBcommand not found:\fP \fIcmd\fP\&'\&.
+.TP
+126
+The executable file has insufficient permissions, is a
+directory or special file, or is not a script and is in a format
+unrecognized by the operating system\&.  The exact conditions and error
+message are operating system\-dependent; see
+\fIexecve\fP(2)\&.
+.PD
 .PP
 If execution fails because the file is not in executable format,
 and the file is not a directory, it is assumed to be a shell
@@ -1184,13 +1204,9 @@ not handle this executable format in the kernel\&.
 If no external command is found but a function \fBcommand_not_found_handler\fP
 exists the shell executes this function with all
 command line arguments\&.  The return status of the function becomes the
-status of the command\&.  If the function wishes to mimic the
-behaviour of the shell when the command is not found, it should
-print the message `\fBcommand not found:\fP \fIcmd\fP\&' to standard error
-and return status 127\&.  Note that the handler is executed in a
+status of the command\&.  Note that the handler is executed in a
 subshell forked to execute an external command, hence changes to
 directories, shell parameters, etc\&. have no effect on the main shell\&.
-.PP
 .\" Yodl file: Zsh/func.yo
 .SH "FUNCTIONS"
 Shell functions are defined with the \fBfunction\fP reserved word or the
@@ -1415,13 +1431,14 @@ Certain functions, if defined, have special meaning to the shell\&.
 For the functions below, it is possible to define an array that has the
 same name as the function with `\fB_functions\fP\&' appended\&.  Any element in
 such an array is taken as the name of a function to execute; it is executed
-in the same context and with the same arguments as the basic function\&.  For
+in the same context and with the same arguments and same initial value of \fB$?\fP
+as the basic function\&.  For
 example, if \fB$chpwd_functions\fP is an array containing the values
 `\fBmychpwd\fP\&', `\fBchpwd_save_dirstack\fP', then the shell attempts to
 execute the functions `\fBchpwd\fP\&', `\fBmychpwd\fP' and
 `\fBchpwd_save_dirstack\fP\&', in that order\&.  Any function that does not exist
 is silently ignored\&.  A function found by this mechanism is referred to
-elsewhere as a `hook function\&'\&.  An error in any function causes subsequent
+elsewhere as a \fIhook function\fP\&.  An error in any function causes subsequent
 functions not to be run\&.  Note further that an error in a \fBprecmd\fP hook
 causes an immediately following \fBperiodic\fP function not to run (though
 it may run at the next opportunity)\&.
@@ -1475,7 +1492,7 @@ the history file\&.  In case of a conflict, the first non\-zero status
 value is taken\&.
 .PP
 A hook function may call `\fBfc \-p\fP \fI\&.\&.\&.\fP\&' to switch the history
-context so that the history is saved in a different file from the
+context so that the history is saved in a different file from
 that in the global \fBHISTFILE\fP parameter\&.  This is handled specially:
 the history context is automatically restored after the processing
 of the history line is finished\&.
@@ -1723,7 +1740,7 @@ jobs will be terminated, and the running jobs will be sent
 a \fBSIGHUP\fP signal, if the \fBHUP\fP option is set\&.
 .PP
 To avoid having the shell terminate the running jobs, either
-use the \fBnohup\fP command (see \fInohup\fP(1))
+use the \fInohup\fP(1) command
 or the \fBdisown\fP builtin\&.
 .SH "SIGNALS"
 The \fBINT\fP and \fBQUIT\fP signals for an invoked
@@ -1759,7 +1776,7 @@ The \fBlet\fP builtin command takes arithmetic expressions as arguments; each
 is evaluated separately\&.  Since many of the arithmetic operators, as well
 as spaces, require quoting, an alternative form is provided: for any
 command which begins with a `\fB((\fP\&', all the characters until a
-matching `\fB))\fP\&' are treated as a quoted expression and
+matching `\fB))\fP\&' are treated as a double\-quoted expression and
 arithmetic expansion performed as for an argument of \fBlet\fP\&.  More
 precisely, `\fB((\fP\fI\&.\&.\&.\fP\fB))\fP\&' is equivalent to
 `\fBlet "\fP\fI\&.\&.\&.\fP\fB"\fP\&'\&.  The return status is 0 if the arithmetic value

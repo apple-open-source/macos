@@ -40,7 +40,7 @@ using namespace WebCore;
  *
  * A request to open a color chooser.
  *
- * Whenever the user interacts with an &lt;input type='color' /&gt;
+ * Whenever the user interacts with an <input type='color' />
  * HTML element, WebKit will need to show a dialog to choose a color. For that
  * to happen in a general way, instead of just opening a #GtkColorChooser
  * (which might be not desirable in some cases, which could prefer to use their
@@ -77,7 +77,7 @@ struct _WebKitColorChooserRequestPrivate {
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitColorChooserRequest, webkit_color_chooser_request, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitColorChooserRequest, webkit_color_chooser_request, G_TYPE_OBJECT)
 
 static void webkitColorChooserRequestDispose(GObject* object)
 {
@@ -130,8 +130,7 @@ static void webkit_color_chooser_request_class_init(WebKitColorChooserRequestCla
      */
     sObjProperties[PROP_RGBA] =
         g_param_spec_boxed("rgba",
-            _("Current RGBA color"),
-            _("The current RGBA color for the request"),
+            nullptr, nullptr,
             GDK_TYPE_RGBA,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 
@@ -220,6 +219,9 @@ void webkit_color_chooser_request_get_element_rectangle(WebKitColorChooserReques
  *
  * Finishes @request and the input element keeps the current value of
  * #WebKitColorChooserRequest:rgba.
+ *
+ * Finishes @request and the input element keeps the current value of
+ * #WebKitColorChooserRequest:rgba.
  * The signal #WebKitColorChooserRequest::finished
  * is emitted to notify that the request has finished.
  *
@@ -239,6 +241,8 @@ void webkit_color_chooser_request_finish(WebKitColorChooserRequest* request)
 /**
  * webkit_color_chooser_request_cancel:
  * @request: a #WebKitColorChooserRequest
+ *
+ * Cancels @request and the input element changes to use the initial color.
  *
  * Cancels @request and the input element changes to use the initial color
  * it has before the request started.

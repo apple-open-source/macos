@@ -21,6 +21,23 @@ declare_args() {
   angle_enable_cl = false
 
   angle_restricted_traces = []
+
+  # Don't build dEQP by default.
+  build_angle_deqp_tests = false
+
+  # Enable Desktop GL frontend support.
+  angle_enable_gl_desktop_frontend = false
+}
+
+declare_args() {
+  # Expose WGL entry points, which is necessary for running windows desktop GL applications against ANGLE.
+  # TODO(http://anglebug.com/7628): This condition should be `angle_enable_gl_desktop_frontend && is_win`
+  # This is disabled by default on Windows because it was causing some test failures. Once the WGL frontend
+  # has more functionality implemented, we can re-enable this.
+  angle_expose_wgl_entry_points = false
+
+  # Expose GLX entry points by default when using Desktop GL on Linux.
+  angle_expose_glx_entry_points = angle_enable_gl_desktop_frontend && is_linux
 }
 
 if (angle_has_build) {
@@ -37,16 +54,15 @@ if (angle_has_build) {
     import("//build/config/win/visual_studio_version.gni")
   }
 
-  if (is_chromecast || ozone_platform_headless) {
+  if (is_castos || ozone_platform_headless) {
     angle_vulkan_display_mode = "headless"
   }
 
   declare_args() {
     angle_use_gbm = ozone_platform_gbm
-    angle_use_x11 = ozone_platform_x11 && !is_ggp &&
-                    (is_linux || is_chromeos) && !is_chromecast
+    angle_use_x11 = ozone_platform_x11 && !is_ggp && (is_linux || is_chromeos)
     angle_use_wayland =
-        ozone_platform_wayland && !is_ggp && is_linux && !is_chromecast
+        ozone_platform_wayland && !is_ggp && is_linux && !is_castos
     angle_use_vulkan_display = (is_linux || is_chromeos) && !is_ggp
   }
 } else {
@@ -70,6 +86,14 @@ if (angle_has_build) {
   declare_args() {
     angle_use_vulkan_display = (is_linux || is_chromeos) && !is_ggp
   }
+}
+
+if (!defined(checkout_angle_internal)) {
+  checkout_angle_internal = false
+}
+
+if (!defined(checkout_angle_restricted_traces)) {
+  checkout_angle_restricted_traces = false
 }
 
 # Subdirectory to place data files (e.g. layer JSON files).
@@ -143,8 +167,8 @@ declare_args() {
   angle_enable_d3d11 = is_win
   angle_enable_gl =
       (ozone_platform_gbm || ozone_platform_wayland || !is_linux ||
-       ((angle_use_x11 && !is_chromeos) || angle_use_wayland)) && !is_fuchsia &&
-      !angle_is_winuwp && !is_ggp && !is_win_arm64
+       ((angle_use_x11 && !is_chromeos) || angle_use_wayland || is_castos)) &&
+      !is_fuchsia && !angle_is_winuwp && !is_ggp && !is_win_arm64
 
   angle_enable_vulkan =
       angle_has_build &&
@@ -160,16 +184,22 @@ declare_args() {
 
   # Disable null backend to save space for official build.
   angle_enable_null = !is_official_build
-  angle_enable_gl_desktop = !is_android && !is_ios
+  angle_enable_gl_desktop_backend = !is_android && !is_ios
 
   # http://anglebug.com/2634
-  angle_enable_metal = is_mac
+  angle_enable_metal = is_apple
 
   # Enables the OpenCL pass-through back end
   angle_enable_cl_passthrough = angle_enable_cl
+}
 
-  # Use glslang to generate SPIR-V
-  angle_use_spirv_gen_through_glslang = false
+declare_args() {
+  # ASTC emulation is only built on standalone non-android builds
+  angle_has_astc_encoder = angle_has_build && angle_standalone && !is_android
+}
+
+declare_args() {
+  angle_test_enable_system_egl = false
 }
 
 # OpenCL is not supported on Windows UWP, because the CL headers include DX9, which is not
@@ -181,6 +211,10 @@ if (!angle_enable_cl) {
   angle_enable_cl_passthrough = false
 }
 
+if (!defined(checkout_angle_mesa)) {
+  checkout_angle_mesa = false
+}
+
 declare_args() {
   # Currently SwiftShader's Vulkan front-end doesn't build on Android.
   # Disabled by default on MSVC because of compiler warnings/errors.
@@ -188,7 +222,7 @@ declare_args() {
       angle_enable_vulkan && !is_android && !is_ggp && is_clang
 
   # Translator frontend support:
-  angle_enable_desktop_glsl = angle_enable_gl_desktop
+  angle_enable_desktop_glsl = angle_enable_gl_desktop_frontend
 
   # Translator backend support:
   angle_enable_hlsl = angle_enable_d3d9 || angle_enable_d3d11
@@ -198,19 +232,20 @@ declare_args() {
   angle_enable_trace_android_logcat = false
   angle_enable_trace_events = false
 
+  # Unwind backtrace support. This feature is currently only implemented
+  # on Android for debugging purposes. Disabled by default.
+  angle_enable_unwind_backtrace_support = false
+
+  # Memory allocation logging support. This feature is for debugging only.
+  # Disabled by default.
+  angle_enable_memory_alloc_logging = false
+
   # Disable the layers in ubsan builds because of really slow builds.
   # Vulkan Validation Layers require Android NDK API level 26, i.e. Oreo, due to
   # Vulkan Validation Layers compatibility issues, see http://crrev/c/1405714.
   angle_enable_vulkan_validation_layers =
       angle_enable_vulkan && !is_ubsan && !is_tsan && !is_asan &&
       angle_debug_layers_enabled && (!is_android || ndk_api_level_at_least_26)
-
-  # Support using glslang to generate SPIR-V for the time being for the purpose of debugging
-  # the SPIR-V generation path, but leave it disabled on release.  It's still used by the metal
-  # backend nevertheless.
-  angle_enable_spirv_gen_through_glslang =
-      is_debug || angle_assert_always_on || angle_enable_msl_through_spirv ||
-      angle_use_spirv_gen_through_glslang
 
   # ISpriteVisual windows cannot be validated and can lead to crashes if an invalid window is
   # provided to ANGLE. Disable them for non-standalone ANGLE builds. crbug.com/1176118
@@ -242,6 +277,8 @@ declare_args() {
   # Enable overlay by default when debug layers are enabled.  This is currently only implemented on
   # Vulkan.
   angle_enable_overlay = angle_enable_vulkan && angle_debug_layers_enabled
+
+  angle_build_mesa = false
 }
 
 declare_args() {
@@ -475,7 +512,7 @@ if (angle_standalone || build_with_chromium) {
                     ]
 
       data = invoker.data + [
-               "$angle_root/scripts/run_gtest_angle_test.py",
+               "$angle_root/src/tests/py_utils/android_helper.py",
                "$angle_root/src/tests/py_utils/angle_path_util.py",
                "$angle_root/src/tests/py_utils/angle_test_util.py",
                "//testing/scripts/common.py",
@@ -556,7 +593,10 @@ template("angle_trace") {
     defines = [ "ANGLE_REPLAY_IMPLEMENTATION" ]
     suppressed_configs += [ "$angle_root:constructor_and_destructor_warnings" ]
 
-    deps = [ "$angle_root:angle_trace_fixture" ]
+    deps = [
+      "$angle_root/util:angle_trace_fixture",
+      "$angle_root/util:angle_trace_loader",
+    ]
 
     if (is_android) {
       libs = [ "log" ]

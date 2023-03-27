@@ -4900,11 +4900,13 @@ static void TestCurrencySymbol(void) {
         // tests for rdar://77057954 (wrong symbol for CNY when region is JP (should get ¥, got 元)
         u"zh_JP@currency=CNY", u"CN¥1,234.56",
         u"zh_Hans_JP@currency=CNY", u"CN¥1,234.56",
-        u"zh_Hant_JP@currency=CNY", u"CN¥1,234.56",
+        u"zh_Hant_JP@currency=CNY", u"元 1,234.56",
         u"ja_JP@currency=CNY", u"元 1,234.56",
         u"en_JP@currency=CNY", u"CN¥1,234.56",
         // rdar://88513120
         u"en_CV", u"​ 1 234$56", // decimal separator = actual currency symbol, set currency symbol to ZWSP
+        // rdar://97100652
+        u"zh-Hant_US@currency=USD", u"$1,234.56"
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 2) {

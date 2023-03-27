@@ -46,11 +46,11 @@ RemoteBufferProxy::~RemoteBufferProxy()
 
 void RemoteBufferProxy::mapAsync(PAL::WebGPU::MapModeFlags mapModeFlags, PAL::WebGPU::Size64 offset, std::optional<PAL::WebGPU::Size64> size, CompletionHandler<void()>&& callback)
 {
-    std::optional<Vector<uint8_t>> data;
-    auto sendResult = sendSync(Messages::RemoteBuffer::MapAsync(mapModeFlags, offset, size), { data });
-    UNUSED_VARIABLE(sendResult);
+    auto sendResult = sendSync(Messages::RemoteBuffer::MapAsync(mapModeFlags, offset, size));
+    auto [data] = sendResult.takeReplyOr(std::nullopt);
     if (!data) {
         // FIXME: Implement error handling.
+        callback();
         return;
     }
 
@@ -61,10 +61,18 @@ void RemoteBufferProxy::mapAsync(PAL::WebGPU::MapModeFlags mapModeFlags, PAL::We
 
 auto RemoteBufferProxy::getMappedRange(PAL::WebGPU::Size64 offset, std::optional<PAL::WebGPU::Size64> size) -> MappedRange
 {
+    if (m_data.has_value())
+        return { m_data->data() + offset, static_cast<size_t>(size.value_or(m_data->size() - offset)) };
+
     // FIXME: Implement error handling.
-    if (!m_data)
+    auto sendResult = sendSync(Messages::RemoteBuffer::GetMappedRange(offset, size));
+    auto [data] = sendResult.takeReplyOr(std::nullopt);
+
+    if (!data)
         return { };
 
+    m_data = WTFMove(data);
+    m_mapModeFlags = { PAL::WebGPU::MapMode::Write };
     return { m_data->data() + offset, static_cast<size_t>(size.value_or(m_data->size() - offset)) };
 }
 

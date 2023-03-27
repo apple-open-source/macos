@@ -11,6 +11,8 @@
 #include <membership.h>
 #include <membershipPriv.h>
 
+AUTHD_DEFINE_LOG
+
 struct _credential_s {
     __AUTH_BASE_STRUCT_HEADER__;
 
@@ -134,9 +136,15 @@ credential_create(uid_t uid)
             cred->valid = true;
         } else {
             cred->uid = (uid_t)-2;
+            cred->name = _copy_string("invalid");
             cred->valid = false;
         }
         endpwent();
+    } else {
+        os_log_error(AUTHD_LOG, "credential: failed to get user uid %d", uid);
+        cred->uid = (uid_t)-3;
+        cred->name = _copy_string("invalid");
+        cred->valid = false;
     }
     
 done:

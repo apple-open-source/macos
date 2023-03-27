@@ -337,8 +337,12 @@ void ServicesOverlayController::removeAllPotentialHighlightsOfType(DataDetectorH
 void ServicesOverlayController::buildPhoneNumberHighlights()
 {
     Vector<SimpleRange> phoneNumberRanges;
-    for (Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext())
-        phoneNumberRanges.appendVector(frame->editor().detectedTelephoneNumberRanges());
+    for (AbstractFrame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        phoneNumberRanges.appendVector(localFrame->editor().detectedTelephoneNumberRanges());
+    }
 
     if (phoneNumberRanges.isEmpty()) {
         removeAllPotentialHighlightsOfType(DataDetectorHighlight::Type::TelephoneNumber);
@@ -581,7 +585,7 @@ bool ServicesOverlayController::mouseEvent(PageOverlay&, const PlatformMouseEven
     }
 
     // If the mouse lifted while still over the highlight button that it went down on, then that is a click.
-    if (event.type() == PlatformEvent::MouseReleased) {
+    if (event.type() == PlatformEvent::Type::MouseReleased) {
         auto mouseDownHighlight = m_currentMouseDownOnButtonHighlight.copyRef();
         m_currentMouseDownOnButtonHighlight = nullptr;
 
@@ -596,7 +600,7 @@ bool ServicesOverlayController::mouseEvent(PageOverlay&, const PlatformMouseEven
     }
 
     // If the mouse moved outside of the button tracking a potential click, stop tracking the click.
-    if (event.type() == PlatformEvent::MouseMoved) {
+    if (event.type() == PlatformEvent::Type::MouseMoved) {
         if (m_currentMouseDownOnButtonHighlight && mouseIsOverActiveHighlightButton)
             return true;
 
@@ -605,7 +609,7 @@ bool ServicesOverlayController::mouseEvent(PageOverlay&, const PlatformMouseEven
     }
 
     // If the mouse went down over the active highlight's button, track this as a potential click.
-    if (event.type() == PlatformEvent::MousePressed) {
+    if (event.type() == PlatformEvent::Type::MousePressed) {
         if (m_activeHighlight && mouseIsOverActiveHighlightButton) {
             m_currentMouseDownOnButtonHighlight = m_activeHighlight;
             return true;

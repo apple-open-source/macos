@@ -28,29 +28,31 @@
 #if ENABLE(BUBBLEWRAP_SANDBOX)
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/Vector.h>
 #include <wtf/text/CString.h>
+#include <wtf/unix/UnixFileDescriptor.h>
 
 namespace WebKit {
 
 class XDGDBusProxy {
     WTF_MAKE_NONCOPYABLE(XDGDBusProxy); WTF_MAKE_FAST_ALLOCATED;
 public:
-    enum class Type { SessionBus, AccessibilityBus };
-    XDGDBusProxy(Type, bool = false);
-    ~XDGDBusProxy();
+    XDGDBusProxy() = default;
+    ~XDGDBusProxy() = default;
 
-    const CString& proxyPath() const { return m_proxyPath; }
-    const CString& path() const { return m_path; }
+    enum class AllowPortals : bool { No, Yes };
+    std::optional<CString> dbusSessionProxy(const char* baseDirectory, AllowPortals);
+    std::optional<CString> accessibilityProxy(const char* baseDirectory, const char* sandboxedAccessibilityBusPath);
+
+    bool launch();
 
 private:
-    CString makeProxy() const;
-    int launch(bool) const;
+    static CString makeProxy(const char* baseDirectory, const char* proxyTemplate);
 
-    Type m_type;
-    CString m_dbusAddress;
-    CString m_proxyPath;
-    CString m_path;
-    int m_syncFD { -1 };
+    Vector<CString> m_args;
+    CString m_dbusSessionProxyPath;
+    CString m_accessibilityProxyPath;
+    UnixFileDescriptor m_syncFD;
 };
 
 } // namespace WebKit

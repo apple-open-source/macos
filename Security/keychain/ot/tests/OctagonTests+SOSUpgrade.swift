@@ -19,7 +19,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -38,10 +38,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.version, prevailingPolicyVersion, "Policy given to CKKS should be prevailing policy")
 
         // And we should have followed the SOS Safari view state
-        XCTAssertTrue(self.mockSOSAdapter.safariViewEnabled, "SOS adapter should say that the safari view is enabled")
+        XCTAssertTrue(self.mockSOSAdapter!.safariViewEnabled, "SOS adapter should say that the safari view is enabled")
 
         // And we should have told SOS that CKKS4All is on
-        XCTAssertTrue(self.mockSOSAdapter.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
+        XCTAssertTrue(self.mockSOSAdapter!.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
 
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
@@ -66,7 +66,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -100,7 +100,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.mockAuthKit.machineIDFetchErrors.add(CKPrettyError(domain: CKErrorDomain,
@@ -131,7 +131,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.aksLockState = true
         self.lockStateTracker.recheck()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -166,7 +166,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2])
         }
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -198,14 +198,14 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable, retryAfter: 2)
         }
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.wait(for: [establishExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        XCTAssertFalse(self.mockSOSAdapter.ckks4AllStatus, "SOS adapter should not have been told that CKKS4All is enabled")
+        XCTAssertFalse(self.mockSOSAdapter!.ckks4AllStatus, "SOS adapter should not have been told that CKKS4All is enabled")
 
         // It should be paused
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have zero pending flags after 'not reachable'")
@@ -232,7 +232,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         // Now we arrive, and attempt to SOS join
         let sosUpgradeStateCondition: CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateAttemptSOSUpgrade]!
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertEqual(0, sosUpgradeStateCondition.wait(10 * NSEC_PER_SEC), "Should attempt SOS upgrade")
@@ -251,7 +251,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -272,7 +272,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -293,7 +293,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -308,7 +308,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         // but note: this peer is not yet added to the mockSOSAdapter
         let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer,
-                                                     trustedPeers: self.mockSOSAdapter.allPeers(),
+                                                     trustedPeers: self.mockSOSAdapter!.allPeers(),
                                                      essential: false)
         let peer2 = self.makeInitiatorContext(contextID: "peer2",
                                               authKitAdapter: self.mockAuthKit2,
@@ -332,7 +332,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 1 * NSEC_PER_SEC)
 
         // But when SOS does catch up, we join just fine.
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
         self.assertAllCKKSViewsUpload(tlkShares: 2)
 
         self.fakeCuttlefishServer.joinListener = { joinRequest in
@@ -341,11 +341,11 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockSOSAdapter.sendTrustedPeerSetChangedUpdate()
+        self.mockSOSAdapter!.sendTrustedPeerSetChangedUpdate()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        XCTAssertTrue(self.mockSOSAdapter.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
+        XCTAssertTrue(self.mockSOSAdapter!.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
 
         self.verifyDatabaseMocks()
     }
@@ -355,8 +355,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
-        self.mockSOSAdapter.trustedPeersError = NSError(domain: NSOSStatusErrorDomain,
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.trustedPeersError = NSError(domain: NSOSStatusErrorDomain,
                                                         code: 1)
         self.startCKAccountStatusMock()
         self.cuttlefishContext.startOctagonStateMachine()
@@ -373,11 +373,11 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                                          object: nil,
                                                          handler: nil)
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
 
         // Due to how everything is shaking out, SOS TLKShares will be uploaded in a second transaction after Octagon uploads its TLKShares
         // This isn't great: <rdar://problem/49080104> Octagon: upload SOS TLKShares alongside initial key hierarchy
@@ -391,7 +391,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        XCTAssertTrue(self.mockSOSAdapter.safariViewEnabled, "SOS adapter should say that the safari view is enabled")
+        XCTAssertTrue(self.mockSOSAdapter!.safariViewEnabled, "SOS adapter should say that the safari view is enabled")
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
 
@@ -408,7 +408,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                                          object: nil,
                                                          handler: nil)
         let peer2contextID = "peer2"
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
@@ -454,11 +454,11 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     func testSOSJoinWithDisabledSafariView() throws {
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
-        self.mockSOSAdapter.safariViewEnabled = false
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.safariViewEnabled = false
 
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
 
         self.assertAllCKKSViewsUpload(tlkShares: 2)
         self.cuttlefishContext.startOctagonStateMachine()
@@ -470,7 +470,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         let clique = self.cliqueFor(context: self.cuttlefishContext)
 
-        XCTAssertFalse(self.mockSOSAdapter.safariViewEnabled, "SOS adapter should say that the safari view is disabled")
+        XCTAssertFalse(self.mockSOSAdapter!.safariViewEnabled, "SOS adapter should say that the safari view is disabled")
 
         #if os(tvOS)
         // TVs won't ever turn this off
@@ -481,7 +481,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         #endif
 
         let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer,
-                                                     trustedPeers: self.mockSOSAdapter.allPeers(),
+                                                     trustedPeers: self.mockSOSAdapter!.allPeers(),
                                                      essential: false)
         peer2mockSOS.safariViewEnabled = false
 
@@ -502,11 +502,11 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // This peer joins with disabled user views
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
-        self.mockSOSAdapter.safariViewEnabled = false
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.safariViewEnabled = false
 
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
 
         self.assertAllCKKSViewsUpload(tlkShares: 2)
         self.cuttlefishContext.startOctagonStateMachine()
@@ -516,8 +516,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        XCTAssertFalse(self.mockSOSAdapter.safariViewEnabled, "SOS adapter should say that the safari view is disabled")
-        XCTAssertTrue(self.mockSOSAdapter.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
+        XCTAssertFalse(self.mockSOSAdapter!.safariViewEnabled, "SOS adapter should say that the safari view is disabled")
+        XCTAssertTrue(self.mockSOSAdapter!.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
         let clique = self.cliqueFor(context: self.cuttlefishContext)
 
         #if os(tvOS)
@@ -529,7 +529,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         #endif
 
         let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer,
-                                                     trustedPeers: self.mockSOSAdapter.allPeers(),
+                                                     trustedPeers: self.mockSOSAdapter!.allPeers(),
                                                      essential: false)
         // peer2 joins via SOS preapproval, but with the safari view enabled. It should enable user view syncing, even though the other peer has it off
         peer2mockSOS.safariViewEnabled = true
@@ -549,7 +549,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -561,12 +561,12 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         XCTAssertNotNil(peerID, "Should have a peer ID after making new friends")
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
-        XCTAssertTrue(self.mockSOSAdapter.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
+        XCTAssertTrue(self.mockSOSAdapter!.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
 
         // Peer 2 attempts to join via preapproval
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer2contextID = "peer2"
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
@@ -604,8 +604,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
-        self.mockSOSAdapter.sendTrustedPeerSetChangedUpdate()
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.sendTrustedPeerSetChangedUpdate()
 
         self.verifyDatabaseMocks()
         self.wait(for: [updateTrustExpectation], timeout: 100)
@@ -622,7 +622,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -638,7 +638,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         // Peer 2 attempts to join via preapproval
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer2contextID = "peer2"
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
@@ -685,8 +685,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2])
         }
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
-        self.mockSOSAdapter.sendTrustedPeerSetChangedUpdate()
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.sendTrustedPeerSetChangedUpdate()
 
         self.wait(for: [updateTrustExpectation1], timeout: 10)
         self.wait(for: [updateTrustExpectation2], timeout: 10)
@@ -704,7 +704,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -720,7 +720,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         // Peer 2 attempts to join via preapproval
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer2contextID = "peer2"
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
@@ -750,8 +750,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                            code: Int(TrustedPeersHelperErrorCode.noPreparedIdentity.rawValue))
         }
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
-        self.mockSOSAdapter.sendTrustedPeerSetChangedUpdate()
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.sendTrustedPeerSetChangedUpdate()
 
         self.verifyDatabaseMocks()
         self.wait(for: [updateTrustExpectation1], timeout: 100)
@@ -760,13 +760,13 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     func testSOSAcceptJoinEvenIfMachineIDListOutOfDate() throws {
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         // Peer 2 is not on Peer 1's machine ID list yet
         self.mockAuthKit.otherDevices.remove(try! self.mockAuthKit2.machineID())
 
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
 
         self.assertAllCKKSViewsUpload(tlkShares: 2)
 
@@ -785,7 +785,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         ///////////// peer2
         let peer2contextID = "peer2"
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
@@ -856,7 +856,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // peer2 should preapprove the future Octagon peer for peer1
-        let orignalPeerMockSOS = CKKSMockSOSPresentAdapter(selfPeer: originalPeerSOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let orignalPeerMockSOS = CKKSMockSOSPresentAdapter(selfPeer: originalPeerSOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let originalPeer = self.manager.context(forContainerName: OTCKContainerName,
                                                 contextID: originalPeerContextID,
                                                 sosAdapter: orignalPeerMockSOS,
@@ -871,8 +871,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         // Now, the circle status changes
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
-        self.mockSOSAdapter.trustedPeers.add(originalPeerSOSMockPeer)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.trustedPeers.add(originalPeerSOSMockPeer)
         self.cuttlefishContext.startOctagonStateMachine()
 
         // Peer1 should upload TLKShares for SOS Peer2 via CK CRUD. We should probably fix that someday?
@@ -892,8 +892,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     func testSOSDoNotAttemptUpgradeWhenPlatformDoesntSupport() throws {
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.sosEnabled = false
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
+        self.mockSOSAdapter!.sosEnabled = false
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         let everEnteredSOSUpgrade: CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateAttemptSOSUpgrade]!
 
@@ -910,8 +910,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     func testSOSUpgradeStopsWhenOutOfCircle() throws {
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.sosEnabled = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
+        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -927,14 +927,14 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.sosEnabled = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
+        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let upgradeExpectation = self.expectation(description: "waitForOctagonUpgrade")
         self.manager.wait(forOctagonUpgrade: OTControlArguments(configuration: self.otcliqueContext)) { error in
@@ -950,7 +950,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
-        XCTAssertTrue(self.mockSOSAdapter.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
+        XCTAssertTrue(self.mockSOSAdapter!.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is enabled")
     }
 
     func testNotInSOSCircleAndWaitForUpgrade() throws {
@@ -960,8 +960,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.sosEnabled = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
+        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -984,15 +984,15 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.sosEnabled = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
         XCTAssertEqual(self.fetchCDPStatus(context: self.cuttlefishContext), .disabled, "CDP status should be 'disabled'")
 
         // SOS arrives!
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         // Attempting the upgrade succeeds, now that SOS is present
         let upgradeExpectation = self.expectation(description: "waitForOctagonUpgrade")
@@ -1016,8 +1016,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         // this test checks that calling waitForOctagonUpgrade (when SOS is still absent) doesn't unconditionally set the CDP bit.
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.sosEnabled = true
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
@@ -1064,7 +1064,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         // Now restart the context, with SOS being in-circle
         self.assertAllCKKSViewsUpload(tlkShares: 1)
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -1080,10 +1080,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     func testSOSJoinAndBottle() throws {
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
 
         // Due to how everything is shaking out, SOS TLKShares will be uploaded in a second transaction after Octagon uploads its TLKShares
         // This isn't great: <rdar://problem/49080104> Octagon: upload SOS TLKShares alongside initial key hierarchy
@@ -1095,8 +1095,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.verifyDatabaseMocks()
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
-        self.assertSelfTLKSharesInCloudKit(peerID: self.mockSOSAdapter.selfPeer.peerID)
-        self.assertTLKSharesInCloudKit(receiverPeerID: peer2SOSMockPeer.peerID, senderPeerID: self.mockSOSAdapter.selfPeer.peerID)
+        self.assertSelfTLKSharesInCloudKit(peerID: self.mockSOSAdapter!.selfPeer.peerID)
+        self.assertTLKSharesInCloudKit(receiverPeerID: peer2SOSMockPeer.peerID, senderPeerID: self.mockSOSAdapter!.selfPeer.peerID)
 
         // Peer1 just joined. It should trust only itself.
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trusts, target: peer1ID)),
@@ -1104,7 +1104,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 1, "should be 1 bottles")
 
         let peer2contextID = "peer2"
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
@@ -1211,7 +1211,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -1253,8 +1253,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
-        self.mockSOSAdapter.sendTrustedPeerSetChangedUpdate()
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.sendTrustedPeerSetChangedUpdate()
 
         self.verifyDatabaseMocks()
         self.wait(for: [updateTrustExpectation], timeout: 10)
@@ -1268,7 +1268,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -1310,7 +1310,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
 
         // But, SOS doesn't send this update. Let's test that the upload occurs on the next securityd restart
         self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
@@ -1348,7 +1348,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -1395,7 +1395,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -1481,7 +1481,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.mockAuthKit.machineIDFetchErrors.add(NSError(domain: AKAppleIDAuthenticationErrorDomain, code: AKAppleIDAuthenticationError.authenticationErrorCannotFindServer.rawValue, userInfo: nil))
 
         // Octagon should decide it is quite sad.
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -1509,9 +1509,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
         self.startCKAccountStatusMock()
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let clique = OTClique(contextData: self.otcliqueContext)
         XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1527,7 +1527,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.saveTLKMaterialToKeychain()
         self.startCKAccountStatusMock()
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let clique = OTClique(contextData: self.otcliqueContext)
         XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1544,13 +1544,13 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         // Peer1 is never told about the follow-on joins.
         // Then, the test can begin.
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer3SOSMockPeer = self.createSOSPeer(peerID: "peer3ID")
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
-        self.mockSOSAdapter.trustedPeers.add(peer3SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer3SOSMockPeer)
 
         // Due to how everything is shaking out, SOS TLKShares will be uploaded in a second transaction after Octagon uploads its TLKShares
         // This isn't great: <rdar://problem/49080104> Octagon: upload SOS TLKShares alongside initial key hierarchy
@@ -1565,7 +1565,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         // peer2
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.makeInitiatorContext(contextID: "peer2", authKitAdapter: self.mockAuthKit2, sosAdapter: peer2mockSOS)
 
         peer2.startOctagonStateMachine()
@@ -1574,7 +1574,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2ID = try peer2.accountMetadataStore.getEgoPeerID()
 
         // peer3
-        let peer3mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer3SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer3mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer3SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer3 = self.makeInitiatorContext(contextID: "peer3", authKitAdapter: self.mockAuthKit3, sosAdapter: peer3mockSOS)
 
         peer3.startOctagonStateMachine()
@@ -1652,13 +1652,13 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         // Peer1 is never told about the follow-on joins.
         // Then, the test can begin.
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer3SOSMockPeer = self.createSOSPeer(peerID: "peer3ID")
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
-        self.mockSOSAdapter.trustedPeers.add(peer3SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer3SOSMockPeer)
 
         // Due to how everything is shaking out, SOS TLKShares will be uploaded in a second transaction after Octagon uploads its TLKShares
         // This isn't great: <rdar://problem/49080104> Octagon: upload SOS TLKShares alongside initial key hierarchy
@@ -1673,7 +1673,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         // peer2
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.makeInitiatorContext(contextID: "peer2", authKitAdapter: self.mockAuthKit2, sosAdapter: peer2mockSOS)
 
         peer2.startOctagonStateMachine()
@@ -1682,7 +1682,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2ID = try peer2.accountMetadataStore.getEgoPeerID()
 
         // peer3
-        let peer3mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer3SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer3mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer3SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer3 = self.makeInitiatorContext(contextID: "peer3", authKitAdapter: self.mockAuthKit3, sosAdapter: peer3mockSOS)
 
         peer3.startOctagonStateMachine()

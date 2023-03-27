@@ -56,65 +56,6 @@ static std::unique_ptr<PeerConnectionBackend> createGStreamerPeerConnectionBacke
 
 CreatePeerConnectionBackend PeerConnectionBackend::create = createGStreamerPeerConnectionBackend;
 
-static RTCRtpCapabilities gstreamerRtpCapatiblities(const String& kind)
-{
-    RTCRtpCapabilities capabilities;
-    capabilities.headerExtensions.append({ "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01"_s });
-    if (kind == "audio"_s) {
-        capabilities.codecs.reserveCapacity(4);
-        capabilities.codecs.uncheckedAppend({ .mimeType = "audio/OPUS"_s,
-            .clockRate = 48000,
-            .channels = 2,
-            .sdpFmtpLine = emptyString() });
-        capabilities.codecs.uncheckedAppend({ .mimeType = "audio/G722"_s,
-            .clockRate = 8000,
-            .channels = 1,
-            .sdpFmtpLine = emptyString() });
-        capabilities.codecs.uncheckedAppend({ .mimeType = "audio/PCMA"_s,
-            .clockRate = 8000,
-            .channels = 1,
-            .sdpFmtpLine = emptyString() });
-        capabilities.codecs.uncheckedAppend({ .mimeType = "audio/PCMU"_s,
-            .clockRate = 8000,
-            .channels = 1,
-            .sdpFmtpLine = emptyString() });
-    } else {
-        capabilities.headerExtensions.append({ "urn:3gpp:video-orientation"_s });
-        capabilities.codecs.reserveCapacity(6);
-        capabilities.codecs.uncheckedAppend({ .mimeType = "video/VP8"_s,
-            .clockRate = 90000,
-            .channels = std::nullopt,
-            .sdpFmtpLine = emptyString() });
-        capabilities.codecs.uncheckedAppend({ .mimeType = "video/VP9"_s,
-            .clockRate = 90000,
-            .channels = std::nullopt,
-            .sdpFmtpLine = "profile-id=0"_s });
-        capabilities.codecs.uncheckedAppend({ .mimeType = "video/VP9"_s,
-            .clockRate = 90000,
-            .channels = std::nullopt,
-            .sdpFmtpLine = "profile-id=1"_s });
-        capabilities.codecs.uncheckedAppend({ .mimeType = "video/H264"_s,
-            .clockRate = 90000,
-            .channels = std::nullopt,
-            .sdpFmtpLine = "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f"_s });
-        capabilities.codecs.uncheckedAppend({ .mimeType = "video/H264"_s,
-            .clockRate = 90000,
-            .channels = std::nullopt,
-            .sdpFmtpLine = "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=640c1f"_s });
-    }
-    return capabilities;
-}
-
-std::optional<RTCRtpCapabilities> PeerConnectionBackend::receiverCapabilities(ScriptExecutionContext&, const String& kind)
-{
-    return gstreamerRtpCapatiblities(kind);
-}
-
-std::optional<RTCRtpCapabilities> PeerConnectionBackend::senderCapabilities(ScriptExecutionContext&, const String& kind)
-{
-    return gstreamerRtpCapatiblities(kind);
-}
-
 GStreamerPeerConnectionBackend::GStreamerPeerConnectionBackend(RTCPeerConnection& peerConnection)
     : PeerConnectionBackend(peerConnection)
     , m_endpoint(GStreamerMediaEndpoint::create(*this))
@@ -144,52 +85,91 @@ bool GStreamerPeerConnectionBackend::setConfiguration(MediaEndpointConfiguration
     return m_endpoint->setConfiguration(configuration);
 }
 
-void GStreamerPeerConnectionBackend::getStats(Ref<DeferredPromise>&& promise)
-{
-    m_endpoint->getStats(nullptr, WTFMove(promise));
-}
-
 static inline GStreamerRtpSenderBackend& backendFromRTPSender(RTCRtpSender& sender)
 {
     ASSERT(!sender.isStopped());
     return static_cast<GStreamerRtpSenderBackend&>(*sender.backend());
 }
 
+void GStreamerPeerConnectionBackend::getStats(Ref<DeferredPromise>&& promise)
+{
+    GUniquePtr<GstStructure> additionalStats(gst_structure_new_empty("stats"));
+    for (auto& sender : connection().getSenders()) {
+        auto& backend = backendFromRTPSender(sender);
+        const GstStructure* stats = nullptr;
+        if (auto* videoSource = backend.videoSource())
+            stats = videoSource->stats();
+
+        if (!stats)
+            continue;
+
+        gst_structure_foreach(stats, [](GQuark quark, const GValue* value, gpointer userData) -> gboolean {
+            auto* resultStructure = static_cast<GstStructure*>(userData);
+            gst_structure_set_value(resultStructure, g_quark_to_string(quark), value);
+            return TRUE;
+        }, additionalStats.get());
+    }
+    for (auto& receiver : connection().getReceivers()) {
+        auto& track = receiver.get().track();
+        if (!is<RealtimeIncomingVideoSourceGStreamer>(track.source()))
+            continue;
+
+        auto& source = static_cast<RealtimeIncomingVideoSourceGStreamer&>(track.source());
+        const auto* stats = source.stats();
+        if (!stats)
+            continue;
+
+        gst_structure_foreach(stats, [](GQuark quark, const GValue* value, gpointer userData) -> gboolean {
+            auto* resultStructure = static_cast<GstStructure*>(userData);
+            gst_structure_set_value(resultStructure, g_quark_to_string(quark), value);
+            return TRUE;
+        }, additionalStats.get());
+    }
+    m_endpoint->getStats(nullptr, additionalStats.get(), WTFMove(promise));
+}
+
 void GStreamerPeerConnectionBackend::getStats(RTCRtpSender& sender, Ref<DeferredPromise>&& promise)
 {
     if (!sender.backend()) {
-        m_endpoint->getStats(nullptr, WTFMove(promise));
+        m_endpoint->getStats(nullptr, nullptr, WTFMove(promise));
         return;
     }
 
     auto& backend = backendFromRTPSender(sender);
     GRefPtr<GstPad> pad;
+    const GstStructure* additionalStats = nullptr;
     if (RealtimeOutgoingAudioSourceGStreamer* source = backend.audioSource())
         pad = source->pad();
-    else if (RealtimeOutgoingVideoSourceGStreamer* source = backend.videoSource())
+    else if (RealtimeOutgoingVideoSourceGStreamer* source = backend.videoSource()) {
         pad = source->pad();
-    m_endpoint->getStats(pad.get(), WTFMove(promise));
+        additionalStats = source->stats();
+    }
+
+    m_endpoint->getStats(pad.get(), additionalStats, WTFMove(promise));
 }
 
 void GStreamerPeerConnectionBackend::getStats(RTCRtpReceiver& receiver, Ref<DeferredPromise>&& promise)
 {
     if (!receiver.backend()) {
-        m_endpoint->getStats(nullptr, WTFMove(promise));
+        m_endpoint->getStats(nullptr, nullptr, WTFMove(promise));
         return;
     }
 
     GstElement* bin = nullptr;
+    const GstStructure* additionalStats = nullptr;
     auto& source = receiver.track().privateTrack().source();
     if (source.isIncomingAudioSource())
         bin = static_cast<RealtimeIncomingAudioSourceGStreamer&>(source).bin();
-    else if (source.isIncomingVideoSource())
-        bin = static_cast<RealtimeIncomingVideoSourceGStreamer&>(source).bin();
-    else
+    else if (source.isIncomingVideoSource()) {
+        auto& incomingVideoSource = static_cast<RealtimeIncomingVideoSourceGStreamer&>(source);
+        bin = incomingVideoSource.bin();
+        additionalStats = incomingVideoSource.stats();
+    } else
         RELEASE_ASSERT_NOT_REACHED();
 
     auto sinkPad = adoptGRef(gst_element_get_static_pad(bin, "sink"));
     auto srcPad = adoptGRef(gst_pad_get_peer(sinkPad.get()));
-    m_endpoint->getStats(srcPad.get(), WTFMove(promise));
+    m_endpoint->getStats(srcPad.get(), additionalStats, WTFMove(promise));
 }
 
 void GStreamerPeerConnectionBackend::doSetLocalDescription(const RTCSessionDescription* description)
@@ -274,15 +254,15 @@ ExceptionOr<Ref<RTCRtpSender>> GStreamerPeerConnectionBackend::addTrack(MediaStr
 
     if (auto sender = findExistingSender(m_peerConnection.currentTransceivers(), *senderBackend)) {
         backendFromRTPSender(*sender).takeSource(*senderBackend);
-        sender->setTrack(Ref(track));
-        sender->setMediaStreamIds(WTFMove(mediaStreamIds));
+        sender->setTrack(track);
+        sender->setMediaStreamIds(mediaStreamIds);
         return sender.releaseNonNull();
     }
 
     auto transceiverBackend = m_endpoint->transceiverBackendFromSender(*senderBackend);
 
-    auto sender = RTCRtpSender::create(m_peerConnection, Ref(track), WTFMove(senderBackend));
-    sender->setMediaStreamIds(WTFMove(mediaStreamIds));
+    auto sender = RTCRtpSender::create(m_peerConnection, track, WTFMove(senderBackend));
+    sender->setMediaStreamIds(mediaStreamIds);
     auto receiver = createReceiver(transceiverBackend->createReceiverBackend(), track.kind(), track.id());
     auto transceiver = RTCRtpTransceiver::create(sender.copyRef(), WTFMove(receiver), WTFMove(transceiverBackend));
     m_peerConnection.addInternalTransceiver(WTFMove(transceiver));
@@ -352,11 +332,17 @@ void GStreamerPeerConnectionBackend::addPendingTrackEvent(PendingTrackEvent&& ev
     m_pendingTrackEvents.append(WTFMove(event));
 }
 
-void GStreamerPeerConnectionBackend::dispatchPendingTrackEvents()
+void GStreamerPeerConnectionBackend::dispatchPendingTrackEvents(MediaStream& mediaStream)
 {
     auto events = WTFMove(m_pendingTrackEvents);
-    for (auto& event : events)
+    for (auto& event : events) {
+        Vector<RefPtr<MediaStream>> pendingStreams;
+        pendingStreams.reserveInitialCapacity(1);
+        pendingStreams.uncheckedAppend(&mediaStream);
+        event.streams = WTFMove(pendingStreams);
+
         dispatchTrackEvent(event);
+    }
 }
 
 void GStreamerPeerConnectionBackend::removeTrack(RTCRtpSender& sender)

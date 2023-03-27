@@ -11,6 +11,7 @@
 
 #include "common/entry_points_enum_autogen.h"
 #include "common/string_utils.h"
+#include "image_util/loadimage.h"
 #include "libANGLE/Context.h"
 #include "libANGLE/Context.inl.h"
 #include "libANGLE/MemoryProgramCache.h"
@@ -115,7 +116,11 @@ angle::Result ReadbackIndirectBuffer(const gl::Context *context,
 }  // anonymous namespace
 
 Context11::Context11(const gl::State &state, gl::ErrorSet *errorSet, Renderer11 *renderer)
-    : ContextD3D(state, errorSet), mRenderer(renderer)
+    : ContextD3D(state, errorSet),
+      mRenderer(renderer),
+      mDisjointQueryStarted(false),
+      mDisjoint(false),
+      mFrequency(0)
 {}
 
 Context11::~Context11() {}
@@ -144,7 +149,7 @@ CompilerImpl *Context11::createCompiler()
 
 ShaderImpl *Context11::createShader(const gl::ShaderState &data)
 {
-    return new ShaderD3D(data, mRenderer->getFeatures(), mRenderer->getNativeExtensions());
+    return new ShaderD3D(data, mRenderer);
 }
 
 ProgramImpl *Context11::createProgram(const gl::ProgramState &data)
@@ -750,14 +755,14 @@ gl::GraphicsResetStatus Context11::getResetStatus()
 
 angle::Result Context11::insertEventMarker(GLsizei length, const char *marker)
 {
-    mRenderer->getAnnotator()->setMarker(marker);
+    mRenderer->getDebugAnnotatorContext()->setMarker(marker);
     return angle::Result::Continue;
 }
 
 angle::Result Context11::pushGroupMarker(GLsizei length, const char *marker)
 {
-    mRenderer->getAnnotator()->beginEvent(nullptr, angle::EntryPoint::GLPushGroupMarkerEXT, marker,
-                                          marker);
+    mRenderer->getDebugAnnotatorContext()->beginEvent(angle::EntryPoint::GLPushGroupMarkerEXT,
+                                                      marker, marker);
     mMarkerStack.push(std::string(marker));
     return angle::Result::Continue;
 }
@@ -769,8 +774,8 @@ angle::Result Context11::popGroupMarker()
     {
         marker = mMarkerStack.top().c_str();
         mMarkerStack.pop();
-        mRenderer->getAnnotator()->endEvent(nullptr, marker,
-                                            angle::EntryPoint::GLPopGroupMarkerEXT);
+        mRenderer->getDebugAnnotatorContext()->endEvent(marker,
+                                                        angle::EntryPoint::GLPopGroupMarkerEXT);
     }
     return angle::Result::Continue;
 }
@@ -799,9 +804,71 @@ angle::Result Context11::syncState(const gl::Context *context,
     return angle::Result::Continue;
 }
 
+angle::Result Context11::checkDisjointQuery()
+{
+    if (!mDisjointQuery.valid())
+    {
+        D3D11_QUERY_DESC queryDesc;
+        queryDesc.Query     = gl_d3d11::ConvertQueryType(gl::QueryType::Timestamp);
+        queryDesc.MiscFlags = 0;
+
+        ANGLE_TRY(mRenderer->allocateResource(this, queryDesc, &mDisjointQuery));
+        mRenderer->getDeviceContext()->Begin(mDisjointQuery.get());
+        mDisjointQueryStarted = true;
+    }
+    return angle::Result::Continue;
+}
+
+HRESULT Context11::checkDisjointQueryStatus()
+{
+    HRESULT result = S_OK;
+    if (mDisjointQuery.valid())
+    {
+        ID3D11DeviceContext *context = mRenderer->getDeviceContext();
+        if (mDisjointQueryStarted)
+        {
+            context->End(mDisjointQuery.get());
+            mDisjointQueryStarted = false;
+        }
+        D3D11_QUERY_DATA_TIMESTAMP_DISJOINT timeStats = {};
+        result = context->GetData(mDisjointQuery.get(), &timeStats, sizeof(timeStats), 0);
+        if (result == S_OK)
+        {
+            mFrequency = timeStats.Frequency;
+            mDisjoint  = timeStats.Disjoint;
+            mDisjointQuery.reset();
+        }
+    }
+    return result;
+}
+
+UINT64 Context11::getDisjointFrequency()
+{
+    return mFrequency;
+}
+
+void Context11::setDisjointFrequency(UINT64 frequency)
+{
+    mFrequency = frequency;
+}
+
+void Context11::setGPUDisjoint()
+{
+    mDisjoint = true;
+}
+
 GLint Context11::getGPUDisjoint()
 {
-    return mRenderer->getGPUDisjoint();
+    if (mRenderer->getFeatures().enableTimestampQueries.enabled)
+    {
+        checkDisjointQueryStatus();
+    }
+    bool disjoint = mDisjoint;
+
+    // Disjoint flag is cleared when read
+    mDisjoint = false;
+
+    return disjoint;
 }
 
 GLint64 Context11::getTimestamp()
@@ -859,6 +926,11 @@ const gl::Extensions &Context11::getNativeExtensions() const
 const gl::Limitations &Context11::getNativeLimitations() const
 {
     return mRenderer->getNativeLimitations();
+}
+
+const ShPixelLocalStorageOptions &Context11::getNativePixelLocalStorageOptions() const
+{
+    return mRenderer->getNativePixelLocalStorageOptions();
 }
 
 angle::Result Context11::dispatchCompute(const gl::Context *context,
@@ -967,7 +1039,8 @@ angle::Result Context11::triggerDispatchCallProgramRecompilation(const gl::Conte
     gl::InfoLog infoLog;
 
     ShaderExecutableD3D *computeExe = nullptr;
-    ANGLE_TRY(programD3D->getComputeExecutableForImage2DBindLayout(this, &computeExe, &infoLog));
+    ANGLE_TRY(
+        programD3D->getComputeExecutableForImage2DBindLayout(context, this, &computeExe, &infoLog));
     if (!programD3D->hasComputeExecutableForCachedImage2DBindLayout())
     {
         ASSERT(infoLog.getLength() > 0);
@@ -1038,5 +1111,10 @@ void Context11::handleResult(HRESULT hr,
     errorStream << ": " << message;
 
     mErrors->handleError(glErrorCode, errorStream.str().c_str(), file, function, line);
+}
+
+angle::ImageLoadContext Context11::getImageLoadContext() const
+{
+    return getRenderer()->getDisplay()->getImageLoadContext();
 }
 }  // namespace rx

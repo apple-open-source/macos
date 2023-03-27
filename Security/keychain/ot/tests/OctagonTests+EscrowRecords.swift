@@ -11,10 +11,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -46,7 +47,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         do {
             let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
@@ -66,10 +67,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -134,7 +136,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         // now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -202,10 +204,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -269,7 +272,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         // now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -365,10 +368,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -440,8 +444,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         XCTAssertNotNil(escrowRecords1, "escrowRecords should not be nil")
         XCTAssertEqual(escrowRecords1.count, 2, "should be 2 escrow records")
 
-        let ckacctinfo2 = CKAccountInfo()
-        ckacctinfo2.accountStatus = .noAccount
+        let fakeAccount2 = FakeCKAccountInfo()
+        fakeAccount2.accountStatus = .noAccount
+        let ckacctinfo2 = unsafeBitCast(fakeAccount2, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo2)
 
@@ -459,10 +464,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -514,7 +520,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         // now call fetchviablebottles, we should get records from cuttlefish
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -568,10 +574,10 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
     func testSignInWithEscrowPrecachingEnabled() throws {
         let contextName = OTDefaultContext
         let containerName = OTCKContainerName
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Device is signed out
         self.mockAuthKit.removePrimaryAccount()
@@ -667,7 +673,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
     }
 
     func testLegacyEscrowRecordFetch() throws {
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         self.startCKAccountStatusMock()
 
@@ -678,7 +684,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         // SOS TLK shares will be uploaded after the establish
         self.assertAllCKKSViewsUpload(tlkShares: 1)
@@ -792,10 +798,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -821,7 +828,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         let container = try self.tphClient.getContainer(with: try XCTUnwrap(bottlerContext.activeAccount))
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         let fetchViableBottlesAfterExpiredTimeoutExpectation = self.expectation(description: "fetch Cached ViableBottles expectaiton after timeout")
 
@@ -857,10 +864,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -983,10 +991,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -1016,7 +1025,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         do {
             let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
@@ -1069,16 +1078,17 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
     }
 
     func testFetchViableBottlesFilteringOctagonOnly() throws {
-        OctagonSetPlatformSupportsSOS(false)
+        OctagonSetSOSFeatureEnabled(false)
 
         let initiatorContextID = "initiator-context-id"
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -1161,10 +1171,11 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: contextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -1229,7 +1240,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
 
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         return bottlerContext
     }
@@ -1399,7 +1410,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         }
     }
     func testTLKRecoverabilityOneViableOneNotViable() throws {
-        OctagonSetPlatformSupportsSOS(false)
+        OctagonSetSOSFeatureEnabled(false)
         let initiatorContextID = "initiator-context-id"
         try self.setupTLKRecoverability(contextID: initiatorContextID)
 
@@ -1410,7 +1421,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         bottlerotcliqueContext.otControl = self.otControl
 
         let clique = OTClique(contextData: bottlerotcliqueContext)
-        OctagonSetPlatformSupportsSOS(false)
+        OctagonSetSOSFeatureEnabled(false)
         XCTAssertNoThrow(try clique.leave(), "Should be NO error departing clique")
 
         // now call fetchviablebottles, we should get the uncached version

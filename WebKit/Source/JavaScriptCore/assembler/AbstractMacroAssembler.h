@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 #include "AbortReason.h"
 #include "AssemblerBuffer.h"
 #include "AssemblerCommon.h"
+#include "AssemblyComments.h"
 #include "CPU.h"
 #include "CodeLocation.h"
 #include "JSCJSValue.h"
@@ -35,9 +36,9 @@
 #include "MacroAssemblerCodeRef.h"
 #include "MacroAssemblerHelpers.h"
 #include "Options.h"
-#include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/SharedTask.h>
+#include <wtf/StringPrintStream.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakRandom.h>
 
@@ -54,6 +55,8 @@ template<typename T> class DisallowMacroScratchRegisterUsage;
 namespace DFG {
 struct OSRExit;
 }
+
+#define JIT_COMMENT(jit, ...) do { if (UNLIKELY(Options::dumpDisassembly())) { (jit).comment(__VA_ARGS__); } else { (void) jit; } } while (0);
 
 class AbstractMacroAssemblerBase {
     WTF_MAKE_FAST_ALLOCATED;
@@ -95,7 +98,6 @@ public:
     typedef AbstractMacroAssembler<AssemblerType> AbstractMacroAssemblerType;
     typedef AssemblerType AssemblerType_T;
 
-    template<PtrTag tag> using CodePtr = MacroAssemblerCodePtr<tag>;
     template<PtrTag tag> using CodeRef = MacroAssemblerCodeRef<tag>;
 
     enum class CPUIDCheckState {
@@ -136,6 +138,7 @@ public:
         TimesFour,
         TimesEight,
         ScalePtr = isAddress64Bit() ? TimesEight : TimesFour,
+        ScaleRegWord = isRegister64Bit() ? TimesEight : TimesFour,
     };
 
     enum class Extend : uint8_t {
@@ -866,7 +869,7 @@ public:
     }
 
     template<PtrTag aTag, PtrTag bTag>
-    static ptrdiff_t differenceBetweenCodePtr(const MacroAssemblerCodePtr<aTag>& a, const MacroAssemblerCodePtr<bTag>& b)
+    static ptrdiff_t differenceBetweenCodePtr(const CodePtr<aTag>& a, const CodePtr<bTag>& b)
     {
         return b.template dataLocation<ptrdiff_t>() - a.template dataLocation<ptrdiff_t>();
     }
@@ -890,9 +893,9 @@ public:
     }
 
     template<PtrTag tag>
-    static void linkPointer(void* code, AssemblerLabel label, MacroAssemblerCodePtr<tag> value)
+    static void linkPointer(void* code, AssemblerLabel label, CodePtr<tag> value)
     {
-        AssemblerType::linkPointer(code, label, value.executableAddress());
+        AssemblerType::linkPointer(code, label, value.taggedPtr());
     }
 
     template<PtrTag tag>
@@ -920,7 +923,7 @@ public:
             AssemblerType::relinkTailCall(nearCall.dataLocation(), destination.dataLocation());
             return;
         case NearCallMode::Regular:
-            AssemblerType::relinkCall(nearCall.dataLocation(), destination.untaggedExecutableAddress());
+            AssemblerType::relinkCall(nearCall.dataLocation(), destination.untaggedPtr());
             return;
         }
         RELEASE_ASSERT_NOT_REACHED();
@@ -934,7 +937,7 @@ public:
         case NearCallMode::Tail:
             return CodeLocationLabel<destTag>(tagCodePtr<destTag>(AssemblerType::prepareForAtomicRelinkJumpConcurrently(nearCall.dataLocation(), destination.dataLocation())));
         case NearCallMode::Regular:
-            return CodeLocationLabel<destTag>(tagCodePtr<destTag>(AssemblerType::prepareForAtomicRelinkCallConcurrently(nearCall.dataLocation(), destination.untaggedExecutableAddress())));
+            return CodeLocationLabel<destTag>(tagCodePtr<destTag>(AssemblerType::prepareForAtomicRelinkCallConcurrently(nearCall.dataLocation(), destination.untaggedPtr())));
         }
         RELEASE_ASSERT_NOT_REACHED();
 #else
@@ -1018,6 +1021,16 @@ public:
     ALWAYS_INLINE void untagPtr(RegisterID, RegisterID) { }
     ALWAYS_INLINE void removePtrTag(RegisterID) { }
     ALWAYS_INLINE void validateUntaggedPtr(RegisterID, RegisterID = RegisterID::InvalidGPRReg) { }
+
+    template<typename... Types>
+    void comment(const Types&... values)
+    {
+        if (LIKELY(!Options::dumpDisassembly()))
+            return;
+        StringPrintStream s;
+        s.print(values...);
+        commentImpl(s.toString());
+    }
 
 protected:
     AbstractMacroAssembler()
@@ -1109,11 +1122,15 @@ protected:
         m_tempRegistersValidBits |= registerMask;
     }
 
+    void commentImpl(String&& str) { m_comments.append({ labelIgnoringWatchpoints(), WTFMove(str) }); }
+
     friend class AllowMacroScratchRegisterUsage;
     friend class AllowMacroScratchRegisterUsageIf;
     template<typename T> friend class DisallowMacroScratchRegisterUsage;
     unsigned m_tempRegistersValidBits;
     bool m_allowScratchRegister { true };
+
+    Vector<std::pair<Label, String>> m_comments;
 
     Vector<RefPtr<SharedTask<void(LinkBuffer&)>>> m_linkTasks;
     Vector<RefPtr<SharedTask<void(LinkBuffer&)>>> m_lateLinkTasks;

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "CachedResourceRequest.h"
 
+#include "CachePolicy.h"
 #include "CachedResourceLoader.h"
 #include "ContentExtensionsBackend.h"
 #include "CrossOriginAccessControl.h"
@@ -40,10 +41,6 @@
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
-
-// Created by binding generator.
-String convertEnumerationToString(FetchOptions::Destination);
-String convertEnumerationToString(FetchOptions::Mode);
 
 CachedResourceRequest::CachedResourceRequest(ResourceRequest&& resourceRequest, const ResourceLoaderOptions& options, std::optional<ResourceLoadPriority> priority, String&& charset)
     : m_resourceRequest(WTFMove(resourceRequest))
@@ -68,23 +65,23 @@ String CachedResourceRequest::splitFragmentIdentifierFromRequestURL(ResourceRequ
 void CachedResourceRequest::setInitiator(Element& element)
 {
     ASSERT(!m_initiatorElement);
-    ASSERT(m_initiatorName.isEmpty());
+    ASSERT(m_initiatorType.isEmpty());
     m_initiatorElement = &element;
 }
 
-void CachedResourceRequest::setInitiator(const AtomString& name)
+void CachedResourceRequest::setInitiatorType(const AtomString& type)
 {
     ASSERT(!m_initiatorElement);
-    ASSERT(m_initiatorName.isEmpty());
-    m_initiatorName = name;
+    ASSERT(m_initiatorType.isEmpty());
+    m_initiatorType = type;
 }
 
-const AtomString& CachedResourceRequest::initiatorName() const
+const AtomString& CachedResourceRequest::initiatorType() const
 {
     if (m_initiatorElement)
         return m_initiatorElement->localName();
-    if (!m_initiatorName.isEmpty())
-        return m_initiatorName;
+    if (!m_initiatorType.isEmpty())
+        return m_initiatorType;
 
     static MainThreadNeverDestroyed<const AtomString> defaultName("other"_s);
     return defaultName;
@@ -186,6 +183,12 @@ void CachedResourceRequest::setAcceptHeaderIfNone(CachedResource::Type type)
         m_resourceRequest.setHTTPHeaderField(HTTPHeaderName::Accept, acceptHeaderValueFromType(type));
 }
 
+void CachedResourceRequest::disableCachingIfNeeded()
+{
+    if (m_options.cache == FetchOptions::Cache::NoStore)
+        m_options.cachingPolicy = CachingPolicy::DisallowCaching;
+}
+
 void CachedResourceRequest::updateAccordingCacheMode()
 {
     if (m_options.cache == FetchOptions::Cache::Default
@@ -202,7 +205,6 @@ void CachedResourceRequest::updateAccordingCacheMode()
         m_resourceRequest.addHTTPHeaderFieldIfNotPresent(HTTPHeaderName::CacheControl, HTTPHeaderValues::maxAge0());
         break;
     case FetchOptions::Cache::NoStore:
-        m_options.cachingPolicy = CachingPolicy::DisallowCaching;
         m_resourceRequest.setCachePolicy(ResourceRequestCachePolicy::DoNotUseAnyCache);
         m_resourceRequest.addHTTPHeaderFieldIfNotPresent(HTTPHeaderName::Pragma, HTTPHeaderValues::noCache());
         m_resourceRequest.addHTTPHeaderFieldIfNotPresent(HTTPHeaderName::CacheControl, HTTPHeaderValues::noCache());
@@ -221,6 +223,12 @@ void CachedResourceRequest::updateAccordingCacheMode()
         m_resourceRequest.setCachePolicy(ResourceRequestCachePolicy::ReturnCacheDataDontLoad);
         break;
     }
+}
+
+void CachedResourceRequest::updateCacheModeIfNeeded(CachePolicy cachePolicy)
+{
+    if (cachePolicy == CachePolicy::Reload && m_options.cache == FetchOptions::Cache::Default && m_options.cachingPolicy == CachingPolicy::AllowCaching)
+        m_options.cache = FetchOptions::Cache::Reload;
 }
 
 void CachedResourceRequest::updateAcceptEncodingHeader()
@@ -272,20 +280,6 @@ void CachedResourceRequest::updateReferrerAndOriginHeaders(FrameLoader& frameLoa
     else
         outgoingOrigin = SecurityPolicy::generateOriginHeader(m_options.referrerPolicy, m_resourceRequest.url(), SecurityOrigin::createFromString(outgoingReferrer));
     FrameLoader::addHTTPOriginIfNeeded(m_resourceRequest, outgoingOrigin);
-}
-
-void CachedResourceRequest::updateFetchMetadataHeaders()
-{
-    // Implementing step 13 of https://fetch.spec.whatwg.org/#http-network-or-cache-fetch as of 22 Feb 2022
-    // https://w3c.github.io/webappsec-fetch-metadata/#fetch-integration
-    auto requestOrigin = SecurityOrigin::create(m_resourceRequest.url());
-    if (!requestOrigin->isPotentiallyTrustworthy())
-        return;
-
-    // The Fetch IDL documents this as "" while FetchMetadata expects "empty", otherwise they match.
-    String destinationString = m_options.destination == FetchOptions::Destination::EmptyString ? "empty"_s : convertEnumerationToString(m_options.destination);
-    m_resourceRequest.setHTTPHeaderField(HTTPHeaderName::SecFetchDest, WTFMove(destinationString));
-    m_resourceRequest.setHTTPHeaderField(HTTPHeaderName::SecFetchMode, convertEnumerationToString(m_options.mode));
 }
 
 void CachedResourceRequest::updateUserAgentHeader(FrameLoader& frameLoader)

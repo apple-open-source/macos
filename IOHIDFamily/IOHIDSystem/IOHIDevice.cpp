@@ -28,6 +28,7 @@
 #include <IOKit/hidsystem/IOHIDevice.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
 #include "IOHIDevicePrivateKeys.h"
+#include "IOHIDFamilyPrivate.h"
 #include "IOHIDEventService.h"
 
 #define super IOService
@@ -207,10 +208,7 @@ IOReturn IOHIDevice::setParamProperties( OSDictionary * dict )
                             !key->isEqualTo(kIOHIDScrollResetKey) && 
                             !key->isEqualTo(kIOHIDDeviceParametersKey) && 
                             !key->isEqualTo(kIOHIDResetLEDsKey) &&
-                            !key->isEqualTo(kIOUserClientClassKey) &&
-                            !key->isEqualTo(kIOClassKey) &&
-                            !key->isEqualTo(kIOProviderClassKey) &&
-                            !key->isEqualTo(kIOKitDebugKey)) {
+                            !IsIOHIDRestrictedIOKitProperty(key)) {
                         OSObject * value = dict->getObject(key);
 
                         deviceParameters->setObject(key, value);

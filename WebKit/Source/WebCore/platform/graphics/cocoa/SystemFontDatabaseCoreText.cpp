@@ -29,25 +29,23 @@
 #include "FontCache.h"
 #include "FontCacheCoreText.h"
 #include "FontCascadeDescription.h"
+#include "FontMetricsNormalization.h"
 
 #include <wtf/cf/TypeCastsCF.h>
 
 namespace WebCore {
 
-SystemFontDatabaseCoreText& SystemFontDatabaseCoreText::singleton()
+SystemFontDatabaseCoreText& SystemFontDatabaseCoreText::forCurrentThread()
 {
-    static NeverDestroyed<SystemFontDatabaseCoreText> database = SystemFontDatabaseCoreText();
-    return database.get();
+    return FontCache::forCurrentThread().systemFontDatabaseCoreText();
 }
 
 SystemFontDatabase& SystemFontDatabase::singleton()
 {
-    return SystemFontDatabaseCoreText::singleton();
+    return SystemFontDatabaseCoreText::forCurrentThread();
 }
 
-SystemFontDatabaseCoreText::SystemFontDatabaseCoreText()
-{
-}
+SystemFontDatabaseCoreText::SystemFontDatabaseCoreText() = default;
 
 RetainPtr<CTFontRef> SystemFontDatabaseCoreText::createSystemUIFont(const CascadeListParameters& parameters, CFStringRef locale)
 {
@@ -132,7 +130,7 @@ Vector<RetainPtr<CTFontDescriptorRef>> SystemFontDatabaseCoreText::cascadeList(c
 
 void SystemFontDatabase::platformInvalidate()
 {
-    SystemFontDatabaseCoreText::singleton().clear();
+    SystemFontDatabaseCoreText::forCurrentThread().clear();
 }
 
 void SystemFontDatabaseCoreText::clear()
@@ -155,7 +153,7 @@ RetainPtr<CTFontRef> SystemFontDatabaseCoreText::createFontByApplyingWeightWidth
     auto italicsNumber = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberFloatType, &italicsRawNumber));
     CFTypeRef traitsKeys[] = { kCTFontWeightTrait, kCTFontWidthTrait, kCTFontSlantTrait, kCTFontUIFontDesignTrait };
     CFTypeRef traitsValues[] = { weightNumber.get(), widthNumber.get(), italicsNumber.get(), design ? static_cast<CFTypeRef>(design) : static_cast<CFTypeRef>(kCTFontUIFontDesignDefault) };
-    auto traitsDictionary = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, traitsKeys, traitsValues, WTF_ARRAY_LENGTH(traitsKeys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    auto traitsDictionary = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, traitsKeys, traitsValues, std::size(traitsKeys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     auto attributes = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     CFDictionaryAddValue(attributes.get(), kCTFontTraitsAttribute, traitsDictionary.get());
     addAttributesForInstalledFonts(attributes.get(), allowUserInstalledFonts);
@@ -170,7 +168,7 @@ RetainPtr<CTFontDescriptorRef> SystemFontDatabaseCoreText::removeCascadeList(CTF
     auto emptyArray = adoptCF(CFArrayCreate(kCFAllocatorDefault, nullptr, 0, &kCFTypeArrayCallBacks));
     CFTypeRef fallbackDictionaryKeys[] = { kCTFontCascadeListAttribute };
     CFTypeRef fallbackDictionaryValues[] = { emptyArray.get() };
-    auto fallbackDictionary = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, fallbackDictionaryKeys, fallbackDictionaryValues, WTF_ARRAY_LENGTH(fallbackDictionaryKeys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    auto fallbackDictionary = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, fallbackDictionaryKeys, fallbackDictionaryValues, std::size(fallbackDictionaryKeys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     auto modifiedFontDescriptor = adoptCF(CTFontDescriptorCreateCopyWithAttributes(fontDescriptor, fallbackDictionary.get()));
     return modifiedFontDescriptor;
 }
@@ -178,7 +176,7 @@ RetainPtr<CTFontDescriptorRef> SystemFontDatabaseCoreText::removeCascadeList(CTF
 Vector<RetainPtr<CTFontDescriptorRef>> SystemFontDatabaseCoreText::computeCascadeList(CTFontRef font, CFStringRef locale)
 {
     CFTypeRef arrayValues[] = { locale };
-    auto localeArray = adoptCF(CFArrayCreate(kCFAllocatorDefault, arrayValues, WTF_ARRAY_LENGTH(arrayValues), &kCFTypeArrayCallBacks));
+    auto localeArray = adoptCF(CFArrayCreate(kCFAllocatorDefault, arrayValues, std::size(arrayValues), &kCFTypeArrayCallBacks));
     auto cascadeList = adoptCF(CTFontCopyDefaultCascadeListForLanguages(font, localeArray.get()));
     Vector<RetainPtr<CTFontDescriptorRef>> result;
     // WebKit handles the cascade list, and WebKit 2's IPC code doesn't know how to serialize Core Text's cascade list.
@@ -264,23 +262,19 @@ SystemFontDatabaseCoreText::CascadeListParameters SystemFontDatabaseCoreText::sy
 
     switch (systemFontKind) {
     case SystemFontKind::SystemUI: {
-        static MainThreadNeverDestroyed<const AtomString> systemUI { "system-ui"_s };
-        result.fontName = systemUI.get();
+        result.fontName = AtomString("system-ui"_s);
         break;
     }
     case SystemFontKind::UISerif: {
-        static MainThreadNeverDestroyed<const AtomString> systemUISerif { "ui-serif"_s };
-        result.fontName = systemUISerif.get();
+        result.fontName = AtomString("ui-serif"_s);
         break;
     }
     case SystemFontKind::UIMonospace: {
-        static MainThreadNeverDestroyed<const AtomString> systemUIMonospace { "ui-monospace"_s };
-        result.fontName = systemUIMonospace.get();
+        result.fontName = AtomString("ui-monospace"_s);
         break;
     }
     case SystemFontKind::UIRounded: {
-        static MainThreadNeverDestroyed<const AtomString> systemUIRounded { "ui-rounded"_s };
-        result.fontName = systemUIRounded.get();
+        result.fontName = AtomString("ui-rounded"_s);
         break;
     }
     case SystemFontKind::TextStyle:
@@ -289,6 +283,57 @@ SystemFontDatabaseCoreText::CascadeListParameters SystemFontDatabaseCoreText::sy
     }
 
     return result;
+}
+
+std::optional<SystemFontKind> SystemFontDatabaseCoreText::matchSystemFontUse(const AtomString& string)
+{
+    if (equalLettersIgnoringASCIICase(string, "-webkit-system-font"_s)
+        || equalLettersIgnoringASCIICase(string, "-apple-system"_s)
+        || equalLettersIgnoringASCIICase(string, "-apple-system-font"_s)
+        || equalLettersIgnoringASCIICase(string, "system-ui"_s)
+        || equalLettersIgnoringASCIICase(string, "ui-sans-serif"_s))
+        return SystemFontKind::SystemUI;
+
+#if HAVE(DESIGN_SYSTEM_UI_FONTS)
+    if (equalLettersIgnoringASCIICase(string, "ui-serif"_s))
+        return SystemFontKind::UISerif;
+    if (equalLettersIgnoringASCIICase(string, "ui-monospace"_s))
+        return SystemFontKind::UIMonospace;
+    if (equalLettersIgnoringASCIICase(string, "ui-rounded"_s))
+        return SystemFontKind::UIRounded;
+#endif
+
+    auto compareAsPointer = [](const AtomString& lhs, const AtomString& rhs) {
+        return lhs.impl() < rhs.impl();
+    };
+
+    if (m_textStyles.isEmpty()) {
+        m_textStyles = {
+            kCTUIFontTextStyleHeadline,
+            kCTUIFontTextStyleBody,
+            kCTUIFontTextStyleTitle1,
+            kCTUIFontTextStyleTitle2,
+            kCTUIFontTextStyleTitle3,
+            kCTUIFontTextStyleSubhead,
+            kCTUIFontTextStyleFootnote,
+            kCTUIFontTextStyleCaption1,
+            kCTUIFontTextStyleCaption2,
+            kCTUIFontTextStyleShortHeadline,
+            kCTUIFontTextStyleShortBody,
+            kCTUIFontTextStyleShortSubhead,
+            kCTUIFontTextStyleShortFootnote,
+            kCTUIFontTextStyleShortCaption1,
+            kCTUIFontTextStyleTallBody,
+            kCTUIFontTextStyleTitle0,
+            kCTUIFontTextStyleTitle4,
+        };
+        std::sort(m_textStyles.begin(), m_textStyles.end(), compareAsPointer);
+    }
+
+    if (std::binary_search(m_textStyles.begin(), m_textStyles.end(), string, compareAsPointer))
+        return SystemFontKind::TextStyle;
+
+    return std::nullopt;
 }
 
 Vector<RetainPtr<CTFontDescriptorRef>> SystemFontDatabaseCoreText::cascadeList(const FontDescription& description, const AtomString& cssFamily, SystemFontKind systemFontKind, AllowUserInstalledFonts allowUserInstalledFonts)

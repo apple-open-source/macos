@@ -70,9 +70,8 @@ IPC::Connection& RemoteAudioSession::ensureConnection()
         m_gpuProcessConnection->addClient(*this);
         m_gpuProcessConnection->messageReceiverMap().addMessageReceiver(Messages::RemoteAudioSession::messageReceiverName(), *this);
 
-        RemoteAudioSessionConfiguration configuration;
-        ensureConnection().sendSync(Messages::GPUConnectionToWebProcess::EnsureAudioSession(), Messages::GPUConnectionToWebProcess::EnsureAudioSession::Reply(configuration), { });
-        m_configuration = WTFMove(configuration);
+        auto sendResult = ensureConnection().sendSync(Messages::GPUConnectionToWebProcess::EnsureAudioSession(), { });
+        std::tie(m_configuration) = sendResult.takeReplyOr(RemoteAudioSessionConfiguration { });
     }
     return m_gpuProcessConnection->connection();
 }
@@ -116,8 +115,8 @@ void RemoteAudioSession::setPreferredBufferSize(size_t size)
 
 bool RemoteAudioSession::tryToSetActiveInternal(bool active)
 {
-    bool succeeded;
-    ensureConnection().sendSync(Messages::RemoteAudioSessionProxy::TryToSetActive(active), Messages::RemoteAudioSessionProxy::TryToSetActive::Reply(succeeded), { });
+    auto sendResult = ensureConnection().sendSync(Messages::RemoteAudioSessionProxy::TryToSetActive(active), { });
+    auto [succeeded] = sendResult.takeReplyOr(false);
     if (succeeded)
         configuration().isActive = active;
     return succeeded;
@@ -148,7 +147,8 @@ void RemoteAudioSession::configurationChanged(RemoteAudioSessionConfiguration&& 
 {
     bool mutedStateChanged = !m_configuration || configuration.isMuted != (*m_configuration).isMuted;
     bool bufferSizeChanged = !m_configuration || configuration.bufferSize != (*m_configuration).bufferSize;
-    bool sampleRateCahnged = !m_configuration || configuration.sampleRate != (*m_configuration).sampleRate;
+    bool sampleRateChanged = !m_configuration || configuration.sampleRate != (*m_configuration).sampleRate;
+    bool isActiveChanged = !m_configuration || configuration.isActive != (*m_configuration).isActive;
 
     m_configuration = WTFMove(configuration);
 
@@ -159,9 +159,11 @@ void RemoteAudioSession::configurationChanged(RemoteAudioSessionConfiguration&& 
         if (bufferSizeChanged)
             observer.bufferSizeDidChange(*this);
 
-        if (sampleRateCahnged)
+        if (sampleRateChanged)
             observer.sampleRateDidChange(*this);
     });
+    if (isActiveChanged)
+        activeStateChanged();
 }
 
 void RemoteAudioSession::beginInterruptionForTesting()

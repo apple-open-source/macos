@@ -49,19 +49,31 @@ Ref<ScrollingTreeFrameScrollingNodeRemoteMac> ScrollingTreeFrameScrollingNodeRem
     return adoptRef(*new ScrollingTreeFrameScrollingNodeRemoteMac(tree, nodeType, nodeID));
 }
 
-void ScrollingTreeFrameScrollingNodeRemoteMac::commitStateBeforeChildren(const ScrollingStateNode& stateNode)
+bool ScrollingTreeFrameScrollingNodeRemoteMac::commitStateBeforeChildren(const ScrollingStateNode& stateNode)
 {
-    ScrollingTreeFrameScrollingNodeMac::commitStateBeforeChildren(stateNode);
-    const auto& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(stateNode);
+    if (!ScrollingTreeFrameScrollingNodeMac::commitStateBeforeChildren(stateNode))
+        return false;
 
-    // FIXME: Push to ScrollingTreeScrollingNodeDelegateMac?
-    if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer))
+    if (!is<ScrollingStateFrameScrollingNode>(stateNode))
+        return false;
+
+    const auto& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(stateNode);
+    
+    if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::HorizontalScrollbarLayer) && horizontalNativeScrollbarVisibility() == NativeScrollbarVisibility::Visible)
+        m_scrollerPair->horizontalScroller().setHostLayer(static_cast<CALayer*>(scrollingStateNode.horizontalScrollbarLayer()));
+    
+    if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer) && verticalNativeScrollbarVisibility() == NativeScrollbarVisibility::Visible)
         m_scrollerPair->verticalScroller().setHostLayer(static_cast<CALayer*>(scrollingStateNode.verticalScrollbarLayer()));
 
-    if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::HorizontalScrollbarLayer))
-        m_scrollerPair->horizontalScroller().setHostLayer(static_cast<CALayer*>(scrollingStateNode.horizontalScrollbarLayer()));
+    if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollableAreaParams)) {
+        if (scrollingStateNode.scrollableAreaParameters().horizontalNativeScrollbarVisibility != NativeScrollbarVisibility::Visible)
+            m_scrollerPair->horizontalScroller().setHostLayer(nullptr);
+        if (scrollingStateNode.scrollableAreaParameters().verticalNativeScrollbarVisibility != NativeScrollbarVisibility::Visible)
+            m_scrollerPair->verticalScroller().setHostLayer(nullptr);
+    }
 
     m_scrollerPair->updateValues();
+    return true;
 }
 
 void ScrollingTreeFrameScrollingNodeRemoteMac::repositionRelatedLayers()
@@ -74,9 +86,9 @@ void ScrollingTreeFrameScrollingNodeRemoteMac::repositionRelatedLayers()
 
 WheelEventHandlingResult ScrollingTreeFrameScrollingNodeRemoteMac::handleWheelEvent(const PlatformWheelEvent& wheelEvent, EventTargeting eventTargeting)
 {
-    ScrollingTreeFrameScrollingNodeMac::handleWheelEvent(wheelEvent, eventTargeting);
-
-    return WheelEventHandlingResult::result(m_scrollerPair->handleWheelEvent(wheelEvent));
+    auto result = ScrollingTreeFrameScrollingNodeMac::handleWheelEvent(wheelEvent, eventTargeting);
+    m_scrollerPair->handleWheelEvent(wheelEvent);
+    return result;
 }
 
 bool ScrollingTreeFrameScrollingNodeRemoteMac::handleMouseEvent(const PlatformMouseEvent& mouseEvent)

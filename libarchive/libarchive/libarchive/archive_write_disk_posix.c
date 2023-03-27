@@ -140,6 +140,12 @@ __FBSDID("$FreeBSD$");
 #endif
 #endif
 
+#if defined(__APPLE__) && defined(UF_COMPRESSED) && defined(HAVE_SYS_XATTR_H)\
+	&& defined(HAVE_ZLIB_H)
+#include <System/sys/fsctl.h>
+#include <stdbool.h>
+#endif
+
 /* TODO: Support Mac OS 'quarantine' feature.  This is really just a
  * standard tag to mark files that have been downloaded as "tainted".
  * On Mac OS, we should mark the extracted files as tainted if the
@@ -1065,17 +1071,55 @@ write_data_block(struct archive_write_disk *a, const char *buff, size_t size)
 static int
 hfs_set_compressed_fflag(struct archive_write_disk *a)
 {
+	bool used_fsctl = false;
 	int r;
+	int i;
+	struct fsioc_cas_bsdflags cas;
 
-	if ((r = lazy_stat(a)) != ARCHIVE_OK)
-		return (r);
+	/*
+	 * Before falling back to fchflags(), try to atomically set BSD flags using
+	 * ffsctl(.., FSIOC_CAS_BSDFLAGS,..) which is required on filesystems that support it.
+	 */
+#define MAX_CAS_BSDFLAG_LOOPS 4
+    for (i = 0; i < MAX_CAS_BSDFLAG_LOOPS; i++) {
+        if ((r = lazy_stat(a)) != ARCHIVE_OK)
+            return (r);
 
-	a->st.st_flags |= UF_COMPRESSED;
-	if (fchflags(a->fd, a->st.st_flags) != 0) {
+        cas.expected_flags = a->st.st_flags;
+        cas.new_flags = UF_COMPRESSED;
+		cas.actual_flags = ~0;
+		errno = 0;
+		
+		r = ffsctl(a->fd, FSIOC_CAS_BSDFLAGS, &cas, 0);
+		if (r == 0 && cas.expected_flags == cas.actual_flags) {
+			used_fsctl = TRUE;
+			break;
+		} else if (r < 0 && errno != EAGAIN) {
+			// FSIOC_CAS_BSDFLAGS isn't supported, another error occurred,
+			// or we've lost our race a few times, so just use fchflags() and exit.
+			break;
+		}
+	}
+
+	// For ensuring that fsctl is used when testing
+	if (getenv("FORCE_UF_COMPRESS_FFSCTL") && !used_fsctl) {
 		archive_set_error(&a->archive, errno,
-		    "Failed to set UF_COMPRESSED file flag");
+			"Failed to set UF_COMPRESSED file flag");
 		return (ARCHIVE_WARN);
 	}
+
+	if (!used_fsctl) {
+		if ((r = lazy_stat(a)) != ARCHIVE_OK)
+			return (r);
+
+		a->st.st_flags |= UF_COMPRESSED;
+		if (fchflags(a->fd, a->st.st_flags) != 0) {
+			archive_set_error(&a->archive, errno,
+							  "Failed to set UF_COMPRESSED file flag");
+			return (ARCHIVE_WARN);
+		}
+	}
+
 	return (ARCHIVE_OK);
 }
 

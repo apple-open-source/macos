@@ -17,6 +17,17 @@
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
 #include <bootstrap_priv.h>
+#include <CoreGraphics/CGSession.h>
+#include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
+#include <SoftLinking/SoftLinking.h>
+
+SOFT_LINK_FRAMEWORK(Frameworks, SystemConfiguration)
+SOFT_LINK_FUNCTION(SystemConfiguration,
+                   SCDynamicStoreCopyConsoleInformation,
+                   soft_SCDynamicStoreCopyConsoleInformation,
+                   CFArrayRef,
+                   (SCDynamicStoreRef store),
+                   (store))
 
 #define SECURITYAGENT_BOOTSTRAP_NAME_BASE              "com.apple.security.agent"
 #define SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE  "com.apple.security.agent.login"
@@ -99,6 +110,30 @@ static CFTypeID agent_get_type_id(void) {
     });
     
     return type_id;
+}
+
+int32_t
+agent_get_active_session_uid(void)
+{
+    int32_t retval = (uid_t)-1;
+    
+    CFArrayRef sessions = soft_SCDynamicStoreCopyConsoleInformation(NULL);
+    if (sessions) {
+        CFIndex count = CFArrayGetCount(sessions);
+        for (CFIndex i = 0; i < count; ++i) {
+            CFDictionaryRef session = CFArrayGetValueAtIndex(sessions, i);
+            CFBooleanRef onConsole = CFDictionaryGetValue(session, kCGSessionOnConsoleKey);
+            if (onConsole == kCFBooleanTrue) {
+                CFNumberRef tmp = CFDictionaryGetValue(session, kCGSessionUserIDKey);
+                CFNumberGetValue(tmp, kCFNumberSInt32Type, &retval);
+                break;
+            }
+        }
+        CFRelease(sessions);
+    }
+    os_log_debug(AUTHD_LOG, "active session uid: %d", retval); // 0 means probably loginscreen
+    
+    return retval;
 }
 
 agent_t

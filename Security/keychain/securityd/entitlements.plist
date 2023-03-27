@@ -4,6 +4,13 @@
 <dict>
 	<key>com.apple.usermanagerd.persona.fetch</key>
 	<true/>
+	<key>com.apple.private.cloudkit.serviceNameForContainerMap</key>
+	<dict>
+		<key>com.apple.security.shared.keychain</key>
+		<string>com.apple.security.keychain.shared</string>
+	</dict>
+	<key>com.apple.private.cloudkit.prefix</key>
+	<string>com.apple.security.</string>
 	<key>com.apple.springboard.opensensitiveurl</key>
 	<true/>
 	<key>com.apple.private.cloudkit.notifyOnAccountWarmup</key>
@@ -118,5 +125,12 @@
 	<true/>
 	<key>com.apple.developer.device-information.user-assigned-device-name</key>
 	<true/>
+	<key>com.apple.private.security.storage.SFAnalytics</key>
+	<true/>
+	<key>com.apple.security.exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.keychainsharingmessagingd</string>
+		<string>com.apple.AuthenticationServices.CredentialSharingGroups</string>
+	</array>
 </dict>
 </plist>

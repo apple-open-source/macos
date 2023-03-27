@@ -590,6 +590,9 @@ struct smb_vnode_attr {
 #define SMB2_LEASE_HANDLE_CACHING   0x02
 #define SMB2_LEASE_WRITE_CACHING	0x04
 
+/* Lease related defines */
+#define SMB2_LEASE_PROCESS_TIME     30
+
 /* SMB 2/3 ImpersonationLevel, 2.2.13 */
 #define SMB2_IMPERSONATION_ANONYMOUS	    0x00000000
 #define SMB2_IMPERSONATION_IDENTIFICATION   0x00000001

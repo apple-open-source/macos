@@ -12,9 +12,10 @@
 #ifndef _BLOCK_PRIVATE_H_
 #define _BLOCK_PRIVATE_H_
 
+#include <TargetConditionals.h>
+
 #include <Availability.h>
 #include <AvailabilityMacros.h>
-#include <TargetConditionals.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -222,13 +223,6 @@ typedef uintptr_t BlockByrefDestroyFunction;
 
 #define _Block_descriptor_ptrauth_discriminator 0xC0BB
 
-// We support small descriptors when block descriptors are signed, and on
-// platforms without ptrauth. We do not support them on ptrauth platforms
-// without signed block descriptors.
-#if __has_feature(ptrauth_signed_block_descriptors) || !__has_feature(ptrauth_calls)
-#define BLOCK_SMALL_DESCRIPTOR_SUPPORTED 1
-#endif
-
 // Values for Block_layout->flags to describe block objects
 enum {
     BLOCK_DEALLOCATING =      (0x0001),  // runtime
@@ -237,6 +231,8 @@ enum {
     BLOCK_INLINE_LAYOUT_STRING = (1 << 21), // compiler
 
 #if BLOCK_SMALL_DESCRIPTOR_SUPPORTED
+    // Note: small block descriptors are not currently supported anywhere.
+    // Don't enable this without security review; see rdar://91727169
     BLOCK_SMALL_DESCRIPTOR =  (1 << 22), // compiler
 #endif
 
@@ -599,17 +595,18 @@ _Block_get_descriptor(struct Block_layout *aBlock)
 {
     void *descriptor;
 
-#if __has_feature(ptrauth_signed_block_descriptors)
-    if (!(aBlock->flags & BLOCK_SMALL_DESCRIPTOR)) {
-        descriptor =
-                (void *)ptrauth_strip(aBlock->descriptor, ptrauth_key_asda);
-    } else {
+#if BLOCK_SMALL_DESCRIPTOR_SUPPORTED && \
+    __has_feature(ptrauth_signed_block_descriptors)
+    if (aBlock->flags & BLOCK_SMALL_DESCRIPTOR) {
         uintptr_t disc = ptrauth_blend_discriminator(
                 &aBlock->descriptor, _Block_descriptor_ptrauth_discriminator);
         descriptor = (void *)ptrauth_auth_data(
                 aBlock->descriptor, ptrauth_key_asda, disc);
+        return descriptor;
     }
-#elif __has_feature(ptrauth_calls)
+#endif
+
+#if __has_feature(ptrauth_calls)
     descriptor = (void *)ptrauth_strip(aBlock->descriptor, ptrauth_key_asda);
 #else
     descriptor = (void *)aBlock->descriptor;

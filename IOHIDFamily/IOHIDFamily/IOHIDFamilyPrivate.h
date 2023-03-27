@@ -52,6 +52,35 @@ void handle_stackshot_keychord(uint32_t keycode);
 #define NX_HARDWARE_TICKLE  (NX_LASTEVENT+1)
 
 #define kIOHIDDeviceWillTerminate     iokit_family_msg(sub_iokit_hidsystem, 8)
+
+
+/*!
+ * @method IsIOHIDRestrictedIOKitProperty
+ *
+ * @abstract
+ * Checks OSSymbols to see if they are restricted IOKit properties that should not be allowed to be set.
+ *
+ * @param key
+ * The key that is trying to be set
+ *
+ * @result
+ * Returns true if the property is restricted and should not be set by userland clients. Returns false otherwise.
+ */
+bool IsIOHIDRestrictedIOKitProperty(const OSSymbol* key);
+
+/*!
+ * @method IsIOHIDRestrictedIOKitPropertyDictionary
+ *
+ * @abstract
+ * Checks OSDictionaries for restricted IOKit properties that should not be allowed to be set.
+ *
+ * @param properties
+ * The dictionary that needs to be checked
+ *
+ * @result
+ * Returns true if the any property is restricted in the dictionary and should not be set by userland clients. Returns false otherwise.
+ */
+bool IsIOHIDRestrictedIOKitPropertyDictionary(const OSDictionary* properties);
 #endif
 
 bool isSingleUser();

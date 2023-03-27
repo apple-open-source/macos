@@ -253,15 +253,15 @@ main(int argc, char **argv)
 
 		if (rusage_ret >= 0) {
 			if (ruinfo.ri_instructions > 0) {
-				fprintf(stderr, "%20" PRIu64 "  %s\n", ruinfo.ri_instructions,
+				fprintf(out, "%20" PRIu64 "  %s\n", ruinfo.ri_instructions,
 					"instructions retired");
 			}
 			if (ruinfo.ri_cycles > 0) {
-				fprintf(stderr, "%20" PRIu64 "  %s\n", ruinfo.ri_cycles,
+				fprintf(out, "%20" PRIu64 "  %s\n", ruinfo.ri_cycles,
 					"cycles elapsed");
 			}
 			if (ruinfo.ri_lifetime_max_phys_footprint > 0) {
-				fprintf(stderr, "%20" PRIu64 "  %s\n",
+				fprintf(out, "%20" PRIu64 "  %s\n",
 					ruinfo.ri_lifetime_max_phys_footprint,
 					"peak memory footprint");
 			}

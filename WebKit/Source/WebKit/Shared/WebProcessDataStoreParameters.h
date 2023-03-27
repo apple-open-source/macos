@@ -46,7 +46,7 @@ struct WebProcessDataStoreParameters {
     SandboxExtension::Handle mediaKeyStorageDirectoryExtensionHandle;
     String javaScriptConfigurationDirectory;
     SandboxExtension::Handle javaScriptConfigurationDirectoryExtensionHandle;
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
     WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode { WebCore::ThirdPartyCookieBlockingMode::All };
     HashSet<WebCore::RegistrableDomain> domainsWithUserInteraction;
     HashMap<TopFrameDomain, SubResourceDomain> domainsWithStorageAccessQuirk;
@@ -60,7 +60,7 @@ struct WebProcessDataStoreParameters {
     std::optional<SandboxExtension::Handle> containerCachesDirectoryExtensionHandle;
     std::optional<SandboxExtension::Handle> containerTemporaryDirectoryExtensionHandle;
 #endif
-    bool resourceLoadStatisticsEnabled { false };
+    bool trackingPreventionEnabled { false };
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<WebProcessDataStoreParameters> decode(Decoder&);
@@ -79,7 +79,7 @@ void WebProcessDataStoreParameters::encode(Encoder& encoder) const
     encoder << mediaKeyStorageDirectoryExtensionHandle;
     encoder << javaScriptConfigurationDirectory;
     encoder << javaScriptConfigurationDirectoryExtensionHandle;
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
     encoder << thirdPartyCookieBlockingMode;
     encoder << domainsWithUserInteraction;
     encoder << domainsWithStorageAccessQuirk;
@@ -93,7 +93,7 @@ void WebProcessDataStoreParameters::encode(Encoder& encoder) const
     encoder << containerCachesDirectoryExtensionHandle;
     encoder << containerTemporaryDirectoryExtensionHandle;
 #endif
-    encoder << resourceLoadStatisticsEnabled;
+    encoder << trackingPreventionEnabled;
 }
 
 template<class Decoder>
@@ -144,7 +144,7 @@ std::optional<WebProcessDataStoreParameters> WebProcessDataStoreParameters::deco
     if (!javaScriptConfigurationDirectoryExtensionHandle)
         return std::nullopt;
         
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
     std::optional<WebCore::ThirdPartyCookieBlockingMode> thirdPartyCookieBlockingMode;
     decoder >> thirdPartyCookieBlockingMode;
     if (!thirdPartyCookieBlockingMode)
@@ -187,8 +187,8 @@ std::optional<WebProcessDataStoreParameters> WebProcessDataStoreParameters::deco
         return std::nullopt;
 #endif
 
-    bool resourceLoadStatisticsEnabled = false;
-    if (!decoder.decode(resourceLoadStatisticsEnabled))
+    bool trackingPreventionEnabled = false;
+    if (!decoder.decode(trackingPreventionEnabled))
         return std::nullopt;
 
     return WebProcessDataStoreParameters {
@@ -202,7 +202,7 @@ std::optional<WebProcessDataStoreParameters> WebProcessDataStoreParameters::deco
         WTFMove(*mediaKeyStorageDirectoryExtensionHandle),
         WTFMove(javaScriptConfigurationDirectory),
         WTFMove(*javaScriptConfigurationDirectoryExtensionHandle),
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
         *thirdPartyCookieBlockingMode,
         WTFMove(*domainsWithUserInteraction),
         WTFMove(*domainsWithStorageAccessQuirk),
@@ -216,7 +216,7 @@ std::optional<WebProcessDataStoreParameters> WebProcessDataStoreParameters::deco
         WTFMove(*containerCachesDirectoryExtensionHandle),
         WTFMove(*containerTemporaryDirectoryExtensionHandle),
 #endif
-        resourceLoadStatisticsEnabled
+        trackingPreventionEnabled
     };
 }
 

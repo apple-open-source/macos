@@ -250,32 +250,31 @@ _exsltDateParseGYear (exsltDateValPtr dt, const xmlChar **str)
  * FORMAT_GYEAR:
  * @yr:  the year to format
  * @cur: a pointer to an allocated buffer
+ * @end: a pointer to the end of @cur buffer
  *
  * Formats @yr in xsl:gYear format. Result is appended to @cur and
  * @cur is updated to point after the xsl:gYear.
  */
-#define FORMAT_GYEAR(yr, cur)					\
-	if (yr <= 0) {					        \
-	    *cur = '-';						\
-	    cur++;						\
+#define FORMAT_GYEAR(yr, cur, end)				\
+	if (yr <= 0 && cur < end) {			        \
+	    *cur++ = '-';					\
 	}							\
 	{							\
 	    long year = (yr <= 0) ? -yr + 1 : yr;               \
 	    xmlChar tmp_buf[100], *tmp = tmp_buf;		\
+	    xmlChar *tmp_end = tmp_buf + 99;			\
 	    /* result is in reverse-order */			\
-	    while (year > 0) {					\
-		*tmp = '0' + (xmlChar)(year % 10);		\
+	    while (year > 0 && tmp < tmp_end) {			\
+		*tmp++ = '0' + (xmlChar)(year % 10);		\
 		year /= 10;					\
-		tmp++;						\
 	    }							\
 	    /* virtually adds leading zeros */			\
 	    while ((tmp - tmp_buf) < 4)				\
 		*tmp++ = '0';					\
 	    /* restore the correct order */			\
-	    while (tmp > tmp_buf) {				\
+	    while (tmp > tmp_buf && cur < end) {		\
 		tmp--;						\
-		*cur = *tmp;					\
-		cur++;						\
+		*cur++ = *tmp;					\
 	    }							\
 	}
 
@@ -309,15 +308,16 @@ _exsltDateParseGYear (exsltDateValPtr dt, const xmlChar **str)
  * FORMAT_2_DIGITS:
  * @num:  the integer to format
  * @cur: a pointer to an allocated buffer
+ * @end: a pointer to the end of @cur buffer
  *
  * Formats a 2-digits integer. Result is appended to @cur and
  * @cur is updated to point after the integer.
  */
-#define FORMAT_2_DIGITS(num, cur)				\
-	*cur = '0' + ((num / 10) % 10);				\
-	cur++;							\
-	*cur = '0' + (num % 10);				\
-	cur++;
+#define FORMAT_2_DIGITS(num, cur, end)				\
+	if (cur < end)						\
+	    *cur++ = '0' + ((num / 10) % 10);			\
+	if (cur < end)						\
+	    *cur++ = '0' + (num % 10);
 
 /**
  * PARSE_FLOAT:
@@ -349,6 +349,7 @@ _exsltDateParseGYear (exsltDateValPtr dt, const xmlChar **str)
  * FORMAT_FLOAT:
  * @num:  the double to format
  * @cur: a pointer to an allocated buffer
+ * @end: a pointer to the end of @cur buffer
  * @pad: a flag for padding to 2 integer digits
  *
  * Formats a float. Result is appended to @cur and @cur is updated to
@@ -356,14 +357,14 @@ _exsltDateParseGYear (exsltDateValPtr dt, const xmlChar **str)
  * float representation has a minimum 2-digits integer part. The
  * fractional part is formatted if @num has a fractional value.
  */
-#define FORMAT_FLOAT(num, cur, pad)				\
+#define FORMAT_FLOAT(num, cur, end, pad)			\
 	{							\
             xmlChar *sav, *str;                                 \
-            if ((pad) && (num < 10.0))                          \
+            if ((pad) && (num < 10.0) && cur < end)		\
                 *cur++ = '0';                                   \
             str = xmlXPathCastNumberToString(num);              \
             sav = str;                                          \
-            while (*str != 0)                                   \
+            while (*str != 0 && cur < end)			\
                 *cur++ = *str++;                                \
             xmlFree(sav);                                       \
 	}
@@ -403,12 +404,13 @@ _exsltDateParseGMonth (exsltDateValPtr dt, const xmlChar **str)
  * FORMAT_GMONTH:
  * @mon:  the month to format
  * @cur: a pointer to an allocated buffer
+ * @end: a pointer to the end of @cur buffer
  *
  * Formats @mon in xsl:gMonth format. Result is appended to @cur and
  * @cur is updated to point after the xsl:gMonth.
  */
-#define FORMAT_GMONTH(mon, cur)					\
-	FORMAT_2_DIGITS(mon, cur)
+#define FORMAT_GMONTH(mon, cur, end)				\
+	FORMAT_2_DIGITS(mon, cur, end)
 
 /**
  * _exsltDateParseGDay:
@@ -445,29 +447,31 @@ _exsltDateParseGDay (exsltDateValPtr dt, const xmlChar **str)
  * FORMAT_GDAY:
  * @dt:  the #exsltDateVal to format
  * @cur: a pointer to an allocated buffer
+ * @end: a pointer to the end of @cur buffer
  *
  * Formats @dt in xsl:gDay format. Result is appended to @cur and
  * @cur is updated to point after the xsl:gDay.
  */
-#define FORMAT_GDAY(dt, cur)					\
-	FORMAT_2_DIGITS(dt->day, cur)
+#define FORMAT_GDAY(dt, cur, end)				\
+	FORMAT_2_DIGITS(dt->day, cur, end)
 
 /**
  * FORMAT_DATE:
  * @dt:  the #exsltDateVal to format
  * @cur: a pointer to an allocated buffer
+ * @end: a pointer to the end of @cur buffer
  *
  * Formats @dt in xsl:date format. Result is appended to @cur and
  * @cur is updated to point after the xsl:date.
  */
-#define FORMAT_DATE(dt, cur)					\
-	FORMAT_GYEAR(dt->year, cur);				\
-	*cur = '-';						\
-	cur++;							\
-	FORMAT_GMONTH(dt->mon, cur);				\
-	*cur = '-';						\
-	cur++;							\
-	FORMAT_GDAY(dt, cur);
+#define FORMAT_DATE(dt, cur, end)				\
+	FORMAT_GYEAR(dt->year, cur, end);			\
+	if (cur < end)						\
+	    *cur++ = '-';					\
+	FORMAT_GMONTH(dt->mon, cur, end);			\
+	if (cur < end)						\
+	    *cur++ = '-';					\
+	FORMAT_GDAY(dt, cur, end);
 
 /**
  * _exsltDateParseTime:
@@ -529,18 +533,19 @@ _exsltDateParseTime (exsltDateValPtr dt, const xmlChar **str)
  * FORMAT_TIME:
  * @dt:  the #exsltDateVal to format
  * @cur: a pointer to an allocated buffer
+ * @end: a pointer to the end of @cur buffer
  *
  * Formats @dt in xsl:time format. Result is appended to @cur and
  * @cur is updated to point after the xsl:time.
  */
-#define FORMAT_TIME(dt, cur)					\
-	FORMAT_2_DIGITS(dt->hour, cur);				\
-	*cur = ':';						\
-	cur++;							\
-	FORMAT_2_DIGITS(dt->min, cur);				\
-	*cur = ':';						\
-	cur++;							\
-	FORMAT_FLOAT(dt->sec, cur, 1);
+#define FORMAT_TIME(dt, cur, end)				\
+	FORMAT_2_DIGITS(dt->hour, cur, end);			\
+	if (cur < end)						\
+	    *cur++ = ':';					\
+	FORMAT_2_DIGITS(dt->min, cur, end);			\
+	if (cur < end)						\
+	    *cur++ = ':';					\
+	FORMAT_FLOAT(dt->sec, cur, end, 1);
 
 /**
  * _exsltDateParseTimeZone:
@@ -623,23 +628,24 @@ _exsltDateParseTimeZone (exsltDateValPtr dt, const xmlChar **str)
  * FORMAT_TZ:
  * @tzo:  the timezone offset to format
  * @cur: a pointer to an allocated buffer
+ * @end: a pointer to the end of @cur buffer
  *
  * Formats @tzo timezone. Result is appended to @cur and
  * @cur is updated to point after the timezone.
  */
-#define FORMAT_TZ(tzo, cur)					\
+#define FORMAT_TZ(tzo, cur, end)				\
 	if (tzo == 0) {					        \
-	    *cur = 'Z';						\
-	    cur++;						\
+	    if (cur < end)					\
+		*cur++ = 'Z';					\
 	} else {						\
 	    int aTzo = (tzo < 0) ? - tzo : tzo;                 \
 	    int tzHh = aTzo / 60, tzMm = aTzo % 60;		\
-	    *cur = (tzo < 0) ? '-' : '+' ;			\
-	    cur++;						\
-	    FORMAT_2_DIGITS(tzHh, cur);				\
-	    *cur = ':';						\
-	    cur++;						\
-	    FORMAT_2_DIGITS(tzMm, cur);				\
+	    if (cur < end)					\
+		*cur++ = (tzo < 0) ? '-' : '+' ;		\
+	    FORMAT_2_DIGITS(tzHh, cur, end);			\
+	    if (cur < end)					\
+		*cur++ = ':';					\
+	    FORMAT_2_DIGITS(tzMm, cur, end);			\
 	}
 
 /****************************************************************
@@ -1168,15 +1174,17 @@ error:
  * FORMAT_ITEM:
  * @num:        number to format
  * @cur:        current location to convert number
+ * @end:        a pointer to the end of @cur buffer
  * @limit:      max value
  * @item:       char designator
  *
  */
-#define FORMAT_ITEM(num, cur, limit, item)			\
+#define FORMAT_ITEM(num, cur, end, limit, item)			\
         if (num >= limit) {					\
             double comp = floor(num / limit);			\
-            FORMAT_FLOAT(comp, cur, 0);				\
-            *cur++ = item;					\
+            FORMAT_FLOAT(comp, cur, end, 0);			\
+            if (cur < end)					\
+		*cur++ = item;					\
             num -= comp * limit;				\
         }
 
@@ -1191,7 +1199,7 @@ error:
 static xmlChar *
 exsltDateFormatDuration (const exsltDateDurValPtr dur)
 {
-    xmlChar buf[100], *cur = buf;
+    xmlChar buf[100], *cur = buf, *end = buf + 99;
     double secs, days;
     double years, months;
 
@@ -1230,22 +1238,23 @@ exsltDateFormatDuration (const exsltDateDurValPtr dur)
     *cur++ = 'P';
 
     if (years != 0.0) {
-        FORMAT_ITEM(years, cur, 1, 'Y');
+        FORMAT_ITEM(years, cur, end, 1, 'Y');
     }
 
     if (months != 0.0) {
-        FORMAT_ITEM(months, cur, 1, 'M');
+        FORMAT_ITEM(months, cur, end, 1, 'M');
     }
 
-    FORMAT_ITEM(days, cur, 1, 'D');
-    if (secs > 0.0) {
+    FORMAT_ITEM(days, cur, end, 1, 'D');
+    if (secs > 0.0 && cur < end) {
         *cur++ = 'T';
     }
-    FORMAT_ITEM(secs, cur, SECS_PER_HOUR, 'H');
-    FORMAT_ITEM(secs, cur, SECS_PER_MIN, 'M');
+    FORMAT_ITEM(secs, cur, end, SECS_PER_HOUR, 'H');
+    FORMAT_ITEM(secs, cur, end, SECS_PER_MIN, 'M');
     if (secs > 0.0) {
-        FORMAT_FLOAT(secs, cur, 0);
-        *cur++ = 'S';
+        FORMAT_FLOAT(secs, cur, end, 0);
+        if (cur < end)
+            *cur++ = 'S';
     }
 
     *cur = 0;
@@ -1264,16 +1273,16 @@ exsltDateFormatDuration (const exsltDateDurValPtr dur)
 static xmlChar *
 exsltDateFormatDateTime (const exsltDateValPtr dt)
 {
-    xmlChar buf[100], *cur = buf;
+    xmlChar buf[100], *cur = buf, *end = buf + 99;
 
     if ((dt == NULL) ||	!VALID_DATETIME(dt))
 	return NULL;
 
-    FORMAT_DATE(dt, cur);
-    *cur = 'T';
-    cur++;
-    FORMAT_TIME(dt, cur);
-    FORMAT_TZ(dt->tzo, cur);
+    FORMAT_DATE(dt, cur, end);
+    if (cur < end)
+        *cur++ = 'T';
+    FORMAT_TIME(dt, cur, end);
+    FORMAT_TZ(dt->tzo, cur, end);
     *cur = 0;
 
     return xmlStrdup(buf);
@@ -1290,14 +1299,14 @@ exsltDateFormatDateTime (const exsltDateValPtr dt)
 static xmlChar *
 exsltDateFormatDate (const exsltDateValPtr dt)
 {
-    xmlChar buf[100], *cur = buf;
+    xmlChar buf[100], *cur = buf, *end = buf + 99;
 
     if ((dt == NULL) || !VALID_DATETIME(dt))
 	return NULL;
 
-    FORMAT_DATE(dt, cur);
+    FORMAT_DATE(dt, cur, end);
     if (dt->tz_flag || (dt->tzo != 0)) {
-	FORMAT_TZ(dt->tzo, cur);
+	FORMAT_TZ(dt->tzo, cur, end);
     }
     *cur = 0;
 
@@ -1315,14 +1324,14 @@ exsltDateFormatDate (const exsltDateValPtr dt)
 static xmlChar *
 exsltDateFormatTime (const exsltDateValPtr dt)
 {
-    xmlChar buf[100], *cur = buf;
+    xmlChar buf[100], *cur = buf, *end = buf + 99;
 
     if ((dt == NULL) || !VALID_TIME(dt))
 	return NULL;
 
-    FORMAT_TIME(dt, cur);
+    FORMAT_TIME(dt, cur, end);
     if (dt->tz_flag || (dt->tzo != 0)) {
-	FORMAT_TZ(dt->tzo, cur);
+	FORMAT_TZ(dt->tzo, cur, end);
     }
     *cur = 0;
 
@@ -1358,17 +1367,17 @@ exsltDateFormat (const exsltDateValPtr dt)
     }
 
     if (dt->type & XS_GYEAR) {
-        xmlChar buf[100], *cur = buf;
+        xmlChar buf[100], *cur = buf, *end = buf + 99;
 
-        FORMAT_GYEAR(dt->year, cur);
+        FORMAT_GYEAR(dt->year, cur, end);
         if (dt->type == XS_GYEARMONTH) {
-	    *cur = '-';
-	    cur++;
-	    FORMAT_GMONTH(dt->mon, cur);
+            if (cur < end)
+	        *cur++ = '-';
+	    FORMAT_GMONTH(dt->mon, cur, end);
         }
 
         if (dt->tz_flag || (dt->tzo != 0)) {
-	    FORMAT_TZ(dt->tzo, cur);
+	    FORMAT_TZ(dt->tzo, cur, end);
         }
         *cur = 0;
         return xmlStrdup(buf);

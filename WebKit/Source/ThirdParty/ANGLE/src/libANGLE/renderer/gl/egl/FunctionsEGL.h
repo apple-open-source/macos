@@ -30,14 +30,17 @@ class FunctionsEGL
 
     int majorVersion;
     int minorVersion;
+    std::string vendorString;
+    std::string versionString;
 
-    egl::Error initialize(EGLNativeDisplayType nativeDisplay);
+    egl::Error initialize(EGLAttrib platformType, EGLNativeDisplayType nativeDisplay);
     egl::Error terminate();
 
     virtual void *getProcAddress(const char *name) const = 0;
 
     FunctionsGL *makeFunctionsGL() const;
     bool hasExtension(const char *extension) const;
+    bool hasDmaBufImportModifierFunctions() const;
     EGLDisplay getDisplay() const;
     EGLint getError() const;
 
@@ -105,11 +108,26 @@ class FunctionsEGL
 
     EGLint dupNativeFenceFDANDROID(EGLSync sync) const;
 
+    EGLint queryDmaBufFormatsEXT(EGLint maxFormats, EGLint *formats, EGLint *numFormats) const;
+
+    EGLint queryDmaBufModifiersEXT(EGLint format,
+                                   EGLint maxModifiers,
+                                   EGLuint64KHR *modifiers,
+                                   EGLBoolean *externalOnly,
+                                   EGLint *numModifiers) const;
+
+    EGLBoolean queryDeviceAttribEXT(EGLDisplay dpy, EGLint attribute, EGLAttrib *value) const;
+    const char *queryDeviceStringEXT(EGLDeviceEXT device, EGLint name) const;
+    EGLBoolean queryDisplayAttribEXT(EGLint attribute, EGLAttrib *value) const;
+
   private:
     // So as to isolate from angle we do not include angleutils.h and cannot
     // use angle::NonCopyable so we replicated it here instead.
-    FunctionsEGL(const FunctionsEGL &) = delete;
+    FunctionsEGL(const FunctionsEGL &)   = delete;
     void operator=(const FunctionsEGL &) = delete;
+
+    // Helper mechanism for creating a display for the desired platform type.
+    EGLDisplay getPlatformDisplay(EGLAttrib platformType, EGLNativeDisplayType nativeDisplay);
 
     // Fallback mechanism for creating a display from a native device object.
     EGLDisplay getNativeDisplay(int *major, int *minor);

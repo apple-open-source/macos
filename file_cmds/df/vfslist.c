@@ -54,9 +54,8 @@ int checkvfsname(const char *, const char **);
 const char **makevfslist(const char *);
 
 int
-checkvfsname(vfsname, vfslist)
-	const char *vfsname;
-	const char **vfslist;
+checkvfsname(const char *vfsname,
+	     const char **vfslist)
 {
 
 	if (vfslist == NULL)
@@ -70,8 +69,7 @@ checkvfsname(vfsname, vfslist)
 }
 
 const char **
-makevfslist(fslist)
-	const char *fslist;
+makevfslist(const char *fslist)
 {
 	const char **av;
 	int i;

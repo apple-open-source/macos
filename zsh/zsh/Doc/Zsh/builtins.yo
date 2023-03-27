@@ -105,7 +105,13 @@ For each var(name) with a corresponding var(value), define an alias
 with that value.  A trailing space in var(value) causes the next word
 to be checked for alias expansion.  If the tt(-g) flag is present,
 define a global alias; global aliases are expanded even if they do not
-occur in command position.
+occur in command position:
+
+example(% perldoc --help 2>&1 | grep 'built-in functions'
+    -f   Search Perl built-in functions
+% alias -g HG='--help 2>&1 | grep'
+% perldoc HG 'built-in functions'
+    -f   Search Perl built-in functions)
 
 If the tt(-s) flag is present, define a suffix alias: if the command
 word on a command line is in the form `var(text)tt(.)var(name)', where
@@ -730,7 +736,7 @@ findex(fc)
 cindex(history, editing)
 cindex(editing history)
 redef(SPACES)(0)(tt(ifztexi(NOTRANS(@ @ @ @ @ @ ))ifnztexi(      )))
-xitem(tt(fc) [ tt(-e) var(ename) ] [ tt(-LI) ] [ tt(-m) var(match) ] [ var(old)tt(=)var(new) ... ] [ var(first) [ var(last) ] ])
+xitem(tt(fc) [ tt(-e) var(ename) ] [ tt(-s) ] [ tt(-LI) ] [ tt(-m) var(match) ] [ var(old)tt(=)var(new) ... ] [ var(first) [ var(last) ] ])
 xitem(tt(fc -l )[ tt(-LI) ] [ tt(-nrdfEiD) ] [ tt(-t) var(timefmt) ] [ tt(-m) var(match) ])
 xitem(SPACES()[ var(old)tt(=)var(new) ... ] [ var(first) [ var(last) ] ])
 xitem(tt(fc -p )[ tt(-a) ] [ var(filename) [ var(histsize) [ var(savehistsize) ] ] ])
@@ -750,15 +756,16 @@ specifies the most recent event beginning with the given string.  All
 substitutions var(old)tt(=)var(new), if any, are then performed on the
 text of the events.
 
-In addition to the number range,
+The range of events selected by numbers can be narrowed further by the
+following flags.
 startsitem()
 sitem(tt(-I))(restricts to only internal events (not from tt($HISTFILE)))
 sitem(tt(-L))(restricts to only local events (not from other shells, see
 tt(SHARE_HISTORY) in ifzman(zmanref(zshoptions))\
 ifnzman(noderef(Description of Options)) -- note that tt($HISTFILE) is
 considered local when read at startup))
-sitem(tt(-m))(takes the first argument as a pattern (should be quoted) and
-only the history events matching this pattern are considered)
+sitem(tt(-m))(takes the first argument as a pattern (which should be
+quoted) and only the history events matching this pattern are considered)
 endsitem()
 
 If var(first) is not specified, it will be set to -1 (the most recent
@@ -777,6 +784,7 @@ the parameter tt(EDITOR) is used; if that is not set a builtin default,
 usually `tt(vi)' is used.  If var(ename) is `tt(-)', no editor is invoked.
 When editing is complete, the edited command is executed.
 
+The flag `tt(-s)' is equivalent to `tt(-e -)'.
 The flag tt(-r) reverses the order of the events and the
 flag tt(-n) suppresses event numbers when listing.
 
@@ -866,7 +874,8 @@ xitem(tt(functions -M) [ tt(-m) var(pattern) ... ])
 item(tt(functions +M) [ tt(-m) ] var(mathfn) ... )(
 Equivalent to tt(typeset -f), with the exception of the tt(-c), tt(-x),
 tt(-M) and tt(-W) options.  For tt(functions -u) and tt(functions -U),
-see tt(autoload), which provides additional options.
+see tt(autoload), which provides additional options.  For tt(functions -t)
+and tt(functions -T), see tt(typeset -f).
 
 The tt(-x) option indicates that any functions output will have
 each leading tab for indentation, added by the shell to show syntactic
@@ -885,6 +894,10 @@ fails the copy fails.  Either function may subsequently be redefined
 without affecting the other.  A typical idiom is that var(oldfn) is the
 name of a library shell function which is then redefined to call
 tt(newfn), thereby installing a modified version of the function.
+
+em(The )tt(-M)em( and )tt(+M)em( flags)
+cindex(defining mathematical functions)
+cindex(functions, defining mathematical)
 
 Use of the tt(-M) option may not be combined with any of the options
 handled by tt(typeset -f).
@@ -907,9 +920,55 @@ expressions.  The name of the function in tt($0) is var(mathfn) (not
 var(shellfn) as would usually be the case), provided the option
 tt(FUNCTION_ARGZERO) is in effect.  The positional parameters in the shell
 function correspond to the arguments of the mathematical function call.
-The result of the last arithmetical expression evaluated
-inside the shell function (even if it is a form that normally only returns
-a status) gives the result of the mathematical function.
+
+The result of the last arithmetical expression evaluated inside the shell
+function gives the result of the mathematical function.  This is not limited to
+arithmetic substitutions of the form tt($+LPAR()+LPAR())var(...)tt(+RPAR()+RPAR()),
+but also includes arithmetical expressions evaluated in any other way, including
+by the tt(let) builtin,
+by tt(+LPAR()+LPAR())var(...)tt(+RPAR()+RPAR()) statements,
+and even
+by the tt(return) builtin
+and
+by array subscripts.
+Therefore, care must be taken not to use syntactical constructs that perform
+arithmetic evaluation after evaluating what is to be the result of the function.
+For example:
+
+findex(zmath_cube)
+findex(cube)
+example(# WRONG
+zmath_cube+LPAR()+RPAR() {
+  (( $1 * $1 * $1 ))
+  return 0
+}
+functions -M cube 1 1 zmath_cube
+print $(( cube+LPAR()3+RPAR() )))
+
+This will print `tt(0)' because of the tt(return).
+
+Commenting the tt(return) out would lead to a different problem: the
+tt(+LPAR()+LPAR())var(...)tt(+RPAR()+RPAR()) statement would become
+the last statement in the function, so the em(return status) (tt($?)) of the
+function would be non-zero (indicating failure) whenever the em(arithmetic
+result) of the function would happen to be zero (numerically):
+
+example(# WRONG
+zmath_cube+LPAR()+RPAR() {
+  (( $1 * $1 * $1 ))
+}
+functions -M cube 1 1 zmath_cube
+print $(( cube+LPAR()0+RPAR() )))
+
+Instead, the tt(true) builtin can be used:
+
+example(# RIGHT
+zmath_cube+LPAR()+RPAR() {
+  (( $1 * $1 * $1 ))
+  true
+}
+functions -M cube 1 1 zmath_cube
+print $(( cube+LPAR()3+RPAR() )))
 
 If the additional option tt(-s) is given to tt(functions -M), the
 argument to the function is a single string: anything between the
@@ -917,6 +976,12 @@ opening and matching closing parenthesis is passed to the function as a
 single argument, even if it includes commas or white space.  The minimum
 and maximum argument specifiers must therefore be 1 if given.  An empty
 argument list is passed as a zero-length string.
+Thus, the following string function takes a single argument, including
+the commas, and prints 11:
+
+example(stringfn+LPAR()RPAR() { (( $#1 )); true }
+functions -Ms stringfn
+print $(( stringfn+LPAR()foo,bar,rod+RPAR() )))
 
 tt(functions -M) with no arguments lists all such user-defined functions in
 the same form as a definition.  With the additional option tt(-m) and
@@ -928,19 +993,6 @@ additional option tt(-m) the arguments are treated as patterns and
 all functions whose var(mathfn) matches the pattern are removed.  Note
 that the shell function implementing the behaviour is not removed
 (regardless of whether its name coincides with var(mathfn)).
-
-For example, the following prints the cube of 3:
-
-example(zmath_cube+LPAR()RPAR() { (( $1 * $1 * $1 )) }
-functions -M cube 1 1 zmath_cube
-print $(( cube+LPAR()3+RPAR() )))
-
-The following string function takes a single argument, including
-the commas, so prints 11:
-
-example(stringfn+LPAR()RPAR() { (( $#1 )) }
-functions -Ms stringfn
-print $(( stringfn+LPAR()foo,bar,rod+RPAR() )))
 )
 module(getcap)(zsh/cap)
 findex(getln)
@@ -975,7 +1027,8 @@ vindex(OPTARG, use of)
 The first option to be examined may be changed by explicitly assigning
 to tt(OPTIND).  tt(OPTIND) has an initial value of tt(1), and is
 normally set to tt(1) upon entry to a shell function and restored
-upon exit (this is disabled by the tt(POSIX_BUILTINS) option).  tt(OPTARG)
+upon exit.  (The tt(POSIX_BUILTINS) option disables this, and also changes
+the way the value is calculated to match other shells.)  tt(OPTARG)
 is not reset and retains its value from the most recent call to
 tt(getopts).  If either of tt(OPTIND) or tt(OPTARG) is explicitly
 unset, it remains unset, and the index or option argument is not
@@ -1062,6 +1115,24 @@ The tt(-Z) option replaces the shell's argument and environment space with
 the given string, truncated if necessary to fit.  This will normally be
 visible in tt(ps) (manref(ps)(1)) listings.  This feature is typically
 used by daemons, to indicate their state.
+
+Full job control is only available in the top-level interactive shell,
+not in commands run in the left hand side of pipelines or within
+the tt(LPAR())var(...)tt(RPAR()) construct.  However, a snapshot
+of the job state at that point is taken, so it is still possible
+to use the tt(jobs) builtin, or any parameter providing job information.
+This gives information about the state of jobs at the point the subshell
+was created.  If background processes are created within the subshell,
+then instead information about those processes is provided.
+
+For example,
+
+example(sleep 10 &    # Job in background
+LPAR()             # Shell forks
+jobs          # Shows information about "sleep 10 &"
+sleep 5 &     # Process in background (no job control)
+jobs          # Shows information about "sleep 5 &"
+RPAR())
 )
 findex(kill)
 cindex(killing jobs)
@@ -1183,14 +1254,6 @@ item(tt(local) [ {tt(PLUS())|tt(-)}tt(AHUahlprtux) ] \
 Same as tt(typeset), except that the options tt(-g), and
 tt(-f) are not permitted.  In this case the tt(-x) option does not force
 the use of tt(-g), i.e. exported variables will be local to functions.
-)
-findex(log)
-vindex(watch, use of)
-cindex(watching users)
-cindex(users, watching)
-item(tt(log))(
-List all users currently logged in who are affected by
-the current setting of the tt(watch) parameter.
 )
 findex(logout)
 item(tt(logout) [ var(n) ])(
@@ -1442,7 +1505,7 @@ findex(read)
 vindex(IFS, use of)
 redef(SPACES)(0)(tt(ifztexi(NOTRANS(@ @ @ @ @ ))ifnztexi(     )))
 xitem(tt(read )[ tt(-rszpqAclneE) ] [ tt(-t) [ var(num) ] ] [ tt(-k) [ var(num) ] ] [ tt(-d) var(delim) ])
-item(SPACES()[ tt(-u) var(n) ] [ var(name)[tt(?)var(prompt)] ] [ var(name) ...  ])(
+item(SPACES()[ tt(-u) var(n) ] [ [var(name)][tt(?)var(prompt)] ] [ var(name) ...  ])(
 vindex(REPLY, use of)
 vindex(reply, use of)
 Read one line and break it into fields using the characters
@@ -1576,7 +1639,13 @@ cindex(functions, returning from)
 item(tt(return) [ var(n) ])(
 Causes a shell function or `tt(.)' script to return to
 the invoking script with the return status specified by
-an arithmetic expression var(n). If var(n)
+an arithmetic expression var(n).  
+For example, the following prints `tt(42)':
+
+example(() { integer foo=40; return "foo + 2" }
+echo $?)
+
+If var(n)
 is omitted, the return status is that of the last command
 executed.
 
@@ -1587,7 +1656,7 @@ will return to whatever it was previously processing; with a non-zero
 status, the shell will behave as interrupted except that the return
 status of the trap is retained.  Note that the numeric value of the signal
 which caused the trap is passed as the first argument, so the statement
-`tt(return $((128PLUS()$1)))' will return the same status as if the signal
+`tt(return "128PLUS()$1")' will return the same status as if the signal
 had not been trapped.
 )
 module(sched)(zsh/sched)
@@ -1836,7 +1905,8 @@ unfreezing the tty does not guarantee settings made on the
 command line are preserved.  Strings of commands run between
 editing the command line will see a consistent tty state.
 See also the shell variable tt(STTY) for a means of initialising
-the tty before running external commands.
+the tty before running external commands and/or freezing the tty
+around a single command.
 )
 findex(type)
 item(tt(type) [ tt(-wfpamsS) ] var(name) ...)(
@@ -1865,7 +1935,11 @@ ifnzman(noderef(Local Parameters))\
 retain their special attributes when made local.
 
 For each var(name)tt(=)var(value) assignment, the parameter
-var(name) is set to var(value).
+var(name) is set to var(value).  If the assignment is omitted and var(name)
+does em(not) refer to an existing parameter, a new parameter is intialized
+to empty string, zero, or empty array (as appropriate), em(unless) the
+shell option tt(TYPESET_TO_UNSET) is set.  When that option is set,
+the parameter attributes are recorded but the parameter remains unset.
 
 If the shell option tt(TYPESET_SILENT) is not set, for each remaining
 var(name) that refers to a parameter that is already set, the name and
@@ -1933,7 +2007,7 @@ a set of three normal command line arguments to tt(typeset) after
 expansion.  Hence it is not possible to assign to multiple arrays by
 this means.
 
-Note that each interface to any of the commands my be disabled
+Note that each interface to any of the commands may be disabled
 separately.  For example, `tt(disable -r typeset)' disables the reserved
 word interface to tt(typeset), exposing the builtin interface, while
 `tt(disable typeset)' disables the builtin.  Note that disabling the
@@ -2294,7 +2368,7 @@ findex(umask)
 cindex(umask)
 item(tt(umask) [ tt(-S) ] [ var(mask) ])(
 The umask is set to var(mask).  var(mask) can be either
-an octal number or a symbolic value as described in manref(chmod)(1).
+an octal number or a symbolic value as described in the manref(chmod)(1) man page.
 If var(mask) is omitted, the current value is printed.  The tt(-S)
 option causes the mask to be printed as a symbolic value.  Otherwise,
 the mask is printed as an octal number.  Note that in

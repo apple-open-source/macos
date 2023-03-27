@@ -28,6 +28,7 @@
 #include "der_plist.h"
 #include "signer.h"
 #include "resources.h"
+#include "remotesigner.h"
 #include "signerutils.h"
 #include "SecCodeSigner.h"
 #include <Security/SecIdentity.h>
@@ -61,7 +62,6 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 	this->prepare(flags);
 
 	PreSigningContext context(*this);
-
 	considerTeamID(context);
 
 	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
@@ -70,8 +70,7 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 		signArchitectureAgnostic(context);
 	}
 }
-	
-	
+
 void SecCodeSigner::Signer::considerTeamID(const PreSigningContext& context)
 {
 	/* If an explicit teamID was passed in it must be
@@ -195,8 +194,25 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		entitlements = code->component(cdEntitlementSlot);
 	}
 	
-	// So long and thanks for all the fish
+	// Setup/Inherit launch constraints
 	launchConstraints = std::move(state.mLaunchConstraints);
+	if ((inherit & kSecCodeSignerPreserveLaunchConstraints) &&
+		!launchConstraints[0] &&
+		!launchConstraints[1] &&
+		!launchConstraints[2]) {
+		CFDataRef lwcr = code->component(cdLaunchConstraintSelf);
+		if (lwcr) {
+			launchConstraints[0] = lwcr;
+		}
+		lwcr = code->component(cdLaunchConstraintParent);
+		if (lwcr) {
+			launchConstraints[1] = lwcr;
+		}
+		lwcr = code->component(cdLaunchConstraintResponsible);
+		if (lwcr) {
+			launchConstraints[2] = lwcr;
+		}
+	}
 	
 	// work out the CodeDirectory flags word
 	bool haveCdFlags = false;
@@ -327,7 +343,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	
 	// Allow the DiskRep to modify the signing parameters. This sees explicit and inherited values but not defaults.
 	rep->prepareForSigning(*this);
-	
+
 	// apply some defaults after diskRep intervention
 	if (hashAlgorithms.empty()) {	// default to SHA256 + SHA-1
 		hashAlgorithms.insert(kSecCodeSignatureHashSHA1);
@@ -582,8 +598,10 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 		? static_cast<ArchEditor *>(new BlobEditor(*fat, *this))
 		: new MachOEditor(writer, *fat, this->digestAlgorithms(), rep->mainExecutablePath()));
 	assert(editor->count() > 0);
-	if (!editor->attribute(writerNoGlobal))	// can store architecture-common components
+
+	if (!editor->attribute(writerNoGlobal))	{ // can store architecture-common components
 		populate(*editor);
+	}
 	
 	// pass 1: prepare signature blobs and calculate sizes
 	for (MachOEditor::Iterator it = editor->begin(); it != editor->end(); ++it) {
@@ -831,17 +849,30 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 //
 // Generate the CMS signature for a (finished) CodeDirectory.
 //
-CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd,
-												   CFDictionaryRef hashDict,
-												   CFArrayRef hashList)
+CFDataRef
+SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd,
+										 CFDictionaryRef hashDict,
+										 CFArrayRef hashList)
+{
+	if (useRemoteSigning) {
+		return signCodeDirectoryRemote(cd, hashDict, hashList);
+	} else {
+		return signCodeDirectoryWithIdentity(cd, hashDict, hashList);
+	}
+}
+
+CFDataRef
+SecCodeSigner::Signer::signCodeDirectoryWithIdentity(const CodeDirectory *cd,
+													 CFDictionaryRef hashDict,
+													 CFArrayRef hashList)
 {
 	assert(state.mSigner);
 	CFRef<CFMutableDictionaryRef> defaultTSContext = NULL;
-    
+
 	// a null signer generates a null signature blob
 	if (state.mSigner == SecIdentityRef(kCFNull))
 		return CFDataCreate(NULL, NULL, 0);
-	
+
 	// generate CMS signature
 	CFRef<CMSEncoderRef> cms;
 	MacOSError::check(CMSEncoderCreate(&cms.aref()));
@@ -849,13 +880,13 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd,
 	CMSEncoderAddSigners(cms, state.mSigner);
 	CMSEncoderSetSignerAlgorithm(cms, kCMSEncoderDigestAlgorithmSHA256);
 	MacOSError::check(CMSEncoderSetHasDetachedContent(cms, true));
-	
+
 	if (emitSigningTime) {
 		MacOSError::check(CMSEncoderAddSignedAttributes(cms, kCMSAttrSigningTime));
 		CFAbsoluteTime time = signingTime ? signingTime : CFAbsoluteTimeGetCurrent();
 		MacOSError::check(CMSEncoderSetSigningTime(cms, time));
 	}
-	
+
 	if (hashDict != NULL) {
 		assert(hashList != NULL);
 
@@ -872,39 +903,55 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd,
 		MacOSError::check(CMSEncoderAddSignedAttributes(cms, kCMSAttrAppleCodesigningHashAgility));
 		MacOSError::check(CMSEncoderSetAppleCodesigningHashAgility(cms, hashAgilityV1Attribute));
 	}
-	
+
 	MacOSError::check(CMSEncoderUpdateContent(cms, cd, cd->length()));
-    
-    // Set up to call Timestamp server if requested
-    if (state.mWantTimeStamp)
-    {
+
+	// Set up to call Timestamp server if requested
+	if (state.mWantTimeStamp) {
 #if !TARGET_OS_OSX
 		secerror("Platform does not support signing secure timestamps");
 		MacOSError::throwMe(errSecUnimplemented);
 #else
-        CFRef<CFErrorRef> error = NULL;
-        defaultTSContext = SecCmsTSAGetDefaultContext(&error.aref());
-        if (error)
-            MacOSError::throwMe(errSecDataNotAvailable);
-            
-        if (state.mNoTimeStampCerts || state.mTimestampService) {
-            if (state.mTimestampService)
-                CFDictionarySetValue(defaultTSContext, kTSAContextKeyURL, state.mTimestampService);
-            if (state.mNoTimeStampCerts)
-                CFDictionarySetValue(defaultTSContext, kTSAContextKeyNoCerts, kCFBooleanTrue);
+		CFRef<CFErrorRef> error = NULL;
+		defaultTSContext = SecCmsTSAGetDefaultContext(&error.aref());
+		if (error) {
+			MacOSError::throwMe(errSecDataNotAvailable);
 		}
-            
+
+		if (state.mNoTimeStampCerts || state.mTimestampService) {
+			if (state.mTimestampService) {
+				CFDictionarySetValue(defaultTSContext, kTSAContextKeyURL, state.mTimestampService);
+			}
+			if (state.mNoTimeStampCerts) {
+				CFDictionarySetValue(defaultTSContext, kTSAContextKeyNoCerts, kCFBooleanTrue);
+			}
+		}
+
 		CmsMessageSetTSAContext(cms, defaultTSContext);
 #endif /* !TARGET_OS_OSX */
-    }
-	
+	}
+
 	CFDataRef signature;
 	MacOSError::check(CMSEncoderCopyEncodedContent(cms, &signature));
 
 	return signature;
 }
-	
-	
+
+CFDataRef
+SecCodeSigner::Signer::signCodeDirectoryRemote(const CodeDirectory *cd,
+											   CFDictionaryRef hashDict,
+											   CFArrayRef hashList)
+{
+	CFAbsoluteTime time = 0;
+	if (emitSigningTime) {
+		time = signingTime ? signingTime : CFAbsoluteTimeGetCurrent();
+	}
+
+	CFRef<CFDataRef> signature;
+	MacOSError::check(doRemoteSigning(cd, hashDict, hashList, time, rsCertChain, rsHandler, signature.take()));
+	return signature.yield();
+}
+
 //
 // Our DiskRep::signingContext methods communicate with the signing subsystem
 // in terms those callers can easily understand.
@@ -1241,6 +1288,15 @@ void SecCodeSigner::Signer::editArchitectureAgnostic()
 
 	// commit to storage
 	writer->flush();
+}
+
+void
+SecCodeSigner::Signer::setupRemoteSigning(CFArrayRef certChain, SecCodeRemoteSignHandler handler)
+{
+	secinfo("signer", "configuring remote signing with cert chain: %@", certChain);
+	useRemoteSigning = true;
+	rsHandler = handler;
+	rsCertChain = certChain;
 }
 
 } // end namespace CodeSigning

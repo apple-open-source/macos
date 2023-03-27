@@ -2,16 +2,16 @@
 		<key>OpenSourceProject</key>
 		<string>date</string>
 		<key>OpenSourceVersion</key>
-		<string>2020-08-26</string>
+		<string>2022-06-27</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/bin/date?id=82178ae09325af5269b8240f39f8d8171b45c422</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/date?id=4148dffadd3b10fa11717cc36263e1d536aaa2f0</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-06-23</string>
+		<string>2022-07-14</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>date.1: discuss conformance changes</string>
 			<string>date.1: remove bogus utmpx path</string>
-		    <string>date.c: conformance changes for date format and exit value</string>
+			<string>date.c: conformance changes for date format and exit value</string>
 			<string>date.c: st_mtim compatibility</string>
 		</array>
 		<key>OpenSourceLicense</key>

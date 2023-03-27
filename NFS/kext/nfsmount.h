@@ -351,6 +351,7 @@ struct nfsmount {
 	time_t  nm_lastrcv;             /* time of last successfully received rpc */
 	int     nm_tprintf_initial_delay;       /* delay first "server down" */
 	int     nm_tprintf_delay;       /* delay between "server down" */
+	int     nm_readlink_nocache;    /* readlink no-cache mode */
 	int     nm_deadtimeout;         /* delay between first "server down" and dead set at mount time */
 	int     nm_curdeadtimeout;      /* current dead timeout. Adjusted by mount state and mobility */
 	int     nm_srtt[4];             /* Timers for RPCs */

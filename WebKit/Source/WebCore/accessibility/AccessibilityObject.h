@@ -80,7 +80,6 @@ public:
     // After constructing an AccessibilityObject, it must be given a
     // unique ID, then added to AXObjectCache, and finally init() must
     // be called last.
-    void setObjectID(AXID id) override { m_id = id; }
     virtual void init() { }
 
     // Prefer using the dedicated functions over consuming these flag values directly, as the flags can sometimes be uninitialized.
@@ -322,7 +321,8 @@ public:
     Vector<String> classList() const override;
     AccessibilityCurrentState currentState() const override;
     bool supportsCurrent() const override;
-    const String keyShortcutsValue() const override;
+    bool supportsKeyShortcuts() const override;
+    String keyShortcuts() const override;
 
     // This function checks if the object should be ignored when there's a modal dialog displayed.
     virtual bool ignoredFromModalPresence() const;
@@ -426,7 +426,6 @@ public:
     String ariaLandmarkRoleDescription() const override;
 
     AXObjectCache* axObjectCache() const override;
-    AXID objectID() const override { return m_id; }
 
     static AccessibilityObject* anchorElementForNode(Node*);
     static AccessibilityObject* headingElementForNode(Node*);
@@ -625,7 +624,7 @@ public:
     bool supportsAutoComplete() const;
     String autoCompleteValue() const override;
 
-    bool hasARIAValueNow() const override { return hasAttribute(HTMLNames::aria_valuenowAttr); }
+    bool hasARIAValueNow() const { return hasAttribute(HTMLNames::aria_valuenowAttr); }
     bool supportsARIAAttributes() const;
 
     // CSS3 Speech properties.
@@ -714,8 +713,8 @@ public:
     // Gives platforms the opportunity to indicate if an object should be included.
     AccessibilityObjectInclusion accessibilityPlatformIncludesObject() const;
 #else
-    bool accessibilityIgnoreAttachment() const override { return true; }
-    AccessibilityObjectInclusion accessibilityPlatformIncludesObject() const override { return AccessibilityObjectInclusion::DefaultBehavior; }
+    bool accessibilityIgnoreAttachment() const { return true; }
+    AccessibilityObjectInclusion accessibilityPlatformIncludesObject() const { return AccessibilityObjectInclusion::DefaultBehavior; }
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -744,9 +743,9 @@ public:
     void setCaretBrowsingEnabled(bool) override;
 #endif
 
-    AccessibilityObject* focusableAncestor() override;
-    AccessibilityObject* editableAncestor() override;
-    AccessibilityObject* highestEditableAncestor() override;
+    AccessibilityObject* focusableAncestor() override { return Accessibility::focusableAncestor(*this); }
+    AccessibilityObject* editableAncestor() override { return Accessibility::editableAncestor(*this); };
+    AccessibilityObject* highestEditableAncestor() override { return Accessibility::highestEditableAncestor(*this); }
 
     const AccessibilityScrollView* ancestorAccessibilityScrollView(bool includeSelf) const;
     virtual AccessibilityObject* webAreaObject() const { return nullptr; }
@@ -820,7 +819,6 @@ protected: // FIXME: Make the data members private.
     mutable bool m_childrenInitialized { false };
     AccessibilityRole m_role { AccessibilityRole::Unknown };
 private:
-    AXID m_id;
     OptionSet<AXAncestorFlag> m_ancestorFlags;
     AccessibilityObjectInclusion m_lastKnownIsIgnoredValue { AccessibilityObjectInclusion::DefaultBehavior };
     // std::nullopt is a valid cached value if this object has no visible characters.

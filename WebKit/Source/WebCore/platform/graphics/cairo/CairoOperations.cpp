@@ -510,44 +510,6 @@ IntRect getClipBounds(GraphicsContextCairo& platformContext)
     return enclosingIntRect(FloatRect(x1, y1, x2 - x1, y2 - y1));
 }
 
-FloatRect roundToDevicePixels(GraphicsContextCairo& platformContext, const FloatRect& rect)
-{
-    FloatRect result;
-    double x = rect.x();
-    double y = rect.y();
-
-    cairo_t* cr = platformContext.cr();
-    cairo_user_to_device(cr, &x, &y);
-    x = round(x);
-    y = round(y);
-    cairo_device_to_user(cr, &x, &y);
-    result.setX(narrowPrecisionToFloat(x));
-    result.setY(narrowPrecisionToFloat(y));
-
-    // We must ensure width and height are at least 1 (or -1) when
-    // we're given float values in the range between 0 and 1 (or -1 and 0).
-    double width = rect.width();
-    double height = rect.height();
-    cairo_user_to_device_distance(cr, &width, &height);
-    if (width > -1 && width < 0)
-        width = -1;
-    else if (width > 0 && width < 1)
-        width = 1;
-    else
-        width = round(width);
-    if (height > -1 && height < 0)
-        height = -1;
-    else if (height > 0 && height < 1)
-        height = 1;
-    else
-        height = round(height);
-    cairo_device_to_user_distance(cr, &width, &height);
-    result.setWidth(narrowPrecisionToFloat(width));
-    result.setHeight(narrowPrecisionToFloat(height));
-
-    return result;
-}
-
 bool isAcceleratedContext(GraphicsContextCairo& platformContext)
 {
     return cairo_surface_get_type(cairo_get_target(platformContext.cr())) == CAIRO_SURFACE_TYPE_GL;
@@ -885,10 +847,10 @@ void drawPlatformImage(GraphicsContextCairo& platformContext, cairo_surface_t* s
     platformContext.restore();
 }
 
-void drawPattern(GraphicsContextCairo& platformContext, cairo_surface_t* surface, const IntSize& size, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const ImagePaintingOptions& options)
+void drawPattern(GraphicsContextCairo& platformContext, cairo_surface_t* surface, const IntSize& size, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
     // FIXME: Investigate why the size has to be passed in as an IntRect.
-    drawPatternToCairoContext(platformContext.cr(), surface, size, tileRect, patternTransform, phase, toCairoOperator(options.compositeOperator(), options.blendMode()), options.interpolationQuality(), destRect);
+    drawPatternToCairoContext(platformContext.cr(), surface, size, tileRect, patternTransform, phase, spacing, toCairoOperator(options.compositeOperator(), options.blendMode()), options.interpolationQuality(), destRect);
 }
 
 void drawSurface(GraphicsContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& originalSrcRect, InterpolationQuality imageInterpolationQuality, float globalAlpha, const ShadowState& shadowState, OrientationSizing orientationSizing)

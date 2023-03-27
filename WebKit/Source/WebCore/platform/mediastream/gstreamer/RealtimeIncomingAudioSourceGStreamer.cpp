@@ -25,11 +25,17 @@
 #include "GStreamerAudioData.h"
 #include "GStreamerAudioStreamDescription.h"
 
+GST_DEBUG_CATEGORY_EXTERN(webkit_webrtc_endpoint_debug);
+#define GST_CAT_DEFAULT webkit_webrtc_endpoint_debug
+
 namespace WebCore {
 
 RealtimeIncomingAudioSourceGStreamer::RealtimeIncomingAudioSourceGStreamer(AtomString&& audioTrackId)
     : RealtimeIncomingSourceGStreamer(CaptureDevice { WTFMove(audioTrackId), CaptureDevice::DeviceType::Microphone, emptyString() })
 {
+    static Atomic<uint64_t> sourceCounter = 0;
+    gst_element_set_name(bin(), makeString("incoming-audio-source-", sourceCounter.exchangeAdd(1)).ascii().data());
+    GST_DEBUG_OBJECT(bin(), "New incoming audio source created");
     start();
 }
 
@@ -43,13 +49,12 @@ const RealtimeMediaSourceSettings& RealtimeIncomingAudioSourceGStreamer::setting
     return m_currentSettings;
 }
 
-void RealtimeIncomingAudioSourceGStreamer::dispatchSample(GRefPtr<GstSample>&& gstSample)
+void RealtimeIncomingAudioSourceGStreamer::dispatchSample(GRefPtr<GstSample>&& sample)
 {
-    auto* buffer = gst_sample_get_buffer(gstSample.get());
+    auto presentationTime = MediaTime(GST_TIME_AS_USECONDS(GST_BUFFER_PTS(gst_sample_get_buffer(sample.get()))), G_USEC_PER_SEC);
     GStreamerAudioStreamDescription description;
-    GStreamerAudioData frames(WTFMove(gstSample), description.getInfo());
-
-    audioSamplesAvailable(MediaTime(GST_TIME_AS_USECONDS(GST_BUFFER_PTS(buffer)), G_USEC_PER_SEC), frames, description, 0);
+    GStreamerAudioData frames(WTFMove(sample), description.getInfo());
+    audioSamplesAvailable(presentationTime, frames, description, 0);
 }
 
 }

@@ -43,10 +43,13 @@ static const char conditional_mode[] = "conditional"; // Use Nano V2 in non spac
 
 // The maximum number of per-CPU allocation regions to use for Nano.
 unsigned int nano_common_max_magazines;
-boolean_t nano_common_max_magazines_is_ncpu = true;
+bool nano_common_max_magazines_is_ncpu = true;
+
+unsigned int nano_max_region = NANOV2_MAX_REGION_NUMBER;
 
 // Boot argument for nano_common_max_magazines
 static const char nano_max_magazines_boot_arg[] = "malloc_nano_max_magazines";
+
 
 #pragma mark -
 #pragma mark Initialization
@@ -61,11 +64,14 @@ static const char nano_max_magazines_boot_arg[] = "malloc_nano_max_magazines";
 void
 nano_common_init(const char *envp[], const char *apple[], const char *bootargs)
 {
+	const char *flag = NULL;
+	const char *p = NULL;
+
 	// Use the nanov2_mode boot argument and MallocNanoZone to determine
 	// whether to use nano
 	nanov2_mode_t nanov2_mode = NANOV2_DEFAULT_MODE;
 
-	const char *p = malloc_common_value_for_key(bootargs, mode_boot_arg);
+	p = malloc_common_value_for_key(bootargs, mode_boot_arg);
 	if (p) {
 		if (!strncmp(p, enabled_mode, sizeof(enabled_mode) - 1)) {
 			nanov2_mode = NANO_ENABLED;
@@ -79,7 +85,6 @@ nano_common_init(const char *envp[], const char *apple[], const char *bootargs)
 	if (nanov2_mode == NANO_FORCED) {
 		_malloc_engaged_nano = NANO_V2;
 	} else {
-		const char *flag = NULL;
 		if (nanov2_mode == NANO_CONDITIONAL) {
 			// If conditional mode is selected, ignore the apple[] array and
 			// make the decision based of space efficient mode.
@@ -104,7 +109,37 @@ nano_common_init(const char *envp[], const char *apple[], const char *bootargs)
 			}
 		}
 	}
-
+#if NANOV2_MULTIPLE_REGIONS
+	// Override max region number from environment
+	p = malloc_common_value_for_key(bootargs, "malloc_nano_max_region");
+	if (p) {
+		long value = strtol(p, NULL, 10);
+		if (value) {
+			if (value > NANOV2_MAX_REGION_NUMBER) {
+				nano_max_region = NANOV2_MAX_REGION_NUMBER;
+				malloc_report(ASL_LEVEL_INFO, "Capping 'malloc_nano_max_region' to %d\n", nano_max_region);
+			} else if (value >= 0) {
+				nano_max_region = (unsigned int)value;
+			} else {
+				malloc_report(ASL_LEVEL_ERR, "Received invalid value for 'malloc_nano_max_region': %d\n", (int)value);
+			}
+		}
+	}
+	flag = _simple_getenv(envp, "MallocNanoMaxRegion");
+	if (flag) {
+		long value = strtol(flag, NULL, 10);
+		if (value) {
+			if (value > NANOV2_MAX_REGION_NUMBER) {
+				nano_max_region = NANOV2_MAX_REGION_NUMBER;
+				malloc_report(ASL_LEVEL_INFO, "Capping 'MallocNanoMaxRegion' to %d\n", nano_max_region);
+			} else if (value >= 0) {
+				nano_max_region = (unsigned int)value;
+			} else {
+				malloc_report(ASL_LEVEL_ERR, "Received invalid value for 'MallocNanoMaxRegion': %d\n", (int)value);
+			}
+		}
+	}
+#endif // NANOV2_MULTIPLE_REGIONS
 	if (_malloc_engaged_nano) {
 		// The maximum number of nano magazines can be set either via a
 		// boot argument or from the environment. Get the boot argument value
@@ -227,25 +262,53 @@ nano_common_allocate_based_pages(size_t size, unsigned char align,
 	return (void *)addr;
 }
 
-// Allocates virtual address from a given address for a given size. Succeeds
-// (and returns TRUE) only if we get exactly the range of addresses that we
-// asked for.
-boolean_t
-nano_common_allocate_vm_space(mach_vm_address_t base, mach_vm_size_t size)
+static boolean_t
+_nano_common_map_vm_space(mach_vm_address_t base, mach_vm_size_t size, 
+		vm_prot_t cur_protection)
 {
 	mach_vm_address_t vm_addr = base;
+
 	kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr, size, 0,
 		VM_MAKE_TAG(VM_MEMORY_MALLOC_NANO), MEMORY_OBJECT_NULL, 0, FALSE,
-		VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
-	
-	if (kr != KERN_SUCCESS || vm_addr != base) {
-		// Failed or we got allocated somewhere else.
-		if (!kr) {
-			mach_vm_deallocate(mach_task_self(), vm_addr, size);
-		}
+		cur_protection, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+
+	if (kr != KERN_SUCCESS) {
+		return FALSE;
+	} else if (vm_addr != base) {
+		// allocated somewhere else
+		mach_vm_deallocate(mach_task_self(), vm_addr, size);
 		return FALSE;
 	}
 	return TRUE;
+}
+
+// Allocates virtual address from a given address for a given size. Succeeds
+// (and returns TRUE) only if we get exactly the range of addresses that we
+// asked for.
+bool
+nano_common_allocate_vm_space(mach_vm_address_t base, mach_vm_size_t size)
+{
+	return _nano_common_map_vm_space(base, size, VM_PROT_DEFAULT);
+}
+
+// Reserve virtual address range by allocating without perimissions
+bool
+nano_common_reserve_vm_space(mach_vm_address_t base, mach_vm_size_t size)
+{
+	return _nano_common_map_vm_space(base, size, VM_PROT_NONE);
+}
+
+// Set protection to default for address range. Return true on success.
+bool
+nano_common_unprotect_vm_space(mach_vm_address_t base, mach_vm_size_t size)
+{
+	kern_return_t kr = mach_vm_protect(mach_task_self(), base,
+			size, false, VM_PROT_DEFAULT);
+	if (kr != KERN_SUCCESS) {
+		malloc_report(ASL_LEVEL_ERR, "mach_vm_protect ret: %d\n", kr);
+		return false;
+	}
+	return true;
 }
 
 void

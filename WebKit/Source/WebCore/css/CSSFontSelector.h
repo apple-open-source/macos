@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,6 @@
 
 namespace WebCore {
 
-class CSSFontFaceRule;
 class CSSPrimitiveValue;
 class CSSSegmentedFontFace;
 class CSSValueList;
@@ -51,11 +50,15 @@ class StyleRuleFontFace;
 class StyleRuleFontFeatureValues;
 class StyleRuleFontPaletteValues;
 
-class CSSFontSelector final : public FontSelector, public CSSFontFace::Client, public CanMakeWeakPtr<CSSFontSelector>, public ActiveDOMObject {
+class CSSFontSelector final : public FontSelector, public CSSFontFace::Client, public ActiveDOMObject {
 public:
+    using FontSelector::weakPtrFactory;
+    using FontSelector::WeakValueType;
+    using FontSelector::WeakPtrImplType;
+
     static Ref<CSSFontSelector> create(ScriptExecutionContext&);
     virtual ~CSSFontSelector();
-    
+
     unsigned version() const final { return m_version; }
     unsigned uniqueId() const final { return m_uniqueId; }
 
@@ -83,6 +86,7 @@ public:
 
     FontFaceSet* fontFaceSetIfExists();
     FontFaceSet& fontFaceSet();
+    CSSFontFaceSet& cssFontFaceSet() { return m_cssFontFaceSet; }
 
     void incrementIsComputingRootStyleFont() { ++m_computingRootStyleFontCount; }
     void decrementIsComputingRootStyleFont() { --m_computingRootStyleFontCount; }

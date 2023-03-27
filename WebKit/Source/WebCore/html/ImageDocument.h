@@ -36,7 +36,9 @@ class ImageDocument final : public HTMLDocument {
 public:
     static Ref<ImageDocument> create(Frame& frame, const URL& url)
     {
-        return adoptRef(*new ImageDocument(frame, url));
+        auto document = adoptRef(*new ImageDocument(frame, url));
+        document->addToContextsMap();
+        return document;
     }
 
     WEBCORE_EXPORT HTMLImageElement* imageElement() const;
@@ -68,7 +70,7 @@ private:
 
     void imageUpdated();
 
-    ImageDocumentElement* m_imageElement;
+    WeakPtr<ImageDocumentElement, WeakPtrImplWithEventTargetData> m_imageElement;
 
     // Whether enough of the image has been loaded to determine its size.
     bool m_imageSizeIsKnown;

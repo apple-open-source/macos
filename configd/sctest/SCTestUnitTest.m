@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -101,9 +101,10 @@
 - (void)start
 {
 	NSArray<NSString *> *testClasses;
+	BOOL errorOccured = NO;
+    
 	NSString *thisClass = NSStringFromClass([self class]);;
 	testClasses = getTestClasses();
-	BOOL errorOccured = NO;
 
 	if (self.options[kSCTestUnitTestListTests]) {
 		[self listTests];
@@ -153,12 +154,14 @@
 			list = getUnitTestListForClass(testClass);
 			for (NSString *unitTest in list) {
 				if ([unitTest isEqualToString:self.options[kSCTestUnitTestTestMethod]]) {
+                    SEL methodSelector;
+                    Boolean retVal;
+                    
 					id obj = [(SCTest *)[testClass alloc] initWithOptions:self.options];
-
 					SCTestLog("Running unit test %@ ...", unitTest);
 
-					SEL methodSelector = NSSelectorFromString(unitTest);
-					Boolean retVal = false;
+					methodSelector = NSSelectorFromString(unitTest);
+					retVal = false;
 					if ([obj respondsToSelector:methodSelector]) {
 						NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[obj methodSignatureForSelector:methodSelector]];
 						invocation.target = obj;
@@ -196,9 +199,11 @@
 			}
 
 			obj = [(SCTest *)[testClass alloc] initWithOptions:self.options];
-			if ([obj respondsToSelector:@selector(unitTest)]) {
+            if ([obj respondsToSelector:@selector(unitTest)]) {
+                BOOL passed;
+                
 				SCTestLog("\n*** Running unit test for \"%@\" command ***\n", [testClass command]);
-				BOOL passed = [obj unitTest];
+				passed = [obj unitTest];
 				if (!passed) {
 					SCTestLog("FAILED");
 					errorOccured = YES;

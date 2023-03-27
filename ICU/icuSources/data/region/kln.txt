@@ -202,7 +202,7 @@ kln{
         TM{"Emetab Turkmenistan"}
         TN{"Emetab Tunisia"}
         TO{"Emetab Tonga"}
-        TR{"Emetab Turkey"}
+        TR{"Emetab Türkiye"}
         TT{"Emetab Trinidad ak Tobago"}
         TV{"Emetab Tuvalu"}
         TW{"Emetab Taiwan"}

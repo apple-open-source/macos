@@ -33,9 +33,15 @@
 #include "config.h"
 #include "ScriptCallStackFactory.h"
 
+#include "CodeBlock.h"
+#include "Debugger.h"
+#include "ExecutableBaseInlines.h"
+#include "ImplementationVisibility.h"
+#include "InspectorDebuggerAgent.h"
 #include "JSCInlines.h"
 #include "ScriptArguments.h"
 #include "ScriptCallFrame.h"
+#include "ScriptExecutable.h"
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -44,9 +50,9 @@ using namespace JSC;
 
 class CreateScriptCallStackFunctor {
 public:
-    CreateScriptCallStackFunctor(bool needToSkipAFrame, Vector<ScriptCallFrame>& frames, size_t remainingCapacity)
-        : m_needToSkipAFrame(needToSkipAFrame)
-        , m_frames(frames)
+    CreateScriptCallStackFunctor(JSC::JSGlobalObject* globalObject, bool needToSkipAFrame, size_t remainingCapacity)
+        : m_globalObject(globalObject)
+        , m_needToSkipAFrame(needToSkipAFrame)
         , m_remainingCapacityForFrameCapture(remainingCapacity)
     {
     }
@@ -58,22 +64,42 @@ public:
             return IterationStatus::Continue;
         }
 
+        if (visitor->isImplementationVisibilityPrivate())
+            return IterationStatus::Continue;
+
         if (m_remainingCapacityForFrameCapture) {
             unsigned line;
             unsigned column;
             visitor->computeLineAndColumn(line, column);
-            m_frames.append(ScriptCallFrame(visitor->functionName(), visitor->sourceURL(), visitor->sourceID(), line, column));
+            m_frames.append(ScriptCallFrame(visitor->functionName(), visitor->sourceURL(), visitor->preRedirectURL(), visitor->sourceID(), line, column));
 
             m_remainingCapacityForFrameCapture--;
             return IterationStatus::Continue;
         }
 
+        m_truncated = true;
         return IterationStatus::Done;
     }
 
+    Ref<ScriptCallStack> takeStack()
+    {
+        AsyncStackTrace* parentStackTrace = nullptr;
+        if (auto* debugger = m_globalObject->debugger()) {
+            if (auto* debuggerAgent = dynamicDowncast<InspectorDebuggerAgent>(debugger->client()))
+                parentStackTrace = debuggerAgent->currentParentStackTrace();
+        }
+
+        return ScriptCallStack::create(WTFMove(m_frames), m_truncated, parentStackTrace);
+    }
+
 private:
+    JSGlobalObject* m_globalObject;
+
     mutable bool m_needToSkipAFrame;
-    Vector<ScriptCallFrame>& m_frames;
+
+    mutable Vector<ScriptCallFrame> m_frames;
+    mutable bool m_truncated { false };
+
     mutable size_t m_remainingCapacityForFrameCapture;
 };
 
@@ -83,16 +109,15 @@ Ref<ScriptCallStack> createScriptCallStack(JSC::JSGlobalObject* globalObject, si
         return ScriptCallStack::create();
 
     JSLockHolder locker(globalObject);
-    Vector<ScriptCallFrame> frames;
 
     VM& vm = globalObject->vm();
     CallFrame* frame = vm.topCallFrame;
     if (!frame)
         return ScriptCallStack::create();
-    CreateScriptCallStackFunctor functor(false, frames, maxStackSize);
-    frame->iterate(vm, functor);
 
-    return ScriptCallStack::create(frames);
+    CreateScriptCallStackFunctor functorIncludingFirstFrame(globalObject, false, maxStackSize);
+    StackVisitor::visit(frame, vm, functorIncludingFirstFrame);
+    return functorIncludingFirstFrame.takeStack();
 }
 
 Ref<ScriptCallStack> createScriptCallStackForConsole(JSC::JSGlobalObject* globalObject, size_t maxStackSize)
@@ -101,21 +126,21 @@ Ref<ScriptCallStack> createScriptCallStackForConsole(JSC::JSGlobalObject* global
         return ScriptCallStack::create();
 
     JSLockHolder locker(globalObject);
-    Vector<ScriptCallFrame> frames;
 
     VM& vm = globalObject->vm();
     CallFrame* frame = vm.topCallFrame;
     if (!frame)
         return ScriptCallStack::create();
-    CreateScriptCallStackFunctor functor(true, frames, maxStackSize);
-    frame->iterate(vm, functor);
 
-    if (frames.isEmpty()) {
-        CreateScriptCallStackFunctor functor(false, frames, maxStackSize);
-        frame->iterate(vm, functor);
+    CreateScriptCallStackFunctor functorSkippingFirstFrame(globalObject, true, maxStackSize);
+    StackVisitor::visit(frame, vm, functorSkippingFirstFrame);
+    auto stack = functorSkippingFirstFrame.takeStack();
+    if (!stack->size()) {
+        CreateScriptCallStackFunctor functorIncludingFirstFrame(globalObject, false, maxStackSize);
+        StackVisitor::visit(frame, vm, functorIncludingFirstFrame);
+        stack = functorIncludingFirstFrame.takeStack();
     }
-
-    return ScriptCallStack::create(frames);
+    return stack;
 }
 
 static bool extractSourceInformationFromException(JSC::JSGlobalObject* globalObject, JSObject* exceptionObject, int* lineNumber, int* columnNumber, String* sourceURL)
@@ -187,7 +212,12 @@ Ref<ScriptCallStack> createScriptCallStackFromException(JSC::JSGlobalObject* glo
         }
     }
 
-    return ScriptCallStack::create(frames);
+    AsyncStackTrace* parentStackTrace = nullptr;
+    if (auto* debugger = globalObject->debugger()) {
+        if (auto* debuggerAgent = dynamicDowncast<InspectorDebuggerAgent>(debugger->client()))
+            parentStackTrace = debuggerAgent->currentParentStackTrace();
+    }
+    return ScriptCallStack::create(WTFMove(frames), stackTrace.size() > maxStackSize, parentStackTrace);
 }
 
 Ref<ScriptArguments> createScriptArguments(JSC::JSGlobalObject* globalObject, JSC::CallFrame* callFrame, unsigned skipArgumentCount)

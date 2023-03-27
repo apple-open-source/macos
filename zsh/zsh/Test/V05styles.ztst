@@ -151,3 +151,25 @@
 >one
 >two
 
+ (
+  zstyle ':weather:*:Sunday:*' preferred-precipitation snow
+  zstyle ':weather:europe:*' preferred-precipitation rain
+  zstyle -s ':weather:europe:Sunday:foo' preferred-precipitation REPLY && print $REPLY
+ )
+ (
+  zstyle ':weather:europe:*' preferred-precipitation rain
+  zstyle ':weather:*:Sunday:*' preferred-precipitation snow
+  zstyle -s ':weather:europe:Sunday:foo' preferred-precipitation REPLY && print $REPLY
+ )
+0:the example in the documentation remains correct
+>snow
+>snow
+
+ (
+  zstyle $'con\x00text' $'ke\x00y' $'val\x00u' $'e'
+  a=( ${(f)"$(zstyle -L)"} )
+  a=( ${(M)a:#*con*text*ke*y*val*u*e} )
+  print -r -- "$a"
+ )
+0:zstyle -L escapes the key (regression: workers/48424)
+>zstyle $'con\C-@text' $'ke\C-@y' $'val\C-@u' e

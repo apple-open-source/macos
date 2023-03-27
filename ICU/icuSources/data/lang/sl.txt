@@ -94,9 +94,12 @@ sl{
         chm{"marijščina"}
         chn{"činuški žargon"}
         cho{"čoktavščina"}
+        cho_Latn{"čoktavščina"}
         chp{"čipevščina"}
         chr{"čerokeščina"}
         chy{"čejenščina"}
+        cic{"chickasaw"}
+        cic_Latn{"chickasaw"}
         ckb{"soranska kurdščina"}
         co{"korziščina"}
         cop{"koptščina"}

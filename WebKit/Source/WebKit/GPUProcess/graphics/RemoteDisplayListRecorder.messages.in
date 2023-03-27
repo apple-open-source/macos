@@ -45,7 +45,7 @@ messages -> RemoteDisplayListRecorder NotRefCounted Stream {
     ClipOutToPath(WebCore::Path path)
     ClipPath(WebCore::Path path, enum:uint8_t WebCore::WindRule windRule)
     DrawGlyphs(WebCore::DisplayList::DrawGlyphs item)
-    DrawDecomposedGlyphs(WebCore::RenderingResourceIdentifier fontIdentifier, WebCore::RenderingResourceIdentifier decomposedGlyphsIdentifier, WebCore::FloatRect bounds)
+    DrawDecomposedGlyphs(WebCore::RenderingResourceIdentifier fontIdentifier, WebCore::RenderingResourceIdentifier decomposedGlyphsIdentifier)
     DrawFilteredImageBuffer(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, WebCore::FloatRect sourceImageRect, IPC::FilterReference filter)
     DrawImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, WebCore::FloatRect destinationRect, WebCore::FloatRect srcRect, struct WebCore::ImagePaintingOptions options)
     DrawNativeImage(WebCore::RenderingResourceIdentifier imageIdentifier, WebCore::FloatSize imageSize, WebCore::FloatRect destRect, WebCore::FloatRect srcRect, struct WebCore::ImagePaintingOptions options)
@@ -59,8 +59,8 @@ messages -> RemoteDisplayListRecorder NotRefCounted Stream {
     DrawDotsForDocumentMarker(WebCore::FloatRect rect, struct WebCore::DocumentMarkerLineStyle style)
     DrawEllipse(WebCore::FloatRect rect)
     DrawPath(WebCore::Path path)
-    DrawFocusRingPath(WebCore::Path path, float width, float offset, WebCore::Color color)
-    DrawFocusRingRects(Vector<WebCore::FloatRect> rects, float width, float offset, WebCore::Color color)
+    DrawFocusRingPath(WebCore::Path path, float outlineWidth, WebCore::Color color)
+    DrawFocusRingRects(Vector<WebCore::FloatRect> rects, float outlineOffset, float outlineWidth, WebCore::Color color)
     FillRect(WebCore::FloatRect rect)
     FillRectWithColor(WebCore::FloatRect rect, WebCore::Color color)
     FillRectWithGradient(WebCore::DisplayList::FillRectWithGradient item)
@@ -89,12 +89,19 @@ messages -> RemoteDisplayListRecorder NotRefCounted Stream {
     StrokePath(WebCore::Path path) StreamBatched
     StrokeEllipse(WebCore::FloatRect rect) StreamBatched
     ClearRect(WebCore::FloatRect rect)
+    DrawControlPart(Ref<WebCore::ControlPart> part, WebCore::FloatRoundedRect borderRect, float deviceScaleFactor, WebCore::ControlStyle style)
 #if USE(CG)
     ApplyStrokePattern()
     ApplyFillPattern()
 #endif
     ApplyDeviceScaleFactor(float scaleFactor)
-    FlushContext(WebCore::GraphicsContextFlushIdentifier identifier)
+    FlushContext(WebKit::DisplayListRecorderFlushIdentifier identifier)
+
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+    PaintVideoFrame(struct WebKit::SharedVideoFrame frame, WebCore::FloatRect rect, bool shouldDiscardAlpha) NotStreamEncodable
+    SetSharedVideoFrameSemaphore(IPC::Semaphore semaphore) NotStreamEncodable
+    SetSharedVideoFrameMemory(WebKit::SharedMemory::Handle storageHandle) NotStreamEncodable
+#endif
 }
 
 #endif // ENABLE(GPU_PROCESS)

@@ -26,7 +26,8 @@
 #include "config.h"
 #include "OriginStorageManager.h"
 
-#include "CacheStorageEngine.h"
+#include "CacheStorageManager.h"
+#include "CacheStorageRegistry.h"
 #include "FileSystemStorageHandleRegistry.h"
 #include "FileSystemStorageManager.h"
 #include "IDBStorageManager.h"
@@ -36,8 +37,10 @@
 #include "MemoryStorageArea.h"
 #include "SessionStorageManager.h"
 #include "StorageAreaRegistry.h"
+#include "UnifiedOriginStorageLevel.h"
 #include "WebsiteDataType.h"
 #include <WebCore/SQLiteFileSystem.h>
+#include <WebCore/StorageEstimate.h>
 #include <wtf/FileSystem.h>
 
 namespace WebKit {
@@ -53,38 +56,46 @@ public:
         LocalStorage,
         SessionStorage,
         IndexedDB,
+        CacheStorage
     };
     std::optional<StorageType> toStorageType(WebsiteDataType) const;
     String toStorageIdentifier(StorageType) const;
-    StorageBucket(const String& rootPath, const String& identifier, const String& localStoragePath, const String& idbStoragePath, bool shouldUseCustomPaths);
+    StorageBucket(const String& rootPath, const String& identifier, const String& localStoragePath, const String& idbStoragePath, const String& cacheStoragePath, UnifiedOriginStorageLevel);
     StorageBucketMode mode() const { return m_mode; }
     void setMode(StorageBucketMode mode) { m_mode = mode; }
     void connectionClosed(IPC::Connection::UniqueID);
     String typeStoragePath(StorageType) const;
-    FileSystemStorageManager& fileSystemStorageManager(FileSystemStorageHandleRegistry&);
+    FileSystemStorageManager& fileSystemStorageManager(FileSystemStorageHandleRegistry&, FileSystemStorageManager::QuotaCheckFunction&&);
+    FileSystemStorageManager* existingFileSystemStorageManager() { return m_fileSystemStorageManager.get(); }
     LocalStorageManager& localStorageManager(StorageAreaRegistry&);
     LocalStorageManager* existingLocalStorageManager() { return m_localStorageManager.get(); }
     SessionStorageManager& sessionStorageManager(StorageAreaRegistry&);
     SessionStorageManager* existingSessionStorageManager() { return m_sessionStorageManager.get(); }
     IDBStorageManager& idbStorageManager(IDBStorageRegistry&, IDBStorageManager::QuotaCheckFunction&&);
     IDBStorageManager* existingIDBStorageManager() { return m_idbStorageManager.get(); }
+    CacheStorageManager& cacheStorageManager(CacheStorageRegistry&, const WebCore::ClientOrigin&, CacheStorageManager::QuotaCheckFunction&&, Ref<WorkQueue>&&);
+    CacheStorageManager* existingCacheStorageManager() { return m_cacheStorageManager.get(); }
+    uint64_t cacheStorageSize();
+    void closeCacheStorageManager();
     bool isActive() const;
     bool isEmpty();
-    OptionSet<WebsiteDataType> fetchDataTypesInList(OptionSet<WebsiteDataType>);
+    DataTypeSizeMap fetchDataTypesInList(OptionSet<WebsiteDataType>, bool shouldComputeSize);
     void deleteData(OptionSet<WebsiteDataType>, WallTime);
     void moveData(OptionSet<WebsiteDataType>, const String& localStoragePath, const String& idbStoragePath);
     void deleteEmptyDirectory();
     String resolvedLocalStoragePath();
     String resolvedIDBStoragePath();
+    String resolvedCacheStoragePath();
     String resolvedPath(WebsiteDataType);
 
 private:
     OptionSet<WebsiteDataType> fetchDataTypesInListFromMemory(OptionSet<WebsiteDataType>);
-    OptionSet<WebsiteDataType> fetchDataTypesInListFromDisk(OptionSet<WebsiteDataType>);
+    DataTypeSizeMap fetchDataTypesInListFromDisk(OptionSet<WebsiteDataType>, bool shouldComputeSize);
     void deleteFileSystemStorageData(WallTime);
     void deleteLocalStorageData(WallTime);
     void deleteSessionStorageData();
     void deleteIDBStorageData(WallTime);
+    void deleteCacheStorageData(WallTime);
 
     String m_rootPath;
     String m_identifier;
@@ -97,15 +108,19 @@ private:
     std::unique_ptr<IDBStorageManager> m_idbStorageManager;
     String m_customIDBStoragePath;
     String m_resolvedIDBStoragePath;
-    bool m_shouldUseCustomPaths;
+    std::unique_ptr<CacheStorageManager> m_cacheStorageManager;
+    String m_customCacheStoragePath;
+    String m_resolvedCacheStoragePath;
+    UnifiedOriginStorageLevel m_level;
 };
 
-OriginStorageManager::StorageBucket::StorageBucket(const String& rootPath, const String& identifier, const String& localStoragePath, const String& idbStoragePath, bool shouldUseCustomPaths)
+OriginStorageManager::StorageBucket::StorageBucket(const String& rootPath, const String& identifier, const String& localStoragePath, const String& idbStoragePath, const String& cacheStoragePath, UnifiedOriginStorageLevel level)
     : m_rootPath(rootPath)
     , m_identifier(identifier)
     , m_customLocalStoragePath(localStoragePath)
     , m_customIDBStoragePath(idbStoragePath)
-    , m_shouldUseCustomPaths(shouldUseCustomPaths)
+    , m_customCacheStoragePath(cacheStoragePath)
+    , m_level(level)
 {
 }
 
@@ -119,6 +134,9 @@ void OriginStorageManager::StorageBucket::connectionClosed(IPC::Connection::Uniq
 
     if (m_sessionStorageManager)
         m_sessionStorageManager->connectionClosed(connection);
+
+    if (m_cacheStorageManager)
+        m_cacheStorageManager->connectionClosed(connection);
 }
 
 std::optional<OriginStorageManager::StorageBucket::StorageType> OriginStorageManager::StorageBucket::toStorageType(WebsiteDataType websiteDataType) const
@@ -132,6 +150,8 @@ std::optional<OriginStorageManager::StorageBucket::StorageType> OriginStorageMan
         return StorageType::SessionStorage;
     case WebsiteDataType::IndexedDBDatabases:
         return StorageType::IndexedDB;
+    case WebsiteDataType::DOMCache:
+        return StorageType::CacheStorage;
     default:
         break;
     }
@@ -151,6 +171,8 @@ String OriginStorageManager::StorageBucket::toStorageIdentifier(StorageType type
         return "SessionStorage"_s;
     case StorageType::IndexedDB:
         return "IndexedDB"_s;
+    case StorageType::CacheStorage:
+        return "CacheStorage"_s;
     default:
         break;
     }
@@ -167,10 +189,10 @@ String OriginStorageManager::StorageBucket::typeStoragePath(StorageType type) co
     return FileSystem::pathByAppendingComponent(m_rootPath, storageIdentifier);
 }
 
-FileSystemStorageManager& OriginStorageManager::StorageBucket::fileSystemStorageManager(FileSystemStorageHandleRegistry& registry)
+FileSystemStorageManager& OriginStorageManager::StorageBucket::fileSystemStorageManager(FileSystemStorageHandleRegistry& registry, FileSystemStorageManager::QuotaCheckFunction&& quotaCheckFunction)
 {
     if (!m_fileSystemStorageManager)
-        m_fileSystemStorageManager = makeUnique<FileSystemStorageManager>(typeStoragePath(StorageType::FileSystem), registry);
+        m_fileSystemStorageManager = makeUnique<FileSystemStorageManager>(typeStoragePath(StorageType::FileSystem), registry, WTFMove(quotaCheckFunction));
 
     return *m_fileSystemStorageManager;
 }
@@ -199,6 +221,18 @@ IDBStorageManager& OriginStorageManager::StorageBucket::idbStorageManager(IDBSto
     return *m_idbStorageManager;
 }
 
+CacheStorageManager& OriginStorageManager::StorageBucket::cacheStorageManager(CacheStorageRegistry& registry, const WebCore::ClientOrigin& origin, CacheStorageManager::QuotaCheckFunction&& quotaCheckFunction, Ref<WorkQueue>&& queue)
+{
+    if (!m_cacheStorageManager) {
+        std::optional<WebCore::ClientOrigin> optionalOrigin;
+        if (m_level < UnifiedOriginStorageLevel::Standard)
+            optionalOrigin = origin;
+        m_cacheStorageManager = makeUnique<CacheStorageManager>(resolvedCacheStoragePath(), registry, optionalOrigin, WTFMove(quotaCheckFunction), WTFMove(queue));
+    }
+
+    return *m_cacheStorageManager;
+}
+
 bool OriginStorageManager::StorageBucket::isActive() const
 {
     // We cannot remove the bucket if it has in-memory data, otherwise session
@@ -206,7 +240,8 @@ bool OriginStorageManager::StorageBucket::isActive() const
     return (m_fileSystemStorageManager && m_fileSystemStorageManager->isActive())
         || (m_localStorageManager && (m_localStorageManager->hasDataInMemory() || m_localStorageManager->isActive()))
         || (m_sessionStorageManager && (m_sessionStorageManager->hasDataInMemory() || m_sessionStorageManager->isActive()))
-        || (m_idbStorageManager && (m_idbStorageManager->hasDataInMemory() || m_idbStorageManager->isActive()));
+        || (m_idbStorageManager && (m_idbStorageManager->hasDataInMemory() || m_idbStorageManager->isActive()))
+        || (m_cacheStorageManager && (m_cacheStorageManager->hasDataInMemory() || m_cacheStorageManager->isActive()));
 }
 
 bool OriginStorageManager::StorageBucket::isEmpty()
@@ -225,13 +260,15 @@ bool OriginStorageManager::StorageBucket::isEmpty()
         return false;
 
     auto idbStorageFiles = FileSystem::listDirectory(resolvedIDBStoragePath());
-    return !FileSystem::fileExists(resolvedLocalStoragePath()) && idbStorageFiles.isEmpty();
+    return !FileSystem::fileExists(resolvedLocalStoragePath()) && idbStorageFiles.isEmpty() && !CacheStorageManager::hasCacheList(resolvedCacheStoragePath());
 }
 
-OptionSet<WebsiteDataType> OriginStorageManager::StorageBucket::fetchDataTypesInList(OptionSet<WebsiteDataType> types)
+OriginStorageManager::DataTypeSizeMap OriginStorageManager::StorageBucket::fetchDataTypesInList(OptionSet<WebsiteDataType> types, bool shouldComputeSize)
 {
-    auto result = fetchDataTypesInListFromMemory(types);
-    result.add(fetchDataTypesInListFromDisk(types));
+    auto result = fetchDataTypesInListFromDisk(types, shouldComputeSize);
+    auto memoryResult = fetchDataTypesInListFromMemory(types);
+    for (auto type : memoryResult)
+        result.add(type, 0);
 
     return result;
 }
@@ -254,26 +291,54 @@ OptionSet<WebsiteDataType> OriginStorageManager::StorageBucket::fetchDataTypesIn
             result.add(WebsiteDataType::IndexedDBDatabases);
     }
 
+    if (types.contains(WebsiteDataType::DOMCache)) {
+        if (m_cacheStorageManager && m_cacheStorageManager->hasDataInMemory())
+            result.add(WebsiteDataType::DOMCache);
+    }
+
     return result;
 }
 
-OptionSet<WebsiteDataType> OriginStorageManager::StorageBucket::fetchDataTypesInListFromDisk(OptionSet<WebsiteDataType> types)
+OriginStorageManager::DataTypeSizeMap OriginStorageManager::StorageBucket::fetchDataTypesInListFromDisk(OptionSet<WebsiteDataType> types, bool shouldComputeSize)
 {
-    OptionSet<WebsiteDataType> result;
+    DataTypeSizeMap result;
     if (types.contains(WebsiteDataType::FileSystem)) {
         auto fileSystemStoragePath = typeStoragePath(StorageType::FileSystem);
-        if (auto files = FileSystem::listDirectory(fileSystemStoragePath); !files.isEmpty())
-            result.add(WebsiteDataType::FileSystem);
+        if (auto files = FileSystem::listDirectory(fileSystemStoragePath); !files.isEmpty()) {
+            uint64_t size = 0;
+            if (shouldComputeSize)
+                size = valueOrDefault(FileSystem::directorySize(fileSystemStoragePath));
+            result.add(WebsiteDataType::FileSystem, size);
+        }
     }
 
     if (types.contains(WebsiteDataType::LocalStorage)) {
-        if (FileSystem::fileExists(resolvedLocalStoragePath()))
-            result.add(WebsiteDataType::LocalStorage);
+        auto localStoragePath = resolvedLocalStoragePath();
+        if (FileSystem::fileExists(localStoragePath)) {
+            uint64_t size = 0;
+            if (shouldComputeSize)
+                size = WebCore::SQLiteFileSystem::databaseFileSize(localStoragePath);
+            result.add(WebsiteDataType::LocalStorage, size);
+        }
     }
 
     if (types.contains(WebsiteDataType::IndexedDBDatabases)) {
-        if (auto databases = FileSystem::listDirectory(resolvedIDBStoragePath()); !databases.isEmpty())
-            result.add(WebsiteDataType::IndexedDBDatabases);
+        auto idbStoragePath = resolvedIDBStoragePath();
+        if (auto databases = FileSystem::listDirectory(idbStoragePath); !databases.isEmpty()) {
+            uint64_t size = 0;
+            if (shouldComputeSize)
+                size = valueOrDefault(FileSystem::directorySize(idbStoragePath));
+            result.add(WebsiteDataType::IndexedDBDatabases, size);
+        }
+    }
+
+    if (types.contains(WebsiteDataType::DOMCache)) {
+        if (CacheStorageManager::hasCacheList(resolvedCacheStoragePath())) {
+            uint64_t size = 0;
+            if (shouldComputeSize)
+                size = CacheStorageManager::cacheStorageSize(resolvedCacheStoragePath());
+            result.add(WebsiteDataType::DOMCache, size);
+        }
     }
 
     return result;
@@ -292,6 +357,9 @@ void OriginStorageManager::StorageBucket::deleteData(OptionSet<WebsiteDataType> 
 
     if (types.contains(WebsiteDataType::IndexedDBDatabases))
         deleteIDBStorageData(modifiedSinceTime);
+
+    if (types.contains(WebsiteDataType::DOMCache))
+        deleteCacheStorageData(modifiedSinceTime);
 }
 
 void OriginStorageManager::StorageBucket::deleteFileSystemStorageData(WallTime modifiedSinceTime)
@@ -337,6 +405,14 @@ void OriginStorageManager::StorageBucket::deleteIDBStorageData(WallTime time)
     FileSystem::deleteAllFilesModifiedSince(resolvedIDBStoragePath(), time);
 }
 
+void OriginStorageManager::StorageBucket::deleteCacheStorageData(WallTime time)
+{
+    if (m_cacheStorageManager)
+        m_cacheStorageManager = nullptr;
+
+    FileSystem::deleteAllFilesModifiedSince(resolvedCacheStoragePath(), time);
+}
+
 void OriginStorageManager::StorageBucket::moveData(OptionSet<WebsiteDataType> types, const String& localStoragePath, const String& idbStoragePath)
 {
     // This is only supported for IndexedDB and LocalStorage now.
@@ -365,18 +441,25 @@ void OriginStorageManager::StorageBucket::moveData(OptionSet<WebsiteDataType> ty
 
 void OriginStorageManager::StorageBucket::deleteEmptyDirectory()
 {
-    if (m_shouldUseCustomPaths) {
+    switch (m_level) {
+    case UnifiedOriginStorageLevel::None:
+        FileSystem::deleteEmptyDirectory(typeStoragePath(StorageType::FileSystem));
         FileSystem::deleteEmptyDirectory(m_customLocalStoragePath);
         FileSystem::deleteEmptyDirectory(m_customIDBStoragePath);
-    } else {
-        auto localStoragePath = typeStoragePath(StorageType::LocalStorage);
-        FileSystem::deleteEmptyDirectory(localStoragePath);
-        auto idbStoragePath = typeStoragePath(StorageType::IndexedDB);
-        FileSystem::deleteEmptyDirectory(idbStoragePath);
+        FileSystem::deleteEmptyDirectory(m_customCacheStoragePath);
+        break;
+    case UnifiedOriginStorageLevel::Basic:
+        FileSystem::deleteEmptyDirectory(typeStoragePath(StorageType::FileSystem));
+        FileSystem::deleteEmptyDirectory(typeStoragePath(StorageType::LocalStorage));
+        FileSystem::deleteEmptyDirectory(typeStoragePath(StorageType::IndexedDB));
+        FileSystem::deleteEmptyDirectory(m_customCacheStoragePath);
+        break;
+    case UnifiedOriginStorageLevel::Standard:
+        FileSystem::deleteEmptyDirectory(typeStoragePath(StorageType::FileSystem));
+        FileSystem::deleteEmptyDirectory(typeStoragePath(StorageType::LocalStorage));
+        FileSystem::deleteEmptyDirectory(typeStoragePath(StorageType::IndexedDB));
+        FileSystem::deleteEmptyDirectory(typeStoragePath(StorageType::CacheStorage));
     }
-
-    auto fileSystemStoragePath = typeStoragePath(StorageType::FileSystem);
-    FileSystem::deleteEmptyDirectory(fileSystemStoragePath);
 }
 
 String OriginStorageManager::StorageBucket::resolvedLocalStoragePath()
@@ -384,14 +467,14 @@ String OriginStorageManager::StorageBucket::resolvedLocalStoragePath()
     if (!m_resolvedLocalStoragePath.isNull())
         return m_resolvedLocalStoragePath;
 
-    if (m_shouldUseCustomPaths) {
+    if (m_level == UnifiedOriginStorageLevel::None) {
         ASSERT(m_customLocalStoragePath.isEmpty() == m_rootPath.isEmpty());
         m_resolvedLocalStoragePath = m_customLocalStoragePath;
     } else if (!m_rootPath.isEmpty()) {
         auto localStorageDirectory = typeStoragePath(StorageType::LocalStorage);
         auto localStoragePath = LocalStorageManager::localStorageFilePath(localStorageDirectory);
         if (!m_customLocalStoragePath.isEmpty() && !FileSystem::fileExists(localStoragePath) && FileSystem::fileExists(m_customLocalStoragePath)) {
-            RELEASE_LOG(Storage, "%p - StorageBucket::resolvedLocalStoragePath New path '%{public}s'", this, localStoragePath.utf8().data());
+            RELEASE_LOG(Storage, "%p - StorageBucket::resolvedLocalStoragePath New path '%" PUBLIC_LOG_STRING "'", this, localStoragePath.utf8().data());
             FileSystem::makeAllDirectories(localStorageDirectory);
             auto moved = WebCore::SQLiteFileSystem::moveDatabaseFile(m_customLocalStoragePath, localStoragePath);
             if (!moved && !FileSystem::fileExists(localStoragePath))
@@ -412,12 +495,12 @@ String OriginStorageManager::StorageBucket::resolvedIDBStoragePath()
     if (!m_resolvedIDBStoragePath.isNull())
         return m_resolvedIDBStoragePath;
 
-    if (m_shouldUseCustomPaths) {
+    if (m_level == UnifiedOriginStorageLevel::None) {
         ASSERT(m_customIDBStoragePath.isEmpty() == m_rootPath.isEmpty());
         m_resolvedIDBStoragePath = m_customIDBStoragePath;
     } else {
         auto idbStoragePath = typeStoragePath(StorageType::IndexedDB);
-        RELEASE_LOG(Storage, "%p - StorageBucket::resolvedIDBStoragePath New path '%{public}s'", this, idbStoragePath.utf8().data());
+        RELEASE_LOG(Storage, "%p - StorageBucket::resolvedIDBStoragePath New path '%" PUBLIC_LOG_STRING "'", this, idbStoragePath.utf8().data());
         auto moved = IDBStorageManager::migrateOriginData(m_customIDBStoragePath, idbStoragePath);
         if (!moved && FileSystem::fileExists(idbStoragePath)) {
             auto fileNames = FileSystem::listDirectory(m_customIDBStoragePath);
@@ -428,6 +511,32 @@ String OriginStorageManager::StorageBucket::resolvedIDBStoragePath()
     }
     ASSERT(!m_resolvedIDBStoragePath.isNull());
     return m_resolvedIDBStoragePath;
+}
+
+String OriginStorageManager::StorageBucket::resolvedCacheStoragePath()
+{
+    if (!m_resolvedCacheStoragePath.isNull())
+        return m_resolvedCacheStoragePath;
+
+    switch (m_level) {
+    case UnifiedOriginStorageLevel::None:
+    case UnifiedOriginStorageLevel::Basic:
+        ASSERT(m_customCacheStoragePath.isEmpty() == m_rootPath.isEmpty());
+        m_resolvedCacheStoragePath = m_customCacheStoragePath;
+        break;
+    case UnifiedOriginStorageLevel::Standard:
+        auto cacheStorageDirectory = typeStoragePath(StorageType::CacheStorage);
+        RELEASE_LOG(Storage, "%p - StorageBucket::resolvedCacheStoragePath New path '%" PUBLIC_LOG_STRING "'", this, cacheStorageDirectory.utf8().data());
+        if (cacheStorageDirectory.isEmpty() || m_customCacheStoragePath.isEmpty() || !FileSystem::fileExists(m_customCacheStoragePath))
+            m_resolvedCacheStoragePath = emptyString();
+        else {
+            if (!FileSystem::fileExists(cacheStorageDirectory))
+                FileSystem::moveFile(m_customCacheStoragePath, cacheStorageDirectory);
+            m_resolvedCacheStoragePath = cacheStorageDirectory;
+        }
+    }
+
+    return m_resolvedCacheStoragePath;
 }
 
 String OriginStorageManager::StorageBucket::resolvedPath(WebsiteDataType webisteDataType)
@@ -441,6 +550,8 @@ String OriginStorageManager::StorageBucket::resolvedPath(WebsiteDataType webiste
         return resolvedLocalStoragePath();
     case StorageType::IndexedDB:
         return resolvedIDBStoragePath();
+    case StorageType::CacheStorage:
+        return resolvedCacheStoragePath();
     case StorageType::SessionStorage:
     case StorageType::FileSystem:
         return typeStoragePath(*type);
@@ -448,27 +559,44 @@ String OriginStorageManager::StorageBucket::resolvedPath(WebsiteDataType webiste
     RELEASE_ASSERT_NOT_REACHED();
 }
 
+void OriginStorageManager::StorageBucket::closeCacheStorageManager()
+{
+    m_cacheStorageManager = nullptr;
+}
+
 String OriginStorageManager::originFileIdentifier()
 {
     return originFileName;
 }
 
-static Ref<QuotaManager> createQuotaManager(uint64_t quota, const String& idbStoragePath, const String& cacheStoragePath, QuotaManager::IncreaseQuotaFunction&& increaseQuotaFunction)
+Ref<QuotaManager> OriginStorageManager::createQuotaManager()
 {
-    QuotaManager::GetUsageFunction getUsageFunction = [idbStoragePath, cacheStoragePath]() {
-        return IDBStorageManager::idbStorageSize(idbStoragePath) + CacheStorage::Engine::diskUsage(cacheStoragePath);
+    auto idbStoragePath = resolvedPath(WebsiteDataType::IndexedDBDatabases);
+    auto cacheStoragePath = resolvedPath(WebsiteDataType::DOMCache);
+    auto fileSystemStoragePath = resolvedPath(WebsiteDataType::FileSystem);
+    QuotaManager::GetUsageFunction getUsageFunction = [this, weakThis = WeakPtr { *this }, idbStoragePath, cacheStoragePath, fileSystemStoragePath]() {
+        uint64_t fileSystemStorageSize = valueOrDefault(FileSystem::directorySize(fileSystemStoragePath));
+        if (weakThis) {
+            if (auto* fileSystemStorageManager = existingFileSystemStorageManager()) {
+                CheckedUint64 totalFileSystemStorageSize = fileSystemStorageSize;
+                totalFileSystemStorageSize += fileSystemStorageManager->allocatedUnusedCapacity();
+                if (!totalFileSystemStorageSize.hasOverflowed())
+                    fileSystemStorageSize = totalFileSystemStorageSize;
+            }
+        }
+        return IDBStorageManager::idbStorageSize(idbStoragePath) + CacheStorageManager::cacheStorageSize(cacheStoragePath) + fileSystemStorageSize;
     };
-    return QuotaManager::create(quota, WTFMove(getUsageFunction), WTFMove(increaseQuotaFunction));
+    return QuotaManager::create(m_quota, WTFMove(getUsageFunction), std::exchange(m_increaseQuotaFunction, { }));
 }
 
-OriginStorageManager::OriginStorageManager(uint64_t quota, QuotaManager::IncreaseQuotaFunction&& increaseQuotaFunction, String&& path, String&& customLocalStoragePath, String&& customIDBStoragePath, String&& cacheStoragePath, bool shouldUseCustomPaths)
+OriginStorageManager::OriginStorageManager(uint64_t quota, QuotaManager::IncreaseQuotaFunction&& increaseQuotaFunction, String&& path, String&& customLocalStoragePath, String&& customIDBStoragePath, String&& customCacheStoragePath, UnifiedOriginStorageLevel level)
     : m_path(WTFMove(path))
     , m_customLocalStoragePath(WTFMove(customLocalStoragePath))
     , m_customIDBStoragePath(WTFMove(customIDBStoragePath))
-    , m_cacheStoragePath(WTFMove(cacheStoragePath))
+    , m_customCacheStoragePath(WTFMove(customCacheStoragePath))
     , m_quota(quota)
     , m_increaseQuotaFunction(WTFMove(increaseQuotaFunction))
-    , m_shouldUseCustomPaths(shouldUseCustomPaths)
+    , m_level(level)
 {
     ASSERT(!RunLoop::isMain());
 }
@@ -484,24 +612,35 @@ void OriginStorageManager::connectionClosed(IPC::Connection::UniqueID connection
 OriginStorageManager::StorageBucket& OriginStorageManager::defaultBucket()
 {
     if (!m_defaultBucket)
-        m_defaultBucket = makeUnique<StorageBucket>(m_path, "default"_s, m_customLocalStoragePath, m_customIDBStoragePath, m_shouldUseCustomPaths);
+        m_defaultBucket = makeUnique<StorageBucket>(m_path, "default"_s, m_customLocalStoragePath, m_customIDBStoragePath, m_customCacheStoragePath, m_level);
 
     return *m_defaultBucket;
 }
 
 QuotaManager& OriginStorageManager::quotaManager()
 {
-    if (!m_quotaManager) {
-        auto idbStoragePath = defaultBucket().resolvedIDBStoragePath();
-        m_quotaManager = createQuotaManager(m_quota, idbStoragePath, m_cacheStoragePath, std::exchange(m_increaseQuotaFunction, { }));
-    }
+    if (!m_quotaManager)
+        m_quotaManager = createQuotaManager();
 
     return *m_quotaManager;
 }
 
 FileSystemStorageManager& OriginStorageManager::fileSystemStorageManager(FileSystemStorageHandleRegistry& registry)
 {
-    return defaultBucket().fileSystemStorageManager(registry);
+    return defaultBucket().fileSystemStorageManager(registry, [quotaManager = ThreadSafeWeakPtr { this->quotaManager() }](uint64_t spaceRequested, CompletionHandler<void(bool)>&& completionHandler) mutable {
+        auto strongReference = quotaManager.get();
+        if (!strongReference)
+            return completionHandler(false);
+
+        strongReference->requestSpace(spaceRequested, [completionHandler = WTFMove(completionHandler)](auto decision) mutable {
+            completionHandler(decision == QuotaManager::Decision::Grant);
+        });
+    });
+}
+
+FileSystemStorageManager* OriginStorageManager::existingFileSystemStorageManager()
+{
+    return defaultBucket().existingFileSystemStorageManager();
 }
 
 LocalStorageManager& OriginStorageManager::localStorageManager(StorageAreaRegistry& registry)
@@ -526,11 +665,12 @@ SessionStorageManager* OriginStorageManager::existingSessionStorageManager()
 
 IDBStorageManager& OriginStorageManager::idbStorageManager(IDBStorageRegistry& registry)
 {
-    return defaultBucket().idbStorageManager(registry, [quotaManager = WeakPtr { this->quotaManager() }](uint64_t spaceRequested, CompletionHandler<void(bool)>&& completionHandler) mutable {
-        if (!quotaManager)
+    return defaultBucket().idbStorageManager(registry, [quotaManager = ThreadSafeWeakPtr { this->quotaManager() }](uint64_t spaceRequested, CompletionHandler<void(bool)>&& completionHandler) mutable {
+        auto strongReference = quotaManager.get();
+        if (!strongReference)
             return completionHandler(false);
 
-        quotaManager->requestSpace(spaceRequested, [completionHandler = WTFMove(completionHandler)](auto decision) mutable {
+        strongReference->requestSpace(spaceRequested, [completionHandler = WTFMove(completionHandler)](auto decision) mutable {
             completionHandler(decision == QuotaManager::Decision::Grant);
         });
     });
@@ -539,6 +679,23 @@ IDBStorageManager& OriginStorageManager::idbStorageManager(IDBStorageRegistry& r
 IDBStorageManager* OriginStorageManager::existingIDBStorageManager()
 {
     return defaultBucket().existingIDBStorageManager();
+}
+
+CacheStorageManager* OriginStorageManager::existingCacheStorageManager()
+{
+    return defaultBucket().existingCacheStorageManager();
+}
+
+CacheStorageManager& OriginStorageManager::cacheStorageManager(CacheStorageRegistry& registry, const WebCore::ClientOrigin& origin, Ref<WorkQueue>&& queue)
+{
+    return defaultBucket().cacheStorageManager(registry, origin, [quotaManager = ThreadSafeWeakPtr { this->quotaManager() }](uint64_t spaceRequested, CompletionHandler<void(bool)>&& completionHandler) mutable {
+        if (!quotaManager.get())
+            return completionHandler(false);
+
+        quotaManager.get()->requestSpace(spaceRequested, [completionHandler = WTFMove(completionHandler)](auto decision) mutable {
+            completionHandler(decision == QuotaManager::Decision::Grant);
+        });
+    }, WTFMove(queue));
 }
 
 String OriginStorageManager::resolvedPath(WebsiteDataType type)
@@ -564,11 +721,18 @@ void OriginStorageManager::setPersisted(bool value)
     defaultBucket().setMode(value ? StorageBucketMode::Persistent : StorageBucketMode::BestEffort);
 }
 
-OptionSet<WebsiteDataType> OriginStorageManager::fetchDataTypesInList(OptionSet<WebsiteDataType> types)
+WebCore::StorageEstimate OriginStorageManager::estimate()
 {
     ASSERT(!RunLoop::isMain());
 
-    return defaultBucket().fetchDataTypesInList(types);
+    return WebCore::StorageEstimate { quotaManager().usage(), quotaManager().quota() };
+}
+
+OriginStorageManager::DataTypeSizeMap OriginStorageManager::fetchDataTypesInList(OptionSet<WebsiteDataType> types, bool shouldComputeSize)
+{
+    ASSERT(!RunLoop::isMain());
+
+    return defaultBucket().fetchDataTypesInList(types, shouldComputeSize);
 }
 
 void OriginStorageManager::deleteData(OptionSet<WebsiteDataType> types, WallTime modifiedSince)
@@ -593,6 +757,12 @@ void OriginStorageManager::deleteEmptyDirectory()
         return;
 
     defaultBucket().deleteEmptyDirectory();
+}
+
+void OriginStorageManager::closeCacheStorageManager()
+{
+    if (m_defaultBucket)
+        m_defaultBucket->closeCacheStorageManager();
 }
 
 } // namespace WebKit

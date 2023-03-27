@@ -256,7 +256,7 @@ static char* const spindump_args[] =
 { "/usr/sbin/spindump", "kextd","30", "400", "-sampleWithoutTarget",
    "-file", kSpindumpIOKitDir"/iokitwaitquiet-spindump.txt", 0 };
 
-static void takeSpindump()
+static void takeSpindump(void)
 {
 
     static int debug_arg = -1;
@@ -1030,7 +1030,7 @@ kern_return_t _io_pm_force_active_settings(
  * Sets up the notification of general interest from the RootDomain
  */
 static void
-initializeInterestNotifications()
+initializeInterestNotifications(void)
 {
     IONotificationPortRef       notify_port = 0;
     io_iterator_t               battery_iter = 0;
@@ -1587,7 +1587,7 @@ static void initializeUserNotifications(void)
     SystemLoadUserStateHasChanged();
 }
 
-static void enableSleepWakeWdog()
+static void enableSleepWakeWdog(void)
 {
     io_service_t                rootDomainService = IO_OBJECT_NULL;
     io_connect_t                rotDomainConnect = IO_OBJECT_NULL;

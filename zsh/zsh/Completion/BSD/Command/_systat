@@ -45,6 +45,7 @@ case $OSTYPE in
       '-B[raw, non-interactive mode (two screen updates)]'
       '-b[raw, non-interactive mode (one screen update)]'
       '-d[exit after `count'\'' updates]:count'
+      '-h[human readable output]'
       '-i[interactive mode]'
       '-N[resolve network addresses to names]'
       '-n[do not resolve network addresses to names]'
@@ -74,15 +75,16 @@ case $OSTYPE in
     opts=(
       '-M[alternative source to extract values from]:core:_files'
       '-N[alternative source to extract the name list from]:system:_files'
-      '-n[do not resolve IP addresses]'
-      '-w[refresh interval]:refresh interval'
-      '-t[the amount of refreshes for each screen in '\''all'\'' display mode]:turns'
+      '(-t -w)-b[show the chosen display once and exit]'
+      "-n[don't resolve IP addresses]"
+      '(-b)-w[refresh interval]:refresh interval'
+      "(-b)-t[specify amount of refreshes for each screen in 'all' display mode]:turns"
     )
 esac
 
 if (( $#screens )); then
   _arguments -M 'r:|.=* r:|=*' : $opts \
-    '1:systat(1) displays:(( ${pre}$^screens ))' \
+    '1:systat(1) display:(( ${pre}$^screens ))' \
     '2:refresh interval'
   return
 fi

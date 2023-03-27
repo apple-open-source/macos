@@ -33,6 +33,7 @@
 
 @interface PMSmartPowerNapPredictor(Testing)
 @property BOOL feature_enabled;
+@property BOOL is_aod_enabled;
 @property (readonly) BOOL in_smartpowernap;
 @property (readonly) BOOL session_interrupted;
 @property (readonly) BOOL should_reenter;

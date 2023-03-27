@@ -64,9 +64,7 @@
 # hyper support remains EXPERIMENTAL as long as there's a test number
 # listed below
 %if hyper
-265
 266
-565
 579
 587
 # 1021 re-added here due to flakiness
@@ -76,8 +74,6 @@
 1533
 1540
 1591
-1941
-1942
 1943
 2301
 2302

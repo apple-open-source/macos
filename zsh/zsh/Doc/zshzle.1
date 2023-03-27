@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "February 12, 2022" "zsh 5\&.8\&.1"
+.TH "ZSHZLE" "1" "May 14, 2022" "zsh 5\&.9"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -101,6 +101,7 @@ In the `\fB\&.safe\fP\&' keymap, each single key is bound to \fBself\-insert\fP,
 except for ^J (line feed) and ^M (return) which are bound to \fBaccept\-line\fP\&.
 This is deliberately not pleasant to use; if you are using it, it
 means you deleted the main keymap, and you should put it back\&.
+.PP
 .SS "Reading Commands"
 When ZLE is reading a command from the terminal, it may read a sequence
 that is bound to some command and is also a prefix of a longer bound string\&.
@@ -129,6 +130,7 @@ without a real command being read\&.
 A key sequence typed by the user can be turned into a command name for use
 in user\-defined widgets with the \fBread\-command\fP widget, described in
 the subsection `Miscellaneous\&' of the section `Standard Widgets' below\&.
+.PP
 .SS "Local Keymaps"
 While for normal editing a single keymap is used exclusively, in many
 modes a local keymap allows for some keys to be customised\&. For example,
@@ -490,7 +492,7 @@ refer to a terminal an error is reported\&.
 \fBzle\fP \fB\-T\fP [ \fBtc\fP \fIfunction\fP | \fB\-r\fP \fBtc\fP | \fB\-L\fP ] 
 .TP
 .PD
-\fBzle\fP \fIwidget\fP [ \fB\-n\fP \fInum\fP ] [ \fB\-Nw\fP ] [ \fB\-K\fP \fIkeymap\fP ] \fIargs\fP \&.\&.\&.
+\fBzle\fP \fIwidget\fP [ \fB\-n\fP \fInum\fP ] [ \fB\-f\fP \fIflag\fP ] [ \fB\-Nw\fP ] [ \fB\-K\fP \fIkeymap\fP ] \fIargs\fP \&.\&.\&.
 The \fBzle\fP builtin performs a number of different actions concerning
 ZLE\&.
 .RS
@@ -578,8 +580,7 @@ For further information, see
 \fIzshcompwid\fP(1)\&.
 .TP
 \fB\-R\fP [ \fB\-c\fP ] [ \fIdisplay\-string\fP ] [ \fIstring\fP \&.\&.\&. ]
-Redisplay the command line; this is to be called from within a user\-defined
-widget to allow changes to become visible\&.  If a \fIdisplay\-string\fP is
+Redisplay the command line\&.  If a \fIdisplay\-string\fP is
 given and not empty, this is shown in the status line (immediately
 below the line being edited)\&.
 .RS
@@ -589,9 +590,9 @@ prompt in the same way as completion lists are printed\&. If no
 \fIstring\fPs are given but the \fB\-c\fP option is used such a list is
 cleared\&.
 .PP
-Note that this option is only useful for widgets that do not exit
-immediately after using it because the strings displayed will be erased 
-immediately after return from the widget\&.
+Note that immediately after returning from running widgets, the command line
+will be redisplayed and the strings displayed will be erased\&.  Therefore, this
+option is only useful for widgets that do not exit immediately after using it\&.
 .PP
 This command can safely be called outside user defined widgets; if zle is
 active, the display will be refreshed, while if zle is not active, the
@@ -779,7 +780,7 @@ transformation is not applied to other non\-printing characters such as
 carriage returns and newlines\&.
 .RE
 .TP
-\fIwidget\fP [ \fB\-n\fP \fInum\fP ] [ \fB\-Nw\fP ] [ \fB\-K\fP \fIkeymap\fP ] \fIargs\fP \&.\&.\&.
+\fIwidget\fP [ \fB\-n\fP \fInum\fP ] [ \fB\-f\fP \fIflag\fP ] [ \fB\-Nw\fP ] [ \fB\-K\fP \fIkeymap\fP ] \fIargs\fP \&.\&.\&.
 Invoke the specified \fIwidget\fP\&.  This can only be done when ZLE is
 active; normally this will be within a user\-defined widget\&.
 .RS
@@ -798,6 +799,9 @@ parameter \fBWIDGET\fP and related parameters, so that the environment
 appears as if the top\-level widget called by the user were still
 active\&.  With the option \fB\-w\fP, \fBWIDGET\fP and related parameters are set
 to reflect the widget being executed by the \fBzle\fP call\&.
+.PP
+Normally, when \fIwidget\fP returns the special parameter \fBLASTWIDGET\fP will
+point to it\&.  This can be inhibited by passing the option \fB\-f nolast\fP\&.
 .PP
 Any further arguments will be passed to the widget; note that as
 standard argument handling is performed, any general argument list
@@ -821,13 +825,14 @@ it should call the \fBbeep\fP widget directly\&.
 .RE
 .RE
 .PP
-.SH "WIDGETS"
+.SH "ZLE WIDGETS"
 All actions in the editor are performed by `widgets\&'\&.  A widget's job is
 simply to perform some small action\&.  The ZLE commands that key sequences
 in keymaps are bound to are in fact widgets\&.  Widgets can be user\-defined
 or built in\&.
 .PP
-The standard widgets built into ZLE are listed in Standard Widgets below\&.
+The standard widgets built into ZLE are listed in
+the section `Standard Widgets\&' below\&.
 Other built\-in widgets can be defined by other modules (see
 \fIzshmodules\fP(1))\&.  Each built\-in widget has two names: its normal canonical name, and the
 same name preceded by a `\fB\&.\fP\&'\&.  The `\fB\&.\fP' name is special: it can't be
@@ -839,6 +844,7 @@ as shell functions\&.  When the widget is executed, the corresponding
 shell function is executed, and can perform editing (or other) actions\&.
 It is recommended that user\-defined widgets should not have names
 starting with `\fB\&.\fP\&'\&.
+.PP
 .SH "USER\-DEFINED WIDGETS"
 User\-defined widgets, being implemented as shell functions,
 can execute any normal shell command\&.  They can also run other widgets
@@ -1053,7 +1059,7 @@ and \fBPOSTDISPLAY\fP are possible, but note that the \fBP\fP flag
 is needed for character indexing to include \fBPREDISPLAY\fP\&.
 .RS
 .PP
-Each string consists of the following parts:
+Each string consists of the following whitespace\-separated parts:
 .PP
 .PD 0
 .TP
@@ -1062,27 +1068,42 @@ Each string consists of the following parts:
 Optionally, a `\fBP\fP\&' to signify that the start and end offset that
 follow include any string set by the \fBPREDISPLAY\fP special parameter;
 this is needed if the predisplay string itself is to be highlighted\&.
-Whitespace may follow the `\fBP\fP\&'\&.
+Whitespace between the `\fBP\fP\&' and the start offset is optional\&.
 .TP
 \(bu
-A start offset in the same units as \fBCURSOR\fP, terminated by
-whitespace\&.
+A start offset in the same units as \fBCURSOR\fP\&.
 .TP
 \(bu
-An end offset in the same units as \fBCURSOR\fP, terminated by
-whitespace\&.
+An end offset in the same units as \fBCURSOR\fP\&.
 .TP
 \(bu
 A highlight specification in the same format as
 used for contexts in the parameter \fBzle_highlight\fP, see
 the section `Character Highlighting\&' below;
-for example, \fBstandout\fP or \fBfg=red,bold\fP
+for example, \fBstandout\fP or \fBfg=red,bold\fP\&.
+.TP
+\(bu
+Optionally, a string of the form `\fBmemo=\fP\fItoken\fP\&'\&.
+The \fItoken\fP consists of everything between the `\fB=\fP\&' and the next
+whitespace, comma, NUL, or the end of the string\&.
+The \fItoken\fP is preserved verbatim but not parsed in any way\&.
+.RS
+.PP
+Plugins may use this to identify array elements they have added: for example,
+a plugin might set \fItoken\fP to its (the plugin\&'s) name and then use
+`\fBregion_highlight=( ${region_highlight:#*memo=\fP\fItoken\fP\fB} )\fP\&'
+in order to remove array elements it have added\&.
+.PP
+(This example uses the `\fB${\fP\fIname\fP\fB:#\fP\fIpattern\fP\fB}\fP\&' array\-grepping
+syntax described in
+the section `Parameter Expansion\&' in \fIzshexpn\fP(1)\&.)
+.RE
 .PP
 For example, 
 .PP
 .RS
 .nf
-\fBregion_highlight=("P0 20 bold")\fP
+\fBregion_highlight=("P0 20 bold memo=foobar")\fP
 .fi
 .RE
 .PP
@@ -1091,6 +1112,11 @@ any predisplay string should be highlighted in bold\&.
 .PP
 Note that the effect of \fBregion_highlight\fP is not saved and disappears
 as soon as the line is accepted\&.
+.PP
+Note that zsh 5\&.8 and older do not support the `\fBmemo=\fP\fItoken\fP\&' field
+and may misparse the third (highlight specification) field when a memo
+is given\&.
+
 .PP
 The final highlighting on the command line depends on both \fBregion_highlight\fP
 and \fBzle_highlight\fP; see
@@ -2222,7 +2248,7 @@ a desired suffix\-preservation behavior\&.
 \fBbeep\fP
 Beep, unless the \fBBEEP\fP option is unset\&.
 .TP
-\fBbracketed\-paste\fP
+\fBbracketed\-paste\fP (\fB^[[200~\fP) (\fB^[[200~\fP) (\fB^[[200~\fP)
 This widget is invoked when text is pasted to the terminal emulator\&. It
 is not intended to be bound to actual keys but instead to the special
 sequence generated by the terminal emulator when text is pasted\&.

@@ -36,9 +36,9 @@ $(PNGDIR)/darwin:
 	cp "$(TMPPREFIX)/lib/libpng16.a" "$(TMPPREFIX)/lib/libpng.a"
 
 afterinstallsrc:
-	gnutar xozf $(PNGNAMEVERSORIG).tar.gz
+	tar xozf $(PNGNAMEVERSORIG).tar.gz
 	rm -rf $(PNGNAMEVERSORIG)/contrib
 	mv $(PNGNAMEVERSORIG) $(PNGNAMEVERS)
-	gnutar czf $(PNGNAMEVERS).tar.gz $(PNGNAMEVERS)
+	tar czf $(PNGNAMEVERS).tar.gz $(PNGNAMEVERS)
 	rm -f $(PNGNAMEVERSORIG).tar.gz
 	rm -rf $(PNGNAMEVERS)

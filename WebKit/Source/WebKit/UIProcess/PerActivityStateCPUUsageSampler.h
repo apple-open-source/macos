@@ -44,10 +44,10 @@ public:
 
 private:
     void loggingTimerFired();
-    WebPageProxy* pageForLogging() const;
+    RefPtr<WebPageProxy> pageForLogging() const;
 
     WebProcessPool& m_processPool;
-    RunLoop::Timer<PerActivityStateCPUUsageSampler> m_loggingTimer;
+    RunLoop::Timer m_loggingTimer;
     typedef HashMap<WebCore::ActivityStateForCPUSampling, Seconds, WTF::IntHash<WebCore::ActivityStateForCPUSampling>, WTF::StrongEnumHashTraits<WebCore::ActivityStateForCPUSampling>> CPUTimeInActivityStateMap;
     CPUTimeInActivityStateMap m_cpuTimeInActivityState;
     MonotonicTime m_lastCPUTime;

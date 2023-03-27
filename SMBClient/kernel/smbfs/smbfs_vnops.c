@@ -113,6 +113,37 @@ int smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname
                       struct vnode_attr *vap,  uint32_t open_disp, int fmode,
                       SMBFID *fidp, struct smbfattr *fattrp, vnode_t *vpp,
                       vfs_context_t context);
+//void smbfs_check_for_ubc_invalidate(vnode_t vp, const char *reason);
+
+
+#if 0
+void
+smbfs_check_for_ubc_invalidate(vnode_t vp, const char *reason)
+{
+    struct smbnode *np = NULL;
+
+    if (vp == NULL) {
+        /* paranoid check */
+        SMBERROR("vp is null? \n");
+        return;
+    }
+    
+    np = VTOSMB(vp);
+    if (np == NULL) {
+        SMBERROR("np is null? \n");
+        return;
+    }
+    
+    if (np->n_flag & NNEEDS_UBC_INVALIDATE) {
+        //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+        
+        SMB_LOG_LEASING_LOCK(np, "Delayed purge of UBC cache on <%s> during <%s> \n",
+                             np->n_name, reason);
+        ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
+    }
+}
+#endif
+
 
 
 int
@@ -539,6 +570,46 @@ smbfs_close_fid(struct smb_share *share, vnode_t vp, int openMode, int close_bot
 }
 
 /*
+ * If np has an unfinished lease break notification
+ * sleep until the lease break is processed
+ */
+static void
+smbfs_lease_break_wait( struct smbnode *np, struct smb_share *share) {
+    struct timespec sleeptime = {0};
+    int sleep_attempts = 0;
+
+    if (!(SS_TO_SESSION(share)->session_flags & SMBV_SMB2) ||
+        !(SS_TO_SESSION(share)->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LEASING) ||
+        !smbfs_is_dir(np)) {
+        /* if file leasing off, or if this is a dir */
+        return;
+    }
+
+    sleep_attempts = 0;
+    smbnode_lease_lock(&np->n_lease, smbfs_lease_break_wait);
+    SMB_LOG_LEASING_LOCK(np, "Waiting for pending lease break to finish on <%s> \n",
+                         np->n_name);
+
+    while (np->n_lease.pending_break) {
+        sleeptime.tv_sec = 1;
+        sleeptime.tv_nsec = 0;
+
+        msleep(&np->n_lease.pending_break, &np->n_lease.lock, 0,
+               "Waiting on lease break", &sleeptime);
+
+        /* Set a max amount of time to wait for the lease break */
+        sleep_attempts += 1;
+        if (sleep_attempts >= SMB2_LEASE_PROCESS_TIME) {
+            SMBERROR_LOCK(np, "Timed out waiting for lease break for <%s> after <%d> secs \n",
+                          np->n_name, sleep_attempts);
+            break;
+        }
+    }
+    smbnode_lease_unlock(&np->n_lease);
+    SMB_LOG_LEASING_LOCK(np, "Finished waiting for pending lease break on %s", np->n_name);
+}
+
+/*
  * smbfs_close - The internal open routine, the vnode should be locked
  * before this is called. We only handle VREG in this routine.
  *
@@ -942,6 +1013,7 @@ smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
                 smbnode_dur_handle_unlock(&temp_dur_hndl);
 
                 /* We are downgrading the open, flush out any data */
+                //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
                 ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
                 
                 /*
@@ -1109,6 +1181,9 @@ smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
          * becomes inactive.
          */
         if (np->n_flag & NDELETEONCLOSE) {
+            // Wait for lease break if there is one
+            smbfs_lease_break_wait(np, share);
+            
             if (smbfs_smb_delete(share, np, VREG,
                                  NULL, 0,
                                  0, context) == 0) {
@@ -1844,8 +1919,6 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
     int lease_need_free = 0;
     int dur_need_free = 0;
     struct smb2_dur_hndl_and_lease dur_hndl_lease = {0};
-    struct timespec sleeptime;
-    int sleep_attempts = 0;
 
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_OPEN | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
@@ -1878,29 +1951,7 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
                           mode, accessMode, np->n_name);
 
     /* Make sure we're not in the middle of a lease break on this file */
-    if (vnode_vtype(vp) != VDIR) {
-        sleep_attempts = 0;
-        smbnode_lease_lock(&np->n_lease, smbfs_open);
-        while (np->n_lease.pending_break) {
-            sleeptime.tv_sec = 1;
-            sleeptime.tv_nsec = 0;
-
-            SMB_LOG_LEASING_LOCK(np, "Blocking open for pending lease break/close on <%s> \n",
-                                 np->n_name);
-
-            msleep(&np->n_lease.pending_break, &np->n_lease.lock, 0,
-                   "open wait lease break", &sleeptime);
-
-            /* Set a max amount of time to wait for the lease break */
-            sleep_attempts += 1;
-            if (sleep_attempts > 29) {
-                SMBERROR_LOCK(np, "Timed out waiting for lease break for <%s> after <%d> secs \n",
-                              np->n_name, sleep_attempts);
-                break;
-            }
-        }
-        smbnode_lease_unlock(&np->n_lease);
-    }
+    smbfs_lease_break_wait(np, share);
 
     /*
 	 * If opening with write only, try opening it with read/write. Unix
@@ -2597,6 +2648,7 @@ smbfs_vnop_open_common(vnode_t vp, int mode, vfs_context_t context, void *n_last
                                                   np->n_name);
                         }
 
+                        //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
                         ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
                     }
                 }
@@ -3543,6 +3595,7 @@ smbfs_vnop_mnomap(struct vnop_mnomap_args *ap)
      * vnop_inactive was called
      */
     if (!vnode_vfsisrdonly(vp) && smbfsIsCacheable(vp)) {
+        //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
         ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
     }
 
@@ -3707,6 +3760,9 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 		 * just in case.
 		 */
 		if (np->n_flag & NDELETEONCLOSE) {
+            // Wait for lease break if there is one
+            smbfs_lease_break_wait(np, share);
+
 			error = smbfs_smb_delete(share, np, VREG,
 									 NULL, 0,
 									 0, ap->a_context);
@@ -5078,7 +5134,7 @@ smbfs_set_data_size(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
     struct smbnode *np = VTOSMB(vp);
     uint32_t rights;
     SMBFID fid = 0;
-    int error = 0;
+    int error = 0, use_compound = 0;;
     uint64_t curr_size = np->n_size, new_size = vap->va_data_size;
     uint32_t trycnt = 0;
     uint32_t setinfo_ntstatus = 0;
@@ -5091,16 +5147,37 @@ smbfs_set_data_size(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
     /*
      * Can we do a compound call? Has to be
      * 1. SMB2
-     * 2. Unix server so that zero extend and flush can be skipped
-     * 3. No current open file refs (smbfs_tmpopen will try to reuse an
+     * 2. No current open file refs (smbfs_tmpopen will try to reuse an
      *    existing open file ref if it can)
+     * 3. Unix server so that zero extend and flush can be skipped OR
+     *    ((new_size < curr_size) && !SMB_FS_FAT) so that again zero extend
+     *    flush can be skipped
+     *
+     * Note: The compound request will include the lease to avoid
+     * having the server send out a lease break to this same client
      */
     if ((SS_TO_SESSION(share)->session_flags & SMBV_SMB2) &&
-        UNIX_SERVER(SS_TO_SESSION(share)) &&
         (np->f_sharedFID_refcnt == 0) &&
         (np->f_lockFID_refcnt == 0)) {
+        if (UNIX_SERVER(SS_TO_SESSION(share))) {
+            /* no zero extend or flush needed for Unix based servers */
+            use_compound = 1;
+        }
+        else {
+            if ((new_size <= curr_size) &&
+                (share->ss_fstype != SMB_FS_FAT)) {
+                /*
+                 * Not extending the file so no zero extend needed and
+                 * not a FAT filesystem so no flush needed.
+                 */
+                use_compound = 1;
+            }
+        }
+    }
+        
+    if (use_compound == 1) {
         /*
-         * Do the Compound Create/SetInfo/Close call
+         * Do the Compound Create/SetInfo/Close call with lease
          */
         error = smb2fs_smb_cmpd_set_info(share, np, VREG,
                                          NULL, 0,
@@ -6121,7 +6198,7 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
 			size_t bytes_to_zero = (uio_resid(uio) > PAGE_SIZE) ? PAGE_SIZE : (size_t)uio_resid(uio);
 			
 			bzero((caddr_t) (io_addr + buf_count(bp) - uio_resid(uio)), bytes_to_zero); 
-			uio_update(uio, bytes_to_zero);
+			smbfs_uio_update(uio, bytes_to_zero);
 		}
     } else {
 		lck_mtx_lock(&np->f_clusterWriteLock);
@@ -6234,7 +6311,10 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	np->n_lastvop = smbfs_vnop_read;
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
     
-	/*
+    /* Is there a pending UBC invalidate? */
+    //smbfs_check_for_ubc_invalidate(vp, "smbfs_vnop_read");
+    
+    /*
 	 * History: FreeBSD vs Darwin VFS difference; we can get VNOP_READ without
  	 * preceeding open via the exec path, so do it implicitly.  VNOP_INACTIVE  
 	 * closes the extra network file handle, and decrements the open count.
@@ -6306,6 +6386,8 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 				/* Less expensive, but does not handle mmapped files */
 				cluster_push(vp, IO_SYNC);
 			}
+            
+            //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
 			ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
 			vnode_setnocache(vp);
 			/* Fall through and try a non cached read */
@@ -6342,7 +6424,8 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	 * AFP doesn't invalidate the range here. That seems wrong, we should
 	 * invalidate the range here. 
 	 */
-	ubc_msync (vp, uio_offset(uio), uio_offset(uio)+ uio_resid(uio), NULL, 
+    //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+	ubc_msync (vp, uio_offset(uio), uio_offset(uio)+ uio_resid(uio), NULL,
 			   UBC_INVALIDATE);
 	
 	DBG_ASSERT(fid);
@@ -6444,7 +6527,10 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	np->n_lastvop = smbfs_vnop_write;
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
 	
-	/* Before trying the write see if the file needs to be reopened or revoked */
+    /* Is there a pending UBC invalidate? */
+    //smbfs_check_for_ubc_invalidate(vp, "smbfs_vnop_write");
+
+    /* Before trying the write see if the file needs to be reopened or revoked */
 	error = smbfs_smb_reopen_file(share, np, ap->a_context);
 	if (error) {
 		SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
@@ -6573,6 +6659,8 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 				/* Less expensive, but does not handle mmapped files */
 				cluster_push(vp, IO_SYNC);	
 			}
+            
+            //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
 			ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
 			vnode_setnocache(vp);
 			/* Fall through and try a non cached write */
@@ -6592,7 +6680,8 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	 */
 	ubc_msync(vp, uio_offset(uio), uio_offset(uio)+ uio_resid(uio), NULL, 
 			   UBC_PUSHDIRTY | UBC_SYNC);
-	ubc_msync(vp, uio_offset(uio), uio_offset(uio)+ uio_resid(uio), NULL, 
+    //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+	ubc_msync(vp, uio_offset(uio), uio_offset(uio)+ uio_resid(uio), NULL,
 			   UBC_INVALIDATE);
 	
 	/* Total amount that we need to write */
@@ -6637,7 +6726,7 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 		/* Total amount we were able to write */ 
 		writeCount -= uio_resid(uio);
 		/* Update the user's uio with that amount */
-		uio_update( ap->a_uio, writeCount);
+		smbfs_uio_update(ap->a_uio, writeCount);
 		uio_free(uio);
 		uio = ap->a_uio;
 	}
@@ -7221,7 +7310,10 @@ smbfs_remove(struct smb_share *share, vnode_t dvp, vnode_t vp,
         /* Remove the resource fork vnode too */
         smb_vhashrem(VTOSMB(svpp));
     }
-    
+
+    // Wait for lease break if there is one
+    smbfs_lease_break_wait(np, share);
+
     error = smbfs_smb_delete(share, np, VREG,
                              NULL, 0,
                              0, context);
@@ -8853,6 +8945,8 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
                     /* Less expensive, but does not handle mmapped files */
                     cluster_push(vp, IO_SYNC);
                 }
+                
+                //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
                 ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
                 vnode_setnocache(vp);
             }
@@ -10514,7 +10608,10 @@ smbfs_vnop_pagein(struct vnop_pagein_args *ap)
 
 	np = VTOSMB(vp);
 
-	if ((size <= 0) || (f_offset < 0) || (f_offset >= (off_t)np->n_size) || 
+    /* Is there a pending UBC invalidate from a previous reconnect */
+    //smbfs_check_for_ubc_invalidate(vp, "smbfs_vnop_pagein");
+
+    if ((size <= 0) || (f_offset < 0) || (f_offset >= (off_t)np->n_size) ||
 		(f_offset & PAGE_MASK_64) || (size & PAGE_MASK)) {
 		error = err_pagein(ap);	/* behave like the deadfs does */
         goto done;
@@ -10593,7 +10690,10 @@ smbfs_vnop_pageout(struct vnop_pageout_args *ap)
 
 	np = VTOSMB(vp);
 	
-	if (pl == (upl_t)NULL)
+    /* Is there a pending UBC invalidate from a previous reconnect */
+    //smbfs_check_for_ubc_invalidate(vp, "smbfs_vnop_pageout");
+
+    if (pl == (upl_t)NULL)
 		panic("smbfs_vnop_pageout: no upl");
 	
 	if ((size <= 0) || (f_offset < 0) || (f_offset >= (off_t)np->n_size) ||

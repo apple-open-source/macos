@@ -52,9 +52,9 @@
 #include "JSOESTextureHalfFloatLinear.h"
 #include "JSOESVertexArrayObject.h"
 #include "JSWebGLBuffer.h"
+#include "JSWebGLClipCullDistance.h"
 #include "JSWebGLColorBufferFloat.h"
 #include "JSWebGLCompressedTextureASTC.h"
-#include "JSWebGLCompressedTextureATC.h"
 #include "JSWebGLCompressedTextureETC.h"
 #include "JSWebGLCompressedTextureETC1.h"
 #include "JSWebGLCompressedTexturePVRTC.h"
@@ -70,6 +70,7 @@
 #include "JSWebGLMultiDraw.h"
 #include "JSWebGLMultiDrawInstancedBaseVertexBaseInstance.h"
 #include "JSWebGLProgram.h"
+#include "JSWebGLProvokingVertex.h"
 #include "JSWebGLRenderbuffer.h"
 #include "JSWebGLSampler.h"
 #include "JSWebGLTexture.h"
@@ -191,9 +192,9 @@ JSValue convertToJSValue(JSGlobalObject& lexicalGlobalObject, JSDOMGlobalObject&
         TO_JS(OESTextureHalfFloat)
         TO_JS(OESTextureHalfFloatLinear)
         TO_JS(OESVertexArrayObject)
+        TO_JS(WebGLClipCullDistance)
         TO_JS(WebGLColorBufferFloat)
         TO_JS(WebGLCompressedTextureASTC)
-        TO_JS(WebGLCompressedTextureATC)
         TO_JS(WebGLCompressedTextureETC)
         TO_JS(WebGLCompressedTextureETC1)
         TO_JS(WebGLCompressedTexturePVRTC)
@@ -207,6 +208,7 @@ JSValue convertToJSValue(JSGlobalObject& lexicalGlobalObject, JSDOMGlobalObject&
         TO_JS(WebGLLoseContext)
         TO_JS(WebGLMultiDraw)
         TO_JS(WebGLMultiDrawInstancedBaseVertexBaseInstance)
+        TO_JS(WebGLProvokingVertex)
     }
     ASSERT_NOT_REACHED();
     return jsNull();

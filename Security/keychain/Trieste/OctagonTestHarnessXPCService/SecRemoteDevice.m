@@ -378,7 +378,13 @@
 
     OTControlArguments* arguments = [[OTControlArguments alloc] initWithAltDSID:altDSID];
 
-    [ot resetAndEstablish:arguments resetReason:CuttlefishResetReasonTestGenerated reply:^(NSError * _Nullable error) {
+    [ot resetAndEstablish:arguments
+              resetReason:CuttlefishResetReasonTestGenerated
+        idmsTargetContext:nil
+   idmsCuttlefishPassword:nil
+               notifyIdMS:false
+          accountSettings:nil
+                    reply:^(NSError * _Nullable error) {
         complete(error == NULL, error);
     }];
 #else

@@ -177,7 +177,6 @@ enum AutoplayPolicy {
     boolean isMediaDocumentAndNotOwnerElement;
     boolean pageExplicitlyAllowsElementToAutoplayInline;
     boolean requiresFullscreenForVideoPlaybackAndFullscreenNotPermitted;
-    boolean hasHadUserInteractionAndQuirksContainsShouldAutoplayForArbitraryUserGesture;
     boolean isVideoAndRequiresUserGestureForVideoRateChange;
     boolean isAudioAndRequiresUserGestureForAudioRateChange;
     boolean isVideoAndRequiresUserGestureForVideoDueToLowPowerMode;
@@ -287,6 +286,7 @@ enum HEVCParameterCodec {
     boolean useBoundingRectAndPaintAllContentForComplexRanges = false;
     boolean computeEstimatedBackgroundColor = false;
     boolean respectTextColor = false;
+    boolean useUserSelectAllCommonAncestor = false;
 };
 
 [
@@ -340,6 +340,16 @@ enum HEVCParameterCodec {
     required DOMPointReadOnly topRight;
     required DOMPointReadOnly bottomRight;
     required DOMPointReadOnly bottomLeft;
+};
+
+[
+    ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
+    JSGenerateToJSObject,
+] dictionary SelectorFilterHashCounts {
+    unsigned long ids;
+    unsigned long classes;
+    unsigned long tags;
+    unsigned long attributes;
 };
 
 typedef (FetchRequest or FetchResponse) FetchObject;
@@ -438,7 +448,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined setMarkedTextMatchesAreHighlighted(boolean flag);
 
     undefined invalidateFontCache();
-    undefined setFontSmoothingEnabled(boolean enabled);
 
     undefined setScrollViewPosition(long x, long y);
 
@@ -457,7 +466,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined setViewBaseBackgroundColor(DOMString colorValue);
 
     undefined setPagination(DOMString mode, long gap, optional long pageLength = 0);
-    undefined setPaginationLineGridEnabled(boolean enabled);
     unsigned long long lineIndexAfterPageBreak(Element element);
 
     DOMString configurationForViewport(unrestricted float devicePixelRatio, long deviceWidth, long deviceHeight, long availableWidth, long availableHeight);
@@ -553,6 +561,9 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined setImageFrameDecodingDuration(HTMLImageElement element, unrestricted float duration);
     undefined resetImageAnimation(HTMLImageElement element);
     boolean isImageAnimating(HTMLImageElement element);
+    [Conditional=ACCESSIBILITY_ANIMATION_CONTROL] undefined setImageAnimationEnabled(boolean enabled);
+    [Conditional=ACCESSIBILITY_ANIMATION_CONTROL] undefined resumeImageAnimation(HTMLImageElement element);
+    [Conditional=ACCESSIBILITY_ANIMATION_CONTROL] undefined pauseImageAnimation(HTMLImageElement element);
     unsigned long imagePendingDecodePromisesCountForTesting(HTMLImageElement element);
     undefined setClearDecoderAfterAsyncFrameRequestForTesting(HTMLImageElement element, boolean enabled);
     unsigned long imageDecodeCount(HTMLImageElement element);
@@ -568,6 +579,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     readonly attribute boolean areSVGAnimationsPaused;
     double svgAnimationsInterval(SVGSVGElement element);
+    sequence<SVGSVGElement> allSVGSVGElements();
 
     boolean testProcessIncomingSyncMessagesWhenWaitingForSyncReply();
 
@@ -601,6 +613,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     DOMString scrollingStateTreeAsText();
     DOMString scrollingTreeAsText();
+    boolean haveScrollingTree();
     DOMString synchronousScrollingReasons();
     DOMRectList nonFastScrollableRects();
 
@@ -783,6 +796,8 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined enableMockMediaCapabilities();
 
     [Conditional=SPEECH_SYNTHESIS] undefined enableMockSpeechSynthesizer();
+    [Conditional=SPEECH_SYNTHESIS] undefined enableMockSpeechSynthesizerForMediaElement(HTMLMediaElement element);
+    [Conditional=SPEECH_SYNTHESIS] undefined setSpeechUtteranceDuration(double duration);
 
     DOMString getImageSourceURL(Element element);
 
@@ -804,6 +819,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     boolean isPluginSnapshotted(Element element);
 
     DOMRect selectionBounds();
+    StaticRange? selectedRange();
     undefined setSelectionWithoutValidation(Node baseNode, unsigned long baseOffset, Node? extentNode, unsigned long extentOffset);
 
     [Conditional=MEDIA_SOURCE] undefined initializeMockMediaSource();
@@ -886,7 +902,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     [CallWith=CurrentGlobalObject] boolean isReadableStreamDisturbed(any stream);
 
     DOMString resourceLoadStatisticsForURL(DOMURL url);
-    undefined setResourceLoadStatisticsEnabled(boolean enable);
+    undefined setTrackingPreventionEnabled(boolean enable);
 
     undefined setCanShowModalDialogOverride(boolean allow);
 
@@ -1047,6 +1063,9 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     [Conditional=VIDEO] readonly attribute unsigned long mediaElementCount;
     [Conditional=VIDEO] undefined setMediaElementVolumeLocked(HTMLMediaElement element, boolean volumeLocked);
 
+    [Conditional=SPEECH_SYNTHESIS] SpeechSynthesisUtterance speechSynthesisUtteranceForCue(VTTCue cue);
+    [Conditional=SPEECH_SYNTHESIS] VTTCue mediaElementCurrentlySpokenCue(HTMLMediaElement media);
+
     DOMString ongoingLoadsDescriptions();
     undefined setCaptureExtraNetworkLoadMetricsEnabled(boolean value);
 
@@ -1107,6 +1126,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined setSystemHasACForTesting(boolean hasAC);
 
     undefined setHardwareVP9DecoderDisabledForTesting(boolean disabled);
+    undefined setVP9DecoderDisabledForTesting(boolean disabled);
     undefined setVP9ScreenSizeAndScaleForTesting(double width, double height, double scale);
 
     long readPreferenceInteger(DOMString domain, DOMString key);
@@ -1165,4 +1185,14 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     [Conditional=ARKIT_INLINE_PREVIEW_MAC] Promise<sequence<DOMString>> modelInlinePreviewUUIDs();
     [Conditional=ARKIT_INLINE_PREVIEW_MAC] DOMString modelInlinePreviewUUIDForModelElement(HTMLModelElement modelElement);
     undefined avoidIOSurfaceSizeCheckInWebProcess(HTMLCanvasElement element);
+
+    boolean hasSleepDisabler();
+
+    undefined acceptTypedArrays(Int32Array target);
+
+    boolean consumeTransientActivation();
+
+    SelectorFilterHashCounts selectorFilterHashCounts(DOMString selector);
+
+    readonly attribute boolean isVisuallyNonEmpty;
 };

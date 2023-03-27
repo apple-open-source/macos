@@ -906,6 +906,8 @@ getbyte(long do_keytmout, int *timeout, int full)
 		    continue;
 		stopmsg = 1;
 		zexit(1, ZEXIT_NORMAL);
+		/* If called from an exit hook, zexit() returns, so: */
+		break;
 	    }
 	    icnt = 0;
 	    if (errno == EINTR) {
@@ -929,6 +931,8 @@ getbyte(long do_keytmout, int *timeout, int full)
 		zerr("error on TTY read: %e", errno);
 		stopmsg = 1;
 		zexit(1, ZEXIT_NORMAL);
+		/* If called from an exit hook, zexit() returns, so: */
+		break;
 	    }
 	}
 	if (cc == '\r')		/* undo the exchange of \n and \r determined by */
@@ -1056,7 +1060,7 @@ getrestchar(int inchar, char *outstr, int *outcount)
 #endif
 
 /**/
-void
+mod_export void
 redrawhook(void)
 {
     Thingy initthingy;
@@ -1065,6 +1069,7 @@ redrawhook(void)
 	int saverrflag = errflag, savretflag = retflag;
 	int lastcmd_prev = lastcmd;
 	int old_incompfunc = incompfunc;
+	int old_viinrepeat = viinrepeat;
 	char *args[2];
 	Thingy lbindk_save = lbindk, bindk_save = bindk;
 
@@ -1079,6 +1084,7 @@ redrawhook(void)
 	incompfunc = 0;
 	execzlefunc(initthingy, args, 1, 0);
 	incompfunc = old_incompfunc;
+	viinrepeat = old_viinrepeat;
 
 	/* Restore errflag and retflag as zlecallhook() does */
 	errflag = saverrflag | (errflag & ERRFLAG_INT);

@@ -48,13 +48,13 @@ list(APPEND WebCore_SOURCES
     platform/graphics/win/FontPlatformDataWin.cpp
     platform/graphics/win/FontWin.cpp
     platform/graphics/win/FullScreenController.cpp
+    platform/graphics/win/FullScreenWindow.cpp
     platform/graphics/win/GraphicsContextWin.cpp
     platform/graphics/win/IconWin.cpp
     platform/graphics/win/ImageWin.cpp
     platform/graphics/win/IntPointWin.cpp
     platform/graphics/win/IntRectWin.cpp
     platform/graphics/win/IntSizeWin.cpp
-    platform/graphics/win/MediaPlayerPrivateFullscreenWindow.cpp
     platform/graphics/win/SimpleFontDataWin.cpp
     platform/graphics/win/SystemFontDatabaseWin.cpp
     platform/graphics/win/TransformationMatrixWin.cpp
@@ -80,8 +80,6 @@ list(APPEND WebCore_SOURCES
     platform/win/PlatformMouseEventWin.cpp
     platform/win/PlatformScreenWin.cpp
     platform/win/PopupMenuWin.cpp
-    platform/win/SSLKeyGeneratorWin.cpp
-    platform/win/ScrollbarThemeWin.cpp
     platform/win/SearchPopupMenuDB.cpp
     platform/win/SearchPopupMenuWin.cpp
     platform/win/SystemInfo.cpp
@@ -94,8 +92,6 @@ list(APPEND WebCore_SOURCES
     platform/win/WidgetWin.cpp
     platform/win/WindowMessageBroadcaster.cpp
     platform/win/WindowsKeyNames.cpp
-
-    rendering/RenderThemeWin.cpp
 )
 
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
@@ -109,9 +105,9 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/win/FontCustomPlatformData.h
     platform/graphics/win/FullScreenController.h
     platform/graphics/win/FullScreenControllerClient.h
+    platform/graphics/win/FullScreenWindow.h
     platform/graphics/win/GraphicsContextWin.h
     platform/graphics/win/LocalWindowsContext.h
-    platform/graphics/win/MediaPlayerPrivateFullscreenWindow.h
     platform/graphics/win/SharedGDIObject.h
 
     platform/win/BString.h
@@ -122,7 +118,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/win/GDIUtilities.h
     platform/win/HWndDC.h
     platform/win/PopupMenuWin.h
-    platform/win/ScrollbarThemeWin.h
     platform/win/SearchPopupMenuDB.h
     platform/win/SearchPopupMenuWin.h
     platform/win/SystemInfo.h
@@ -136,10 +131,60 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/win/WindowsTouch.h
 )
 
-list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
-    ${WEBCORE_DIR}/css/themeWin.css
-    ${WEBCORE_DIR}/css/themeWinQuirks.css
-)
+if (WTF_PLATFORM_WIN_CAIRO)
+    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+        ${WEBCORE_DIR}/platform/adwaita
+    )
+    list(APPEND WebCore_SOURCES
+        platform/adwaita/ScrollbarThemeAdwaita.cpp
+        platform/adwaita/ThemeAdwaita.cpp
+
+        rendering/RenderThemeAdwaita.cpp
+    )
+    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+        platform/adwaita/ScrollbarThemeAdwaita.h
+        platform/adwaita/ThemeAdwaita.h
+    )
+    list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
+        ${WEBCORE_DIR}/css/themeAdwaita.css
+        ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.css
+    )
+    set(WebCore_USER_AGENT_SCRIPTS
+        ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.js
+    )
+    set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/rendering/RenderThemeAdwaita.cpp)
+
+    file(GLOB icon_files ${WEBCORE_DIR}/Modules/modern-media-controls/images/adwaita/*)
+    file(COPY ${icon_files}
+        DESTINATION
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/media-controls
+    )
+else ()
+    list(APPEND WebCore_SOURCES
+        platform/win/ScrollbarThemeWin.cpp
+
+        rendering/RenderThemeWin.cpp
+    )
+    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+        platform/win/ScrollbarThemeWin.h
+    )
+    list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
+        ${WEBCORE_DIR}/css/mediaControls.css
+        ${WEBCORE_DIR}/css/themeWin.css
+        ${WEBCORE_DIR}/css/themeWinQuirks.css
+    )
+    file(COPY
+        ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsApple.css
+        ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsApple.js
+        DESTINATION
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources
+    )
+    file(COPY
+        ${WEBCORE_DIR}/en.lproj/mediaControlsLocalizedStrings.js
+        DESTINATION
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/en.lproj
+    )
+endif ()
 
 if (USE_CF)
     list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
@@ -160,8 +205,8 @@ if (USE_CF)
         loader/archive/cf/LegacyWebArchive.h
     )
 
-    list(APPEND WebCore_LIBRARIES ${COREFOUNDATION_LIBRARY})
-    list(APPEND WebCoreTestSupport_LIBRARIES ${COREFOUNDATION_LIBRARY})
+    list(APPEND WebCore_LIBRARIES Apple::CoreFoundation)
+    list(APPEND WebCoreTestSupport_LIBRARIES Apple::CoreFoundation)
 else ()
     list(APPEND WebCore_SOURCES
         platform/text/Hyphenation.cpp
@@ -198,18 +243,10 @@ else ()
     include(PlatformAppleWin.cmake)
 endif ()
 
-make_directory(${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/en.lproj)
 file(COPY
     "${WEBCORE_DIR}/en.lproj/Localizable.strings"
-    "${WEBCORE_DIR}/en.lproj/mediaControlsLocalizedStrings.js"
     DESTINATION
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/en.lproj
-)
-file(COPY
-    "${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsApple.css"
-    "${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsApple.js"
-    DESTINATION
-    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources
 )
 
 set(WebCore_OUTPUT_NAME WebCore${DEBUG_SUFFIX})

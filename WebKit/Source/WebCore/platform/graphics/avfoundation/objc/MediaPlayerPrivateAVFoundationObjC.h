@@ -239,7 +239,7 @@ private:
     void updateVideoLayerGravity(ShouldAnimate);
 
     bool didPassCORSAccessCheck() const final;
-    std::optional<bool> wouldTaintOrigin(const SecurityOrigin&) const final;
+    std::optional<bool> isCrossOrigin(const SecurityOrigin&) const final;
 
     MediaTime getStartDate() const final;
 
@@ -356,7 +356,10 @@ private:
 
     void checkNewVideoFrameMetadata();
 
+    void setShouldDisableHDR(bool) final;
+
     std::optional<bool> allTracksArePlayable() const;
+    bool containsDisabledTracks() const;
     bool trackIsPlayable(AVAssetTrack*) const;
 
     RetainPtr<AVURLAsset> m_avAsset;

@@ -27,7 +27,6 @@
 
 #include "Attachment.h"
 #include "MessageNames.h"
-#include "StringReference.h"
 #include <WebCore/SharedBuffer.h>
 #include <wtf/Forward.h>
 #include <wtf/OptionSet.h>
@@ -60,17 +59,22 @@ public:
     void setShouldDispatchMessageWhenWaitingForSyncReply(ShouldDispatchWhenWaitingForSyncReply);
     ShouldDispatchWhenWaitingForSyncReply shouldDispatchMessageWhenWaitingForSyncReply() const;
 
+    bool isFullySynchronousModeForTesting() const;
     void setFullySynchronousModeForTesting();
     void setShouldMaintainOrderingWithAsyncMessages();
+    bool isAllowedWhenWaitingForSyncReply() const { return messageAllowedWhenWaitingForSyncReply(messageName()) || isFullySynchronousModeForTesting(); }
+    bool isAllowedWhenWaitingForUnboundedSyncReply() const { return messageAllowedWhenWaitingForUnboundedSyncReply(messageName()); }
 
     void wrapForTesting(UniqueRef<Encoder>&&);
 
     void encodeFixedLengthData(const uint8_t* data, size_t, size_t alignment);
+    template<typename T, size_t Extent>
+    void encodeSpan(const Span<T, Extent>&);
 
     template<typename T>
     Encoder& operator<<(T&& t)
     {
-        ArgumentCoder<std::remove_const_t<std::remove_reference_t<T>>, void>::encode(*this, std::forward<T>(t));
+        ArgumentCoder<std::remove_cvref_t<T>, void>::encode(*this, std::forward<T>(t));
         return *this;
     }
 
@@ -105,5 +109,11 @@ private:
 
     Vector<Attachment> m_attachments;
 };
+
+template<typename T, size_t Extent>
+inline void Encoder::encodeSpan(const Span<T, Extent>& data)
+{
+    encodeFixedLengthData(reinterpret_cast<const uint8_t*>(data.data()), data.size_bytes(), alignof(T));
+}
 
 } // namespace IPC

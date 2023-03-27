@@ -45,13 +45,7 @@
 
 namespace WebKit {
 
-#define ASSERT_IS_TESTING_IPC() ASSERT(WebKit::isTestingIPC(), "Untrusted connection sent invalid data. Should only happen when testing IPC.")
-
 #if ENABLE(IPC_TESTING_API)
-
-// Function to check when asserting IPC-related failures, so that IPC testing skips the assertions
-// and exposes bugs underneath.
-bool isTestingIPC();
 
 class IPCConnectionTester;
 class IPCStreamTester;
@@ -68,14 +62,15 @@ public:
 private:
     // Messages.
     void startMessageTesting(IPC::Connection&, String&& driverName);
-    void stopMessageTesting(CompletionHandler<void()>);
-    void createStreamTester(IPC::Connection&, IPCStreamTesterIdentifier, IPC::StreamConnectionBuffer&&);
+    void stopMessageTesting(CompletionHandler<void()>&&);
+    void createStreamTester(IPCStreamTesterIdentifier, IPC::StreamServerConnection::Handle&&);
     void releaseStreamTester(IPCStreamTesterIdentifier, CompletionHandler<void()>&&);
-    void createConnectionTester(IPC::Connection&, IPCConnectionTesterIdentifier, IPC::Attachment&&);
-    void createConnectionTesterAndSendAsyncMessages(IPC::Connection&, IPCConnectionTesterIdentifier, IPC::Attachment&&, uint32_t messageCount);
+    void createConnectionTester(IPC::Connection&, IPCConnectionTesterIdentifier, IPC::Connection::Handle&&);
+    void createConnectionTesterAndSendAsyncMessages(IPC::Connection&, IPCConnectionTesterIdentifier, IPC::Connection::Handle&&, uint32_t messageCount);
     void releaseConnectionTester(IPCConnectionTesterIdentifier, CompletionHandler<void()>&&);
     void sendSameSemaphoreBack(IPC::Connection&, IPC::Semaphore&&);
     void sendSemaphoreBackAndSignalProtocol(IPC::Connection&, IPC::Semaphore&&);
+    void sendAsyncMessageToReceiver(IPC::Connection&, uint32_t);
 
     void stopIfNeeded();
 
@@ -88,13 +83,6 @@ private:
     using ConnectionTesterMap = HashMap<IPCConnectionTesterIdentifier, IPC::ScopedActiveMessageReceiveQueue<IPCConnectionTester>>;
     ConnectionTesterMap m_connectionTesters;
 };
-
-#else
-
-constexpr inline bool isTestingIPC()
-{
-    return false;
-}
 
 #endif
 

@@ -338,8 +338,9 @@ Boolean
 __SCNetworkInterfaceIsActive			(SCNetworkInterfaceRef	interface);
 
 Boolean
-__SCNetworkInterfaceIsMember			(SCPreferencesRef	prefs,
-						 SCNetworkInterfaceRef	interface);
+__SCNetworkInterfaceIsBusyMember		(SCPreferencesRef	prefs,
+						 SCNetworkInterfaceRef	interface,
+						 Boolean allow_configured);
 
 Boolean
 __SCNetworkInterfaceEntityIsPPTP		(CFDictionaryRef	entity);
@@ -405,7 +406,8 @@ __SCBondInterfaceSetMemberInterfaces		(SCBondInterfaceRef bond,
 
 void
 __SCBridgeInterfaceListCollectMembers		(CFArrayRef 		interfaces,
-						 CFMutableSetRef 	set);
+						 CFMutableSetRef 	set,
+						 Boolean		allow_configured);
 
 Boolean
 __SCBridgeInterfaceSetMemberInterfaces		(SCBridgeInterfaceRef	bridge,

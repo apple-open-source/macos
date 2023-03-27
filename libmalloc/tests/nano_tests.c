@@ -378,16 +378,14 @@ T_DECL(overspill_arena, "force overspill of an arena",
 #endif // CONFIG_NANOZONE
 }
 
-#if TARGET_OS_OSX
-
+#if CONFIG_NANOZONE
 // Guaranteed number of 256-byte allocations to be sure we fill a region.
 #define ALLOCS_PER_REGION ((NANOV2_REGION_SIZE)/256)
 
-// These tests are required only on macOS because iOS only uses one region.
+#if NANOV2_MULTIPLE_REGIONS
 T_DECL(overspill_region, "force overspill of a region",
 	   T_META_ENVVAR("MallocNanoZone=V2"))
 {
-#if CONFIG_NANOZONE
 	void **ptrs = calloc(ALLOCS_PER_REGION, sizeof(void *));
 	T_QUIET; T_ASSERT_NOTNULL(ptrs, "Unable to allocate pointers");
 	int index;
@@ -415,11 +413,53 @@ T_DECL(overspill_region, "force overspill of a region",
 		free(ptrs[i]);
 	}
 	free(ptrs);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
+}
+#endif // NANOV2_MULTIPLE_REGIONS
+
+extern malloc_zone_t **malloc_zones;
+
+T_DECL(overspill_nanozone, "force overspill of nano zone",
+		T_META_ENVVAR("MallocNanoZone=V2"),
+		T_META_ENVVAR("MallocNanoMaxRegion=1"))
+{
+	int index;
+	bool spilled_to_tiny = false;
+	void **ptrs;
+	malloc_zone_t *nano_zone = malloc_zones[0];
+	malloc_zone_t *helper_zone = malloc_zones[1];
+
+	// Max number of 256B allocations that will fit in the nano zone (+1 to overspill)
+	const unsigned int nano_max_allocations = 2 * ALLOCS_PER_REGION + 1;
+
+	T_LOG("Allocating %d pointers for allocations", nano_max_allocations);
+	ptrs = calloc(nano_max_allocations, sizeof(void *));
+	T_QUIET; T_ASSERT_NOTNULL(ptrs, "Unable to allocate pointers");
+
+	ptrs[0] = malloc(256);
+	T_QUIET; T_ASSERT_NOTNULL(ptrs[0], "Failed to make initial allocation");
+	T_QUIET; T_ASSERT_TRUE(malloc_zone_claimed_address(nano_zone, ptrs[0]), 
+			"Initial allocation did not come from nano zone");
+	T_QUIET; T_ASSERT_FALSE(malloc_zone_claimed_address(helper_zone, ptrs[0]), 
+			"Initial allocation came from scalable zone");
+
+	for (index = 1; index < (nano_max_allocations); index++) {
+		ptrs[index] = malloc(256);
+		if (malloc_zone_claimed_address(helper_zone, ptrs[index])) {
+			T_LOG("Spilled to scalable zone");
+			spilled_to_tiny = true;
+			break;
+		}
+	}
+	T_EXPECT_TRUE(spilled_to_tiny, "Allocation falls through to scalable zone");
+
+	T_LOG("Freeing %d pointers", index);
+	for (int i = 0; i < MIN(index + 1, nano_max_allocations); i++) {
+		free(ptrs[i]);
+	}
+	free(ptrs);
 }
 
+#if NANOV2_MULTIPLE_REGIONS
 void *
 punch_holes_thread(void *arg)
 {
@@ -487,9 +527,10 @@ do_allocations_thread(void *arg)
 }
 
 T_DECL(region_holes, "ensure correct handling of holes between regions",
-		T_META_ENVVAR("MallocNanoZone=V2"))
+		T_META_ENVVAR("MallocNanoZone=V2"),
+		// Region reservation does not allow for holes between regions
+		T_META_ENABLED(!CONFIG_NANO_RESERVE_REGIONS))
 {
-#if CONFIG_NANOZONE
 	srandom(time(NULL));
 
 	bool done = false;
@@ -520,10 +561,7 @@ T_DECL(region_holes, "ensure correct handling of holes between regions",
 
 	T_PASS("Didn't crash");
 	T_END;
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
 }
-
-#endif // TARGET_OS_OSX
+#endif // NANOV2_MULTIPLE_REGIONS
+#endif // CONFIG_NANOZONE
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 
 #import "Logging.h"
 #import "WebAutomationSessionMacros.h"
+#import "WebEventFactory.h"
 #import "WebInspectorUIProxy.h"
 #import "WebPageProxy.h"
 #import "WKWebViewPrivate.h"
@@ -48,7 +49,7 @@ using namespace WebCore;
 
 void WebAutomationSession::inspectBrowsingContext(const Inspector::Protocol::Automation::BrowsingContextHandle& handle, std::optional<bool>&& enableAutoCapturing, Ref<InspectBrowsingContextCallback>&& callback)
 {
-    WebPageProxy* page = webPageProxyForHandle(handle);
+    auto page = webPageProxyForHandle(handle);
     if (!page)
         ASYNC_FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
 
@@ -149,33 +150,33 @@ static WebCore::IntPoint viewportLocationToWindowLocation(WebCore::IntPoint loca
 
 #if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
 
-static WebMouseEvent::Button automationMouseButtonToPlatformMouseButton(MouseButton button)
+static WebMouseEventButton automationMouseButtonToPlatformMouseButton(MouseButton button)
 {
     switch (button) {
-    case MouseButton::Left:   return WebMouseEvent::LeftButton;
-    case MouseButton::Middle: return WebMouseEvent::MiddleButton;
-    case MouseButton::Right:  return WebMouseEvent::RightButton;
-    case MouseButton::None:   return WebMouseEvent::NoButton;
+    case MouseButton::Left:   return WebMouseEventButton::LeftButton;
+    case MouseButton::Middle: return WebMouseEventButton::MiddleButton;
+    case MouseButton::Right:  return WebMouseEventButton::RightButton;
+    case MouseButton::None:   return WebMouseEventButton::NoButton;
     default: ASSERT_NOT_REACHED();
     }
 }
 
-void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, MouseButton button, const WebCore::IntPoint& locationInViewport, OptionSet<WebEvent::Modifier> keyModifiers, const String& pointerType)
+void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, MouseButton button, const WebCore::IntPoint& locationInViewport, OptionSet<WebEventModifier> keyModifiers, const String& pointerType)
 {
     UNUSED_PARAM(pointerType);
 
     auto locationInWindow = viewportLocationToWindowLocation(locationInViewport, page);
 
     NSEventModifierFlags modifiers = 0;
-    if (keyModifiers.contains(WebEvent::Modifier::MetaKey))
+    if (keyModifiers.contains(WebEventModifier::MetaKey))
         modifiers |= NSEventModifierFlagCommand;
-    if (keyModifiers.contains(WebEvent::Modifier::AltKey))
+    if (keyModifiers.contains(WebEventModifier::AltKey))
         modifiers |= NSEventModifierFlagOption;
-    if (keyModifiers.contains(WebEvent::Modifier::ControlKey))
+    if (keyModifiers.contains(WebEventModifier::ControlKey))
         modifiers |= NSEventModifierFlagControl;
-    if (keyModifiers.contains(WebEvent::Modifier::ShiftKey))
+    if (keyModifiers.contains(WebEventModifier::ShiftKey))
         modifiers |= NSEventModifierFlagShift;
-    if (keyModifiers.contains(WebEvent::Modifier::CapsLockKey))
+    if (keyModifiers.contains(WebEventModifier::CapsLockKey))
         modifiers |= NSEventModifierFlagCapsLock;
 
     NSTimeInterval timestamp = [NSDate timeIntervalSinceReferenceDate];
@@ -186,20 +187,20 @@ void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, 
     NSEventType dragEventType = (NSEventType)0;
     NSEventType upEventType = (NSEventType)0;
     switch (automationMouseButtonToPlatformMouseButton(button)) {
-    case WebMouseEvent::NoButton:
+    case WebMouseEventButton::NoButton:
         downEventType = upEventType = dragEventType = NSEventTypeMouseMoved;
         break;
-    case WebMouseEvent::LeftButton:
+    case WebMouseEventButton::LeftButton:
         downEventType = NSEventTypeLeftMouseDown;
         dragEventType = NSEventTypeLeftMouseDragged;
         upEventType = NSEventTypeLeftMouseUp;
         break;
-    case WebMouseEvent::MiddleButton:
+    case WebMouseEventButton::MiddleButton:
         downEventType = NSEventTypeOtherMouseDown;
         dragEventType = NSEventTypeLeftMouseDragged;
         upEventType = NSEventTypeOtherMouseUp;
         break;
-    case WebMouseEvent::RightButton:
+    case WebMouseEventButton::RightButton:
         downEventType = NSEventTypeRightMouseDown;
         upEventType = NSEventTypeRightMouseUp;
         break;
@@ -251,22 +252,9 @@ void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, 
     sendSynthesizedEventsToPage(page, eventsToBeSent.get());
 }
 
-OptionSet<WebEvent::Modifier> WebAutomationSession::platformWebModifiersFromRaw(unsigned modifiers)
+OptionSet<WebEventModifier> WebAutomationSession::platformWebModifiersFromRaw(unsigned modifiers)
 {
-    OptionSet<WebEvent::Modifier> webModifiers;
-
-    if (modifiers & NSEventModifierFlagCommand)
-        webModifiers.add(WebEvent::Modifier::MetaKey);
-    if (modifiers & NSEventModifierFlagOption)
-        webModifiers.add(WebEvent::Modifier::AltKey);
-    if (modifiers & NSEventModifierFlagControl)
-        webModifiers.add(WebEvent::Modifier::ControlKey);
-    if (modifiers & NSEventModifierFlagShift)
-        webModifiers.add(WebEvent::Modifier::ShiftKey);
-    if (modifiers & NSEventModifierFlagCapsLock)
-        webModifiers.add(WebEvent::Modifier::CapsLockKey);
-
-    return webModifiers;
+    return WebEventFactory::webEventModifiersForNSEventModifierFlags(modifiers);
 }
 
 #endif // ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
@@ -277,10 +265,15 @@ static bool virtualKeyHasStickyModifier(VirtualKey key)
     // Returns whether the key's modifier flags should affect other events while pressed down.
     switch (key) {
     case VirtualKey::Shift:
+    case VirtualKey::ShiftRight:
     case VirtualKey::Control:
+    case VirtualKey::ControlRight:
     case VirtualKey::Alternate:
+    case VirtualKey::AlternateRight:
     case VirtualKey::Meta:
+    case VirtualKey::MetaRight:
     case VirtualKey::Command:
+    case VirtualKey::CommandRight:
         return true;
 
     default:
@@ -288,9 +281,17 @@ static bool virtualKeyHasStickyModifier(VirtualKey key)
     }
 }
 
-static int keyCodeForCharKey(CharKey key)
+// `keyCode` 0 is `kVK_ANSI_A` in <Carbon/Events.h>, which means events with that `keyCode` will incorrectly report
+// themselves as having a `KeyboardEvent.prototype.code` of `KeyA` in JavaScript due to the mapping in
+// PlatformEventFactoryMac::codeForKeyEvent.
+static constexpr unsigned short unknownKeyCode = USHRT_MAX;
+
+static int keyCodeForCharKey(CharKey charKey)
 {
-    switch (key) {
+    if (charKey.length() != 1)
+        return unknownKeyCode;
+
+    switch (charKey[0]) {
     case 'q':
     case 'Q':
         return kVK_ANSI_Q;
@@ -424,10 +425,10 @@ static int keyCodeForCharKey(CharKey key)
         return kVK_ANSI_Grave;
     }
 
-    return 0;
+    return unknownKeyCode;
 }
 
-static int keyCodeForVirtualKey(VirtualKey key)
+static unsigned short keyCodeForVirtualKey(VirtualKey key)
 {
     // The likely keyCode for the virtual key as defined in <HIToolbox/Events.h>.
     switch (key) {
@@ -444,11 +445,12 @@ static int keyCodeForVirtualKey(VirtualKey key)
     case VirtualKey::AlternateRight:
         return kVK_RightOption;
     case VirtualKey::Meta:
-        // The 'meta' key does not exist on Apple keyboards and is usually
-        // mapped to the Command key when using third-party keyboards.
+        // The 'meta' keys (left and right) do not exist on Apple keyboards and are usually
+        // mapped to the Command keys when using third-party keyboards.
     case VirtualKey::Command:
         return kVK_Command;
     case VirtualKey::MetaRight:
+    case VirtualKey::CommandRight:
         return kVK_RightCommand;
     case VirtualKey::Help:
         return kVK_Help;
@@ -463,7 +465,7 @@ static int keyCodeForVirtualKey(VirtualKey key)
     case VirtualKey::Pause:
         // The 'pause' key does not exist on Apple keyboards and has no keyCode.
         // The semantics are unclear so just abort and do nothing.
-        return 0;
+        return unknownKeyCode;
     case VirtualKey::Cancel:
         // The 'cancel' key does not exist on Apple keyboards and has no keyCode.
         // According to the internet its functionality is similar to 'Escape'.
@@ -497,7 +499,7 @@ static int keyCodeForVirtualKey(VirtualKey key)
     case VirtualKey::InsertRight:
         // The 'insert' key does not exist on Apple keyboards and has no keyCode.
         // The semantics are unclear so just abort and do nothing.
-        return 0;
+        return unknownKeyCode;
     case VirtualKey::Delete:
     case VirtualKey::DeleteRight:
         return kVK_ForwardDelete;
@@ -577,18 +579,23 @@ static NSEventModifierFlags eventModifierFlagsForVirtualKey(VirtualKey key)
     // The mapping from keys to modifiers is specified in the documentation for NSEvent.
     switch (key) {
     case VirtualKey::Shift:
+    case VirtualKey::ShiftRight:
         return NSEventModifierFlagShift;
 
     case VirtualKey::Control:
+    case VirtualKey::ControlRight:
         return NSEventModifierFlagControl;
 
     case VirtualKey::Alternate:
+    case VirtualKey::AlternateRight:
         return NSEventModifierFlagOption;
 
     case VirtualKey::Meta:
-        // The 'meta' key does not exist on Apple keyboards and is usually
-        // mapped to the Command key when using third-party keyboards.
+    case VirtualKey::MetaRight:
+        // The 'meta' keys (left and right) do not exist on Apple keyboards and are usually
+        // mapped to the Command keys when using third-party keyboards.
     case VirtualKey::Command:
+    case VirtualKey::CommandRight:
         return NSEventModifierFlagCommand;
 
     case VirtualKey::Help:
@@ -652,31 +659,39 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
 
     bool isStickyModifier = false;
     NSEventModifierFlags changedModifiers = 0;
-    int keyCode = 0;
-    std::optional<unichar> charCode;
-    std::optional<unichar> charCodeIgnoringModifiers;
+    unsigned short keyCode = unknownKeyCode;
 
+    NSString *characters = nil;
+    NSString *unmodifiedCharacters = nil;
+
+    // FIXME: consider using AppKit SPI to normalize 'characters', i.e., changing * to Shift-8,
+    // and passing that in to charactersIgnoringModifiers. We could hardcode this for ASCII if needed.
     WTF::switchOn(key,
         [&] (VirtualKey virtualKey) {
             isStickyModifier = virtualKeyHasStickyModifier(virtualKey);
             changedModifiers = eventModifierFlagsForVirtualKey(virtualKey);
             keyCode = keyCodeForVirtualKey(virtualKey);
-            charCode = charCodeForVirtualKey(virtualKey);
-            charCodeIgnoringModifiers = charCodeIgnoringModifiersForVirtualKey(virtualKey);
+            if (auto charCode = charCodeForVirtualKey(virtualKey))
+                characters = [NSString stringWithCharacters:&charCode.value() length:1];
+            if (auto charCodeIgnoringModifiers = charCodeIgnoringModifiersForVirtualKey(virtualKey))
+                unmodifiedCharacters = [NSString stringWithCharacters:&charCodeIgnoringModifiers.value() length:1];
         },
         [&] (CharKey charKey) {
             keyCode = keyCodeForCharKey(charKey);
-            charCode = (unichar)charKey;
-            charCodeIgnoringModifiers = (unichar)charKey;
+            characters = charKey;
+            unmodifiedCharacters = charKey;
         }
     );
 
-    // FIXME: consider using AppKit SPI to normalize 'characters', i.e., changing * to Shift-8,
-    // and passing that in to charactersIgnoringModifiers. We could hardcode this for ASCII if needed.
-    NSString *characters = charCode ? [NSString stringWithCharacters:&charCode.value() length:1] : nil;
-    NSString *unmodifiedCharacters = charCodeIgnoringModifiers ? [NSString stringWithCharacters:&charCodeIgnoringModifiers.value() length:1] : nil;
-
-    auto eventsToBeSent = adoptNS([[NSMutableArray alloc] init]);
+    switch (interaction) {
+    case KeyboardInteraction::KeyPress:
+    case KeyboardInteraction::InsertByKey:
+        m_currentModifiers |= changedModifiers;
+        break;
+    case KeyboardInteraction::KeyRelease:
+        m_currentModifiers &= ~changedModifiers;
+        break;
+    }
 
     // FIXME: this timestamp is not even close to matching native events. Find out how to get closer.
     NSTimeInterval timestamp = [NSDate timeIntervalSinceReferenceDate];
@@ -684,16 +699,24 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
     NSInteger windowNumber = window.windowNumber;
     NSPoint eventPosition = NSMakePoint(0, window.frame.size.height);
 
+    static constexpr auto characterTransformingModifiers = NSEventModifierFlagShift | NSEventModifierFlagOption;
+    if (characters && (m_currentModifiers & characterTransformingModifiers)) {
+        // `characters` will not automatically include the result of modifier keys when creating an NSEvent; AppKit
+        // expects them to be pre-transformed. Event type is unimportant here as we are more interested in the events
+        // ability to apply modifiers to its characters.
+        characters = [[NSEvent keyEventWithType:NSEventTypeKeyDown location:eventPosition modifierFlags:0 timestamp:timestamp windowNumber:windowNumber context:nil characters:characters charactersIgnoringModifiers:unmodifiedCharacters isARepeat:NO keyCode:keyCode] charactersByApplyingModifiers:m_currentModifiers & characterTransformingModifiers];
+    }
+
+    auto eventsToBeSent = adoptNS([[NSMutableArray alloc] init]);
+
     switch (interaction) {
     case KeyboardInteraction::KeyPress: {
         NSEventType eventType = isStickyModifier ? NSEventTypeFlagsChanged : NSEventTypeKeyDown;
-        m_currentModifiers |= changedModifiers;
         [eventsToBeSent addObject:[NSEvent keyEventWithType:eventType location:eventPosition modifierFlags:m_currentModifiers timestamp:timestamp windowNumber:windowNumber context:nil characters:characters charactersIgnoringModifiers:unmodifiedCharacters isARepeat:NO keyCode:keyCode]];
         break;
     }
     case KeyboardInteraction::KeyRelease: {
         NSEventType eventType = isStickyModifier ? NSEventTypeFlagsChanged : NSEventTypeKeyUp;
-        m_currentModifiers &= ~changedModifiers;
 
         // When using a physical keyboard, if command is held down, releasing a non-modifier key doesn't send a KeyUp event.
         bool commandKeyHeldDown = m_currentModifiers & NSEventModifierFlagCommand;
@@ -709,7 +732,6 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
         if (isStickyModifier)
             return;
 
-        m_currentModifiers |= changedModifiers;
         [eventsToBeSent addObject:[NSEvent keyEventWithType:NSEventTypeKeyDown location:eventPosition modifierFlags:m_currentModifiers timestamp:timestamp windowNumber:windowNumber context:nil characters:characters charactersIgnoringModifiers:unmodifiedCharacters isARepeat:NO keyCode:keyCode]];
         [eventsToBeSent addObject:[NSEvent keyEventWithType:NSEventTypeKeyUp location:eventPosition modifierFlags:m_currentModifiers timestamp:timestamp windowNumber:windowNumber context:nil characters:characters charactersIgnoringModifiers:unmodifiedCharacters isARepeat:NO keyCode:keyCode]];
         break;

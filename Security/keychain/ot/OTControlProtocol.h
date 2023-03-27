@@ -35,11 +35,15 @@
 @class SFECKeyPair;
 @class OTSecureElementPeerIdentity;
 @class OTCurrentSecureElementIdentities;
+@class OTAccountSettings;
+@class OTWalrus;
+@class OTWebAccess;
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class OTJoiningConfiguration;
 @class OTControlArguments;
+@class OTAccountMetadataClassC;
 
 @protocol OTControlProtocol
 
@@ -102,6 +106,14 @@ NS_ASSUME_NONNULL_BEGIN
               resetReason:(CuttlefishResetReason)resetReason
                     reply:(void (^)(NSError* _Nullable error))reply;
 
+- (void)resetAndEstablish:(OTControlArguments*)arguments
+              resetReason:(CuttlefishResetReason)resetReason
+        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+   idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+	       notifyIdMS:(bool)notifyIdMS
+          accountSettings:(OTAccountSettings *_Nullable)accountSettings
+                    reply:(void (^)(NSError* _Nullable error))reply;
+
 - (void)establish:(OTControlArguments*)arguments
             reply:(void (^)(NSError * _Nullable))reply;
 
@@ -135,7 +147,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)joinWithRecoveryKey:(OTControlArguments*)arguments
                 recoveryKey:(NSString*)recoveryKey
-                 sosSuccess:(BOOL)sosSuccess
                       reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)createCustodianRecoveryKey:(OTControlArguments*)arguments
@@ -223,6 +234,9 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                                        reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply;
 
 - (void)resetAccountCDPContents:(OTControlArguments*)arguments
+        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+   idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+	       notifyIdMS:(bool)notifyIdMS
                           reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)setLocalSecureElementIdentity:(OTControlArguments*)arguments
@@ -237,6 +251,16 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                                       reply:(void (^)(OTCurrentSecureElementIdentities* _Nullable currentSet,
                                                       NSError* _Nullable replyError))reply;
 
+- (void)setAccountSetting:(OTControlArguments*)arguments
+                  setting:(OTAccountSettings *)setting
+                    reply:(void (^)(NSError* _Nullable))reply;
+
+- (void)fetchAccountSettings:(OTControlArguments*)arguments
+                       reply:(void (^)(OTAccountSettings* _Nullable setting, NSError* _Nullable replyError))reply;
+
+- (void)fetchAccountWideSettingsWithForceFetch:(bool)forceFetch
+                                     arguments:(OTControlArguments*)arguments
+                                         reply:(void (^)(OTAccountSettings* _Nullable setting, NSError* _Nullable error))reply;
 
 - (void)waitForPriorityViewKeychainDataRecovery:(OTControlArguments*)arguments
                                           reply:(void (^)(NSError* _Nullable replyError))reply;
@@ -253,9 +277,21 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                    machineID:(NSString*)machineID
                        reply:(void (^)(NSError* _Nullable replyError))reply;
 
+- (void)isRecoveryKeySet:(OTControlArguments*)arguments
+                   reply:(void (^)(BOOL isSet, NSError* _Nullable error))reply;
+
+- (void)recoverWithRecoveryKey:(OTControlArguments*)arguments
+                   recoveryKey:(NSString*)recoveryKey
+                         reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)removeRecoveryKey:(OTControlArguments*)arguments
+                    reply:(void (^)(NSError* _Nullable error))reply;
 - (void)preflightRecoverOctagonUsingRecoveryKey:(OTControlArguments*)arguments
                                     recoveryKey:(NSString*)recoveryKey
                                           reply:(void (^)(BOOL correct, NSError* _Nullable replyError))reply;
+
+- (void)getAccountMetadata:(OTControlArguments*)arguments
+                     reply:(void (^)(OTAccountMetadataClassC* _Nullable metadata, NSError* _Nullable replyError))reply;
 
 @end
 

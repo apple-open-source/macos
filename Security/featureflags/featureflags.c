@@ -25,8 +25,10 @@
 
 #include "featureflags.h"
 
+#include <stdatomic.h>
 #include <dispatch/dispatch.h>
 #include <os/feature_private.h>
+#include <os/variant_private.h>
 #include <security_utilities/debugging.h>
 
 
@@ -51,6 +53,10 @@ bool _SecSystemKeychainAlwaysIsEnabled(void)
     dispatch_once(&onceToken, ^{
         ffSystemKeychainAlwaysSupported = os_feature_enabled(Security, SecSystemKeychainAlwaysSupported);
         secnotice("keychain", "System Keychain Always Supported set via feature flag to %s", ffSystemKeychainAlwaysSupported ? "enabled" : "disabled");
+        if (os_variant_is_darwinos("com.apple.security")) {
+            ffSystemKeychainAlwaysSupported = true;
+            secnotice("keychain", "Enabling System Keychain Always due to subplatform");
+        }
     });
 
     return ffSystemKeychainAlwaysSupported;
@@ -67,5 +73,4 @@ void _SecSystemKeychainAlwaysClearOverride(void)
     gSystemKeychainAlwaysSupported = SystemKeychainAlways_DEFAULT;
     secnotice("keychain", "System Keychain Always Supported override removed");
 }
-
 

@@ -122,7 +122,7 @@ build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = curl$(EXEEXT)
 @USE_CPPFLAG_CURL_STATICLIB_TRUE@am__append_1 = -DCURL_STATICLIB
-@OS_WINDOWS_TRUE@am__append_2 = $(CURL_RCFILES)
+@HAVE_WINDRES_TRUE@am__append_2 = $(CURL_RCFILES)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/curl-amissl.m4 \
@@ -169,20 +169,19 @@ am__libcurltool_la_SOURCES_DIST = slist_wc.c tool_binmode.c \
 	tool_findfile.c tool_formparse.c tool_getparam.c \
 	tool_getpass.c tool_help.c tool_helpers.c tool_hugehelp.c \
 	tool_libinfo.c tool_listhelp.c tool_main.c tool_msgs.c \
-	tool_operate.c tool_operhlp.c tool_panykey.c tool_paramhlp.c \
-	tool_parsecfg.c tool_progress.c tool_strdup.c tool_setopt.c \
-	tool_sleep.c tool_urlglob.c tool_util.c tool_vms.c \
-	tool_writeout.c tool_writeout_json.c tool_xattr.c \
-	../lib/strtoofft.c ../lib/timediff.c ../lib/nonblock.c \
-	../lib/warnless.c ../lib/curl_multibyte.c \
-	../lib/version_win32.c ../lib/dynbuf.c slist_wc.h \
-	tool_binmode.h tool_bname.h tool_cb_dbg.h tool_cb_hdr.h \
-	tool_cb_prg.h tool_cb_rea.h tool_cb_see.h tool_cb_wrt.h \
-	tool_cfgable.h tool_dirhie.h tool_doswin.h tool_easysrc.h \
-	tool_filetime.h tool_findfile.h tool_formparse.h \
-	tool_getparam.h tool_getpass.h tool_help.h tool_helpers.h \
-	tool_hugehelp.h tool_libinfo.h tool_main.h tool_msgs.h \
-	tool_operate.h tool_operhlp.h tool_panykey.h tool_paramhlp.h \
+	tool_operate.c tool_operhlp.c tool_paramhlp.c tool_parsecfg.c \
+	tool_progress.c tool_strdup.c tool_setopt.c tool_sleep.c \
+	tool_urlglob.c tool_util.c tool_vms.c tool_writeout.c \
+	tool_writeout_json.c tool_xattr.c ../lib/strtoofft.c \
+	../lib/timediff.c ../lib/nonblock.c ../lib/warnless.c \
+	../lib/curl_multibyte.c ../lib/version_win32.c ../lib/dynbuf.c \
+	slist_wc.h tool_binmode.h tool_bname.h tool_cb_dbg.h \
+	tool_cb_hdr.h tool_cb_prg.h tool_cb_rea.h tool_cb_see.h \
+	tool_cb_wrt.h tool_cfgable.h tool_dirhie.h tool_doswin.h \
+	tool_easysrc.h tool_filetime.h tool_findfile.h \
+	tool_formparse.h tool_getparam.h tool_getpass.h tool_help.h \
+	tool_helpers.h tool_hugehelp.h tool_libinfo.h tool_main.h \
+	tool_msgs.h tool_operate.h tool_operhlp.h tool_paramhlp.h \
 	tool_parsecfg.h tool_progress.h tool_sdecls.h tool_setopt.h \
 	tool_setup.h tool_sleep.h tool_strdup.h tool_urlglob.h \
 	tool_util.h tool_version.h tool_vms.h tool_writeout.h \
@@ -202,8 +201,7 @@ am__objects_1 = libcurltool_la-slist_wc.lo \
 	libcurltool_la-tool_hugehelp.lo libcurltool_la-tool_libinfo.lo \
 	libcurltool_la-tool_listhelp.lo libcurltool_la-tool_main.lo \
 	libcurltool_la-tool_msgs.lo libcurltool_la-tool_operate.lo \
-	libcurltool_la-tool_operhlp.lo libcurltool_la-tool_panykey.lo \
-	libcurltool_la-tool_paramhlp.lo \
+	libcurltool_la-tool_operhlp.lo libcurltool_la-tool_paramhlp.lo \
 	libcurltool_la-tool_parsecfg.lo \
 	libcurltool_la-tool_progress.lo libcurltool_la-tool_strdup.lo \
 	libcurltool_la-tool_setopt.lo libcurltool_la-tool_sleep.lo \
@@ -239,11 +237,11 @@ am__curl_SOURCES_DIST = slist_wc.c tool_binmode.c tool_bname.c \
 	tool_formparse.c tool_getparam.c tool_getpass.c tool_help.c \
 	tool_helpers.c tool_hugehelp.c tool_libinfo.c tool_listhelp.c \
 	tool_main.c tool_msgs.c tool_operate.c tool_operhlp.c \
-	tool_panykey.c tool_paramhlp.c tool_parsecfg.c tool_progress.c \
-	tool_strdup.c tool_setopt.c tool_sleep.c tool_urlglob.c \
-	tool_util.c tool_vms.c tool_writeout.c tool_writeout_json.c \
-	tool_xattr.c ../lib/strtoofft.c ../lib/timediff.c \
-	../lib/nonblock.c ../lib/warnless.c ../lib/curl_multibyte.c \
+	tool_paramhlp.c tool_parsecfg.c tool_progress.c tool_strdup.c \
+	tool_setopt.c tool_sleep.c tool_urlglob.c tool_util.c \
+	tool_vms.c tool_writeout.c tool_writeout_json.c tool_xattr.c \
+	../lib/strtoofft.c ../lib/timediff.c ../lib/nonblock.c \
+	../lib/warnless.c ../lib/curl_multibyte.c \
 	../lib/version_win32.c ../lib/dynbuf.c slist_wc.h \
 	tool_binmode.h tool_bname.h tool_cb_dbg.h tool_cb_hdr.h \
 	tool_cb_prg.h tool_cb_rea.h tool_cb_see.h tool_cb_wrt.h \
@@ -251,11 +249,11 @@ am__curl_SOURCES_DIST = slist_wc.c tool_binmode.c tool_bname.c \
 	tool_filetime.h tool_findfile.h tool_formparse.h \
 	tool_getparam.h tool_getpass.h tool_help.h tool_helpers.h \
 	tool_hugehelp.h tool_libinfo.h tool_main.h tool_msgs.h \
-	tool_operate.h tool_operhlp.h tool_panykey.h tool_paramhlp.h \
-	tool_parsecfg.h tool_progress.h tool_sdecls.h tool_setopt.h \
-	tool_setup.h tool_sleep.h tool_strdup.h tool_urlglob.h \
-	tool_util.h tool_version.h tool_vms.h tool_writeout.h \
-	tool_writeout_json.h tool_xattr.h curl.rc
+	tool_operate.h tool_operhlp.h tool_paramhlp.h tool_parsecfg.h \
+	tool_progress.h tool_sdecls.h tool_setopt.h tool_setup.h \
+	tool_sleep.h tool_strdup.h tool_urlglob.h tool_util.h \
+	tool_version.h tool_vms.h tool_writeout.h tool_writeout_json.h \
+	tool_xattr.h curl.rc
 am__objects_5 = slist_wc.$(OBJEXT) tool_binmode.$(OBJEXT) \
 	tool_bname.$(OBJEXT) tool_cb_dbg.$(OBJEXT) \
 	tool_cb_hdr.$(OBJEXT) tool_cb_prg.$(OBJEXT) \
@@ -269,20 +267,19 @@ am__objects_5 = slist_wc.$(OBJEXT) tool_binmode.$(OBJEXT) \
 	tool_hugehelp.$(OBJEXT) tool_libinfo.$(OBJEXT) \
 	tool_listhelp.$(OBJEXT) tool_main.$(OBJEXT) \
 	tool_msgs.$(OBJEXT) tool_operate.$(OBJEXT) \
-	tool_operhlp.$(OBJEXT) tool_panykey.$(OBJEXT) \
-	tool_paramhlp.$(OBJEXT) tool_parsecfg.$(OBJEXT) \
-	tool_progress.$(OBJEXT) tool_strdup.$(OBJEXT) \
-	tool_setopt.$(OBJEXT) tool_sleep.$(OBJEXT) \
-	tool_urlglob.$(OBJEXT) tool_util.$(OBJEXT) tool_vms.$(OBJEXT) \
-	tool_writeout.$(OBJEXT) tool_writeout_json.$(OBJEXT) \
-	tool_xattr.$(OBJEXT)
+	tool_operhlp.$(OBJEXT) tool_paramhlp.$(OBJEXT) \
+	tool_parsecfg.$(OBJEXT) tool_progress.$(OBJEXT) \
+	tool_strdup.$(OBJEXT) tool_setopt.$(OBJEXT) \
+	tool_sleep.$(OBJEXT) tool_urlglob.$(OBJEXT) \
+	tool_util.$(OBJEXT) tool_vms.$(OBJEXT) tool_writeout.$(OBJEXT) \
+	tool_writeout_json.$(OBJEXT) tool_xattr.$(OBJEXT)
 am__objects_6 = ../lib/strtoofft.$(OBJEXT) ../lib/timediff.$(OBJEXT) \
 	../lib/nonblock.$(OBJEXT) ../lib/warnless.$(OBJEXT) \
 	../lib/curl_multibyte.$(OBJEXT) ../lib/version_win32.$(OBJEXT) \
 	../lib/dynbuf.$(OBJEXT)
 am__objects_7 = $(am__objects_5) $(am__objects_6) $(am__objects_3)
 am__objects_8 = curl.$(OBJEXT)
-@OS_WINDOWS_TRUE@am__objects_9 = $(am__objects_8)
+@HAVE_WINDRES_TRUE@am__objects_9 = $(am__objects_8)
 am_curl_OBJECTS = $(am__objects_7) $(am__objects_9)
 curl_OBJECTS = $(am_curl_OBJECTS)
 @USE_EXPLICIT_LIB_DEPS_FALSE@curl_DEPENDENCIES =  \
@@ -343,7 +340,6 @@ am__depfiles_remade = ../lib/$(DEPDIR)/curl_multibyte.Po \
 	./$(DEPDIR)/libcurltool_la-tool_msgs.Plo \
 	./$(DEPDIR)/libcurltool_la-tool_operate.Plo \
 	./$(DEPDIR)/libcurltool_la-tool_operhlp.Plo \
-	./$(DEPDIR)/libcurltool_la-tool_panykey.Plo \
 	./$(DEPDIR)/libcurltool_la-tool_paramhlp.Plo \
 	./$(DEPDIR)/libcurltool_la-tool_parsecfg.Plo \
 	./$(DEPDIR)/libcurltool_la-tool_progress.Plo \
@@ -369,13 +365,13 @@ am__depfiles_remade = ../lib/$(DEPDIR)/curl_multibyte.Po \
 	./$(DEPDIR)/tool_hugehelp.Po ./$(DEPDIR)/tool_libinfo.Po \
 	./$(DEPDIR)/tool_listhelp.Po ./$(DEPDIR)/tool_main.Po \
 	./$(DEPDIR)/tool_msgs.Po ./$(DEPDIR)/tool_operate.Po \
-	./$(DEPDIR)/tool_operhlp.Po ./$(DEPDIR)/tool_panykey.Po \
-	./$(DEPDIR)/tool_paramhlp.Po ./$(DEPDIR)/tool_parsecfg.Po \
-	./$(DEPDIR)/tool_progress.Po ./$(DEPDIR)/tool_setopt.Po \
-	./$(DEPDIR)/tool_sleep.Po ./$(DEPDIR)/tool_strdup.Po \
-	./$(DEPDIR)/tool_urlglob.Po ./$(DEPDIR)/tool_util.Po \
-	./$(DEPDIR)/tool_vms.Po ./$(DEPDIR)/tool_writeout.Po \
-	./$(DEPDIR)/tool_writeout_json.Po ./$(DEPDIR)/tool_xattr.Po
+	./$(DEPDIR)/tool_operhlp.Po ./$(DEPDIR)/tool_paramhlp.Po \
+	./$(DEPDIR)/tool_parsecfg.Po ./$(DEPDIR)/tool_progress.Po \
+	./$(DEPDIR)/tool_setopt.Po ./$(DEPDIR)/tool_sleep.Po \
+	./$(DEPDIR)/tool_strdup.Po ./$(DEPDIR)/tool_urlglob.Po \
+	./$(DEPDIR)/tool_util.Po ./$(DEPDIR)/tool_vms.Po \
+	./$(DEPDIR)/tool_writeout.Po ./$(DEPDIR)/tool_writeout_json.Po \
+	./$(DEPDIR)/tool_xattr.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -601,6 +597,7 @@ SSL_LIBS = @SSL_LIBS@
 STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
+TEST_NGHTTPX = @TEST_NGHTTPX@
 USE_ARES = @USE_ARES@
 USE_BEARSSL = @USE_BEARSSL@
 USE_GNUTLS = @USE_GNUTLS@
@@ -778,7 +775,6 @@ CURL_CFILES = \
   tool_msgs.c \
   tool_operate.c \
   tool_operhlp.c \
-  tool_panykey.c \
   tool_paramhlp.c \
   tool_parsecfg.c \
   tool_progress.c \
@@ -819,7 +815,6 @@ CURL_HFILES = \
   tool_msgs.h \
   tool_operate.h \
   tool_operhlp.h \
-  tool_panykey.h \
   tool_paramhlp.h \
   tool_parsecfg.h \
   tool_progress.h \
@@ -855,8 +850,8 @@ curl_SOURCES = $(CURL_FILES) $(am__append_2)
 @BUILD_UNITTESTS_TRUE@libcurltool_la_LDFLAGS = -static $(LINKFLAGS)
 @BUILD_UNITTESTS_TRUE@libcurltool_la_SOURCES = $(CURL_FILES)
 CLEANFILES = tool_hugehelp.c
-EXTRA_DIST = mkhelp.pl makefile.dj                                     \
- Makefile.m32 makefile.amiga curl.rc Makefile.inc CMakeLists.txt
+EXTRA_DIST = mkhelp.pl \
+ Makefile.mk curl.rc Makefile.inc CMakeLists.txt
 
 
 # Use absolute directory to disable VPATH
@@ -1060,7 +1055,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcurltool_la-tool_msgs.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcurltool_la-tool_operate.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcurltool_la-tool_operhlp.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcurltool_la-tool_panykey.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcurltool_la-tool_paramhlp.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcurltool_la-tool_parsecfg.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcurltool_la-tool_progress.Plo@am__quote@ # am--include-marker
@@ -1100,7 +1094,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tool_msgs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tool_operate.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tool_operhlp.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tool_panykey.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tool_paramhlp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tool_parsecfg.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tool_progress.Po@am__quote@ # am--include-marker
@@ -1332,13 +1325,6 @@ libcurltool_la-tool_operhlp.lo: tool_operhlp.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tool_operhlp.c' object='libcurltool_la-tool_operhlp.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libcurltool_la_CPPFLAGS) $(CPPFLAGS) $(libcurltool_la_CFLAGS) $(CFLAGS) -c -o libcurltool_la-tool_operhlp.lo `test -f 'tool_operhlp.c' || echo '$(srcdir)/'`tool_operhlp.c
-
-libcurltool_la-tool_panykey.lo: tool_panykey.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libcurltool_la_CPPFLAGS) $(CPPFLAGS) $(libcurltool_la_CFLAGS) $(CFLAGS) -MT libcurltool_la-tool_panykey.lo -MD -MP -MF $(DEPDIR)/libcurltool_la-tool_panykey.Tpo -c -o libcurltool_la-tool_panykey.lo `test -f 'tool_panykey.c' || echo '$(srcdir)/'`tool_panykey.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libcurltool_la-tool_panykey.Tpo $(DEPDIR)/libcurltool_la-tool_panykey.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tool_panykey.c' object='libcurltool_la-tool_panykey.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libcurltool_la_CPPFLAGS) $(CPPFLAGS) $(libcurltool_la_CFLAGS) $(CFLAGS) -c -o libcurltool_la-tool_panykey.lo `test -f 'tool_panykey.c' || echo '$(srcdir)/'`tool_panykey.c
 
 libcurltool_la-tool_paramhlp.lo: tool_paramhlp.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libcurltool_la_CPPFLAGS) $(CPPFLAGS) $(libcurltool_la_CFLAGS) $(CFLAGS) -MT libcurltool_la-tool_paramhlp.lo -MD -MP -MF $(DEPDIR)/libcurltool_la-tool_paramhlp.Tpo -c -o libcurltool_la-tool_paramhlp.lo `test -f 'tool_paramhlp.c' || echo '$(srcdir)/'`tool_paramhlp.c
@@ -1725,7 +1711,6 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_msgs.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_operate.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_operhlp.Plo
-	-rm -f ./$(DEPDIR)/libcurltool_la-tool_panykey.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_paramhlp.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_parsecfg.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_progress.Plo
@@ -1765,7 +1750,6 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/tool_msgs.Po
 	-rm -f ./$(DEPDIR)/tool_operate.Po
 	-rm -f ./$(DEPDIR)/tool_operhlp.Po
-	-rm -f ./$(DEPDIR)/tool_panykey.Po
 	-rm -f ./$(DEPDIR)/tool_paramhlp.Po
 	-rm -f ./$(DEPDIR)/tool_parsecfg.Po
 	-rm -f ./$(DEPDIR)/tool_progress.Po
@@ -1864,7 +1848,6 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_msgs.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_operate.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_operhlp.Plo
-	-rm -f ./$(DEPDIR)/libcurltool_la-tool_panykey.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_paramhlp.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_parsecfg.Plo
 	-rm -f ./$(DEPDIR)/libcurltool_la-tool_progress.Plo
@@ -1904,7 +1887,6 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/tool_msgs.Po
 	-rm -f ./$(DEPDIR)/tool_operate.Po
 	-rm -f ./$(DEPDIR)/tool_operhlp.Po
-	-rm -f ./$(DEPDIR)/tool_panykey.Po
 	-rm -f ./$(DEPDIR)/tool_paramhlp.Po
 	-rm -f ./$(DEPDIR)/tool_parsecfg.Po
 	-rm -f ./$(DEPDIR)/tool_progress.Po
@@ -1958,7 +1940,7 @@ uninstall-am: uninstall-binPROGRAMS
 
 # remove targets if the command fails
 .DELETE_ON_ERROR:
-@OS_WINDOWS_TRUE@$(CURL_RCFILES): tool_version.h
+@HAVE_WINDRES_TRUE@$(CURL_RCFILES): tool_version.h
 
 # Here are the stuff to create a built-in manual
 
@@ -1998,9 +1980,8 @@ tidy:
 listhelp:
 	(cd $(top_srcdir)/docs/cmdline-opts && ./gen.pl listhelp *.d) > tool_listhelp.c
 
-# Warning is "normal": libtool:   error: ignoring unknown tag RC
-@OS_WINDOWS_TRUE@.rc.o:
-@OS_WINDOWS_TRUE@	$(LIBTOOL) --tag=RC --mode=compile $(RC) -I$(top_srcdir)/include -DCURL_EMBED_MANIFEST $(RCFLAGS) -i $< -o $@
+@HAVE_WINDRES_TRUE@.rc.o:
+@HAVE_WINDRES_TRUE@	$(RC) -I$(top_srcdir)/include -DCURL_EMBED_MANIFEST $(RCFLAGS) -i $< -o $@
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

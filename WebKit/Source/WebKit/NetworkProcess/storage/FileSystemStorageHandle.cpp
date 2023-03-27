@@ -38,6 +38,9 @@ constexpr char pathSeparator = '\\';
 #else
 constexpr char pathSeparator = '/';
 #endif
+constexpr uint64_t defaultInitialCapacity = 1 * MB;
+constexpr uint64_t defaultMaxCapacityForExponentialGrowth = 256 * MB;
+constexpr uint64_t defaultCapacityStep = 128 * MB;
 
 std::unique_ptr<FileSystemStorageHandle> FileSystemStorageHandle::create(FileSystemStorageManager& manager, Type type, String&& path, String&& name)
 {
@@ -47,7 +50,7 @@ std::unique_ptr<FileSystemStorageHandle> FileSystemStorageHandle::create(FileSys
         canAccess = FileSystem::makeAllDirectories(path);
         break;
     case FileSystemStorageHandle::Type::File:
-        if (auto handle = FileSystem::openFile(path, FileSystem::FileOpenMode::Write); FileSystem::isHandleValid(handle)) {
+        if (auto handle = FileSystem::openFile(path, FileSystem::FileOpenMode::ReadWrite); FileSystem::isHandleValid(handle)) {
             FileSystem::closeFile(handle);
             canAccess = true;
         }
@@ -78,7 +81,7 @@ void FileSystemStorageHandle::close()
         return;
 
     if (m_activeSyncAccessHandle)
-        closeSyncAccessHandle(*m_activeSyncAccessHandle);
+        closeSyncAccessHandle(m_activeSyncAccessHandle->identifier);
     m_manager->closeHandle(*this);
 }
 
@@ -177,7 +180,7 @@ Expected<Vector<String>, FileSystemStorageError> FileSystemStorageHandle::resolv
     return restPath.split(pathSeparator);
 }
 
-Expected<FileSystemStorageHandle::AccessHandleInfo, FileSystemStorageError> FileSystemStorageHandle::createSyncAccessHandle()
+Expected<FileSystemSyncAccessHandleInfo, FileSystemStorageError> FileSystemStorageHandle::createSyncAccessHandle()
 {
     if (!m_manager)
         return makeUnexpected(FileSystemStorageError::Unknown);
@@ -197,13 +200,14 @@ Expected<FileSystemStorageHandle::AccessHandleInfo, FileSystemStorageError> File
     }
 
     ASSERT(!m_activeSyncAccessHandle);
-    m_activeSyncAccessHandle = WebCore::FileSystemSyncAccessHandleIdentifier::generateThreadSafe();
-    return std::pair { *m_activeSyncAccessHandle, WTFMove(*ipcHandle) };
+    m_activeSyncAccessHandle = SyncAccessHandleInfo { WebCore::FileSystemSyncAccessHandleIdentifier::generateThreadSafe() };
+    uint64_t initialCapacity = valueOrDefault(FileSystem::fileSize(m_path));
+    return FileSystemSyncAccessHandleInfo { m_activeSyncAccessHandle->identifier, WTFMove(*ipcHandle), initialCapacity };
 }
 
 std::optional<FileSystemStorageError> FileSystemStorageHandle::closeSyncAccessHandle(WebCore::FileSystemSyncAccessHandleIdentifier accessHandleIdentifier)
 {
-    if (!m_activeSyncAccessHandle || *m_activeSyncAccessHandle != accessHandleIdentifier)
+    if (!m_activeSyncAccessHandle || m_activeSyncAccessHandle->identifier != accessHandleIdentifier)
         return FileSystemStorageError::Unknown;
 
     if (!m_manager)
@@ -265,6 +269,60 @@ std::optional<FileSystemStorageError> FileSystemStorageHandle::move(WebCore::Fil
     m_name = newName;
 
     return std::nullopt;
+}
+
+std::optional<WebCore::FileSystemSyncAccessHandleIdentifier> FileSystemStorageHandle::activeSyncAccessHandle()
+{
+    if (!m_activeSyncAccessHandle)
+        return std::nullopt;
+
+    return m_activeSyncAccessHandle->identifier;
+}
+
+bool FileSystemStorageHandle::isActiveSyncAccessHandle(WebCore::FileSystemSyncAccessHandleIdentifier accessHandleIdentifier)
+{
+    return m_activeSyncAccessHandle && m_activeSyncAccessHandle->identifier == accessHandleIdentifier;
+}
+
+uint64_t FileSystemStorageHandle::allocatedUnusedCapacity()
+{
+    if (!m_activeSyncAccessHandle)
+        return 0;
+
+    auto actualSize = valueOrDefault(FileSystem::fileSize(m_path));
+    return actualSize > m_activeSyncAccessHandle->capacity ? 0 : m_activeSyncAccessHandle->capacity - actualSize;
+}
+
+void FileSystemStorageHandle::requestNewCapacityForSyncAccessHandle(WebCore::FileSystemSyncAccessHandleIdentifier accessHandleIdentifier, uint64_t newCapacity, CompletionHandler<void(std::optional<uint64_t>)>&& completionHandler)
+{
+    if (!isActiveSyncAccessHandle(accessHandleIdentifier))
+        return completionHandler(std::nullopt);
+
+    uint64_t currentCapacity = m_activeSyncAccessHandle->capacity;
+    if (newCapacity <= currentCapacity)
+        return completionHandler(currentCapacity);
+
+    if (!m_manager)
+        return completionHandler(std::nullopt);
+
+    if (newCapacity < defaultInitialCapacity)
+        newCapacity = defaultInitialCapacity;
+    else if (newCapacity < defaultMaxCapacityForExponentialGrowth)
+        newCapacity = pow(2, (int)std::log2(newCapacity) + 1);
+    else
+        newCapacity = defaultCapacityStep * ((newCapacity / defaultCapacityStep) + 1);
+
+    m_manager->requestSpace(newCapacity - currentCapacity, [this, weakThis = WeakPtr { *this }, accessHandleIdentifier, newCapacity, completionHandler = WTFMove(completionHandler)](bool granted) mutable {
+        if (!weakThis)
+            return completionHandler(std::nullopt);
+
+        if (!isActiveSyncAccessHandle(accessHandleIdentifier))
+            return completionHandler(std::nullopt);
+
+        if (granted)
+            m_activeSyncAccessHandle->capacity = newCapacity;
+        completionHandler(m_activeSyncAccessHandle->capacity);
+    });
 }
 
 } // namespace WebKit

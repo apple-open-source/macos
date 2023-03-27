@@ -33,18 +33,15 @@
 #include "NetworkCacheIOChannel.h"
 #include <mutex>
 #include <wtf/Condition.h>
+#include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/FileSystem.h>
 #include <wtf/Lock.h>
 #include <wtf/PageBlock.h>
-#include <wtf/RandomNumber.h>
 #include <wtf/RunLoop.h>
+#include <wtf/persistence/PersistentCoders.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/StringToIntegerConversion.h>
-
-#if USE(GLIB)
-#include <wtf/glib/Sandbox.h>
-#endif
 
 namespace WebKit {
 namespace NetworkCache {
@@ -265,17 +262,6 @@ static void deleteEmptyRecordsDirectories(const String& recordsPath)
     });
 }
 
-static WorkQueue::QOS qosForBackgroundIOQueue()
-{
-#if USE(GLIB)
-    // FIXME: for some reason there's a runtime critical warning coming from GLib under flatpak when trying to
-    // inherit the current thread scheduler settings in newly created ones. See https://bugs.webkit.org/show_bug.cgi?id=232629.
-    if (isInsideFlatpak())
-        return WorkQueue::QOS::Default;
-#endif
-    return WorkQueue::QOS::Background;
-}
-
 Storage::Storage(const String& baseDirectoryPath, Mode mode, Salt salt, size_t capacity)
     : m_basePath(baseDirectoryPath)
     , m_recordsPath(makeRecordsDirectoryPath(baseDirectoryPath))
@@ -285,7 +271,7 @@ Storage::Storage(const String& baseDirectoryPath, Mode mode, Salt salt, size_t c
     , m_readOperationTimeoutTimer(*this, &Storage::cancelAllReadOperations)
     , m_writeOperationDispatchTimer(*this, &Storage::dispatchPendingWriteOperations)
     , m_ioQueue(ConcurrentWorkQueue::create("com.apple.WebKit.Cache.Storage"))
-    , m_backgroundIOQueue(ConcurrentWorkQueue::create("com.apple.WebKit.Cache.Storage.background", qosForBackgroundIOQueue()))
+    , m_backgroundIOQueue(ConcurrentWorkQueue::create("com.apple.WebKit.Cache.Storage.background", WorkQueue::QOS::Background))
     , m_serialBackgroundIOQueue(WorkQueue::create("com.apple.WebKit.Cache.Storage.serialBackground", WorkQueue::QOS::Background))
     , m_blobStorage(makeBlobDirectoryPath(baseDirectoryPath), m_salt)
 {
@@ -1182,7 +1168,7 @@ void Storage::shrink()
             unsigned bodyShareCount = m_blobStorage.shareCount(blobPath);
             auto probability = deletionProbability(times, bodyShareCount);
 
-            bool shouldDelete = randomNumber() < probability;
+            bool shouldDelete = cryptographicallyRandomUnitInterval() < probability;
 
             LOG(NetworkCacheStorage, "Deletion probability=%f bodyLinkCount=%d shouldDelete=%d", probability, bodyShareCount, shouldDelete);
 

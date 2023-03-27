@@ -43,6 +43,7 @@ ro{
         ang{"engleză veche"}
         anp{"angika"}
         apw{"apașă, occidentală"}
+        apw_Latn{"apașă, occidentală"}
         ar{"arabă"}
         ar_001{"arabă standard modernă"}
         arc{"aramaică"}
@@ -105,9 +106,12 @@ ro{
         chm{"mari"}
         chn{"jargon chinook"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"cheyenne"}
+        cic{"chicasaw"}
+        cic_Latn{"chicasaw"}
         ckb{"kurdă sorani"}
         co{"corsicană"}
         cop{"coptă"}

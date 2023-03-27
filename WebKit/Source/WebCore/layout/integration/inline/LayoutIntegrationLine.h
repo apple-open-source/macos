@@ -25,10 +25,11 @@
 
 #pragma once
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
 #include "FloatRect.h"
 #include "LayoutBox.h"
+#include "TextRun.h"
+#include "TextUtil.h"
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 namespace LayoutIntegration {
@@ -36,19 +37,26 @@ namespace LayoutIntegration {
 class Line {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    Line(size_t firstBoxIndex, size_t boxCount, const FloatRect& lineBoxRect, float enclosingContentTop, float enclosingContentBottom, const FloatRect& scrollableOverflow, const FloatRect& inkOverflow, float baseline, FontBaseline baselineType, float contentLogicalOffset, float contentLogicalWidth, bool isHorizontal, bool isFirstAfterPageBreak = false)
+    struct Ellipsis {
+        FloatRect visualRect;
+        bool isLeftPositioned { true };
+    };
+    Line(size_t firstBoxIndex, size_t boxCount, const FloatRect& lineBoxLogicalRect, const FloatRect& lineBoxRect, float enclosingContentLogicalTop, float enclosingContentLogicalBottom, const FloatRect& scrollableOverflow, const FloatRect& inkOverflow, float baseline, FontBaseline baselineType, float contentLogicalLeft, float contentLogicalLeftIgnoringInlineDirection, float contentLogicalWidth, bool isHorizontal, std::optional<Ellipsis> ellipsis, bool isFirstAfterPageBreak = false)
         : m_firstBoxIndex(firstBoxIndex)
         , m_boxCount(boxCount)
         , m_lineBoxRect(lineBoxRect)
-        , m_enclosingContentTop(enclosingContentTop)
-        , m_enclosingContentBottom(enclosingContentBottom)
+        , m_lineBoxLogicalRect(lineBoxLogicalRect)
+        , m_enclosingContentLogicalTop(enclosingContentLogicalTop)
+        , m_enclosingContentLogicalBottom(enclosingContentLogicalBottom)
         , m_scrollableOverflow(scrollableOverflow)
         , m_inkOverflow(inkOverflow)
         , m_baseline(baseline)
-        , m_contentLogicalOffset(contentLogicalOffset)
+        , m_contentLogicalLeft(contentLogicalLeft)
+        , m_contentLogicalLeftIgnoringInlineDirection(contentLogicalLeftIgnoringInlineDirection)
         , m_contentLogicalWidth(contentLogicalWidth)
         , m_baselineType(baselineType)
         , m_isHorizontal(isHorizontal)
+        , m_ellipsis(ellipsis)
         , m_isFirstAfterPageBreak(isFirstAfterPageBreak)
     {
     }
@@ -63,19 +71,28 @@ public:
     float lineBoxHeight() const { return m_lineBoxRect.height(); }
     float lineBoxWidth() const { return m_lineBoxRect.width(); }
 
-    float enclosingContentTop() const { return m_enclosingContentTop; }
-    float enclosingContentBottom() const { return m_enclosingContentBottom; }
+    FloatRect lineBoxLogicalRect() const { return m_lineBoxLogicalRect; }
+
+    float enclosingContentLogicalTop() const { return m_enclosingContentLogicalTop; }
+    float enclosingContentLogicalBottom() const { return m_enclosingContentLogicalBottom; }
 
     const FloatRect& scrollableOverflow() const { return m_scrollableOverflow; }
     const FloatRect& inkOverflow() const { return m_inkOverflow; }
+    FloatRect visibleRectIgnoringBlockDirection() const;
 
     float baseline() const { return m_baseline; }
     FontBaseline baselineType() const { return m_baselineType; }
 
+    bool hasEllipsis() const { return m_ellipsis.has_value(); }
+    FloatRect ellipsisVisualRect() const { return m_ellipsis->visualRect; }
+    TextRun ellipsisText() const { return TextRun { Layout::TextUtil::ellipsisTextRun(isHorizontal()) }; }
+
     bool isHorizontal() const { return m_isHorizontal; }
 
-    float contentLogicalOffset() const { return m_contentLogicalOffset; }
     float contentLogicalWidth() const { return m_contentLogicalWidth; }
+    float contentLogicalLeft() const { return m_contentLogicalLeft; }
+    // This is "visual" left in inline direction (it is still considered logical as there's no flip for writing mode).
+    float contentLogicalLeftIgnoringInlineDirection() const { return m_contentLogicalLeftIgnoringInlineDirection; }
 
     bool isFirstAfterPageBreak() const { return m_isFirstAfterPageBreak; }
 
@@ -84,23 +101,39 @@ private:
     size_t m_boxCount { 0 };
     // This is line box geometry (see https://www.w3.org/TR/css-inline-3/#line-box).
     FloatRect m_lineBoxRect;
+    FloatRect m_lineBoxLogicalRect;
     // Enclosing top and bottom includes all inline level boxes (border box) vertically.
     // While the line box usually enclose them as well, its vertical geometry is based on
     // the layout bounds of the inline level boxes which may be different when line-height is present.
-    float m_enclosingContentTop { 0 };
-    float m_enclosingContentBottom { 0 };
+    float m_enclosingContentLogicalTop { 0 };
+    float m_enclosingContentLogicalBottom { 0 };
     FloatRect m_scrollableOverflow;
     FloatRect m_inkOverflow;
-    float m_baseline { 0 };
-    float m_contentLogicalOffset { 0 };
-    float m_contentLogicalWidth { 0 };
+    float m_baseline { 0.f };
+    // Content is mostly in flush with the line box edge except for cases like text-align.
+    float m_contentLogicalLeft { 0.f };
+    float m_contentLogicalLeftIgnoringInlineDirection { 0.f };
+    float m_contentLogicalWidth { 0.f };
     FontBaseline m_baselineType { AlphabeticBaseline };
     bool m_isHorizontal { true };
+    // This is visual rect ignoring block direction.
+    std::optional<Ellipsis> m_ellipsis;
     // FIXME: This is to match paginated legacy lines. Move it to some other, paginated related structure.
     bool m_isFirstAfterPageBreak { false };
 };
 
+inline FloatRect Line::visibleRectIgnoringBlockDirection() const
+{
+    if (!hasEllipsis())
+        return m_inkOverflow;
+    if (m_ellipsis->isLeftPositioned) {
+        auto visibleLineBoxRight = std::min(m_lineBoxRect.maxX(), m_ellipsis->visualRect.maxX());
+        return { m_lineBoxRect.location(), FloatPoint { visibleLineBoxRight, m_lineBoxRect.maxY() } };
+    }
+    auto visibleLineBoxLeft = std::max(m_lineBoxRect.x(), m_ellipsis->visualRect.x());
+    return { FloatPoint { visibleLineBoxLeft, m_lineBoxRect.y() }, FloatPoint { m_lineBoxRect.maxX(), m_lineBoxRect.maxY() } };
+}
+
 }
 }
 
-#endif

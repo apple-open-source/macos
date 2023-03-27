@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017, 2019, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -73,6 +73,9 @@
 
 - (void)start
 {
+	NSDictionary *proxyConfig = NULL;
+	NSDictionary *dnsConfig = NULL;
+
 	if (self.options[kSCTestConfigAgentRemoveProxy]) {
 		[self removeFromSCDynamicStore:self.proxyKey];
 	}
@@ -81,13 +84,13 @@
 		[self removeFromSCDynamicStore:self.dnsKey];
 	}
 
-	NSDictionary *proxyConfig = [self parseProxyAgentOptions];
+	proxyConfig = [self parseProxyAgentOptions];
 	if (proxyConfig != nil) {
 		[self publishToSCDynamicStore:self.proxyKey value:proxyConfig];
 		self.testProxy = @[@[proxyConfig]];
 	}
 
-	NSDictionary *dnsConfig = [self parseDNSAgentOptions];
+	dnsConfig = [self parseDNSAgentOptions];
 	if (dnsConfig != nil) {
 		[self publishToSCDynamicStore:self.dnsKey value:dnsConfig];
 		self.testDNS = [self createDNSArray:dnsConfig];
@@ -204,6 +207,8 @@
 
 #define SET_PROXY_CONFIG(proxyType)														\
 	do {																	\
+		NSString *server;														\
+		NSString *port;															\
 		if (self.options[kSCTestConfigAgent ## proxyType ## Proxy] != nil) {								\
 			NSString *serverAndPortString = self.options[kSCTestConfigAgent ## proxyType ## Proxy];					\
 			NSArray<NSString *> *serverAndPortArray = [serverAndPortString componentsSeparatedByString:@":"];			\
@@ -211,8 +216,8 @@
 				SCTestLog("server address or port missing");									\
 				ERR_EXIT;													\
 			}															\
-			NSString *server = [serverAndPortArray objectAtIndex:0];								\
-			NSString *port = [serverAndPortArray objectAtIndex:1];									\
+			server = [serverAndPortArray objectAtIndex:0];										\
+			port = [serverAndPortArray objectAtIndex:1];										\
 			[proxyConfig setObject:server forKey:(__bridge NSString *)kSCPropNetProxies ## proxyType ## Proxy];			\
 			[proxyConfig setObject:NS_NUMBER(port.intValue) forKey:(__bridge NSString *)kSCPropNetProxies ## proxyType ## Port];	\
 			[proxyConfig setObject:NS_NUMBER(1) forKey:(__bridge NSString *)kSCPropNetProxies ## proxyType ## Enable];		\
@@ -284,11 +289,12 @@
 
 - (BOOL)unitTest
 {
+	BOOL allUnitTestsPassed = YES;
+
 	if(![self setup]) {
 		return NO;
 	}
 
-	BOOL allUnitTestsPassed = YES;
 	allUnitTestsPassed &= [self unitTestInstallProxy];
 	allUnitTestsPassed &= [self unitTestInstallProxyWithLargeConfig];
 	allUnitTestsPassed &= [self unitTestInstallProxyWithConflictingDomain];
@@ -836,3 +842,4 @@
 }
 
 @end
+

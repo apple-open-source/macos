@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,7 +47,7 @@ static JSValueRef jsDoSomething(JSContextRef ctx, JSObjectRef function, JSObject
     return JSValueMakeNull(ctx);
 }
 
-static JSStaticFunction bridgedFunctions[] = {
+static const JSStaticFunction bridgedFunctions[] = {
     {"doSomething", jsDoSomething, kJSPropertyAttributeDontDelete},
     {0, 0, 0},
 };
@@ -55,7 +55,7 @@ static JSStaticFunction bridgedFunctions[] = {
 static JSClassRef bridgedObjectClass = NULL;
 static JSClassDefinition bridgedClassDef;
 
-static JSClassRef jsClassRef()
+static JSClassRef jsClassRef(void)
 {
     if (!bridgedObjectClass) {
         bridgedClassDef = kJSClassDefinitionEmpty;
@@ -66,7 +66,7 @@ static JSClassRef jsClassRef()
     return bridgedObjectClass;
 }
 
-void customGlobalObjectClassTest()
+void customGlobalObjectClassTest(void)
 {
     JSClassRef bridgedObjectJsClassRef = jsClassRef();
     JSGlobalContextRef globalContext = JSGlobalContextCreate(bridgedObjectJsClassRef);
@@ -105,7 +105,7 @@ void customGlobalObjectClassTest()
     JSGlobalContextRelease(globalContext);
 }
 
-void globalObjectSetPrototypeTest()
+void globalObjectSetPrototypeTest(void)
 {
     JSClassDefinition definition = kJSClassDefinitionEmpty;
     definition.className = "Global";
@@ -121,7 +121,7 @@ void globalObjectSetPrototypeTest()
     JSGlobalContextRelease(context);
 }
 
-void globalObjectPrivatePropertyTest()
+void globalObjectPrivatePropertyTest(void)
 {
     JSClassDefinition definition = kJSClassDefinitionEmpty;
     definition.className = "Global";

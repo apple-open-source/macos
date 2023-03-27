@@ -97,7 +97,7 @@ public:
     WEBCORE_EXPORT String spellingToolTip(TextDirection&) const;
     String replacedString() const;
     WEBCORE_EXPORT String title(TextDirection&) const;
-    String innerTextIfTruncated(TextDirection&) const;
+    WEBCORE_EXPORT String innerTextIfTruncated(TextDirection&) const;
     WEBCORE_EXPORT String altDisplayString() const;
     WEBCORE_EXPORT String titleDisplayString() const;
     WEBCORE_EXPORT Image* image() const;
@@ -111,11 +111,13 @@ public:
     WEBCORE_EXPORT bool isContentEditable() const;
     void toggleMediaControlsDisplay() const;
     void toggleMediaLoopPlayback() const;
+    void toggleShowMediaStats() const;
     WEBCORE_EXPORT bool mediaIsInFullscreen() const;
     void toggleMediaFullscreenState() const;
     void enterFullscreenForVideo() const;
     bool mediaControlsEnabled() const;
     bool mediaLoopEnabled() const;
+    bool mediaStatsShowing() const;
     bool mediaPlaying() const;
     bool mediaSupportsFullscreen() const;
     void toggleMediaPlayState() const;

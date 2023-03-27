@@ -53,6 +53,9 @@
 #include <wtf/text/WTFString.h>
 
 #if USE(GSTREAMER)
+#include "GUniquePtrGStreamer.h"
+#include <wtf/glib/GRefPtr.h>
+
 typedef struct _GstEvent GstEvent;
 #endif
 
@@ -114,6 +117,10 @@ public:
 
         // May be called on a background thread.
         virtual void videoFrameAvailable(VideoFrame&, VideoFrameTimeMetadata) = 0;
+
+#if USE(GSTREAMER_WEBRTC)
+        virtual GUniquePtr<GstStructure> queryAdditionalStats() { return nullptr; }
+#endif
     };
 
     virtual ~RealtimeMediaSource() = default;
@@ -202,8 +209,6 @@ public:
     bool supportsConstraints(const MediaConstraints&, String&);
     bool supportsConstraint(const MediaConstraint&);
 
-    virtual bool isIsolated() const { return false; }
-
     virtual bool isMockSource() const { return false; }
     virtual bool isCaptureSource() const { return false; }
     virtual CaptureDevice::DeviceType deviceType() const { return CaptureDevice::DeviceType::Unknown; }
@@ -231,11 +236,14 @@ public:
     virtual void setInterruptedForTesting(bool);
 
     virtual bool setShouldApplyRotation(bool) { return false; }
+    virtual void setIsInBackground(bool);
 
     PageIdentifier pageIdentifier() const { return m_pageIdentifier; }
 
     const CaptureDevice& captureDevice() const { return m_device; }
     bool isEphemeral() const { return m_device.isEphemeral(); }
+
+    virtual double facingModeFitnessScoreAdjustment() const { return 0; }
 
 protected:
     RealtimeMediaSource(const CaptureDevice&, MediaDeviceHashSalts&& hashSalts = { }, PageIdentifier = { });
@@ -266,6 +274,7 @@ protected:
     void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t);
 
     void forEachObserver(const Function<void(Observer&)>&);
+    void forEachVideoFrameObserver(const Function<void(VideoFrameObserver&)>&);
 
     void end(Observer* = nullptr);
 
@@ -305,8 +314,8 @@ private:
     mutable Lock m_audioSampleObserversLock;
     HashSet<AudioSampleObserver*> m_audioSampleObservers WTF_GUARDED_BY_LOCK(m_audioSampleObserversLock);
 
-    mutable Lock m_VideoFrameObserversLock;
-    HashSet<VideoFrameObserver*> m_VideoFrameObservers WTF_GUARDED_BY_LOCK(m_VideoFrameObserversLock);
+    mutable Lock m_videoFrameObserversLock;
+    HashSet<VideoFrameObserver*> m_videoFrameObservers WTF_GUARDED_BY_LOCK(m_videoFrameObserversLock);
 
     CaptureDevice m_device;
 
@@ -363,6 +372,10 @@ inline bool RealtimeMediaSource::isVideoSource() const
 inline bool RealtimeMediaSource::isProducingData() const
 {
     return m_isProducingData;
+}
+
+inline void RealtimeMediaSource::setIsInBackground(bool)
+{
 }
 
 } // namespace WebCore

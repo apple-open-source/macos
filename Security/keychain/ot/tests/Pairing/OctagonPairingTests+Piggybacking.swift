@@ -212,7 +212,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(requestSession, "requestSession should not be nil")
         XCTAssertNotNil(requestDelegate, "requestDelegate should not be nil")
         XCTAssertNotNil(acceptDelegate, "acceptDelegate should not be nil")
-        OctagonSetPlatformSupportsSOS(false)
+        OctagonSetSOSFeatureEnabled(false)
 
         do {
             initialMessageContainingOctagonVersion = try requestSession!.initialMessage()
@@ -572,7 +572,7 @@ extension OctagonPairingTests {
     }
 
     func testVersion2ofPiggybackingWithSOS() throws {
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -735,7 +735,7 @@ extension OctagonPairingTests {
     }
 
     func testVersion2ofPiggybackingWithAcceptorOctagonOnly() throws {
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -768,7 +768,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initialMessageContainingOctagonVersion, "initial message should not be nil")
 
         do {
-            OctagonSetPlatformSupportsSOS(false)
+            OctagonSetSOSFeatureEnabled(false)
             challengeContainingEpoch = try acceptSession!.processMessage(initialMessageContainingOctagonVersion!)
             XCTAssertNotNil(challengeContainingEpoch, "challengeContainingEpoch should not be nil")
         } catch {
@@ -776,7 +776,7 @@ extension OctagonPairingTests {
         }
 
         do {
-            OctagonSetPlatformSupportsSOS(true)
+            OctagonSetSOSFeatureEnabled(true)
             response = try requestSession!.processMessage(challengeContainingEpoch!)
             XCTAssertNotNil(response, "response message should not be nil")
         } catch {
@@ -784,7 +784,7 @@ extension OctagonPairingTests {
         }
 
         do {
-            OctagonSetPlatformSupportsSOS(false)
+            OctagonSetSOSFeatureEnabled(false)
             verification = try acceptSession!.processMessage(response!)
             XCTAssertNotNil(verification, "verification should not be nil")
         } catch {
@@ -792,7 +792,7 @@ extension OctagonPairingTests {
         }
 
         do {
-            OctagonSetPlatformSupportsSOS(true)
+            OctagonSetSOSFeatureEnabled(true)
             doneMessage = try requestSession!.processMessage(verification!)
             XCTAssertNotNil(doneMessage, "doneMessage should not be nil")
         } catch {
@@ -837,7 +837,7 @@ extension OctagonPairingTests {
 
         var voucherMessage: Data?
         do {
-            OctagonSetPlatformSupportsSOS(false)
+            OctagonSetSOSFeatureEnabled(false)
             voucherMessage = try acceptSession!.processMessage(identityMessage!)
             let parsedMessage = try KCJoiningMessage(der: identityMessage!)
             XCTAssertNotNil(parsedMessage.firstData, "No octagon message")
@@ -849,7 +849,7 @@ extension OctagonPairingTests {
 
         var nothing: Data?
         do {
-            OctagonSetPlatformSupportsSOS(true)
+            OctagonSetSOSFeatureEnabled(true)
             nothing = try requestCircleSession.processMessage(voucherMessage!)
             XCTAssertNotNil(nothing, "No nothing message")
         } catch {
@@ -904,7 +904,7 @@ extension OctagonPairingTests {
     }
 
     func testVersion2ofPiggybackingWithRequesterOctagonOnly() throws {
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
@@ -937,7 +937,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initialMessageContainingOctagonVersion, "initial message should not be nil")
 
         do {
-            OctagonSetPlatformSupportsSOS(true)
+            OctagonSetSOSFeatureEnabled(true)
             challengeContainingEpoch = try acceptSession!.processMessage(initialMessageContainingOctagonVersion!)
             XCTAssertNotNil(challengeContainingEpoch, "challengeContainingEpoch should not be nil")
         } catch {
@@ -945,7 +945,7 @@ extension OctagonPairingTests {
         }
 
         do {
-            OctagonSetPlatformSupportsSOS(false)
+            OctagonSetSOSFeatureEnabled(false)
             response = try requestSession!.processMessage(challengeContainingEpoch!)
             XCTAssertNotNil(response, "response message should not be nil")
         } catch {
@@ -953,7 +953,7 @@ extension OctagonPairingTests {
         }
 
         do {
-            OctagonSetPlatformSupportsSOS(true)
+            OctagonSetSOSFeatureEnabled(true)
             verification = try acceptSession!.processMessage(response!)
             XCTAssertNotNil(verification, "verification should not be nil")
         } catch {
@@ -961,7 +961,7 @@ extension OctagonPairingTests {
         }
 
         do {
-            OctagonSetPlatformSupportsSOS(false)
+            OctagonSetSOSFeatureEnabled(false)
             doneMessage = try requestSession!.processMessage(verification!)
             XCTAssertNotNil(doneMessage, "doneMessage should not be nil")
         } catch {
@@ -991,7 +991,7 @@ extension OctagonPairingTests {
 
         var identityMessage: Data?
         do {
-            OctagonSetPlatformSupportsSOS(false)
+            OctagonSetSOSFeatureEnabled(false)
             identityMessage = try requestCircleSession.initialMessage()
             let parsedMessage = try KCJoiningMessage(der: identityMessage!)
             XCTAssertNotNil(parsedMessage.firstData, "No octagon message")
@@ -1007,7 +1007,7 @@ extension OctagonPairingTests {
 
         var voucherMessage: Data?
         do {
-            OctagonSetPlatformSupportsSOS(true)
+            OctagonSetSOSFeatureEnabled(true)
             voucherMessage = try acceptSession!.processMessage(identityMessage!)
             let parsedMessage = try KCJoiningMessage(der: identityMessage!)
             XCTAssertNotNil(parsedMessage.firstData, "No octagon message")
@@ -1019,7 +1019,7 @@ extension OctagonPairingTests {
 
         var nothing: Data?
         do {
-            OctagonSetPlatformSupportsSOS(false)
+            OctagonSetSOSFeatureEnabled(false)
             nothing = try requestCircleSession.processMessage(voucherMessage!)
             XCTAssertNotNil(nothing, "No nothing message")
         } catch {
@@ -1074,7 +1074,7 @@ extension OctagonPairingTests {
     }
 
     func testOctagonCapableButAcceptorHasNoIdentity() throws {
-        OctagonSetPlatformSupportsSOS(true)
+        OctagonSetSOSFeatureEnabled(true)
         self.startCKAccountStatusMock()
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
@@ -1185,6 +1185,8 @@ extension OctagonPairingTests {
         self.startCKAccountStatusMock()
 
         self.assertResetAndBecomeTrustedInDefaultContext()
+
+        OctagonSetSOSFeatureEnabled(true)
 
         let (requestDelegate, acceptDelegate, acceptSession, requestSession) = self.setupKCJoiningSessionObjects()
         var initialMessageContainingOctagonVersion: Data?

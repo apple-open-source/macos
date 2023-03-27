@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -56,9 +56,10 @@
 
 - (NSData *)createSubsystemIdentifier
 {
+	const char *utf8String = NULL;
 	NSString *identifierString = [[NSString alloc] initWithFormat:@"%@.%llu", _category, _nextEventCounter];
 	_nextEventCounter++;
-	const char *utf8String = identifierString.UTF8String;
+	utf8String = identifierString.UTF8String;
 	return [[NSData alloc] initWithBytes:utf8String length:strlen(utf8String)];
 }
 
@@ -74,11 +75,13 @@
 
 - (NSArray<NSString *> *)addUniqueStrings:(NSArray<NSString *> *)strings toArray:(NSArray<NSString *> *)array
 {
+	NSMutableArray<NSString *> *uniqueStrings;
+
 	if (array == nil) {
 		return strings;
 	}
 
-	NSMutableArray<NSString *> *uniqueStrings = [[NSMutableArray alloc] init];
+	uniqueStrings = [[NSMutableArray alloc] init];
 	for (NSString *string in strings) {
 		NSInteger index = [array indexOfObject:string];
 		if (index == NSNotFound) {
@@ -97,10 +100,11 @@
 	EFNetworkControlPathEvent *newEvent = nil;
 	NSString *interfaceName = [logEvent substringForCaptureGroup:@TokenInterfaceName inMatchResult:matchResult];
 	if (interfaceName != nil) {
+		NSData *identifier = nil;
 		if (SCLogParser.interfaceMap[interfaceName] == nil) {
 			SCLogParser.interfaceMap[interfaceName] = @[];
 		}
-		NSData *identifier = [self createSubsystemIdentifier];
+		identifier = [self createSubsystemIdentifier];
 		newEvent = [[EFNetworkControlPathEvent alloc] initWithLogEvent:logEvent subsystemIdentifier:identifier];
 		newEvent.interfaceBSDName = interfaceName;
 	}
@@ -110,10 +114,10 @@
 - (EFNetworkControlPathEvent *)createInterfaceEventWithLogEvent:(EFLogEvent *)logEvent interfaceName:(NSString *)interfaceName
 {
 	EFNetworkControlPathEvent *newEvent = nil;
+	NSData *identifier = [self createSubsystemIdentifier];
 	if (SCLogParser.interfaceMap[interfaceName] == nil) {
 		SCLogParser.interfaceMap[interfaceName] = @[];
 	}
-	NSData *identifier = [self createSubsystemIdentifier];
 	newEvent = [[EFNetworkControlPathEvent alloc] initWithLogEvent:logEvent subsystemIdentifier:identifier];
 	newEvent.interfaceBSDName = interfaceName;
 	return newEvent;

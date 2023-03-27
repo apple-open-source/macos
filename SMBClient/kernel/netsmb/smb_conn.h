@@ -200,19 +200,20 @@
  * Negotiated protocol parameters
  */
 struct smb_sopt {
-    uint32_t    sv_maxtx;           /* maximum transmit buf size */
-    uint16_t    sv_maxmux;          /* SMB 1 - max number of outstanding rq's */
-    uint16_t    sv_maxsessions;     /* SMB 1 - max number of sessions */
-    uint32_t    sv_skey;            /* session key */
-    uint32_t    sv_caps;            /* SMB 1 - capabilities, preset for SMB 2/3 */
-    uint32_t    sv_sessflags;       /* SMB 2/3 - final session setup reply flags */
-    uint16_t    sv_dialect;         /* SMB 2 - dialect (non zero for SMB 2/3 */
-    uint32_t    sv_capabilities;    /* SMB 2 - capabilities */
-    uint32_t    sv_maxtransact;     /* SMB 2 - max transact size */
-    uint32_t    sv_maxread;         /* SMB 2 - max read size */
-    uint32_t    sv_maxwrite;        /* SMB 2 - max write size */
-    uint8_t     sv_guid[16];        /* SMB 2 - GUID */
-    uint16_t    sv_security_mode;   /* SMB 2 - security mode */
+    uint32_t    sv_maxtx;               /* maximum transmit buf size */
+    uint16_t    sv_maxmux;              /* SMB 1 - max number of outstanding rq's */
+    uint16_t    sv_maxsessions;         /* SMB 1 - max number of sessions */
+    uint32_t    sv_skey;                /* session key */
+    uint32_t    sv_caps;                /* SMB 1 - capabilities, preset for SMB 2/3 */
+    uint32_t    sv_sessflags;           /* SMB 2/3 - final session setup reply flags */
+    uint16_t    sv_dialect;             /* SMB 2 - dialect (non zero for SMB 2/3 */
+    uint32_t    sv_saved_capabilities;  /* SMB 2 - capabilities to check validate_negotiate */
+    uint32_t    sv_active_capabilities; /* SMB 2 - active capabilities to check during runtime */
+    uint32_t    sv_maxtransact;         /* SMB 2 - max transact size */
+    uint32_t    sv_maxread;             /* SMB 2 - max read size */
+    uint32_t    sv_maxwrite;            /* SMB 2 - max write size */
+    uint8_t     sv_guid[16];            /* SMB 2 - GUID */
+    uint16_t    sv_security_mode;       /* SMB 2 - security mode */
 };
 
 /*
@@ -555,6 +556,9 @@ struct smb_session {
     char                snapshot_time[32] __attribute((aligned(8)));
     time_t              snapshot_local_time;
     
+    /* For DFS, if tree connect returns STATUS_SMB_BAD_CLUSTER_DIALECT */
+    uint32_t             session_max_dialect;
+
     uint8_t             uuid[16];                   // session random ID to return to userspace
 };
 

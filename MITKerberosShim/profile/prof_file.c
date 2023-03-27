@@ -628,11 +628,11 @@ void profile_dereference_data_locked(prf_data_t data)
     scan_shared_trees_locked();
 }
 
-int profile_lock_global()
+int profile_lock_global(void)
 {
     return pthread_mutex_lock(&g_shared_trees_mutex);
 }
-int profile_unlock_global()
+int profile_unlock_global(void)
 {
     return pthread_mutex_unlock(&g_shared_trees_mutex);
 }

@@ -1,26 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>OpenSourceProject</key>
-	<string>pcre</string>
-	<key>OpenSourceVersion</key>
-	<string>8.44</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://pcre.org/</string>
-	<key>OpenSourceURL</key>
-	<string>https://ftp.pcre.org/pub/pcre/pcre-8.44.tar.bz2</string>
-	<key>OpenSourceSHA1</key>
-	<string>8179b083053fce9b4a766513fa1f14807aabee42</string>
-	<key>OpenSourceImportDate</key>
-	<string>2020-07-02</string>
-	<key>OpenSourceLicense</key>
-	<string>BSD</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>pcre.txt</string>
-	<key>OpenSourceModifications</key>
 	<array>
-		<string>configure: remove -flat_namespace 31948198</string>
+		<dict>
+			<key>OpenSourceProject</key>
+			<string>pcre</string>
+			<key>OpenSourceVersion</key>
+			<string>8.44</string>
+			<key>OpenSourceWebsiteURL</key>
+			<string>http://pcre.org/</string>
+			<key>OpenSourceURL</key>
+			<string>https://ftp.pcre.org/pub/pcre/pcre-8.44.tar.bz2</string>
+			<key>OpenSourceSHA1</key>
+			<string>8179b083053fce9b4a766513fa1f14807aabee42</string>
+			<key>OpenSourceImportDate</key>
+			<string>2020-07-02</string>
+			<key>OpenSourceLicense</key>
+			<string>BSD</string>
+			<key>OpenSourceLicenseFile</key>
+			<string>pcre.txt</string>
+			<key>OpenSourceModifications</key>
+			<array>
+				<string>configure: remove -flat_namespace 31948198</string>
+			</array>
+		</dict>
+		<dict>
+			<key>OpenSourceProject</key>
+			<string>pcre2</string>
+			<key>OpenSourceVersion</key>
+			<string>10.42</string>
+			<key>OpenSourceWebsiteURL</key>
+			<string>https://github.com/PCRE2Project/pcre2</string>
+			<key>OpenSourceURL</key>
+			<string>https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.42/pcre2-10.42.tar.bz2</string>
+			<key>OpenSourceSHA256</key>
+			<string>8d36cd8cb6ea2a4c2bb358ff6411b0c788633a2a45dabbf1aeb4b701d1b5e840</string>
+			<key>OpenSourceImportDate</key>
+			<string>2023-01-09</string>
+			<key>OpenSourceLicense</key>
+			<string>BSD</string>
+			<key>OpenSourceLicenseFile</key>
+			<string>pcre2.txt</string>
+			<key>OpenSourceModifications</key>
+			<array>
+			</array>
+		</dict>
 	</array>
-</dict>
 </plist>

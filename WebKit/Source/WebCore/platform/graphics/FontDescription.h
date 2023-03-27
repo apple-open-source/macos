@@ -31,11 +31,24 @@
 #include "TextFlags.h"
 #include "WebKitFontFamilyNames.h"
 #include <unicode/uscript.h>
+#include <wtf/Markable.h>
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
 
 using namespace WebKitFontFamilyNames;
+
+struct FloatMarkableTraits {
+    constexpr static bool isEmptyValue(float value)
+    {
+        return value != value;
+    }
+
+    constexpr static float emptyValue()
+    {
+        return NAN;
+    }
+};
 
 class FontDescription {
 public:
@@ -47,6 +60,7 @@ public:
     float computedSize() const { return m_computedSize; }
     unsigned computedPixelSize() const { return unsigned(m_computedSize + 0.5f); }
     std::optional<FontSelectionValue> italic() const { return m_fontSelectionRequest.slope; }
+    std::optional<float> fontSizeAdjust() const { return m_sizeAdjust; }
     FontSelectionValue stretch() const { return m_fontSelectionRequest.width; }
     FontSelectionValue weight() const { return m_fontSelectionRequest.weight; }
     FontSelectionRequest fontSelectionRequest() const { return m_fontSelectionRequest; }
@@ -61,7 +75,12 @@ public:
     FontWidthVariant widthVariant() const { return static_cast<FontWidthVariant>(m_widthVariant); }
     const FontFeatureSettings& featureSettings() const { return m_featureSettings; }
     const FontVariationSettings& variationSettings() const { return m_variationSettings; }
-    FontSynthesis fontSynthesis() const { return static_cast<FontSynthesis>(m_fontSynthesis); }
+    FontSynthesisLonghandValue fontSynthesisWeight() const { return static_cast<FontSynthesisLonghandValue>(m_fontSynthesisWeight); }
+    FontSynthesisLonghandValue fontSynthesisStyle() const { return static_cast<FontSynthesisLonghandValue>(m_fontSynthesisStyle); }
+    FontSynthesisLonghandValue fontSynthesisSmallCaps() const { return static_cast<FontSynthesisLonghandValue>(m_fontSynthesisCaps); }
+    bool hasAutoFontSynthesisWeight() const { return fontSynthesisWeight() == FontSynthesisLonghandValue::Auto; }
+    bool hasAutoFontSynthesisStyle() const { return fontSynthesisStyle() == FontSynthesisLonghandValue::Auto; }
+    bool hasAutoFontSynthesisSmallCaps() const { return fontSynthesisSmallCaps() == FontSynthesisLonghandValue::Auto; }
     FontVariantLigatures variantCommonLigatures() const { return static_cast<FontVariantLigatures>(m_variantCommonLigatures); }
     FontVariantLigatures variantDiscretionaryLigatures() const { return static_cast<FontVariantLigatures>(m_variantDiscretionaryLigatures); }
     FontVariantLigatures variantHistoricalLigatures() const { return static_cast<FontVariantLigatures>(m_variantHistoricalLigatures); }
@@ -102,6 +121,7 @@ public:
     FontPalette fontPalette() const { return m_fontPalette; }
 
     void setComputedSize(float s) { m_computedSize = clampToFloat(s); }
+    void setFontSizeAdjust(std::optional<float> sizeAdjust) { m_sizeAdjust = sizeAdjust; }
     void setItalic(std::optional<FontSelectionValue> italic) { m_fontSelectionRequest.slope = italic; }
     void setStretch(FontSelectionValue stretch) { m_fontSelectionRequest.width = stretch; }
     void setIsItalic(bool isItalic) { setItalic(isItalic ? std::optional<FontSelectionValue> { italicValue() } : std::optional<FontSelectionValue> { }); }
@@ -111,10 +131,12 @@ public:
     void setOrientation(FontOrientation orientation) { m_orientation = static_cast<unsigned>(orientation); }
     void setNonCJKGlyphOrientation(NonCJKGlyphOrientation orientation) { m_nonCJKGlyphOrientation = static_cast<unsigned>(orientation); }
     void setWidthVariant(FontWidthVariant widthVariant) { m_widthVariant = static_cast<unsigned>(widthVariant); } // Make sure new callers of this sync with FontPlatformData::isForTextCombine()!
-    WEBCORE_EXPORT void setSpecifiedLocale(const AtomString&);
+    void setSpecifiedLocale(const AtomString&);
     void setFeatureSettings(FontFeatureSettings&& settings) { m_featureSettings = WTFMove(settings); }
     void setVariationSettings(FontVariationSettings&& settings) { m_variationSettings = WTFMove(settings); }
-    void setFontSynthesis(FontSynthesis fontSynthesis) { m_fontSynthesis = fontSynthesis; }
+    void setFontSynthesisWeight(FontSynthesisLonghandValue value) { m_fontSynthesisWeight =  static_cast<unsigned>(value); }
+    void setFontSynthesisStyle(FontSynthesisLonghandValue value) { m_fontSynthesisStyle = static_cast<unsigned>(value); }
+    void setFontSynthesisSmallCaps(FontSynthesisLonghandValue value) { m_fontSynthesisCaps = static_cast<unsigned>(value); }
     void setVariantCommonLigatures(FontVariantLigatures variant) { m_variantCommonLigatures = static_cast<unsigned>(variant); }
     void setVariantDiscretionaryLigatures(FontVariantLigatures variant) { m_variantDiscretionaryLigatures = static_cast<unsigned>(variant); }
     void setVariantHistoricalLigatures(FontVariantLigatures variant) { m_variantHistoricalLigatures = static_cast<unsigned>(variant); }
@@ -154,6 +176,7 @@ private:
     AtomString m_specifiedLocale;
 
     FontSelectionRequest m_fontSelectionRequest;
+    Markable<float, FloatMarkableTraits> m_sizeAdjust; // Size adjust for font-size-adjust
     float m_computedSize { 0 }; // Computed size adjusted for the minimum font size and the zoom factor.
     unsigned m_orientation : 1; // FontOrientation - Whether the font is rendering on a horizontal line or a vertical line.
     unsigned m_nonCJKGlyphOrientation : 1; // NonCJKGlyphOrientation - Only used by vertical text. Determines the default orientation for non-ideograph glyphs.
@@ -161,7 +184,9 @@ private:
     unsigned m_renderingMode : 1; // Used to switch between CG and GDI text on Windows.
     unsigned m_textRendering : 2; // TextRenderingMode
     unsigned m_script : 7; // Used to help choose an appropriate font for generic font families.
-    unsigned m_fontSynthesis : 3; // FontSynthesis type
+    unsigned m_fontSynthesisWeight : 1;
+    unsigned m_fontSynthesisStyle : 1;
+    unsigned m_fontSynthesisCaps : 1;
     unsigned m_variantCommonLigatures : 2; // FontVariantLigatures
     unsigned m_variantDiscretionaryLigatures : 2; // FontVariantLigatures
     unsigned m_variantHistoricalLigatures : 2; // FontVariantLigatures
@@ -194,7 +219,9 @@ inline bool FontDescription::operator==(const FontDescription& other) const
         && m_specifiedLocale == other.m_specifiedLocale
         && m_featureSettings == other.m_featureSettings
         && m_variationSettings == other.m_variationSettings
-        && m_fontSynthesis == other.m_fontSynthesis
+        && m_fontSynthesisWeight == other.m_fontSynthesisWeight
+        && m_fontSynthesisStyle == other.m_fontSynthesisStyle
+        && m_fontSynthesisCaps == other.m_fontSynthesisCaps
         && m_variantCommonLigatures == other.m_variantCommonLigatures
         && m_variantDiscretionaryLigatures == other.m_variantDiscretionaryLigatures
         && m_variantHistoricalLigatures == other.m_variantHistoricalLigatures
@@ -214,7 +241,8 @@ inline bool FontDescription::operator==(const FontDescription& other) const
         && m_fontStyleAxis == other.m_fontStyleAxis
         && m_shouldAllowUserInstalledFonts == other.m_shouldAllowUserInstalledFonts
         && m_shouldDisableLigaturesForSpacing == other.m_shouldDisableLigaturesForSpacing
-        && m_fontPalette == other.m_fontPalette;
+        && m_fontPalette == other.m_fontPalette
+        && m_sizeAdjust == other.m_sizeAdjust;
 }
 
 template<class Encoder>
@@ -232,7 +260,9 @@ void FontDescription::encode(Encoder& encoder) const
     encoder << widthVariant();
     encoder << renderingMode();
     encoder << textRenderingMode();
-    encoder << fontSynthesis();
+    encoder << fontSynthesisWeight();
+    encoder << fontSynthesisStyle();
+    encoder << fontSynthesisSmallCaps();
     encoder << variantCommonLigatures();
     encoder << variantDiscretionaryLigatures();
     encoder << variantHistoricalLigatures();
@@ -253,6 +283,7 @@ void FontDescription::encode(Encoder& encoder) const
     encoder << shouldAllowUserInstalledFonts();
     encoder << shouldDisableLigaturesForSpacing();
     encoder << fontPalette();
+    encoder << fontSizeAdjust();
 }
 
 template<class Decoder>
@@ -319,9 +350,24 @@ std::optional<FontDescription> FontDescription::decode(Decoder& decoder)
     if (!textRenderingMode)
         return std::nullopt;
 
-    std::optional<FontSynthesis> fontSynthesis;
-    decoder >> fontSynthesis;
-    if (!fontSynthesis)
+    std::optional<FontSynthesisLonghandValue> fontSynthesisWeight;
+    decoder >> fontSynthesisWeight;
+    if (!fontSynthesisWeight)
+        return std::nullopt;
+
+    std::optional<FontSynthesisLonghandValue> fontSynthesisStyle;
+    decoder >> fontSynthesisStyle;
+    if (!fontSynthesisStyle)
+        return std::nullopt;
+
+    std::optional<FontSynthesisLonghandValue> fontSynthesisSmallCaps;
+    decoder >> fontSynthesisSmallCaps;
+    if (!fontSynthesisSmallCaps)
+        return std::nullopt;
+
+    std::optional<std::optional<float>> sizeAdjust;
+    decoder >> sizeAdjust;
+    if (!sizeAdjust)
         return std::nullopt;
 
     std::optional<FontVariantLigatures> variantCommonLigatures;
@@ -436,7 +482,9 @@ std::optional<FontDescription> FontDescription::decode(Decoder& decoder)
     fontDescription.setWidthVariant(*widthVariant);
     fontDescription.setRenderingMode(*renderingMode);
     fontDescription.setTextRenderingMode(*textRenderingMode);
-    fontDescription.setFontSynthesis(*fontSynthesis);
+    fontDescription.setFontSynthesisWeight(*fontSynthesisWeight);
+    fontDescription.setFontSynthesisStyle(*fontSynthesisStyle);
+    fontDescription.setFontSynthesisSmallCaps(*fontSynthesisSmallCaps);
     fontDescription.setVariantCommonLigatures(*variantCommonLigatures);
     fontDescription.setVariantDiscretionaryLigatures(*variantDiscretionaryLigatures);
     fontDescription.setVariantHistoricalLigatures(*variantHistoricalLigatures);
@@ -457,6 +505,7 @@ std::optional<FontDescription> FontDescription::decode(Decoder& decoder)
     fontDescription.setShouldAllowUserInstalledFonts(*shouldAllowUserInstalledFonts);
     fontDescription.setShouldDisableLigaturesForSpacing(*shouldDisableLigaturesForSpacing);
     fontDescription.setFontPalette(*fontPalette);
+    fontDescription.setFontSizeAdjust(*sizeAdjust);
 
     return fontDescription;
 }

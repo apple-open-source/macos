@@ -83,6 +83,11 @@
     // KeychainXCTest already sets up keychain with custom test-named directory
 }
 
+- (void)tearDown
+{
+    [super tearDown];
+}
+
 - (void)testReturnValuesInSecItemUpdate
 {
     NSDictionary* addQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
@@ -537,6 +542,7 @@ static void SecDbTestCorruptionHandler(void)
     XCTAssert([description containsString:@"Invalid date"]);
 
     CFReleaseNull(error);
+    CFReleaseNull(date);
     free(der);
 }
 
@@ -588,6 +594,7 @@ static void SecDbTestCorruptionHandler(void)
     XCTAssertEqual(der_end, decoderesult);
     XCTAssertEqual(CFGetTypeID(decoded), CFDateGetTypeID());
     XCTAssertEqualWithAccuracy(CFDateGetAbsoluteTime(decoded), 0, 60 * 60 * 24);
+    CFReleaseNull(date);
 }
 
 - (void)testContainersWithBadDateWithDEREncodingRepairProducesDefaultValue {
@@ -620,6 +627,7 @@ static void SecDbTestCorruptionHandler(void)
 
     XCTAssertNotNil((__bridge NSDictionary*)decoded, "Should have decoded some dictionary");
     if(decoded == nil) {
+        CFReleaseNull(date);
         return;
     }
 
@@ -665,6 +673,7 @@ static void SecDbTestCorruptionHandler(void)
     }
 
     CFReleaseNull(decoded);
+    CFReleaseNull(date);
 }
 
 - (void)testSecItemCopyMatchingWithBadDateInItem {
@@ -957,6 +966,7 @@ static void SecDbTestCorruptionHandler(void)
     CFReleaseNull(return_uuid);
     CFReleaseNull(uuid);
     CFReleaseNull(pref);
+    CFReleaseNull(uuidData);
 }
 
 - (void)testSecItemAddAndCopyMatchingWithUUIDPersistentRefs
@@ -1635,6 +1645,7 @@ static void SecDbTestCorruptionHandler(void)
             CFDataRef originalUUIDData = CFDataCreateCopyFromRange(kCFAllocatorDefault, prefGENP, CFRangeMake(4, 16));
             XCTAssertNotNil((__bridge id)originalUUIDData, "originalUUIDData should not be nil");
             XCTAssertEqualObjects((__bridge id)mergedUUIDData, (__bridge id)originalUUIDData, "persist ref UUIDs should be equal");
+            CFReleaseNull(originalUUIDData);
             return (bool)true;
         });
     });
@@ -2033,6 +2044,8 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
 }
 
 - (void)testDeleteItemsOnSignOut {
+    OctagonSetSOSFeatureEnabled(true);
+    
     NSArray *allowedAccessGroups = @[
         @"com.apple.cfnetwork",
         @"com.apple.safari.credit-cards",

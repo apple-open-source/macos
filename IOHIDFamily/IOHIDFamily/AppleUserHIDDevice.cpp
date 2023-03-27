@@ -558,12 +558,8 @@ IOReturn AppleUserHIDDevice::setProperties(OSObject * properties)
     require_action (propertyDict, exit, HIDDeviceLogError("invalid object type"));
     
     propertyDict->iterateObjects (^bool(const OSSymbol * key, OSObject * object) {
-        if (key->isEqualTo(kIOUserClientClassKey) ||
-            key->isEqualTo(kIOClassKey) ||
-            key->isEqualTo(kIOProviderClassKey) ||
-            key->isEqualTo(kIOKitDebugKey) ||
-            key->isEqualTo(kIOServiceDEXTEntitlementsKey)) {
-                HIDDeviceLogError("Ignore porperty for key");
+        if (IsIOHIDRestrictedIOKitProperty(key)) {
+                HIDDeviceLogError("Ignore porperty for key %s", key->getCStringNoCopy());
                 return false;
             }
             

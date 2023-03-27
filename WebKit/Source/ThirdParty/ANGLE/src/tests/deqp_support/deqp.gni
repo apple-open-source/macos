@@ -8,7 +8,10 @@ deqp_path = "../../third_party/VK-GL-CTS/src"
 deqp_include_dirs = [
   "$deqp_path/executor",
   "$deqp_path/execserver",
+  "$deqp_path/framework/platform/lnx",
+  "$deqp_path/framework/platform/lnx/X11",
   "$deqp_path/framework/platform/null",
+  "$deqp_path/framework/platform/win32",
   "$deqp_path/framework/xexml",
   "$deqp_path/modules/gles2",
   "$deqp_path/modules/gles2/functional",
@@ -146,6 +149,8 @@ deqp_gles2_sources = [
   "$deqp_path/modules/gles2/functional/es2fShaderExecuteTest.hpp",
   "$deqp_path/modules/gles2/functional/es2fShaderFragDataTests.cpp",
   "$deqp_path/modules/gles2/functional/es2fShaderFragDataTests.hpp",
+  "$deqp_path/modules/gles2/functional/es2fShaderFunctionTests.cpp",
+  "$deqp_path/modules/gles2/functional/es2fShaderFunctionTests.hpp",
   "$deqp_path/modules/gles2/functional/es2fShaderIndexingTests.cpp",
   "$deqp_path/modules/gles2/functional/es2fShaderIndexingTests.hpp",
   "$deqp_path/modules/gles2/functional/es2fShaderInvarianceTests.cpp",
@@ -408,6 +413,8 @@ deqp_gles3_sources = [
   "$deqp_path/modules/gles3/functional/es3fShaderDiscardTests.hpp",
   "$deqp_path/modules/gles3/functional/es3fShaderFragDataTests.cpp",
   "$deqp_path/modules/gles3/functional/es3fShaderFragDataTests.hpp",
+  "$deqp_path/modules/gles3/functional/es3fShaderFunctionTests.cpp",
+  "$deqp_path/modules/gles3/functional/es3fShaderFunctionTests.hpp",
   "$deqp_path/modules/gles3/functional/es3fShaderIndexingTests.cpp",
   "$deqp_path/modules/gles3/functional/es3fShaderIndexingTests.hpp",
   "$deqp_path/modules/gles3/functional/es3fShaderInvarianceTests.cpp",
@@ -932,6 +939,8 @@ deqp_khr_common_sources = [
   "$deqp_path/external/openglcts/modules/common/glcSeparableProgramsTransformFeedbackTests.hpp",
   "$deqp_path/external/openglcts/modules/common/glcShaderConstExprTests.cpp",
   "$deqp_path/external/openglcts/modules/common/glcShaderConstExprTests.hpp",
+  "$deqp_path/external/openglcts/modules/common/glcShaderFunctionTests.cpp",
+  "$deqp_path/external/openglcts/modules/common/glcShaderFunctionTests.hpp",
   "$deqp_path/external/openglcts/modules/common/glcShaderGroupVoteTests.cpp",
   "$deqp_path/external/openglcts/modules/common/glcShaderGroupVoteTests.hpp",
   "$deqp_path/external/openglcts/modules/common/glcShaderIndexingTests.cpp",
@@ -1478,7 +1487,7 @@ deqp_framework_delibs_sources_win = [
 
 deqp_framework_delibs_sources_unix = [
   "$deqp_path/framework/delibs/dethread/unix/deMutexUnix.c",
-  "$deqp_path/framework/delibs/dethread/unix/deNamedSemaphoreUnix.c",
+  "$deqp_path/framework/delibs/dethread/unix/deSemaphoreMach.c",
   "$deqp_path/framework/delibs/dethread/unix/deSemaphoreUnix.c",
   "$deqp_path/framework/delibs/dethread/unix/deThreadLocalUnix.c",
   "$deqp_path/framework/delibs/dethread/unix/deThreadUnix.c",
@@ -1987,6 +1996,16 @@ deqp_glshared_sources = [
   "$deqp_path/modules/glshared/glsVertexArrayTests.hpp",
 ]
 
+deqp_framework_platform_sources = [
+  "$deqp_path/framework/platform/null/tcuNullContextFactory.cpp",
+  "$deqp_path/framework/platform/null/tcuNullContextFactory.hpp",
+  "$deqp_path/framework/platform/null/tcuNullRenderContext.cpp",
+  "$deqp_path/framework/platform/win32/tcuWGL.hpp",
+  "$deqp_path/framework/platform/win32/tcuWGLContextFactory.hpp",
+  "$deqp_path/framework/platform/win32/tcuWin32EGLNativeDisplayFactory.hpp",
+  "$deqp_path/framework/platform/win32/tcuWin32Window.hpp",
+]
+
 deqp_libtester_sources = [
   "$deqp_path/execserver/xsDefs.cpp",
   "$deqp_path/execserver/xsDefs.hpp",
@@ -2032,9 +2051,6 @@ deqp_libtester_sources = [
   "$deqp_path/executor/xeTestResultParser.hpp",
   "$deqp_path/executor/xeXMLWriter.cpp",
   "$deqp_path/executor/xeXMLWriter.hpp",
-  "$deqp_path/framework/platform/null/tcuNullContextFactory.cpp",
-  "$deqp_path/framework/platform/null/tcuNullContextFactory.hpp",
-  "$deqp_path/framework/platform/null/tcuNullRenderContext.cpp",
   "deqp_support/tcuANGLENativeDisplayFactory.cpp",
   "deqp_support/tcuANGLENativeDisplayFactory.h",
 

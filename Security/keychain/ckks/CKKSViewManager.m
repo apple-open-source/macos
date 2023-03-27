@@ -592,7 +592,7 @@ dispatch_once_t globalZoneStateQueueOnce;
                          identifier:(NSString*)identifier
                            viewHint:(NSString*)viewHint
                     fetchCloudValue:(bool)fetchCloudValue
-                           complete:(void (^) (NSString* uuid, NSError* operror)) complete
+                           complete:(void (^) (CKKSCurrentItemData* data, NSError* operror)) complete
 {
     NSError* findViewError = nil;
     CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
@@ -647,6 +647,7 @@ dispatch_once_t globalZoneStateQueueOnce;
             ckksnotice_global("ckksbackup", "telling CloudServices about TLK arrival");
             notify_post(kSecItemBackupNotification);
         };
+        CFReleaseNull(error);
     }];
 }
 

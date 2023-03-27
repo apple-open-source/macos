@@ -51,6 +51,11 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
  */
 @property (nonatomic, getter=isFraudulentWebsiteWarningEnabled) BOOL fraudulentWebsiteWarningEnabled WK_API_AVAILABLE(macos(10.15), ios(13.0));
 
+/*! @abstract A Boolean value indicating whether the web view should include backgrounds when printing.
+ @discussion The default value is `NO`.
+ */
+@property (nonatomic) BOOL shouldPrintBackgrounds WK_API_AVAILABLE(macos(13.3), ios(16.4));
+
 #if !TARGET_OS_IPHONE
 /*!
  @property tabFocusesLinks
@@ -84,6 +89,6 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
 @property (nonatomic) BOOL plugInsEnabled WK_API_DEPRECATED("Plug-ins are no longer supported", macos(10.10, 10.15));
 #endif
 
-@property (nonatomic) BOOL javaScriptEnabled WK_API_DEPRECATED("Use WKWebPagePreferences.allowsContentJavaScript to disable content JavaScript on a per-navigation basis", macos(10.10, 11.0), ios(8.0, 14.0));
+@property (nonatomic) BOOL javaScriptEnabled WK_API_DEPRECATED("Use WKWebpagePreferences.allowsContentJavaScript to disable content JavaScript on a per-navigation basis", macos(10.10, 11.0), ios(8.0, 14.0));
 
 @end

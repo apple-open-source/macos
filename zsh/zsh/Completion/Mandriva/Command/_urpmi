@@ -73,7 +73,7 @@ _urpmi() {
 
   opts_net=(
     "($help --wget)--curl[use curl to retrieve distant files]"
-    "($help)--limit-rate[limit the download speed (b/s)]:download speed in b/s: "
+    "($help)--limit-rate[limit the download speed]:download speed (b/s)"
     "($help)--proxy:proxy host:_hosts"
     "($help)--proxy-user:proxy user:_users"
     "($help --curl)--wget[use wget to retrieve distant files]"
@@ -131,7 +131,7 @@ _urpmi() {
 	"($help --no-probe --probe-hdlist)--probe-synthesis[try to find and use synthesis file]" \
 	"($help)--update[mark as update media]" \
 	"($help)--version[use specified distribution version]:Mandrake version: " \
-	"($help)--virtual[create virtual media wich are always up-to-date]" \
+	"($help)--virtual[create virtual media which are always up-to-date]" \
 	"($help)-c[clean headers cache directory]" \
 	"($help)-f[force generation of hdlist files]" \
 	"($help --distrib):name of media: " \
@@ -286,7 +286,7 @@ _urpmi() {
 	"($help --all --interactive  --name)--summary[print tag summary: summary]" \
 	"($help)--uniq[do not print identical lines]" \
 	"($help --all --interactive  --name)--url[print tag url: url]" \
-	"*:hdlist files:_files -g '*.cz(-.)'" \
+	"*:hdlist file:_files -g '*.cz(-.)'" \
       && ret=0
     ;;
   esac

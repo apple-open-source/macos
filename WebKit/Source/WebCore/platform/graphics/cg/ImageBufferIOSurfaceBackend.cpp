@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2020-2023 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #if HAVE(IOSURFACE)
 
+#include "GraphicsClient.h"
 #include "GraphicsContextCG.h"
 #include "IOSurface.h"
 #include "IOSurfacePool.h"
@@ -73,17 +74,7 @@ size_t ImageBufferIOSurfaceBackend::calculateExternalMemoryCost(const Parameters
     return calculateMemoryCost(parameters);
 }
 
-RetainPtr<CGColorSpaceRef> ImageBufferIOSurfaceBackend::contextColorSpace(const GraphicsContext& context)
-{
-    CGContextRef cgContext = context.platformContext();
-
-    if (CGContextGetType(cgContext) == kCGContextTypeIOSurface)
-        return CGIOSurfaceContextGetColorSpace(cgContext);
-    
-    return ImageBufferCGBackend::contextColorSpace(context);
-}
-
-std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create(const Parameters& parameters, const ImageBuffer::CreationContext& creationContext)
+std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create(const Parameters& parameters, const ImageBufferCreationContext& creationContext)
 {
     IntSize backendSize = calculateSafeBackendSize(parameters);
     if (backendSize.isEmpty())
@@ -93,25 +84,13 @@ std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create
     if (!surface)
         return nullptr;
 
-    RetainPtr<CGContextRef> cgContext = surface->ensurePlatformContext(creationContext.hostWindow);
+    RetainPtr<CGContextRef> cgContext = surface->ensurePlatformContext(creationContext.graphicsClient ? creationContext.graphicsClient->displayID() : 0);
     if (!cgContext)
         return nullptr;
 
     CGContextClearRect(cgContext.get(), FloatRect(FloatPoint::zero(), backendSize));
 
     return makeUnique<ImageBufferIOSurfaceBackend>(parameters, WTFMove(surface), creationContext.surfacePool);
-}
-
-std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create(const Parameters& parameters, const GraphicsContext& context)
-{
-    if (auto cgColorSpace = context.hasPlatformContext() ? contextColorSpace(context) : nullptr) {
-        auto overrideParameters = parameters;
-        overrideParameters.colorSpace = DestinationColorSpace { cgColorSpace };
-
-        return ImageBufferIOSurfaceBackend::create(overrideParameters, nullptr);
-    }
-
-    return ImageBufferIOSurfaceBackend::create(parameters, nullptr);
 }
 
 ImageBufferIOSurfaceBackend::ImageBufferIOSurfaceBackend(const Parameters& parameters, std::unique_ptr<IOSurface>&& surface, IOSurfacePool* ioSurfacePool)
@@ -154,6 +133,11 @@ unsigned ImageBufferIOSurfaceBackend::bytesPerRow() const
     return m_surface->bytesPerRow();
 }
 
+void ImageBufferIOSurfaceBackend::transferToNewContext(const ImageBufferCreationContext& creationContext)
+{
+    m_ioSurfacePool = creationContext.surfacePool;
+}
+
 void ImageBufferIOSurfaceBackend::invalidateCachedNativeImage() const
 {
     // Force QuartzCore to invalidate its cached CGImageRef for this IOSurface.
@@ -189,9 +173,7 @@ RefPtr<NativeImage> ImageBufferIOSurfaceBackend::sinkIntoNativeImage()
 
 void ImageBufferIOSurfaceBackend::finalizeDrawIntoContext(GraphicsContext& destinationContext)
 {
-    // Accelerated to unaccelerated image buffers need complex caching. We trust that
-    // this is a one-off draw, and as such we clear the caches of the source image after each draw.
-    if (destinationContext.renderingMode() == RenderingMode::Unaccelerated)
+    if (destinationContext.needsCachedNativeImageInvalidationWorkaround(ImageBufferIOSurfaceBackend::renderingMode))
         invalidateCachedNativeImage();
 }
 

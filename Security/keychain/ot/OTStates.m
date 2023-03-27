@@ -74,6 +74,7 @@ OctagonState* const OctagonStateInitiatorJoinAfterCKKSReset = (OctagonState*)@"I
 /* used in restore (join with bottle)*/
 OctagonState* const OctagonStateBottleJoinCreateIdentity = (OctagonState*)@"BottleJoinCreateIdentity";
 OctagonState* const OctagonStateBottleJoinVouchWithBottle = (OctagonState*)@"BottleJoinVouchWithBottle";
+OctagonState* const OctagonStateStashAccountSettingsForRecoveryKey = (OctagonState*)@"OctagonStateStashAccountSettingsForRecoveryKey";
 OctagonState* const OctagonStateCreateIdentityForRecoveryKey = (OctagonState*)@"CreateIdentityForRecoveryKey";
 OctagonState* const OctagonStateCreateIdentityForCustodianRecoveryKey = (OctagonState*)@"CreateIdentityForCustodianRecoveryKey";
 
@@ -146,6 +147,7 @@ OctagonState* const OctagonStateAssistCKKSTLKUploadAfterCKKSReset = (OctagonStat
 
 OctagonState* const OctagonStateHealthCheckLeaveClique = (OctagonState*)@"HealthCheckLeaveClique";
 
+OctagonState* const OctagonStateSetAccountSettings = (OctagonState*)@"SetAccountSettings";
 
 /* escrow */
 OctagonState* const OctagonStateEscrowTriggerUpdate = (OctagonState*)@"EscrowTriggerUpdate";
@@ -245,6 +247,7 @@ OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (Octago
                                      @[OctagonStateBottlePreloadOctagonKeysInSOS,            @65U,],
                                      @[OctagonStateAttemptSOSUpgradeDetermineCDPState,       @66U,],
                                      @[OctagonStateLostAccountAuth,                          @67U,],
+                                     @[OctagonStateSetAccountSettings,                       @68U,],
                                      @[OctagonStateCreateIdentityForCustodianRecoveryKey,    @69U,],
                                      @[OctagonStateVouchWithCustodianRecoveryKey,            @70U,],
                                      //Removed: @[OctagonStateFixupRefetchCuttlefishForCustodian,       @71U,],
@@ -270,6 +273,8 @@ OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (Octago
                                      @[OctagonStateResetAndEstablishClearLocalContextState,  @90U,],
                                      @[OctagonStateLocalReset,                               @91U,],
                                      @[OctagonStateLocalResetClearLocalContextState,         @92U,],
+                                     @[OctagonStateStashAccountSettingsForRecoveryKey,       @93U,],
+
                                      ];
     return stateInit;
 }

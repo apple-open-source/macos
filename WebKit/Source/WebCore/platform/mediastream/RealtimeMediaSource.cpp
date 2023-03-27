@@ -110,15 +110,15 @@ void RealtimeMediaSource::removeAudioSampleObserver(AudioSampleObserver& observe
 void RealtimeMediaSource::addVideoFrameObserver(VideoFrameObserver& observer)
 {
     ASSERT(isMainThread());
-    Locker locker { m_VideoFrameObserversLock };
-    m_VideoFrameObservers.add(&observer);
+    Locker locker { m_videoFrameObserversLock };
+    m_videoFrameObservers.add(&observer);
 }
 
 void RealtimeMediaSource::removeVideoFrameObserver(VideoFrameObserver& observer)
 {
     ASSERT(isMainThread());
-    Locker locker { m_VideoFrameObserversLock };
-    m_VideoFrameObservers.remove(&observer);
+    Locker locker { m_videoFrameObserversLock };
+    m_videoFrameObservers.remove(&observer);
 }
 
 void RealtimeMediaSource::addObserver(Observer& observer)
@@ -131,7 +131,7 @@ void RealtimeMediaSource::removeObserver(Observer& observer)
 {
     ASSERT(isMainThread());
     m_observers.remove(observer);
-    if (m_observers.computesEmpty())
+    if (m_observers.isEmptyIgnoringNullReferences())
         stopBeingObserved();
 }
 
@@ -177,6 +177,13 @@ void RealtimeMediaSource::forEachObserver(const Function<void(Observer&)>& apply
     ASSERT(isMainThread());
     Ref protectedThis { *this };
     m_observers.forEach(apply);
+}
+
+void RealtimeMediaSource::forEachVideoFrameObserver(const Function<void(VideoFrameObserver&)>& apply)
+{
+    Locker locker { m_videoFrameObserversLock };
+    for (auto* observer : m_videoFrameObservers)
+        apply(*observer);
 }
 
 void RealtimeMediaSource::notifyMutedObservers()
@@ -242,8 +249,8 @@ void RealtimeMediaSource::videoFrameAvailable(VideoFrame& videoFrame, VideoFrame
 
     updateHasStartedProducingData();
 
-    Locker locker { m_VideoFrameObserversLock };
-    for (auto* observer : m_VideoFrameObservers)
+    Locker locker { m_videoFrameObserversLock };
+    for (auto* observer : m_videoFrameObservers)
         observer->videoFrameAvailable(videoFrame, metadata);
 }
 
@@ -887,8 +894,10 @@ bool RealtimeMediaSource::supportsConstraints(const MediaConstraints& constraint
         double distance = fitnessDistance(variant);
         switch (variant.constraintType()) {
         case MediaConstraintType::DeviceId:
-        case MediaConstraintType::FacingMode:
             m_fitnessScore += distance ? 1 : 32;
+            break;
+        case MediaConstraintType::FacingMode:
+            m_fitnessScore += facingModeFitnessScoreAdjustment() + (distance ? 1 : 32);
             break;
 
         case MediaConstraintType::Width:
@@ -1193,7 +1202,7 @@ String convertEnumerationToString(RealtimeMediaSource::Type enumerationValue)
     };
     static_assert(static_cast<size_t>(RealtimeMediaSource::Type::Audio) == 0, "RealtimeMediaSource::Type::Audio is not 0 as expected");
     static_assert(static_cast<size_t>(RealtimeMediaSource::Type::Video) == 1, "RealtimeMediaSource::Type::Video is not 1 as expected");
-    ASSERT(static_cast<size_t>(enumerationValue) < WTF_ARRAY_LENGTH(values));
+    ASSERT(static_cast<size_t>(enumerationValue) < std::size(values));
     return values[static_cast<size_t>(enumerationValue)];
 }
 

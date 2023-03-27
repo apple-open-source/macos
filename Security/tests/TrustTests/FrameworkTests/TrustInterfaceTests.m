@@ -189,6 +189,7 @@
     // End of Restore OS environment tests
 
 errOut:
+    CFReleaseNull(date);
     CFReleaseNull(trust);
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);
@@ -313,6 +314,7 @@ errOut:
 #endif
 
 errOut:
+    CFReleaseNull(date);
     CFReleaseNull(trust);
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);
@@ -342,6 +344,7 @@ errOut:
     XCTAssert(errSecParam == SecTrustAddToInputCertificates(trust, (__bridge CFArrayRef)@[[NSData dataWithBytes:_c1 length:sizeof(_c1)]]),
               "add array of data instead of cert");
 
+    is(SecTrustGetCertificateCount(trust), 1, "cert count is 1");
     ok_status(SecTrustAddToInputCertificates(trust, cert0), "SecTrustAddToInputCertificates failed");
     ok_status(SecTrustCopyInputCertificates(trust, &certificates), "SecTrustCopyInputCertificates failed");
     is(CFArrayGetCount(certificates), 2, "got wrong number of input certs back");
@@ -384,6 +387,7 @@ errOut:
     isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2018, 4, 14, 12, 0, 0),
          NULL, "create verify date");
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
+    CFReleaseNull(date);
     anchors = CFArrayCreate(NULL, (const void **)&cert1, 1, &kCFTypeArrayCallBacks);
     ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set anchors");
     XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
@@ -415,6 +419,7 @@ errOut:
     XCTAssertTrue(CFEqual(CFArrayGetValueAtIndex(policies, 0), replacementPolicy), "set policy is replacement policy");
 
 errOut:
+    CFReleaseNull(date);
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);
     CFReleaseNull(policy);

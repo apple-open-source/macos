@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -87,7 +87,7 @@ static _nwi_sync_handler_t	S_sync_handler	= NULL;
 
 
 static dispatch_queue_t
-_nwi_state_server_queue()
+_nwi_state_server_queue(void)
 {
 	static dispatch_once_t	once;
 	static dispatch_queue_t	q;
@@ -205,21 +205,23 @@ _nwi_config_agent_copy(xpc_connection_t connection, xpc_object_t request)
 	const void *buffer = NULL;
 	const char *proc_name = NULL;
 	uint64_t length = 0;
-	xpc_connection_t	remote;
-	xpc_object_t		reply = NULL;
+	xpc_connection_t remote;
+	xpc_object_t reply = NULL;
+	uuid_t agent_uuid;
+	const uint8_t *agent_uuid_value = NULL;
+	const char *agent_type = NULL;
 
 	remote = xpc_dictionary_get_remote_connection(request);
 	reply = xpc_dictionary_create_reply(request);
 
-	uuid_t agent_uuid;
-	const uint8_t *agent_uuid_value = xpc_dictionary_get_uuid(request, kConfigAgentAgentUUID);
+	agent_uuid_value = xpc_dictionary_get_uuid(request, kConfigAgentAgentUUID);
 	if (agent_uuid_value != NULL) {
 		uuid_copy(agent_uuid, agent_uuid_value);
 	} else {
 		goto done;
 	}
 
-	const char *agent_type = xpc_dictionary_get_string(request, kConfigAgentType);
+	agent_type = xpc_dictionary_get_string(request, kConfigAgentType);
 	if (agent_type == NULL) {
 		goto done;
 	}
@@ -379,7 +381,7 @@ process_new_connection(xpc_connection_t c)
 
 
 static void
-add_state_handler()
+add_state_handler(void)
 {
 #if	!TARGET_OS_SIMULATOR
 	os_state_block_t	state_block;

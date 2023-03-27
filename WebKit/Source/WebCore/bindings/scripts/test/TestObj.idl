@@ -74,6 +74,7 @@ enum TestConfidence { "high", "kinda-low" };
     attribute USVString usvstringAttr;
     attribute TestObj testObjAttr;
     attribute TestObj? testNullableObjAttr;
+    [LegacyLenientSetter] readonly attribute DOMString legacyLenientSetterTestAttr;
     [LegacyLenientThis] attribute TestObj lenientTestObjAttr;
     [LegacyUnforgeable] readonly attribute DOMString unforgeableAttr;
     attribute [LegacyNullToEmptyString] DOMString stringAttrTreatingNullAsEmptyString;
@@ -242,6 +243,7 @@ enum TestConfidence { "high", "kinda-low" };
     undefined    methodWithOptionalXPathNSResolver(optional XPathNSResolver? resolver);
     undefined    methodWithOptionalRecord(optional record<DOMString, long>? record = null);
     undefined    methodWithOptionalPromise(optional Promise<undefined> promise);
+    undefined    methodWithOptionalDictIsDefault(optional TestDictionary dict = {});
 
     // Callback interface parameters.
     undefined    methodWithCallbackInterfaceArg(TestCallbackInterface callback);
@@ -514,6 +516,7 @@ typedef any AnyTypedef;
     [ImplementedAs=fooWithDefault] any fooWithDefaultAlias = 0;
     AnyTypedef anyTypedefValue;
     TestDictionaryThatShouldTolerateNull dictionaryMember;
+    ParentDictionary dictionaryMemberWithDefault = {};
     (long or Node) unionMember;
     (long or Node)? nullableUnionMember = null;
     BufferSource bufferSourceValue;

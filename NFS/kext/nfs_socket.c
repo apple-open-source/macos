@@ -103,6 +103,19 @@
 /* XXX */
 kern_return_t   thread_terminate(thread_t);
 
+static int
+nfs_sendmbuf(__unused struct sockaddr *saddr, socket_t sock, const struct msghdr *msg, mbuf_t data,
+    int flags, size_t *sentlen)
+{
+#ifdef HAS_SOCK_SENDMBUF_CAN_WAIT
+	if (saddr && saddr->sa_family == AF_LOCAL) {
+		return sock_sendmbuf_can_wait(sock, msg, data, flags, sentlen);
+	}
+#endif /* HAS_SOCK_SENDMBUF_CAN_WAIT */
+
+	return sock_sendmbuf(sock, msg, data, flags, sentlen);
+}
+
 /*
  * compare two sockaddr structures
  */
@@ -990,7 +1003,7 @@ nfs_connect_search_ping(struct nfsmount *nmp, struct nfs_socket *nso, struct tim
 		}
 		lck_mtx_unlock(&nso->nso_lock);
 		NFS_SOCK_DUMP_MBUF("Sending ping packet", mreq);
-		error = sock_sendmbuf(nso->nso_so, &msg, mreq, 0, &sentlen);
+		error = nfs_sendmbuf(nso->nso_saddr, nso->nso_so, &msg, mreq, 0, &sentlen);
 		NFS_SOCK_DBG("nfs connect %s verifying socket %p send rv %d\n",
 		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso, error);
 		lck_mtx_lock(&nso->nso_lock);
@@ -3140,7 +3153,7 @@ nfsmout:
 
 	/* send the reply */
 	bzero(&msg, sizeof(msg));
-	error = sock_sendmbuf(so, &msg, mhead, 0, &sentlen);
+	error = nfs_sendmbuf((struct sockaddr *)&ncbsp->ncbs_saddr, so, &msg, mhead, 0, &sentlen);
 	mhead = NULL;
 	if (!error && ((int)sentlen != replen)) {
 		error = EWOULDBLOCK;
@@ -3509,7 +3522,7 @@ again:
 		msg.msg_namelen = sendnam->sa_len;
 	}
 	NFS_SOCK_DUMP_MBUF("Sending mbuf\n", mreqcopy);
-	error = sock_sendmbuf(nso->nso_so, &msg, mreqcopy, 0, &sentlen);
+	error = nfs_sendmbuf(nso->nso_saddr, nso->nso_so, &msg, mreqcopy, 0, &sentlen);
 	if (error || (sentlen != req->r_mreqlen)) {
 		NFS_SOCK_DBG("nfs_send: 0x%llx sent %d/%d error %d\n",
 		    req->r_xid, (int)sentlen, (int)req->r_mreqlen, error);
@@ -5818,7 +5831,7 @@ nfs_aux_request(
 				msg.msg_name = saddr;
 				msg.msg_namelen = saddr->sa_len;
 			}
-			if ((error = sock_sendmbuf(so, &msg, m, 0, &sentlen))) {
+			if ((error = nfs_sendmbuf(saddr, so, &msg, m, 0, &sentlen))) {
 				goto nfsmout;
 			}
 			sendat *= 2;

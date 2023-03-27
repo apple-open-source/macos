@@ -56,21 +56,36 @@
  * SUCH DAMAGE.
  */
 
-#import <XCTest/XCTest.h>
+#include <ftw.h>
 #include <sys/mount.h>
 #include <sysexits.h>
 #include <TargetConditionals.h>
+
+#import <XCTest/XCTest.h>
 
 #include "nfsclntTests_utils.h"
 
 /* Tests globals */
 #if TARGET_OS_OSX
-#define TEMPLATE    "/private/tmp/nfsclntest.XXXXXXXX"
+#define DSTDIR     "/private/tmp/nfsclntest"
 #else
-#define TEMPLATE    "/private/var/tmp/nfsclntest.XXXXXXXX"
+#define DSTDIR     "/private/var/tmp/nfsclntest"
 #endif /* TARGET_OS_OSX */
 
+#define TEMPLATE    DSTDIR "/nfsclntest.XXXXXXXX"
 char template[] = TEMPLATE;
+
+static int
+unlink_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+{
+	int rv = remove(path);
+
+	if (rv) {
+		XCTFail("remove failed %d", rv);
+	}
+
+	return rv;
+}
 
 /*
  * Mount tests
@@ -89,8 +104,25 @@ int argc = 0;
 
 - (void)setUp
 {
-	dst = mkdtemp(template);
+	int err;
 
+	// Remove all test remainings
+	err = nftw(DSTDIR, unlink_cb, 64, FTW_MOUNT | FTW_DEPTH | FTW_PHYS);
+	if (err == 0) {
+		/* cleanup succeeded */
+		sleep(1);
+	} else if (err < 0 && errno != ENOENT) {
+		XCTFail("nftw failed %d, %d", err, errno);
+		return;
+	}
+
+	err = mkdir(DSTDIR, 0777);
+	if (err < 0) {
+		XCTFail("Unable to create root dir %s %d", DSTDIR, errno);
+		return;
+	}
+
+	dst = mkdtemp(template);
 	if (!dst) {
 		XCTFail("Unable to create tmpdir: %d", errno);
 	}
@@ -106,12 +138,14 @@ int argc = 0;
 	}
 
 	if (dst) {
-		unmount(dst, 0);
+		unmount(dst, MNT_FORCE);
 		if (rmdir(dst) < 0) {
 			XCTFail("Unable to remove dir %s: %d", dst, errno);
 		}
 		dst = NULL;
 	}
+
+	rmdir(DSTDIR);
 }
 
 static void
@@ -272,6 +306,11 @@ _testMountArg(char *mountArg)
 	char *inArgs[] = { "noac", NULL };
 	char *outArgs[] = { "acregmin=0", "acregmax=0", "acdirmin=0", "acdirmax=0", NULL };
 	_testArgs(nfsParameterVerifier, inArgs, outArgs);
+}
+
+- (void)testMountReadlinkNoCache
+{
+	_testNFSArg("readlink_nocache=2");
 }
 
 - (void)testMountDeadTimeout
@@ -535,6 +574,24 @@ struct nfs_conf_client expected_config;
 
 - (void)setUp
 {
+	int err;
+
+	// Remove all test remainings
+	err = nftw(DSTDIR, unlink_cb, 64, FTW_MOUNT | FTW_DEPTH | FTW_PHYS);
+	if (err == 0) {
+		/* cleanup succeeded */
+		sleep(1);
+	} else if (err < 0 && errno != ENOENT) {
+		XCTFail("nftw failed %d, %d", err, errno);
+		return;
+	}
+
+	err = mkdir(DSTDIR, 0777);
+	if (err < 0) {
+		XCTFail("Unable to create root dir %s %d", DSTDIR, errno);
+		return;
+	}
+
 	fd = mkstemp(template);
 
 	if (fd < 0) {
@@ -559,6 +616,8 @@ struct nfs_conf_client expected_config;
 	if (remove(file_path) < 0) {
 		XCTFail("Unable to remove file %s: %d", file_path, errno);
 	}
+
+	rmdir(DSTDIR);
 }
 
 - (void)testConfigRead

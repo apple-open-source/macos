@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
 #include "InlineFormattingContext.h"
 #include "InlineFormattingGeometry.h"
 
@@ -41,15 +39,18 @@ public:
 private:
     InlineLayoutUnit simplifiedVerticalAlignment(LineBox&) const;
 
-    struct LineBoxHeight {
-        InlineLayoutUnit value() const { return std::max(nonBottomAlignedBoxesMaximumHeight, bottomAlignedBoxesMaximumHeight.value_or(0.f)); }
+    struct LineBoxAlignmentContent {
+        InlineLayoutUnit height() const { return std::max(nonBottomAlignedBoxesMaximumHeight, bottomAlignedBoxesMaximumHeight.value_or(0.f)); }
 
         InlineLayoutUnit nonBottomAlignedBoxesMaximumHeight { 0 };
         std::optional<InlineLayoutUnit> bottomAlignedBoxesMaximumHeight { };
+        bool hasAnnotation { false };
     };
-    LineBoxHeight computeLineBoxLogicalHeight(LineBox&) const;
-    void computeRootInlineBoxVerticalPosition(LineBox&, const LineBoxHeight&) const;
+    LineBoxAlignmentContent computeLineBoxLogicalHeight(LineBox&) const;
+    void computeRootInlineBoxVerticalPosition(LineBox&, const LineBoxAlignmentContent&) const;
     void alignInlineLevelBoxes(LineBox&, InlineLayoutUnit lineBoxLogicalHeight) const;
+    InlineLayoutUnit adjustForAnnotationIfNeeded(LineBox&, InlineLayoutUnit lineBoxHeight) const;
+    InlineLevelBox::LayoutBounds layoutBoundsForInlineBoxSubtree(const LineBox::InlineLevelBoxList& nonRootInlineLevelBoxes, size_t inlineBoxIndex) const;
 
     const InlineFormattingGeometry& formattingGeometry() const { return m_inlineFormattingGeometry; }
     const InlineFormattingContext& formattingContext() const { return m_inlineFormattingContext; }
@@ -63,4 +64,3 @@ private:
 }
 }
 
-#endif

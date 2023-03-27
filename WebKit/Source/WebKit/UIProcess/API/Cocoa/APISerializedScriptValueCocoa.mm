@@ -49,10 +49,19 @@ public:
     {
         m_lastUseTime = MonotonicTime::now();
         if (!m_context) {
+            bool inspectionPreviouslyFollowedInternalPolicies = JSRemoteInspectorGetInspectionFollowsInternalPolicies();
+            JSRemoteInspectorSetInspectionFollowsInternalPolicies(false);
+
+            // FIXME: rdar://100738357 Remote Web Inspector: Remove use of JSRemoteInspectorGetInspectionEnabledByDefault
+            // and JSRemoteInspectorSetInspectionEnabledByDefault once the default state is always false.
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             bool previous = JSRemoteInspectorGetInspectionEnabledByDefault();
             JSRemoteInspectorSetInspectionEnabledByDefault(false);
             m_context = adoptNS([[JSContext alloc] init]);
             JSRemoteInspectorSetInspectionEnabledByDefault(previous);
+            ALLOW_DEPRECATED_DECLARATIONS_END
+
+            JSRemoteInspectorSetInspectionFollowsInternalPolicies(inspectionPreviouslyFollowedInternalPolicies);
 
             m_timer.startOneShot(sharedJSContextMaxIdleTime);
         }
@@ -73,7 +82,7 @@ public:
 
 private:
     RetainPtr<JSContext> m_context;
-    RunLoop::Timer<SharedJSContext> m_timer;
+    RunLoop::Timer m_timer;
     MonotonicTime m_lastUseTime;
 };
 

@@ -14,11 +14,12 @@ color=(
   00 none                 # 20 gothic
   01 bold                 # 21 double-underline
   02 faint                  22 normal
-  03 standout               23 no-standout
+  03 italic                 23 no-italic         # no-gothic
   04 underline              24 no-underline
   05 blink                  25 no-blink
 # 06 fast-blink           # 26 proportional
   07 reverse                27 no-reverse
+# 07 standout               27 no-standout
   08 conceal                28 no-conceal
 # 09 strikethrough        # 29 no-strikethrough
 
@@ -82,9 +83,11 @@ for k in ${color[(I)3?]}; do color[fg-${color[$k]}]=$k; done
 
 # This is inaccurate, but the prompt theme system needs it.
 
-color[grey]=${color[black]}
-color[fg-grey]=${color[grey]}
-color[bg-grey]=${color[bg-black]}
+for k in grey gray; do
+  color[$k]=${color[black]}
+  color[fg-$k]=${color[$k]}
+  color[bg-$k]=${color[bg-black]}
+done
 
 # Assistance for the color-blind.
 

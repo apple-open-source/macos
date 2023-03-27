@@ -29,8 +29,8 @@
 #include <cstring>
 #include <wtf/DateMath.h>
 #include <wtf/Gigacage.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/PrintStream.h>
-#include <wtf/RandomNumberSeed.h>
 #include <wtf/ThreadGroup.h>
 #include <wtf/ThreadingPrimitives.h>
 #include <wtf/WTFConfig.h>
@@ -45,7 +45,7 @@
 #include <wtf/linux/RealTimeThreads.h>
 #endif
 
-#if OS(DARWIN)
+#if PLATFORM(COCOA)
 #include <wtf/darwin/LibraryPathDiagnostics.h>
 #endif
 
@@ -124,7 +124,16 @@ static std::optional<size_t> stackSize(ThreadType threadType)
 #endif
 }
 
-std::atomic<uint32_t> Thread::s_uid { 0 };
+std::atomic<uint32_t> ThreadLike::s_uid;
+
+uint32_t ThreadLike::currentSequence()
+{
+#if PLATFORM(COCOA)
+    if (uint32_t uid = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(dispatch_get_specific(&s_uid))))
+        return uid;
+#endif
+    return Thread::current().uid();
+}
 
 struct Thread::NewThreadContext : public ThreadSafeRefCounted<NewThreadContext> {
 public:
@@ -306,15 +315,10 @@ void Thread::didExit()
 
     if (shouldRemoveThreadFromThreadGroup()) {
         {
-            Vector<std::shared_ptr<ThreadGroup>> threadGroups;
+            Vector<Ref<ThreadGroup>> threadGroups;
             {
                 Locker locker { m_mutex };
-                for (auto& threadGroupPointerPair : m_threadGroupMap) {
-                    // If ThreadGroup is just being destroyed,
-                    // we do not need to perform unregistering.
-                    if (auto retained = threadGroupPointerPair.value.lock())
-                        threadGroups.append(WTFMove(retained));
-                }
+                threadGroups = m_threadGroups.values();
                 m_isShuttingDown = true;
             }
             for (auto& threadGroup : threadGroups) {
@@ -338,25 +342,16 @@ ThreadGroupAddResult Thread::addToThreadGroup(const AbstractLocker& threadGroupL
     if (m_isShuttingDown)
         return ThreadGroupAddResult::NotAdded;
     if (threadGroup.m_threads.add(*this).isNewEntry) {
-        m_threadGroupMap.add(&threadGroup, threadGroup.weakFromThis());
+        m_threadGroups.add(threadGroup);
         return ThreadGroupAddResult::NewlyAdded;
     }
     return ThreadGroupAddResult::AlreadyAdded;
 }
 
-void Thread::removeFromThreadGroup(const AbstractLocker& threadGroupLocker, ThreadGroup& threadGroup)
-{
-    UNUSED_PARAM(threadGroupLocker);
-    Locker locker { m_mutex };
-    if (m_isShuttingDown)
-        return;
-    m_threadGroupMap.remove(&threadGroup);
-}
-
 unsigned Thread::numberOfThreadGroups()
 {
     Locker locker { m_mutex };
-    return m_threadGroupMap.size();
+    return m_threadGroups.values().size();
 }
 
 bool Thread::exchangeIsCompilationThread(bool newValue)
@@ -474,9 +469,9 @@ void initialize()
     static std::once_flag onceKey;
     std::call_once(onceKey, [] {
         setPermissionsOfConfigPage();
+        Config::initialize();
         Gigacage::ensureGigacage();
         Config::AssertNotFrozenScope assertScope;
-        initializeRandomNumberGenerator();
 #if !HAVE(FAST_TLS) && !OS(WINDOWS)
         Thread::initializeTLSKey();
 #endif
@@ -485,7 +480,7 @@ void initialize()
 #if USE(PTHREADS) && HAVE(MACHINE_CONTEXT)
         SignalHandlers::initialize();
 #endif
-#if OS(DARWIN)
+#if PLATFORM(COCOA)
         initializeLibraryPathDiagnostics();
 #endif
     });

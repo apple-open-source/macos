@@ -56,7 +56,7 @@ struct _WebKitUserMessagePrivate {
     CompletionHandler<void(UserMessage&&)> replyHandler;
 };
 
-WEBKIT_DEFINE_TYPE(WebKitUserMessage, webkit_user_message, G_TYPE_INITIALLY_UNOWNED)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitUserMessage, webkit_user_message, G_TYPE_INITIALLY_UNOWNED)
 
 /**
  * webkit_user_message_error_quark:
@@ -136,8 +136,7 @@ static void webkit_user_message_class_init(WebKitUserMessageClass* klass)
         PROP_NAME,
         g_param_spec_string(
             "name",
-            _("Name"),
-            _("The user message name"),
+            nullptr, nullptr,
             nullptr,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 
@@ -155,8 +154,7 @@ static void webkit_user_message_class_init(WebKitUserMessageClass* klass)
         PROP_PARAMETERS,
         g_param_spec_variant(
             "parameters",
-            _("Parameters"),
-            _("The user message parameters"),
+            nullptr, nullptr,
             G_VARIANT_TYPE_ANY,
             nullptr,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
@@ -173,8 +171,7 @@ static void webkit_user_message_class_init(WebKitUserMessageClass* klass)
         PROP_FD_LIST,
         g_param_spec_object(
             "fd-list",
-            _("File Descriptor List"),
-            _("The user message list of file descriptors"),
+            nullptr, nullptr,
             G_TYPE_UNIX_FD_LIST,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 }
@@ -239,7 +236,7 @@ WebKitUserMessage* webkit_user_message_new_with_fd_list(const char* name, GVaria
  * webkit_user_message_get_name:
  * @message: a #WebKitUserMessage
  *
- * Get the @message name
+ * Get the @message name.
  *
  * Returns: the message name
  *
@@ -256,7 +253,7 @@ const char* webkit_user_message_get_name(WebKitUserMessage* message)
  * webkit_user_message_get_parameters:
  * @message: a #WebKitUserMessage
  *
- * Get the @message parameters
+ * Get the @message parameters.
  *
  * Returns: (transfer none) (nullable): the message parameters
  *
@@ -273,7 +270,7 @@ GVariant* webkit_user_message_get_parameters(WebKitUserMessage* message)
  * webkit_user_message_get_fd_list:
  * @message: a #WebKitUserMessage
  *
- * Get the @message list of file descritpor
+ * Get the @message list of file descritpor.
  *
  * Returns: (transfer none) (nullable): the message list of file descriptors
  *
@@ -291,7 +288,9 @@ GUnixFDList* webkit_user_message_get_fd_list(WebKitUserMessage* message)
  * @message: a #WebKitUserMessage
  * @reply: a #WebKitUserMessage to send as reply
  *
- * Send a reply to @message. If @reply is floating, it's consumed.
+ * Send a reply to an user message.
+ *
+ * If @reply is floating, it's consumed.
  * You can only send a reply to a #WebKitUserMessage that has been
  * received.
  *

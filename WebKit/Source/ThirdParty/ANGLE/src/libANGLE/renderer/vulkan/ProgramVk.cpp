@@ -13,10 +13,8 @@
 #include "common/utilities.h"
 #include "libANGLE/Context.h"
 #include "libANGLE/ProgramLinkedResources.h"
-#include "libANGLE/renderer/glslang_wrapper_utils.h"
 #include "libANGLE/renderer/renderer_utils.h"
 #include "libANGLE/renderer/vulkan/BufferVk.h"
-#include "libANGLE/renderer/vulkan/GlslangWrapperVk.h"
 #include "libANGLE/renderer/vulkan/TextureVk.h"
 
 namespace rx
@@ -138,10 +136,7 @@ class Std140BlockLayoutEncoderFactory : public gl::CustomBlockLayoutEncoderFacto
 }  // anonymous namespace
 
 // ProgramVk implementation.
-ProgramVk::ProgramVk(const gl::ProgramState &state) : ProgramImpl(state)
-{
-    GlslangWrapperVk::ResetGlslangProgramInterfaceInfo(&mGlslangProgramInterfaceInfo);
-}
+ProgramVk::ProgramVk(const gl::ProgramState &state) : ProgramImpl(state) {}
 
 ProgramVk::~ProgramVk() = default;
 
@@ -153,7 +148,7 @@ void ProgramVk::destroy(const gl::Context *context)
 
 void ProgramVk::reset(ContextVk *contextVk)
 {
-    GlslangWrapperVk::ResetGlslangProgramInterfaceInfo(&mGlslangProgramInterfaceInfo);
+    mSpvProgramInterfaceInfo = {};
 
     mExecutable.reset(contextVk);
 }
@@ -195,18 +190,19 @@ std::unique_ptr<LinkEvent> ProgramVk::link(const gl::Context *context,
     ContextVk *contextVk = vk::GetImpl(context);
     // Link resources before calling GetShaderSource to make sure they are ready for the set/binding
     // assignment done in that function.
-    linkResources(resources);
+    linkResources(context, resources);
 
     reset(contextVk);
     mExecutable.clearVariableInfoMap();
 
     // Gather variable info and compiled SPIR-V binaries.
     gl::ShaderMap<const angle::spirv::Blob *> spirvBlobs;
-    GlslangWrapperVk::GetShaderCode(contextVk->getFeatures(), mState, resources,
-                                    &mGlslangProgramInterfaceInfo, &spirvBlobs,
-                                    &mExecutable.mVariableInfoMap);
+    SpvSourceOptions options = SpvCreateSourceOptions(contextVk->getFeatures());
+    SpvGetShaderSpirvCode(context, options, mState, resources, &mSpvProgramInterfaceInfo,
+                          &spirvBlobs, &mExecutable.mVariableInfoMap);
 
-    if (contextVk->getFeatures().enablePrecisionQualifiers.enabled)
+    if (contextVk->getFeatures().varyingsRequireMatchingPrecisionInSpirv.enabled &&
+        contextVk->getFeatures().enablePrecisionQualifiers.enabled)
     {
         mExecutable.resolvePrecisionMismatch(mergedVaryings);
     }
@@ -214,7 +210,8 @@ std::unique_ptr<LinkEvent> ProgramVk::link(const gl::Context *context,
     // Compile the shaders.
     const gl::ProgramExecutable &programExecutable = mState.getExecutable();
     angle::Result status                           = mExecutable.mOriginalShaderInfo.initShaders(
-                                  programExecutable.getLinkedShaderStages(), spirvBlobs, mExecutable.mVariableInfoMap);
+        contextVk, programExecutable.getLinkedShaderStages(), spirvBlobs,
+        mExecutable.mVariableInfoMap);
     if (status != angle::Result::Continue)
     {
         return std::make_unique<LinkEventDone>(status);
@@ -243,12 +240,13 @@ std::unique_ptr<LinkEvent> ProgramVk::link(const gl::Context *context,
     return std::make_unique<LinkEventDone>(status);
 }
 
-void ProgramVk::linkResources(const gl::ProgramLinkedResources &resources)
+void ProgramVk::linkResources(const gl::Context *context,
+                              const gl::ProgramLinkedResources &resources)
 {
     Std140BlockLayoutEncoderFactory std140EncoderFactory;
     gl::ProgramLinkedResourcesLinker linker(&std140EncoderFactory);
 
-    linker.linkResources(mState, resources);
+    linker.linkResources(context, mState, resources);
 }
 
 angle::Result ProgramVk::initDefaultUniformBlocks(const gl::Context *glContext)
@@ -260,7 +258,7 @@ angle::Result ProgramVk::initDefaultUniformBlocks(const gl::Context *glContext)
     gl::ShaderMap<size_t> requiredBufferSize;
     requiredBufferSize.fill(0);
 
-    generateUniformLayoutMapping(layoutMap, requiredBufferSize);
+    generateUniformLayoutMapping(glContext, layoutMap, requiredBufferSize);
     initDefaultUniformLayoutMapping(layoutMap);
 
     // All uniform initializations are complete, now resize the buffers accordingly and return
@@ -268,7 +266,8 @@ angle::Result ProgramVk::initDefaultUniformBlocks(const gl::Context *glContext)
                                                 requiredBufferSize);
 }
 
-void ProgramVk::generateUniformLayoutMapping(gl::ShaderMap<sh::BlockLayoutMap> &layoutMap,
+void ProgramVk::generateUniformLayoutMapping(const gl::Context *context,
+                                             gl::ShaderMap<sh::BlockLayoutMap> &layoutMap,
                                              gl::ShaderMap<size_t> &requiredBufferSize)
 {
     const gl::ProgramExecutable &glExecutable = mState.getExecutable();
@@ -279,7 +278,7 @@ void ProgramVk::generateUniformLayoutMapping(gl::ShaderMap<sh::BlockLayoutMap> &
 
         if (shader)
         {
-            const std::vector<sh::ShaderVariable> &uniforms = shader->getUniforms();
+            const std::vector<sh::ShaderVariable> &uniforms = shader->getUniforms(context);
             InitDefaultUniformBlock(uniforms, &layoutMap[shaderType],
                                     &requiredBufferSize[shaderType]);
         }

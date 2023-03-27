@@ -45,10 +45,12 @@ void PropertyCondition::dumpInContext(PrintStream& out, DumpContext* context) co
     
     switch (m_header.type()) {
     case Presence:
+    case Replacement:
         out.print(m_header.type(), " of ", m_header.pointer(), " at ", offset(), " with attributes ", attributes());
         return;
     case Absence:
     case AbsenceOfSetEffect:
+    case AbsenceOfIndexedProperties:
         out.print(m_header.type(), " of ", m_header.pointer(), " with prototype ", inContext(JSValue(prototype()), context));
         return;
     case Equivalence:
@@ -101,8 +103,10 @@ bool PropertyCondition::isStillValidAssumingImpurePropertyWatchpoint(
 
     switch (m_header.type()) {
     case Presence:
+    case Replacement:
     case Absence:
     case AbsenceOfSetEffect:
+    case AbsenceOfIndexedProperties:
     case Equivalence:
     case HasStaticProperty:
         if (!structure->propertyAccessesAreCacheable()) {
@@ -122,16 +126,25 @@ bool PropertyCondition::isStillValidAssumingImpurePropertyWatchpoint(
     }
     
     switch (m_header.type()) {
-    case Presence: {
+    case Presence:
+    case Replacement: {
         unsigned currentAttributes;
         PropertyOffset currentOffset = structure->get(structure->vm(), concurrency, uid(), currentAttributes);
         if (currentOffset != offset() || currentAttributes != attributes()) {
             if (PropertyConditionInternal::verbose) {
-                dataLog(
+                dataLogLn(
                     "Invalid because we need offset, attributes to be ", offset(), ", ", attributes(),
-                    " but they are ", currentOffset, ", ", currentAttributes, "\n");
+                    " but they are ", currentOffset, ", ", currentAttributes);
             }
             return false;
+        }
+
+        if (m_header.type() == Replacement) {
+            auto* watchpointSet = structure->propertyReplacementWatchpointSet(currentOffset);
+            if (!watchpointSet || watchpointSet->isStillValid()) {
+                dataLogLnIf(PropertyConditionInternal::verbose, "Invalid because the replacement watchpoint needs to be fired but is not");
+                return false;
+            }
         }
         return true;
     }
@@ -213,7 +226,40 @@ bool PropertyCondition::isStillValidAssumingImpurePropertyWatchpoint(
         
         return true;
     }
-        
+
+    case AbsenceOfIndexedProperties: {
+        if (structure->hasPolyProto()) {
+            // FIXME: I think this is too conservative. We can probably prove this if
+            // we have the base. Anyways, we should make this work when integrating
+            // OPC and poly proto.
+            // https://bugs.webkit.org/show_bug.cgi?id=177339
+            return false;
+        }
+
+        if (hasIndexedProperties(structure->indexingType())) {
+            if (PropertyConditionInternal::verbose)
+                dataLog("Invalid because the indexed properties exist: ", structure->indexingType(), "\n");
+            return false;
+        }
+
+        if (structure->mayInterceptIndexedAccesses() || structure->typeInfo().interceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero()) {
+            if (PropertyConditionInternal::verbose)
+                dataLog("Invalid because structure intercepts index access.\n");
+            return false;
+        }
+
+        if (structure->storedPrototypeObject() != prototype()) {
+            if (PropertyConditionInternal::verbose) {
+                dataLog(
+                    "Invalid because the prototype is ", structure->storedPrototype(), " even though "
+                    "it should have been ", JSValue(prototype()), "\n");
+            }
+            return false;
+        }
+
+        return true;
+    }
+
     case HasPrototype: {
         if (structure->hasPolyProto()) {
             // FIXME: I think this is too conservative. We can probably prove this if
@@ -303,11 +349,13 @@ bool PropertyCondition::validityRequiresImpurePropertyWatchpoint(Structure* stru
     
     switch (m_header.type()) {
     case Presence:
+    case Replacement:
     case Absence:
     case Equivalence:
     case HasStaticProperty:
         return structure->needImpurePropertyWatchpoint();
     case AbsenceOfSetEffect:
+    case AbsenceOfIndexedProperties:
     case HasPrototype:
         return false;
     }
@@ -321,7 +369,7 @@ bool PropertyCondition::isStillValid(Concurrency concurrency, Structure* structu
         return false;
 
     // Currently we assume that an impure property can cause a property to appear, and can also
-    // "shadow" an existing JS property on the same object. Hence it affects both presence and
+    // "shadow" an existing JS property on the same object. Hence it affects presence, replacement, and
     // absence. It doesn't affect AbsenceOfSetEffect because impure properties aren't ever setters.
     switch (m_header.type()) {
     case Absence:
@@ -329,11 +377,13 @@ bool PropertyCondition::isStillValid(Concurrency concurrency, Structure* structu
             return false;
         break;
     case Presence:
+    case Replacement:
     case Equivalence:
     case HasStaticProperty:
         if (structure->typeInfo().getOwnPropertySlotIsImpure())
             return false;
         break;
+    case AbsenceOfIndexedProperties:
     default:
         break;
     }
@@ -348,6 +398,32 @@ bool PropertyCondition::isWatchableWhenValid(
         return false;
     
     switch (m_header.type()) {
+    case Replacement: {
+        VM& vm = structure->vm();
+        PropertyOffset offset = structure->get(vm, watchabilityToConcurrency(effort), uid());
+
+        // This method should only be called when some variant of isValid returned true, which
+        // implies that we already confirmed that the structure knows of the property. We should
+        // also have verified that the Structure is a cacheable dictionary, which means we
+        // shouldn't have a TOCTOU race either.
+        RELEASE_ASSERT(offset != invalidOffset);
+
+        WatchpointSet* set = nullptr;
+        switch (effort) {
+        case MakeNoChanges:
+            set = structure->propertyReplacementWatchpointSet(offset);
+            break;
+        case EnsureWatchability:
+            set = structure->ensurePropertyReplacementWatchpointSet(structure->vm(), offset);
+            set->fireAll(vm, "Firing replacement to ensure validity");
+            break;
+        }
+
+        if (!set || set->isStillValid())
+            return false;
+
+        break;
+    }
     case Equivalence: {
         PropertyOffset offset = structure->get(structure->vm(), watchabilityToConcurrency(effort), uid());
         
@@ -442,6 +518,28 @@ PropertyCondition PropertyCondition::attemptToMakeEquivalenceWithoutBarrier(JSOb
     return equivalenceWithoutBarrier(uid(), value);
 }
 
+PropertyCondition PropertyCondition::attemptToMakeReplacementWithoutBarrier(JSObject* base) const
+{
+    if (kind() != Presence)
+        return PropertyCondition();
+
+    // Let's check the validity of this condition with the live object to see whether this is worth using Replacement PropertyCondition.
+    Structure* structure = base->structure();
+    unsigned attributes = 0;
+    PropertyOffset offset = structure->getConcurrently(uid(), attributes);
+
+    if (offset != this->offset())
+        return PropertyCondition();
+
+    if (attributes != this->attributes())
+        return PropertyCondition();
+
+    if (attributes & PropertyAttribute::ReadOnly)
+        return PropertyCondition();
+
+    return replacementWithoutBarrier(uid(), offset, attributes);
+}
+
 } // namespace JSC
 
 namespace WTF {
@@ -452,11 +550,17 @@ void printInternal(PrintStream& out, JSC::PropertyCondition::Kind condition)
     case JSC::PropertyCondition::Presence:
         out.print("Presence");
         return;
+    case JSC::PropertyCondition::Replacement:
+        out.print("Replacement");
+        return;
     case JSC::PropertyCondition::Absence:
         out.print("Absence");
         return;
     case JSC::PropertyCondition::AbsenceOfSetEffect:
-        out.print("Absence");
+        out.print("AbsenceOfSetEffect");
+        return;
+    case JSC::PropertyCondition::AbsenceOfIndexedProperties:
+        out.print("AbsenceOfIndexedProperties");
         return;
     case JSC::PropertyCondition::Equivalence:
         out.print("Equivalence");

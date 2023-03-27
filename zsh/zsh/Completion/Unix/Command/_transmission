@@ -6,17 +6,17 @@
 local exclusive_auth_options='(-n --auth -ne --authenv -N --netrc)'
 local general_options=(
   {-d,--debug}'[enable debugging mode]'
-  $exclusive_auth_options{-n-,--auth=}'[set the username and password for authentication]:username\:password: '
+  $exclusive_auth_options{-n+,--auth=}'[set the username and password for authentication]:username\:password: '
   $exclusive_auth_options{-ne,--authenv}'[set the authentication information from the TR_AUTH environment variable]'
-  $exclusive_auth_options{-N-,--netrc=}'[set the authentication information from a netrc file]:file:_files'
+  $exclusive_auth_options{-N+,--netrc=}'[set the authentication information from a netrc file]:file:_files'
   '--find[tell Transmission where to look for the current torrents'"'"' data]'
 )
 # `general_actions`: *actions* that can be specified when a specific set of torrents is either specified or either not
 local general_actions=(
-  '(- :)'{-gsr,--global-seedratio}'[all torrents, unless overridden by a per-torrent setting, should seed until a specific ratio]:ratio:{_message "ratio in kB/sec"}'
+  '(- :)'{-gsr,--global-seedratio}'[all torrents, unless overridden by a per-torrent setting, should seed until a specific ratio]:ratio (kB/s)'
   '(- :)'{-GSR,--no-global-seedratio}'[all torrents, unless overridden by a per-torrent setting, should seed regardless of ratio]'
   '(- :)'{-pr,--peers}'[set the maximum number of peers]:number: '
-  '(- :)'{-d-,--downlimit=}'[limit the maximum download speed to limit kB/s]:limit:{_message "limit in kB/sec"}'
+  '(- :)'{-d+,--downlimit=}'[limit the maximum download speed to limit kB/s]:limit (kB/s)'
   '(- :)'{-D,--no-downlimit}'[disable download speed limits]'
 )
 # `global_only_actions`: *actions* that can be specified only when no specific torrent is specified
@@ -27,12 +27,12 @@ local global_only_actions=(
   '(- :)'{-asu,--alt-speed-uplimit}'[limit the alternate upload speed to limit kilobytes per second]'
   '(- :)'{-asc,--alt-speed-scheduler}'[use the scheduled on/off times]'
   '(- :)'{-asc,--not-alt-speed-scheduler}'[don'"'"'t use the scheduled on/off times]'
-  '(- :)--alt-speed-time-begin[time to start using the alt speed limits]:hhmm:_transmission-remote_time'
-  '(- :)--alt-speed-time-end[time to stop using the alt speed limits]:hhmm:_transmission-remote_time'
+  '(- :)--alt-speed-time-begin[time to start using the alt speed limits]:time (HHMM)'
+  '(- :)--alt-speed-time-end[time to stop using the alt speed limits]:time (HHMM)'
   '(- :)--alt-speed-days[set the number of days on which to enable the speed scheduler]:days:_transmission-remote_days'
   '(- :)--torrent-done-script[specify a file to run each time a torrent finishes]:script:_files'
   '(- :)--no-torrent-done-script[don'"'"'t run any script when a torrent finishes]'
-  '(- :)'{-e-,--cache=}'[set the session'"'"'s maximum memory cache size in MiB]:size (MiB):'
+  '(- :)'{-e+,--cache=}'[set the session'"'"'s maximum memory cache size in MiB]:size (MiB):'
   '(- :)'{-er,--encryption-required}'[encrypt all peer connections]'
   '(- :)'{-ep,--encryption-preferred}'[prefer encrypted peer connections]'
   '(- :)'{-et,--encryption-tolerated}'[prefer unencrypted peer connections]'
@@ -42,7 +42,7 @@ local global_only_actions=(
   {-t,--torrent=}'[set the current torrent(s) for use by subsequent options]:torrent:_transmission-remote_torrent'
   '(- :)'{-si,--session-info}'[list session information from the server]'
   '(- :)'{-st,--session-stats}'[list statistical information from the server]'
-  {-a-,--add=}'[add torrents to transmission]:filename\|url:_transmission-remote_add'
+  {-a+,--add=}'[add torrents to transmission]:filename\|url:_transmission-remote_add'
   '(- :)'{-l,--list}'[list all torrents]'
   '(- :)'{-p,--port}'[set the port for use when listening for incoming peer connections]:port:'
   '(- :)--start-paused[start added torrents paused]'
@@ -51,7 +51,7 @@ local global_only_actions=(
   '(- :)'{-M,--no-portmap}'[disable portmapping]'
   '(- :)'{-o,--dht}'[enable distributed hash table]'
   '(- :)'{-O,--no-dht}'[disable distributed hash table]'
-  '(- :)'{-u,--uplimit}'[limit the maximum upload speed to limit kB/s]:limit:{_message "limit in kB/sec"}'
+  '(- :)'{-u,--uplimit}'[limit the maximum upload speed to limit kB/s]:limit (kB/s)'
   '(- :)'{-U,--no-uplimit}'[disable upload speed limits]'
   '(- :)--utp[enable uTP for peer connections]'
   '(- :)--no-utp[disable uTP for peer connections]'
@@ -65,9 +65,9 @@ local global_only_actions=(
 )
 # `torrent_add_options`: *options* that can be used only when *adding* a torrent
 local torrent_add_options=(
-  '(-C --no-incomplete-dir)'{-c-,--incomplete-dir=}'[when adding new torrents, store their contents in directory until the torrent is done]:dir:{_files -/}'
+  '(-C --no-incomplete-dir)'{-c+,--incomplete-dir=}'[when adding new torrents, store their contents in directory until the torrent is done]:directory:_directories'
   '(-c --incomplete-dir)'{-C,--no-incomplete-dir}'[don'"'"'t store incomplete torrents in a different directory]'
-  {-w-,--download-dir=}'[when used in conjunction with --add, set the new torrent'"'"'s download folder]:dir:{_files -/}'
+  {-w+,--download-dir=}"[when used in conjunction with --add, set the new torrent's download directory]:directory:_directories"
 )
 # `torrent_action_only_actions`: *actions* that can be specified only when explicitly selecting a specific set of torrents
 local torrent_action_only_actions=(
@@ -81,15 +81,15 @@ local torrent_action_only_actions=(
   {-it,--info-trackers}'[list the specified torrent'"'"'s trackers]'
   '--trash-torrent[delete torrents after adding]'
   '--no-trash-torrent[do not delete torrents after adding]'
-  {-td-,--tracker-add=}'[add a tracker to a torrent]:tracker:_urls'
-  {-tr-,--tracker-remove=}'[remove a tracker from a torrent]:tracker_id:_transmission-remote_torrent_tracker_id'
+  {-td+,--tracker-add=}'[add a tracker to a torrent]:tracker:_urls'
+  {-tr+,--tracker-remove=}'[remove a tracker from a torrent]:tracker_id:_transmission-remote_torrent_tracker_id'
   {-s,--start}'[start the current torrent(s)]'
   {-S,--stop}'[stop the current torrent(s) from downloading or seeding]'
   {-r,--remove}'[remove the current torrent(s) without deleting the downloaded data]'
   {-rad,--remove-and-delete}'[remove the current torrent(s) and delete the downloaded data]'
   '--reannounce[reannounce the current torrent(s)]'
-  '--move[move the current torrents'"'"' data from their current locations to the specified directory]:{_files -/}'
-  {-sr-,--seedratio=}'[let the current torrent(s) seed until a specific ratio]:ratio:{_message "ratio in kB/sec"}'
+  "--move[move the current torrents' data from their current locations to the specified directory]:directory:_directories"
+  {-sr+,--seedratio=}'[let the current torrent(s) seed until a specific ratio]:ratio'
   {-SR,--no-seedratio}'[let the current torrent(s) use the global seedratio settings]'
   {-hl,--honor-session}'[make the current torrent(s) honor the session limits]'
   {-HL,--no-honor-session}'[make the current torrent(s) not honor the session limits]'
@@ -97,19 +97,13 @@ local torrent_action_only_actions=(
   {-Bn,--bandwidth-normal}'[give this torrent the bandwidth left over by high priority torrents]'
   {-Bl,--bandwidth-low}'[give this torrent the bandwidth left over by high and normal priority torrents]'
   {-ph,--priority-high}'[try to download the specified file(s) first]:torrent_file:_transmission-remote_torrent_priority_not_high'
-  {-pn,--priority-normal}'[try to download the specified files normally.]:torrent_file:_transmission-remote_torrent_priority_not_normal'
+  {-pn,--priority-normal}'[try to download the specified files normally]:torrent_file:_transmission-remote_torrent_priority_not_normal'
   {-pl,--priority-low}'[try to download the specified files last]:torrent_file:_transmission-remote_torrent_priority_not_low'
   {-v,--verify}'[verify the current torrent(s)]'
 )
 
 # helper functions
 
-# complete argument specified after global only action: `--alt-speed-time-begin`
-# completes time in HHMM format
-(( $+functions[_transmission-remote_time] )) ||
-_transmission-remote_time(){
-  _message "time in format HHMS"
-}
 # complete argument specified after global only action: `--alt-speed-days`
 # completes days in a list such as "2,4-6".
 (( $+functions[_transmission-remote_days] )) ||
@@ -120,7 +114,7 @@ _transmission-remote_days(){
 (( $+functions[_transmission-remote_add] )) ||
 _transmission-remote_add(){
 _alternative \
-    'args:torrent:_files -g ".torrent"' \
+    'args:torrent:_files -g ".torrent(-.)"' \
     'args:url:_urls'
 }
 # complete torrents

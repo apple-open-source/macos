@@ -17,6 +17,9 @@
 (if (param "ANALYTICSDIR")
     (allow file-read* file-write* (subpath (param "ANALYTICSDIR"))))
 
+(if (param "PROTECTEDANALYTICSDIR")
+    (allow file-read* file-write* (subpath (param "PROTECTEDANALYTICSDIR"))))
+
 (allow file-read* (subpath "/usr/libexec"))
 
 (allow user-preference-read (preference-domain "kCFPreferencesAnyApplication"))

@@ -5,13 +5,22 @@
 
 NSString* OctagonPendingConditionsToString(OctagonPendingConditions cond)
 {
-    if((cond & OctagonPendingConditionsDeviceUnlocked) != 0x0) {
-        return @"unlock";
-    }
-    if(cond == 0x0) {
+    if (cond == 0x0) {
         return @"none";
     }
-    return [NSString stringWithFormat:@"Unknown conditions: 0x%x", (int)cond];
+    NSMutableSet *items = [NSMutableSet set];
+    if (cond & OctagonPendingConditionsDeviceUnlocked) {
+        [items addObject:@"unlock"];
+        cond &= ~OctagonPendingConditionsDeviceUnlocked;
+    }
+    if (cond & OctagonPendingConditionsNetworkReachable) {
+        [items addObject:@"network"];
+        cond &= ~OctagonPendingConditionsNetworkReachable;
+    }
+    if (cond) {
+        [items addObject:[NSString stringWithFormat:@"Conditions<0x%x>", (int)cond]];
+    }
+    return [items.allObjects componentsJoinedByString:@","];
 }
 
 @interface OctagonPendingFlag()

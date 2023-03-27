@@ -5,11 +5,12 @@ THE Z SHELL (ZSH)
 Version
 -------
 
-This is version 5.8.1 of the shell.  This is a security and bugfix release.
+This is version 5.9 of the shell.  This is a security and feature release.
+There are several visible improvements since 5.8.1, as well as bug fixes.
 All zsh installations are encouraged to upgrade as soon as possible.
 
 Note in particular the changes highlighted under "Incompatibilities since
-5.8" below.  See NEWS for more information.
+5.8.1" below.  See NEWS for more information.
 
 Installing Zsh
 --------------
@@ -30,14 +31,97 @@ Zsh is a shell with lots of features.  For a list of some of these, see the
 file FEATURES, and for the latest changes see NEWS.  For more
 details, see the documentation.
 
-Incompatibilities since 5.8
----------------------------
-
-PROMPT_SUBST expansion is no longer performed on arguments to prompt-
-expansion sequences such as %F.
-
-Incompatibilities since 5.7.1
+Incompatibilities since 5.8.1
 -----------------------------
+
+compinit: A "y" response to the "Ignore ... and continue?" prompt removes
+insecure elements from the set of completion functions, where previously
+it ignored the compaudit result and included all elements.
+
+Build-time change: The default value of the --enable-gdbm configure
+argument has changed from "yes" to "no".  Thus, the zsh/db/gdbm module will
+not be built unless --enable-gdbm is passed explicitly.
+
+vcs_info quilt: The value of the 'quiltcommand' style used to be taken for the
+name of an external command.  Now it may also be a shell function.  Normal
+command word precedence rules apply, so if you have a function and a command
+with the same name, the function will be used.
+
+The "function" reserved word, used to define functions, gained a new -T option.
+That affects syntaxes such as:
+
+1. "function -T { ... }".  It used to define a function named "-T".  It
+now defines and executes an anonymous function with single-level tracing
+enabled --- same as "function f { ... }; functions -T f; f", but without
+naming the function.
+
+2. "function -T foo { ... }".  It used to define two functions, named "-T"
+and "foo" (see the MULTI_FUNC_DEF option).  It now defines a function
+"foo" with tracing enabled.
+
+3. "function -- { ... }".  It used to define a function named "--".  It
+now defines and executes an anonymous function.  The "--" is taken to be
+an end-of-options guard (same as "ls --").
+
+The sh-compatible function definition syntax, "f() { ... }", is unchanged.
+
+The time-out (-t) value given to zsh/system's `zsystem flock` command is
+now limited to 2^30-1 seconds (= a little over 34 years).
+
+zstyle: For background, recall that the zstyle builtin associates styles with
+values for particular contexts, and when a context (such as ':foo:bar:baz') is
+matched by multiple patterns (such as ':foo:*' and ':foo:bar:*'), the style's
+value for the more specific of the patterns is used.  In zsh 5.8 and earlier
+the determination of which pattern is "more specific" used semantics slightly
+different to those the documentation promised.  The implementation was changed
+to match the documentation.  The upshot of this is that if you set a single
+style in multiple contexts, zsh 5.9 may use the values set for a pattern other
+than the one zsh 5.8 used.  For example, if you do
+    zstyle ':foo:bar:*'   style value1
+    zstyle ':foo:*:baz:*' style value2
+and the style is looked up under a context that both patterns match (e.g.,
+:foo:bar:baz:qux), zsh 5.9 will use value2 -- which is consistent with the
+documentation of both 5.8 and 5.9 -- but zsh 5.8 will use value1.  If this
+affects you, make the implied colons in the first pattern explicit, as in:
+    zstyle ':foo:bar:*:*' style value1
+    zstyle ':foo:*:baz:*' style value2
+This will use value1 in both 5.8 and 5.9.
+
+Elements of the region_highlight array have gained a fourth space-separated
+field.  Code written against 5.9 that sets the new field may break under 5.8:
+for example, the element "0 20 bold memo=foo", which is valid under 5.9, would
+not work under 5.8.  (Under the hood, 5.8 does not recognize the space as
+terminating the highlighting specification.)  On the other hand, code that does
+not set the new, fourth field will continue to work under both 5.8 and 5.9.
+(As it happens, adding a comma after "bold" will make both 5.8 and 5.9 do the
+right thing, but this should be viewed as an unsupported hack.)
+
+The XTRACE option is now disabled while running user-defined completion
+widgets.  See NEWS.
+
+emulate sh: When zsh emulates sh, the final command in a pipeline is now run in
+a subshell.  This differs from the behavior in the native (zsh) mode, but is
+consistent with most other sh implementations.
+
+The export and readonly builtins now ignore the -p option when there are
+operands given and POSIX_BUILTINS is enabled. This more closely matches the
+behaviour of bash and ksh.
+
+getopts now calculates OPTIND in a similar manner to other shells when the
+POSIX_BUILTINS option is enabled.
+
+Ignored-signal traps are now inherited by subshells when the POSIX_TRAPS
+option is enabled.
+
+emulate sh: Inf and NaN are now treated as parameter names in arithmetic
+context when zsh is emulating sh.
+
+The ${name:offset:length} expansion syntax now behaves more similarly to
+other shells in that the offset and length are applied as array indices
+prior to scalar conversion in e.g. "${*:0:2}".
+
+Incompatibilities between 5.7.1 and 5.8.1
+-----------------------------------------
 
 The history expansion !:1:t2 used to be interpreted such that the 2
 was a separate character added after the history expansion.  Now
@@ -68,6 +152,9 @@ changes made in the course of fixing CVE-2019-20044.  Please report this
 to the zsh-workers mailing list if your system is affected.  See NEWS for
 more.
 
+PROMPT_SUBST expansion is no longer performed on arguments to prompt-
+expansion sequences such as %F.
+
 Incompatibilities between 5.6.2 and 5.7.1
 -----------------------------------------
 
@@ -85,8 +172,14 @@ reverse order, from last applied to first applied.
 variables without a preceding '$' sign in shell arithmetic expansion
 and in the double-parentheses and 'let' arithmetic commands.
 
+3) _alternative now correctly handles the same (...) action syntax as
+_arguments; this may necessitate quoting/escaping in calls to _alternative
+and _regex_arguments that wasn't previously required.  See
+https://zsh.org/workers/48414 (commit zsh-5.8-348-g2c000ee7b) for details
+and an example.
+
 Incompatibilities between 5.5.1 and 5.6.2
-------------------------------------------
+-----------------------------------------
 
 The completion helper _remote_files, typically used after a hostname
 with scp-style completion, now uses remote-files instead of files as a
@@ -147,7 +240,7 @@ been made an error.  (The option setting NO_MULTI_FUNC_DEF turned this
 case into an error, but did not help with other cases and is off by
 default.)  The alternative, of not expanding the alias, was rejected as
 it was more difficult to achieve in the parser and also would silently
-change the shell's behaviur between versions.  A new option,
+change the shell's behaviour between versions.  A new option,
 ALIAS_FUNC_DEF, has been added, which can be set to make the shell
 behave as in previous versions.  It is in any case recommended to use
 the "function" keyword, as aliases are not expanded afterwards.
@@ -351,19 +444,19 @@ This is also necessary in the unusual eventuality that the builtins are
 to be overridden by shell functions, since reserved words take
 precedence over functions.
 
-10) For compatilibity with other shells, the syntax
+10) For compatibility with other shells, the syntax
 
 array=([index]=value)
 
-can be used with both assoiative arrays and normal arrays.  In the
+can be used with both associative arrays and normal arrays.  In the
 unlikely event that you wish to create an array with an entry
 matching a file whose name consists of one of a range of characters
 matched as a [...] expression, followed by an equal sign, followed
 by arbitrary other characters, it is now necessary to quote the equals
 sign.
 
-Incompatibilites between 5.0.7 and 5.0.8
-----------------------------------------
+Incompatibilities between 5.0.7 and 5.0.8
+-----------------------------------------
 
 Various arithmetic operations have changed, in particular with respect
 to the choice of integer or floating point operations.  The new

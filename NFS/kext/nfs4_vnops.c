@@ -910,7 +910,7 @@ nfs4_readdir_rpc(nfsnode_t dnp, struct nfsbuf *bp, vfs_context_t ctx)
 		numops--;
 		nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_READDIR);
 		nfsm_chain_add_64(error, &nmreq, (cookie <= 2) ? 0 : cookie);
-		nfsm_chain_add_64(error, &nmreq, dnp->n_cookieverf);
+		nfsm_chain_add_64(error, &nmreq, (cookie <= 2) ? 0 : dnp->n_cookieverf);
 		nfsm_chain_add_32(error, &nmreq, nmreaddirsize);
 		nfsm_chain_add_32(error, &nmreq, nmrsize);
 		nfsm_chain_add_bitmap_supported(error, &nmreq, entry_attrs, nmp, dnp);
@@ -2907,7 +2907,7 @@ nfs_vnop_mmap(
 	vfs_context_t ctx = ap->a_context;
 	vnode_t vp = ap->a_vp;
 	nfsnode_t np = VTONFS(vp);
-	int error = 0, delegated = 0;
+	int error = 0, delegated = 0, skip_inuse_end = 0;
 	uint8_t accessMode, denyMode;
 	struct nfsmount *nmp;
 	struct nfs_open_owner *noop = NULL;
@@ -2961,12 +2961,13 @@ restart:
 	}
 #if CONFIG_NFS4
 	if (!error && (nofp->nof_flags & NFS_OPEN_FILE_REOPEN)) {
+		nfs_mount_state_in_use_end(nmp, 0);
 		error = nfs4_reopen(nofp, NULL);
 		nofp = NULL;
 		if (!error) {
-			nfs_mount_state_in_use_end(nmp, 0);
 			goto restart;
 		}
+		skip_inuse_end = 1;
 	}
 #endif
 	if (!error) {
@@ -3131,8 +3132,9 @@ out:
 	if (nofp) {
 		nfs_open_file_clear_busy(nofp);
 	}
-	if (nfs_mount_state_in_use_end(nmp, error)) {
+	if ((skip_inuse_end && nfs_mount_state_error_should_restart(error)) || (!skip_inuse_end && nfs_mount_state_in_use_end(nmp, error))) {
 		nofp = NULL;
+		skip_inuse_end = 0;
 		goto restart;
 	}
 	if (noop) {
@@ -3213,7 +3215,7 @@ nfs_vnop_mnomap(
 	struct nfsmount *nmp;
 	struct nfs_open_file *nofp = NULL;
 	off_t size;
-	int error;
+	int error, skip_inuse_end = 0;
 	int is_mapped_flag = 0;
 
 	nmp = VTONMP(vp);
@@ -3257,11 +3259,12 @@ loop:
 		lck_mtx_unlock(&np->n_openlock);
 #if CONFIG_NFS4
 		if (nofp->nof_flags & NFS_OPEN_FILE_REOPEN) {
+			nfs_mount_state_in_use_end(nmp, 0);
 			error = nfs4_reopen(nofp, NULL);
 			if (!error) {
-				nfs_mount_state_in_use_end(nmp, 0);
 				goto loop;
 			}
+			skip_inuse_end = 1;
 		}
 #endif
 		if (!error) {
@@ -3288,7 +3291,9 @@ loop:
 		goto loop;
 	}
 	lck_mtx_unlock(&np->n_openlock);
-	nfs_mount_state_in_use_end(nmp, error);
+	if (!skip_inuse_end) {
+		nfs_mount_state_in_use_end(nmp, error);
+	}
 	return NFS_MAPERR(error);
 }
 
@@ -4392,7 +4397,7 @@ error_out:
 	/*
 	 * POSIX locks should be coalesced when possible.
 	 */
-	if ((style == NFS_FILE_LOCK_STYLE_POSIX) && (nofp->nof_flags & NFS_OPEN_FILE_POSIXLOCK)) {
+	if ((style == NFS_FILE_LOCK_STYLE_POSIX) && ((nmp->nm_vers <= NFS_VER3) || (nofp->nof_flags & NFS_OPEN_FILE_POSIXLOCK))) {
 		/*
 		 * Walk through the lock queue and check each of our held locks with
 		 * the previous and next locks in the lock owner's "held lock list".
@@ -5191,7 +5196,7 @@ nfs4_open_rpc_internal(
 	struct nfsmount *nmp;
 	struct nfs_open_owner *noop = nofp->nof_owner;
 	struct nfs_vattr *nvattr;
-	int error = 0, open_error = EIO, lockerror = ENOENT, busyerror = ENOENT, status, ciflag = 0;
+	int error = 0, open_error = EIO, lockerror = ENOENT, status, ciflag = 0;
 	int nfsvers, namedattrs, numops, exclusive = 0, gotuid, gotgid, flags = R_NOINTR;
 	u_int64_t xid, savedxid = 0;
 	nfsnode_t dnp = VTONFS(dvp);
@@ -5242,8 +5247,14 @@ nfs4_open_rpc_internal(
 		stateid.seqid = stateid.other[0] = stateid.other[1] = stateid.other[2] = 0;
 		sid = &stateid;
 	}
-
+	if (np && (share_access & NFS_OPEN_SHARE_ACCESS_WRITE)) {
+		nfs4_delegation_return_read(ctx, np, nmp->nm_vers);
+	}
+	if ((error = nfs_node_set_busy(dnp, thd))) {
+		return error;
+	}
 	if ((error = nfs_open_owner_set_busy(noop, thd))) {
+		nfs_node_clear_busy(dnp);
 		return error;
 	}
 
@@ -5305,9 +5316,6 @@ again:
 	nfsm_chain_add_bitmap_supported(error, &nmreq, nfs_getattr_bitmap, nmp, dnp);
 	nfsm_chain_build_done(error, &nmreq);
 	nfsm_assert(error, (numops == 0), EPROTO);
-	if (!error) {
-		error = busyerror = nfs_node_set_busy(dnp, thd);
-	}
 	nfsmout_if(error);
 
 	if (create && !namedattrs) {
@@ -5468,9 +5476,6 @@ nfsmout:
 		}
 	}
 	NVATTR_CLEANUP(nvattr);
-	if (!busyerror) {
-		nfs_node_clear_busy(dnp);
-	}
 	if ((delegation == NFS_OPEN_DELEGATE_READ) || (delegation == NFS_OPEN_DELEGATE_WRITE)) {
 		if (!np) {
 			np = newnp;
@@ -5547,6 +5552,7 @@ nfsmout:
 		}
 	}
 	nfs_open_owner_clear_busy(noop);
+	nfs_node_clear_busy(dnp);
 	NFS_ZFREE(get_zone(NFS_FILE_HANDLE_ZONE), fh);
 	NFS_ZFREE(get_zone(NFS_REQUEST_ZONE), req);
 	kfree_type(struct nfs_dulookup, dul);
@@ -6897,7 +6903,7 @@ nfs4_vnop_create(
 	vnode_t *vpp = ap->a_vpp;
 	struct nfsmount *nmp;
 	nfsnode_t np;
-	int error = 0, busyerror = 0, accessMode, denyMode;
+	int error = 0, busyerror = 0, accessMode, denyMode, skip_inuse_end = 0;
 	struct nfs_open_owner *noop = NULL;
 	struct nfs_open_file *newnofp = NULL, *nofp = NULL;
 
@@ -6930,13 +6936,14 @@ restart:
 	}
 	if (!error && (newnofp->nof_flags & NFS_OPEN_FILE_REOPEN)) {
 		/* This shouldn't happen given that this is a new, nodeless nofp */
+		nfs_mount_state_in_use_end(nmp, 0);
 		error = nfs4_reopen(newnofp, vfs_context_thread(ctx));
 		nfs_open_file_destroy(newnofp);
 		newnofp = NULL;
 		if (!error) {
-			nfs_mount_state_in_use_end(nmp, 0);
 			goto restart;
 		}
+		skip_inuse_end = 1;
 	}
 	if (!error) {
 		error = nfs_open_file_set_busy(newnofp, vfs_context_thread(ctx));
@@ -7041,9 +7048,10 @@ out:
 	if (nofp && !busyerror) {
 		nfs_open_file_clear_busy(nofp);
 	}
-	if (nfs_mount_state_in_use_end(nmp, error)) {
+	if ((skip_inuse_end && nfs_mount_state_error_should_restart(error)) || (!skip_inuse_end && nfs_mount_state_in_use_end(nmp, error))) {
 		nofp = newnofp = NULL;
 		busyerror = 0;
+		skip_inuse_end = 0;
 		goto restart;
 	}
 	if (noop) {
@@ -7404,6 +7412,8 @@ nfs4_vnop_link(
 	 * XXX There should be a better way!
 	 */
 	nfs_flush(np, MNT_WAIT, vfs_context_thread(ctx), V_IGNORE_WRITEERR);
+
+	nfs4_delegation_return_read(ctx, np, nmp->nm_vers);
 
 	if ((error = nfs_node_set_busy2(tdnp, np, vfs_context_thread(ctx)))) {
 		return NFS_MAPERR(error);
@@ -7928,12 +7938,12 @@ restart:
 			error = EIO;
 		}
 		if (!error && (newnofp->nof_flags & NFS_OPEN_FILE_REOPEN)) {
+			nfs_mount_state_in_use_end(nmp, 0);
+			inuse = 0;
 			error = nfs4_reopen(newnofp, vfs_context_thread(ctx));
 			nfs_open_file_destroy(newnofp);
 			newnofp = NULL;
 			if (!error) {
-				nfs_mount_state_in_use_end(nmp, 0);
-				inuse = 0;
 				goto restart;
 			}
 		}

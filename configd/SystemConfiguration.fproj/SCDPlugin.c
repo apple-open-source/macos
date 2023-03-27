@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006, 2013, 2015, 2017, 2018, 2020 Apple, Inc. All rights reserved.
+ * Copyright (c) 2002-2022 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -82,7 +82,7 @@ static pthread_mutex_t	lock;
 
 
 static __inline__ void
-blockSignal()
+blockSignal(void)
 {
 	sigset_t	mask	= sigmask(SIGCHLD);
 
@@ -96,7 +96,7 @@ blockSignal()
 
 
 static __inline__ void
-unblockSignal()
+unblockSignal(void)
 {
 	sigset_t	mask	= sigmask(SIGCHLD);
 

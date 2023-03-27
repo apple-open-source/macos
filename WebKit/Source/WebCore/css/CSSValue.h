@@ -23,6 +23,7 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TypeCasts.h>
+#include <wtf/Vector.h>
 #include <wtf/text/ASCIILiteral.h>
 
 namespace WebCore {
@@ -32,6 +33,14 @@ class CachedResource;
 class DeprecatedCSSOMValue;
 
 enum CSSPropertyID : uint16_t;
+
+struct ComputedStyleDependencies {
+    Vector<CSSPropertyID> properties;
+    Vector<CSSPropertyID> rootProperties;
+    bool containerDimensions { false };
+
+    bool isEmpty() const { return properties.isEmpty() && rootProperties.isEmpty() && !containerDimensions; }
+};
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSValue);
 class CSSValue {
@@ -55,6 +64,7 @@ public:
     bool isBaseValueList() const { return m_classType == ValueListClass; }
 
     bool isAspectRatioValue() const { return m_classType == AspectRatioClass; }
+    bool isBackgroundRepeatValue() const { return m_classType == BackgroundRepeatClass; }
     bool isBorderImageSliceValue() const { return m_classType == BorderImageSliceClass; }
     bool isBorderImageWidthValue() const { return m_classType == BorderImageWidthClass; }
     bool isCanvasValue() const { return m_classType == CanvasClass; }
@@ -65,28 +75,25 @@ public:
     bool isFontFeatureValue() const { return m_classType == FontFeatureClass; }
     bool isFontVariationValue() const { return m_classType == FontVariationClass; }
     bool isFontVariantAlternatesValue() const { return m_classType == FontVariantAlternatesClass; }
-    bool isFontFaceSrcValue() const { return m_classType == FontFaceSrcClass; }
+    bool isFontFaceSrcLocalValue() const { return m_classType == FontFaceSrcLocalClass; }
+    bool isFontFaceSrcResourceValue() const { return m_classType == FontFaceSrcResourceClass; }
     bool isFontPaletteValuesOverrideColorsValue() const { return m_classType == FontPaletteValuesOverrideColorsClass; }
     bool isFontValue() const { return m_classType == FontClass; }
-    bool isFontStyleValue() const { return m_classType == FontStyleClass; }
     bool isFontStyleRangeValue() const { return m_classType == FontStyleRangeClass; }
-    bool isImageGeneratorValue() const { return m_classType >= CanvasClass && m_classType <= ConicGradientClass; }
-    bool isGradientValue() const { return m_classType >= LinearGradientClass && m_classType <= ConicGradientClass; }
+    bool isFontStyleWithAngleValue() const { return m_classType == FontStyleWithAngleClass; }
+    bool isImageGeneratorValue() const { return m_classType >= CanvasClass && m_classType <= PrefixedRadialGradientClass; }
+    bool isGradientValue() const { return m_classType >= LinearGradientClass && m_classType <= PrefixedRadialGradientClass; }
     bool isNamedImageValue() const { return m_classType == NamedImageClass; }
     bool isImageSetValue() const { return m_classType == ImageSetClass; }
     bool isImageValue() const { return m_classType == ImageClass; }
-    bool isImplicitInitialValue() const;
-    bool isInheritValue() const;
-    bool isInitialValue() const;
-    bool isUnsetValue() const;
-    bool isRevertValue() const;
-    bool isRevertLayerValue() const;
-    bool isCSSWideKeyword() const;
-    bool treatAsInitialValue(CSSPropertyID) const;
-    bool treatAsInheritedValue(CSSPropertyID) const;
+    bool isImplicitInitialValue() const { return m_isImplicitInitialValue; }
     bool isLinearGradientValue() const { return m_classType == LinearGradientClass; }
     bool isRadialGradientValue() const { return m_classType == RadialGradientClass; }
     bool isConicGradientValue() const { return m_classType == ConicGradientClass; }
+    bool isDeprecatedLinearGradientValue() const { return m_classType == DeprecatedLinearGradientClass; }
+    bool isDeprecatedRadialGradientValue() const { return m_classType == DeprecatedRadialGradientClass; }
+    bool isPrefixedLinearGradientValue() const { return m_classType == PrefixedLinearGradientClass; }
+    bool isPrefixedRadialGradientValue() const { return m_classType == PrefixedRadialGradientClass; }
     bool isReflectValue() const { return m_classType == ReflectClass; }
     bool isShadowValue() const { return m_classType == ShadowClass; }
     bool isCubicBezierTimingFunctionValue() const { return m_classType == CubicBezierTimingFunctionClass; }
@@ -104,6 +111,7 @@ public:
     bool isGridTemplateAreasValue() const { return m_classType == GridTemplateAreasClass; }
     bool isGridLineNamesValue() const { return m_classType == GridLineNamesClass; }
     bool isSubgridValue() const { return m_classType == SubgridClass; }
+    bool isTransformListValue() const { return m_classType == TransformListClass; }
     bool isUnicodeRangeValue() const { return m_classType == UnicodeRangeClass; }
 
     bool isVariableReferenceValue() const { return m_classType == VariableReferenceClass; }
@@ -112,6 +120,10 @@ public:
     bool isOffsetRotateValue() const { return m_classType == OffsetRotateClass; }
     bool isRayValue() const { return m_classType == RayClass; }
 
+    // NOTE: This returns true for all image like values except CSSCursorImageValues, as these are
+    //       the values that corrispond to the CSS <image> production.
+    bool isImage() const { return isImageValue() || isImageSetValue() || isImageGeneratorValue(); }
+
     bool hasVariableReferences() const { return isVariableReferenceValue() || isPendingSubstitutionValue(); }
 
     Ref<DeprecatedCSSOMValue> createDeprecatedCSSOMWrapper(CSSStyleDeclaration&) const;
@@ -119,9 +131,8 @@ public:
     bool traverseSubresources(const Function<bool(const CachedResource&)>&) const;
 
     // What properties does this value rely on (eg, font-size for em units)
-    void collectDirectComputationalDependencies(HashSet<CSSPropertyID>&) const;
-    // What properties in the root element does this value rely on (eg. font-size for rem units)
-    void collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>&) const;
+    ComputedStyleDependencies computedStyleDependencies() const;
+    void collectComputedStyleDependencies(ComputedStyleDependencies&) const;
 
     bool equals(const CSSValue&) const;
     bool operator==(const CSSValue& other) const { return equals(other); }
@@ -155,6 +166,10 @@ protected:
         LinearGradientClass,
         RadialGradientClass,
         ConicGradientClass,
+        DeprecatedLinearGradientClass,
+        DeprecatedRadialGradientClass,
+        PrefixedLinearGradientClass,
+        PrefixedRadialGradientClass,
 
         // Timing function classes.
         CubicBezierTimingFunctionClass,
@@ -163,15 +178,17 @@ protected:
 
         // Other class types.
         AspectRatioClass,
+        BackgroundRepeatClass,
         BorderImageSliceClass,
         BorderImageWidthClass,
         FontFeatureClass,
         FontVariationClass,
         FontVariantAlternatesClass,
         FontClass,
-        FontStyleClass,
         FontStyleRangeClass,
-        FontFaceSrcClass,
+        FontStyleWithAngleClass,
+        FontFaceSrcLocalClass,
+        FontFaceSrcResourceClass,
         FontPaletteValuesOverrideColorsClass,
         FunctionClass,
 
@@ -201,6 +218,7 @@ protected:
         GridAutoRepeatClass,
         GridIntegerRepeatClass,
         SubgridClass,
+        TransformListClass,
         // Do not append non-list class types here.
     };
 
@@ -239,8 +257,7 @@ protected:
     // CSSPrimitiveValue:
     unsigned m_primitiveUnitType : 7 { 0 }; // CSSUnitType
     mutable unsigned m_hasCachedCSSText : 1 { false };
-    mutable unsigned m_cachedCSSTextUsesLegacyPrecision : 1 { false };
-    unsigned m_isImplicit : 1 { false };
+    unsigned m_isImplicitInitialValue : 1 { false };
 
     // CSSValueList and CSSValuePair:
     unsigned m_valueSeparator : ValueSeparatorBits { 0 };
@@ -252,10 +269,14 @@ private:
 inline void CSSValue::deref() const
 {
     unsigned tempRefCount = m_refCount - refCountIncrement;
+
     if (!tempRefCount) {
+IGNORE_GCC_WARNINGS_BEGIN("free-nonheap-object")
         delete this;
+IGNORE_GCC_WARNINGS_END
         return;
     }
+
     m_refCount = tempRefCount;
 }
 

@@ -653,6 +653,7 @@ sudo_conf_read_v1(const char *conf_file, int conf_types)
         if (rv == 0 && (csflags & CS_INSTALLER) != 0) {
             /* Suppress SUDO_CONF_PLUGINS when CS_INSTALLER is set. */
             sudo_warnx(U_("%s: %s"), __func__, U_("clearing SUDO_CONF_PLUGINS due to CS_INSTALLER"));
+            conf_types &= ~SUDO_CONF_PLUGINS;
         }
     }
 #endif /* __APPLE_DYNAMIC_LV__ */

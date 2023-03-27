@@ -1147,6 +1147,7 @@
 		CD99C87B243E74F300E7D51C /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		D3EA479024B7D9DB007B8277 /* kextstat.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = kextstat.m; sourceTree = "<group>"; };
 		D3EFA56C241AD27F00973534 /* kextutil.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = kextutil.m; sourceTree = "<group>"; };
+		E3C83D8728A4276F00173DCE /* test_kcinstall.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = test_kcinstall.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1824,6 +1825,7 @@
 				0805F1991B760D9B0088A3B3 /* kcboot */,
 				50473D74166C855700211829 /* fsremount */,
 				50473D75166C855700211829 /* kcinstall */,
+				E3C83D8728A4276F00173DCE /* test_kcinstall.sh */,
 			);
 			name = kcinstall;
 			sourceTree = "<group>";

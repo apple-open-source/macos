@@ -34,6 +34,9 @@
 #include "SecFramework.h"
 #include <CoreFoundation/CFBundle.h>
 #include "utilities/SecCFWrappers.h"
+#include <dispatch/dispatch.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* Security.framework's bundle id. */
 #if TARGET_OS_IPHONE
@@ -53,4 +56,16 @@ CFStringRef SecFrameworkCopyLocalizedString(CFStringRef key,
         return CFBundleCopyLocalizedString(bundle, key, key, tableName);
 
     return CFRetainSafe(key);
+}
+
+Boolean SecFrameworkIsRunningInXcode(void) {
+    static Boolean runningInXcode = false;
+    static dispatch_once_t envCheckOnce = 0;
+    dispatch_once(&envCheckOnce, ^{
+        const char* envVar = getenv("NSUnbufferedIO");
+        if (envVar != NULL && strcmp(envVar, "YES") == 0) {
+            runningInXcode = true;
+        }
+    });
+    return runningInXcode;
 }

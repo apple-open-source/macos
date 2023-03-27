@@ -28,7 +28,6 @@
 
 #if PLATFORM(IOS_FAMILY)
 
-#import "DeprecatedGlobalSettings.h"
 #import "Logging.h"
 #import "MediaPlaybackTargetCocoa.h"
 #import "WebCoreThreadRun.h"
@@ -257,9 +256,6 @@ void MediaSessionHelperiOS::providePresentingApplicationPID(int pid)
         return;
 
     m_presentedApplicationPID = pid;
-
-    if (DeprecatedGlobalSettings::disableMediaExperiencePIDInheritance())
-        return;
 
     if (!canLoadAVSystemController_PIDToInheritApplicationStateFrom())
         return;

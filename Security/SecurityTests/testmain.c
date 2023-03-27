@@ -19,6 +19,7 @@
 
 #include <dispatch/dispatch.h>
 #include <CoreFoundation/CFRunLoop.h>
+#include "featureflags/featureflags.h"
 #include "keychain/ckks/CKKS.h"
 
 int main(int argc, char *argv[])
@@ -27,9 +28,7 @@ int main(int argc, char *argv[])
     //printf("WARNING: If running those tests on a device with a passcode, DONT FORGET TO UNLOCK!!!\n");
 
     SecCKKSDisable();
-#if 0 && NO_SERVER
-    SOSCloudKeychainServerInit();
-#endif
+
 
 #if TARGET_OS_IPHONE
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{

@@ -150,6 +150,8 @@
                                              policySecrets:nil
                                  syncUserControllableViews:[NSNumber numberWithInt:intendedViewStatus]
                                      secureElementIdentity:nil
+                                             walrusSetting:nil
+                                                 webAccess:nil
                                                      reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
         STRONGIFY(self);
         if(error || !syncingPolicy) {

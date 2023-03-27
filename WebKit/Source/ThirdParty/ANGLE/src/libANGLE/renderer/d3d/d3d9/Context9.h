@@ -231,6 +231,7 @@ class Context9 : public ContextD3D
     const gl::TextureCapsMap &getNativeTextureCaps() const override;
     const gl::Extensions &getNativeExtensions() const override;
     const gl::Limitations &getNativeLimitations() const override;
+    const ShPixelLocalStorageOptions &getNativePixelLocalStorageOptions() const override;
 
     angle::Result dispatchCompute(const gl::Context *context,
                                   GLuint numGroupsX,
@@ -242,6 +243,7 @@ class Context9 : public ContextD3D
     angle::Result memoryBarrierByRegion(const gl::Context *context, GLbitfield barriers) override;
 
     Renderer9 *getRenderer() const { return mRenderer; }
+    angle::ImageLoadContext getImageLoadContext() const;
 
     angle::Result getIncompleteTexture(const gl::Context *context,
                                        gl::TextureType type,

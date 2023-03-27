@@ -147,6 +147,13 @@ enum TBasicType
     EbtGuardUIntImageEnd = EbtUImageBuffer,
     EbtGuardImageEnd     = EbtGuardUIntImageEnd,
 
+    // ANGLE_shader_pixel_local_storage
+    EbtGuardPixelLocalBegin,
+    EbtPixelLocalANGLE = EbtGuardPixelLocalBegin,
+    EbtIPixelLocalANGLE,
+    EbtUPixelLocalANGLE,
+    EbtGuardPixelLocalEnd = EbtUPixelLocalANGLE,
+
     // Subpass Input
     EbtGuardSubpassInputBegin,
     EbtSubpassInput = EbtGuardSubpassInputBegin,
@@ -228,6 +235,11 @@ inline bool IsAtomicCounter(TBasicType type)
     return type == EbtAtomicCounter;
 }
 
+inline bool IsPixelLocal(TBasicType type)
+{
+    return type >= EbtGuardPixelLocalBegin && type <= EbtGuardPixelLocalEnd;
+}
+
 inline bool IsSubpassInputType(TBasicType type)
 {
     return type >= EbtGuardSubpassInputBegin && type <= EbtGuardSubpassInputEnd;
@@ -235,7 +247,8 @@ inline bool IsSubpassInputType(TBasicType type)
 
 inline bool IsOpaqueType(TBasicType type)
 {
-    return IsSampler(type) || IsImage(type) || IsAtomicCounter(type) || IsSubpassInputType(type);
+    return IsSampler(type) || IsImage(type) || IsAtomicCounter(type) || IsPixelLocal(type) ||
+           IsSubpassInputType(type);
 }
 
 inline bool IsIntegerSampler(TBasicType type)
@@ -1063,8 +1076,8 @@ enum TQualifier
     EvqViewIDOVR,      // OVR_multiview
     EvqViewportIndex,  // gl_ViewportIndex
 
-    EvqClipDistance,  // APPLE_clip_distance/EXT_clip_cull_distance
-    EvqCullDistance,  // EXT_clip_cull_distance
+    EvqClipDistance,  // APPLE_clip_distance / EXT_clip_cull_distance / ANGLE_clip_cull_distance
+    EvqCullDistance,  // EXT_clip_cull_distance / ANGLE_clip_cull_distance
 
     // built-ins written by the shader_framebuffer_fetch extension(s)
     EvqLastFragColor,
@@ -1146,6 +1159,9 @@ enum TQualifier
     // generation.  In that case, TLayoutQualifier::location will contain the somewhat equivalent
     // constant_id.
     EvqSpecConst,
+
+    // __pixel_localEXT from EXT_shader_pixel_local_storage.
+    EvqPixelLocalEXT,
 
     // end of list
     EvqLast
@@ -1351,7 +1367,8 @@ struct TLayoutQualifier
                invocations == 0 && maxVertices == -1 && vertices == 0 &&
                tesPrimitiveType == EtetUndefined && tesVertexSpacingType == EtetUndefined &&
                tesOrderingType == EtetUndefined && tesPointType == EtetUndefined && index == -1 &&
-               inputAttachmentIndex == -1 && noncoherent == false && !advancedBlendEquations.any();
+               inputAttachmentIndex == -1 && noncoherent == false &&
+               !advancedBlendEquations.any() && !pushConstant;
     }
 
     bool isCombinationValid() const
@@ -1392,6 +1409,8 @@ struct TLayoutQualifier
     int binding;
     int offset;
 
+    bool pushConstant;
+
     // Image format layout qualifier
     TLayoutImageInternalFormat imageInternalFormat;
 
@@ -1426,6 +1445,10 @@ struct TLayoutQualifier
     // KHR_blend_equation_advanced layout qualifiers.
     AdvancedBlendEquations advancedBlendEquations;
 
+    // D3D 11.3 Rasterizer Order Views (ROVs).
+    // This qualifier is only used internally by ANGLE; it is not visible to the application.
+    bool rasterOrdered;
+
   private:
     explicit constexpr TLayoutQualifier(int /*placeholder*/)
         : location(-1),
@@ -1435,6 +1458,7 @@ struct TLayoutQualifier
           localSize(-1),
           binding(-1),
           offset(-1),
+          pushConstant(false),
           imageInternalFormat(EiifUnspecified),
           numViews(-1),
           yuv(false),
@@ -1450,7 +1474,8 @@ struct TLayoutQualifier
           index(-1),
           inputAttachmentIndex(-1),
           noncoherent(false),
-          advancedBlendEquations(0)
+          advancedBlendEquations(0),
+          rasterOrdered(false)
     {}
 };
 
@@ -1590,7 +1615,7 @@ inline const char *getQualifierString(TQualifier q)
     case EvqPatchOut:               return "patch out";
     case EvqTessControlIn:          return "in";
     case EvqTessControlOut:         return "out";
-    case EvqPerVertexOut:           return "gl_out";
+    case EvqPerVertexOut:           return "out";
     case EvqPatchVerticesIn:        return "PatchVerticesIn";
     case EvqTessLevelOuter:         return "TessLevelOuter";
     case EvqTessLevelInner:         return "TessLevelInner";
@@ -1599,6 +1624,7 @@ inline const char *getQualifierString(TQualifier q)
     case EvqTessEvaluationOut:      return "out";
     case EvqTessCoord:              return "TessCoord";
     case EvqSpecConst:              return "const";
+    case EvqPixelLocalEXT:          return "__pixel_localEXT";
     default: UNREACHABLE();         return "unknown qualifier";
     }
     // clang-format on

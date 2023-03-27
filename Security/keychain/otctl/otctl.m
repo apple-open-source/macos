@@ -56,6 +56,9 @@ static int joinWithCustodianRecoveryKey = false;
 static int preflightJoinWithCustodianRecoveryKey = false;
 static int removeCustodianRecoveryKey = false;
 
+static int setRecoveryKey = false;
+static int removeRecoveryKey = false;
+
 static int createInheritanceKey = false;
 static int generateInheritanceKey = false;
 static int storeInheritanceKey = false;
@@ -63,6 +66,14 @@ static int joinWithInheritanceKey = false;
 static int preflightJoinWithInheritanceKey = false;
 static int removeInheritanceKey = false;
 
+static int fetchAccountSettings = false;
+static int fetchAccountWideSettings = false;
+
+static int enableWalrus = false;
+static int disableWalrus = false;
+
+static int enableWebAccess = false;
+static int disableWebAccess = false;
 
 static int health = false;
 static int tlkRecoverability = false;
@@ -88,6 +99,12 @@ static int argPause = false;
 
 static int json = false;
 
+static int notifyIdMS = false;
+
+static int printAccountMetadata = false;
+
+static int forceFetch = false;
+
 static char* altDSIDArg = NULL;
 static char* containerStr = NULL;
 static char* radarNumber = NULL;
@@ -98,6 +115,10 @@ static char* wrappedKeyArg = NULL;
 static char* custodianUUIDArg = NULL;
 static char* inheritanceUUIDArg = NULL;
 static char* timeoutInS = NULL;
+
+static char* idmsTargetContext = NULL;
+static char* idmsCuttlefishPassword = NULL;
+
 
 int main(int argc, char** argv)
 {
@@ -113,6 +134,8 @@ int main(int argc, char** argv)
 
         {.shortname = 'E', .longname = "enable", .flag = &argEnable, .flagval = true, .description = "Enable something (pair with a modification command)"},
         {.shortname = 'P', .longname = "pause", .flag = &argPause, .flagval = true, .description = "Pause something (pair with a modification command)"},
+	{.longname = "notifyIdMS", .flag = &notifyIdMS, .flagval = true, .description = "Notify IdMS on reset", .internal_only = true},
+        {.longname = "forceFetch", .flag = &forceFetch, .flagval = true, .description = "Force fetch from cuttlefish"},
 
         {.shortname = 'a', .longname = "machineID", .argument = &machineIDArg, .description = "machineID override"},
 
@@ -131,6 +154,9 @@ int main(int argc, char** argv)
         {.longname = "custodianUUID", .argument = &custodianUUIDArg, .description = "UUID for joinWithCustodianRecoveryKey", .internal_only = true},
         {.longname = "inheritanceUUID", .argument = &inheritanceUUIDArg, .description = "UUID for joinWithInheritanceKey", .internal_only = true},
         {.longname = "timeout", .argument = &timeoutInS, .description = "timeout for command (in s)"},
+
+        {.longname = "idms-target-context", .argument = &idmsTargetContext, .description = "idmsTargetContext", .internal_only = true},
+        {.longname = "idms-cuttlefish-password", .argument = &idmsCuttlefishPassword, .description = "idmsCuttlefishPassword", .internal_only = true},
 
         {.command = "start", .flag = &start, .flagval = true, .description = "Start Octagon state machine", .internal_only = true},
         {.command = "sign-in", .flag = &signIn, .flagval = true, .description = "Inform Cuttlefish container of sign in", .internal_only = true},
@@ -176,11 +202,22 @@ int main(int argc, char** argv)
         {.command = "remove-inheritance-key", .flag = &removeInheritanceKey, .flagval = true, .description = "Remove an inheritance key", .internal_only = true},
         {.command = "tlk-recoverability", .flag = &tlkRecoverability, .flagval = true, .description = "Evaluate tlk recoverability for an account", .internal_only = true},
         {.command = "set-machine-id-override", .flag = &machineIDOverride, .flagval = true, .description = "Set machineID override"},
+        {.command = "remove-recovery-key", .flag = &removeRecoveryKey, .flagval = true, .description = "Remove a recovery key", .internal_only = true},
+        {.command = "set-recovery-key", .flag = &setRecoveryKey, .flagval = true, .description = "Set a recovery key", .internal_only = true},
 
+        {.command = "enable-walrus", .flag = &enableWalrus, .flagval = true, .description = "Enable Walrus Setting", .internal_only = true},
+        {.command = "disable-walrus", .flag = &disableWalrus, .flagval = true, .description = "Disable Walrus Setting", .internal_only = true},
+        {.command = "enable-webaccess", .flag = &enableWebAccess, .flagval = true, .description = "Enable Web Access Setting", .internal_only = true},
+        {.command = "disable-webaccess", .flag = &disableWebAccess, .flagval = true, .description = "Disable Web Access Setting", .internal_only = true},
+        {.command = "fetch-account-state", .flag = &fetchAccountSettings, .flagval = true, .description = "Fetch Account Settings", .internal_only = true},
+        {.command = "fetch-account-wide-state", .flag = &fetchAccountWideSettings, .flagval = true, .description = "Fetch Account Wide Settings", .internal_only = true},
 
 #if TARGET_OS_WATCH
         {.command = "pairme", .flag = &pairme, .flagval = true, .description = "Perform pairing (watchOS only)"},
 #endif /* TARGET_OS_WATCH */
+
+        {.command = "print-account-metadata", .flag = &printAccountMetadata, .flagval = true, .description = "Print Account Metadata", .internal_only = true},
+
         {}};
 
     static struct arguments args = {
@@ -217,6 +254,8 @@ int main(int argc, char** argv)
         NSString* custodianUUIDString = custodianUUIDArg ? [NSString stringWithCString:custodianUUIDArg encoding:NSUTF8StringEncoding] : nil;
         NSString* inheritanceUUIDString = inheritanceUUIDArg ? [NSString stringWithCString:inheritanceUUIDArg encoding:NSUTF8StringEncoding] : nil;
         NSTimeInterval timeout = timeoutInS ? [[NSString stringWithCString:timeoutInS encoding:NSUTF8StringEncoding] integerValue] : 600;
+        NSString* idmsTargetContextString = idmsTargetContext ? [NSString stringWithCString:idmsTargetContext encoding:NSUTF8StringEncoding] : nil;
+        NSString* idmsCuttlefishPasswordString = idmsCuttlefishPassword ? [NSString stringWithCString:idmsCuttlefishPassword encoding:NSUTF8StringEncoding] : nil;
 
         NSString* overrideForAccountScript = overrideForAccountScriptArg ? [NSString stringWithCString:overrideForAccountScriptArg encoding:NSUTF8StringEncoding] : @"NO";
         NSString* overrideEscrowCache = overrideEscrowCacheArg ? [NSString stringWithCString:overrideEscrowCacheArg encoding:NSUTF8StringEncoding] : @"NO";
@@ -233,10 +272,10 @@ int main(int argc, char** argv)
             errx(1, "SecEscrowRequest failed: %s", [[escrowRequestError description] UTF8String]);
         }
         if(resetoctagon) {
-            return [ctl resetOctagon:arguments timeout:timeout];
+            return [ctl resetOctagon:arguments idmsTargetContext:idmsTargetContextString idmsCuttlefishPassword:idmsCuttlefishPasswordString notifyIdMS:notifyIdMS timeout:timeout];
         }
         if(resetProtectedData) {
-            return [ctl resetProtectedData:arguments appleID:appleID dsid:dsid];
+            return [ctl resetProtectedData:arguments appleID:appleID dsid:dsid idmsTargetContext:idmsTargetContextString idmsCuttlefishPassword:idmsCuttlefishPasswordString notifyIdMS:notifyIdMS];
         }
         if(userControllableViewsSyncStatus) {
             if(argEnable && argPause) {
@@ -345,7 +384,7 @@ int main(int argc, char** argv)
             return [ctl tapToRadar:@"action" description:@"description" radar:[NSString stringWithUTF8String:radarNumber]];
         }
         if(resetAccountCDPContent){
-            return [ctl resetAccountCDPContentsWithArguments:arguments];
+            return [ctl resetAccountCDPContentsWithArguments:arguments idmsTargetContext:idmsTargetContextString idmsCuttlefishPassword:idmsCuttlefishPasswordString notifyIdMS:notifyIdMS ];
         }
         if(createCustodianRecoveryKey) {
             return [ctl createCustodianRecoveryKeyWithArguments:arguments json:json timeout:timeout];
@@ -381,7 +420,15 @@ int main(int argc, char** argv)
                                                      uuidString:custodianUUIDString
                                                         timeout:timeout];
         }
+        
+        if (removeRecoveryKey) {
+            return [ctl removeRecoveryKeyWithArguments:arguments];
+        }
 
+        if (setRecoveryKey) {
+            return [ctl setRecoveryKeyWithArguments:arguments];
+        }
+        
         if(createInheritanceKey) {
             return [ctl createInheritanceKeyWithArguments:arguments json:json timeout:timeout];
         }
@@ -431,6 +478,26 @@ int main(int argc, char** argv)
                                                   timeout:timeout];
         }
 
+        if(enableWalrus) {
+            return [ctl enableWalrusWithArguments:arguments timeout:timeout];
+        }
+        if(disableWalrus) {
+            return [ctl disableWalrusWithArguments:arguments timeout:timeout];
+        }
+        
+        if(enableWebAccess) {
+            return [ctl enableWebAccessWithArguments:arguments timeout:timeout];
+        }
+        if(disableWebAccess) {
+            return [ctl disableWebAccessWithArguments:arguments timeout:timeout];
+        }
+        
+        if(fetchAccountSettings) {
+            return [ctl fetchAccountSettingsWithArguments:arguments json:json];
+        }
+        if(fetchAccountWideSettings) {
+            return [ctl fetchAccountWideSettingsWithArguments:arguments forceFetch:forceFetch json:json];
+        }
 
         if(er_trigger) {
             return (int)[escrowctl trigger];
@@ -460,6 +527,9 @@ int main(int argc, char** argv)
             return 0;
         }
 #endif /* TARGET_OS_WATCH */
+        if (printAccountMetadata) {
+            return [ctl printAccountMetadataWithArguments:arguments json:json];
+        }
 
         print_usage(&args);
         return 1;

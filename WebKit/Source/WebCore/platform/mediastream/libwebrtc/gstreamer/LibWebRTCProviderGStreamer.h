@@ -25,12 +25,11 @@
 
 #pragma once
 
-#include "LibWebRTCProvider.h"
-
 #if USE(LIBWEBRTC) && USE(GSTREAMER)
 
 #include "GStreamerVideoDecoderFactory.h"
 #include "GStreamerVideoEncoderFactory.h"
+#include "LibWebRTCProvider.h"
 
 namespace WebCore {
 

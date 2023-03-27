@@ -389,10 +389,9 @@ _SecEscrowRequestOptionFederationMove
 _CuttlefishErrorDomain
 _CuttlefishErrorRetryAfterKey
 
-_OctagonPlatformSupportsSOS
-_OctagonSetPlatformSupportsSOS
 _OctagonIsSOSFeatureEnabled
 _OctagonSetSOSFeatureEnabled
+_OctagonPlatformSupportsSOS
 _SecErrorIsNestedErrorCappingEnabled
 _SecErrorSetOverrideNestedErrorCappingIsEnabled
 _SecKeychainIsStaticPersistentRefsEnabled
@@ -436,6 +435,7 @@ _SecCopyErrorMessageString
 _SecFrameworkCopyIPAddressData
 _SecFrameworkIsDNSName
 _SecFrameworkIsIPAddress
+_SecFrameworkIsRunningInXcode
 
 _SecPKCS12Import
 #if TARGET_OS_OSX
@@ -547,7 +547,6 @@ _AuthorizationMakeExternalForm
 _AuthorizationRightGet
 _AuthorizationRightRemove
 _AuthorizationRightSet
-_AuthorizationEnableSmartCard
 _AuthorizationCopyPreloginUserDatabase
 _AuthorizationCopyPreloginPreferencesValue
 _AuthorizationCopyRightProperties
@@ -1246,6 +1245,8 @@ _kSecRecQuestions
 _kSecRecVersionNumber
 _kSecRecWrappedPassword
 _kSecUseKeychain
+_kSecUseSystemKeychainAlways
+_kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS
 #endif
 
 //
@@ -1636,6 +1637,9 @@ _SecCodeSignerGetTypeID
 _SecCodeSignerCreate
 _SecCodeSignerAddSignature
 _SecCodeSignerAddSignatureWithErrors
+_SecCodeSignerRemoteGetTypeID
+_SecCodeSignerRemoteCreate
+_SecCodeSignerRemoteAddSignature
 _SecHostCreateGuest
 _SecHostRemoveGuest
 _SecHostSetGuestStatus
@@ -2193,3 +2197,4 @@ _SecCopyBaseFilesURL
 
 _SecSetCustomHomeURL
 _SecSetCustomHomeURLString
+

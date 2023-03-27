@@ -43,6 +43,7 @@ es{
         ang{"inglés antiguo"}
         anp{"angika"}
         apw{"apache occidental"}
+        apw_Latn{"apache occidental"}
         ar{"árabe"}
         ar_001{"árabe estándar moderno"}
         arc{"arameo"}
@@ -105,9 +106,12 @@ es{
         chm{"marí"}
         chn{"jerga chinuk"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"cheroqui"}
         chy{"cheyene"}
+        cic{"chickasaw"}
+        cic_Latn{"chickasaw"}
         ckb{"kurdo sorani"}
         co{"corso"}
         cop{"copto"}

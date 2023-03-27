@@ -256,7 +256,7 @@ public:
         RefPtr<JSON::Object> data = JSON::Object::create();
 
 #if ENABLE(FULLSCREEN_API)
-        if (event.type() == eventNames().webkitfullscreenchangeEvent)
+        if (event.type() == eventNames().webkitfullscreenchangeEvent || event.type() == eventNames().fullscreenchangeEvent)
             data->setBoolean("enabled"_s, !!node->document().fullscreenManager().fullscreenElement());
 #endif // ENABLE(FULLSCREEN_API)
 
@@ -343,8 +343,11 @@ void InspectorDOMAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReaso
 Vector<Document*> InspectorDOMAgent::documents()
 {
     Vector<Document*> result;
-    for (Frame* frame = m_document->frame(); frame; frame = frame->tree().traverseNext()) {
-        Document* document = frame->document();
+    for (AbstractFrame* frame = m_document->frame(); frame; frame = frame->tree().traverseNext()) {
+        auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        auto* document = localFrame->document();
         if (!document)
             continue;
         result.append(document);
@@ -978,7 +981,7 @@ Protocol::ErrorStringOr<String> InspectorDOMAgent::getAssociatedDataForNode(Prot
 }
 #endif
 
-Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Protocol::DOM::EventListener>>> InspectorDOMAgent::getEventListenersForNode(Protocol::DOM::NodeId nodeId)
+Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Protocol::DOM::EventListener>>> InspectorDOMAgent::getEventListenersForNode(Protocol::DOM::NodeId nodeId, std::optional<bool>&& includeAncestors)
 {
     Protocol::ErrorString errorString;
 
@@ -988,10 +991,12 @@ Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Protocol::DOM::EventListener>>> Inspec
 
     Vector<RefPtr<EventTarget>> ancestors;
     ancestors.append(node);
-    for (auto* ancestor = node->parentOrShadowHostNode(); ancestor; ancestor = ancestor->parentOrShadowHostNode())
-        ancestors.append(ancestor);
-    if (auto* window = node->document().domWindow())
-        ancestors.append(window);
+    if (includeAncestors.value_or(true)) {
+        for (auto* ancestor = node->parentOrShadowHostNode(); ancestor; ancestor = ancestor->parentOrShadowHostNode())
+            ancestors.append(ancestor);
+        if (auto* window = node->document().domWindow())
+            ancestors.append(window);
+    }
 
     struct EventListenerInfo {
         RefPtr<EventTarget> eventTarget;
@@ -1775,9 +1780,9 @@ static Protocol::DOM::CustomElementState customElementState(const Element& eleme
 {
     if (element.isDefinedCustomElement())
         return Protocol::DOM::CustomElementState::Custom;
-    if (element.isFailedCustomElement())
+    if (element.isFailedOrPrecustomizedCustomElement())
         return Protocol::DOM::CustomElementState::Failed;
-    if (element.isUndefinedCustomElement() || element.isCustomElementUpgradeCandidate())
+    if (element.isCustomElementUpgradeCandidate())
         return Protocol::DOM::CustomElementState::Waiting;
     return Protocol::DOM::CustomElementState::Builtin;
 }
@@ -1841,14 +1846,16 @@ Ref<Protocol::DOM::Node> InspectorDOMAgent::buildObjectForNode(Node* node, int d
         if (children->length() > 0)
             value->setChildren(WTFMove(children));
     }
-    
-    if (auto layoutContextType = InspectorCSSAgent::layoutContextTypeForRenderer(node->renderer()))
-        value->setLayoutContextType(layoutContextType.value());
+
+    if (auto* cssAgent = m_instrumentingAgents.enabledCSSAgent()) {
+        if (auto layoutFlags = cssAgent->protocolLayoutFlagsForNode(*node))
+            value->setLayoutFlags(layoutFlags.releaseNonNull());
+    }
 
     auto* pageAgent = m_instrumentingAgents.enabledPageAgent();
     if (pageAgent) {
         if (auto* frameView = node->document().view())
-            value->setFrameId(pageAgent->frameId(&frameView->frame()));
+            value->setFrameId(pageAgent->frameId(dynamicDowncast<LocalFrame>(frameView->frame())));
     }
 
     if (is<Element>(*node)) {
@@ -1967,9 +1974,7 @@ Ref<Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEventListener
     int lineNumber = 0;
     int columnNumber = 0;
     String scriptID;
-    if (is<JSEventListener>(eventListener)) {
-        auto& scriptListener = downcast<JSEventListener>(eventListener.get());
-
+    if (auto* scriptListener = dynamicDowncast<JSEventListener>(eventListener.get()); scriptListener && scriptListener->isolatedWorld()) {
         Document* document = nullptr;
         if (auto* scriptExecutionContext = eventTarget.scriptExecutionContext()) {
             if (is<Document>(scriptExecutionContext))
@@ -1980,14 +1985,14 @@ Ref<Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEventListener
         JSC::JSObject* handlerObject = nullptr;
         JSC::JSGlobalObject* globalObject = nullptr;
 
-        JSC::JSLockHolder lock(scriptListener.isolatedWorld().vm());
+        JSC::JSLockHolder lock(scriptListener->isolatedWorld()->vm());
 
         if (document) {
-            handlerObject = scriptListener.ensureJSFunction(*document);
+            handlerObject = scriptListener->ensureJSFunction(*document);
             if (auto frame = document->frame()) {
                 // FIXME: Why do we need the canExecuteScripts check here?
                 if (frame->script().canExecuteScripts(NotAboutToExecuteScript))
-                    globalObject = frame->script().globalObject(scriptListener.isolatedWorld());
+                    globalObject = frame->script().globalObject(*scriptListener->isolatedWorld());
             }
         }
 

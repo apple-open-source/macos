@@ -818,12 +818,6 @@ resend:
                  error, create_rqp->sr_messageid);
     }
 
-    /* Got file id from Create Context */
-    if (create_flags & SMB2_CREATE_QUERY_DISK_ID) {
-        fap->fa_ino = createp->ret_disk_file_id;
-        smb2fs_smb_file_id_check(share, fap->fa_ino, NULL, 0);
-    }
-
 parse_query:
     if (query_rqp != NULL) {
         /* Consume any pad bytes */
@@ -1853,12 +1847,6 @@ resend:
             /* Updating meta data cache failed, try parsing the Query */
             SMBERROR("smb2fs_smb_parse_ntcreatex failed %d id %lld\n",
                      error, create_rqp->sr_messageid);
-        }
-
-        /* Got file id from Create Context */
-        if (create_flags & SMB2_CREATE_QUERY_DISK_ID) {
-            fap->fa_ino = createp->ret_disk_file_id;
-            smb2fs_smb_file_id_check(share, fap->fa_ino, NULL, 0);
         }
     }
 
@@ -4281,7 +4269,7 @@ resend:
      * cache dir entries.
 	 */
 	if ((SMBV_SMB3_OR_LATER(sessionp)) &&
-		(sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) &&
+		(sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) &&
 		!(ctx->f_share->ss_mount->sm_args.altflags & SMBFS_MNT_DIR_LEASE_OFF) &&
         (ctx->f_is_readdir == 0)) {
 
@@ -5702,12 +5690,6 @@ resend:
         SMBERROR("smb2fs_smb_parse_ntcreatex failed %d id %lld\n", 
                  error, create_rqp->sr_messageid);
     }
-    
-    /* Got file id from Create Context */
-    if (create_flags & SMB2_CREATE_QUERY_DISK_ID) {
-        fap->fa_ino = createp->ret_disk_file_id;
-        smb2fs_smb_file_id_check(share, fap->fa_ino, NULL, 0);
-    }
 
 parse_query:
     if (query_rqp != NULL) {
@@ -6265,7 +6247,7 @@ resend:
                                                    file_namep, stream_namep,
                                                    vnode_type, 1);
     if ((SMBV_SMB21_OR_LATER(sessionp)) &&
-        (sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
+        (sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
         (vnode_type == VREG)) {
         /* Add in the file lease to avoid a lease break due to rename */
         smb2_lease_init(share, NULL, create_np, 0, &temp_lease, 1);
@@ -8431,7 +8413,7 @@ smb2fs_smb_lease_upgrade(struct smb_share *share, vnode_t vp,
     }
 
     if (!(SMBV_SMB21_OR_LATER(sessionp)) ||
-        !(sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_LEASING)) {
+        !(sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LEASING)) {
         /* No leases supported so nothing to do */
         return(0);
     }
@@ -8950,7 +8932,7 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
      */
     error = smb2fs_smb_parse_ntcreatex(share, np, createp, 
                                        fidp, fap, context);
-    
+
 bad:
     if (createp != NULL) {
         SMB_FREE_TYPE(struct smb2_create_rq, createp);
@@ -9002,7 +8984,7 @@ smbfs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
             create_flags |= SMB2_CREATE_DO_CREATE;
         }
 
-        if (SS_TO_SESSION(share)->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_LEASING) {
+        if (SS_TO_SESSION(share)->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LEASING) {
             /* Server supports file leasing */
             if ((dur_hndl_leasep != NULL) && (dur_hndl_leasep->dur_handlep != NULL)) {
                 if (dur_hndl_leasep->dur_handlep->flags & (SMB2_DURABLE_HANDLE_REQUEST | SMB2_PERSISTENT_HANDLE_REQUEST)) {
@@ -9161,7 +9143,12 @@ smb2fs_smb_parse_ntcreatex(struct smb_share *share, struct smbnode *np,
     smb_time_NT2local(createp->ret_access_time, &fap->fa_atime);
     smb_time_NT2local(createp->ret_write_time, &fap->fa_mtime);
     smb_time_NT2local(createp->ret_change_time, &fap->fa_chtime);
-    
+    /* Got file id from Create Context */
+    if (createp->flags & SMB2_CREATE_QUERY_DISK_ID) {
+        fap->fa_ino = createp->ret_disk_file_id;
+        smb2fs_smb_file_id_check(share, fap->fa_ino, NULL, 0);
+    }
+
     /*
      * Because of the Steve/Conrad Symlinks we can never be completely
      * sure that we have the correct vnode type if its a file. For 
@@ -10809,8 +10796,10 @@ try_again:
     /* Verify that the server info matches our current session */
     
 	/* Check Capabilities */
-	if (reply.capabilities != sp->sv_capabilities) {
-		SMBERROR("Server capabilities do not match \n");
+	if (reply.capabilities != sp->sv_saved_capabilities) {
+		SMBERROR("Server capabilities do not match (0x%x, 0x%x)\n",
+                 reply.capabilities,
+                 sp->sv_saved_capabilities);
 		error = EAUTH;
         goto bad;
 	}

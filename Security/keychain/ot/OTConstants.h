@@ -29,10 +29,14 @@
 bool SecErrorIsNestedErrorCappingEnabled(void);
 bool SecKeychainIsStaticPersistentRefsEnabled(void);
 void SecKeychainSetOverrideStaticPersistentRefsIsEnabled(bool value);
+bool OctagonIsSOSFeatureEnabled(void);
+bool OctagonPlatformSupportsSOS(void);
+void OctagonSetSOSFeatureEnabled(bool value);
 
 #if __OBJC__
 
 #import <Foundation/Foundation.h>
+#import <AppleFeatures/AppleFeatures.h>
 
 extern NSString* OTDefaultContext;
 
@@ -62,6 +66,8 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorFailedToLeaveClique                             = 48,
     OctagonErrorSyncPolicyMissing                               = 49,
     OctagonErrorRequiredLibrariesNotPresent                     = 50,
+    OctagonErrorFailedToSetWalrus                               = 51,
+    OctagonErrorFailedToSetWebAccess                            = 52,
     OctagonErrorNoAccountSettingsSet                            = 53,
     OctagonErrorBadUUID                                         = 54,
     OctagonErrorUserControllableViewsUnavailable                = 55,
@@ -73,6 +79,9 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorNoSuchCKKS                                      = 61,
     OctagonErrorUnsupportedInEDUMode                            = 62,
     OctagonErrorAltDSIDPersonaMismatch                          = 63,
+    OctagonErrorNoRecoveryKeyRegistered                         = 64,
+    OctagonErrorRecoverWithRecoveryKeyNotSupported              = 65,
+    OctagonErrorSecureBackupRestoreUsingRecoveryKeyFailed       = 66,
 };
 
 /* used for defaults writes */
@@ -84,14 +93,7 @@ extern NSString* OTProtocolPiggybacking;
 extern const char * OTTrustStatusChangeNotification;
 extern NSString* OTEscrowRecordPrefix;
 
-
-bool OctagonPlatformSupportsSOS(void);
-
 // Used for testing.
-void OctagonSetPlatformSupportsSOS(bool value);
-
-bool OctagonIsSOSFeatureEnabled(void);
-void OctagonSetSOSFeatureEnabled(bool value);
 
 bool OctagonSupportsPersonaMultiuser(void);
 void OctagonSetSupportsPersonaMultiuser(bool value);

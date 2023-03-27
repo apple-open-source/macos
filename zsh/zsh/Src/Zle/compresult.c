@@ -612,9 +612,10 @@ instmatch(Cmatch m, int *scs)
 	int pcs = zlemetacs;
 
 	l = 0;
-	for (bp = brbeg, brpos = m->brpl,
-		 bradd = (m->pre ? strlen(m->pre) : 0);
-	     bp; bp = bp->next, brpos++) {
+	bradd = (m->pre ? strlen(m->pre) : 0);
+	for (bp = brbeg, brpos = m->brpl;
+	     bp && brpos;
+	     bp = bp->next, brpos++) {
 	    zlemetacs = a + *brpos + bradd;
 	    pcs = zlemetacs;
 	    l = strlen(bp->str);
@@ -1583,7 +1584,7 @@ calclist(int showall)
                             nlines += 1 + printfmt(m->disp, 0, 0, 0);
                             g->flags |= CGF_HASDL;
                         } else {
-                            l = ZMB_nicewidth(m->disp);
+                            l = ZMB_nicewidth(m->disp) + !!m->modec;
                             ndisp++;
                             if (l > glong)
                                 glong = l;
@@ -2247,15 +2248,13 @@ iprintm(Cmgroup g, Cmatch *mp, UNUSED(int mc), UNUSED(int ml), int lastc, int wi
 #ifdef MULTIBYTE_SUPPORT
 	len = mb_niceformat(m->disp, shout, NULL, 0);
 #else
-	nicezputs(m->disp, shout);
-	len = niceztrlen(m->disp);
+	len = sb_niceformat(m->disp, shout, NULL, 0);
 #endif
     } else {
 #ifdef MULTIBYTE_SUPPORT
 	len = mb_niceformat(m->str, shout, NULL, 0);
 #else
-	nicezputs(m->str, shout);
-	len = niceztrlen(m->str);
+	len = sb_niceformat(m->str, shout, NULL, 0);
 #endif
 
 	if ((g->flags & CGF_FILES) && m->modec) {

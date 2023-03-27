@@ -7,8 +7,6 @@
 #import <ProtocolBuffer/PBHashUtil.h>
 #import <ProtocolBuffer/PBDataReader.h>
 
-#import "OTAccountMetadataClassCAccountSettings.h"
-
 #if !__has_feature(objc_arc)
 # error This generated file depends on ARC but it is not enabled; turn on ARC, or use 'objc_use_arc' option to generate non-ARC code.
 #endif
@@ -244,11 +242,6 @@
 {
     return _has.warnedTooManyPeers != 0;
 }
-- (BOOL)hasSettings
-{
-    return _settings != nil;
-}
-@synthesize settings = _settings;
 
 - (NSString *)description
 {
@@ -321,10 +314,6 @@
     if (self->_has.warnedTooManyPeers)
     {
         [dict setObject:[NSNumber numberWithBool:self->_warnedTooManyPeers] forKey:@"warnedTooManyPeers"];
-    }
-    if (self->_settings)
-    {
-        [dict setObject:[_settings dictionaryRepresentation] forKey:@"settings"];
     }
     return dict;
 }
@@ -442,24 +431,6 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             {
                 self->_has.warnedTooManyPeers = YES;
                 self->_warnedTooManyPeers = PBReaderReadBOOL(reader);
-            }
-            break;
-            case 21 /* settings */:
-            {
-                OTAccountMetadataClassCAccountSettings *new_settings = [[OTAccountMetadataClassCAccountSettings alloc] init];
-                self->_settings = new_settings;
-                PBDataReaderMark mark_settings;
-                BOOL markError = !PBReaderPlaceMark(reader, &mark_settings);
-                if (markError)
-                {
-                    return NO;
-                }
-                BOOL inError = !OTAccountMetadataClassCAccountSettingsReadFrom(new_settings, reader);
-                if (inError)
-                {
-                    return NO;
-                }
-                PBReaderRecallMark(reader, &mark_settings);
             }
             break;
             default:
@@ -589,13 +560,6 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             PBDataWriterWriteBOOLField(writer, self->_warnedTooManyPeers, 20);
         }
     }
-    /* settings */
-    {
-        if (self->_settings != nil)
-        {
-            PBDataWriterWriteSubmessage(writer, self->_settings, 21);
-        }
-    }
 }
 
 - (void)copyTo:(OTAccountMetadataClassC *)other
@@ -678,10 +642,6 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         other->_warnedTooManyPeers = _warnedTooManyPeers;
         other->_has.warnedTooManyPeers = YES;
     }
-    if (_settings)
-    {
-        other.settings = _settings;
-    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -743,7 +703,6 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         copy->_warnedTooManyPeers = _warnedTooManyPeers;
         copy->_has.warnedTooManyPeers = YES;
     }
-    copy->_settings = [_settings copyWithZone:zone];
     return copy;
 }
 
@@ -783,8 +742,6 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ((self->_has.warmedEscrowCache && other->_has.warmedEscrowCache && ((self->_warmedEscrowCache && other->_warmedEscrowCache) || (!self->_warmedEscrowCache && !other->_warmedEscrowCache))) || (!self->_has.warmedEscrowCache && !other->_has.warmedEscrowCache))
     &&
     ((self->_has.warnedTooManyPeers && other->_has.warnedTooManyPeers && ((self->_warnedTooManyPeers && other->_warnedTooManyPeers) || (!self->_warnedTooManyPeers && !other->_warnedTooManyPeers))) || (!self->_has.warnedTooManyPeers && !other->_has.warnedTooManyPeers))
-    &&
-    ((!self->_settings && !other->_settings) || [self->_settings isEqual:other->_settings])
     ;
 }
 
@@ -823,8 +780,6 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     (self->_has.warmedEscrowCache ? PBHashInt((NSUInteger)self->_warmedEscrowCache) : 0)
     ^
     (self->_has.warnedTooManyPeers ? PBHashInt((NSUInteger)self->_warnedTooManyPeers) : 0)
-    ^
-    [self->_settings hash]
     ;
 }
 
@@ -902,14 +857,6 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         self->_warnedTooManyPeers = other->_warnedTooManyPeers;
         self->_has.warnedTooManyPeers = YES;
-    }
-    if (self->_settings && other->_settings)
-    {
-        [self->_settings mergeFrom:other->_settings];
-    }
-    else if (!self->_settings && other->_settings)
-    {
-        [self setSettings:other->_settings];
     }
 }
 

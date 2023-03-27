@@ -57,6 +57,10 @@ public:
     float deviceScaleFactor() const;
 
     LayerHostingMode layerHostingMode() const;
+    
+    std::optional<WebCore::DestinationColorSpace> displayColorSpace() const;
+
+    DrawingAreaIdentifier drawingAreaIdentifier() const;
 
     void buildTransaction(RemoteLayerTreeTransaction&, WebCore::PlatformCALayer& rootLayer);
 
@@ -79,6 +83,9 @@ public:
 
     bool useCGDisplayListsForDOMRendering() const { return m_useCGDisplayListsForDOMRendering; }
     void setUseCGDisplayListsForDOMRendering(bool useCGDisplayLists) { m_useCGDisplayListsForDOMRendering = useCGDisplayLists; }
+
+    bool useCGDisplayListImageCache() const { return m_useCGDisplayListImageCache; }
+    void setUseCGDisplayListImageCache(bool useCGDisplayListImageCache) { m_useCGDisplayListImageCache = useCGDisplayListImageCache; }
     
 #if PLATFORM(IOS_FAMILY)
     bool canShowWhileLocked() const;
@@ -106,6 +113,7 @@ private:
 
     bool m_nextRenderingUpdateRequiresSynchronousImageDecoding { false };
     bool m_useCGDisplayListsForDOMRendering { false };
+    bool m_useCGDisplayListImageCache { false };
 };
 
 } // namespace WebKit

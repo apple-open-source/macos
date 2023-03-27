@@ -290,17 +290,16 @@ void UserMediaPermissionRequestManagerProxy::finishGrantingRequest(UserMediaPerm
 
         ++m_hasPendingCapture;
 
-        SandboxExtension::Handle handle;
+        Vector<SandboxExtension::Handle> handles;
 #if PLATFORM(COCOA)
         if (!m_hasCreatedSandboxExtensionForTCCD && doesPageNeedTCCD(m_page)) {
-            if (auto createdHandle = SandboxExtension::createHandleForMachLookup("com.apple.tccd"_s, m_page.process().auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap))
-                handle = WTFMove(*createdHandle);
+            handles = SandboxExtension::createHandlesForMachLookup({ "com.apple.tccd"_s }, m_page.process().auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
             m_hasCreatedSandboxExtensionForTCCD = true;
         }
 #endif
 
         auto& request = strongRequest.get();
-        m_page.sendWithAsyncReply(Messages::WebPage::UserMediaAccessWasGranted { request.userMediaID(), request.audioDevice(), request.videoDevice(), request.deviceIdentifierHashSalts(), handle }, [this, weakThis = WTFMove(weakThis)] {
+        m_page.sendWithAsyncReply(Messages::WebPage::UserMediaAccessWasGranted { request.userMediaID(), request.audioDevice(), request.videoDevice(), request.deviceIdentifierHashSalts(), handles }, [this, weakThis = WTFMove(weakThis)] {
             if (!weakThis)
                 return;
             if (!--m_hasPendingCapture)
@@ -313,13 +312,13 @@ void UserMediaPermissionRequestManagerProxy::finishGrantingRequest(UserMediaPerm
 
 void UserMediaPermissionRequestManagerProxy::didCommitLoadForFrame(FrameIdentifier frameID)
 {
-    // ALWAYS_LOG(LOGIDENTIFIER, frameID.object().toUInt64());
+    ALWAYS_LOG(LOGIDENTIFIER, frameID.object().toUInt64());
     m_frameEphemeralHashSalts.remove(frameID);
 }
 
 void UserMediaPermissionRequestManagerProxy::resetAccess(std::optional<FrameIdentifier> frameID)
 {
-    ALWAYS_LOG(LOGIDENTIFIER, frameID ? frameID->toUInt64() : 0);
+    ALWAYS_LOG(LOGIDENTIFIER, frameID ? frameID->object().toUInt64() : 0);
 
     if (frameID) {
         m_grantedRequests.removeAllMatching([frameID](const auto& grantedRequest) {
@@ -436,7 +435,7 @@ void UserMediaPermissionRequestManagerProxy::scheduleNextRejection()
 {
     const double mimimumDelayBeforeReplying = .25;
     if (!m_rejectionTimer.isActive())
-        m_rejectionTimer.startOneShot(Seconds(mimimumDelayBeforeReplying + randomNumber()));
+        m_rejectionTimer.startOneShot(Seconds(mimimumDelayBeforeReplying + cryptographicallyRandomUnitInterval()));
 }
 
 #if ENABLE(MEDIA_STREAM)
@@ -672,7 +671,7 @@ void UserMediaPermissionRequestManagerProxy::decidePolicyForUserMediaPermissionR
         return;
 
     // If page navigated, there is no need to call the page client for authorization.
-    auto* webFrame = m_page.process().webFrame(m_currentUserMediaRequest->frameID());
+    auto* webFrame = WebFrameProxy::webFrame(m_currentUserMediaRequest->frameID());
 
     if (!webFrame || !SecurityOrigin::createFromString(m_page.pageLoadState().activeURL())->isSameSchemeHostPort(m_currentUserMediaRequest->topLevelDocumentSecurityOrigin())) {
         denyRequest(*m_currentUserMediaRequest, UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::NoConstraints, emptyString());
@@ -687,7 +686,7 @@ void UserMediaPermissionRequestManagerProxy::decidePolicyForUserMediaPermissionR
 
 void UserMediaPermissionRequestManagerProxy::checkUserMediaPermissionForSpeechRecognition(WebCore::FrameIdentifier frameIdentifier, const WebCore::SecurityOrigin& requestingOrigin, const WebCore::SecurityOrigin& topOrigin, const WebCore::CaptureDevice& device, CompletionHandler<void(bool)>&& completionHandler)
 {
-    auto* frame = m_page.process().webFrame(frameIdentifier);
+    auto* frame = WebFrameProxy::webFrame(frameIdentifier);
     if (!frame || !SecurityOrigin::createFromString(m_page.pageLoadState().activeURL())->isSameSchemeHostPort(topOrigin)) {
         completionHandler(false);
         return;
@@ -753,7 +752,7 @@ void UserMediaPermissionRequestManagerProxy::requestSystemValidation(const WebPa
 
 void UserMediaPermissionRequestManagerProxy::getUserMediaPermissionInfo(FrameIdentifier frameID, Ref<SecurityOrigin>&& userMediaDocumentOrigin, Ref<SecurityOrigin>&& topLevelDocumentOrigin, CompletionHandler<void(PermissionInfo)>&& handler)
 {
-    auto* webFrame = m_page.process().webFrame(frameID);
+    auto* webFrame = WebFrameProxy::webFrame(frameID);
     if (!webFrame || !SecurityOrigin::createFromString(m_page.pageLoadState().activeURL())->isSameSchemeHostPort(topLevelDocumentOrigin.get())) {
         handler({ });
         return;
@@ -1013,7 +1012,7 @@ String convertEnumerationToString(UserMediaPermissionRequestManagerProxy::Reques
     static_assert(static_cast<size_t>(UserMediaPermissionRequestManagerProxy::RequestAction::Deny) == 0, "UserMediaPermissionRequestManagerProxy::RequestAction::Deny is not 0 as expected");
     static_assert(static_cast<size_t>(UserMediaPermissionRequestManagerProxy::RequestAction::Grant) == 1, "UserMediaPermissionRequestManagerProxy::RequestAction::Grant is not 1 as expected");
     static_assert(static_cast<size_t>(UserMediaPermissionRequestManagerProxy::RequestAction::Prompt) == 2, "UserMediaPermissionRequestManagerProxy::RequestAction::Prompt is not 2 as expected");
-    ASSERT(static_cast<size_t>(enumerationValue) < WTF_ARRAY_LENGTH(values));
+    ASSERT(static_cast<size_t>(enumerationValue) < std::size(values));
     return values[static_cast<size_t>(enumerationValue)];
 }
 

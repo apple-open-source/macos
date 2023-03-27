@@ -96,7 +96,7 @@ struct stypat {
     Stypat next;
     char *pat;			/* pattern string */
     Patprog prog;		/* compiled pattern */
-    int weight;			/* how specific is the pattern? */
+    zulong weight;		/* how specific is the pattern? */
     Eprog eval;			/* eval-on-retrieve? */
     char **vals;
 };
@@ -200,7 +200,8 @@ printstylenode(HashNode hn, int printflags)
 	else {
 	    printf("zstyle %s", (p->eval ? "-e " : ""));
 	    quotedzputs(p->pat, stdout);
-	    printf(" %s", s->node.nam);
+	    putchar(' ');
+	    quotedzputs(s->node.nam, stdout);
 	}
 	for (v = p->vals; *v; v++) {
 	    putchar(' ');
@@ -293,7 +294,9 @@ newzstyletable(int size, char const *name)
 static int
 setstypat(Style s, char *pat, Patprog prog, char **vals, int eval)
 {
-    int weight, tmp, first;
+    zulong weight;
+    int tmp;
+    int first;
     char *str;
     Stypat p, q, qq;
     Eprog eprog = NULL;
@@ -348,6 +351,12 @@ setstypat(Style s, char *pat, Patprog prog, char **vals, int eval)
      * - A component that's a literal string scores 2 points.
      * - The score of a pattern is the sum of the score of its components.
      *
+     * The result of this calculation is stored in the low bits of 'weight'.
+     * The high bits of 'weight' are used to store the number of ':'-separated
+     * components.  This provides a lexicographic comparison: first compare
+     * the number of components, and if that's equal, compare the specificity
+     * of the components.
+     *
      * This corresponds to the notion of 'more specific' in the zshmodules(1)
      * documentation of zstyle.
      */
@@ -367,6 +376,7 @@ setstypat(Style s, char *pat, Patprog prog, char **vals, int eval)
 
 	if (*str == ':') {
 	    /* Yet another component. */
+	    weight += ZLONG_CONST(1) << (CHAR_BIT * sizeof(weight) / 2);
 
 	    first = 1;
 	    weight += tmp;
@@ -766,10 +776,12 @@ bin_zstyle(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
  *   ousedp	(*outp)[*ousedp] is where to write next
  *   olenp	*olenp is the size allocated for *outp
  *   endchar    Terminator character in addition to `\0' (may be '\0')
+ *   presence   -F: Ternary expressions test emptyness instead
  *   skip	If 1, don't output, just parse.
  */
 static char *zformat_substring(char* instr, char **specs, char **outp,
-			       int *ousedp, int *olenp, int endchar, int skip)
+			       int *ousedp, int *olenp, int endchar,
+			       int presence, int skip)
 {
     char *s;
 
@@ -797,27 +809,35 @@ static char *zformat_substring(char* instr, char **specs, char **outp,
 	    if ((*s == '.' || testit) && idigit(s[1])) {
 		for (max = 0, s++; idigit(*s); s++)
 		    max = (max * 10) + (int) STOUC(*s) - '0';
-	    }
-	    else if (testit)
+	    } else if (*s == '.' || testit)
 		s++;
 
 	    if (testit && STOUC(*s)) {
 		int actval, testval, endcharl;
 
-		/*
-		 * One one number is useful for ternary expressions.
-		 * Remember to put the sign back.
-		 */
+		/* Only one number is useful for ternary expressions. */
 		testval = (min >= 0) ? min : (max >= 0) ? max : 0;
-		if (right)
-		    testval *= -1;
 
-		if (specs[STOUC(*s)])
-		    actval = (int)mathevali(specs[STOUC(*s)]);
-		else
-		    actval = 0;
-		/* zero means values are equal, i.e. true */
-		actval -= testval;
+		if (specs[STOUC(*s)] && *specs[STOUC(*s)]) {
+		    if (presence) {
+			if (testval)
+#ifdef MULTIBYTE_SUPPORT
+			    if (isset(MULTIBYTE))
+				actval = MB_METASTRWIDTH(specs[STOUC(*s)]);
+			    else
+#endif
+				actval = strlen(specs[STOUC(*s)]);
+		        else
+			    actval = 1;
+			actval = right ? (testval < actval) : (testval >= actval);
+		    } else {
+			if (right) /* put the sign back */
+			    testval *= -1;
+			/* zero means values are equal, i.e. true */
+			actval = (int)mathevali(specs[STOUC(*s)]) - testval;
+		    }
+		} else
+		    actval = presence ? !right : testval;
 
 		/* careful about premature end of string */
 		if (!(endcharl = *++s))
@@ -828,10 +848,10 @@ static char *zformat_substring(char* instr, char **specs, char **outp,
 		 * vice versa... unless we are already skipping.
 		 */
 		if (!(s = zformat_substring(s+1, specs, outp, ousedp,
-					    olenp, endcharl, skip || actval)))
+			    olenp, endcharl, presence, skip || actval)))
 		    return NULL;
 		if (!(s = zformat_substring(s+1, specs, outp, ousedp,
-					    olenp, ')', skip || !actval)))
+			    olenp, ')', presence, skip || !actval)))
 		    return NULL;
 	    } else if (skip) {
 		continue;
@@ -903,6 +923,7 @@ static int
 bin_zformat(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     char opt;
+    int presence = 0;
 
     if (args[0][0] != '-' || !(opt = args[0][1]) || args[0][2]) {
 	zwarnnam(nam, "invalid argument: %s", args[0]);
@@ -911,15 +932,18 @@ bin_zformat(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
     args++;
 
     switch (opt) {
+    case 'F':
+	presence = 1;
+	/* fall-through */
     case 'f':
 	{
-	    char **ap, *specs[256], *out;
+	    char **ap, *specs[256] = {0}, *out;
 	    int olen, oused = 0;
-
-	    memset(specs, 0, 256 * sizeof(char *));
 
 	    specs['%'] = "%";
 	    specs[')'] = ")";
+
+	    /* Parse the specs in argv. */
 	    for (ap = args + 2; *ap; ap++) {
 		if (!ap[0][0] || ap[0][0] == '-' || ap[0][0] == '.' ||
 		    idigit(ap[0][0]) || ap[0][1] != ':') {
@@ -930,7 +954,8 @@ bin_zformat(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 	    }
 	    out = (char *) zhalloc(olen = 128);
 
-	    zformat_substring(args[1], specs, &out, &oused, &olen, '\0', 0);
+	    zformat_substring(args[1], specs, &out, &oused, &olen, '\0',
+		    presence, 0);
 	    out[oused] = '\0';
 
 	    setsparam(args[0], ztrdup(out));
@@ -1865,7 +1890,10 @@ bin_zparseopts(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 	    while (*++o) {
 		if (!(d = sopts[STOUC(*o)])) {
 		    if (fail) {
-			zwarnnam(nam, "bad option: %c", *o);
+			if (*o != '-')
+			    zwarnnam(nam, "bad option: -%c", *o);
+			else
+			    zwarnnam(nam, "bad option: -%s", o);
 			return 1;
 		    }
 		    o = NULL;
@@ -1878,7 +1906,7 @@ bin_zparseopts(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 		    } else if (!(d->flags & ZOF_OPT) ||
 			       (pp[1] && pp[1][0] != '-')) {
 			if (!pp[1]) {
-			    zwarnnam(nam, "missing argument for option: %s",
+			    zwarnnam(nam, "missing argument for option: -%s",
 				    d->name);
 			    return 1;
 			}
@@ -1905,7 +1933,7 @@ bin_zparseopts(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 		else if (!(d->flags & ZOF_OPT) ||
 			 (pp[1] && pp[1][0] != '-')) {
 		    if (!pp[1]) {
-			zwarnnam(nam, "missing argument for option: %s",
+			zwarnnam(nam, "missing argument for option: -%s",
 				d->name);
 			return 1;
 		    }

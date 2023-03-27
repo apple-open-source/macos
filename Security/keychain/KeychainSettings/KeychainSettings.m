@@ -217,6 +217,10 @@
     arguments.altDSID = [self primaryiCloudAccountAltDSID];
     [[KeychainSettings sharedOTControl] resetAndEstablish:[[OTControlArguments alloc] initWithConfiguration:arguments]
                                               resetReason:CuttlefishResetReasonUserInitiatedReset
+                                        idmsTargetContext:nil
+                                   idmsCuttlefishPassword:nil
+                                               notifyIdMS:false
+                                          accountSettings:nil
                                                     reply:^(NSError * _Nullable error) {
                                                         if(error) {
 

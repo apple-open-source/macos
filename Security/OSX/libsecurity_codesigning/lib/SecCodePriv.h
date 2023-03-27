@@ -217,25 +217,6 @@ CFDataRef SecCodeCopyComponent(SecCodeRef code, int slot, CFDataRef hash);
 CFBooleanRef SecCodeSpecialSlotIsPresent(SecStaticCodeRef code, int slot);
     
 /*
-    @function SecCodeValidateFileResource
-    For a SecStaticCodeRef, check that a given CFData object faithfully represents
-    a plain-file resource in its resource seal.
-    This call will fail if the file is missing in the bundle, even if it is optional.
-     
-    @param code A code or StaticCode object.
-    @param relativePath A CFStringRef containing the relative path to a sealed resource
-        file. This path is relative to the resource base, which is either Contents or
-        the bundle root, depending on bundle format.
-    @param fileData A CFDataRef containing the exact contents of that resource file.
-    @param flags Pass kSecCSDefaultFlags.
-    @result noErr if fileData is the exact content of the file at relativePath at the
-        time it was signed. Various error codes if it is different, there was no such file,
-        it was not a plain file, or anything is irregular.
-*/
-OSStatus SecCodeValidateFileResource(SecStaticCodeRef code, CFStringRef relativePath, CFDataRef fileData, SecCSFlags flags);
-
-
-/*
  @constant kSecCSStrictValidateStructure
  A subset of the work kSecCSStrictValidate performs, omitting work that
  is unnecessary on some platforms. Since the definition of what can be

@@ -526,6 +526,8 @@
 
         // Determine if we think this peer has enough things shared to them
         bool alreadyShared = false;
+        NSMutableArray<CKKSTLKShareRecord*>* existingInsufficientShares = [NSMutableArray array];
+
         for(CKKSTLKShareRecord* existingShare in tlkShares) {
             @autoreleasepool {
                 // Ensure this share is to this peer...
@@ -550,11 +552,11 @@
 
                         if([existingShare.senderPeerID isEqualToString:peerState.currentSelfPeers.currentSelf.peerID] &&
                            [existingShare.share.receiverPublicEncryptionKeySPKI isEqual:currentKey]) {
-                            ckksnotice("ckksshare", keyset.tlk, "Local peer %@ is shared %@ via self: %@", peer, keyset.tlk, existingShare);
+                            ckksnotice("ckksshare", keyset.tlk, "Local peer %@ is shared %@ via self: %@", peer, keyset.tlk.uuid, existingShare);
                             alreadyShared = true;
                             break;
                         } else {
-                            ckksnotice("ckksshare", keyset.tlk, "Local peer %@ is shared %@ via trusted %@, but that's not good enough", peer, keyset.tlk, existingShare);
+                            [existingInsufficientShares addObject:existingShare];
                         }
 
                     } else {
@@ -563,11 +565,12 @@
 
                         if([existingShare.share.receiverPublicEncryptionKeySPKI isEqual:currentKeySPKI]) {
                             // Some other peer has a trusted share. Cool!
-                            ckksnotice("ckksshare", keyset.tlk, "Peer %@ is shared %@ via trusted %@", peer, keyset.tlk, existingShare);
+                            ckksnotice("ckksshare", keyset.tlk, "Peer %@ is shared %@ via trusted %@", peer, keyset.tlk.uuid, existingShare);
                             alreadyShared = true;
                             break;
                         } else {
-                            ckksnotice("ckksshare", keyset.tlk, "Peer %@ has a share for %@, but to old keys: %@", peer, keyset.tlk, existingShare);
+                            ckksnotice("ckksshare", keyset.tlk, "Peer %@ has a share for %@, but to old keys: %@", peer, keyset.tlk.uuid, existingShare);
+                            [existingInsufficientShares addObject:existingShare];
                         }
                     }
                 }
@@ -575,6 +578,8 @@
         }
 
         if(!alreadyShared) {
+            ckksnotice("ckksshare", keyset.tlk, "Peer %@ is shared %@ via insufficient shares: %@", peer, keyset.tlk.uuid, existingInsufficientShares);
+
             // Add this peer to our set, if it has an encryption key to receive the share
             if(peer.publicEncryptionKey) {
                 [peersMissingShares addObject:peer];

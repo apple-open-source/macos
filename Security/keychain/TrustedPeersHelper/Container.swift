@@ -111,6 +111,8 @@ public enum ContainerError: Error {
     case peerRegisteredButNotStored(String)
     case configuredContainerDoesNotMatchSpecifiedUser(TPSpecificUser)
     case noSpecifiedUser
+    case failedToGetPeerViews
+    case cannotCreateRecoveryKeyPeer
     case noEscrowCache
     case recoveryKeyIsNotCorrect
 }
@@ -214,6 +216,10 @@ extension ContainerError: LocalizedError {
             return "Existing container configuration does not match user \(user)"
         case .noSpecifiedUser:
             return "No user specified"
+        case .failedToGetPeerViews:
+            return "failed to get peer views"
+        case .cannotCreateRecoveryKeyPeer:
+            return "failed to create recovery key peer"
         case .noEscrowCache:
             return "No escrow cache available"
         case .recoveryKeyIsNotCorrect:
@@ -331,6 +337,10 @@ extension ContainerError: CustomNSError {
             return 51
         case .recoveryKeyIsNotCorrect:
             return 52
+        case .failedToGetPeerViews:
+            return 53
+        case .cannotCreateRecoveryKeyPeer:
+            return 54
         }
     }
 
@@ -756,6 +766,8 @@ internal struct StableChanges {
     let policySecrets: [String: Data]?
     let setSyncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus?
     let secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity?
+    let walrusSetting: TPPBPeerStableInfoSetting?
+    let webAccess: TPPBPeerStableInfoSetting?
 }
 
 // CoreData doesn't handle creating an identical model from an identical URL. Help it out.
@@ -1304,7 +1316,9 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                 status: self.model.statusOfPeer(withID: egoPeerID),
                                                                 memberChanges: false,
                                                                 unknownMachineIDs: self.onqueueFullIDMSListWouldBeHelpful(),
-                                                                osVersion: egoStableInfo?.osVersion)
+                                                                osVersion: egoStableInfo?.osVersion,
+                                                                walrus: egoStableInfo?.walrusSetting,
+                                                                webAccess: egoStableInfo?.webAccess)
 
                 var tphPeers: [TrustedPeersHelperPeer] = []
 
@@ -1361,7 +1375,8 @@ class Container: NSObject, ConfiguredCloudKit {
             } else {
                 // With no ego peer ID, there are no trusted peers
                 logger.info("No peer ID => no trusted peers")
-                reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: false, unknownMachineIDs: false, osVersion: nil), [], nil)
+                reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: false, unknownMachineIDs: false, osVersion: nil,
+                                                  walrus: nil, webAccess: nil), [], nil)
             }
         }
     }
@@ -1381,7 +1396,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     d["self"] = ["peerID": egoPeerID]
                 }
             } else {
-                d["self"] = [:]
+                d["self"] = [AnyHashable: Any]()
             }
 
             autoreleasepool {
@@ -1396,7 +1411,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 if let bottles = self.containerMO.bottles as? Set<BottleMO> {
                     d["bottles"] = bottles.map { Container.dictionaryRepresentation(bottle: $0) }
                 } else {
-                    d["bottles"] = []
+                    d["bottles"] = [Any]()
                 }
             }
 
@@ -1455,7 +1470,7 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func reset(resetReason: CuttlefishResetReason, reply: @escaping (Error?) -> Void) {
+    func reset(resetReason: CuttlefishResetReason, idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
         self.semaphore.wait()
         let reply: (Error?) -> Void = {
             logger.info("reset complete \(traceError($0), privacy: .public)")
@@ -1467,6 +1482,9 @@ class Container: NSObject, ConfiguredCloudKit {
             let resetReason = ResetReason.from(cuttlefishResetReason: resetReason)
             let request = ResetRequest.with {
                 $0.resetReason = resetReason
+                $0.idmsTargetContext = idmsTargetContext ?? ""
+                $0.idmsCuttlefishPassword = idmsCuttlefishPassword ?? ""
+		$0.testingNotifyIdms = notifyIdMS
             }
             self.cuttlefish.reset(request) { response in
                 switch response {
@@ -1545,7 +1563,7 @@ class Container: NSObject, ConfiguredCloudKit {
                  policySecrets: [String: Data]?,
                  syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus,
                  secureElementIdentity: TPPBSecureElementIdentity?,
-                 setting: OTAccountSettingsX?,
+                 setting: OTAccountSettings?,
                  signingPrivateKeyPersistentRef: Data?,
                  encryptionPrivateKeyPersistentRef: Data?,
                  reply: @escaping (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, Error?) -> Void) {
@@ -1627,12 +1645,24 @@ class Container: NSObject, ConfiguredCloudKit {
 
                             let useFrozenPolicyVersion = policyDoc.version.versionNumber >= frozenPolicyVersion.versionNumber
 
+                            var walrusSetting: TPPBPeerStableInfoSetting?
+                            var webAccess: TPPBPeerStableInfoSetting?
+
+                            if let accountSetting = setting {
+                                walrusSetting = TPPBPeerStableInfoSetting()
+                                walrusSetting?.value = accountSetting.walrus.enabled
+                                webAccess = TPPBPeerStableInfoSetting()
+                                webAccess?.value = accountSetting.webAccess.enabled
+                            }
+
                             let stableInfo = try TPPeerStableInfo(clock: 1,
                                                                   frozenPolicyVersion: useFrozenPolicyVersion ? frozenPolicyVersion : policyDoc.version,
                                                                   flexiblePolicyVersion: useFrozenPolicyVersion ? policyDoc.version : nil,
                                                                   policySecrets: policySecrets,
                                                                   syncUserControllableViews: syncUserViews,
                                                                   secureElementIdentity: secureElementIdentity,
+                                                                  walrusSetting: walrusSetting,
+                                                                  webAccess: webAccess,
                                                                   deviceName: deviceName,
                                                                   serialNumber: serialNumber,
                                                                   osVersion: osVersion,
@@ -1793,6 +1823,8 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                       policySecrets: policySecrets,
                                                                       syncUserControllableViews: syncUserViews,
                                                                       secureElementIdentity: secureElementIdentity,
+                                                                      walrusSetting: nil,
+                                                                      webAccess: nil,
                                                                       deviceName: deviceName,
                                                                       serialNumber: serialNumber,
                                                                       osVersion: osVersion,
@@ -2173,126 +2205,135 @@ class Container: NSObject, ConfiguredCloudKit {
 
         logger.info("beginning a setRecoveryKey")
 
-        self.moc.performAndWait {
-            guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.info("no prepared identity, cannot set recovery key")
-                reply(nil, ContainerError.noPreparedIdentity)
+        self.fetchAndPersistChanges { fetchError in
+            guard fetchError == nil else {
+                reply(nil, fetchError)
                 return
             }
 
-            var recoveryKeys: RecoveryKey
-            do {
-                recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
-            } catch {
-                logger.info("failed to create recovery keys: \(String(describing: error), privacy: .public)")
-                reply(nil, ContainerError.failedToCreateRecoveryKey)
-                return
-            }
-
-            let signingPublicKey: Data = recoveryKeys.peerKeys.signingVerificationKey.keyData
-            let encryptionPublicKey: Data = recoveryKeys.peerKeys.encryptionVerificationKey.keyData
-
-            logger.info("setRecoveryKey signingPubKey: \(signingPublicKey.base64EncodedString(), privacy: .public)")
-            logger.info("setRecoveryKey encryptionPubKey: \(encryptionPublicKey.base64EncodedString(), privacy: .public)")
-
-            guard let stableInfoData = self.containerMO.egoPeerStableInfo else {
-                logger.info("stableInfo does not exist")
-                reply(nil, ContainerError.nonMember)
-                return
-            }
-            guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                logger.info("stableInfoSig does not exist")
-                reply(nil, ContainerError.nonMember)
-                return
-            }
-            guard let permInfoData = self.containerMO.egoPeerPermanentInfo else {
-                logger.info("permanentInfo does not exist")
-                reply(nil, ContainerError.nonMember)
-                return
-            }
-            guard let permInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
-                logger.info("permInfoSig does not exist")
-                reply(nil, ContainerError.nonMember)
-                return
-            }
-            guard let stableInfo = TPPeerStableInfo(data: stableInfoData, sig: stableInfoSig) else {
-                logger.info("cannot create TPPeerStableInfo")
-                reply(nil, ContainerError.invalidStableInfoOrSig)
-                return
-            }
-            let keyFactory = TPECPublicKeyFactory()
-            guard let permanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permInfoData, sig: permInfoSig, keyFactory: keyFactory) else {
-                logger.info("cannot create TPPeerPermanentInfo")
-                reply(nil, ContainerError.invalidStableInfoOrSig)
-                return
-            }
-
-            loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
-                guard let signingKeyPair = signingKeyPair else {
-                    logger.info("handle: no signing key pair: \(String(describing: error), privacy: .public)")
-                    reply(nil, error)
+            self.moc.performAndWait {
+                guard let egoPeerID = self.containerMO.egoPeerID else {
+                    logger.info("no prepared identity, cannot set recovery key")
+                    reply(nil, ContainerError.noPreparedIdentity)
                     return
                 }
-                self.moc.performAndWait {
-                    do {
-                        let tlkShares = try makeTLKShares(ckksTLKs: ckksKeys.map { $0.tlk },
-                                                          asPeer: recoveryKeys.peerKeys,
-                                                          toPeer: recoveryKeys.peerKeys,
-                                                          epoch: Int(permanentInfo.epoch))
 
-                        let policyVersion = stableInfo.bestPolicyVersion()
-                        let policyDoc = try self.getPolicyDoc(policyVersion.versionNumber)
+                var recoveryKeys: RecoveryKey
+                do {
+                    recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
+                } catch {
+                    logger.info("failed to create recovery keys: \(String(describing: error), privacy: .public)")
+                    reply(nil, ContainerError.failedToCreateRecoveryKey)
+                    return
+                }
 
-                        let updatedStableInfo = try TPPeerStableInfo(clock: stableInfo.clock + 1,
-                                                                     frozenPolicyVersion: frozenPolicyVersion,
-                                                                     flexiblePolicyVersion: policyDoc.version,
-                                                                     policySecrets: stableInfo.policySecrets,
-                                                                     syncUserControllableViews: stableInfo.syncUserControllableViews,
-                                                                     secureElementIdentity: stableInfo.secureElementIdentity,
-                                                                     deviceName: stableInfo.deviceName,
-                                                                     serialNumber: stableInfo.serialNumber,
-                                                                     osVersion: stableInfo.osVersion,
-                                                                     signing: signingKeyPair,
-                                                                     recoverySigningPubKey: signingPublicKey,
-                                                                     recoveryEncryptionPubKey: encryptionPublicKey,
-                                                                     isInheritedAccount: stableInfo.isInheritedAccount)
-                        let signedStableInfo = SignedPeerStableInfo(updatedStableInfo)
+                let signingPublicKey: Data = recoveryKeys.peerKeys.signingVerificationKey.keyData
+                let encryptionPublicKey: Data = recoveryKeys.peerKeys.encryptionVerificationKey.keyData
 
-                        let request = SetRecoveryKeyRequest.with {
-                            $0.peerID = egoPeerID
-                            $0.recoverySigningPubKey = signingPublicKey
-                            $0.recoveryEncryptionPubKey = encryptionPublicKey
-                            $0.stableInfoAndSig = signedStableInfo
-                            $0.tlkShares = tlkShares
-                            $0.changeToken = self.containerMO.changeToken ?? ""
-                        }
+                logger.info("setRecoveryKey signingPubKey: \(signingPublicKey.base64EncodedString(), privacy: .public)")
+                logger.info("setRecoveryKey encryptionPubKey: \(encryptionPublicKey.base64EncodedString(), privacy: .public)")
 
-                        self.cuttlefish.setRecoveryKey(request) { response in
-                            switch response {
-                            case .success(let response):
-                                self.moc.performAndWait {
-                                    do {
-                                        self.containerMO.egoPeerStableInfo = updatedStableInfo.data
-                                        self.containerMO.egoPeerStableInfoSig = updatedStableInfo.sig
-                                        try self.onQueuePersist(changes: response.changes)
+                guard let stableInfoData = self.containerMO.egoPeerStableInfo else {
+                    logger.info("stableInfo does not exist")
+                    reply(nil, ContainerError.nonMember)
+                    return
+                }
+                guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
+                    logger.info("stableInfoSig does not exist")
+                    reply(nil, ContainerError.nonMember)
+                    return
+                }
+                guard let permInfoData = self.containerMO.egoPeerPermanentInfo else {
+                    logger.info("permanentInfo does not exist")
+                    reply(nil, ContainerError.nonMember)
+                    return
+                }
+                guard let permInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
+                    logger.info("permInfoSig does not exist")
+                    reply(nil, ContainerError.nonMember)
+                    return
+                }
+                guard let stableInfo = TPPeerStableInfo(data: stableInfoData, sig: stableInfoSig) else {
+                    logger.info("cannot create TPPeerStableInfo")
+                    reply(nil, ContainerError.invalidStableInfoOrSig)
+                    return
+                }
+                let keyFactory = TPECPublicKeyFactory()
+                guard let permanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permInfoData, sig: permInfoSig, keyFactory: keyFactory) else {
+                    logger.info("cannot create TPPeerPermanentInfo")
+                    reply(nil, ContainerError.invalidStableInfoOrSig)
+                    return
+                }
 
-                                        logger.info("setRecoveryKey succeeded")
-
-                                        let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
-                                        reply(keyHierarchyRecords, nil)
-                                    } catch {
-                                        logger.info("setRecoveryKey handling failed: \(String(describing: error), privacy: .public)")
-                                        reply(nil, error)
-                                    }
-                                }
-                            case .failure(let error):
-                                logger.info("setRecoveryKey failed: \(String(describing: error), privacy: .public)")
-                                reply(nil, error)
-                                return
-                            }
-                        }
-                    } catch {
+                loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
+                    guard let signingKeyPair = signingKeyPair else {
+                        logger.info("handle: no signing key pair: \(String(describing: error), privacy: .public)")
                         reply(nil, error)
+                        return
+                    }
+                    self.moc.performAndWait {
+                        do {
+                            let tlkShares = try makeTLKShares(ckksTLKs: ckksKeys.map { $0.tlk },
+                                                              asPeer: recoveryKeys.peerKeys,
+                                                              toPeer: recoveryKeys.peerKeys,
+                                                              epoch: Int(permanentInfo.epoch))
+
+                            let policyVersion = stableInfo.bestPolicyVersion()
+                            let policyDoc = try self.getPolicyDoc(policyVersion.versionNumber)
+
+                            let updatedStableInfo = try TPPeerStableInfo(clock: stableInfo.clock + 1,
+                                                                         frozenPolicyVersion: frozenPolicyVersion,
+                                                                         flexiblePolicyVersion: policyDoc.version,
+                                                                         policySecrets: stableInfo.policySecrets,
+                                                                         syncUserControllableViews: stableInfo.syncUserControllableViews,
+                                                                         secureElementIdentity: stableInfo.secureElementIdentity,
+                                                                         walrusSetting: stableInfo.walrusSetting,
+                                                                         webAccess: stableInfo.webAccess,
+                                                                         deviceName: stableInfo.deviceName,
+                                                                         serialNumber: stableInfo.serialNumber,
+                                                                         osVersion: stableInfo.osVersion,
+                                                                         signing: signingKeyPair,
+                                                                         recoverySigningPubKey: signingPublicKey,
+                                                                         recoveryEncryptionPubKey: encryptionPublicKey,
+                                                                         isInheritedAccount: stableInfo.isInheritedAccount)
+                            let signedStableInfo = SignedPeerStableInfo(updatedStableInfo)
+
+                            let request = SetRecoveryKeyRequest.with {
+                                $0.peerID = egoPeerID
+                                $0.recoverySigningPubKey = signingPublicKey
+                                $0.recoveryEncryptionPubKey = encryptionPublicKey
+                                $0.stableInfoAndSig = signedStableInfo
+                                $0.tlkShares = tlkShares
+                                $0.changeToken = self.containerMO.changeToken ?? ""
+                            }
+
+                            self.cuttlefish.setRecoveryKey(request) { response in
+                                switch response {
+                                case .success(let response):
+                                    self.moc.performAndWait {
+                                        do {
+                                            self.containerMO.egoPeerStableInfo = updatedStableInfo.data
+                                            self.containerMO.egoPeerStableInfoSig = updatedStableInfo.sig
+                                            try self.onQueuePersist(changes: response.changes)
+
+                                            logger.info("setRecoveryKey succeeded")
+
+                                            let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
+                                            reply(keyHierarchyRecords, nil)
+                                        } catch {
+                                            logger.info("setRecoveryKey handling failed: \(String(describing: error), privacy: .public)")
+                                            reply(nil, error)
+                                        }
+                                    }
+                                case .failure(let error):
+                                    logger.info("setRecoveryKey failed: \(String(describing: error), privacy: .public)")
+                                    reply(nil, error)
+                                    return
+                                }
+                            }
+                        } catch {
+                            reply(nil, error)
+                        }
                     }
                 }
             }
@@ -2665,7 +2706,7 @@ class Container: NSObject, ConfiguredCloudKit {
         self.moc.performAndWait {
             logger.info("beginning a vouchWithRecoveryKey")
 
-            // I must have an ego identity in order to vouch using bottle
+            // I must have an ego identity in order to vouch using recovery key
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 logger.info("As a nonmember, can't vouch for someone else")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
@@ -2705,7 +2746,7 @@ class Container: NSObject, ConfiguredCloudKit {
 
             loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                 guard let egoPeerKeys = egoPeerKeys else {
-                    logger.info("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
+                    logger.info("Don't have my own peer keys; can't vouch with recovery key: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, error)
                     return
                 }
@@ -3981,7 +4022,8 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                  permanentInfo: peerPermanentInfo,
                                                                  existingStableInfo: stableInfo,
                                                                  dynamicInfo: dynamicInfo,
-                                                                 signingKeyPair: egoPeerKeys.signingKey)
+                                                                 signingKeyPair: egoPeerKeys.signingKey,
+                                                                 vouchers: vouchers)
 
         let peer = Peer.with {
             $0.peerID = egoPeerID
@@ -4063,6 +4105,7 @@ class Container: NSObject, ConfiguredCloudKit {
                             reply(nil, [], nil, error)
                             return
                         }
+
                         self.moc.performAndWait {
                             let peer: Peer
                             let newDynamicInfo: TPPeerDynamicInfo
@@ -4275,7 +4318,7 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func resetCDPAccountData(reply: @escaping (Error?) -> Void) {
+    func resetCDPAccountData(idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
         self.semaphore.wait()
         let reply: (Error?) -> Void = {
             logger.info("resetCDPAccountData complete: \(traceError($0), privacy: .public)")
@@ -4285,6 +4328,9 @@ class Container: NSObject, ConfiguredCloudKit {
 
         let request = ResetAccountCDPContentsRequest.with {
             $0.resetReason = .testGenerated
+            $0.idmsTargetContext = idmsTargetContext ?? ""
+            $0.idmsCuttlefishPassword = idmsCuttlefishPassword ?? ""
+	    $0.testingNotifyIdms = notifyIdMS
         }
         self.cuttlefish.resetAccountCdpcontents(request) { response in
             switch response {
@@ -4301,6 +4347,39 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
+    func fetchAccountSettings(forceFetch: Bool, reply: @escaping([String: TPPBPeerStableInfoSetting]?, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: ([String: TPPBPeerStableInfoSetting]?, Error?) -> Void = {
+            logger.info("fetchAccountSettings complete: \(traceError($1), privacy: .public)")
+            self.semaphore.signal()
+            reply($0, $1)
+        }
+        let block: (Error?) -> Void = { error in
+            guard error == nil else {
+                logger.info("fetchAccountSettings unable to fetch changes: \(String(describing: error), privacy: .public)")
+                reply(nil, error)
+                return
+            }
+            self.moc.performAndWait {
+                let bestWalrus = self.model.bestWalrusAcrossTrustedPeers()
+                let bestWebAccess = self.model.bestWebAccessAcrossTrustedPeers()
+
+                var settings: [String: TPPBPeerStableInfoSetting] = [:]
+                if let walrus = bestWalrus {
+                    settings["walrus"] = walrus
+                }
+                if let webAccess = bestWebAccess {
+                    settings["webAccess"] = webAccess
+                }
+                reply(settings, nil)
+            }
+        }
+        if forceFetch {
+            self.fetchAndPersistChanges(reply: block)
+        } else {
+            self.fetchAndPersistChangesIfNeeded(reply: block)
+        }
+    }
 
     func preflightPreapprovedJoin(preapprovedKeys: [Data]?,
                                   reply: @escaping (Bool, Error?) -> Void) {
@@ -4558,6 +4637,8 @@ class Container: NSObject, ConfiguredCloudKit {
                 policySecrets: [String: Data]?,
                 syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus?,
                 secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity?,
+                walrusSetting: TPPBPeerStableInfoSetting?,
+                webAccess: TPPBPeerStableInfoSetting?,
                 reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
         self.semaphore.wait()
         let reply: (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void = {
@@ -4573,7 +4654,10 @@ class Container: NSObject, ConfiguredCloudKit {
                                           policyVersion: policyVersion,
                                           policySecrets: policySecrets,
                                           setSyncUserControllableViews: syncUserControllableViews,
-                                          secureElementIdentity: secureElementIdentity)
+                                          secureElementIdentity: secureElementIdentity,
+                                          walrusSetting: walrusSetting,
+                                          webAccess: webAccess
+        )
         self.fetchChangesAndUpdateTrustIfNeeded(forceRefetch: forceRefetch, stableChanges: stableChanges, reply: reply)
     }
 
@@ -4924,7 +5008,7 @@ class Container: NSObject, ConfiguredCloudKit {
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 // No identity, nothing to do
                 logger.info("updateTrustIfNeeded: No identity.")
-                reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: peerChanges, unknownMachineIDs: false, osVersion: nil),
+                reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: peerChanges, unknownMachineIDs: false, osVersion: nil, walrus: nil, webAccess: nil),
                       nil,
                       nil)
                 return
@@ -4932,7 +5016,7 @@ class Container: NSObject, ConfiguredCloudKit {
             loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
                 guard let signingKeyPair = signingKeyPair else {
                     logger.info("updateTrustIfNeeded: no signing key pair: \(String(describing: error), privacy: .public)")
-                    reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: peerChanges, unknownMachineIDs: false, osVersion: nil),
+                    reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: peerChanges, unknownMachineIDs: false, osVersion: nil, walrus: nil, webAccess: nil),
                           nil,
                           error)
                     return
@@ -4946,7 +5030,9 @@ class Container: NSObject, ConfiguredCloudKit {
                                                       status: .unknown,
                                                       memberChanges: peerChanges,
                                                       unknownMachineIDs: false,
-                                                      osVersion: nil),
+                                                      osVersion: nil,
+                                                      walrus: nil,
+                                                      webAccess: nil),
                           nil,
                           nil)
                     return
@@ -4966,6 +5052,7 @@ class Container: NSObject, ConfiguredCloudKit {
                             // FIXME We should be able to calculate the contents of dynamicInfo without the signingKeyPair,
                             // and then only load the key if it has changed and we need to sign a new one. This would also
                             // help make our detection of change immune from non-canonical serialization of dynamicInfo.
+
                             dynamicInfo = try self.model.calculateDynamicInfoForPeer(withID: egoPeerID,
                                                                                      addingPeerIDs: nil,
                                                                                      removingPeerIDs: nil,
@@ -4977,7 +5064,8 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                               permanentInfo: currentSelfInModel.permanentInfo,
                                                                               existingStableInfo: currentSelfInModel.stableInfo,
                                                                               dynamicInfo: dynamicInfo,
-                                                                              signingKeyPair: signingKeyPair)
+                                                                              signingKeyPair: signingKeyPair,
+                                                                              vouchers: nil)
                         } catch {
                             logger.info("updateTrustIfNeeded: couldn't calculate dynamic info: \(String(describing: error), privacy: .public)")
                             reply(TrustedPeersHelperPeerState(peerID: egoPeerID,
@@ -4985,7 +5073,9 @@ class Container: NSObject, ConfiguredCloudKit {
                                                               status: self.model.statusOfPeer(withID: egoPeerID),
                                                               memberChanges: peerChanges,
                                                               unknownMachineIDs: false,
-                                                              osVersion: nil),
+                                                              osVersion: nil,
+                                                              walrus: nil,
+                                                              webAccess: nil),
                                   nil,
                                   error)
                             return
@@ -5023,7 +5113,9 @@ class Container: NSObject, ConfiguredCloudKit {
                                                               status: self.model.statusOfPeer(withID: egoPeerID),
                                                               memberChanges: peerChanges,
                                                               unknownMachineIDs: self.onqueueFullIDMSListWouldBeHelpful(),
-                                                              osVersion: peer?.stableInfo?.osVersion),
+                                                              osVersion: peer?.stableInfo?.osVersion,
+                                                              walrus: peer?.stableInfo?.walrusSetting,
+                                                              webAccess: peer?.stableInfo?.webAccess),
                                   syncingPolicy,
                                   nil)
                             return
@@ -5240,6 +5332,7 @@ class Container: NSObject, ConfiguredCloudKit {
             }
             let stableInfo = peer.stableInfoAndSig.toStableInfo()
             let dynamicInfo = peer.dynamicInfoAndSig.toDynamicInfo()
+
             let vouchers = peer.vouchers.compactMap {
                 TPVoucher(infoWith: $0.voucher, sig: $0.sig)
             }
@@ -5311,9 +5404,14 @@ class Container: NSObject, ConfiguredCloudKit {
                                              permanentInfo: TPPeerPermanentInfo,
                                              existingStableInfo: TPPeerStableInfo?,
                                              dynamicInfo: TPPeerDynamicInfo,
-                                             signingKeyPair: _SFECKeyPair) throws -> TPPeerStableInfo? {
+                                             signingKeyPair: _SFECKeyPair,
+                                             vouchers: [SignedVoucher]?) throws -> TPPeerStableInfo? {
         func noChange<T: Equatable>(_ change: T?, _ existing: T?) -> Bool {
             return (nil == change) || change == existing
+        }
+
+        func rkNoChange<T: Equatable>(_ change: T?, _ existing: T?) -> Bool {
+            return change == existing
         }
 
         let policyOfPeers = try? self.model.policy(forPeerIDs: dynamicInfo.includedPeerIDs,
@@ -5331,8 +5429,21 @@ class Container: NSObject, ConfiguredCloudKit {
                     prevailingPolicyVersion.versionNumber)
 
         // Determine which recovery key we'd like to be using, given our current idea of who to trust
-        let optimalRecoveryKey = self.model.bestRecoveryKey(for: existingStableInfo, dynamicInfo: dynamicInfo)
+        let tpVouchers = vouchers?.compactMap { TPVoucher(infoWith: $0.voucher, sig: $0.sig) }.filter { $0.beneficiaryID == permanentInfo.peerID }
+        
+        let optimalRecoveryKey = self.model.bestRecoveryKey(for: existingStableInfo, dynamicInfo: dynamicInfo, vouchers: tpVouchers)
 
+        // Determine which walrus setting we'd like to be using, given our current idea of who to trust
+        var optimalWalrusSetting: TPPBPeerStableInfoSetting?
+        if self.testDontSetAccountSetting == false {
+            optimalWalrusSetting = self.model.bestWalrus(for: existingStableInfo, dynamicInfo: dynamicInfo, walrusStableChanges: stableChanges?.walrusSetting)
+        }
+
+        // Determine which web access setting we'd like to be using, given our current idea of who to trust
+        var optimalWebAccessSetting: TPPBPeerStableInfoSetting?
+        if self.testDontSetAccountSetting == false {
+            optimalWebAccessSetting = self.model.bestWebAccess(for: existingStableInfo, dynamicInfo: dynamicInfo, webAccessStableChanges: stableChanges?.webAccess)
+        }
 
         let intendedSyncUserControllableViews = stableChanges?.setSyncUserControllableViews?.sanitizeForPlatform(permanentInfo: permanentInfo)
 
@@ -5351,10 +5462,13 @@ class Container: NSObject, ConfiguredCloudKit {
             noChange(stableChanges?.osVersion, existingStableInfo?.osVersion) &&
             noChange(optimalPolicyVersionNumber, existingStableInfo?.bestPolicyVersion().versionNumber) &&
             noChange(stableChanges?.policySecrets, existingStableInfo?.policySecrets) &&
-            noChange(optimalRecoveryKey?.signingKeyData, existingStableInfo?.recoverySigningPublicKey) &&
-            noChange(optimalRecoveryKey?.encryptionKeyData, existingStableInfo?.recoveryEncryptionPublicKey) &&
+            rkNoChange(optimalRecoveryKey?.signingKeyData, existingStableInfo?.recoverySigningPublicKey) &&
+            rkNoChange(optimalRecoveryKey?.encryptionKeyData, existingStableInfo?.recoveryEncryptionPublicKey) &&
             noChange(intendedSyncUserControllableViews, existingStableInfo?.syncUserControllableViews)
+        noChanges = noChanges && noChange(optimalWalrusSetting, existingStableInfo?.walrusSetting)
+        noChanges = noChanges && noChange(optimalWebAccessSetting, existingStableInfo?.webAccess)
         noChanges = noChanges && (intendedSecureElementIdentity == existingStableInfo?.secureElementIdentity)
+
         if noChanges {
             return nil
         }
@@ -5372,6 +5486,8 @@ class Container: NSObject, ConfiguredCloudKit {
                                                policySecrets: stableChanges?.policySecrets ?? existingStableInfo?.policySecrets,
                                                syncUserControllableViews: intendedSyncUserControllableViews ?? existingStableInfo?.syncUserControllableViews ?? .UNKNOWN,
                                                secureElementIdentity: intendedSecureElementIdentity,
+                                               walrusSetting: optimalWalrusSetting,
+                                               webAccess: optimalWebAccessSetting,
                                                deviceName: stableChanges?.deviceName ?? existingStableInfo?.deviceName ?? "",
                                                serialNumber: stableChanges?.serialNumber ?? existingStableInfo?.serialNumber ?? "",
                                                osVersion: stableChanges?.osVersion ?? existingStableInfo?.osVersion ?? "",
@@ -5485,6 +5601,200 @@ class Container: NSObject, ConfiguredCloudKit {
                     reply(error)
                     return
                 }
+            }
+        }
+    }
+    func isRecoveryKeySet(reply: @escaping(Bool, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (Bool, Error?) -> Void = {
+            logger.info("isRecoveryKeySet complete \(traceError($1), privacy: .public)")
+            self.semaphore.signal()
+            reply($0, $1)
+        }
+
+        self.fetchAndPersistChanges { fetchError in
+            guard fetchError == nil else {
+                reply(false, fetchError)
+                return
+            }
+            self.moc.performAndWait {
+                let isSet: Bool = self.model.isRecoveryKeyEnrolled()
+                logger.info("recoveryKey is enrolled \(isSet), privacy: .public)")
+
+                reply(isSet, nil)
+                return
+            }
+        }
+    }
+
+    func removeRecoveryKey(reply: @escaping (Bool, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (Bool, Error?) -> Void = {
+            logger.info("removeRecoveryKey complete: \(traceError($1), privacy: .public)")
+            self.semaphore.signal()
+            reply($0, $1)
+        }
+
+        logger.info("beginning a removeRecoveryKey")
+
+        self.fetchAndPersistChanges { fetchError in
+            guard fetchError == nil else {
+                reply(false, fetchError)
+                return
+            }
+
+            self.moc.performAndWait {
+                guard let egoPeerID = self.containerMO.egoPeerID else {
+                    logger.info("no prepared identity, cannot remove recovery key")
+                    reply(false, ContainerError.noPreparedIdentity)
+                    return
+                }
+                guard let stableInfoData = self.containerMO.egoPeerStableInfo else {
+                    logger.info("stableInfo does not exist")
+                    reply(false, ContainerError.nonMember)
+                    return
+                }
+                guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
+                    logger.info("stableInfoSig does not exist")
+                    reply(false, ContainerError.nonMember)
+                    return
+                }
+                guard let stableInfo = TPPeerStableInfo(data: stableInfoData, sig: stableInfoSig) else {
+                    logger.info("cannot create TPPeerStableInfo")
+                    reply(false, ContainerError.invalidStableInfoOrSig)
+                    return
+                }
+                guard let permInfoData = self.containerMO.egoPeerPermanentInfo else {
+                    logger.info("permanentInfo does not exist")
+                    reply(false, ContainerError.nonMember)
+                    return
+                }
+                guard let permInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
+                    logger.info("permInfoSig does not exist")
+                    reply(false, ContainerError.nonMember)
+                    return
+                }
+                let keyFactory = TPECPublicKeyFactory()
+                guard let permanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permInfoData, sig: permInfoSig, keyFactory: keyFactory) else {
+                    logger.info("cannot create TPPeerPermanentInfo")
+                    reply(false, ContainerError.invalidStableInfoOrSig)
+                    return
+                }
+                guard let peerViews = try? self.model.getViewsForPeer(permanentInfo, stableInfo: stableInfo) else {
+                    logger.info("cannot create peerViews")
+                    reply(false, ContainerError.failedToGetPeerViews)
+                    return
+                }
+                guard let currentRecoveryKeyPeer = try? RecoveryKey.asPeer(recoveryKeys: TPRecoveryKeyPair(stableInfo: stableInfo), viewList: peerViews) else {
+                    logger.info("cannot create recovery key peer")
+                    reply(false, ContainerError.cannotCreateRecoveryKeyPeer)
+                    return
+                }
+
+                loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
+                    guard let signingKeyPair = signingKeyPair else {
+                        logger.info("handle: no signing key pair: \(String(describing: error), privacy: .public)")
+                        reply(false, error)
+                        return
+                    }
+                    self.moc.performAndWait {
+                        do {
+                            let policyVersion = stableInfo.bestPolicyVersion()
+                            let policyDoc = try self.getPolicyDoc(policyVersion.versionNumber)
+
+                            let updatedStableInfo = try TPPeerStableInfo(clock: stableInfo.clock + 1,
+                                                                         frozenPolicyVersion: frozenPolicyVersion,
+                                                                         flexiblePolicyVersion: policyDoc.version,
+                                                                         policySecrets: stableInfo.policySecrets,
+                                                                         syncUserControllableViews: stableInfo.syncUserControllableViews,
+                                                                         secureElementIdentity: stableInfo.secureElementIdentity,
+                                                                         walrusSetting: stableInfo.walrusSetting,
+                                                                         webAccess: stableInfo.webAccess,
+                                                                         deviceName: stableInfo.deviceName,
+                                                                         serialNumber: stableInfo.serialNumber,
+                                                                         osVersion: stableInfo.osVersion,
+                                                                         signing: signingKeyPair,
+                                                                         recoverySigningPubKey: nil,
+                                                                         recoveryEncryptionPubKey: nil,
+                                                                         isInheritedAccount: stableInfo.isInheritedAccount)
+                            let signedStableInfo = SignedPeerStableInfo(updatedStableInfo)
+
+                            guard let rkPeerID = currentRecoveryKeyPeer.peerID else {
+                                logger.info("Error creating recovery key peerid: \(String(describing: error), privacy: .public)")
+                                reply(false, error)
+                                return
+                            }
+
+                            let dynamicInfo: TPPeerDynamicInfo
+                            do {
+                                dynamicInfo = try self.model.calculateDynamicInfoForPeer(withID: egoPeerID,
+                                                                                         addingPeerIDs: nil,
+                                                                                         removingPeerIDs: [rkPeerID],
+                                                                                         preapprovedKeys: nil,
+                                                                                         signing: signingKeyPair,
+                                                                                         currentMachineIDs: self.onqueueCurrentMIDList())
+                            } catch {
+                                logger.info("Error preparing dynamic info: \(String(describing: error), privacy: .public)")
+                                reply(false, error)
+                                return
+                            }
+
+                            let signedDynamicInfo = SignedPeerDynamicInfo(dynamicInfo)
+
+                            let request = RemoveRecoveryKeyRequest.with {
+                                $0.peerID = egoPeerID
+                                $0.stableInfoAndSig = signedStableInfo
+                                $0.dynamicInfoAndSig = signedDynamicInfo
+                                $0.changeToken = self.containerMO.changeToken ?? ""
+                            }
+
+                            self.cuttlefish.removeRecoveryKey(request) { response in
+                                switch response {
+                                case .success(let response):
+                                    self.moc.performAndWait {
+                                        do {
+                                            self.containerMO.egoPeerStableInfo = updatedStableInfo.data
+                                            self.containerMO.egoPeerStableInfoSig = updatedStableInfo.sig
+
+                                            try self.onQueuePersist(changes: response.changes)
+
+                                            self.model.removeRecoveryKey()
+                                            self.containerMO.recoveryKeySigningSPKI = nil
+                                            self.containerMO.recoveryKeyEncryptionSPKI = nil
+
+                                            logger.info("removeRecoveryKey succeeded")
+
+                                            try self.moc.save()
+
+                                            reply(true, nil)
+                                        } catch {
+                                            logger.info("removeRecoveryKey handling failed: \(String(describing: error), privacy: .public)")
+                                            reply(false, error)
+                                        }
+                                    }
+                                case .failure(let error):
+                                    logger.info("removeRecoveryKey failed: \(String(describing: error), privacy: .public)")
+                                    reply(false, error)
+                                    return
+                                }
+                            }
+                        } catch {
+                            reply(false, error)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func performATOPRVActions(reply: @escaping (Error?) -> Void) {
+        self.cuttlefish.performAtoprvactions { response in
+            switch response {
+            case .success:
+                reply(nil)
+            case .failure(let error):
+                logger.info("performATOPRVActions failed: \(String(describing: error), privacy: .public)")
+                reply(error)
             }
         }
     }

@@ -32,8 +32,8 @@ messages -> NetworkProcessConnection LegacyReceiver {
     CookieAcceptPolicyChanged(enum:uint8_t WebCore::HTTPCookieAcceptPolicy policy);
 
 #if HAVE(COOKIE_CHANGE_LISTENER_API)
-    CookiesAdded(String host, Vector<struct WebCore::Cookie> cookies);
-    CookiesDeleted(String host, Vector<struct WebCore::Cookie> cookies);
+    CookiesAdded(String host, Vector<WebCore::Cookie> cookies);
+    CookiesDeleted(String host, Vector<WebCore::Cookie> cookies);
     AllCookiesDeleted();
 #endif
 
@@ -41,7 +41,6 @@ messages -> NetworkProcessConnection LegacyReceiver {
     ConnectToRTCDataChannelRemoteSource(struct WebCore::RTCDataChannelIdentifier source, struct WebCore::RTCDataChannelIdentifier handler) -> (std::optional<bool> result)
 #endif
 
-    CheckProcessLocalPortForActivity(struct WebCore::MessagePortIdentifier port) -> (WebCore::MessagePortChannelProvider::HasActivity hasActivity)
     MessagesAvailableForPort(struct WebCore::MessagePortIdentifier port)
 
     BroadcastConsoleMessage(enum:uint8_t JSC::MessageSource messageSource, enum:uint8_t JSC::MessageLevel messageLevel, String message)

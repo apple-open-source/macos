@@ -58,6 +58,7 @@ int	 diff_format, diff_algorithm, status;
 #else
 int	 diff_format, diff_context, diff_algorithm, status;
 #endif	/* __APPLE__ */
+bool	diff_algorithm_set;
 int	 tabsize = 8, width = 130;
 static int	colorflag = COLORFLAG_NEVER;
 char	*start, *ifdefname, *diffargs, *label[2];
@@ -69,6 +70,9 @@ struct excludes *excludes_list;
 regex_t	 ignore_re, most_recent_re;
 
 bool   unix2003_compat;        /* __APPLE__ */
+#ifdef __APPLE__
+bool posix;
+#endif	/* __APPLE__ */
 
 static struct algorithm {
 	const char *name;
@@ -162,6 +166,9 @@ main(int argc, char **argv)
 	int   ch, dflags, lastch, gotstdin, prevoptind, newarg;
 
 	unix2003_compat = COMPAT_MODE("bin/diff", "Unix2003");
+#ifdef __APPLE__
+	posix = (getenv("POSIXLY_CORRECT") != NULL || getenv("POSIX_PEDANTIC") != NULL);
+#endif	/* __APPLE__ */
 	oargv = argv;
 	gotstdin = 0;
 	dflags = 0;
@@ -171,6 +178,7 @@ main(int argc, char **argv)
 	diff_context = 3;
 	diff_format = D_UNSET;
 	diff_algorithm = D_DIFFMYERS;
+	diff_algorithm_set = false;
 #define	FORMAT_MISMATCHED(type)	\
 	(diff_format != D_UNSET && diff_format != (type))
 	while ((ch = getopt_long(argc, argv, OPTIONS, longopts, NULL)) != -1) {
@@ -190,6 +198,7 @@ main(int argc, char **argv)
 			for (struct algorithm *a = algorithms; a->name;a++) {
 				if(strcasecmp(optarg, a->name) == 0) {
 					diff_algorithm = a->id;
+					diff_algorithm_set = true;
 					break;
 				}
 			}

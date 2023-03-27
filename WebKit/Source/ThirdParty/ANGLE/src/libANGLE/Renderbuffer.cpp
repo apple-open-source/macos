@@ -121,9 +121,15 @@ void Renderbuffer::onDestroy(const Context *context)
 
 Renderbuffer::~Renderbuffer() {}
 
-void Renderbuffer::setLabel(const Context *context, const std::string &label)
+angle::Result Renderbuffer::setLabel(const Context *context, const std::string &label)
 {
     mLabel = label;
+
+    if (mImplementation)
+    {
+        return mImplementation->onLabelUpdate(context);
+    }
+    return angle::Result::Continue;
 }
 
 const std::string &Renderbuffer::getLabel() const
@@ -317,12 +323,12 @@ GLint Renderbuffer::getMemorySize() const
     return size.ValueOrDefault(std::numeric_limits<GLint>::max());
 }
 
-void Renderbuffer::onAttach(const Context *context, rx::Serial framebufferSerial)
+void Renderbuffer::onAttach(const Context *context, rx::UniqueSerial framebufferSerial)
 {
     addRef();
 }
 
-void Renderbuffer::onDetach(const Context *context, rx::Serial framebufferSerial)
+void Renderbuffer::onDetach(const Context *context, rx::UniqueSerial framebufferSerial)
 {
     release(context);
 }

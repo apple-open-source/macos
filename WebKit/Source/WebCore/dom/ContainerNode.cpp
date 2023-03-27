@@ -44,8 +44,6 @@
 #include "InspectorInstrumentation.h"
 #include "JSNode.h"
 #include "LabelsNodeList.h"
-#include "LegacyInlineTextBox.h"
-#include "LegacyRootInlineBox.h"
 #include "MutationEvent.h"
 #include "NameNodeList.h"
 #include "NodeRareData.h"
@@ -70,6 +68,13 @@
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(ContainerNode);
+
+struct SameSizeAsContainerNode : public Node {
+    void* firstChild;
+    void* lastChild;
+};
+
+static_assert(sizeof(ContainerNode) == sizeof(SameSizeAsContainerNode), "ContainerNode should stay small");
 
 static void dispatchChildInsertionEvents(Node&);
 static void dispatchChildRemovalEvents(Ref<Node>&);

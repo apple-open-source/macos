@@ -35,7 +35,7 @@
 #include <wtf/ThreadSafeRefCounted.h>
 
 #if PLATFORM(COCOA)
-#include "SharedRingBufferStorage.h"
+#include "SharedCARingBuffer.h"
 #include <WebCore/AudioOutputUnitAdaptor.h>
 #include <WebCore/CAAudioStreamDescription.h>
 #include <WebCore/CARingBuffer.h>
@@ -70,13 +70,12 @@ class RemoteAudioDestination final
 {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    RemoteAudioDestination(GPUConnectionToWebProcess&, RemoteAudioDestinationIdentifier identifier, const String& inputDeviceId, uint32_t numberOfInputChannels, uint32_t numberOfOutputChannels, float sampleRate, float hardwareSampleRate, IPC::Semaphore&& renderSemaphore)
-        : m_id(identifier)
+    RemoteAudioDestination(GPUConnectionToWebProcess&, const String& inputDeviceId, uint32_t numberOfInputChannels, uint32_t numberOfOutputChannels, float sampleRate, float hardwareSampleRate, IPC::Semaphore&& renderSemaphore)
+        : m_renderSemaphore(WTFMove(renderSemaphore))
 #if PLATFORM(COCOA)
         , m_audioOutputUnitAdaptor(*this)
-        , m_ringBuffer(makeUniqueRef<WebCore::CARingBuffer>())
+        , m_numOutputChannels(numberOfOutputChannels)
 #endif
-        , m_renderSemaphore(WTFMove(renderSemaphore))
     {
         ASSERT(isMainRunLoop());
 #if PLATFORM(COCOA)
@@ -93,22 +92,17 @@ public:
     }
 
 #if PLATFORM(COCOA)
-    void audioSamplesStorageChanged(const SharedMemory::Handle& handle, const WebCore::CAAudioStreamDescription& description, uint64_t numberOfFrames)
+    void audioSamplesStorageChanged(ConsumerSharedCARingBuffer::Handle&& handle)
     {
-        auto newRingBuffer = WebCore::CARingBuffer::adoptStorage(makeUniqueRef<ReadOnlySharedRingBufferStorage>(handle), description, numberOfFrames);
-
-        if (!m_isPlaying) {
-            m_ringBuffer = WTFMove(newRingBuffer);
-            return;
+        if (m_isPlaying) {
+            stop();
+            ASSERT(!m_isPlaying);
+            if (m_isPlaying)
+                return;
         }
-
-        // Synchronously stop the render thread before replacing the ring buffer, then restart.
-        stop();
-        ASSERT(!m_isPlaying);
-        if (m_isPlaying)
+        m_ringBuffer = ConsumerSharedCARingBuffer::map(sizeof(Float32), m_numOutputChannels, WTFMove(handle));
+        if (!m_ringBuffer)
             return;
-
-        m_ringBuffer = WTFMove(newRingBuffer);
         start();
         ASSERT(m_isPlaying);
     }
@@ -158,19 +152,16 @@ private:
         return status;
     }
 #endif
-
-    RemoteAudioDestinationIdentifier m_id;
+    IPC::Semaphore m_renderSemaphore;
+    bool m_isPlaying { false };
 
 #if PLATFORM(COCOA)
     WebCore::AudioOutputUnitAdaptor m_audioOutputUnitAdaptor;
-
-    UniqueRef<WebCore::CARingBuffer> m_ringBuffer;
+    const uint32_t m_numOutputChannels;
+    std::unique_ptr<ConsumerSharedCARingBuffer> m_ringBuffer;
     uint64_t m_startFrame { 0 };
     unsigned m_extraRequestedFrames { 0 };
 #endif
-    IPC::Semaphore m_renderSemaphore;
-
-    bool m_isPlaying { false };
 };
 
 RemoteAudioDestinationManager::RemoteAudioDestinationManager(GPUConnectionToWebProcess& connection)
@@ -180,22 +171,19 @@ RemoteAudioDestinationManager::RemoteAudioDestinationManager(GPUConnectionToWebP
 
 RemoteAudioDestinationManager::~RemoteAudioDestinationManager() = default;
 
-void RemoteAudioDestinationManager::createAudioDestination(const String& inputDeviceId, uint32_t numberOfInputChannels, uint32_t numberOfOutputChannels, float sampleRate, float hardwareSampleRate, IPC::Semaphore&& renderSemaphore, CompletionHandler<void(const WebKit::RemoteAudioDestinationIdentifier)>&& completionHandler)
+void RemoteAudioDestinationManager::createAudioDestination(RemoteAudioDestinationIdentifier identifier, const String& inputDeviceId, uint32_t numberOfInputChannels, uint32_t numberOfOutputChannels, float sampleRate, float hardwareSampleRate, IPC::Semaphore&& renderSemaphore)
 {
-    MESSAGE_CHECK(!m_gpuConnectionToWebProcess.isCaptivePortalModeEnabled(), "Received a createAudioDestination() message from a CaptivePortal.");
+    MESSAGE_CHECK(!m_gpuConnectionToWebProcess.isLockdownModeEnabled(), "Received a createAudioDestination() message from a webpage in Lockdown mode.");
 
-    auto newID = RemoteAudioDestinationIdentifier::generateThreadSafe();
-    auto destination = makeUniqueRef<RemoteAudioDestination>(m_gpuConnectionToWebProcess, newID, inputDeviceId, numberOfInputChannels, numberOfOutputChannels, sampleRate, hardwareSampleRate, WTFMove(renderSemaphore));
-    m_audioDestinations.add(newID, WTFMove(destination));
-    completionHandler(newID);
+    auto destination = makeUniqueRef<RemoteAudioDestination>(m_gpuConnectionToWebProcess, inputDeviceId, numberOfInputChannels, numberOfOutputChannels, sampleRate, hardwareSampleRate, WTFMove(renderSemaphore));
+    m_audioDestinations.add(identifier, WTFMove(destination));
 }
 
-void RemoteAudioDestinationManager::deleteAudioDestination(RemoteAudioDestinationIdentifier identifier, CompletionHandler<void()>&& completionHandler)
+void RemoteAudioDestinationManager::deleteAudioDestination(RemoteAudioDestinationIdentifier identifier)
 {
-    MESSAGE_CHECK(!m_gpuConnectionToWebProcess.isCaptivePortalModeEnabled(), "Received a deleteAudioDestination() message from a CaptivePortal.");
+    MESSAGE_CHECK(!m_gpuConnectionToWebProcess.isLockdownModeEnabled(), "Received a deleteAudioDestination() message from a webpage in Lockdown mode.");
 
     m_audioDestinations.remove(identifier);
-    completionHandler();
 
     if (allowsExitUnderMemoryPressure())
         m_gpuConnectionToWebProcess.gpuProcess().tryExitIfUnusedAndUnderMemoryPressure();
@@ -203,7 +191,7 @@ void RemoteAudioDestinationManager::deleteAudioDestination(RemoteAudioDestinatio
 
 void RemoteAudioDestinationManager::startAudioDestination(RemoteAudioDestinationIdentifier identifier, CompletionHandler<void(bool)>&& completionHandler)
 {
-    MESSAGE_CHECK(!m_gpuConnectionToWebProcess.isCaptivePortalModeEnabled(), "Received a startAudioDestination() message from a CaptivePortal.");
+    MESSAGE_CHECK(!m_gpuConnectionToWebProcess.isLockdownModeEnabled(), "Received a startAudioDestination() message from a webpage in Lockdown mode.");
 
     bool isPlaying = false;
     if (auto* item = m_audioDestinations.get(identifier)) {
@@ -215,7 +203,7 @@ void RemoteAudioDestinationManager::startAudioDestination(RemoteAudioDestination
 
 void RemoteAudioDestinationManager::stopAudioDestination(RemoteAudioDestinationIdentifier identifier, CompletionHandler<void(bool)>&& completionHandler)
 {
-    MESSAGE_CHECK(!m_gpuConnectionToWebProcess.isCaptivePortalModeEnabled(), "Received a stopAudioDestination() message from a CaptivePortal.");
+    MESSAGE_CHECK(!m_gpuConnectionToWebProcess.isLockdownModeEnabled(), "Received a stopAudioDestination() message from a webpage in Lockdown mode.");
 
     bool isPlaying = false;
     if (auto* item = m_audioDestinations.get(identifier)) {
@@ -226,10 +214,10 @@ void RemoteAudioDestinationManager::stopAudioDestination(RemoteAudioDestinationI
 }
 
 #if PLATFORM(COCOA)
-void RemoteAudioDestinationManager::audioSamplesStorageChanged(RemoteAudioDestinationIdentifier identifier, const SharedMemory::Handle& handle, const WebCore::CAAudioStreamDescription& description, uint64_t numberOfFrames)
+void RemoteAudioDestinationManager::audioSamplesStorageChanged(RemoteAudioDestinationIdentifier identifier, ConsumerSharedCARingBuffer::Handle&& handle)
 {
     if (auto* item = m_audioDestinations.get(identifier))
-        item->audioSamplesStorageChanged(handle, description, numberOfFrames);
+        item->audioSamplesStorageChanged(WTFMove(handle));
 }
 #endif
 

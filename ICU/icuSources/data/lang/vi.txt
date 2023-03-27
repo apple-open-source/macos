@@ -45,6 +45,7 @@ vi{
         ang{"Tiếng Anh cổ"}
         anp{"Tiếng Angika"}
         apw{"Tiếng Apache, Phía Tây"}
+        apw_Latn{"Tiếng Apache, Phía Tây"}
         ar{"Tiếng Ả Rập"}
         ar_001{"Tiếng Ả Rập Hiện đại"}
         arc{"Tiếng Aramaic"}
@@ -119,9 +120,12 @@ vi{
         chm{"Tiếng Mari"}
         chn{"Biệt ngữ Chinook"}
         cho{"Tiếng Choctaw"}
+        cho_Latn{"Tiếng Choctaw"}
         chp{"Tiếng Chipewyan"}
         chr{"Tiếng Cherokee"}
         chy{"Tiếng Cheyenne"}
+        cic{"Tiếng Chickasaw"}
+        cic_Latn{"Tiếng Chickasaw"}
         ckb{"Tiếng Kurd Sorani"}
         co{"Tiếng Corsica"}
         cop{"Tiếng Coptic"}

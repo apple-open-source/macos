@@ -149,6 +149,8 @@ bool CLASS::init(IOWorkLoop * wl, uint32_t flags)
     fWL        = wl;
     fFlags     = flags;
     fPFM64Size = PFM64_SIZE;
+    fResetStartTime = 0;
+    fResetWaitTime = 0;
 
     if (PE_parse_boot_argn("pci64", &pfmSize, sizeof(pfmSize)))
     {
@@ -2005,6 +2007,26 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
         vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space);
     }
 
+    // Checking for VID/DID 0x0001/0xFFFF in case the RC implements CRS (sec 2.3.2)
+    if (0xffff0001 == vendorProduct)
+    {
+       // Following conventional reset, wait up to 1s for the device to properly respond to
+       // configuration requests (sec 6.6.1). If device fails to respond successfully, return NULL.
+       uint64_t startTime = fResetStartTime;
+       uint64_t timeout = 0;
+       clock_interval_to_absolutetime_interval(fResetWaitTime, kMillisecondScale, &timeout);
+       while (0xffff0001 == vendorProduct)
+       {
+           IOSleepWithLeeway(1, 1);
+           if ((mach_absolute_time() - startTime) > timeout)
+           {
+               DLOG("Endpoint failed to respond successfully after spec mandated wait time\n");
+               return NULL;
+           }
+           vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space);
+       }
+    }
+
     child = IOMallocType(IOPCIConfigEntry);
     if (!child) return NULL;
 
@@ -2956,6 +2978,18 @@ void CLASS::configure(uint32_t options)
 
     if (bootConfig) IOLog("[ PCI configuration begin ]\n");
 
+    // As of PCIE specs Revision 5.0 Version 1.0, we support only Conventional Reset
+    // If this is not a boot scan then we assume that it is a scan after CR
+    // which requires up to 1s wait time for Successful response from Endpoint
+    // In future, if there are other scans that require different behaviors, this
+    // condition needs to be modified accordingly.
+    if (!bootConfig)
+    {
+        fResetStartTime = mach_absolute_time();
+        // Time scale is millisecond
+        fResetWaitTime = 900; // Waiting 900ms since we waited 100ms after link up
+    }
+
     PE_Video	       consoleInfo;
 
 	fFlags |= options;
@@ -3019,6 +3053,8 @@ void CLASS::configure(uint32_t options)
 
 	fFlags &= ~options;
 
+    fResetStartTime = 0;
+    fResetWaitTime = 0;
     if (bootConfig) IOLog("[ PCI configuration end, bridges %d, devices %d ]\n", fBridgeCount, fDeviceCount);
 }
 

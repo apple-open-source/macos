@@ -21,16 +21,9 @@
     return account;
 }
 
-
 -(CFIndex) SOSTransportKeyParameterGetTransportType:(CKKeyParameter*) transport err:(CFErrorRef *)error
 {
     return kKVS;
-}
-
-
--(void) SOSTransportKeyParameterHandleNewAccount:(CKKeyParameter*) transport acct:(SOSAccount*) acct
-{
-    SOSAccountSetToNew(acct);
 }
 
 -(id) initWithAccount:(SOSAccount*) acct
@@ -45,7 +38,7 @@
 -(bool) SOSTransportKeyParameterKVSAppendKeyInterests:(CKKeyParameter*)transport ak:(CFMutableArrayRef)alwaysKeys firstUnLock:(CFMutableArrayRef)afterFirstUnlockKeys unlocked:(CFMutableArrayRef) unlockedKeys err:(CFErrorRef *)error
 {
     CFArrayAppendValue(alwaysKeys, kSOSKVSKeyParametersKey);
-
+    CFArrayAppendValue(alwaysKeys, kSOSKVSOfficialDSIDKey);
     return true;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017, 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -90,40 +90,39 @@ add_to_dict_and_array(CFMutableDictionaryRef dict,
 
 - (void)start
 {
-	CFStringRef key;
+	CFStringRef key = NULL;
+	CFPropertyListRef value = NULL;
+
 	if (self.options[kSCTestDynamicStoreOptionDNS]) {
 		key = SCDynamicStoreKeyCreateNetworkGlobalEntity(kCFAllocatorDefault, kSCDynamicStoreDomainState, kSCEntNetDNS);
-		CFPropertyListRef value = SCDynamicStoreCopyValue(self.store, key);
+		value = SCDynamicStoreCopyValue(self.store, key);
 		SCTestLog("%@ : %@", key, value);
 		CFRelease(key);
 		if (value != NULL) {
 			CFRelease(value);
 		}
 	}
-
 	if (self.options[kSCTestDynamicStoreOptionIPv4]) {
 		key = SCDynamicStoreKeyCreateNetworkGlobalEntity(kCFAllocatorDefault, kSCDynamicStoreDomainState, kSCEntNetIPv4);
-		CFPropertyListRef value = SCDynamicStoreCopyValue(self.store, key);
+		value = SCDynamicStoreCopyValue(self.store, key);
 		SCTestLog("%@ : %@", key, value);
 		CFRelease(key);
 		if (value != NULL) {
 			CFRelease(value);
 		}
 	}
-
 	if (self.options[kSCTestDynamicStoreOptionIPv6]) {
 		key = SCDynamicStoreKeyCreateNetworkGlobalEntity(kCFAllocatorDefault, kSCDynamicStoreDomainState, kSCEntNetIPv6);
-		CFPropertyListRef value = SCDynamicStoreCopyValue(self.store, key);
+		value = SCDynamicStoreCopyValue(self.store, key);
 		SCTestLog("%@ : %@", key, value);
 		CFRelease(key);
 		if (value != NULL) {
 			CFRelease(value);
 		}
 	}
-
 	if (self.options[kSCTestDynamicStoreOptionProxies]) {
 		key = SCDynamicStoreKeyCreateNetworkGlobalEntity(kCFAllocatorDefault, kSCDynamicStoreDomainState, kSCEntNetProxies);
-		CFPropertyListRef value = SCDynamicStoreCopyValue(self.store, key);
+		value = SCDynamicStoreCopyValue(self.store, key);
 		SCTestLog("%@ : %@", key, value);
 		CFRelease(key);
 		if (value != NULL) {
@@ -146,11 +145,12 @@ add_to_dict_and_array(CFMutableDictionaryRef dict,
 
 - (BOOL)unitTest
 {
+	BOOL allUnitTestsPassed = YES;
+
 	if(![self setup]) {
 		return NO;
 	}
 
-	BOOL allUnitTestsPassed = YES;
 	allUnitTestsPassed &= [self unitTestSetAndRemoveValue];
 	allUnitTestsPassed &= [self unitTestCopyMultiple];
 	allUnitTestsPassed &= [self unitTestSCDynamicStoreCallbackStress];
@@ -278,6 +278,7 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 	NSString *testKey = @"SCTest:/myTestKey";
 	BOOL ok;
 	dispatch_queue_t callbackQ;
+	SCDynamicStoreContext ctx;
 
 	test = [[SCTestDynamicStore alloc] initWithOptions:self.options];
 	if (test.store != NULL) {
@@ -285,7 +286,7 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 		test.store = NULL;
 	}
 
-	SCDynamicStoreContext ctx = {0, (__bridge void * _Nullable)(test), CFRetain, CFRelease, NULL};
+	ctx = (SCDynamicStoreContext){0, (__bridge void * _Nullable)(test), CFRetain, CFRelease, NULL};
 	test.store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("SCTest"), myTestCallback, &ctx);
 
 	ok = SCDynamicStoreSetNotificationKeys(test.store, (__bridge CFArrayRef)@[testKey], NULL);
@@ -338,6 +339,7 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 	BOOL ok;
 	dispatch_queue_t callbackQ;
 	const uint8_t waitTime = 1; // second
+	SCDynamicStoreContext ctx;
 
 	test = [[SCTestDynamicStore alloc] initWithOptions:self.options];
 	if (test.store != NULL) {
@@ -345,7 +347,7 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 		test.store = NULL;
 	}
 
-	SCDynamicStoreContext ctx = {0, (__bridge void * _Nullable)(test), CFRetain, CFRelease, NULL};
+	ctx = (SCDynamicStoreContext){0, (__bridge void * _Nullable)(test), CFRetain, CFRelease, NULL};
 	test.store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("SCTest"), myTestCallback, &ctx);
 	test.sem = dispatch_semaphore_create(0);
 

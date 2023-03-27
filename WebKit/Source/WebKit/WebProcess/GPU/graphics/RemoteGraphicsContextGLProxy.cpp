@@ -32,8 +32,12 @@
 #include "GPUProcessConnection.h"
 #include "RemoteGraphicsContextGLMessages.h"
 #include "RemoteGraphicsContextGLProxyMessages.h"
+#include "RemoteVideoFrameObjectHeapProxy.h"
 #include "WebProcess.h"
+#include <WebCore/BitmapImage.h>
+#include <WebCore/GCGLSpan.h>
 #include <WebCore/ImageBuffer.h>
+#include <wtf/StdLibExtras.h>
 
 #if ENABLE(VIDEO)
 #include "RemoteVideoFrameObjectHeapProxy.h"
@@ -45,58 +49,60 @@ namespace WebKit {
 
 using namespace WebCore;
 
-static constexpr size_t defaultStreamSize = 1 << 21;
+static constexpr size_t readPixelsInlineSizeLimit = 64 * KB;
 
 namespace {
-template<typename T0, typename T1, typename S0, typename S1>
-IPC::ArrayReferenceTuple<T0, T1> toArrayReferenceTuple(GCGLSpanTuple<const S0, const S1> spanTuple)
+
+template<typename... Types, typename... SpanTupleTypes, size_t... Indices>
+IPC::ArrayReferenceTuple<Types...> toArrayReferenceTuple(const GCGLSpanTuple<SpanTupleTypes...>& spanTuple, std::index_sequence<Indices...>)
 {
-    return IPC::ArrayReferenceTuple {
-        reinterpret_cast<const T0*>(spanTuple.data0),
-        reinterpret_cast<const T1*>(spanTuple.data1),
+    return IPC::ArrayReferenceTuple<Types...> {
+        reinterpret_cast<const std::tuple_element_t<Indices, std::tuple<Types...>>*>(spanTuple.template data<Indices>())...,
         spanTuple.bufSize };
-}
-template<typename T0, typename T1, typename T2, typename S0, typename S1, typename S2>
-IPC::ArrayReferenceTuple<T0, T1, T2> toArrayReferenceTuple(GCGLSpanTuple<const S0, const S1, const S2> spanTuple)
-{
-    return IPC::ArrayReferenceTuple {
-        reinterpret_cast<const T0*>(spanTuple.data0),
-        reinterpret_cast<const T1*>(spanTuple.data1),
-        reinterpret_cast<const T2*>(spanTuple.data2),
-        spanTuple.bufSize };
-}
-template<typename T0, typename T1, typename T2, typename T3, typename S0, typename S1, typename S2, typename S3>
-IPC::ArrayReferenceTuple<T0, T1, T2, T3> toArrayReferenceTuple(GCGLSpanTuple<const S0, const S1, const S2, const S3> spanTuple)
-{
-    return IPC::ArrayReferenceTuple {
-        reinterpret_cast<const T0*>(spanTuple.data0),
-        reinterpret_cast<const T1*>(spanTuple.data1),
-        reinterpret_cast<const T2*>(spanTuple.data2),
-        reinterpret_cast<const T3*>(spanTuple.data3),
-        spanTuple.bufSize };
-}
-template<typename T0, typename T1, typename T2, typename T3, typename T4, typename S0, typename S1, typename S2, typename S3, typename S4>
-IPC::ArrayReferenceTuple<T0, T1, T2, T3, T4> toArrayReferenceTuple(GCGLSpanTuple<const S0, const S1, const S2, const S3, const S4> spanTuple)
-{
-    return IPC::ArrayReferenceTuple {
-        reinterpret_cast<const T0*>(spanTuple.data0),
-        reinterpret_cast<const T1*>(spanTuple.data1),
-        reinterpret_cast<const T2*>(spanTuple.data2),
-        reinterpret_cast<const T3*>(spanTuple.data3),
-        reinterpret_cast<const T4*>(spanTuple.data4),
-        spanTuple.bufSize };
-}
 }
 
-RemoteGraphicsContextGLProxy::RemoteGraphicsContextGLProxy(GPUProcessConnection& gpuProcessConnection, const GraphicsContextGLAttributes& attributes, RenderingBackendIdentifier renderingBackend)
-    : GraphicsContextGL(attributes)
-    , m_gpuProcessConnection(&gpuProcessConnection)
-    , m_streamConnection(gpuProcessConnection.connection(), defaultStreamSize)
+template<typename... Types, typename... SpanTupleTypes>
+IPC::ArrayReferenceTuple<Types...> toArrayReferenceTuple(const GCGLSpanTuple<SpanTupleTypes...>& spanTuple)
 {
-    m_gpuProcessConnection->addClient(*this);
-    m_gpuProcessConnection->messageReceiverMap().addMessageReceiver(Messages::RemoteGraphicsContextGLProxy::messageReceiverName(), m_graphicsContextGLIdentifier.toUInt64(), *this);
-    m_gpuProcessConnection->connection().send(Messages::GPUConnectionToWebProcess::CreateGraphicsContextGL(attributes, m_graphicsContextGLIdentifier, renderingBackend, m_streamConnection.streamBuffer()), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
-    m_streamConnection.open();
+    static_assert(sizeof...(Types) == sizeof...(SpanTupleTypes));
+    return toArrayReferenceTuple<Types...>(spanTuple, std::index_sequence_for<Types...> { });
+}
+
+}
+
+RefPtr<RemoteGraphicsContextGLProxy> RemoteGraphicsContextGLProxy::create(IPC::Connection& connection, const WebCore::GraphicsContextGLAttributes& attributes, RemoteRenderingBackendProxy& renderingBackend
+    , Ref<RemoteVideoFrameObjectHeapProxy>&& videoFrameObjectHeapProxy
+    )
+{
+    constexpr unsigned defaultConnectionBufferSizeLog2 = 21;
+    unsigned connectionBufferSizeLog2 = defaultConnectionBufferSizeLog2;
+    if (attributes.remoteIPCBufferSizeLog2ForTesting)
+        connectionBufferSizeLog2 = attributes.remoteIPCBufferSizeLog2ForTesting;
+    auto [clientConnection, serverConnectionHandle] = IPC::StreamClientConnection::create(connectionBufferSizeLog2);
+    if (!clientConnection)
+        return nullptr;
+    auto instance = platformCreate(connection, clientConnection.releaseNonNull(), attributes
+        , WTFMove(videoFrameObjectHeapProxy)
+    );
+    instance->initializeIPC(WTFMove(serverConnectionHandle), renderingBackend);
+    return instance;
+}
+
+
+RemoteGraphicsContextGLProxy::RemoteGraphicsContextGLProxy(IPC::Connection& connection, RefPtr<IPC::StreamClientConnection> streamConnection, const GraphicsContextGLAttributes& attributes
+    , Ref<RemoteVideoFrameObjectHeapProxy>&& videoFrameObjectHeapProxy
+    )
+    : GraphicsContextGL(attributes)
+    , m_connection(&connection) // NOLINT
+    , m_streamConnection(WTFMove(streamConnection)) // NOLINT
+    , m_videoFrameObjectHeapProxy(WTFMove(videoFrameObjectHeapProxy))
+{
+}
+
+void RemoteGraphicsContextGLProxy::initializeIPC(IPC::StreamServerConnection::Handle&& serverConnectionHandle, RemoteRenderingBackendProxy& renderingBackend)
+{
+    m_connection->send(Messages::GPUConnectionToWebProcess::CreateGraphicsContextGL(contextAttributes(), m_graphicsContextGLIdentifier, renderingBackend.ensureBackendCreated(), WTFMove(serverConnectionHandle)), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+    m_streamConnection->open(*this, renderingBackend.dispatcher());
     // TODO: We must wait until initialized, because at the moment we cannot receive IPC messages
     // during wait while in synchronous stream send. Should be fixed as part of https://bugs.webkit.org/show_bug.cgi?id=217211.
     waitUntilInitialized();
@@ -193,7 +199,7 @@ void RemoteGraphicsContextGLProxy::paintRenderingResultsToCanvas(ImageBuffer& bu
     // fulfilled. For below, we cannot create a new flush id since we go through different sequence (RemoteGraphicsContextGL sequence)
 
     // FIXME: Maybe implement IPC::Fence or something similar.
-    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintRenderingResultsToCanvas(buffer.renderingResourceIdentifier()), Messages::RemoteGraphicsContextGL::PaintRenderingResultsToCanvas::Reply());
+    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintRenderingResultsToCanvas(buffer.renderingResourceIdentifier()));
     if (!sendResult) {
         markContextLost();
         return;
@@ -205,7 +211,7 @@ void RemoteGraphicsContextGLProxy::paintCompositedResultsToCanvas(ImageBuffer& b
     if (isContextLost())
         return;
     buffer.flushDrawingContext();
-    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintCompositedResultsToCanvas(buffer.renderingResourceIdentifier()), Messages::RemoteGraphicsContextGL::PaintCompositedResultsToCanvas::Reply());
+    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintCompositedResultsToCanvas(buffer.renderingResourceIdentifier()));
     if (!sendResult) {
         markContextLost();
         return;
@@ -215,37 +221,74 @@ void RemoteGraphicsContextGLProxy::paintCompositedResultsToCanvas(ImageBuffer& b
 #if ENABLE(MEDIA_STREAM)
 RefPtr<WebCore::VideoFrame> RemoteGraphicsContextGLProxy::paintCompositedResultsToVideoFrame()
 {
+    ASSERT(isMainRunLoop());
     if (isContextLost())
         return nullptr;
-    std::optional<RemoteVideoFrameProxy::Properties> result;
-    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintCompositedResultsToVideoFrame(), Messages::RemoteGraphicsContextGL::PaintCompositedResultsToVideoFrame::Reply(result));
+    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintCompositedResultsToVideoFrame());
     if (!sendResult) {
         markContextLost();
         return nullptr;
     }
+    auto [result] = sendResult.takeReply();
     if (!result)
         return nullptr;
-    return RemoteVideoFrameProxy::create(m_gpuProcessConnection->connection(), m_gpuProcessConnection->videoFrameObjectHeapProxy(), WTFMove(*result));
+    return RemoteVideoFrameProxy::create(WebProcess::singleton().ensureGPUProcessConnection().connection(), WebProcess::singleton().ensureGPUProcessConnection().videoFrameObjectHeapProxy(), WTFMove(*result));
 }
 #endif
 
 #if ENABLE(VIDEO)
 bool RemoteGraphicsContextGLProxy::copyTextureFromMedia(MediaPlayer& mediaPlayer, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
 {
+    auto videoFrame = mediaPlayer.videoFrameForCurrentTime();
+    if (!videoFrame)
+        return false;
+
+    return copyTextureFromVideoFrame(*videoFrame, texture, target, level, internalFormat, format, type, premultiplyAlpha, flipY);
+}
+
+bool RemoteGraphicsContextGLProxy::copyTextureFromVideoFrame(WebCore::VideoFrame& videoFrame, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
+{
+#if PLATFORM(COCOA)
     if (isContextLost())
         return false;
-    auto videoFrame = mediaPlayer.videoFrameForCurrentTime();
-    // Video in WP while WebGL in GPUP is not supported.
-    if (!videoFrame || !is<RemoteVideoFrameProxy>(*videoFrame))
+
+    auto sharedVideoFrame = m_sharedVideoFrameWriter.write(videoFrame, [this](auto& semaphore) {
+        auto sendResult = send(Messages::RemoteGraphicsContextGL::SetSharedVideoFrameSemaphore { semaphore });
+        if (!sendResult)
+            markContextLost();
+    }, [this](auto& handle) {
+        auto sendResult = send(Messages::RemoteGraphicsContextGL::SetSharedVideoFrameMemory { handle });
+        if (!sendResult)
+            markContextLost();
+    });
+    if (!sharedVideoFrame || isContextLost())
         return false;
-    bool result = false;
-    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::CopyTextureFromVideoFrame(downcast<RemoteVideoFrameProxy>(*videoFrame).newReadReference(), texture, target, level, internalFormat, format, type, premultiplyAlpha, flipY), Messages::RemoteGraphicsContextGL::CopyTextureFromVideoFrame::Reply(result));
+
+    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::CopyTextureFromVideoFrame(*sharedVideoFrame, texture, target, level, internalFormat, format, type, premultiplyAlpha, flipY));
     if (!sendResult) {
         markContextLost();
         return false;
     }
 
+    auto [result] = sendResult.takeReply();
     return result;
+#else
+    return false;
+#endif
+}
+
+RefPtr<Image> RemoteGraphicsContextGLProxy::videoFrameToImage(WebCore::VideoFrame& frame)
+{
+    if (isContextLost())
+        return { };
+
+    RefPtr<NativeImage> nativeImage;
+#if PLATFORM(COCOA)
+    callOnMainRunLoopAndWait([&] {
+        nativeImage = m_videoFrameObjectHeapProxy->getNativeImage(frame);
+    });
+#endif
+    return BitmapImage::create(WTFMove(nativeImage));
 }
 #endif
 
@@ -262,10 +305,10 @@ void RemoteGraphicsContextGLProxy::synthesizeGLError(GCGLenum error)
 GCGLenum RemoteGraphicsContextGLProxy::getError()
 {
     if (!isContextLost()) {
-        uint32_t returnValue = 0;
-        auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::GetError(), Messages::RemoteGraphicsContextGL::GetError::Reply(returnValue));
+        auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::GetError());
         if (!sendResult)
             markContextLost();
+        auto [returnValue] = sendResult.takeReplyOr(0);
         return static_cast<GCGLenum>(returnValue);
     }
     return NO_ERROR;
@@ -282,13 +325,18 @@ void RemoteGraphicsContextGLProxy::simulateEventForTesting(SimulatedEventForTest
 
 void RemoteGraphicsContextGLProxy::readnPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLSpan<GCGLvoid> data)
 {
-    IPC::ArrayReference<uint8_t> dataReply;
+    if (data.size() > readPixelsInlineSizeLimit) {
+        readnPixelsSharedMemory(x, y, width, height, format, type, data);
+        return;
+    }
+
     if (!isContextLost()) {
-        auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::ReadnPixels0(x, y, width, height, format, type, IPC::ArrayReference<uint8_t>(reinterpret_cast<uint8_t*>(data.data), data.bufSize)), Messages::RemoteGraphicsContextGL::ReadnPixels0::Reply(dataReply));
-        if (!sendResult)
+        auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::ReadnPixels0(x, y, width, height, format, type, IPC::ArrayReference<uint8_t>(reinterpret_cast<uint8_t*>(data.data()), data.size())));
+        if (sendResult) {
+            auto [dataReply] = sendResult.takeReply();
+            memcpy(data.data(), dataReply.data(), data.size());
+        } else
             markContextLost();
-        else
-            memcpy(data.data, dataReply.data(), data.bufSize * sizeof(uint8_t));
     }
 }
 
@@ -301,6 +349,29 @@ void RemoteGraphicsContextGLProxy::readnPixels(GCGLint x, GCGLint y, GCGLsizei w
     }
 }
 
+void RemoteGraphicsContextGLProxy::readnPixelsSharedMemory(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLSpan<GCGLvoid> data)
+{
+    if (!isContextLost()) {
+        auto buffer = SharedMemory::allocate(data.size());
+        if (!buffer) {
+            markContextLost();
+            return;
+        }
+        auto handle = buffer->createHandle(SharedMemory::Protection::ReadWrite);
+        if (!handle || handle->isNull()) {
+            markContextLost();
+            return;
+        }
+        memcpy(buffer->data(), data.data(), data.size());
+        auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::ReadnPixels2(x, y, width, height, format, type, WTFMove(*handle)));
+        if (sendResult) {
+            auto [success] = sendResult.takeReply();
+            if (success)
+                memcpy(data.data(), buffer->data(), data.size());
+        } else
+            markContextLost();
+    }
+}
 
 void RemoteGraphicsContextGLProxy::multiDrawArraysANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLint, const GCGLsizei> firstsAndCounts)
 {
@@ -356,19 +427,6 @@ void RemoteGraphicsContextGLProxy::multiDrawElementsInstancedBaseVertexBaseInsta
     }
 }
 
-RefPtr<WebCore::PixelBuffer> RemoteGraphicsContextGLProxy::paintRenderingResultsToPixelBuffer()
-{
-    std::optional<IPC::PixelBufferReference> returnValue;
-    if (!isContextLost()) {
-        auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintRenderingResultsToPixelBuffer(), Messages::RemoteGraphicsContextGL::PaintRenderingResultsToPixelBuffer::Reply(returnValue));
-        if (!sendResult)
-            markContextLost();
-    }
-    if (!returnValue)
-        return nullptr;
-    return returnValue->takePixelBuffer();
-}
-
 void RemoteGraphicsContextGLProxy::wasCreated(bool didSucceed, IPC::Semaphore&& wakeUpSemaphore, IPC::Semaphore&& clientWaitSemaphore, String&& availableExtensions, String&& requestedExtensions)
 {
     if (isContextLost())
@@ -378,7 +436,7 @@ void RemoteGraphicsContextGLProxy::wasCreated(bool didSucceed, IPC::Semaphore&& 
         return;
     }
     ASSERT(!m_didInitialize);
-    m_streamConnection.setSemaphores(WTFMove(wakeUpSemaphore), WTFMove(clientWaitSemaphore));
+    m_streamConnection->setSemaphores(WTFMove(wakeUpSemaphore), WTFMove(clientWaitSemaphore));
     m_didInitialize = true;
     initialize(availableExtensions, requestedExtensions);
 }
@@ -424,12 +482,12 @@ void RemoteGraphicsContextGLProxy::waitUntilInitialized()
         return;
     if (m_didInitialize)
         return;
-    if (m_streamConnection.waitForAndDispatchImmediately<Messages::RemoteGraphicsContextGLProxy::WasCreated>(m_graphicsContextGLIdentifier, defaultSendTimeout))
+    if (m_streamConnection->waitForAndDispatchImmediately<Messages::RemoteGraphicsContextGLProxy::WasCreated>(m_graphicsContextGLIdentifier, defaultSendTimeout))
         return;
     markContextLost();
 }
 
-void RemoteGraphicsContextGLProxy::gpuProcessConnectionDidClose(GPUProcessConnection&)
+void RemoteGraphicsContextGLProxy::didClose(IPC::Connection&)
 {
     ASSERT(!isContextLost());
     abandonGpuProcess();
@@ -438,19 +496,18 @@ void RemoteGraphicsContextGLProxy::gpuProcessConnectionDidClose(GPUProcessConnec
 
 void RemoteGraphicsContextGLProxy::abandonGpuProcess()
 {
-    auto gpuProcessConnection = std::exchange(m_gpuProcessConnection, nullptr);
-    gpuProcessConnection->removeClient(*this);
-    gpuProcessConnection->messageReceiverMap().removeMessageReceiver(Messages::RemoteGraphicsContextGLProxy::messageReceiverName(), m_graphicsContextGLIdentifier.toUInt64());
-    m_gpuProcessConnection = nullptr;
+    m_connection = nullptr;
 }
 
 void RemoteGraphicsContextGLProxy::disconnectGpuProcessIfNeeded()
 {
-    if (auto gpuProcessConnection = std::exchange(m_gpuProcessConnection, nullptr)) {
-        m_streamConnection.invalidate();
-        gpuProcessConnection->removeClient(*this);
-        gpuProcessConnection->messageReceiverMap().removeMessageReceiver(Messages::RemoteGraphicsContextGLProxy::messageReceiverName(), m_graphicsContextGLIdentifier.toUInt64());
-        gpuProcessConnection->connection().send(Messages::GPUConnectionToWebProcess::ReleaseGraphicsContextGL(m_graphicsContextGLIdentifier), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+#if PLATFORM(COCOA)
+    m_sharedVideoFrameWriter.disable();
+#endif
+    if (m_connection) {
+        m_streamConnection->invalidate();
+        m_connection->send(Messages::GPUConnectionToWebProcess::ReleaseGraphicsContextGL(m_graphicsContextGLIdentifier), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+        m_connection = nullptr;
     }
     ASSERT(isContextLost());
 }

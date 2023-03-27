@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,7 +27,7 @@
 #import <mach/mach_time.h>
 
 NSArray<NSString *> *
-getTestClasses()
+getTestClasses(void)
 {
 	static NSMutableArray *subclassNames = nil;
 	Class base;
@@ -95,13 +95,13 @@ getUnitTestListForClass(Class base)
 NSDictionary *
 getOptionsDictionary(int argc, const char * const argv[])
 {
-	NSMutableDictionary *options;
-	NSNumberFormatter *numberFormatter;
-	int ch;
-	int i;
-	struct option entries[] = {
-		kSCTestOptionEntries
-	};
+    NSMutableDictionary *options;
+    NSNumberFormatter *numberFormatter;
+    int ch;
+    int i;
+    struct option entries[] = {
+        kSCTestOptionEntries
+    };
 
 	options = [NSMutableDictionary dictionary];
 	optind = 0;
@@ -112,6 +112,7 @@ getOptionsDictionary(int argc, const char * const argv[])
 		struct option opt = entries[i];
 		NSString *optKey = [NSString stringWithFormat:@"%s_Str", opt.name]; // ... "_Str" suffix is standardized across all keys.
 		id optVal = nil;
+        id existingValue = nil;
 
 		if (opt.has_arg) {
 			// Parse the optarg
@@ -135,7 +136,7 @@ getOptionsDictionary(int argc, const char * const argv[])
 		}
 
 		// Handle multiple option instances
-		id existingValue = options[optKey];
+		existingValue = options[optKey];
 		if (existingValue) {
 			if ([existingValue isKindOfClass:[NSMutableArray class]]) {
 				[(NSMutableArray *)existingValue addObject:optVal];

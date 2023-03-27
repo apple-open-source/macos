@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -344,7 +344,7 @@ static const CFRuntimeClass __SCNetworkConnectionClass = {
 
 
 static void
-childForkHandler()
+childForkHandler(void)
 {
 	/* the process has forked (and we are the child process) */
 
@@ -388,7 +388,7 @@ __SCNetworkConnectionReconnectNotifications(SCNetworkConnectionRef connection);
 #define SC_NETWORK_CONNECTION_QUEUE "SCNetworkConnectionQueue"
 
 static dispatch_queue_t
-__SCNetworkConnectionQueue()
+__SCNetworkConnectionQueue(void)
 {
 	static dispatch_once_t	once;
 	static dispatch_queue_t	q;
@@ -1464,13 +1464,14 @@ SCNetworkConnectionCopyStatistics(SCNetworkConnectionRef connection)
 
 #if	!TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
+        dispatch_semaphore_t ne_sema;
 		__block xpc_object_t xstats = NULL;
 		ne_session_t ne_session = connectionPrivate->ne_session;
 
 		ne_session_retain(ne_session);
 		pthread_mutex_unlock(&connectionPrivate->lock);
 
-		dispatch_semaphore_t ne_sema = dispatch_semaphore_create(0);
+		ne_sema = dispatch_semaphore_create(0);
 		ne_session_get_info(ne_session, NESessionInfoTypeStatistics, __SCNetworkConnectionQueue(), ^(xpc_object_t result) {
 			if (result != NULL) {
 				xstats = xpc_retain(result);
@@ -1577,13 +1578,14 @@ SCNetworkConnectionGetStatus(SCNetworkConnectionRef connection)
 
 #if	!TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
+        dispatch_semaphore_t ne_sema;
 		__block ne_session_status_t ne_status;
 		ne_session_t ne_session = connectionPrivate->ne_session;
 
 		ne_session_retain(ne_session);
 		pthread_mutex_unlock(&connectionPrivate->lock);
 
-		dispatch_semaphore_t ne_sema = dispatch_semaphore_create(0);
+		ne_sema = dispatch_semaphore_create(0);
 		ne_session_get_status(ne_session, __SCNetworkConnectionQueue(), ^(ne_session_status_t status) {
 			ne_status = status;
 			ne_session_release(ne_session);
@@ -1668,13 +1670,14 @@ SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
 
 #if	!TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
+        dispatch_semaphore_t ne_sema;
 		__block CFDictionaryRef statusDictionary = NULL;
 		ne_session_t ne_session = connectionPrivate->ne_session;
 
 		ne_session_retain(ne_session);
 		pthread_mutex_unlock(&connectionPrivate->lock);
 
-		dispatch_semaphore_t ne_sema = dispatch_semaphore_create(0);
+		ne_sema = dispatch_semaphore_create(0);
 		ne_session_get_info(ne_session, NESessionInfoTypeExtendedStatus, __SCNetworkConnectionQueue(), ^(xpc_object_t extended_status) {
 			if (extended_status != NULL) {
 				statusDictionary = _CFXPCCreateCFObjectFromXPCObject(extended_status);
@@ -2175,13 +2178,14 @@ SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 
 #if	!TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
+        dispatch_semaphore_t ne_sema;
 		__block xpc_object_t config = NULL;
 		ne_session_t ne_session = connectionPrivate->ne_session;
 
 		ne_session_retain(ne_session);
 		pthread_mutex_unlock(&connectionPrivate->lock);
 
-		dispatch_semaphore_t ne_sema = dispatch_semaphore_create(0);
+		ne_sema = dispatch_semaphore_create(0);
 		ne_session_get_info(ne_session, NESessionInfoTypeConfiguration, __SCNetworkConnectionQueue(), ^(xpc_object_t result) {
 			if (result != NULL) {
 				config = xpc_retain(result);
@@ -2678,6 +2682,7 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 	char *hostname = NULL;
 	pid_t pid = getpid();
 	uid_t uid = geteuid();
+	NEPolicyServiceActionType action_type;
 
 	/* Require hostName, require non-root user */
 	if (hostName == NULL || geteuid() == 0) {
@@ -2692,17 +2697,19 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 
 	policy_match = ne_session_copy_policy_match(hostname, NULL, NULL, procu.p_uuid, procu.p_uuid, pid, uid, 0, trafficClass);
 
-	NEPolicyServiceActionType action_type = ne_session_policy_match_get_service_action(policy_match);
+	action_type = ne_session_policy_match_get_service_action(policy_match);
 	if (action_type == NESessionPolicyActionTrigger ||
 	    (afterDNSFail && action_type == NESessionPolicyActionTriggerIfNeeded)) {
 		uuid_t config_id;
 		if (ne_session_policy_match_get_service(policy_match, config_id)) {
 			xpc_object_t start_options = xpc_dictionary_create(NULL, NULL, 0);
 			if (start_options != NULL) {
+				ne_session_t new_session = NULL;
+                
 				xpc_dictionary_set_bool(start_options, NESessionStartOptionIsOnDemandKey, true);
 				xpc_dictionary_set_string(start_options, NESessionStartOptionMatchHostnameKey, hostname);
 
-				ne_session_t new_session = ne_session_create(config_id, ne_session_policy_match_get_service_type(policy_match));
+				new_session = ne_session_create(config_id, ne_session_policy_match_get_service_type(policy_match));
 				if (new_session != NULL) {
 					dispatch_semaphore_t wait_for_session = dispatch_semaphore_create(0);
 					dispatch_retain(wait_for_session);
@@ -3091,6 +3098,8 @@ _SC_hostMatchesDomain(CFStringRef hostname, CFStringRef domain)
 	Boolean			result		= FALSE;
 	CFMutableStringRef	trimmedHostname	= NULL;
 	CFMutableStringRef	trimmedDomain	= NULL;
+	CFIndex			numHostnameDots;
+	CFIndex			numDomainDots;
 
 	if (!isA_CFString(hostname) || !isA_CFString(domain)) {
 		goto done;
@@ -3103,8 +3112,8 @@ _SC_hostMatchesDomain(CFStringRef hostname, CFStringRef domain)
 		goto done;
 	}
 
-	CFIndex numHostnameDots = _SC_getCountOfStringInString(trimmedHostname, CFSTR("."));
-	CFIndex numDomainDots = _SC_getCountOfStringInString(trimmedDomain, CFSTR("."));
+	numHostnameDots = _SC_getCountOfStringInString(trimmedHostname, CFSTR("."));
+	numDomainDots = _SC_getCountOfStringInString(trimmedDomain, CFSTR("."));
 	if (numHostnameDots == numDomainDots) {
 		result = CFEqual(trimmedHostname, trimmedDomain);
 	} else if (numDomainDots > 0 && numDomainDots < numHostnameDots) {
@@ -4088,6 +4097,7 @@ static Boolean
 __SCNetworkConnectionRequiredProbeFailed (CFDictionaryRef trigger, CFStringRef probeString)
 {
 	CFDictionaryRef probeResults = NULL;
+	CFBooleanRef result = NULL;
 
 	if (!isA_CFString(probeString)) {
 		return FALSE;
@@ -4098,7 +4108,7 @@ __SCNetworkConnectionRequiredProbeFailed (CFDictionaryRef trigger, CFStringRef p
 		return TRUE;
 	}
 
-	CFBooleanRef result = CFDictionaryGetValue(probeResults, probeString);
+	result = CFDictionaryGetValue(probeResults, probeString);
 
 	/* Only a value of kCFBooleanFalse marks the probe as failed  */
 	return (isA_CFBoolean(result) && !CFBooleanGetValue(result));

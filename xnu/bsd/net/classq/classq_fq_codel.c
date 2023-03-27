@@ -76,9 +76,6 @@
 
 #include <netinet/tcp_var.h>
 
-static uint32_t flowq_size;                     /* size of flowq */
-static struct mcache *flowq_cache = NULL;       /* mcache for flowq */
-
 #define FQ_ZONE_MAX     (32 * 1024)     /* across all interfaces */
 
 #define DTYPE_NODROP    0       /* no drop */
@@ -102,19 +99,6 @@ SYSCTL_QUAD(_net_classq, OID_AUTO, l4s_ce_threshold,
 void
 fq_codel_init(void)
 {
-	if (flowq_cache != NULL) {
-		return;
-	}
-
-	flowq_size = sizeof(fq_t);
-	flowq_cache = mcache_create("fq.flowq", flowq_size, sizeof(uint64_t),
-	    0, MCR_SLEEP);
-	if (flowq_cache == NULL) {
-		panic("%s: failed to allocate flowq_cache", __func__);
-		/* NOTREACHED */
-		__builtin_unreachable();
-	}
-
 	_CASSERT(AQM_KTRACE_AON_FLOW_HIGH_DELAY == 0x8300004);
 	_CASSERT(AQM_KTRACE_AON_THROTTLE == 0x8300008);
 	_CASSERT(AQM_KTRACE_AON_FLOW_OVERWHELMING == 0x830000c);
@@ -127,23 +111,12 @@ fq_codel_init(void)
 	_CASSERT(AQM_KTRACE_STATS_FLOW_DESTROY == 0x8310014);
 }
 
-void
-fq_codel_reap_caches(boolean_t purge)
-{
-	mcache_reap_now(flowq_cache, purge);
-}
-
 fq_t *
 fq_alloc(classq_pkt_type_t ptype)
 {
 	fq_t *fq = NULL;
-	fq = mcache_alloc(flowq_cache, MCR_SLEEP);
-	if (fq == NULL) {
-		log(LOG_ERR, "%s: unable to allocate from flowq_cache\n", __func__);
-		return NULL;
-	}
 
-	bzero(fq, flowq_size);
+	fq = kalloc_type(fq_t, Z_WAITOK_ZERO);
 	if (ptype == QP_MBUF) {
 		MBUFQ_INIT(&fq->fq_mbufq);
 	}
@@ -156,6 +129,7 @@ fq_alloc(classq_pkt_type_t ptype)
 	CLASSQ_PKT_INIT(&fq->fq_dq_head);
 	CLASSQ_PKT_INIT(&fq->fq_dq_tail);
 	fq->fq_in_dqlist = false;
+
 	return fq;
 }
 
@@ -167,7 +141,7 @@ fq_destroy(fq_t *fq, classq_pkt_type_t ptype)
 	VERIFY(!(fq->fq_flags & (FQF_NEW_FLOW | FQF_OLD_FLOW |
 	    FQF_EMPTY_FLOW)));
 	VERIFY(fq->fq_bytes == 0);
-	mcache_free(flowq_cache, fq);
+	kfree_type(fq_t, fq);
 }
 
 static inline void

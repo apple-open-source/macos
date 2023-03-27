@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+
+package OT;
+
+message Walrus {
+    optional bool enabled = 1;
+}
+
+message WebAccess {
+    optional bool enabled = 1;
+}
+
+// If adding/updating any fields to AccountSettings, make sure to also update the OTAccountMetadataClassC.proto entry as well
+message AccountSettings {
+    optional Walrus walrus = 1;
+    optional WebAccess webAccess = 2;
+}

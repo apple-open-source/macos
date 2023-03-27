@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@
 #include "RemoteExternalTexture.h"
 #include "RemoteGPU.h"
 #include "RemotePipelineLayout.h"
+#include "RemotePresentationContext.h"
 #include "RemoteQuerySet.h"
 #include "RemoteQueue.h"
 #include "RemoteRenderBundle.h"
@@ -53,13 +54,9 @@
 
 namespace WebKit::WebGPU {
 
-ObjectHeap::ObjectHeap()
-{
-}
+ObjectHeap::ObjectHeap() = default;
 
-ObjectHeap::~ObjectHeap()
-{
-}
+ObjectHeap::~ObjectHeap() = default;
 
 void ObjectHeap::addObject(WebGPUIdentifier identifier, RemoteAdapter& adapter)
 {
@@ -124,6 +121,12 @@ void ObjectHeap::addObject(WebGPUIdentifier identifier, RemoteExternalTexture& e
 void ObjectHeap::addObject(WebGPUIdentifier identifier, RemotePipelineLayout& pipelineLayout)
 {
     auto result = m_objects.add(identifier, Object { IPC::ScopedActiveMessageReceiveQueue<RemotePipelineLayout> { Ref { pipelineLayout } } });
+    ASSERT_UNUSED(result, result.isNewEntry);
+}
+
+void ObjectHeap::addObject(WebGPUIdentifier identifier, RemotePresentationContext& presentationContext)
+{
+    auto result = m_objects.add(identifier, Object { IPC::ScopedActiveMessageReceiveQueue<RemotePresentationContext> { Ref { presentationContext } } });
     ASSERT_UNUSED(result, result.isNewEntry);
 }
 
@@ -284,6 +287,14 @@ PAL::WebGPU::PipelineLayout* ObjectHeap::convertPipelineLayoutFromBacking(WebGPU
     if (iterator == m_objects.end() || !std::holds_alternative<IPC::ScopedActiveMessageReceiveQueue<RemotePipelineLayout>>(iterator->value))
         return nullptr;
     return &std::get<IPC::ScopedActiveMessageReceiveQueue<RemotePipelineLayout>>(iterator->value)->backing();
+}
+
+PAL::WebGPU::PresentationContext* ObjectHeap::convertPresentationContextFromBacking(WebGPUIdentifier identifier)
+{
+    auto iterator = m_objects.find(identifier);
+    if (iterator == m_objects.end() || !std::holds_alternative<IPC::ScopedActiveMessageReceiveQueue<RemotePresentationContext>>(iterator->value))
+        return nullptr;
+    return &std::get<IPC::ScopedActiveMessageReceiveQueue<RemotePresentationContext>>(iterator->value)->backing();
 }
 
 PAL::WebGPU::QuerySet* ObjectHeap::convertQuerySetFromBacking(WebGPUIdentifier identifier)

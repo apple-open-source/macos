@@ -1512,17 +1512,17 @@ ProgramLinkedResources::ProgramLinkedResources() = default;
 
 ProgramLinkedResources::~ProgramLinkedResources() = default;
 
-LinkingVariables::LinkingVariables(const ProgramState &state)
+LinkingVariables::LinkingVariables(const Context *context, const ProgramState &state)
 {
     for (ShaderType shaderType : kAllGraphicsShaderTypes)
     {
         Shader *shader = state.getAttachedShader(shaderType);
         if (shader)
         {
-            outputVaryings[shaderType] = shader->getOutputVaryings();
-            inputVaryings[shaderType]  = shader->getInputVaryings();
-            uniforms[shaderType]       = shader->getUniforms();
-            uniformBlocks[shaderType]  = shader->getUniformBlocks();
+            outputVaryings[shaderType] = shader->getOutputVaryings(context);
+            inputVaryings[shaderType]  = shader->getInputVaryings(context);
+            uniforms[shaderType]       = shader->getUniforms(context);
+            uniformBlocks[shaderType]  = shader->getUniformBlocks(context);
             isShaderStageUsedBitset.set(shaderType);
         }
     }
@@ -1557,7 +1557,8 @@ void ProgramLinkedResources::init(std::vector<InterfaceBlock> *uniformBlocksOut,
     atomicCounterBufferLinker.init(atomicCounterBuffersOut);
 }
 
-void ProgramLinkedResourcesLinker::linkResources(const ProgramState &programState,
+void ProgramLinkedResourcesLinker::linkResources(const Context *context,
+                                                 const ProgramState &programState,
                                                  const ProgramLinkedResources &resources) const
 {
     // Gather uniform interface block info.
@@ -1567,7 +1568,7 @@ void ProgramLinkedResourcesLinker::linkResources(const ProgramState &programStat
         Shader *shader = programState.getAttachedShader(shaderType);
         if (shader)
         {
-            uniformBlockInfo.getShaderBlockInfo(shader->getUniformBlocks());
+            uniformBlockInfo.getShaderBlockInfo(shader->getUniformBlocks(context));
         }
     }
 
@@ -1592,7 +1593,7 @@ void ProgramLinkedResourcesLinker::linkResources(const ProgramState &programStat
         Shader *shader = programState.getAttachedShader(shaderType);
         if (shader)
         {
-            shaderStorageBlockInfo.getShaderBlockInfo(shader->getShaderStorageBlocks());
+            shaderStorageBlockInfo.getShaderBlockInfo(shader->getShaderStorageBlocks(context));
         }
     }
     auto getShaderStorageBlockSize = [&shaderStorageBlockInfo](const std::string &name,
@@ -2044,7 +2045,9 @@ bool LinkValidateBuiltInVaryings(const std::vector<sh::ShaderVariable> &outputVa
             if (sizeClipDistance != varying.getOutermostArraySize())
             {
                 infoLog << "If either shader redeclares the built-in arrays gl_ClipDistance[] the "
-                           "array must have the same size in both shaders.";
+                           "array must have the same size in both shaders. "
+                        << "Output size " << sizeClipDistance << ", input size "
+                        << varying.getOutermostArraySize() << ".";
                 return false;
             }
         }
@@ -2053,7 +2056,10 @@ bool LinkValidateBuiltInVaryings(const std::vector<sh::ShaderVariable> &outputVa
             if (sizeCullDistance != varying.getOutermostArraySize())
             {
                 infoLog << "If either shader redeclares the built-in arrays gl_CullDistance[] the "
-                           "array must have the same size in both shaders.";
+                           "array must have the same size in both shaders. "
+                        << "Output size " << sizeCullDistance << ", input size "
+                        << varying.getOutermostArraySize() << ".";
+
                 return false;
             }
         }

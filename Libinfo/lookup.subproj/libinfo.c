@@ -662,25 +662,30 @@ _check_groups(const char *function, int32_t ngroups)
 
 	/* only log once per process */
 	dispatch_once(&once, ^(void) {
-		const char *proc_name = getprogname();
-		if (strcmp(proc_name, "id") != 0 && strcmp(proc_name, "smbd") != 0 && strcmp(proc_name, "rpcsvchost") != 0) {
+		dispatch_queue_attr_t const attr = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_BACKGROUND, 0);
+		dispatch_queue_t queue = dispatch_queue_create("com.apple.system.libinfo.lookup.check_groups", attr);
+		dispatch_async(queue, ^{
+			const char *proc_name = getprogname();
+			if (strcmp(proc_name, "id") != 0 && strcmp(proc_name, "smbd") != 0 && strcmp(proc_name, "rpcsvchost") != 0) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-			aslmsg msg = asl_new(ASL_TYPE_MSG);
-			char buffer[256];
+				aslmsg msg = asl_new(ASL_TYPE_MSG);
+				char buffer[256];
 
-			snprintf(buffer, sizeof(buffer), "%d", (ngroups == 0 ? INT_MAX : ngroups));
-			asl_set(msg, "com.apple.message.value", buffer);
+				snprintf(buffer, sizeof(buffer), "%d", (ngroups == 0 ? INT_MAX : ngroups));
+				asl_set(msg, "com.apple.message.value", buffer);
 
-			asl_set(msg, "com.apple.message.domain", "com.apple.system.libinfo");
-			asl_set(msg, "com.apple.message.result", "noop");
-			asl_set(msg, "com.apple.message.signature", function);
+				asl_set(msg, "com.apple.message.domain", "com.apple.system.libinfo");
+				asl_set(msg, "com.apple.message.result", "noop");
+				asl_set(msg, "com.apple.message.signature", function);
 
-			asl_log(NULL, msg, ASL_LEVEL_NOTICE, "%s called triggering group enumeration", function);
+				asl_log(NULL, msg, ASL_LEVEL_NOTICE, "%s called triggering group enumeration", function);
 
-			asl_free(msg);
-		}
+				asl_free(msg);
 #pragma clang diagnostic pop
+			}
+		});
+		dispatch_release(queue);
 	});
 }
 #endif

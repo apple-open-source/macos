@@ -7824,7 +7824,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_LDFLAGS = "-lCrashReporterClient";
+				OTHER_LDFLAGS = "-lCrashReporterClient -framework IOKit";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
 			};
@@ -7835,7 +7835,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_LDFLAGS = "-lCrashReporterClient";
+				OTHER_LDFLAGS = "-lCrashReporterClient -framework IOKit";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
 			};
@@ -7846,7 +7846,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_LDFLAGS = "-lCrashReporterClient";
+				OTHER_LDFLAGS = "-lCrashReporterClient -framework IOKit";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
 			};
@@ -7857,7 +7857,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_LDFLAGS = "-lCrashReporterClient";
+				OTHER_LDFLAGS = "-lCrashReporterClient -framework IOKit";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
 			};

@@ -26,10 +26,10 @@ LDFLAGS += -L/usr/local/libressl/lib
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-2.0.17-stable
+AEP_ProjVers   = $(Project)-2.1.12-stable
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = 
+AEP_Patches    = PR-96919145.patch
 
 lazy_install_source::
 	$(_v) if [ ! -f "$(SRCROOT)/$(AEP_ProjVers)" ]; then $(MAKE) extract_source; fi

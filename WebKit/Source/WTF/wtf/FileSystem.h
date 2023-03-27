@@ -30,11 +30,11 @@
 
 #pragma once
 
+#include <sys/types.h>
 #include <time.h>
 #include <utility>
 #include <wtf/Forward.h>
 #include <wtf/OptionSet.h>
-#include <wtf/Span.h>
 #include <wtf/Vector.h>
 #include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
@@ -64,7 +64,7 @@ namespace FileSystemImpl {
 // PlatformFileHandle
 #if USE(GLIB) && !OS(WINDOWS)
 typedef GFileIOStream* PlatformFileHandle;
-const PlatformFileHandle invalidPlatformFileHandle = 0;
+const PlatformFileHandle invalidPlatformFileHandle = nullptr;
 #elif OS(WINDOWS)
 typedef HANDLE PlatformFileHandle;
 // FIXME: -1 is INVALID_HANDLE_VALUE, defined in <winbase.h>. Chromium tries to
@@ -75,9 +75,18 @@ typedef int PlatformFileHandle;
 const PlatformFileHandle invalidPlatformFileHandle = -1;
 #endif
 
+// PlatformFileID
+#if USE(GLIB) && !OS(WINDOWS)
+typedef CString PlatformFileID;
+#elif OS(WINDOWS)
+typedef FILE_ID_128 PlatformFileID;
+#else
+typedef ino_t PlatformFileID;
+#endif
+
 enum class FileOpenMode {
     Read,
-    Write,
+    Truncate,
     ReadWrite,
 #if OS(DARWIN)
     EventsOnly,
@@ -113,7 +122,10 @@ WTF_EXPORT_PRIVATE bool deleteEmptyDirectory(const String&);
 WTF_EXPORT_PRIVATE bool moveFile(const String& oldPath, const String& newPath);
 WTF_EXPORT_PRIVATE std::optional<uint64_t> fileSize(const String&); // Follows symlinks.
 WTF_EXPORT_PRIVATE std::optional<uint64_t> fileSize(PlatformFileHandle);
+WTF_EXPORT_PRIVATE std::optional<uint64_t> directorySize(const String&);
 WTF_EXPORT_PRIVATE std::optional<WallTime> fileModificationTime(const String&);
+WTF_EXPORT_PRIVATE std::optional<PlatformFileID> fileID(PlatformFileHandle);
+WTF_EXPORT_PRIVATE bool fileIDsAreEqual(std::optional<PlatformFileID>, std::optional<PlatformFileID>);
 WTF_EXPORT_PRIVATE bool updateFileModificationTime(const String& path); // Sets modification time to now.
 WTF_EXPORT_PRIVATE std::optional<WallTime> fileCreationTime(const String&); // Not all platforms store file creation time.
 WTF_EXPORT_PRIVATE bool isHiddenFile(const String&);
@@ -135,6 +147,7 @@ WTF_EXPORT_PRIVATE std::optional<FileType> fileTypeFollowingSymlinks(const Strin
 
 WTF_EXPORT_PRIVATE void setMetadataURL(const String& path, const String& urlString, const String& referrer = { });
 WTF_EXPORT_PRIVATE bool setExcludedFromBackup(const String&, bool); // Returns true if successful.
+WTF_EXPORT_PRIVATE bool markPurgeable(const String&);
 
 WTF_EXPORT_PRIVATE Vector<String> listDirectory(const String& path); // Returns file names, not full paths.
 
@@ -147,6 +160,7 @@ using Salt = std::array<uint8_t, 8>;
 WTF_EXPORT_PRIVATE std::optional<Salt> readOrMakeSalt(const String& path);
 WTF_EXPORT_PRIVATE std::optional<Vector<uint8_t>> readEntireFile(PlatformFileHandle);
 WTF_EXPORT_PRIVATE std::optional<Vector<uint8_t>> readEntireFile(const String& path);
+WTF_EXPORT_PRIVATE int overwriteEntireFile(const String& path, Span<uint8_t>);
 
 // Prefix is what the filename should be prefixed with, not the full path.
 WTF_EXPORT_PRIVATE String openTemporaryFile(StringView prefix, PlatformFileHandle&, StringView suffix = { });
@@ -210,6 +224,11 @@ WTF_EXPORT_PRIVATE NSString *systemDirectoryPath();
 enum class PolicyScope : uint8_t { Process, Thread };
 WTF_EXPORT_PRIVATE bool setAllowsMaterializingDatalessFiles(bool, PolicyScope);
 WTF_EXPORT_PRIVATE std::optional<bool> allowsMaterializingDatalessFiles(PolicyScope);
+#endif
+
+// Impl for systems that do not already have createTemporaryDirectory
+#if !OS(WINDOWS) && !PLATFORM(COCOA) && !PLATFORM(PLAYSTATION)
+WTF_EXPORT_PRIVATE String createTemporaryDirectory();
 #endif
 
 WTF_EXPORT_PRIVATE bool deleteNonEmptyDirectory(const String&);
@@ -283,6 +302,9 @@ inline MappedFileData& MappedFileData::operator=(MappedFileData&& other)
 // This creates the destination file, maps it, write the provided data to it and returns the mapped file.
 // This function fails if there is already a file at the destination path.
 WTF_EXPORT_PRIVATE MappedFileData mapToFile(const String& path, size_t bytesSize, Function<void(const Function<bool(Span<const uint8_t>)>&)>&& apply, PlatformFileHandle* = nullptr);
+
+WTF_EXPORT_PRIVATE MappedFileData createMappedFileData(const String&, size_t, PlatformFileHandle* = nullptr);
+WTF_EXPORT_PRIVATE void finalizeMappedFileData(MappedFileData&, size_t);
 
 } // namespace FileSystemImpl
 } // namespace WTF

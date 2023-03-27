@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "HTMLFormControlElementWithState.h"
+#include "HTMLFormControlElement.h"
 #include "PointerEventTypeNames.h"
 
 namespace WebCore {
@@ -41,7 +41,7 @@ enum TextFieldSelectionDirection { SelectionHasNoDirection, SelectionHasForwardD
 enum TextFieldEventBehavior { DispatchNoEvent, DispatchChangeEvent, DispatchInputAndChangeEvent };
 enum TextControlSetValueSelection { SetSelectionToEnd, Clamp, DoNotSet };
 
-class HTMLTextFormControlElement : public HTMLFormControlElementWithState {
+class HTMLTextFormControlElement : public HTMLFormControlElement {
     WTF_MAKE_ISO_ALLOCATED(HTMLTextFormControlElement);
 public:
     // Common flag for HTMLInputElement::tooLong() / tooShort() and HTMLTextAreaElement::tooLong() / tooShort().
@@ -77,8 +77,8 @@ public:
     WEBCORE_EXPORT void setSelectionEnd(unsigned);
     WEBCORE_EXPORT void setSelectionDirection(const String&);
     WEBCORE_EXPORT void select(SelectionRevealMode = SelectionRevealMode::DoNotReveal, const AXTextStateChangeIntent& = AXTextStateChangeIntent());
-    WEBCORE_EXPORT virtual ExceptionOr<void> setRangeText(const String& replacement);
-    WEBCORE_EXPORT virtual ExceptionOr<void> setRangeText(const String& replacement, unsigned start, unsigned end, const String& selectionMode);
+    WEBCORE_EXPORT ExceptionOr<void> setRangeText(StringView replacement);
+    WEBCORE_EXPORT virtual ExceptionOr<void> setRangeText(StringView replacement, unsigned start, unsigned end, const String& selectionMode);
     void setSelectionRange(unsigned start, unsigned end, const String& direction, const AXTextStateChangeIntent& = AXTextStateChangeIntent());
     WEBCORE_EXPORT bool setSelectionRange(unsigned start, unsigned end, TextFieldSelectionDirection = SelectionHasNoDirection, SelectionRevealMode = SelectionRevealMode::DoNotReveal, const AXTextStateChangeIntent& = AXTextStateChangeIntent());
 
@@ -108,6 +108,8 @@ public:
 
     WEBCORE_EXPORT virtual bool isInnerTextElementEditable() const;
 
+    bool canContainRangeEndPoint() const override { return false; }
+
 protected:
     HTMLTextFormControlElement(const QualifiedName&, Document&, HTMLFormElement*);
     bool isPlaceholderEmpty() const;
@@ -117,6 +119,7 @@ protected:
 
     void disabledStateChanged() override;
     void readOnlyStateChanged() override;
+    bool readOnlyBarsFromConstraintValidation() const final { return true; }
 
     void updateInnerTextElementEditability();
 

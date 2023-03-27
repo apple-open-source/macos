@@ -41,7 +41,7 @@ using namespace WebCore;
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(ImageBufferShareableBitmapBackend);
 
-ShareableBitmap::Configuration ImageBufferShareableBitmapBackend::configuration(const Parameters& parameters)
+ShareableBitmapConfiguration ImageBufferShareableBitmapBackend::configuration(const Parameters& parameters)
 {
     return { parameters.colorSpace };
 }
@@ -75,9 +75,9 @@ size_t ImageBufferShareableBitmapBackend::calculateMemoryCost(const Parameters& 
     return ImageBufferBackend::calculateMemoryCost(backendSize, calculateBytesPerRow(parameters, backendSize));
 }
 
-std::unique_ptr<ImageBufferShareableBitmapBackend> ImageBufferShareableBitmapBackend::create(const Parameters& parameters, const WebCore::ImageBuffer::CreationContext&)
+std::unique_ptr<ImageBufferShareableBitmapBackend> ImageBufferShareableBitmapBackend::create(const Parameters& parameters, const WebCore::ImageBufferCreationContext&)
 {
-    ASSERT(parameters.pixelFormat == PixelFormat::BGRA8);
+    ASSERT(parameters.pixelFormat == PixelFormat::BGRA8 || parameters.pixelFormat == PixelFormat::BGRX8);
 
     IntSize backendSize = calculateSafeBackendSize(parameters);
     if (backendSize.isEmpty())
@@ -96,12 +96,12 @@ std::unique_ptr<ImageBufferShareableBitmapBackend> ImageBufferShareableBitmapBac
 
 std::unique_ptr<ImageBufferShareableBitmapBackend> ImageBufferShareableBitmapBackend::create(const Parameters& parameters, ImageBufferBackendHandle handle)
 {
-    if (!std::holds_alternative<ShareableBitmap::Handle>(handle)) {
+    if (!std::holds_alternative<ShareableBitmapHandle>(handle)) {
         ASSERT_NOT_REACHED();
         return nullptr;
     }
 
-    auto bitmap = ShareableBitmap::create(WTFMove(std::get<ShareableBitmap::Handle>(handle)));
+    auto bitmap = ShareableBitmap::create(WTFMove(std::get<ShareableBitmapHandle>(handle)));
     if (!bitmap)
         return nullptr;
 
@@ -126,9 +126,9 @@ ImageBufferShareableBitmapBackend::ImageBufferShareableBitmapBackend(const Param
 
 ImageBufferBackendHandle ImageBufferShareableBitmapBackend::createBackendHandle(SharedMemory::Protection protection) const
 {
-    ShareableBitmap::Handle handle;
-    m_bitmap->createHandle(handle, protection);
-    return ImageBufferBackendHandle(WTFMove(handle));
+    if (auto handle = m_bitmap->createHandle(protection))
+        return ImageBufferBackendHandle(WTFMove(*handle));
+    return { };
 }
 
 IntSize ImageBufferShareableBitmapBackend::backendSize() const

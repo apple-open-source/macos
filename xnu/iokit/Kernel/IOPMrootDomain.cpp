@@ -8814,7 +8814,7 @@ IOPMrootDomain::evaluatePolicy( int stimulus, uint32_t arg )
 				changePowerStateWithTagToPriv(getRUN_STATE(), kCPSReasonEvaluatePolicy);
 				if (idleSleepEnabled) {
 #if defined(XNU_TARGET_OS_OSX) && !DISPLAY_WRANGLER_PRESENT
-					if (!extraSleepDelay && !idleSleepTimerPending) {
+					if (!extraSleepDelay && !idleSleepTimerPending && !gNoIdleFlag) {
 						sleepASAP = true;
 					}
 #else
@@ -8822,7 +8822,7 @@ IOPMrootDomain::evaluatePolicy( int stimulus, uint32_t arg )
 					startIdleSleepTimer(idleMilliSeconds);
 #endif
 				}
-			} else if (!extraSleepDelay && !idleSleepTimerPending && !systemDarkWake) {
+			} else if (!extraSleepDelay && !idleSleepTimerPending && !systemDarkWake && !gNoIdleFlag) {
 				sleepASAP = true;
 			}
 		}

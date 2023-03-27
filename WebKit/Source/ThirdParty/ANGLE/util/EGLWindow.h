@@ -13,6 +13,7 @@
 #include <string>
 
 #include "common/Optional.h"
+#include "common/PackedEnums.h"
 #include "common/angleutils.h"
 #include "util/EGLPlatformParameters.h"
 #include "util/util_export.h"
@@ -83,10 +84,14 @@ class ANGLE_UTIL_EXPORT GLWindowBase : angle::NonCopyable
     using Attrib       = intptr_t;
     using AttribKHR    = khronos_int32_t;
     using Boolean      = unsigned int;
+    using Surface      = void *;
+    using Sync         = void *;
 
     // It should also be possible to set multisample and floating point framebuffers.
     EGLint getClientMajorVersion() const { return mClientMajorVersion; }
     EGLint getClientMinorVersion() const { return mClientMinorVersion; }
+    EGLenum getClientType() const { return mClientType; }
+    EGLint getProfileMask() const { return mProfileMask; }
 
     virtual bool initializeGL(OSWindow *osWindow,
                               angle::Library *glWindowingLibrary,
@@ -123,6 +128,25 @@ class ANGLE_UTIL_EXPORT GLWindowBase : angle::NonCopyable
     virtual EGLBoolean destroyImage(Image image)                        = 0;
     virtual EGLBoolean destroyImageKHR(Image image)                     = 0;
 
+    virtual Sync createSync(EGLDisplay dpy, EGLenum type, const EGLAttrib *attrib_list)        = 0;
+    virtual Sync createSyncKHR(EGLDisplay dpy, EGLenum type, const EGLint *attrib_list)        = 0;
+    virtual EGLBoolean destroySync(EGLDisplay dpy, Sync sync)                                  = 0;
+    virtual EGLBoolean destroySyncKHR(EGLDisplay dpy, Sync sync)                               = 0;
+    virtual EGLint clientWaitSync(EGLDisplay dpy, Sync sync, EGLint flags, EGLTimeKHR timeout) = 0;
+    virtual EGLint clientWaitSyncKHR(EGLDisplay dpy,
+                                     Sync sync,
+                                     EGLint flags,
+                                     EGLTimeKHR timeout)                                       = 0;
+
+    virtual EGLint getEGLError()                                    = 0;
+    virtual Surface createPbufferSurface(const EGLint *attrib_list) = 0;
+    virtual EGLBoolean destroySurface(Surface surface)              = 0;
+
+    virtual EGLBoolean bindTexImage(EGLSurface surface, EGLint buffer)    = 0;
+    virtual EGLBoolean releaseTexImage(EGLSurface surface, EGLint buffer) = 0;
+
+    virtual bool makeCurrent(EGLSurface draw, EGLSurface read, EGLContext context) = 0;
+
     bool isMultisample() const { return mConfigParams.multisample; }
     bool isDebugEnabled() const { return mConfigParams.debug; }
 
@@ -131,20 +155,38 @@ class ANGLE_UTIL_EXPORT GLWindowBase : angle::NonCopyable
     const EGLPlatformParameters &getPlatform() const { return mPlatform; }
     const ConfigParameters &getConfigParams() const { return mConfigParams; }
 
+    virtual bool isFeatureEnabled(angle::Feature feature) { return false; }
+
   protected:
-    GLWindowBase(EGLint glesMajorVersion, EGLint glesMinorVersion);
+    GLWindowBase(EGLenum clientType,
+                 EGLint glesMajorVersion,
+                 EGLint glesMinorVersion,
+                 EGLint profileMask);
     virtual ~GLWindowBase();
 
+    EGLenum mClientType;
     EGLint mClientMajorVersion;
     EGLint mClientMinorVersion;
+    EGLint mProfileMask;
     EGLPlatformParameters mPlatform;
     ConfigParameters mConfigParams;
 };
 
+enum class ANGLEFeatureStatus
+{
+    Enabled,
+    Disabled,
+    Unknown,
+};
+using ANGLEFeatureArray = angle::PackedEnumMap<angle::Feature, ANGLEFeatureStatus>;
+
 class ANGLE_UTIL_EXPORT EGLWindow : public GLWindowBase
 {
   public:
-    static EGLWindow *New(EGLint glesMajorVersion, EGLint glesMinorVersion);
+    static EGLWindow *New(EGLenum clientType,
+                          EGLint glesMajorVersion,
+                          EGLint glesMinorVersion,
+                          EGLint profileMask);
     static void Delete(EGLWindow **window);
 
     static EGLBoolean FindEGLConfig(EGLDisplay dpy, const EGLint *attrib_list, EGLConfig *config);
@@ -205,8 +247,24 @@ class ANGLE_UTIL_EXPORT EGLWindow : public GLWindowBase
                          Enum target,
                          ClientBuffer buffer,
                          const AttribKHR *attrib_list) override;
+
     EGLBoolean destroyImage(Image image) override;
     EGLBoolean destroyImageKHR(Image image) override;
+
+    Sync createSync(EGLDisplay dpy, EGLenum type, const EGLAttrib *attrib_list) override;
+    Sync createSyncKHR(EGLDisplay dpy, EGLenum type, const EGLint *attrib_list) override;
+    EGLBoolean destroySync(EGLDisplay dpy, Sync sync) override;
+    EGLBoolean destroySyncKHR(EGLDisplay dpy, Sync sync) override;
+    EGLint clientWaitSync(EGLDisplay dpy, Sync sync, EGLint flags, EGLTimeKHR timeout) override;
+    EGLint clientWaitSyncKHR(EGLDisplay dpy, Sync sync, EGLint flags, EGLTimeKHR timeout) override;
+
+    EGLint getEGLError() override;
+    Surface createPbufferSurface(const EGLint *attrib_list) override;
+    EGLBoolean destroySurface(Surface surface) override;
+
+    EGLBoolean bindTexImage(EGLSurface surface, EGLint buffer) override;
+    EGLBoolean releaseTexImage(EGLSurface surface, EGLint buffer) override;
+    bool makeCurrent(EGLSurface draw, EGLSurface read, EGLContext context) override;
 
     // Only initializes the Context.
     bool initializeContext();
@@ -216,8 +274,17 @@ class ANGLE_UTIL_EXPORT EGLWindow : public GLWindowBase
 
     bool isDisplayInitialized() const { return mDisplay != EGL_NO_DISPLAY; }
 
+    // Get the status of features and cache them in mFeatures.
+    void queryFeatures();
+    // Return whether a feature is enabled.  Features that don't exist in the backend have Unknown
+    // status, and are considered disabled for the purposes of this function.
+    bool isFeatureEnabled(angle::Feature feature) override;
+
   private:
-    EGLWindow(EGLint glesMajorVersion, EGLint glesMinorVersion);
+    EGLWindow(EGLenum clientType,
+              EGLint glesMajorVersion,
+              EGLint glesMinorVersion,
+              EGLint profileMask);
     ~EGLWindow() override;
 
     EGLConfig mConfig;
@@ -227,6 +294,8 @@ class ANGLE_UTIL_EXPORT EGLWindow : public GLWindowBase
 
     EGLint mEGLMajorVersion;
     EGLint mEGLMinorVersion;
+
+    ANGLEFeatureArray mFeatures;
 };
 
 #endif  // UTIL_EGLWINDOW_H_

@@ -7,6 +7,11 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>CoreSmartPowerNapLocation</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
 	<key>SystemAssertionTimeout</key>
 	<dict>
 		<key>Enabled</key>
@@ -18,6 +23,11 @@
 		<true/>
 	</dict>
 	<key>SmartPowerNap</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
+	<key>CoreSmartPowerNap</key>
 	<dict>
 		<key>Enabled</key>
 		<true/>

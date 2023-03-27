@@ -25,8 +25,7 @@
 
 #pragma once
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
+#include "InlineFormattingContext.h"
 #include "InlineLineBuilder.h"
 #include "LayoutUnits.h"
 
@@ -34,15 +33,16 @@ namespace WebCore {
 namespace Layout {
 
 struct AncestorStack;
-class ContainerBox;
+class ElementBox;
 struct DisplayBoxTree;
 struct IsFirstLastIndex;
+class InlineFormattingGeometry;
 class InlineFormattingState;
 class LineBox;
 
 class InlineDisplayContentBuilder {
 public:
-    InlineDisplayContentBuilder(const ContainerBox& formattingContextRoot, InlineFormattingState&);
+    InlineDisplayContentBuilder(const InlineFormattingContext&, InlineFormattingState&);
 
     DisplayBoxes build(const LineBuilder::LineContent&, const LineBox&, const InlineDisplay::Line&, const size_t lineIndex);
 
@@ -51,21 +51,23 @@ public:
 private:
     void processNonBidiContent(const LineBuilder::LineContent&, const LineBox&, const InlineDisplay::Line&, DisplayBoxes&);
     void processBidiContent(const LineBuilder::LineContent&, const LineBox&, const InlineDisplay::Line&, DisplayBoxes&);
-    void processOverflownRunsForEllipsis(DisplayBoxes&, InlineLayoutUnit lineBoxRight);
+    void processFloatBoxes(const LineBuilder::LineContent&);
     void collectInkOverflowForInlineBoxes(DisplayBoxes&);
     void collectInkOverflowForTextDecorations(DisplayBoxes&, const InlineDisplay::Line&);
+    void truncateForEllipsisPolicy(LineBuilder::LineEndingEllipsisPolicy, const LineBuilder::LineContent&, const InlineDisplay::Line&, DisplayBoxes&);
 
     void appendTextDisplayBox(const Line::Run&, const InlineRect&, DisplayBoxes&);
     void appendSoftLineBreakDisplayBox(const Line::Run&, const InlineRect&, DisplayBoxes&);
     void appendHardLineBreakDisplayBox(const Line::Run&, const InlineRect&, DisplayBoxes&);
     void appendAtomicInlineLevelDisplayBox(const Line::Run&, const InlineRect& , DisplayBoxes&);
+    void appendRootInlineBoxDisplayBox(const InlineRect&, bool linehasContent, DisplayBoxes&);
     void appendInlineBoxDisplayBox(const Line::Run&, const InlineLevelBox&, const InlineRect&, bool linehasContent, DisplayBoxes&);
-    void appendSpanningInlineBoxDisplayBox(const Line::Run&, const InlineLevelBox&, const InlineRect&, DisplayBoxes&);
+    void appendSpanningInlineBoxDisplayBox(const Line::Run&, const InlineLevelBox&, const InlineRect&, bool linehasContent, DisplayBoxes&);
     void appendInlineDisplayBoxAtBidiBoundary(const Box&, DisplayBoxes&);
 
     void setInlineBoxGeometry(const Box&, const InlineRect&, bool isFirstInlineBoxFragment);
     void adjustVisualGeometryForDisplayBox(size_t displayBoxNodeIndex, InlineLayoutUnit& accumulatedOffset, InlineLayoutUnit lineBoxLogicalTop, const DisplayBoxTree&, DisplayBoxes&, const LineBox&, const HashMap<const Box*, IsFirstLastIndex>&);
-    size_t ensureDisplayBoxForContainer(const ContainerBox&, DisplayBoxTree&, AncestorStack&, DisplayBoxes&);
+    size_t ensureDisplayBoxForContainer(const ElementBox&, DisplayBoxTree&, AncestorStack&, DisplayBoxes&);
 
     InlineRect flipLogicalRectToVisualForWritingModeWithinLine(const InlineRect& logicalRect, const InlineRect& lineLogicalRect, WritingMode) const;
     InlineRect flipLogicalRectToVisualForWritingMode(const InlineRect& logicalRect, WritingMode) const;
@@ -73,11 +75,15 @@ private:
     void setLeftForWritingMode(InlineDisplay::Box&, InlineLayoutUnit logicalRight, WritingMode) const;
     void setRightForWritingMode(InlineDisplay::Box&, InlineLayoutUnit logicalRight, WritingMode) const;
     InlineLayoutPoint movePointHorizontallyForWritingMode(const InlineLayoutPoint& topLeft, InlineLayoutUnit horizontalOffset, WritingMode) const;
+    InlineLayoutUnit outsideListMarkerVisualPosition(const ElementBox&, const InlineDisplay::Line&) const;
 
-    const ContainerBox& root() const { return m_formattingContextRoot; }
+    const ElementBox& root() const { return formattingContext().root(); }
+    const RenderStyle& rootStyle() const { return m_lineIndex ? root().style() : root().firstLineStyle(); }
+    const InlineFormattingContext& formattingContext() const { return m_formattingContext; }
+    const InlineFormattingGeometry& formattingGeometry() const { return formattingContext().formattingGeometry(); }
     InlineFormattingState& formattingState() const { return m_formattingState; } 
 
-    const ContainerBox& m_formattingContextRoot;
+    const InlineFormattingContext& m_formattingContext;
     InlineFormattingState& m_formattingState;
     size_t m_lineIndex { 0 };
     bool m_contentHasInkOverflow { false };
@@ -86,4 +92,3 @@ private:
 }
 }
 
-#endif

@@ -253,15 +253,15 @@ static void webkit_media_src_class_init(WebKitMediaSrcClass* klass)
     eklass->send_event = webKitMediaSrcSendEvent;
     g_object_class_install_property(oklass,
         PROP_N_AUDIO,
-        g_param_spec_int("n-audio", "Number Audio", "Total number of audio streams",
+        g_param_spec_int("n-audio", nullptr, nullptr,
         0, G_MAXINT, 0, GParamFlags(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
     g_object_class_install_property(oklass,
         PROP_N_VIDEO,
-        g_param_spec_int("n-video", "Number Video", "Total number of video streams",
+        g_param_spec_int("n-video", nullptr, nullptr,
         0, G_MAXINT, 0, GParamFlags(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
     g_object_class_install_property(oklass,
         PROP_N_TEXT,
-        g_param_spec_int("n-text", "Number Text", "Total number of text streams",
+        g_param_spec_int("n-text", nullptr, nullptr,
         0, G_MAXINT, 0, GParamFlags(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
 }
 
@@ -545,6 +545,8 @@ static void webKitMediaSrcStreamFlush(Stream* stream, bool isSeekingFlush)
 {
     ASSERT(isMainThread());
     bool skipFlush = false;
+    GST_DEBUG_OBJECT(stream->source, "Flush requested for stream '%s'. isSeekingFlush = %s",
+        stream->track->trackId().string().utf8().data(), boolForPrinting(isSeekingFlush));
 
     {
         DataMutexLocker streamingMembers { stream->streamingMembersDataMutex };
@@ -635,6 +637,9 @@ static void webKitMediaSrcStreamFlush(Stream* stream, bool isSeekingFlush)
         GST_DEBUG_OBJECT(stream->pad.get(), "Starting webKitMediaSrcLoop task and releasing the STREAM_LOCK.");
         gst_pad_start_task(stream->pad.get(), webKitMediaSrcLoop, stream->pad.get(), nullptr);
     }
+
+    GST_DEBUG_OBJECT(stream->source, "Flush request for stream '%s' (isSeekingFlush = %s) satisfied.",
+        stream->track->trackId().string().utf8().data(), boolForPrinting(isSeekingFlush));
 }
 
 void webKitMediaSrcFlush(WebKitMediaSrc* source, const AtomString& streamName)

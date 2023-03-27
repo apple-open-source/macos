@@ -2,7 +2,7 @@
  * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -11,7 +11,7 @@
  * unlawful or unlicensed copies of an Apple operating system, or to
  * circumvent, violate, or enable the circumvention or violation of, any
  * terms of an Apple operating system software license agreement.
- * 
+ *
  * Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this file.
  *
@@ -22,7 +22,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*-
@@ -83,17 +83,29 @@
 #include <TargetConditionals.h>
 #endif
 
+#define ROUNDUP64(a) \
+((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint64_t) - 1))) : sizeof(uint64_t))
+#define ADVANCE64(x, n) (((char *)x) += ROUNDUP64(n))
+
 #if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 static	void unixdomainpr __P((struct xunpcb64 *, struct xsocket64 *));
 #else
 static	void unixdomainpr __P((struct xunpcb *, struct xsocket *));
 #endif
 
-static	const char *const socktype[] =
-    { "#0", "stream", "dgram", "raw" };
 
-void
-unixpr()
+#define ALL_XGN_KIND_UNPCB (XSO_SOCKET | XSO_RCVBUF | XSO_SNDBUF | XSO_STATS | XSO_UNPCB)
+
+struct xgen_n {
+	u_int32_t	xgn_len;	/* length of this structure */
+	u_int32_t	xgn_kind;	/* type of structure */
+};
+
+static	const char *const socktype[] =
+{ "#0", "stream", "dgram", "raw" };
+
+static void
+unixpr_legacy(void)
 {
 	char 	*buf;
 	int	type;
@@ -146,9 +158,9 @@ unixpr()
 #if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 			if (xunp->xunp_gencnt > oxug->xug_gen)
 #else
-			if (xunp->xu_unp.unp_gencnt > oxug->xug_gen)
+				if (xunp->xu_unp.unp_gencnt > oxug->xug_gen)
 #endif
-				continue;
+					continue;
 			unixdomainpr(xunp, so);
 		}
 		if (xug != oxug && xug->xug_gen != oxug->xug_gen) {
@@ -157,10 +169,10 @@ unixpr()
 				       socktype[type]);
 			} else if (oxug->xug_count < xug->xug_count) {
 				printf("Some %s sockets may have been created.\n",
-			       socktype[type]);
+				       socktype[type]);
 			} else {
 				printf("Some %s sockets may have been created or deleted\n",
-			       socktype[type]);
+				       socktype[type]);
 			}
 		}
 		free(buf);
@@ -170,11 +182,11 @@ unixpr()
 static void
 unixdomainpr(xunp, so)
 #if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
-	struct xunpcb64 *xunp;
-	struct xsocket64 *so;
+struct xunpcb64 *xunp;
+struct xsocket64 *so;
 #else
-	struct xunpcb *xunp;
-	struct xsocket *so;
+struct xunpcb *xunp;
+struct xsocket *so;
 #endif
 {
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
@@ -197,12 +209,12 @@ unixdomainpr(xunp, so)
 		printf("Active LOCAL (UNIX) domain sockets\n");
 		printf(
 #if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
-"%-16.16s %-6.6s %-6.6s %-6.6s %16.16s %16.16s %16.16s %16.16s Addr\n",
+		       "%-16.16s %-6.6s %-6.6s %-6.6s %16.16s %16.16s %16.16s %16.16s Addr\n",
 #else
-"%-8.8s %-6.6s %-6.6s %-6.6s %8.8s %8.8s %8.8s %8.8s Addr\n",
+		       "%-8.8s %-6.6s %-6.6s %-6.6s %8.8s %8.8s %8.8s %8.8s Addr\n",
 #endif
-		    "Address", "Type", "Recv-Q", "Send-Q",
-		    "Inode", "Conn", "Refs", "Nextref");
+		       "Address", "Type", "Recv-Q", "Send-Q",
+		       "Inode", "Conn", "Refs", "Nextref");
 		first = 0;
 	}
 #if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
@@ -222,10 +234,184 @@ unixdomainpr(xunp, so)
 #if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (sa->sun_len)
 #else
-	if (sa)
+		if (sa)
 #endif
-		printf(" %.*s",
-		    (int)(sa->sun_len - offsetof(struct sockaddr_un, sun_path)),
-		    sa->sun_path);
+			printf(" %.*s",
+			       (int)(sa->sun_len - offsetof(struct sockaddr_un, sun_path)),
+			       sa->sun_path);
 	putchar('\n');
+}
+
+#ifdef XSO_UNPCB
+
+static void
+unixdomainpr_n(struct xunpcb_n *xunp,
+	       struct xsocket_n *so,
+	       struct xsockbuf_n *so_rcv,
+	       struct xsockbuf_n *so_snd,
+	       struct xsockstat_n *so_stat)
+{
+	struct sockaddr_un *sa;
+	static int first = 1;
+
+	sa = &xunp->xu_addr;
+
+	if (first) {
+		printf("Active LOCAL (UNIX) domain sockets\n");
+		printf(
+		       "%-16.16s %-6.6s %-6.6s %-6.6s %16.16s %16.16s %16.16s %16.16s ",
+		       "Address", "Type", "Recv-Q", "Send-Q",
+		       "Inode", "Conn", "Refs", "Nextref");
+        if (bflag > 0)
+            printf("%10.10s %10.10s ",
+                  "rxbytes", "txbytes");
+        if (vflag > 0)
+            printf("%6.6s %6.6s %6.6s %6.6s ",
+                   "rhiwat", "shiwat", "pid", "epid");
+        printf("Addr\n");
+		first = 0;
+	}
+
+	printf("%16llx %-6.6s %6u %6u %16llx %16llx %16llx %16llx",
+	       xunp->xunp_unpp, socktype[so->so_type], so_rcv->sb_cc,
+	       so_snd->sb_cc,
+	       xunp->xunp_vnode, xunp->xunp_conn,
+	       xunp->xunp_refs, xunp->xunp_reflink);
+    if (bflag > 0) {
+        int i;
+        u_int64_t rxbytes = 0;
+        u_int64_t txbytes = 0;
+
+        for (i = 0; i < SO_TC_STATS_MAX; i++) {
+            rxbytes += so_stat->xst_tc_stats[i].rxbytes;
+            txbytes += so_stat->xst_tc_stats[i].txbytes;
+        }
+        printf("%10llu %10llu ", rxbytes, txbytes);
+    }
+    if (vflag > 0) {
+        printf("%6u %6u %6u %6u ",
+               so_rcv->sb_hiwat,
+               so_snd->sb_hiwat,
+               so->so_last_pid,
+               so->so_e_pid);
+    }
+
+	if (sa->sun_len)
+			printf(" %.*s",
+			       (int)(sa->sun_len - offsetof(struct sockaddr_un, sun_path)),
+			       sa->sun_path);
+	putchar('\n');
+}
+
+void
+unixpr_n(void)
+{
+	int    type;
+
+	for (type = SOCK_STREAM; type <= SOCK_DGRAM; type++) {
+        int which = 0;
+        char *buf = NULL, *next;
+        size_t len;
+        struct xunpgen *xug, *oxug;
+        struct xgen_n *xgn;
+        struct xunpcb_n *xunp = NULL;
+        struct xsocket_n *so = NULL;
+        struct xsockbuf_n *so_rcv = NULL;
+        struct xsockbuf_n *so_snd = NULL;
+        struct xsockstat_n *so_stat = NULL;
+        char mibvar[sizeof "net.local.xxxxxxxxxxxxxx.pcblist_n"];
+
+        snprintf(mibvar, sizeof(mibvar), "net.local.%s.pcblist_n", socktype[type]);
+
+		len = 0;
+		if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
+            if (errno == ENOENT) {
+                unixpr_legacy();
+            } else {
+				warn("sysctl: %s", mibvar);
+            }
+            return;
+		}
+		if ((buf = malloc(len)) == 0) {
+			warn("malloc %lu bytes", (u_long)len);
+			return;
+		}
+		if (sysctlbyname(mibvar, buf, &len, 0, 0) < 0) {
+			warn("sysctl: %s", mibvar);
+			free(buf);
+			return;
+		}
+
+		oxug = xug = (struct xunpgen *)buf;
+
+        for (next = buf + ROUNDUP64(xug->xug_len); next < buf + len; next += ROUNDUP64(xgn->xgn_len)) {
+			xgn = (struct xgen_n*)next;
+
+            if (xgn->xgn_len <= sizeof(struct xgen_n))
+				break;
+
+            if ((which & xgn->xgn_kind) == 0) {
+				which |= xgn->xgn_kind;
+				switch (xgn->xgn_kind) {
+					case XSO_SOCKET:
+						so = (struct xsocket_n *)xgn;
+						break;
+					case XSO_RCVBUF:
+						so_rcv = (struct xsockbuf_n *)xgn;
+						break;
+					case XSO_SNDBUF:
+						so_snd = (struct xsockbuf_n *)xgn;
+						break;
+					case XSO_STATS:
+						so_stat = (struct xsockstat_n *)xgn;
+						break;
+					case XSO_UNPCB:
+						xunp = (struct xunpcb_n *)xgn;
+						break;
+					default:
+                        /* It's OK to have some extra bytes at the end */
+                        if (which != 0) {
+                            printf("unexpected kind %d which 0x%x\n", xgn->xgn_kind, which);
+                        }
+						break;
+				}
+			} else {
+				if (vflag)
+					printf("got %d twice\n", xgn->xgn_kind);
+			}
+			if (which == ALL_XGN_KIND_UNPCB) {
+				which = 0;
+
+				if (xunp->xunp_gencnt > oxug->xug_gen)
+					continue;
+				unixdomainpr_n(xunp, so, so_rcv, so_snd, so_stat);
+
+			}
+        }
+
+        if (xug != oxug && xug->xug_gen != oxug->xug_gen) {
+			if (oxug->xug_count > xug->xug_count) {
+				printf("Some %s sockets may have been deleted.\n",
+				       socktype[type]);
+			} else if (oxug->xug_count < xug->xug_count) {
+				printf("Some %s sockets may have been created.\n",
+				       socktype[type]);
+			} else {
+				printf("Some %s sockets may have been created or deleted\n",
+				       socktype[type]);
+			}
+		}
+		free(buf);
+	}
+}
+#endif /* XSO_UNPCB */
+
+void
+unixpr(void)
+{
+#ifdef XSO_UNPCB
+    unixpr_n();
+#else
+    unixpr_legacy();
+#endif /* XSO_UNPCB */
 }

@@ -56,9 +56,24 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		C4083BDF28CF4F4400E6D40C /* nfs_prot_rpc.m in Sources */ = {isa = PBXBuildFile; fileRef = C4083BDE28CF4F4400E6D40C /* nfs_prot_rpc.m */; };
+		C40C69E928DB4EB4009ED87A /* replyCache_nfsrvTests.m in Sources */ = {isa = PBXBuildFile; fileRef = C40C69E828DB4EB4009ED87A /* replyCache_nfsrvTests.m */; };
 		C41A5818270DF10000015890 /* nfs_lock.h in Copy Kernel Headers */ = {isa = PBXBuildFile; fileRef = C4B26E9B270C644500F021F8 /* nfs_lock.h */; };
 		C41A5819270DF10600015890 /* nfs_ioctl.h in Copy Kernel Headers */ = {isa = PBXBuildFile; fileRef = C4B26E9F270C644600F021F8 /* nfs_ioctl.h */; };
 		C434112024ADCCA500C92762 /* printer.c in Sources */ = {isa = PBXBuildFile; fileRef = C434111F24ADCCA500C92762 /* printer.c */; };
+		C43BE1C128CA29B8003E2CD5 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AE31FA3D19E00AACC99 /* main.c */; };
+		C43BE1C428CA29D1003E2CD5 /* lockd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D6354AFD1FA3D1FC00AACC99 /* lockd_mach.defs */; settings = {ATTRIBUTES = (Client, ); }; };
+		C43BE1C528CA29D8003E2CD5 /* nfsd.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AEB1FA3D19E00AACC99 /* nfsd.c */; };
+		C43BE1C828CA29F2003E2CD5 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = C43BE1C728CA29F2003E2CD5 /* libutil.tbd */; };
+		C43BE1C928CA2BF4003E2CD5 /* mountd.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AEA1FA3D19E00AACC99 /* mountd.c */; };
+		C43BE1CF28CA34D3003E2CD5 /* nfs_prot_nfsrvTests.m in Sources */ = {isa = PBXBuildFile; fileRef = C43BE1CE28CA34D3003E2CD5 /* nfs_prot_nfsrvTests.m */; };
+		C43BE1D128CA3680003E2CD5 /* nfs_prot.x in Resources */ = {isa = PBXBuildFile; fileRef = C43BE1D028CA3680003E2CD5 /* nfs_prot.x */; };
+		C43BE1D728CA370C003E2CD5 /* nfs_prot_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = C43BE1D428CA370C003E2CD5 /* nfs_prot_xdr.c */; };
+		C43BE1D828CA370C003E2CD5 /* nfs_prot_clnt.c in Sources */ = {isa = PBXBuildFile; fileRef = C43BE1D528CA370C003E2CD5 /* nfs_prot_clnt.c */; };
+		C455A5D228A010A3002BEE04 /* mountd_rpc.x in Resources */ = {isa = PBXBuildFile; fileRef = C455A5D128A010A3002BEE04 /* mountd_rpc.x */; };
+		C455A5D828A01213002BEE04 /* mountd_rpc_clnt.c in Sources */ = {isa = PBXBuildFile; fileRef = C455A5D528A01213002BEE04 /* mountd_rpc_clnt.c */; };
+		C455A5D928A01213002BEE04 /* mountd_rpc_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = C455A5D628A01213002BEE04 /* mountd_rpc_xdr.c */; };
+		C455A5DA28A016EC002BEE04 /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */; };
 		C45987C32631B5060000FA32 /* NFS.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C45987C22631B3B10000FA32 /* NFS.plist */; };
 		C45F023325D15A430094CC10 /* mount_nfs.h in Headers */ = {isa = PBXBuildFile; fileRef = C45F023225D15A430094CC10 /* mount_nfs.h */; };
 		C47BB91625C1BE8A00DB38E2 /* nfsclntTests.m in Sources */ = {isa = PBXBuildFile; fileRef = C47BB91525C1BE8A00DB38E2 /* nfsclntTests.m */; };
@@ -67,7 +82,9 @@
 		C47BB96725C1BFCC00DB38E2 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = C47BB96625C1BFCC00DB38E2 /* libutil.tbd */; };
 		C47BB9AE25C1C06A00DB38E2 /* mount_nfs.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AC81FA3D0F100AACC99 /* mount_nfs.c */; };
 		C47BB9C025C1C08400DB38E2 /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */; };
+		C47CD3DC28A0077C000C5AEE /* mountd_nfsrvTests.m in Sources */ = {isa = PBXBuildFile; fileRef = C47CD3DB28A0077C000C5AEE /* mountd_nfsrvTests.m */; };
 		C48A588A2636A004002E36D2 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A471FB7FDF2002AF776 /* IOKit.framework */; };
+		C49F374629056FC400F263B7 /* configuration_nfsrvTests.m in Sources */ = {isa = PBXBuildFile; fileRef = C49F374529056FC400F263B7 /* configuration_nfsrvTests.m */; };
 		C4A8EE0E2519EE1D00E2EB6F /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */; };
 		C4B26E5A270C564600F021F8 /* kext.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26E59270C564600F021F8 /* kext.c */; };
 		C4B26EB1270C644700F021F8 /* nfs_lock.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B26E9B270C644500F021F8 /* nfs_lock.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -168,6 +185,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		C43BE1C228CA29C4003E2CD5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A701FA3CEAB00AACC99;
+			remoteInfo = nfsd;
+		};
 		C47BB91925C1BE8A00DB38E2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
@@ -497,9 +521,24 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C4083BDB28CF4DF700E6D40C /* nfs_prot_rpc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nfs_prot_rpc.h; sourceTree = "<group>"; };
+		C4083BDE28CF4F4400E6D40C /* nfs_prot_rpc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = nfs_prot_rpc.m; sourceTree = "<group>"; };
+		C40C69E828DB4EB4009ED87A /* replyCache_nfsrvTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = replyCache_nfsrvTests.m; sourceTree = "<group>"; };
 		C4111ABE270F385F00200211 /* nfs.exp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.exports; path = nfs.exp; sourceTree = "<group>"; };
 		C434111E24ADCCA500C92762 /* printer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = printer.h; sourceTree = "<group>"; };
 		C434111F24ADCCA500C92762 /* printer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = printer.c; sourceTree = "<group>"; };
+		C43BE1C728CA29F2003E2CD5 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.0.Internal.sdk/usr/lib/libutil.tbd; sourceTree = DEVELOPER_DIR; };
+		C43BE1CE28CA34D3003E2CD5 /* nfs_prot_nfsrvTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = nfs_prot_nfsrvTests.m; sourceTree = "<group>"; };
+		C43BE1D028CA3680003E2CD5 /* nfs_prot.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nfs_prot.x; sourceTree = "<group>"; };
+		C43BE1D328CA370C003E2CD5 /* nfs_prot.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nfs_prot.h; sourceTree = "<group>"; };
+		C43BE1D428CA370C003E2CD5 /* nfs_prot_xdr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_prot_xdr.c; sourceTree = "<group>"; };
+		C43BE1D528CA370C003E2CD5 /* nfs_prot_clnt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_prot_clnt.c; sourceTree = "<group>"; };
+		C43BE1E728CA3AF4003E2CD5 /* oncrpc.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = oncrpc.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.0.Internal.sdk/System/Library/PrivateFrameworks/oncrpc.framework; sourceTree = DEVELOPER_DIR; };
+		C43BE1EA28CDCE25003E2CD5 /* mountd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mountd.h; sourceTree = "<group>"; };
+		C455A5D128A010A3002BEE04 /* mountd_rpc.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mountd_rpc.x; sourceTree = "<group>"; };
+		C455A5D428A01213002BEE04 /* mountd_rpc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mountd_rpc.h; sourceTree = "<group>"; };
+		C455A5D528A01213002BEE04 /* mountd_rpc_clnt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mountd_rpc_clnt.c; sourceTree = "<group>"; };
+		C455A5D628A01213002BEE04 /* mountd_rpc_xdr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mountd_rpc_xdr.c; sourceTree = "<group>"; };
 		C45987C22631B3B10000FA32 /* NFS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = NFS.plist; sourceTree = "<group>"; };
 		C45F023225D15A430094CC10 /* mount_nfs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mount_nfs.h; sourceTree = "<group>"; };
 		C47ACD5D2631583700D8F2A9 /* nfsclntTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = nfsclntTests.xctestplan; sourceTree = "<group>"; };
@@ -511,7 +550,12 @@
 		C47BB95425C1BF2A00DB38E2 /* nfsclntTests_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nfsclntTests_utils.h; sourceTree = "<group>"; };
 		C47BB96625C1BFCC00DB38E2 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.sdk/usr/lib/libutil.tbd; sourceTree = DEVELOPER_DIR; };
 		C47BB97925C1BFD000DB38E2 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		C47CD3D928A0077C000C5AEE /* nfsrvTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = nfsrvTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C47CD3DB28A0077C000C5AEE /* mountd_nfsrvTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = mountd_nfsrvTests.m; sourceTree = "<group>"; };
+		C49F374529056FC400F263B7 /* configuration_nfsrvTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = configuration_nfsrvTests.m; sourceTree = "<group>"; };
 		C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = oncrpc.framework; path = System/Library/PrivateFrameworks/oncrpc.framework; sourceTree = SDKROOT; };
+		C4A96CA828A2E370002100DC /* nfsrvTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = nfsrvTests.xctestplan; sourceTree = "<group>"; };
+		C4A96CA928A2E45B002100DC /* nfsTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = nfsTests.xctestplan; sourceTree = "<group>"; };
 		C4B26E57270C564600F021F8 /* nfs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = nfs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4B26E59270C564600F021F8 /* kext.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = kext.c; sourceTree = "<group>"; };
 		C4B26E5B270C564600F021F8 /* macosx-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "macosx-Info.plist"; sourceTree = "<group>"; };
@@ -666,6 +710,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C47CD3D628A0077C000C5AEE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C43BE1C828CA29F2003E2CD5 /* libutil.tbd in Frameworks */,
+				C455A5DA28A016EC002BEE04 /* oncrpc.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C4B26E54270C564600F021F8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -773,6 +826,41 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		C40C69EA28DB67A1009ED87A /* replyCache */ = {
+			isa = PBXGroup;
+			children = (
+				C40C69E828DB4EB4009ED87A /* replyCache_nfsrvTests.m */,
+			);
+			path = replyCache;
+			sourceTree = "<group>";
+		};
+		C43BE1CA28CA309C003E2CD5 /* mountd */ = {
+			isa = PBXGroup;
+			children = (
+				C455A5D528A01213002BEE04 /* mountd_rpc_clnt.c */,
+				C455A5D628A01213002BEE04 /* mountd_rpc_xdr.c */,
+				C455A5D428A01213002BEE04 /* mountd_rpc.h */,
+				C455A5D128A010A3002BEE04 /* mountd_rpc.x */,
+				C47CD3DB28A0077C000C5AEE /* mountd_nfsrvTests.m */,
+				C43BE1EA28CDCE25003E2CD5 /* mountd.h */,
+			);
+			path = mountd;
+			sourceTree = "<group>";
+		};
+		C43BE1CB28CA3425003E2CD5 /* nfs_prot */ = {
+			isa = PBXGroup;
+			children = (
+				C43BE1D528CA370C003E2CD5 /* nfs_prot_clnt.c */,
+				C43BE1D428CA370C003E2CD5 /* nfs_prot_xdr.c */,
+				C43BE1D328CA370C003E2CD5 /* nfs_prot.h */,
+				C43BE1D028CA3680003E2CD5 /* nfs_prot.x */,
+				C43BE1CE28CA34D3003E2CD5 /* nfs_prot_nfsrvTests.m */,
+				C4083BDB28CF4DF700E6D40C /* nfs_prot_rpc.h */,
+				C4083BDE28CF4F4400E6D40C /* nfs_prot_rpc.m */,
+			);
+			path = nfs_prot;
+			sourceTree = "<group>";
+		};
 		C47BB91425C1BE8A00DB38E2 /* nfsclntTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -783,6 +871,26 @@
 				C47BB91725C1BE8A00DB38E2 /* Info.plist */,
 			);
 			path = nfsclntTests;
+			sourceTree = "<group>";
+		};
+		C47CD3DA28A0077C000C5AEE /* nfsrvTests */ = {
+			isa = PBXGroup;
+			children = (
+				C49F373E29001A9300F263B7 /* configuration */,
+				C40C69EA28DB67A1009ED87A /* replyCache */,
+				C43BE1CB28CA3425003E2CD5 /* nfs_prot */,
+				C43BE1CA28CA309C003E2CD5 /* mountd */,
+				C4A96CA828A2E370002100DC /* nfsrvTests.xctestplan */,
+			);
+			path = nfsrvTests;
+			sourceTree = "<group>";
+		};
+		C49F373E29001A9300F263B7 /* configuration */ = {
+			isa = PBXGroup;
+			children = (
+				C49F374529056FC400F263B7 /* configuration_nfsrvTests.m */,
+			);
+			path = configuration;
 			sourceTree = "<group>";
 		};
 		C4B26E58270C564600F021F8 /* kext */ = {
@@ -846,6 +954,7 @@
 		D6354A231FA3CCBC00AACC99 = {
 			isa = PBXGroup;
 			children = (
+				C4A96CA928A2E45B002100DC /* nfsTests.xctestplan */,
 				C45987C22631B3B10000FA32 /* NFS.plist */,
 				D6EA4A781FB96539002AF776 /* files */,
 				D6C194071FA4022100FA298E /* nfs_fs */,
@@ -863,6 +972,7 @@
 				D6354AB41FA3CF1200AACC99 /* showmount */,
 				C47BB91425C1BE8A00DB38E2 /* nfsclntTests */,
 				C4B26E58270C564600F021F8 /* kext */,
+				C47CD3DA28A0077C000C5AEE /* nfsrvTests */,
 				D6354A2D1FA3CCBC00AACC99 /* Products */,
 				D6354B391FA3D25900AACC99 /* Frameworks */,
 			);
@@ -886,6 +996,7 @@
 				C47BB90A25C1BE3700DB38E2 /* libmountnfs.a */,
 				C47BB91325C1BE8A00DB38E2 /* nfsclntTests.xctest */,
 				C4B26E57270C564600F021F8 /* nfs.kext */,
+				C47CD3D928A0077C000C5AEE /* nfsrvTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1050,6 +1161,8 @@
 		D6354B391FA3D25900AACC99 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C43BE1E728CA3AF4003E2CD5 /* oncrpc.framework */,
+				C43BE1C728CA29F2003E2CD5 /* libutil.tbd */,
 				C47BB97925C1BFD000DB38E2 /* IOKit.framework */,
 				C47BB96625C1BFCC00DB38E2 /* libutil.tbd */,
 				C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */,
@@ -1152,6 +1265,24 @@
 			name = nfsclntTests;
 			productName = nfsclntTests_mount;
 			productReference = C47BB91325C1BE8A00DB38E2 /* nfsclntTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		C47CD3D828A0077C000C5AEE /* nfsrvTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C47CD3E028A0077C000C5AEE /* Build configuration list for PBXNativeTarget "nfsrvTests" */;
+			buildPhases = (
+				C47CD3D528A0077C000C5AEE /* Sources */,
+				C47CD3D628A0077C000C5AEE /* Frameworks */,
+				C47CD3D728A0077C000C5AEE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C43BE1C328CA29C4003E2CD5 /* PBXTargetDependency */,
+			);
+			name = nfsrvTests;
+			productName = nfsrvTests;
+			productReference = C47CD3D928A0077C000C5AEE /* nfsrvTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		C4B26E56270C564600F021F8 /* kext */ = {
@@ -1403,6 +1534,9 @@
 						CreatedOnToolsVersion = 12.4;
 						ProvisioningStyle = Automatic;
 					};
+					C47CD3D828A0077C000C5AEE = {
+						CreatedOnToolsVersion = 13.3;
+					};
 					C4B26E56270C564600F021F8 = {
 						CreatedOnToolsVersion = 13.2;
 						ProvisioningStyle = Automatic;
@@ -1500,6 +1634,7 @@
 				C4B26E56270C564600F021F8 /* kext */,
 				C47BB90925C1BE3700DB38E2 /* libmountnfs */,
 				C47BB91225C1BE8A00DB38E2 /* nfsclntTests */,
+				C47CD3D828A0077C000C5AEE /* nfsrvTests */,
 			);
 		};
 /* End PBXProject section */
@@ -1509,6 +1644,15 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C47CD3D728A0077C000C5AEE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C455A5D228A010A3002BEE04 /* mountd_rpc.x in Resources */,
+				C43BE1D128CA3680003E2CD5 /* nfs_prot.x in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1580,6 +1724,26 @@
 			files = (
 				C47BB93125C1BEEE00DB38E2 /* nfsclntTests_utils.m in Sources */,
 				C47BB91625C1BE8A00DB38E2 /* nfsclntTests.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C47CD3D528A0077C000C5AEE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C43BE1C428CA29D1003E2CD5 /* lockd_mach.defs in Sources */,
+				C43BE1C928CA2BF4003E2CD5 /* mountd.c in Sources */,
+				C43BE1C528CA29D8003E2CD5 /* nfsd.c in Sources */,
+				C40C69E928DB4EB4009ED87A /* replyCache_nfsrvTests.m in Sources */,
+				C43BE1C128CA29B8003E2CD5 /* main.c in Sources */,
+				C4083BDF28CF4F4400E6D40C /* nfs_prot_rpc.m in Sources */,
+				C49F374629056FC400F263B7 /* configuration_nfsrvTests.m in Sources */,
+				C43BE1D728CA370C003E2CD5 /* nfs_prot_xdr.c in Sources */,
+				C43BE1D828CA370C003E2CD5 /* nfs_prot_clnt.c in Sources */,
+				C43BE1CF28CA34D3003E2CD5 /* nfs_prot_nfsrvTests.m in Sources */,
+				C455A5D928A01213002BEE04 /* mountd_rpc_xdr.c in Sources */,
+				C455A5D828A01213002BEE04 /* mountd_rpc_clnt.c in Sources */,
+				C47CD3DC28A0077C000C5AEE /* mountd_nfsrvTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1723,6 +1887,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		C43BE1C328CA29C4003E2CD5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A701FA3CEAB00AACC99 /* nfsd */;
+			targetProxy = C43BE1C228CA29C4003E2CD5 /* PBXContainerItemProxy */;
+		};
 		C47BB91A25C1BE8A00DB38E2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C47BB90925C1BE3700DB38E2 /* libmountnfs */;
@@ -1896,7 +2065,6 @@
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "Liran.nfsclntTests-mount";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
@@ -1922,7 +2090,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "Liran.nfsclntTests-mount";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
@@ -1948,9 +2115,76 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "Liran.nfsclntTests-mount";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+			};
+			name = Release;
+		};
+		C47CD3E128A0077C000C5AEE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.5;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+			};
+			name = Debug;
+		};
+		C47CD3E228A0077C000C5AEE /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.5;
+				MARKETING_VERSION = 1.0;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+			};
+			name = Coverage;
+		};
+		C47CD3E328A0077C000C5AEE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.5;
+				MARKETING_VERSION = 1.0;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -2152,7 +2386,7 @@
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				WARNING_CFLAGS = (
 					"-Wformat-nonliteral",
-					"-Warray-bounds-pointer-arithmetic",
+					"-Werror=array-bounds-pointer-arithmetic",
 					"-Werror=misleading-indentation",
 				);
 			};
@@ -2224,7 +2458,7 @@
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				WARNING_CFLAGS = (
 					"-Wformat-nonliteral",
-					"-Warray-bounds-pointer-arithmetic",
+					"-Werror=array-bounds-pointer-arithmetic",
 					"-Werror=misleading-indentation",
 				);
 			};
@@ -2658,7 +2892,7 @@
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				WARNING_CFLAGS = (
 					"-Wformat-nonliteral",
-					"-Warray-bounds-pointer-arithmetic",
+					"-Werror=array-bounds-pointer-arithmetic",
 					"-Werror=misleading-indentation",
 				);
 			};
@@ -2847,6 +3081,16 @@
 				C47BB91C25C1BE8A00DB38E2 /* Debug */,
 				C47BB91D25C1BE8A00DB38E2 /* Coverage */,
 				C47BB91E25C1BE8A00DB38E2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C47CD3E028A0077C000C5AEE /* Build configuration list for PBXNativeTarget "nfsrvTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C47CD3E128A0077C000C5AEE /* Debug */,
+				C47CD3E228A0077C000C5AEE /* Coverage */,
+				C47CD3E328A0077C000C5AEE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

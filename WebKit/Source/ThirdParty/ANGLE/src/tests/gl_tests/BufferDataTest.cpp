@@ -885,7 +885,14 @@ void main()
 
     EXPECT_PIXEL_COLOR_EQ(1, 1, GLColor::red);
     EXPECT_PIXEL_COLOR_EQ(1, 3, GLColor::red);
-    EXPECT_PIXEL_COLOR_EQ(3, 3, GLColor::green);
+
+    // The result below is undefined. The glBufferData at the top puts
+    // [red, red, red, ..., zero, zero, zero, ...]
+    // in the buffer and the glMap,glUnmap tries to overwrite the zeros with green
+    // but because UNSYNCHRONIZED was passed in there's no guarantee those
+    // zeros have been written yet. If they haven't they'll overwrite the
+    // greens.
+    // EXPECT_PIXEL_COLOR_EQ(3, 3, GLColor::green);
 }
 
 // Verify that we can map and write the buffer between draws and the second draw sees the new buffer
@@ -977,6 +984,40 @@ TEST_P(BufferDataTest, BufferSizeValidation32Bit)
     GLubyte data = 0;
     glBufferSubData(GL_ARRAY_BUFFER, std::numeric_limits<uint32_t>::max(), 1, &data);
     EXPECT_GL_ERROR(GL_INVALID_VALUE);
+}
+
+// Some drivers generate errors when array buffer bindings are left mapped during draw calls.
+// crbug.com/1345777
+TEST_P(BufferDataTestES3, GLDriverErrorWhenMappingArrayBuffersDuringDraw)
+{
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    ASSERT_NE(program, 0u);
+
+    glUseProgram(program);
+
+    auto quadVertices = GetQuadVertices();
+
+    GLBuffer vb;
+    glBindBuffer(GL_ARRAY_BUFFER, vb.get());
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * quadVertices.size(), quadVertices.data(),
+                 GL_STATIC_DRAW);
+
+    GLint positionLocation = glGetAttribLocation(program, essl3_shaders::PositionAttrib());
+    ASSERT_NE(-1, positionLocation);
+    glVertexAttribPointer(positionLocation, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glEnableVertexAttribArray(positionLocation);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    EXPECT_GL_NO_ERROR();
+
+    GLBuffer pb;
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pb);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, 1024, nullptr, GL_STREAM_DRAW);
+    glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, 1024, GL_MAP_WRITE_BIT);
+    EXPECT_GL_NO_ERROR();
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    EXPECT_GL_NO_ERROR();
 }
 
 // Tests a null crash bug caused by copying from null back-end buffer pointer
@@ -1195,6 +1236,38 @@ TEST_P(BufferDataTestES3, BufferDataWithNullFollowedByMap)
     EXPECT_PIXEL_COLOR_EQ(1, 1, GLColor::red);
     EXPECT_PIXEL_COLOR_EQ(getWindowWidth() - 1, getWindowHeight() - 1, GLColor::black);
     EXPECT_GL_NO_ERROR();
+}
+
+// Test glFenceSync call breaks renderPass followed by glCopyBufferSubData that read access the same
+// buffer that renderPass reads. There was a bug that this triggers assertion angleproject.com/7903.
+TEST_P(BufferDataTestES3, bufferReadFromRenderPassAndOutsideRenderPassWithFenceSyncInBetween)
+{
+    glUseProgram(mProgram);
+    glBindBuffer(GL_ARRAY_BUFFER, mBuffer);
+    std::vector<GLfloat> data(6, 1.0f);
+    GLsizei bufferSize = sizeof(GLfloat) * data.size();
+    glBufferData(GL_ARRAY_BUFFER, bufferSize, data.data(), GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(mAttribLocation, 1, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glEnableVertexAttribArray(mAttribLocation);
+    glScissor(0, 0, getWindowWidth() / 2, getWindowHeight());
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+
+    GLsync sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    EXPECT_GL_NO_ERROR();
+
+    GLBuffer dstBuffer;
+    glBindBuffer(GL_COPY_WRITE_BUFFER, dstBuffer);
+    glBufferData(GL_COPY_WRITE_BUFFER, bufferSize, nullptr, GL_STATIC_DRAW);
+    glCopyBufferSubData(GL_ARRAY_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, bufferSize);
+
+    glBindBuffer(GL_ARRAY_BUFFER, dstBuffer);
+    glScissor(getWindowWidth() / 2, 0, getWindowWidth() / 2, getWindowHeight());
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, GL_TIMEOUT_IGNORED);
+    EXPECT_PIXEL_COLOR_EQ(1, 1, GLColor::red);
+    EXPECT_PIXEL_COLOR_EQ(getWindowWidth() - 1, getWindowHeight() - 1, GLColor::red);
 }
 
 class BufferStorageTestES3 : public BufferDataTest
@@ -1910,7 +1983,8 @@ ANGLE_INSTANTIATE_TEST_ES3_AND(BufferSubDataTest,
                                ES3_VULKAN().enable(Feature::PreferCPUForBufferSubData));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(BufferDataTestES3);
-ANGLE_INSTANTIATE_TEST_ES3(BufferDataTestES3);
+ANGLE_INSTANTIATE_TEST_ES3_AND(BufferDataTestES3,
+                               ES3_METAL().enable(Feature::ForceBufferGPUStorage));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(BufferStorageTestES3);
 ANGLE_INSTANTIATE_TEST_ES3(BufferStorageTestES3);

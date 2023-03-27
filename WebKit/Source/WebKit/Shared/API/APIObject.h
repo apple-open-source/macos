@@ -39,10 +39,6 @@
 
 #define DELEGATE_REF_COUNTING_TO_COCOA PLATFORM(COCOA)
 
-#if DELEGATE_REF_COUNTING_TO_COCOA
-OBJC_CLASS NSObject;
-#endif
-
 namespace API {
 
 class Object
@@ -113,13 +109,15 @@ public:
 #if PLATFORM(IOS_FAMILY)
         ContextMenuElementInfo,
 #endif
+#if PLATFORM(MAC)
+        ContextMenuElementInfoMac,
+#endif
         ContextMenuListener,
         CustomHeaderFields,
-        InternalDebugFeature,
         DataTask,
         DebuggableInfo,
         Download,
-        ExperimentalFeature,
+        Feature,
         FormSubmissionListener,
         Frame,
         FrameInfo,
@@ -175,6 +173,13 @@ public:
         UserMediaPermissionRequest,
         ViewportAttributes,
         VisitedLinkStore,
+#if ENABLE(WK_WEB_EXTENSIONS)
+        WebExtension,
+        WebExtensionContext,
+        WebExtensionController,
+        WebExtensionControllerConfiguration,
+        WebExtensionMatchPattern,
+#endif
         WebResourceLoadStatisticsManager,
         WebsiteDataRecord,
         WebsiteDataStore,
@@ -199,7 +204,6 @@ public:
         BundleFrame,
         BundleHitTestResult,
         BundleInspector,
-        BundleNavigationAction,
         BundleNodeHandle,
         BundlePage,
         BundlePageBanner,
@@ -226,14 +230,14 @@ public:
 #if DELEGATE_REF_COUNTING_TO_COCOA
 #ifdef __OBJC__
     template<typename T, typename... Args>
-    static void constructInWrapper(NSObject <WKObject> *wrapper, Args&&... args)
+    static void constructInWrapper(id <WKObject> wrapper, Args&&... args)
     {
         Object* object = new (&wrapper._apiObject) T(std::forward<Args>(args)...);
-        object->m_wrapper = wrapper;
+        object->m_wrapper = (__bridge CFTypeRef)wrapper;
     }
-#endif
 
-    NSObject *wrapper() const { return m_wrapper; }
+    id <WKObject> wrapper() const { return (__bridge id <WKObject>)m_wrapper; }
+#endif
 
     void ref() const;
     void deref() const;
@@ -256,7 +260,7 @@ private:
     // Derived classes must override operator new and call newObject().
     void* operator new(size_t) = delete;
 
-    NSObject *m_wrapper;
+    CFTypeRef m_wrapper;
 #endif // DELEGATE_REF_COUNTING_TO_COCOA
 };
 
@@ -362,13 +366,15 @@ template<> struct EnumTraits<API::Object::Type> {
 #if PLATFORM(IOS_FAMILY)
         API::Object::Type::ContextMenuElementInfo,
 #endif
+#if PLATFORM(MAC)
+        API::Object::Type::ContextMenuElementInfoMac,
+#endif
         API::Object::Type::ContextMenuListener,
         API::Object::Type::CustomHeaderFields,
-        API::Object::Type::InternalDebugFeature,
         API::Object::Type::DataTask,
         API::Object::Type::DebuggableInfo,
         API::Object::Type::Download,
-        API::Object::Type::ExperimentalFeature,
+        API::Object::Type::Feature,
         API::Object::Type::FormSubmissionListener,
         API::Object::Type::Frame,
         API::Object::Type::FrameInfo,
@@ -424,6 +430,13 @@ template<> struct EnumTraits<API::Object::Type> {
         API::Object::Type::UserMediaPermissionRequest,
         API::Object::Type::ViewportAttributes,
         API::Object::Type::VisitedLinkStore,
+#if ENABLE(WK_WEB_EXTENSIONS)
+        API::Object::Type::WebExtension,
+        API::Object::Type::WebExtensionContext,
+        API::Object::Type::WebExtensionController,
+        API::Object::Type::WebExtensionControllerConfiguration,
+        API::Object::Type::WebExtensionMatchPattern,
+#endif
         API::Object::Type::WebResourceLoadStatisticsManager,
         API::Object::Type::WebsiteDataRecord,
         API::Object::Type::WebsiteDataStore,
@@ -447,7 +460,6 @@ template<> struct EnumTraits<API::Object::Type> {
         API::Object::Type::BundleFrame,
         API::Object::Type::BundleHitTestResult,
         API::Object::Type::BundleInspector,
-        API::Object::Type::BundleNavigationAction,
         API::Object::Type::BundleNodeHandle,
         API::Object::Type::BundlePage,
         API::Object::Type::BundlePageBanner,

@@ -90,7 +90,7 @@ struct _WebKitWebInspectorPrivate {
     bool canAttach;
 };
 
-WEBKIT_DEFINE_TYPE(WebKitWebInspector, webkit_web_inspector, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitWebInspector, webkit_web_inspector, G_TYPE_OBJECT)
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
@@ -126,8 +126,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* findClass)
     sObjProperties[PROP_INSPECTED_URI] =
         g_param_spec_string(
             "inspected-uri",
-            _("Inspected URI"),
-            _("The URI that is currently being inspected"),
+            nullptr, nullptr,
             nullptr,
             WEBKIT_PARAM_READABLE);
     /**
@@ -138,8 +137,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* findClass)
     sObjProperties[PROP_ATTACHED_HEIGHT] =
         g_param_spec_uint(
             "attached-height",
-            _("Attached Height"),
-            _("The height that the inspector view should have when it is attached"),
+            nullptr, nullptr,
             0, G_MAXUINT, 0,
             WEBKIT_PARAM_READABLE);
 
@@ -154,8 +152,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* findClass)
     sObjProperties[PROP_CAN_ATTACH] =
         g_param_spec_boolean(
             "can-attach",
-            _("Can Attach"),
-            _("Whether the inspector can be attached to the same window that contains the inspected view"),
+            nullptr, nullptr,
             FALSE,
             WEBKIT_PARAM_READABLE);
 
@@ -371,6 +368,7 @@ WebKitWebInspector* webkitWebInspectorCreate(WebInspectorUIProxy* webInspector)
  * @inspector: a #WebKitWebInspector
  *
  * Get the #WebKitWebViewBase used to display the inspector.
+ *
  * This might be %NULL if the inspector hasn't been loaded yet,
  * or it has been closed.
  *
@@ -387,7 +385,9 @@ WebKitWebViewBase* webkit_web_inspector_get_web_view(WebKitWebInspector* inspect
  * webkit_web_inspector_get_inspected_uri:
  * @inspector: a #WebKitWebInspector
  *
- * Get the URI that is currently being inspected. This can be %NULL if
+ * Get the URI that is currently being inspected.
+ *
+ * This can be %NULL if
  * nothing has been loaded yet in the inspected view, if the inspector
  * has been closed or when inspected view was loaded from a HTML string
  * instead of a URI.
@@ -440,7 +440,9 @@ gboolean webkit_web_inspector_is_attached(WebKitWebInspector* inspector)
  * webkit_web_inspector_attach:
  * @inspector: a #WebKitWebInspector
  *
- * Request @inspector to be attached. The signal #WebKitWebInspector::attach
+ * Request @inspector to be attached.
+ *
+ * The signal #WebKitWebInspector::attach
  * will be emitted. If the inspector is already attached it does nothing.
  */
 void webkit_web_inspector_attach(WebKitWebInspector* inspector)
@@ -456,7 +458,9 @@ void webkit_web_inspector_attach(WebKitWebInspector* inspector)
  * webkit_web_inspector_detach:
  * @inspector: a #WebKitWebInspector
  *
- * Request @inspector to be detached. The signal #WebKitWebInspector::detach
+ * Request @inspector to be detached.
+ *
+ * The signal #WebKitWebInspector::detach
  * will be emitted. If the inspector is already detached it does nothing.
  */
 void webkit_web_inspector_detach(WebKitWebInspector* inspector)
@@ -497,6 +501,8 @@ void webkit_web_inspector_close(WebKitWebInspector* inspector)
 /**
  * webkit_web_inspector_get_attached_height:
  * @inspector: a #WebKitWebInspector
+ *
+ * Get the height that the inspector view when attached.
  *
  * Get the height that the inspector view should have when
  * it's attached. If the inspector view is not attached this

@@ -36,7 +36,7 @@
 #include <WebCore/StoredCredentialsPolicy.h>
 #include <pal/SessionID.h>
 #include <wtf/CompletionHandler.h>
-#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -85,7 +85,7 @@ public:
     virtual ~NetworkDataTaskClient() { }
 };
 
-class NetworkDataTask : public ThreadSafeRefCounted<NetworkDataTask, WTF::DestructionThread::Main>, public CanMakeWeakPtr<NetworkDataTask> {
+class NetworkDataTask : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<NetworkDataTask, WTF::DestructionThread::Main> {
 public:
     static Ref<NetworkDataTask> create(NetworkSession&, NetworkDataTaskClient&, const NetworkLoadParameters&);
 
@@ -140,8 +140,13 @@ public:
     virtual void setPriority(WebCore::ResourceLoadPriority) { }
     String attributedBundleIdentifier(WebPageProxyIdentifier);
 
+#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+    virtual void setEmulatedConditions(const std::optional<int64_t>& /* bytesPerSecondLimit */) { }
+#endif
+
     PAL::SessionID sessionID() const;
 
+    const NetworkSession* networkSession() const;
     NetworkSession* networkSession();
 
 protected:
@@ -155,7 +160,6 @@ protected:
     };
     void scheduleFailure(FailureType);
 
-    bool isThirdPartyRequest(const WebCore::ResourceRequest&) const;
     void restrictRequestReferrerToOriginIfNeeded(WebCore::ResourceRequest&);
 
     WeakPtr<NetworkSession> m_session;

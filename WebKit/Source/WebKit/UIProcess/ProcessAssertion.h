@@ -28,20 +28,19 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/Function.h>
 #include <wtf/ProcessID.h>
-#include <wtf/ThreadSafeRefCounted.h>
-#include <wtf/WeakPtr.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 #if !OS(WINDOWS)
 #include <unistd.h>
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if USE(RUNNINGBOARD)
 #include <wtf/RetainPtr.h>
 
 OBJC_CLASS RBSAssertion;
 OBJC_CLASS WKRBSAssertionDelegate;
-#endif // PLATFORM(IOS_FAMILY)
+#endif // USE(RUNNINGBOARD)
 
 namespace WebKit {
 
@@ -54,7 +53,9 @@ enum class ProcessAssertionType {
     FinishTaskInterruptable,
 };
 
-class ProcessAssertion : public ThreadSafeRefCounted<ProcessAssertion>, public CanMakeWeakPtr<ProcessAssertion, WeakPtrFactoryInitialization::Eager> {
+ASCIILiteral processAssertionTypeDescription(ProcessAssertionType);
+
+class ProcessAssertion : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ProcessAssertion> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     enum class Mode : bool { Sync, Async };
@@ -87,7 +88,7 @@ protected:
     void acquireAsync(CompletionHandler<void()>&&);
     void acquireSync();
 
-#if PLATFORM(IOS_FAMILY)
+#if USE(RUNNINGBOARD)
     void processAssertionWillBeInvalidated();
     virtual void processAssertionWasInvalidated();
 #endif
@@ -96,7 +97,7 @@ private:
     const ProcessAssertionType m_assertionType;
     const ProcessID m_pid;
     const String m_reason;
-#if PLATFORM(IOS_FAMILY)
+#if USE(RUNNINGBOARD)
     RetainPtr<RBSAssertion> m_rbsAssertion;
     RetainPtr<WKRBSAssertionDelegate> m_delegate;
     bool m_wasInvalidated { false };

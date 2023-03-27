@@ -38,11 +38,16 @@
 #include <wtf/RobinHoodHashMap.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
+#include <wtf/threads/BinarySemaphore.h>
 
 OBJC_CLASS AVSampleBufferAudioRenderer;
 OBJC_CLASS AVSampleBufferDisplayLayer;
 
 typedef struct __CVBuffer *CVPixelBufferRef;
+
+namespace WTF {
+class WorkQueue;
+}
 
 namespace WebCore {
 
@@ -134,6 +139,7 @@ private:
     void updateBufferedFromTrackBuffers(bool);
     void updateDurationFromTrackBuffers();
 
+    void setLoadingProgresssed(bool);
     bool didLoadingProgress() const final;
 
     RefPtr<NativeImage> nativeImageForCurrentTime() final;
@@ -192,6 +198,7 @@ private:
 
     bool isReadyForMoreSamples(uint64_t);
     void didBecomeReadyForMoreSamples(uint64_t);
+    void appendCompleted();
     void provideMediaData(uint64_t);
     void provideMediaData(TrackBuffer&, uint64_t);
 
@@ -205,6 +212,7 @@ private:
 
     void append(SharedBuffer&);
     void abort();
+    void resetParserState();
 
     void flush();
 #if PLATFORM(IOS_FAMILY)
@@ -226,6 +234,8 @@ private:
     void destroyAudioRenderer(RetainPtr<AVSampleBufferAudioRenderer>);
     void destroyAudioRenderers();
     void clearTracks();
+        
+    void registerNotifyWhenHasAvailableVideoFrame();
         
     void startVideoFrameMetadataGathering() final;
     void stopVideoFrameMetadataGathering() final;
@@ -261,6 +271,7 @@ private:
     RetainPtr<AVSampleBufferDisplayLayer> m_displayLayer;
     HashMap<uint64_t, RetainPtr<AVSampleBufferAudioRenderer>, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_audioRenderers;
     Ref<SourceBufferParserWebM> m_parser;
+    const Ref<WTF::WorkQueue> m_appendQueue;
 
     MediaPlayer::NetworkState m_networkState { MediaPlayer::NetworkState::Empty };
     MediaPlayer::ReadyState m_readyState { MediaPlayer::ReadyState::HaveNothing };
@@ -281,6 +292,7 @@ private:
     uint64_t m_lastConvertedSampleCount { 0 };
     uint64_t m_sampleCount { 0 };
     ProcessIdentity m_resourceOwner;
+    std::unique_ptr<BinarySemaphore> m_hasAvailableVideoFrameSemaphore;
 
     FloatSize m_naturalSize;
     MediaTime m_currentTime;
@@ -288,7 +300,8 @@ private:
     double m_rate { 1 };
 
     uint64_t m_enabledVideoTrackID { notFound };
-    uint32_t m_abortCalled { 0 };
+    std::atomic<uint32_t> m_abortCalled { 0 };
+    uint32_t m_pendingAppends { 0 };
 #if PLATFORM(IOS_FAMILY)
     bool m_displayLayerWasInterrupted { false };
 #endif
@@ -297,6 +310,8 @@ private:
     bool m_hasAvailableVideoFrame { false };
     bool m_seeking { false };
     bool m_visible { false };
+    bool m_loadingProgressed { false };
+    bool m_loadFinished { false };
     bool m_parsingSucceeded { true };
     bool m_processingInitializationSegment { false };
 };

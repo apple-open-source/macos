@@ -26,15 +26,14 @@
 #include "config.h"
 #include "FlexLayout.h"
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
+#include "FlexFormattingContext.h"
 #include "FlexRect.h"
 #include "LayoutContext.h"
 
 namespace WebCore {
 namespace Layout {
 
-FlexLayout::FlexLayout(const ContainerBox& flexBox)
+FlexLayout::FlexLayout(const ElementBox& flexBox)
     : m_flexBox(flexBox)
 {
 }
@@ -172,7 +171,7 @@ void FlexLayout::computeLogicalWidthForShrinkingFlexItems(const LogicalFlexItems
         for (size_t index = 0; index < shrinkingItems.size(); ++index) {
             auto& shirinkingFlex = shrinkingItems[index];
             auto flexedSize = LayoutUnit { shirinkingFlex.flexItem.flexBasis() - (shirinkingFlex.flexShrink * flexShrinkBase) };
-            flexRects[lineRange.begin() + index].setWidth(std::max(shirinkingFlex.flexItem.minimumSize(), flexedSize));
+            flexRects[lineRange.begin() + index]().setWidth(std::max(shirinkingFlex.flexItem.minimumSize(), flexedSize));
         }
     };
     computeLogicalWidth();
@@ -244,11 +243,11 @@ void FlexLayout::computeLogicalWidthForStretchingFlexItems(const LogicalFlexItem
         for (size_t index = 0; index < resolvedItems.size(); ++index) {
             auto& resolvedFlexItem = resolvedItems[index];
             if (resolvedFlexItem.frozenSize) {
-                flexRects[lineRange.begin() + index].setWidth(*resolvedFlexItem.frozenSize);
+                flexRects[lineRange.begin() + index]().setWidth(*resolvedFlexItem.frozenSize);
                 continue;
             }
             auto flexedSize = LayoutUnit { resolvedFlexItem.logicalFlexItem.flexBasis() + (resolvedFlexItem.flexGrow * flexGrowBase) };
-            flexRects[lineRange.begin() + index].setWidth(flexedSize);
+            flexRects[lineRange.begin() + index]().setWidth(flexedSize);
         }
     };
     computeLogicalWidth();
@@ -268,7 +267,7 @@ void FlexLayout::computeLogicalWidthForFlexItems(const LogicalFlexItems& flexIte
         computeLogicalWidthForShrinkingFlexItems(flexItems, lineRange, availableSpace, flexRects);
     else {
         for (size_t index = lineRange.begin(); index < lineRange.end(); ++index)
-            flexRects[index].setWidth(flexItems[index].width());
+            flexRects[index]().setWidth(flexItems[index].width());
     }
 }
 
@@ -279,7 +278,7 @@ void FlexLayout::computeLogicalHeightForFlexItems(const LogicalFlexItems& flexIt
     for (size_t index = lineRange.begin(); index < lineRange.end(); ++index) {
         auto& flexItem = flexItems[index];
         if (!flexItem.isHeightAuto()) {
-            flexRects[index].setHeight(flexItem.height());
+            flexRects[index]().setHeight(flexItem.height());
             continue;
         }
         auto& flexItemAlignSelf = flexItem.style().alignSelf();
@@ -287,19 +286,88 @@ void FlexLayout::computeLogicalHeightForFlexItems(const LogicalFlexItems& flexIt
         switch (alignValue.position()) {
         case ItemPosition::Normal:
         case ItemPosition::Stretch:
-            flexRects[index].setHeight(availableSpace);
+            flexRects[index]().setHeight(availableSpace);
             break;
         case ItemPosition::Center:
         case ItemPosition::Start:
         case ItemPosition::FlexStart:
         case ItemPosition::End:
         case ItemPosition::FlexEnd:
-            flexRects[index].setHeight(flexItem.height());
+            flexRects[index]().setHeight(flexItem.height());
             break;
         default:
             ASSERT_NOT_IMPLEMENTED_YET();
             break;
         }
+    }
+}
+
+void FlexLayout::distributeMarginAutoInMainAxis(const LogicalFlexItems& flexItems, const LineRange& lineRange, LayoutUnit availableSpace, LogicalFlexItemRects& flexRects)
+{
+    if (availableSpace <= 0)
+        return;
+
+    Vector<size_t> boxesWithMarginAuto;
+    boxesWithMarginAuto.reserveInitialCapacity(flexItems.size());
+
+    auto logicalWidth = LayoutUnit { };
+    size_t autoMarginCount = 0;
+    for (size_t index = lineRange.begin(); index < lineRange.end(); ++index) {
+        auto& flexItem = flexItems[index];
+
+        if (flexItem.hasAutoMarginLeft() || flexItem.hasAutoMarginRight()) {
+            if (flexItem.hasAutoMarginLeft())
+                ++autoMarginCount;
+            if (flexItem.hasAutoMarginRight())
+                ++autoMarginCount;
+            boxesWithMarginAuto.append(index);
+        }
+        logicalWidth += flexRects[index]().width();
+    }
+
+    if (!autoMarginCount) {
+        ASSERT(boxesWithMarginAuto.isEmpty());
+        return;
+    }
+
+    auto extraMargin = std::max(0_lu, availableSpace - logicalWidth) / autoMarginCount;
+    if (!extraMargin)
+        return;
+
+    for (auto index : boxesWithMarginAuto) {
+        auto& flexRect = flexRects[index];
+        auto& flexItem = flexItems[index];
+
+        if (flexItem.hasAutoMarginLeft())
+            flexRect.autoMargin.left = extraMargin;
+        if (flexItem.hasAutoMarginRight())
+            flexRect.autoMargin.right = extraMargin;
+        flexRect.marginRect.setWidth(flexRect.marginRect.width() + flexRect.autoMargin.left.value_or(0_lu) + flexRect.autoMargin.right.value_or(0_lu));
+    }
+}
+
+void FlexLayout::distributeMarginAutoInCrossAxis(const LogicalFlexItems& flexItems, const LineRange& lineRange, LayoutUnit availableSpace, LogicalFlexItemRects& flexRects)
+{
+    if (availableSpace <= 0)
+        return;
+
+    for (size_t index = lineRange.begin(); index < lineRange.end(); ++index) {
+        auto& flexItem = flexItems[index];
+        auto& flexRect = flexRects[index];
+
+        auto hasAutoMarginTop = flexItem.hasAutoMarginTop();
+        auto hasAutoMarginBottom = flexItem.hasAutoMarginBottom();
+        if (hasAutoMarginTop && hasAutoMarginBottom) {
+            auto marginValue = std::max(0_lu, (availableSpace - flexRect.marginRect.height()) / 2);
+            flexRect.autoMargin.top = marginValue;
+            flexRect.autoMargin.bottom = marginValue;
+        } else if (hasAutoMarginTop)
+            flexRect.autoMargin.top = std::max(0_lu, availableSpace - flexRect.marginRect.height());
+        else if (hasAutoMarginBottom)
+            flexRect.autoMargin.bottom = std::max(0_lu, availableSpace - flexRect.marginRect.height());
+        else
+            continue;
+        flexRect.marginRect.setHeight(flexRect.marginRect.height() + flexRect.autoMargin.top.value_or(0_lu) + flexRect.autoMargin.bottom.value_or(0_lu));
     }
 }
 
@@ -317,18 +385,18 @@ void FlexLayout::alignFlexItems(const LogicalFlexItems& flexItems, const LineRan
         switch (alignValue.position()) {
         case ItemPosition::Normal:
         case ItemPosition::Stretch:
-            flexRects[index].setTop(lineTop);
+            flexRects[index]().setTop(lineTop);
             break;
         case ItemPosition::Center:
-            flexRects[index].setTop({ lineTop + (availableSpace / 2 -  flexItem.height() / 2) });
+            flexRects[index]().setTop({ lineTop + (availableSpace / 2 -  flexItem.height() / 2) });
             break;
         case ItemPosition::Start:
         case ItemPosition::FlexStart:
-            flexRects[index].setTop(lineTop);
+            flexRects[index]().setTop(lineTop);
             break;
         case ItemPosition::End:
         case ItemPosition::FlexEnd:
-            flexRects[index].setTop({ lineTop + availableSpace - flexItem.height() });
+            flexRects[index]().setTop({ lineTop + availableSpace - flexItem.height() });
             break;
         default:
             ASSERT_NOT_IMPLEMENTED_YET();
@@ -370,7 +438,7 @@ void FlexLayout::justifyFlexItems(const LogicalFlexItems& flexItems, const LineR
 
         auto positionalAlignment = [&] {
             auto positionalAlignmentValue = justifyContent.position();
-            if (!FlexFormattingGeometry::isMainAxisParallelWithInlineAxes(flexBox()) && (positionalAlignmentValue == ContentPosition::Left || positionalAlignmentValue == ContentPosition::Right))
+            if (!FlexFormattingGeometry::isMainAxisParallelWithInlineAxis(flexBox()) && (positionalAlignmentValue == ContentPosition::Left || positionalAlignmentValue == ContentPosition::Right))
                 positionalAlignmentValue = ContentPosition::Start;
             return positionalAlignmentValue;
         };
@@ -426,8 +494,8 @@ void FlexLayout::justifyFlexItems(const LogicalFlexItems& flexItems, const LineR
     auto logicalLeft = initialOffset();
     auto gap = gapBetweenItems();
     for (size_t index = lineRange.begin(); index < lineRange.end(); ++index) {
-        flexRects[index].setLeft(logicalLeft);
-        logicalLeft = flexRects[index].right() + gap;
+        flexRects[index]().setLeft(logicalLeft);
+        logicalLeft = flexRects[index]().right() + gap;
     }
 }
 
@@ -446,6 +514,7 @@ FlexLayout::LogicalFlexItemRects FlexLayout::layout(const LogicalConstraints& co
 
         auto performMainAxisLayout = [&] {
             computeLogicalWidthForFlexItems(flexItems, lineRange, availableLogicalHorizontalSpace, flexRects);
+            distributeMarginAutoInMainAxis(flexItems, lineRange, availableLogicalHorizontalSpace, flexRects);
             justifyFlexItems(flexItems, lineRange, availableLogicalHorizontalSpace, flexRects);
         };
         performMainAxisLayout();
@@ -453,6 +522,7 @@ FlexLayout::LogicalFlexItemRects FlexLayout::layout(const LogicalConstraints& co
         auto performCrossAxisLayout = [&] {
             auto availableLogicalVerticalSpace = lineHeightList[index];
             computeLogicalHeightForFlexItems(flexItems, lineRange, availableLogicalVerticalSpace, flexRects);
+            distributeMarginAutoInCrossAxis(flexItems, lineRange, availableLogicalVerticalSpace, flexRects);
             alignFlexItems(flexItems, lineRange, { lineTop, availableLogicalVerticalSpace }, flexRects);
             lineTop += availableLogicalVerticalSpace;
         };
@@ -464,4 +534,3 @@ FlexLayout::LogicalFlexItemRects FlexLayout::layout(const LogicalConstraints& co
 }
 }
 
-#endif

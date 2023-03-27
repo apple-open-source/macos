@@ -4,7 +4,7 @@ PHYS_VLAN=${PHYS_VLAN:=en8}
 MEMBER=${MEMBER:=en8}
 NETCONFIG=${NETCONFIG:=/usr/local/bin/netconfig}
 
-commands="add set remove disable enable show create destroy setvlan"
+commands="add set remove disable enable show create destroy setvlan setbridge"
 for cmd in ${commands}
 do
 	echo $cmd
@@ -13,29 +13,46 @@ do
 	echo
 done
 
-ifconfig feth0 || {
-    ifconfig feth0 create || {
-	exit 1
-    }
+
+test_failed()
+{
+    echo Test FAILED
+    exit 1
 }
 
-$NETCONFIG set -i feth0 -N RealFake -D || exit 1
-$NETCONFIG show -S RealFake || exit 1
-$NETCONFIG set -i feth0 -p ipv4 -c manual -A 2.2.2.2 -m 255.255.0.0 -r 2.2.2.1 -p ipv6 -c automatic -p dns -A 2.2.2.1,2.2.2.3 -A 2.2.2.4 -n apple.com -s blah.com,blah.blah.blah.com -s another.com || exit 1
-$NETCONFIG show -S RealFake || exit 1
-$NETCONFIG disable -i feth0 -p ipv4 -p ipv6 -p dns || exit 1
-$NETCONFIG set -i feth0 -D -p ipv4 -c dhcp -C TestClientID -p ipv6 -c manual -A fdcd::2 -r fdcd::1 || exit 1
-$NETCONFIG disable -S RealFake || exit 1
-$NETCONFIG enable -S RealFake || exit 1
-$NETCONFIG remove -S RealFake || exit 1
+ifconfig feth0 || {
+    ifconfig feth0 create || {
+	test_failed
+    }
+}
+$NETCONFIG set -i feth0 -N RealFake -D || test_failed
+$NETCONFIG show -S RealFake || test_failed
+$NETCONFIG set -i feth0 -p ipv4 -c manual -A 2.2.2.2 -m 255.255.0.0 -r 2.2.2.1 -p ipv6 -c automatic -p dns -A 2.2.2.1,2.2.2.3 -A 2.2.2.4 -n apple.com -s blah.com,blah.blah.blah.com -s another.com || test_failed
+$NETCONFIG show -S RealFake || test_failed
+$NETCONFIG disable -i feth0 -p ipv4 -p ipv6 -p dns || test_failed
+$NETCONFIG set -i feth0 -D -p ipv4 -c dhcp -C TestClientID -p ipv6 -c manual -A fdcd::2 -r fdcd::1 || test_failed
+$NETCONFIG disable -S RealFake || test_failed
+$NETCONFIG enable -S RealFake || test_failed
+$NETCONFIG remove -S RealFake || test_failed
 ifconfig feth0 destroy
-$NETCONFIG create -t vlan -I 1234 -P ${PHYS_VLAN} -N MyVLAN -a no || exit 1
-$NETCONFIG add -i vlan0 -N MyVLAN -D || exit 1
-$NETCONFIG show -S MyVLAN || exit 1
-$NETCONFIG setvlan -i MyVLAN -I 1 -P ${PHYS_VLAN} || exit 1
-$NETCONFIG remove -S MyVLAN || exit 1
-$NETCONFIG destroy -t vlan -i MyVLAN || exit 1
-$NETCONFIG create -t bridge -b ${MEMBER} -N MyBridge || exit 1
-$NETCONFIG destroy -t bridge -i MyBridge || exit 1
+$NETCONFIG create -t vlan -I 1234 -P ${PHYS_VLAN} -N MyVLAN -a no || test_failed
+$NETCONFIG add -i vlan0 -N MyVLAN -D || test_failed
+$NETCONFIG show -S MyVLAN || test_failed
+$NETCONFIG setvlan -i MyVLAN -I 1 -P ${PHYS_VLAN} || test_failed
+$NETCONFIG remove -S MyVLAN || test_failed
+$NETCONFIG destroy -t vlan -i MyVLAN || test_failed
+$NETCONFIG create -t bridge -b ${MEMBER} -N MyBridge || test_failed
+$NETCONFIG destroy -t bridge -i MyBridge || test_failed
 
+$NETCONFIG set -i ${MEMBER} -D || test_failed
+$NETCONFIG create -t bridge -b ${MEMBER} -N MyBridge || test_failed
+$NETCONFIG disable -i ${MEMBER} || test_failed
+$NETCONFIG enable -i ${MEMBER} || test_failed
+$NETCONFIG destroy -t bridge -i MyBridge || test_failed
+$NETCONFIG remove -i ${MEMBER} || test_failed
+$NETCONFIG create -t bridge -b ${MEMBER} -N MyBridge || test_failed
+$NETCONFIG set -i ${MEMBER} -D || test_failed
+$NETCONFIG destroy -t bridge -i MyBridge || test_failed
+
+echo Test PASSED
 exit 0

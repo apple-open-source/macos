@@ -126,6 +126,7 @@ enum JSType : uint8_t {
     JSWeakMapType,
     JSWeakSetType,
     WebAssemblyModuleType,
+    WebAssemblyInstanceType,
     // Start StringObjectType types.
     StringObjectType,
     DerivedStringObjectType,
@@ -153,6 +154,11 @@ static_assert(LastJSCObjectType < 0b11100000, "Embedder can use 0b11100000 or up
 inline constexpr bool isTypedArrayType(JSType type)
 {
     return (static_cast<uint32_t>(type) - FirstTypedArrayType) < NumberOfTypedArrayTypesExcludingDataView;
+}
+
+inline constexpr bool isTypedArrayTypeIncludingDataView(JSType type)
+{
+    return (static_cast<uint32_t>(type) - FirstTypedArrayType) < NumberOfTypedArrayTypes;
 }
 
 inline constexpr bool isObjectType(JSType type) { return type >= ObjectType; }

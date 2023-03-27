@@ -39,6 +39,14 @@
             "issue": "http://anglebug.com/5007"
         },
         {
+            "name": "disable_draw_buffers_indexed",
+            "category": "Features",
+            "description": [
+                "Disable support for OES_draw_buffers_indexed and EXT_draw_buffers_indexed"
+            ],
+            "issue": "http://anglebug.com/7724"
+        },
+        {
             "name": "disable_anisotropic_filtering",
             "category": "Workarounds",
             "description": [
@@ -50,6 +58,13 @@
             "category": "Workarounds",
             "description": [
                 "Allow compressed formats"
+            ]
+        },
+        {
+            "name": "single_threaded_texture_decompression",
+            "category": "Workarounds",
+            "description": [
+                "Disables multi-threaded decompression of compressed texture formats"
             ]
         },
         {
@@ -67,14 +82,6 @@
                 "Set the context limits like frame capturing was enabled"
             ],
             "issue": "http://anglebug.com/5750"
-        },
-        {
-            "name": "enable_compressing_pipeline_cache_in_thread_pool",
-            "category": "Workarounds",
-            "description": [
-                "Enable compressing pipeline cache in thread pool."
-            ],
-            "issue": "http://anglebug.com/4722"
         },
         {
             "name": "force_robust_resource_init",
@@ -106,6 +113,38 @@
                 "Force GL error checking (i.e. prevent applications from disabling error checking"
             ],
             "issue": "https://issuetracker.google.com/220069903"
+        },
+        {
+            "name": "emulate_pixel_local_storage",
+            "category": "Features",
+            "description": [
+                "Emulate ANGLE_shader_pixel_local_storage using shader images"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "cache_compiled_shader",
+            "category": "Features",
+            "description": [
+                "Enable to cache compiled shaders"
+            ],
+            "issue": "http://anglebug.com/7036"
+        },
+        {
+            "name": "dump_shader_source",
+            "category": "Features",
+            "description": [
+                "Write shader source to temp directory"
+            ],
+            "issue": "http://anglebug.com/7760"
+        },
+        {
+            "name": "enable_shader_substitution",
+            "category": "Workarounds",
+            "description": [
+                "Check the filesystem for shaders to use instead of those provided through glShaderSource"
+            ],
+            "issue": "http://anglebug.com/7761"
         }
     ]
 }

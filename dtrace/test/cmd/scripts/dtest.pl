@@ -35,6 +35,7 @@ use File::Basename;
 use Getopt::Std;
 use Cwd;
 use Time::HiRes qw(time);
+use Tie::File;
 
 $PNAME = $0;
 $PNAME =~ s:.*/::;
@@ -396,9 +397,16 @@ foreach $file (@files) {
 		next;
 	}
 
-	if (-f "$file.out" && system("cmp -s $file.out $opt_d/$pid.out") != 0) {
-		fail("stdout mismatch", "$pid.out");
-		next;
+	if (-f "$file.out") {
+		# Filter out potential SIP warnings from the output.
+		tie @lines, 'Tie::File', "$opt_d/$pid.out";
+		@lines = grep { !/system integrity protection is on/ } @lines;
+		untie @lines;
+
+		if (system("cmp -s $file.out $opt_d/$pid.out") != 0) {
+			fail("stdout mismatch", "$pid.out");
+			next;
+		}
 	}
 
 	if (-f "$file.err" && system("cmp -s $file.err $opt_d/$pid.err") != 0) {

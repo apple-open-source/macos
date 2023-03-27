@@ -9,7 +9,7 @@
 #ifndef LIBANGLE_PROGRAMEXECUTABLE_H_
 #define LIBANGLE_PROGRAMEXECUTABLE_H_
 
-#include "BinaryStream.h"
+#include "common/BinaryStream.h"
 #include "libANGLE/Caps.h"
 #include "libANGLE/InfoLog.h"
 #include "libANGLE/ProgramLinkedResources.h"
@@ -154,9 +154,9 @@ class ProgramExecutable final : public angle::Subject
         return mActiveAttribLocationsMask;
     }
     bool isAttribLocationActive(size_t attribLocation) const;
-    const AttributesMask &getNonBuiltinAttribLocationsMask() const { return mAttributesMask; }
+    AttributesMask getNonBuiltinAttribLocationsMask() const { return mAttributesMask; }
     unsigned int getMaxActiveAttribLocation() const { return mMaxActiveAttribLocation; }
-    const ComponentTypeMask &getAttributesTypeMask() const { return mAttributesTypeMask; }
+    ComponentTypeMask getAttributesTypeMask() const { return mAttributesTypeMask; }
     AttributesMask getAttributesMask() const;
 
     const ActiveTextureMask &getActiveSamplersMask() const { return mActiveSamplersMask; }
@@ -231,6 +231,8 @@ class ProgramExecutable final : public angle::Subject
     const RangeUI &getImageUniformRange() const { return mImageUniformRange; }
     const RangeUI &getAtomicCounterUniformRange() const { return mAtomicCounterUniformRange; }
     const RangeUI &getFragmentInoutRange() const { return mFragmentInoutRange; }
+    bool hasClipDistance() const { return mHasClipDistance; }
+    bool hasDiscard() const { return mHasDiscard; }
     bool enablesPerSampleShading() const { return mEnablesPerSampleShading; }
     BlendEquationBitSet getAdvancedBlendEquations() const { return mAdvancedBlendEquations; }
     const std::vector<TransformFeedbackVarying> &getLinkedTransformFeedbackVaryings() const
@@ -286,7 +288,7 @@ class ProgramExecutable final : public angle::Subject
 
     GLuint getUniformIndexFromSamplerIndex(GLuint samplerIndex) const;
 
-    void saveLinkedStateInfo(const ProgramState &state);
+    void saveLinkedStateInfo(const Context *context, const ProgramState &state);
     const std::vector<sh::ShaderVariable> &getLinkedOutputVaryings(ShaderType shaderType) const
     {
         return mLinkedOutputVaryings[shaderType];
@@ -472,6 +474,8 @@ class ProgramExecutable final : public angle::Subject
     std::vector<InterfaceBlock> mShaderStorageBlocks;
 
     RangeUI mFragmentInoutRange;
+    bool mHasClipDistance;
+    bool mHasDiscard;
     bool mEnablesPerSampleShading;
 
     // KHR_blend_equation_advanced supported equation list

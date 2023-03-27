@@ -54,7 +54,6 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << paginationBehavesLikeColumns;
     encoder << pageLength;
     encoder << gapBetweenPages;
-    encoder << paginationLineGridEnabled;
     encoder << userAgent;
     encoder << itemStatesWereRestoredByAPIRequest;
     encoder << itemStates;
@@ -89,6 +88,7 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if PLATFORM(MAC)
     encoder << colorSpace;
     encoder << useSystemAppearance;
+    encoder << useFormSemanticContext;
 #endif
 
 #if ENABLE(META_VIEWPORT)
@@ -117,7 +117,7 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << gpuMachExtensionHandles;
 #endif
 #if HAVE(STATIC_FONT_REGISTRY)
-    encoder << fontMachExtensionHandle;
+    encoder << fontMachExtensionHandles;
 #endif
 #if HAVE(APP_ACCENT_COLORS)
     encoder << accentColor;
@@ -125,7 +125,7 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if USE(WPE_RENDERER)
     encoder << hostFileDescriptor;
 #endif
-#if PLATFORM(WIN)
+#if USE(GRAPHICS_LAYER_TEXTURE_MAPPER) || USE(GRAPHICS_LAYER_WC)
     encoder << nativeWindowHandle;
 #endif
 #if USE(GRAPHICS_LAYER_WC)
@@ -145,6 +145,9 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << iceCandidateFilteringEnabled;
     encoder << enumeratingAllNetworkInterfacesEnabled;
     encoder << userContentControllerParameters;
+#if ENABLE(WK_WEB_EXTENSIONS)
+    encoder << webExtensionControllerParameters;
+#endif
     encoder << backgroundColor;
     encoder << oldPageID;
     encoder << overriddenMediaType;
@@ -196,6 +199,16 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #endif
 
     encoder << contentSecurityPolicyModeForExtension;
+    encoder << mainFrameIdentifier;
+
+#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
+    encoder << lookalikeCharacterStrings;
+    encoder << allowedLookalikeCharacterStrings;
+#endif
+
+#if HAVE(MACH_BOOTSTRAP_EXTENSION)
+    encoder << machBootstrapHandle;
+#endif
 }
 
 std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decoder& decoder)
@@ -252,8 +265,6 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
     if (!decoder.decode(parameters.pageLength))
         return std::nullopt;
     if (!decoder.decode(parameters.gapBetweenPages))
-        return std::nullopt;
-    if (!decoder.decode(parameters.paginationLineGridEnabled))
         return std::nullopt;
 
     std::optional<String> userAgent;
@@ -351,6 +362,8 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
     parameters.colorSpace = WTFMove(*colorSpace);
     if (!decoder.decode(parameters.useSystemAppearance))
         return std::nullopt;
+    if (!decoder.decode(parameters.useFormSemanticContext))
+        return std::nullopt;
 #endif
 
 #if ENABLE(META_VIEWPORT)
@@ -410,11 +423,11 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
 #endif
 
 #if HAVE(STATIC_FONT_REGISTRY)
-    std::optional<std::optional<SandboxExtension::Handle>> fontMachExtensionHandle;
-    decoder >> fontMachExtensionHandle;
-    if (!fontMachExtensionHandle)
+    std::optional<Vector<SandboxExtension::Handle>> fontMachExtensionHandles;
+    decoder >> fontMachExtensionHandles;
+    if (!fontMachExtensionHandles)
         return std::nullopt;
-    parameters.fontMachExtensionHandle = WTFMove(*fontMachExtensionHandle);
+    parameters.fontMachExtensionHandles = WTFMove(*fontMachExtensionHandles);
 #endif
 
 #if HAVE(APP_ACCENT_COLORS)
@@ -427,7 +440,7 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
         return std::nullopt;
 #endif
 
-#if PLATFORM(WIN)
+#if USE(GRAPHICS_LAYER_TEXTURE_MAPPER) || USE(GRAPHICS_LAYER_WC)
     if (!decoder.decode(parameters.nativeWindowHandle))
         return std::nullopt;
 #endif
@@ -483,6 +496,14 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
     if (!userContentControllerParameters)
         return std::nullopt;
     parameters.userContentControllerParameters = WTFMove(*userContentControllerParameters);
+
+#if ENABLE(WK_WEB_EXTENSIONS)
+    std::optional<std::optional<WebExtensionControllerParameters>> webExtensionControllerParameters;
+    decoder >> webExtensionControllerParameters;
+    if (!webExtensionControllerParameters)
+        return std::nullopt;
+    parameters.webExtensionControllerParameters = WTFMove(*webExtensionControllerParameters);
+#endif
 
     std::optional<std::optional<WebCore::Color>> backgroundColor;
     decoder >> backgroundColor;
@@ -620,7 +641,32 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
     if (!decoder.decode(parameters.contentSecurityPolicyModeForExtension))
         return std::nullopt;
 
-    return parameters;
+    if (!decoder.decode(parameters.mainFrameIdentifier))
+        return std::nullopt;
+
+#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
+    std::optional<Vector<String>> lookalikeCharacterStrings;
+    decoder >> lookalikeCharacterStrings;
+    if (!lookalikeCharacterStrings)
+        return std::nullopt;
+    parameters.lookalikeCharacterStrings = WTFMove(*lookalikeCharacterStrings);
+
+    std::optional<Vector<WebCore::LookalikeCharactersSanitizationData>> allowedLookalikeCharacterStrings;
+    decoder >> allowedLookalikeCharacterStrings;
+    if (!allowedLookalikeCharacterStrings)
+        return std::nullopt;
+    parameters.allowedLookalikeCharacterStrings = WTFMove(*allowedLookalikeCharacterStrings);
+#endif
+
+#if HAVE(MACH_BOOTSTRAP_EXTENSION)
+    std::optional<SandboxExtension::Handle> machBootstrapHandle;
+    decoder >> machBootstrapHandle;
+    if (!machBootstrapHandle)
+        return std::nullopt;
+    parameters.machBootstrapHandle = WTFMove(*machBootstrapHandle);
+#endif
+
+    return { WTFMove(parameters) };
 }
 
 } // namespace WebKit

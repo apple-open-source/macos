@@ -323,3 +323,26 @@ openfile(const char *path, char **p, struct stat *st)
 
 	return f;
 }
+
+bool
+can_libdiff(int flags)
+{
+	/* We can't use fifos with libdiff yet */
+	if (S_ISFIFO(stb1.st_mode) || S_ISFIFO(stb2.st_mode))
+		return false;
+
+	/* Is this one of the supported input/output modes for diffreg_new? */
+	if ((flags == 0 || !(flags & ~D_NEWALGO_FLAGS)) &&
+		ignore_pats == NULL && (
+		diff_format == D_NORMAL ||
+#if 0
+		diff_format == D_EDIT ||
+#endif
+		diff_format == D_UNIFIED) &&
+		(diff_algorithm == D_DIFFMYERS || diff_algorithm == D_DIFFPATIENCE)) {
+		return true;
+	}
+
+	/* Fallback to using stone. */
+	return false;
+}

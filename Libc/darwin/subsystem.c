@@ -23,6 +23,7 @@
 
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include <subsystem.h>
 #include <sys/errno.h>
@@ -30,10 +31,12 @@
 #include <_simple.h>
 
 #define SUBSYSTEM_ROOT_PATH_KEY "subsystem_root_path"
+#define SUBSYSTEM_ROOT_PATH_DELIMETER ':'
+#define MAX_SUBSYSTEM_ROOT_PATHS 8
 
 void _subsystem_init(const char *apple[]);
 
-static char * subsystem_root_path = NULL;
+static const char * subsystem_root_path = NULL;
 static size_t subsystem_root_path_len = 0;
 
 /*
@@ -43,7 +46,7 @@ static size_t subsystem_root_path_len = 0;
 void
 _subsystem_init(const char **apple)
 {
-	char * subsystem_root_path_string = _simple_getenv(apple, SUBSYSTEM_ROOT_PATH_KEY);
+	const char * subsystem_root_path_string = _simple_getenv(apple, SUBSYSTEM_ROOT_PATH_KEY);
 	if (subsystem_root_path_string) {
 		subsystem_root_path = subsystem_root_path_string;
 		subsystem_root_path_len = strnlen(subsystem_root_path, PATH_MAX);
@@ -51,21 +54,64 @@ _subsystem_init(const char **apple)
 }
 
 /*
- * Takes a buffer, a subsystem path, and a file path, and constructs the
+ * Takes a buffer containing a subsystem root path and a file path, and constructs the
  * subsystem path for the given file path.  Assumes that the subsystem root
  * path will be "/" terminated.
  */
 static bool
-construct_subsystem_path(char * buf, size_t buf_size, const char * subsystem_root_path, const char * file_path)
+append_path_to_subsystem_root(char * buf, size_t buf_size, const char * file_path)
 {
-	size_t return_a = strlcpy(buf, subsystem_root_path, buf_size);
-	size_t return_b = strlcat(buf, file_path, buf_size);
+	size_t concatenated_length = strlcat(buf, file_path, buf_size);
 
-	if ((return_a >= buf_size) || (return_b >= buf_size)) {
+	if (concatenated_length >= buf_size) {
 		return false;
 	}
 
 	return true;
+}
+
+/*
+ * Takes a pointer to a part of the subsystem root path string and extracts
+ * the next viable path (from the start point to the NULL terminator or next ':'
+ * character). Populates this path into the provided buffer. Returns a pointer to
+ * the next root path if there is a following one, NULL if this was the last path.
+ *
+ * Note: It's not possible to use straight strsep(3) or similar because the subsystem
+ *       root path is immutable.
+ */
+static const char *
+extract_next_subsystem_root_path(char *buf, size_t buf_size, const char *root_path_begin)
+{
+	bool found_delimeter = false;
+	size_t root_path_len = strlen(root_path_begin);
+
+	if (buf_size == 0) {
+		return root_path_begin;
+	}
+
+	const char *next_delimeter = memchr(root_path_begin, (int)SUBSYSTEM_ROOT_PATH_DELIMETER,
+										root_path_len);
+	if (next_delimeter != NULL) {
+		root_path_len = (size_t)(next_delimeter - root_path_begin);
+		found_delimeter = true;
+	}
+	if (root_path_len > (buf_size - 1)) {
+		// We either found a sub-path that was too long or there was only one
+		// path in the string and that was too long.
+		return NULL;
+	}
+	memcpy(buf, root_path_begin, root_path_len);
+	buf[root_path_len] = '\0';
+
+	// If we found a delimeter, this indicates there is another path
+	// after the one we just extracted. Return a pointer to the beginning
+	// of this path (which is the character after the delimeter). Otherwise
+	// that was the last component in the paths.
+	if (found_delimeter) {
+		return (next_delimeter + 1);
+	} else {
+		return NULL;
+	}
 }
 
 int
@@ -84,15 +130,25 @@ open_with_subsystem(const char * path, int oflag)
 	if ((result < 0) && (errno == ENOENT) && (subsystem_root_path)) {
 		/*
 		 * If the file doesn't exist relative to root, search
-		 * for it relative to the subsystem root.
+		 * for it relative to the provided subsystem root paths.
 		 */
-		char subsystem_path[PATH_MAX];
+		const char *next_subsystem_root_path_begin = subsystem_root_path;
+		do {
+			char constructed_path[PATH_MAX];
+			next_subsystem_root_path_begin = extract_next_subsystem_root_path(constructed_path, sizeof(constructed_path), next_subsystem_root_path_begin);
 
-		if (construct_subsystem_path(subsystem_path, sizeof(subsystem_path), subsystem_root_path, path)) {
-			result = open(subsystem_path, oflag);
-		} else {
-			errno = ENAMETOOLONG;
-		}
+			if (append_path_to_subsystem_root(constructed_path, sizeof(constructed_path), path)) {
+				result = open(constructed_path, oflag);
+				if (result >= 0) {
+					break;
+				} else if (errno == ENOENT) {
+					continue;
+				}
+			} else {
+				errno = ENAMETOOLONG;
+				break;
+			}
+		} while (next_subsystem_root_path_begin != NULL);
 	}
 
 	return result;
@@ -108,15 +164,25 @@ stat_with_subsystem(const char *restrict path, struct stat *restrict buf)
 	if ((result < 0) && (errno == ENOENT) && (subsystem_root_path)) {
 		/*
 		 * If the file doesn't exist relative to root, search
-		 * for it relative to the subsystem root.
+		 * for it relative to the provided subsystem root paths.
 		 */
-		char subsystem_path[PATH_MAX];
+		const char *next_subsystem_root_path_begin = subsystem_root_path;
+		do {
+			char constructed_path[PATH_MAX];
+			next_subsystem_root_path_begin = extract_next_subsystem_root_path(constructed_path, sizeof(constructed_path), next_subsystem_root_path_begin);
 
-		if (construct_subsystem_path(subsystem_path, sizeof(subsystem_path), subsystem_root_path, path)) {
-			result = stat(subsystem_path, buf);
-		} else {
-			errno = ENAMETOOLONG;
-		}
+			if (append_path_to_subsystem_root(constructed_path, sizeof(constructed_path), path)) {
+				result = stat(constructed_path, buf);
+				if (result >= 0) {
+					break;
+				} else if (errno == ENOENT) {
+					continue;
+				}
+			} else {
+				errno = ENAMETOOLONG;
+				break;
+			}
+		} while (next_subsystem_root_path_begin != NULL);
 	}
 
 	return result;

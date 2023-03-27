@@ -123,6 +123,29 @@ struct ProcessInfo : angle::NonCopyable
 
 using TestQueue = std::queue<std::vector<TestIdentifier>>;
 
+class MetricWriter
+{
+  public:
+    MetricWriter() {}
+
+    void enable(const std::string &testArtifactDirectory);
+
+    void writeInfo(const std::string &name,
+                   const std::string &backend,
+                   const std::string &story,
+                   const std::string &metric,
+                   const std::string &units);
+
+    void writeDoubleValue(double value);
+    void writeIntegerValue(size_t value);
+
+    void close();
+
+  private:
+    std::string mPath;
+    FILE *mFile = nullptr;
+};
+
 class TestSuite
 {
   public:
@@ -138,6 +161,7 @@ class TestSuite
                             const std::string &units);
 
     static TestSuite *GetInstance() { return mInstance; }
+    static MetricWriter &GetMetricWriter() { return GetInstance()->mMetricWriter; }
 
     // Returns the path to the artifact in the output directory.
     bool hasTestArtifactsDirectory() const;
@@ -160,8 +184,10 @@ class TestSuite
         mTestExpectationsParser.setTestExpectationsAllowMask(mask);
     }
 
+    const std::string &getTestExecutableName() const { return mTestExecutableName; }
+
   private:
-    bool parseSingleArg(const char *argument);
+    bool parseSingleArg(int *argc, char **argv, int argIndex);
     bool launchChildTestProcess(uint32_t batchId, const std::vector<TestIdentifier> &testsInBatch);
     bool finishProcess(ProcessInfo *processInfo);
     int printFailuresAndReturnCount() const;
@@ -173,7 +199,6 @@ class TestSuite
     static TestSuite *mInstance;
 
     std::string mTestExecutableName;
-    std::string mTestSuiteName;
     TestQueue mTestQueue;
     std::string mFilterString;
     std::string mFilterFile;
@@ -206,6 +231,7 @@ class TestSuite
     std::vector<ProcessInfo> mCurrentProcesses;
     std::thread mWatchdogThread;
     HistogramWriter mHistogramWriter;
+    MetricWriter mMetricWriter;
     std::string mTestArtifactDirectory;
     GPUTestExpectationsParser mTestExpectationsParser;
 

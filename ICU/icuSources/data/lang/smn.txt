@@ -55,6 +55,7 @@ smn{
         chk{"chuukkielâ"}
         chm{"marikielâ"}
         cho{"choctawkielâ"}
+        cho_Latn{"choctawkielâ"}
         chr{"cherokeekielâ"}
         chy{"cheyennekielâ"}
         ckb{"sorani kurdikielâ"}

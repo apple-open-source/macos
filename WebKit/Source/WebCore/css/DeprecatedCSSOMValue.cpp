@@ -33,18 +33,22 @@ namespace WebCore {
 
 void DeprecatedCSSOMValue::operator delete(DeprecatedCSSOMValue* value, std::destroying_delete_t)
 {
+    auto destroyAndFree = [&](auto& value) {
+        std::destroy_at(&value);
+        std::decay_t<decltype(value)>::freeAfterDestruction(&value);
+    };
+
     switch (value->classType()) {
     case ClassType::Complex:
-        std::destroy_at(downcast<DeprecatedCSSOMComplexValue>(value));
+        destroyAndFree(downcast<DeprecatedCSSOMComplexValue>(*value));
         break;
     case ClassType::Primitive:
-        std::destroy_at(downcast<DeprecatedCSSOMPrimitiveValue>(value));
+        destroyAndFree(downcast<DeprecatedCSSOMPrimitiveValue>(*value));
         break;
     case ClassType::List:
-        std::destroy_at(downcast<DeprecatedCSSOMValueList>(value));
+        destroyAndFree(downcast<DeprecatedCSSOMValueList>(*value));
         break;
     }
-    freeAfterDestruction(value);
 }
 
 unsigned short DeprecatedCSSOMValue::cssValueType() const
@@ -81,16 +85,18 @@ unsigned short DeprecatedCSSOMComplexValue::cssValueType() const
     constexpr unsigned short CSS_INITIAL = 4;
     constexpr unsigned short CSS_UNSET = 5;
     constexpr unsigned short CSS_REVERT = 6;
-
-    if (m_value->isInheritValue())
+    switch (valueID(m_value.get())) {
+    case CSSValueInherit:
         return CSS_INHERIT;
-    if (m_value->isInitialValue())
+    case CSSValueInitial:
         return CSS_INITIAL;
-    if (m_value->isUnsetValue())
+    case CSSValueUnset:
         return CSS_UNSET;
-    if (m_value->isRevertValue())
+    case CSSValueRevert:
         return CSS_REVERT;
-    return CSS_CUSTOM;
+    default:
+        return CSS_CUSTOM;
+    }
 }
 
 }

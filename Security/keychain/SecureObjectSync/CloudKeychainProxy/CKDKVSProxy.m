@@ -135,6 +135,11 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
     if (self = [super init])
     {
         secnotice("event", "%@ start UID=%u EUID=%u", self, getuid(), geteuid());
+        IF_SOS_DISABLED {
+            // bail here if SOS is not supported and somehow this got activated
+            secnotice("nosos", "Cannot run CloudKeychainProxy on a system with no SOS");
+            return NULL;
+        }
 
 #if !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
         // rdar://problem/26247270
@@ -510,11 +515,11 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
     if (initial)
         changedValues[(__bridge NSString*)kSOSKVSInitialSyncKey] =  @"true";
 
-    secnotice("event", "%@ keysChangedInCloud: %@ keysOfInterest: %@ initial: %@",
+    secnotice("event", "%@ keysChangedInCloud: %@ keysOfInterest: %@ initial: %{BOOL}d",
               self,
               [[changedKeys allObjects] componentsJoinedByString: @" "],
               [[changedValues allKeys] componentsJoinedByString: @" "],
-              initial ? @"YES" : @"NO");
+              initial);
 
     if ([changedValues count])
         [self processKeyChangedEvent:changedValues];

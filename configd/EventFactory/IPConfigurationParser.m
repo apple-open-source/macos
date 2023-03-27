@@ -35,7 +35,10 @@
 
 - (instancetype)init
 {
-	NSArray<EFLogEventMatch *> *matches = @[
+	NSArray<EFLogEventMatch *> *matches = nil;
+	EFLogEventParser *parser = nil;
+
+	matches = @[
 		[[EFLogEventMatch alloc] initWithPattern:@"(?<"TokenInterfaceName">\\w+) link (?<"TokenLinkStatus">ACTIVE|INACTIVE)"
 					 newEventHandler:
 		 ^EFEvent *(NSTextCheckingResult *matchResult, EFLogEvent *logEvent, BOOL *isComplete) {
@@ -74,8 +77,10 @@
 		[[EFLogEventMatch alloc] initWithPattern:@"\\w+ (?<"TokenInterfaceName">\\w+): setting (?<"TokenAddress">\\S+) netmask \\S+ broadcast \\S+"
 					 newEventHandler:
 		 ^EFEvent *(NSTextCheckingResult *matchResult, EFLogEvent *logEvent, BOOL *isComplete) {
-			 *isComplete = YES;
-			 NSString *addressString = [logEvent substringForCaptureGroup:@TokenAddress inMatchResult:matchResult];
+			NSString *addressString = nil;
+
+			*isComplete = YES;
+			 addressString = [logEvent substringForCaptureGroup:@TokenAddress inMatchResult:matchResult];
 			 if (addressString.length > 0) {
 				 EFNetworkControlPathEvent *newEvent = [self createInterfaceEventWithLogEvent:logEvent matchResult:matchResult];
 				 [self addAddress:addressString toInterfaceEvent:newEvent];
@@ -86,8 +91,10 @@
 		[[EFLogEventMatch alloc] initWithPattern:@"\\w+ (?<"TokenInterfaceName">\\w+): removing (?<"TokenAddress">.+)"
 					 newEventHandler:
 		 ^EFEvent *(NSTextCheckingResult *matchResult, EFLogEvent *logEvent, BOOL *isComplete) {
-			 *isComplete = YES;
-			 NSString *addressString = [logEvent substringForCaptureGroup:@TokenAddress inMatchResult:matchResult];
+			NSString *addressString = nil;
+
+			*isComplete = YES;
+			 addressString = [logEvent substringForCaptureGroup:@TokenAddress inMatchResult:matchResult];
 			 if (addressString.length > 0) {
 				 EFNetworkControlPathEvent *newEvent = [self createInterfaceEventWithLogEvent:logEvent matchResult:matchResult];
 				 if ([self removeAddress:addressString fromInterfaceEvent:newEvent]) {
@@ -98,7 +105,7 @@
 		 }]
 	];
 
-	EFLogEventParser *parser = [[EFLogEventParser alloc] initWithMatches:matches];
+	parser = [[EFLogEventParser alloc] initWithMatches:matches];
 	return [super initWithCategory:@"IPConfiguration" eventParser:parser];
 }
 

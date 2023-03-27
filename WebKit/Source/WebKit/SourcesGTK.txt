@@ -39,6 +39,7 @@ NetworkProcess/cache/NetworkCacheIOChannelGLib.cpp
 
 NetworkProcess/glib/DNSCache.cpp
 NetworkProcess/glib/WebKitCachedResolver.cpp
+NetworkProcess/glib/WebKitOverridingResolver.cpp
 
 NetworkProcess/soup/NetworkDataTaskSoup.cpp
 NetworkProcess/soup/NetworkProcessMainSoup.cpp
@@ -51,7 +52,7 @@ NetworkProcess/webrtc/LibWebRTCSocketClient.cpp
 NetworkProcess/webrtc/NetworkRTCMonitor.cpp
 NetworkProcess/webrtc/NetworkRTCProvider.cpp
 
-Platform/IPC/unix/AttachmentUnix.cpp
+Platform/IPC/unix/ArgumentCodersUnix.cpp
 Platform/IPC/unix/ConnectionUnix.cpp
 Platform/IPC/unix/IPCSemaphoreUnix.cpp
 
@@ -151,19 +152,19 @@ UIProcess/API/glib/WebKitInputMethodContext.cpp @no-unify
 UIProcess/API/glib/WebKitInstallMissingMediaPluginsPermissionRequest.cpp @no-unify
 UIProcess/API/glib/WebKitJavascriptResult.cpp @no-unify
 UIProcess/API/glib/WebKitMediaKeySystemPermissionRequest.cpp @no-unify
-UIProcess/API/glib/WebKitMimeInfo.cpp @no-unify
 UIProcess/API/glib/WebKitMemoryPressureSettings.cpp @no-unify
 UIProcess/API/glib/WebKitNavigationAction.cpp @no-unify
 UIProcess/API/glib/WebKitNavigationClient.cpp @no-unify
 UIProcess/API/glib/WebKitNavigationPolicyDecision.cpp @no-unify
 UIProcess/API/glib/WebKitNetworkProxySettings.cpp @no-unify
+UIProcess/API/glib/WebKitNetworkSession.cpp @no-unify
 UIProcess/API/glib/WebKitNotification.cpp @no-unify
 UIProcess/API/glib/WebKitNotificationPermissionRequest.cpp @no-unify
 UIProcess/API/glib/WebKitNotificationProvider.cpp @no-unify
 UIProcess/API/glib/WebKitOptionMenu.cpp @no-unify
 UIProcess/API/glib/WebKitOptionMenuItem.cpp @no-unify
 UIProcess/API/glib/WebKitPermissionRequest.cpp @no-unify
-UIProcess/API/glib/WebKitPlugin.cpp @no-unify
+UIProcess/API/glib/WebKitPermissionStateQuery.cpp @no-unify
 UIProcess/API/glib/WebKitPointerLockPermissionRequest.cpp @no-unify
 UIProcess/API/glib/WebKitPolicyDecision.cpp @no-unify
 UIProcess/API/glib/WebKitPrivate.cpp @no-unify
@@ -184,6 +185,7 @@ UIProcess/API/glib/WebKitUserMediaPermissionRequest.cpp @no-unify
 UIProcess/API/glib/WebKitVersion.cpp @no-unify
 UIProcess/API/glib/WebKitWebContext.cpp @no-unify
 UIProcess/API/glib/WebKitWebResource.cpp @no-unify
+UIProcess/API/glib/WebKitWebResourceLoadManager.cpp @no-unify
 UIProcess/API/glib/WebKitWebView.cpp @no-unify
 UIProcess/API/glib/WebKitWebViewAccessible.cpp @no-unify
 UIProcess/API/glib/WebKitWebViewSessionState.cpp @no-unify
@@ -206,7 +208,6 @@ UIProcess/API/gtk/WebKitEmojiChooser.cpp @no-unify
 UIProcess/API/gtk/WebKitInputMethodContextGtk.cpp @no-unify
 UIProcess/API/gtk/WebKitInputMethodContextImplGtk.cpp @no-unify
 UIProcess/API/gtk/WebKitPopupMenu.cpp @no-unify
-UIProcess/API/gtk/WebKitPrintCustomWidget.cpp @no-unify
 UIProcess/API/gtk/WebKitPrintOperation.cpp @no-unify
 UIProcess/API/gtk/WebKitRemoteInspectorProtocolHandler.cpp @no-unify
 UIProcess/API/gtk/WebKitScriptDialogGtk.cpp @no-unify
@@ -215,6 +216,8 @@ UIProcess/API/gtk/WebKitWebInspector.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewBase.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewDialog.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewGtk.cpp @no-unify
+UIProcess/API/gtk/WebKitWebViewGtk3.cpp @no-unify
+UIProcess/API/gtk/WebKitWebViewGtk4.cpp @no-unify
 
 UIProcess/API/soup/HTTPCookieStoreSoup.cpp
 
@@ -241,6 +244,8 @@ UIProcess/Launcher/glib/BubblewrapLauncher.cpp @no-unify
 UIProcess/Launcher/glib/FlatpakLauncher.cpp @no-unify
 UIProcess/Launcher/glib/XDGDBusProxy.cpp @no-unify
 
+UIProcess/Notifications/glib/NotificationService.cpp
+
 UIProcess/linux/MemoryPressureMonitor.cpp
 
 UIProcess/WebsiteData/soup/WebsiteDataStoreSoup.cpp
@@ -253,7 +258,6 @@ UIProcess/glib/WebProcessPoolGLib.cpp
 UIProcess/glib/WebProcessProxyGLib.cpp
 UIProcess/glib/WebsiteDataStoreGLib.cpp @no-unify
 
-UIProcess/gstreamer/InstallMissingMediaPluginsPermissionRequest.cpp
 UIProcess/gstreamer/WebPageProxyGStreamer.cpp
 
 UIProcess/gtk/AcceleratedBackingStore.cpp @no-unify
@@ -273,7 +277,6 @@ UIProcess/gtk/TextCheckerGtk.cpp @no-unify
 UIProcess/gtk/ViewSnapshotStoreGtk3.cpp @no-unify
 UIProcess/gtk/ViewSnapshotStoreGtk4.cpp @no-unify
 UIProcess/gtk/ViewGestureControllerGtk.cpp
-UIProcess/gtk/WaylandCompositor.cpp @no-unify
 UIProcess/gtk/WebColorPickerGtk.cpp
 UIProcess/gtk/WebContextMenuProxyGtk.cpp
 UIProcess/gtk/WebDataListSuggestionsDropdownGtk.cpp
@@ -290,129 +293,14 @@ WebProcess/GPU/graphics/gbm/RemoteGraphicsContextGLProxyGBM.cpp
 
 WebProcess/GPU/media/gstreamer/VideoLayerRemoteGStreamer.cpp
 
-WebProcess/InjectedBundle/API/glib/DOM/DOMObjectCache.cpp @no-unify
-WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMDocument.cpp @no-unify
-WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMElement.cpp @no-unify
-WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMNode.cpp @no-unify
-WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMObject.cpp @no-unify
-WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMPrivate.cpp @no-unify
-
-WebProcess/InjectedBundle/API/glib/WebKitConsoleMessage.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitExtensionManager.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitFrame.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitScriptWorld.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitWebEditor.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitWebExtension.cpp @no-unify
+WebProcess/InjectedBundle/API/glib/WebKitWebFormManager.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitWebHitTestResult.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitWebPage.cpp @no-unify
-
-WebProcess/InjectedBundle/API/gtk/DOM/ConvertToUTF8String.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/GObjectEventListener.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/GObjectNodeFilterCondition.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/GObjectXPathNSResolver.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMAttr.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMBlob.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMCDATASection.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMCSSRule.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMCSSRuleList.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMCSSStyleDeclaration.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMCSSStyleSheet.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMCSSValue.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMCharacterData.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMClientRect.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMClientRectList.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMComment.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMDOMImplementation.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMDOMSelection.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMDOMTokenList.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMDOMWindow.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMDeprecated.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMDocumentGtk.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMDocumentFragment.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMDocumentType.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMElementGtk.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMEvent.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMEventTarget.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMFile.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMFileList.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLAnchorElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLAppletElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLAreaElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLBRElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLBaseElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLBodyElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLButtonElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLCanvasElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLCollection.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLDListElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLDirectoryElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLDivElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLDocument.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLEmbedElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLFieldSetElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLFontElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLFormElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLFrameElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLFrameSetElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLHRElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLHeadElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLHeadingElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLHtmlElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLIFrameElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLImageElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLInputElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLLIElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLLabelElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLLegendElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLLinkElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLMapElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLMarqueeElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLMenuElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLMetaElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLModElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLOListElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLObjectElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLOptGroupElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLOptionElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLOptionsCollection.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLParagraphElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLParamElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLPreElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLPrivate.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLQuoteElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLScriptElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLSelectElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLStyleElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLTableCaptionElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLTableCellElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLTableColElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLTableElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLTableRowElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLTableSectionElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLTextAreaElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLTitleElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMHTMLUListElement.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMKeyboardEvent.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMMediaList.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMMouseEvent.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMNamedNodeMap.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMNodeGtk.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMNodeFilter.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMNodeIterator.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMNodeList.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMPrivateGtk.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMProcessingInstruction.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMRange.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMStyleSheet.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMStyleSheetList.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMText.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMTreeWalker.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMUIEvent.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMWheelEvent.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMXPathExpression.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMXPathNSResolver.cpp
-WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMXPathResult.cpp
 
 WebProcess/InjectedBundle/glib/InjectedBundleGlib.cpp
 
@@ -440,11 +328,7 @@ WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.cpp
 
 WebProcess/WebPage/glib/WebPageGLib.cpp
 
-WebProcess/WebPage/gstreamer/WebPageGStreamer.cpp
-
-WebProcess/WebPage/gtk/AcceleratedSurfaceWayland.cpp
 WebProcess/WebPage/gtk/AcceleratedSurfaceX11.cpp @no-unify
-WebProcess/WebPage/gtk/PrinterListGtk.cpp
 WebProcess/WebPage/gtk/WebPageGtk.cpp
 WebProcess/WebPage/gtk/WebPrintOperationGtk.cpp
 
@@ -453,5 +337,4 @@ WebProcess/WebPage/libwpe/AcceleratedSurfaceLibWPE.cpp @no-unify
 WebProcess/glib/WebProcessGLib.cpp
 
 WebProcess/gtk/GtkSettingsManagerProxy.cpp
-WebProcess/gtk/WaylandCompositorDisplay.cpp
 WebProcess/gtk/WebProcessMainGtk.cpp

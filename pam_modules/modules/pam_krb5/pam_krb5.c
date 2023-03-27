@@ -95,6 +95,7 @@ static void	compat_free_data_contents(krb5_context, krb5_data *);
 #define NEW_PASSWORD_PROMPT	"New Password:"
 
 #define PAM_OPT_CCACHE		"ccache"
+#define PAM_OPT_NO_AUTH_CCACHE        "no_auth_ccache"
 #define PAM_OPT_DEBUG		"debug"
 #define PAM_OPT_DEFAULT_PRINCIPAL	"default_principal"
 #define PAM_OPT_FORWARDABLE	"forwardable"
@@ -438,6 +439,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 	const char *cache_type, *cache_name, *q;
 	const void *user;
 	const void *cache_data;
+    const void *login;
 	char *cache_name_buf = NULL, *p = NULL, *cache_type_colon_name = NULL;
 	int use_kcminit;
 
@@ -486,12 +488,19 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		goto cleanup4;
 	}
 
-	/* If a persistent cache isn't desired, stop now. */
-	if (openpam_get_option(pamh, PAM_OPT_NO_CCACHE)) {
-		retval = PAM_SUCCESS;
-		goto cleanup4;
-	}
-
+    /* If a persistent cache isn't desired, stop now. */
+    if (openpam_get_option(pamh, PAM_OPT_NO_CCACHE)) {
+        retval = PAM_SUCCESS;
+        goto cleanup4;
+    }
+   
+    pam_get_data(pamh, "login", &login);
+    if (!login && openpam_get_option(pamh, PAM_OPT_NO_AUTH_CCACHE)) {
+        retval = PAM_SUCCESS;
+        PAM_LOG("no_auth_ccache is set");
+        goto cleanup4;
+    }
+    
 	PAM_LOG("Establishing credentials");
 
 	/* Get username */

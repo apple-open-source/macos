@@ -126,3 +126,21 @@
     hour-in-day          : 15
     minute-in-hour       : 55
     second-in-minute     : 55
+  
+  Test Date : 15:55:59.99999999999
+    year                 : NaN
+    leap-year            : NaN
+    month-in-year        : NaN
+    month-name           : 
+    month-abbreviation   : 
+    week-in-year         : NaN
+    day-in-year          : NaN
+    day-in-month         : NaN
+    day-of-week-in-month : NaN
+    day-in-week          : NaN
+    day-name             : 
+    day-abbreviation     : 
+    time                 : 15:55:59.99999999999
+    hour-in-day          : 15
+    minute-in-hour       : 55
+    second-in-minute     : 59.99999999999

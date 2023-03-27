@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -238,7 +238,7 @@ MacroAssemblerCodeRef<JSEntryPtrTag> compile(Generator&& generate)
 template<typename T, typename... Arguments>
 T invoke(const MacroAssemblerCodeRef<JSEntryPtrTag>& code, Arguments... arguments)
 {
-    void* executableAddress = untagCFunctionPtr<JSEntryPtrTag>(code.code().executableAddress());
+    void* executableAddress = untagCFunctionPtr<JSEntryPtrTag>(code.code().taggedPtr());
     T (*function)(Arguments...) = bitwise_cast<T(*)(Arguments...)>(executableAddress);
 
 #if CPU(RISCV64)
@@ -1302,7 +1302,7 @@ void testExtractUnsignedBitfield32()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 32) {
+            if (width > 0 && lsb + width < 32) {
                 auto ubfx32 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -3774,7 +3774,7 @@ void testMoveDoubleConditionallyFloatSameArg(MacroAssembler::DoubleCondition con
 
 #endif // CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
 
-#if CPU(ARM64E)
+#if CPU(ARM64)
 
 void testAtomicStrongCASFill8()
 {
@@ -4920,7 +4920,7 @@ void testProbeModifiesProgramCounter()
         // Write expected values into the registers.
         jit.probeDebug([&] (Probe::Context& context) {
             probeCallCount++;
-            context.cpu.pc() = retagCodePtr<JSEntryPtrTag, JITProbePCPtrTag>(continuation.code().executableAddress());
+            context.cpu.pc() = retagCodePtr<JSEntryPtrTag, JITProbePCPtrTag>(continuation.code().taggedPtr());
         });
 
         jit.breakpoint(); // We should never get here.
@@ -5892,9 +5892,11 @@ void run(const char* filter) WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     RUN(testOrUnsignedRightShift64());
 #endif
 
-#if CPU(ARM64E)
-    RUN(testAtomicStrongCASFill8());
-    RUN(testAtomicStrongCASFill16());
+#if CPU(ARM64)
+    if (isARM64_LSE()) {
+        RUN(testAtomicStrongCASFill8());
+        RUN(testAtomicStrongCASFill16());
+    }
 #endif
 
 #if CPU(X86) || CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)

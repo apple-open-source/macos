@@ -50,7 +50,7 @@ using namespace WebCore;
  * called. There you will be able to provide more response parameters
  * when the methods and properties of a #WebKitURISchemeRequest is not
  * enough.
- * 
+ *
  * When you finished setting up your #WebKitURISchemeResponse, call
  * webkit_uri_request_finish_with_response() with it to return the response.
  */
@@ -101,8 +101,7 @@ static void webkit_uri_scheme_response_class_init(WebKitURISchemeResponseClass* 
     sObjProperties[PROP_STREAM] = 
         g_param_spec_object(
             "stream",
-            _("Input stream"),
-            _("The input stream to read from."),
+            nullptr, nullptr,
             G_TYPE_INPUT_STREAM,
             static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
 
@@ -116,8 +115,7 @@ static void webkit_uri_scheme_response_class_init(WebKitURISchemeResponseClass* 
     sObjProperties[PROP_STREAM_LENGTH] = 
         g_param_spec_int64(
             "stream-length",
-            _("Input stream length"),
-            _("The input stream length in bytes. -1 for unknown length."),
+            nullptr, nullptr,
             -1, INT64_MAX, -1,
             static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
 
@@ -196,6 +194,7 @@ void webkit_uri_scheme_response_set_content_type(WebKitURISchemeResponse* respon
  * @headers: (transfer full): the HTTP headers to be set
  *
  * Assign the provided #SoupMessageHeaders to the response.
+ *
  * @headers need to be of the type %SOUP_MESSAGE_HEADERS_RESPONSE.
  * Any existing headers will be overwritten.
  *
@@ -216,6 +215,7 @@ void webkit_uri_scheme_response_set_http_headers(WebKitURISchemeResponse* respon
  * @reason_phrase: (allow-none): a reason phrase
  *
  * Sets the status code and reason phrase for the @response.
+ *
  * If @status_code is a known value and @reason_phrase is %NULL, the @reason_phrase will be set automatically.
  *
  * Since: 2.36

@@ -2,32 +2,52 @@
 #  Use of this source code is governed by a BSD-style license that can be
 #  found in the LICENSE file.
 #
-# Generates an Android.bp file from the json output of a 'gn desc' command.
-# Example usage:
-#   gn desc out/Android --format=json "*" > desc.json
-#   python scripts/generate_android_bp.py desc.json > Android.bp
+# Generates an Android.bp file from the json output of 4 'gn desc' commands.
+# Invoked during Skia rolls by roll_aosp.sh. For local testing, see:
+#  scripts/roll_aosp.sh --genAndroidBp
 
 import json
 import sys
 import re
 import os
 import argparse
+import functools
+import collections
 
-root_targets = [
+ROOT_TARGETS = [
     "//:libGLESv2",
     "//:libGLESv1_CM",
     "//:libEGL",
 ]
 
-sdk_version = '28'
-stl = 'libc++_static'
+CODEGEN_TARGETS = [
+    "//:libEGL",
+]
 
-abi_arm = 'arm'
-abi_arm64 = 'arm64'
-abi_x86 = 'x86'
-abi_x64 = 'x86_64'
+SDK_VERSION = '28'
+STL = 'libc++_static'
 
-abi_targets = [abi_arm, abi_arm64, abi_x86, abi_x64]
+ABI_ARM = 'arm'
+ABI_ARM64 = 'arm64'
+ABI_X86 = 'x86'
+ABI_X64 = 'x86_64'
+
+ABI_TARGETS = [ABI_ARM, ABI_ARM64, ABI_X86, ABI_X64]
+
+
+def gn_abi(abi):
+    # gn uses x64, rather than x86_64
+    return 'x64' if abi == ABI_X64 else abi
+
+
+# Makes dict cache-able "by reference" (assumed not to be mutated)
+class BuildInfo(dict):
+
+    def __hash__(self):
+        return 0
+
+    def __eq__(self, other):
+        return self is other
 
 
 def tabs(indent):
@@ -107,8 +127,7 @@ def gn_target_to_blueprint_target(target, target_info):
 
     # Split the gn target name (in the form of //gn_file_path:target_name) into gn_file_path and
     # target_name
-    target_regex = re.compile(r"^//([a-zA-Z0-9\-\+_/]*):([a-zA-Z0-9\-\+_.]+)$")
-    match = re.match(target_regex, target)
+    match = re.match(r"^//([a-zA-Z0-9\-\+_/]*):([a-zA-Z0-9\-\+_.]+)$", target)
     assert match is not None
 
     gn_file_path = match.group(1)
@@ -193,7 +212,9 @@ include_blocklist = [
 ]
 
 
-def gn_deps_to_blueprint_deps(target_info, build_info):
+@functools.lru_cache(maxsize=None)  # .cache() is py3.9 http://b/246559064#comment8
+def gn_deps_to_blueprint_deps(abi, target, build_info):
+    target_info = build_info[abi][target]
     static_libs = []
     shared_libs = []
     defaults = []
@@ -202,10 +223,14 @@ def gn_deps_to_blueprint_deps(target_info, build_info):
     if 'deps' not in target_info:
         return static_libs, defaults
 
+    if target in CODEGEN_TARGETS:
+        target_name = gn_target_to_blueprint_target(target, target_info)
+        defaults.append(target_name + '_android_codegen')
+
     for dep in target_info['deps']:
         if dep not in target_blockist and (not dep.startswith('//third_party') or any(
                 dep.startswith(substring) for substring in third_party_target_allowlist)):
-            dep_info = build_info[dep]
+            dep_info = build_info[abi][dep]
             blueprint_dep_name = gn_target_to_blueprint_target(dep, dep_info)
 
             # Depending on the dep type, blueprints reference it differently.
@@ -220,8 +245,8 @@ def gn_deps_to_blueprint_deps(target_info, build_info):
                 generated_headers.append(blueprint_dep_name)
 
             # Blueprints do not chain linking of static libraries.
-            (child_static_libs, _, _, child_generated_headers, _) = gn_deps_to_blueprint_deps(
-                dep_info, build_info)
+            (child_static_libs, _, _, child_generated_headers,
+             _) = gn_deps_to_blueprint_deps(abi, dep, build_info)
 
             # Each target needs to link all child static library dependencies.
             static_libs += child_static_libs
@@ -234,7 +259,7 @@ def gn_deps_to_blueprint_deps(target_info, build_info):
             # chrome_zlib needs cpufeatures from the Android NDK. Rather than including the
             # entire NDK is a dep in the ANGLE checkout, use the library that's already part
             # of Android.
-            dep_info = build_info[dep]
+            dep_info = build_info[abi][dep]
             blueprint_dep_name = gn_target_to_blueprint_target(dep, dep_info)
             static_libs.append('cpufeatures')
 
@@ -285,14 +310,6 @@ def gn_cflags_to_blueprint_cflags(target_info):
                     if re.search(allowlisted_cflag, cflag):
                         result.append(cflag)
 
-    # Chrome and Android use different versions of Clang which support differnt warning options.
-    # Ignore errors about unrecognized warning flags.
-    result.append('-Wno-unknown-warning-option')
-
-    # Override AOSP build flags to match ANGLE's CQ testing and reduce binary size
-    result.append('-Os')
-    result.append('-fno-unwind-tables')
-
     if 'defines' in target_info:
         for define in target_info['defines']:
             # Don't emit ANGLE's CPU-bits define here, it will be part of the arch-specific
@@ -312,36 +329,26 @@ blueprint_library_target_types = {
 
 def merge_bps(bps_for_abis):
     common_bp = {}
-    for abi in abi_targets:
-        for key in bps_for_abis[abi]:
-            if isinstance(bps_for_abis[abi][key], list):
-                # Find list values that are common to all ABIs
-                for value in bps_for_abis[abi][key]:
-                    value_in_all_abis = True
-                    for abi2 in abi_targets:
-                        if key == 'defaults':
-                            # arch-specific defaults are not supported
-                            break
-                        value_in_all_abis = value_in_all_abis and (key in bps_for_abis[abi2].keys(
-                        )) and (value in bps_for_abis[abi2][key])
-                    if value_in_all_abis:
-                        if key in common_bp.keys():
-                            common_bp[key].append(value)
-                        else:
-                            common_bp[key] = [value]
-                    else:
-                        if 'arch' not in common_bp.keys():
-                            # Make sure there is an 'arch' entry to hold ABI-specific values
-                            common_bp['arch'] = {}
-                            for abi3 in abi_targets:
-                                common_bp['arch'][abi3] = {}
-                        if key in common_bp['arch'][abi].keys():
-                            common_bp['arch'][abi][key].append(value)
-                        else:
-                            common_bp['arch'][abi][key] = [value]
-            else:
+    for abi in ABI_TARGETS:
+        for key, values in bps_for_abis[abi].items():
+            if not isinstance(values, list):
                 # Assume everything that's not a list is common to all ABIs
-                common_bp[key] = bps_for_abis[abi][key]
+                common_bp[key] = values
+                continue
+
+            # Find list values that are common to all ABIs
+            values_in_all_abis = set.intersection(
+                *[set(bps_for_abis[abi2].get(key, [])) for abi2 in ABI_TARGETS])
+
+            for value in values:
+                if value in values_in_all_abis or key == 'defaults':  # arch-specific defaults are not supported
+                    common_bp.setdefault(key, [])
+                    common_bp[key].append(value)
+                else:
+                    common_bp.setdefault('arch', {abi3: {} for abi3 in ABI_TARGETS})
+                    abi_specific = common_bp['arch'][abi]
+                    abi_specific.setdefault(key, [])
+                    abi_specific[key].append(value)
 
     return common_bp
 
@@ -349,7 +356,7 @@ def merge_bps(bps_for_abis):
 def library_target_to_blueprint(target, build_info):
     bps_for_abis = {}
     blueprint_type = ""
-    for abi in abi_targets:
+    for abi in ABI_TARGETS:
         if target not in build_info[abi].keys():
             bps_for_abis[abi] = {}
             continue
@@ -364,16 +371,18 @@ def library_target_to_blueprint(target, build_info):
             bp['srcs'] = gn_sources_to_blueprint_sources(target_info['sources'])
 
         (bp['static_libs'], bp['shared_libs'], bp['defaults'], bp['generated_headers'],
-         bp['header_libs']) = gn_deps_to_blueprint_deps(target_info, build_info[abi])
+         bp['header_libs']) = gn_deps_to_blueprint_deps(abi, target, build_info)
         bp['shared_libs'] += gn_libs_to_blueprint_shared_libraries(target_info)
 
         bp['local_include_dirs'] = gn_include_dirs_to_blueprint_include_dirs(target_info)
 
         bp['cflags'] = gn_cflags_to_blueprint_cflags(target_info)
 
-        bp['sdk_version'] = sdk_version
-        bp['stl'] = stl
-        if target in root_targets:
+        bp['defaults'].append('angle_common_library_cflags')
+
+        bp['sdk_version'] = SDK_VERSION
+        bp['stl'] = STL
+        if target in ROOT_TARGETS:
             bp['vendor'] = True
             bp['target'] = {'android': {'relative_install_path': 'egl'}}
         bps_for_abis[abi] = bp
@@ -433,8 +442,35 @@ def is_input_in_tool_files(tool_files, input):
     return input in tool_files
 
 
-def action_target_to_blueprint(target, build_info):
-    target_info = build_info[target]
+# special handling the {{response_file_name}} args in GN:
+# see https://gn.googlesource.com/gn/+/main/docs/reference.md#var_response_file_contents
+# in GN, if we use response_file_contents, the GN build system will automatically
+# write contents specified in response_file_contents arg into a temporary file
+# identified by {{response_file_name}}. However, Android blueprint does not have
+# the matching machanism. Android blueprint does automatically generate the
+# temporary file and does not recognize '{{response_file_name}}'.
+# To solve the problem:
+# 1) replace the '{{response_file_name}}' in command argument with the new
+# temporary file name.
+# 2) write the content specified in 'response_file_contents' to the new temporary
+# file
+# This function completes step 1) above. It checks if there are
+# '{{response_file_name}}' used in the command arguments. If there are,
+# the function replaces the '{{response_file_name}}' with the new temp file
+# named 'gn_response_file', and returns the new temp file to indicate
+# we need to complete step 2)
+def handle_gn_build_arg_response_file_name(command_arg_list):
+    new_temp_file_name = None
+    updated_args = command_arg_list[:]
+    for index, arg in enumerate(updated_args):
+        if arg == '{{response_file_name}}':
+            new_temp_file_name = '$(genDir)/gn_response_file'
+            updated_args[index] = new_temp_file_name
+    return new_temp_file_name, updated_args
+
+
+def action_target_to_blueprint(abi, target, build_info):
+    target_info = build_info[abi][target]
     blueprint_type = blueprint_gen_types[target_info['type']]
 
     bp = {'name': gn_target_to_blueprint_target(target, target_info)}
@@ -453,6 +489,7 @@ def action_target_to_blueprint(target, build_info):
             input for input in gn_inputs
             if not is_input_in_tool_files(target_info['script'], input)
         ]
+
     bp_srcs = gn_paths_to_blueprint_paths(gn_inputs)
 
     bp['srcs'] = bp_srcs
@@ -470,74 +507,114 @@ def action_target_to_blueprint(target, build_info):
 
     bp['tool_files'] = [gn_path_to_blueprint_path(target_info['script'])]
 
-    # Generate the full command, $(location) refers to tool_files[0], the script
-    cmd = ['$(location)'] + gn_action_args_to_blueprint_args(bp_srcs, bp_outputs,
-                                                             target_info['args'])
+    new_temporary_gn_response_file, updated_args = handle_gn_build_arg_response_file_name(
+        target_info['args'])
+
+    if new_temporary_gn_response_file:
+        # add the command 'echo $(in) > $(genDir)/gn_response_file' to
+        # write $response_file_contents into the new_temporary_gn_response_file.
+        cmd = ['echo $(in) >', new_temporary_gn_response_file, '&&', '$(location)'
+              ] + gn_action_args_to_blueprint_args(bp_srcs, bp_outputs, updated_args)
+    else:
+        cmd = ['$(location)'] + gn_action_args_to_blueprint_args(bp_srcs, bp_outputs,
+                                                                 target_info['args'])
+
     bp['cmd'] = ' '.join(cmd)
 
-    bp['sdk_version'] = sdk_version
+    bp['sdk_version'] = SDK_VERSION
 
     return blueprint_type, bp
 
 
 def gn_target_to_blueprint(target, build_info):
-    for abi in abi_targets:
+    for abi in ABI_TARGETS:
         gn_type = build_info[abi][target]['type']
         if gn_type in blueprint_library_target_types:
             return library_target_to_blueprint(target, build_info)
         elif gn_type in blueprint_gen_types:
-            return action_target_to_blueprint(target, build_info[abi])
+            return action_target_to_blueprint(abi, target, build_info)
         else:
             # Target is not used by this ABI
             continue
 
 
-def get_gn_target_dependencies(output_dependencies, build_info, target):
-    if target not in output_dependencies:
-        output_dependencies.insert(0, target)
+@functools.lru_cache(maxsize=None)
+def get_gn_target_dependencies(abi, target, build_info):
+    result = collections.OrderedDict()
+    result[target] = 1
 
-    for dep in build_info[target]['deps']:
+    for dep in build_info[abi][target]['deps']:
         if dep in target_blockist:
             # Blocklisted dep
             continue
-        if dep not in build_info:
+        if dep not in build_info[abi]:
             # No info for this dep, skip it
             continue
 
         # Recurse
-        get_gn_target_dependencies(output_dependencies, build_info, dep)
+        result.update(get_gn_target_dependencies(abi, dep, build_info))
+
+    return result
 
 
 def main():
     parser = argparse.ArgumentParser(
         description='Generate Android blueprints from gn descriptions.')
 
-    for abi in abi_targets:
-        fixed_abi = abi
-        if abi == abi_x64:
-            fixed_abi = 'x64'  # gn uses x64, rather than x86_64
+    for abi in ABI_TARGETS:
         parser.add_argument(
-            'gn_json_' + fixed_abi,
-            help=fixed_abi +
-            'gn desc in json format. Generated with \'gn desc <out_dir> --format=json "*"\'.')
+            '--gn_json_' + gn_abi(abi),
+            help=gn_abi(abi) +
+            ' gn desc file in json format. Generated with \'gn desc <out_dir> --format=json "*"\'.',
+            required=True)
     args = vars(parser.parse_args())
 
-    build_info = {}
-    for abi in abi_targets:
-        fixed_abi = abi
-        if abi == abi_x64:
-            fixed_abi = 'x64'  # gn uses x64, rather than x86_64
-        with open(args['gn_json_' + fixed_abi], 'r') as f:
-            build_info[abi] = json.load(f)
+    infos = {}
+    for abi in ABI_TARGETS:
+        with open(args['gn_json_' + gn_abi(abi)], 'r') as f:
+            infos[abi] = json.load(f)
 
-    targets_to_write = []
-    for abi in abi_targets:
-        for root_target in root_targets:
-            get_gn_target_dependencies(targets_to_write, build_info[abi], root_target)
+    build_info = BuildInfo(infos)
+    targets_to_write = collections.OrderedDict()
+    for abi in ABI_TARGETS:
+        for root_target in ROOT_TARGETS:
+            targets_to_write.update(get_gn_target_dependencies(abi, root_target, build_info))
 
     blueprint_targets = []
-    for target in targets_to_write:
-        blueprint_targets.append(gn_target_to_blueprint(target, build_info))
+
+    blueprint_targets.append(('bootstrap_go_package', {
+        'name': 'soong-angle-codegen',
+        'pkgPath': 'android/soong/external/angle',
+        'deps': [
+            'blueprint', 'blueprint-pathtools', 'soong', 'soong-android', 'soong-cc',
+            'soong-genrule'
+        ],
+        'srcs': ['scripts/angle_android_codegen.go'],
+        'pluginFor': ['soong_build'],
+    }))
+
+    blueprint_targets.append((
+        'cc_defaults',
+        {
+            'name':
+                'angle_common_library_cflags',
+            'cflags': [
+                # Chrome and Android use different versions of Clang which support differnt warning options.
+                # Ignore errors about unrecognized warning flags.
+                '-Wno-unknown-warning-option',
+                '-Os',
+                # Override AOSP build flags to match ANGLE's CQ testing and reduce binary size
+                '-fno-unwind-tables',
+            ],
+        }))
+
+    for target in reversed(targets_to_write.keys()):
+        blueprint_type, bp = gn_target_to_blueprint(target, build_info)
+        if target in CODEGEN_TARGETS:
+            blueprint_targets.append(('angle_android_codegen', {
+                'name': bp['name'] + '_android_codegen',
+            }))
+        blueprint_targets.append((blueprint_type, bp))
 
     # Add license build rules
     blueprint_targets.append(('package', {
@@ -560,7 +637,6 @@ def main():
         ],
         'license_text': [
             'LICENSE',
-            'src/common/third_party/smhasher/LICENSE',
             'src/common/third_party/xxhash/LICENSE',
             'src/libANGLE/renderer/vulkan/shaders/src/third_party/ffx_spd/LICENSE',
             'src/tests/test_utils/third_party/LICENSE',
@@ -595,39 +671,63 @@ def main():
     blueprint_targets.append((
         'filegroup',
         {
-            'name': 'ANGLE_srcs',
-            # Only add EmptyMainActivity.java since we just need to be able to reply to the intent
+            'name':
+                'ANGLE_srcs',
+            # We only need EmptyMainActivity.java since we just need to be able to reply to the intent
             # android.app.action.ANGLE_FOR_ANDROID to indicate ANGLE is present on the device.
-            'srcs': ['src/android_system_settings/src/com/android/angle/EmptyMainActivity.java'],
+            # However, the internal branch currently uses these files with patches in that branch.
+            'srcs': [
+                'src/android_system_settings/src/com/android/angle/MainActivity.java',
+                'src/android_system_settings/src/com/android/angle/common/GlobalSettings.java',
+                'src/android_system_settings/src/com/android/angle/common/MainFragment.java',
+                'src/android_system_settings/src/com/android/angle/common/Receiver.java',
+                'src/android_system_settings/src/com/android/angle/common/SearchProvider.java',
+            ],
         }))
     blueprint_targets.append((
         'java_defaults',
         {
             'name': 'ANGLE_java_defaults',
             'sdk_version': 'system_current',
-            'min_sdk_version': sdk_version,
+            'min_sdk_version': SDK_VERSION,
             'compile_multilib': 'both',
             'use_embedded_native_libs': True,
             'jni_libs': [
-                # hack: assume abi_arm
-                gn_target_to_blueprint_target(target, build_info[abi_arm][target])
-                for target in root_targets
+                # hack: assume ABI_ARM
+                gn_target_to_blueprint_target(target, build_info[ABI_ARM][target])
+                for target in ROOT_TARGETS
             ],
             'aaptflags': [
-                # Don't compress *.json files
-                '-0 .json',
+                '-0 .json',  # Don't compress *.json files
+                "--extra-packages com.android.angle.common",
             ],
             'srcs': [':ANGLE_srcs'],
-            'plugins': ['java_api_finder',],
             'privileged': True,
             'product_specific': True,
             'owner': 'google',
         }))
 
+    blueprint_targets.append(('android_library', {
+        'name': 'ANGLE_library',
+        'sdk_version': 'system_current',
+        'min_sdk_version': SDK_VERSION,
+        'resource_dirs': ['src/android_system_settings/res',],
+        'asset_dirs': ['src/android_system_settings/assets',],
+        'aaptflags': ['-0 .json',],
+        'manifest': 'src/android_system_settings/src/com/android/angle/AndroidManifest.xml',
+        'static_libs': ['androidx.preference_preference',],
+    }))
+
     blueprint_targets.append(('android_app', {
         'name': 'ANGLE',
         'defaults': ['ANGLE_java_defaults'],
-        'manifest': 'android/AndroidManifest.xml',
+        'manifest': 'src/android_system_settings/src/com/android/angle/AndroidManifest.xml',
+        'static_libs': ['ANGLE_library'],
+        'optimize': {
+            'enabled': True,
+            'shrink': True,
+            'proguard_compatibility': False,
+        },
         'asset_dirs': ['src/android_system_settings/assets',],
     }))
 

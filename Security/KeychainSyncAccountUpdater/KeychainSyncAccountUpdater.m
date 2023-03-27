@@ -14,7 +14,7 @@
 {
 	CFPreferencesSetValue(CFSTR("SecItemSynchronizable"), kCFBooleanTrue, CFSTR("com.apple.security"), kCFPreferencesAnyUser,  kCFPreferencesCurrentHost);
 	Boolean okay = CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-	os_log(OS_LOG_DEFAULT, "EnableKeychainSync %d", okay);
+	os_log(OS_LOG_DEFAULT, "EnableKeychainSync %{BOOL}d", okay);
 }
 
 @end

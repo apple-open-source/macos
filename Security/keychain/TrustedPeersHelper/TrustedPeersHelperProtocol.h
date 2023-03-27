@@ -35,6 +35,7 @@
 #import "keychain/ot/OTConstants.h"
 
 #import "keychain/ot/proto/generated_source/OTEscrowMoveRequestContext.h"
+@class OTAccountSettings;
 NS_ASSUME_NONNULL_BEGIN
 
 // Any client hoping to use the TrustedPeersHelperProtocol should have an entitlement
@@ -47,6 +48,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property BOOL memberChanges;
 @property BOOL unknownMachineIDsPresent;
 @property (nullable) NSString* osVersion;
+@property (nullable) TPPBPeerStableInfoSetting* walrus;
+@property (nullable) TPPBPeerStableInfoSetting* webAccess;
 
 - (instancetype)initWithPeerID:(NSString* _Nullable)peerID
                  isPreapproved:(BOOL)isPreapproved
@@ -54,6 +57,8 @@ NS_ASSUME_NONNULL_BEGIN
                  memberChanges:(BOOL)memberChanges
              unknownMachineIDs:(BOOL)unknownMachineIDs
                      osVersion:(NSString * _Nullable)osVersion
+                        walrus:(TPPBPeerStableInfoSetting* _Nullable)walrus
+                     webAccess:(TPPBPeerStableInfoSetting* _Nullable) webAccess
 ;
 @end
 
@@ -145,6 +150,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)resetWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                   resetReason:(CuttlefishResetReason)reason
+idmsTargetContext:(NSString*_Nullable)idmsTargetContext
+idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
+notifyIdMS:(bool)notifyIdMS
                         reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)localResetWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
@@ -191,7 +199,7 @@ NS_ASSUME_NONNULL_BEGIN
                   policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
       syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews
           secureElementIdentity:(nullable TPPBSecureElementIdentity*)secureElementIdentity
-                        setting:(nullable OTAccountSettingsX*)setting
+                        setting:(nullable OTAccountSettings*)setting
     signingPrivKeyPersistentRef:(nullable NSData *)spkPr
         encPrivKeyPersistentRef:(nullable NSData*)epkPr
                           reply:(void (^)(NSString * _Nullable peerID,
@@ -369,6 +377,8 @@ NS_ASSUME_NONNULL_BEGIN
                  policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
      syncUserControllableViews:(nullable NSNumber *)syncUserControllableViews
          secureElementIdentity:(nullable TrustedPeersHelperIntendedTPPBSecureElementIdentity*)secureElementIdentity
+                 walrusSetting:(nullable TPPBPeerStableInfoSetting*)walrusSetting
+                     webAccess:(nullable TPPBPeerStableInfoSetting*)webAccess
                          reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState,
                                          TPSyncingPolicy* _Nullable syncingPolicy,
                                          NSError * _Nullable error))reply;
@@ -466,6 +476,9 @@ NS_ASSUME_NONNULL_BEGIN
                                     reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply;
 
 - (void)resetAccountCDPContentsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+idmsTargetContext:(NSString*_Nullable)idmsTargetContext
+idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
+notifyIdMS:(bool)notifyIdMS
                                           reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)removeEscrowCacheWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
@@ -473,8 +486,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 - (void)fetchAccountSettingsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                       forceFetch:(bool)forceFetch
                                        reply:(void (^)(NSDictionary<NSString*, TPPBPeerStableInfoSetting *> * _Nullable setting,
                                                        NSError* _Nullable error))reply;
+
+- (void)isRecoveryKeySet:(TPSpecificUser* _Nullable)specificUser
+                   reply:(void (^)(BOOL isSet, NSError* _Nullable error))reply;
+
+- (void)removeRecoveryKey:(TPSpecificUser* _Nullable)specificUser
+                    reply:(void (^)(BOOL result, NSError* _Nullable error))reply;
+
+- (void)performATOPRVActionsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                       reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)preflightRecoverOctagonUsingRecoveryKey:(TPSpecificUser* _Nullable)specificUser
                                     recoveryKey:(NSString*)recoveryKey

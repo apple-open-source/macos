@@ -36,7 +36,6 @@ class AppleRAIDMemoryDescriptor : public IOMemoryDescriptor
 
 protected:
     IOMemoryDescriptor		*mdMemoryDescriptor;
-    IOLock			*mdMemoryDescriptorLock;
     
     AppleRAIDStorageRequest	*mdStorageRequest;
     UInt32			mdMemberIndex;

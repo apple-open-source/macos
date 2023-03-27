@@ -52,6 +52,11 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGModelObject);
 
+RenderSVGModelObject::RenderSVGModelObject(Document& document, RenderStyle&& style)
+    : RenderLayerModelObject(document, WTFMove(style), 0)
+{
+}
+
 RenderSVGModelObject::RenderSVGModelObject(SVGElement& element, RenderStyle&& style)
     : RenderLayerModelObject(element, WTFMove(style), 0)
 {
@@ -60,14 +65,7 @@ RenderSVGModelObject::RenderSVGModelObject(SVGElement& element, RenderStyle&& st
 void RenderSVGModelObject::updateFromStyle()
 {
     RenderLayerModelObject::updateFromStyle();
-
-    if (is<SVGGraphicsElement>(element()))
-        updateHasSVGTransformFlags(downcast<SVGGraphicsElement>(element()));
-}
-
-FloatRect RenderSVGModelObject::borderBoxRectInFragmentEquivalent(RenderFragmentContainer*, RenderBox::RenderBoxFragmentInfoFlags) const
-{
-    return borderBoxRectEquivalent();
+    updateHasSVGTransformFlags();
 }
 
 LayoutRect RenderSVGModelObject::overflowClipRect(const LayoutPoint&, RenderFragmentContainer*, OverlayScrollbarSizeRelevancy, PaintPhase) const
@@ -102,17 +100,7 @@ const RenderObject* RenderSVGModelObject::pushMappingToContainer(const RenderLay
 
     ASSERT_UNUSED(ancestorSkipped, !ancestorSkipped);
 
-    bool offsetDependsOnPoint = false;
-    LayoutSize containerOffset = offsetFromContainer(*container, LayoutPoint(), &offsetDependsOnPoint);
-
-    bool preserve3D = container->style().preserves3D() || style().preserves3D();
-    if (shouldUseTransformFromContainer(container) && (geometryMap.mapCoordinatesFlags() & UseTransforms)) {
-        TransformationMatrix t;
-        getTransformFromContainer(container, containerOffset, t);
-        geometryMap.push(this, t, preserve3D, offsetDependsOnPoint, false /* isFixedPos */, hasTransform());
-    } else
-        geometryMap.push(this, containerOffset, preserve3D, offsetDependsOnPoint, false /* isFixedPos */, hasTransform());
-
+    pushOntoGeometryMap(geometryMap, ancestorToStopAt, container, ancestorSkipped);
     return container;
 }
 
@@ -137,12 +125,12 @@ LayoutRect RenderSVGModelObject::outlineBoundsForRepaint(const RenderLayerModelO
 
 void RenderSVGModelObject::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& accumulatedOffset) const
 {
-    rects.append(snappedIntRect(LayoutRect(accumulatedOffset + m_layoutRect.location(), m_layoutRect.size())));
+    rects.append(snappedIntRect(accumulatedOffset, m_layoutRect.size()));
 }
 
 void RenderSVGModelObject::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
 {
-    quads.append(localToAbsoluteQuad(objectBoundingBox(), UseTransforms, wasFixed));
+    quads.append(localToAbsoluteQuad(FloatRect { { }, m_layoutRect.size() }, UseTransforms, wasFixed));
 }
 
 void RenderSVGModelObject::willBeDestroyed()
@@ -162,14 +150,14 @@ void RenderSVGModelObject::styleDidChange(StyleDifference diff, const RenderStyl
     if (hasSVGMask && hasLayer() && style().visibility() != Visibility::Visible)
         layer()->setHasVisibleContent();
 
-    SVGResourcesCache::clientStyleChanged(*this, diff, style());
+    SVGResourcesCache::clientStyleChanged(*this, diff, oldStyle, style());
 }
 
 void RenderSVGModelObject::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode> mode, TransformState& transformState) const
 {
     ASSERT(style().position() == PositionType::Static);
 
-    if (hasTransform())
+    if (isTransformed())
         mode.remove(IsFixed);
 
     auto* container = parent();
@@ -180,13 +168,7 @@ void RenderSVGModelObject::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode>
 
     LayoutSize containerOffset = offsetFromContainer(*container, LayoutPoint());
 
-    bool preserve3D = mode & UseTransforms && (container->style().preserves3D() || style().preserves3D());
-    if (mode & UseTransforms && shouldUseTransformFromContainer(container)) {
-        TransformationMatrix t;
-        getTransformFromContainer(container, containerOffset, t);
-        transformState.applyTransform(t, preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
-    } else
-        transformState.move(containerOffset.width(), containerOffset.height(), preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
+    pushOntoTransformState(transformState, mode, nullptr, container, containerOffset, false);
 }
 
 void RenderSVGModelObject::mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const
@@ -200,31 +182,15 @@ LayoutSize RenderSVGModelObject::offsetFromContainer(RenderElement& container, c
     ASSERT(!isInFlowPositioned());
     ASSERT(!isAbsolutelyPositioned());
     ASSERT(isInline());
-    return LayoutSize();
+    return locationOffsetEquivalent();
 }
 
-void RenderSVGModelObject::addFocusRingRects(Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject*)
+void RenderSVGModelObject::addFocusRingRects(Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject*) const
 {
     auto repaintBoundingBox = enclosingLayoutRect(repaintRectInLocalCoordinates());
     if (repaintBoundingBox.size().isEmpty())
         return;
     rects.append(LayoutRect(additionalOffset, repaintBoundingBox.size()));
-}
-
-bool RenderSVGModelObject::shouldPaintSVGRenderer(const PaintInfo& paintInfo) const
-{
-    ASSERT(!paintInfo.context().paintingDisabled());
-
-    if ((paintInfo.phase != PaintPhase::Foreground && paintInfo.phase != PaintPhase::ClippingMask && paintInfo.phase != PaintPhase::Mask && paintInfo.phase != PaintPhase::Outline && paintInfo.phase != PaintPhase::SelfOutline))
-        return false;
-
-    if (!paintInfo.shouldPaintWithinRoot(*this))
-        return false;
-
-    if (style().visibility() == Visibility::Hidden || style().display() == DisplayType::None)
-        return false;
-
-    return true;
 }
 
 // FloatRect::intersects does not consider horizontal or vertical lines (because of isEmpty()).
@@ -269,6 +235,34 @@ bool RenderSVGModelObject::checkEnclosure(RenderElement* renderer, const FloatRe
     ASSERT(is<SVGGraphicsElement>(svgElement));
     auto ctm = downcast<SVGGraphicsElement>(*svgElement).getCTM(SVGLocatable::DisallowStyleUpdate);
     return rect.contains(ctm.mapRect(renderer->repaintRectInLocalCoordinates()));
+}
+
+LayoutSize RenderSVGModelObject::cachedSizeForOverflowClip() const
+{
+    ASSERT(hasNonVisibleOverflow());
+    ASSERT(hasLayer());
+    return layer()->size();
+}
+
+bool RenderSVGModelObject::applyCachedClipAndScrollPosition(LayoutRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const
+{
+    // Based on RenderBox::applyCachedClipAndScrollPosition -- unused options removed.
+    if (!context.options.contains(VisibleRectContextOption::ApplyContainerClip) && this == container)
+        return true;
+
+    LayoutRect clipRect(LayoutPoint(), cachedSizeForOverflowClip());
+    if (effectiveOverflowX() == Overflow::Visible)
+        clipRect.expandToInfiniteX();
+    if (effectiveOverflowY() == Overflow::Visible)
+        clipRect.expandToInfiniteY();
+    bool intersects;
+    if (context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
+        intersects = rect.edgeInclusiveIntersect(clipRect);
+    else {
+        rect.intersect(clipRect);
+        intersects = !rect.isEmpty();
+    }
+    return intersects;
 }
 
 } // namespace WebCore

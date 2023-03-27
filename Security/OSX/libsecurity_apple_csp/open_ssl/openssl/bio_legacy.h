@@ -170,6 +170,8 @@ extern "C" {
  */
 #define BIO_FLAGS_MEM_RDONLY	0x200
 
+typedef struct bio_st BIO;
+
 #define BIO_set_flags(b,f) ((b)->flags|=(f))
 #define BIO_get_flags(b) ((b)->flags)
 #define BIO_set_retry_special(b) \
@@ -225,37 +227,23 @@ extern "C" {
 #define BIO_method_name(b)		((b)->method->name)
 #define BIO_method_type(b)		((b)->method->type)
 
-#ifndef WIN16
-typedef struct bio_method_st
-	{
-	int type;
-	const char *name;
-	int (*bwrite)();
-	int (*bread)();
-	int (*bputs)();
-	int (*bgets)();
-	long (*ctrl)();
-	int (*create)();
-	int (*destroy)();
-	long (*callback_ctrl)();
-	} BIO_METHOD;
-#else
-typedef struct bio_method_st
-	{
-	int type;
-	const char *name;
-	int (_far *bwrite)();
-	int (_far *bread)();
-	int (_far *bputs)();
-	int (_far *bgets)();
-	long (_far *ctrl)();
-	int (_far *create)();
-	int (_far *destroy)();
-	long (_fat *callback_ctrl)();
-	} BIO_METHOD;
-#endif
+typedef void bio_info_cb (struct bio_st *, int, const char *, int, long,
+                          long);
 
-typedef struct bio_st
+typedef struct bio_method_st {
+    int type;
+    const char *name;
+    int (*bwrite) (BIO *, const char *, int);
+    int (*bread) (BIO *, char *, int);
+    int (*bputs) (BIO *, const char *);
+    int (*bgets) (BIO *, char *, int);
+    long (*ctrl) (BIO *, int, long, void *);
+    int (*create) (BIO *);
+    int (*destroy) (BIO *);
+    long (*callback_ctrl) (BIO *, int, bio_info_cb *);
+} BIO_METHOD;
+
+struct bio_st
 	{
 	const BIO_METHOD *method;
 	/* bio, mode, argp, argi, argl, ret */
@@ -275,7 +263,7 @@ typedef struct bio_st
 	unsigned long num_write;
 
 	CRYPTO_EX_DATA ex_data;
-	} BIO;
+	};
 
 typedef struct bio_f_buffer_ctx_struct
 	{
@@ -528,7 +516,9 @@ int	BIO_gets(BIO *bp,char *buf, int size);
 int	BIO_write(BIO *b, const void *data, int len);
 int	BIO_puts(BIO *bp,const char *buf);
 long	BIO_ctrl(BIO *bp,int cmd,long larg,void *parg);
-long	BIO_callback_ctrl(BIO *bp,int cmd,void (*fp)());
+long BIO_callback_ctrl(BIO *b, int cmd,
+                       void (*fp) (struct bio_st *, int, const char *, int,
+                                   long, long));
 char *	BIO_ptr_ctrl(BIO *bp,int cmd,long larg);
 long	BIO_int_ctrl(BIO *bp,int cmd,long larg,int iarg);
 BIO *	BIO_push(BIO *b,BIO *append);

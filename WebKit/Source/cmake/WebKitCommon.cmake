@@ -68,8 +68,8 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     endif ()
 
     if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "8.3.0")
-            message(FATAL_ERROR "GCC 8.3 or newer is required to build WebKit. Use a newer GCC version or Clang.")
+        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "9.3.0")
+            message(FATAL_ERROR "GCC 9.3 or newer is required to build WebKit. Use a newer GCC version or Clang.")
         endif ()
     endif ()
 
@@ -119,6 +119,8 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
         set(WTF_CPU_PPC64LE 1)
     elseif (LOWERCASE_CMAKE_SYSTEM_PROCESSOR MATCHES "^riscv64")
         set(WTF_CPU_RISCV64 1)
+    elseif (LOWERCASE_CMAKE_SYSTEM_PROCESSOR MATCHES "^loongarch64")
+        set(WTF_CPU_LOONGARCH64 1)
     else ()
         set(WTF_CPU_UNKNOWN 1)
     endif ()
@@ -128,7 +130,7 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     # -----------------------------------------------------------------------------
     if (UNIX)
         if (APPLE)
-            set(WTF_OS_MAC_OS_X 1)
+            set(WTF_OS_MACOS 1)
         elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
             set(WTF_OS_LINUX 1)
         else ()
@@ -210,6 +212,7 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     include(CheckTypeSize)
     include(CMakeDependentOption)
     include(CMakeParseArguments)
+    include(CMakePushCheckState)
     include(ProcessorCount)
 
     include(WebKitPackaging)
@@ -232,14 +235,21 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     endif ()
 
     # -----------------------------------------------------------------------------
-    # Job pool to avoid running too many memory hungry linker processes
+    # Job pool to avoid running too many memory hungry processes
     # -----------------------------------------------------------------------------
-    if (${CMAKE_BUILD_TYPE} STREQUAL "Release" OR ${CMAKE_BUILD_TYPE} STREQUAL "MinSizeRel")
-        set_property(GLOBAL PROPERTY JOB_POOLS link_pool_jobs=4)
+    if (DEFINED ENV{WEBKIT_NINJA_LINK_MAX})
+        list(APPEND WK_POOLS "link_pool_jobs=$ENV{WEBKIT_NINJA_LINK_MAX}")
+    elseif (${CMAKE_BUILD_TYPE} STREQUAL "Release" OR ${CMAKE_BUILD_TYPE} STREQUAL "MinSizeRel")
+        list(APPEND WK_POOLS link_pool_jobs=4)
     else ()
-        set_property(GLOBAL PROPERTY JOB_POOLS link_pool_jobs=2)
+        list(APPEND WK_POOLS link_pool_jobs=2)
     endif ()
     set(CMAKE_JOB_POOL_LINK link_pool_jobs)
+    if (DEFINED ENV{WEBKIT_NINJA_COMPILE_MAX})
+        list(APPEND WK_POOLS "compile_pool_jobs=$ENV{WEBKIT_NINJA_COMPILE_MAX}")
+        set(CMAKE_JOB_POOL_COMPILE compile_pool_jobs)
+    endif ()
+    set_property(GLOBAL PROPERTY JOB_POOLS ${WK_POOLS})
 
     # -----------------------------------------------------------------------------
     # Create derived sources directories

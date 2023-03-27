@@ -38,8 +38,12 @@ static const Seconds swipeMinAnimationDuration = 100_ms;
 static const Seconds swipeMaxAnimationDuration = 400_ms;
 static const double swipeAnimationBaseVelocity = 0.002;
 
+#if GTK_CHECK_VERSION(4, 7, 0)
+static const double gtkScrollDeltaMultiplier = 1;
+#else
 // GTK divides all scroll deltas by 10, compensate for that
 static const double gtkScrollDeltaMultiplier = 10;
+#endif
 static const double swipeTouchpadBaseWidth = 400;
 
 // This is derivative of the easing function at t=0
@@ -191,10 +195,11 @@ bool ViewGestureController::SwipeProgressTracker::handleEvent(PlatformGtkScrollD
     }
 
     Seconds time = Seconds::fromMilliseconds(eventTime);
-    if (time != m_prevTime)
+    if (time > m_prevTime) {
         m_velocity = deltaX / (time - m_prevTime).milliseconds();
+        m_prevTime = time;
+    }
 
-    m_prevTime = time;
     m_progress += deltaX;
 
     bool swipingLeft = m_viewGestureController.isPhysicallySwipingLeft(m_direction);
@@ -337,7 +342,7 @@ void ViewGestureController::beginSwipeGesture(WebBackForwardListItem* targetItem
     FloatSize viewSize(m_webPageProxy.viewSize());
 
 #if USE(GTK4)
-    graphene_rect_t bounds = { 0, 0, viewSize.width(), viewSize.height() };
+    graphene_rect_t bounds = { { 0, 0 }, { viewSize.width(), viewSize.height() } };
 #endif
 
     if (auto* snapshot = targetItem->snapshot()) {
@@ -459,7 +464,7 @@ void ViewGestureController::snapshot(GtkSnapshot* snapshot, GskRenderNode* pageR
 
     gtk_snapshot_save(snapshot);
 
-    graphene_rect_t clip = { 0, 0, static_cast<float>(size.width()), static_cast<float>(size.height()) };
+    graphene_rect_t clip = { { 0, 0 }, { static_cast<float>(size.width()), static_cast<float>(size.height()) } };
     gtk_snapshot_push_clip(snapshot, &clip);
 
     graphene_point_t translation = { swipingLayerOffset, 0 };
@@ -491,10 +496,10 @@ void ViewGestureController::snapshot(GtkSnapshot* snapshot, GskRenderNode* pageR
     GdkRGBA border = { 0, 0, 0, swipeOverlayBorderOpacity };
     GdkRGBA outline = { 1, 1, 1, swipeOverlayOutlineOpacity };
 
-    graphene_rect_t dimmingRect = { 0, 0,  static_cast<float>(width), static_cast<float>(height) };
-    graphene_rect_t borderRect = { 0, 0, 1, static_cast<float>(height) };
-    graphene_rect_t outlineRect = { -1, 0, 1, static_cast<float>(height) };
-    graphene_rect_t shadowRect = { 0, 0, swipeOverlayShadowWidth, static_cast<float>(height) };
+    graphene_rect_t dimmingRect = { { 0, 0 }, { static_cast<float>(width), static_cast<float>(height) } };
+    graphene_rect_t borderRect = { { 0, 0 }, { 1, static_cast<float>(height) } };
+    graphene_rect_t outlineRect = { { -1, 0 }, { 1, static_cast<float>(height) } };
+    graphene_rect_t shadowRect = { { 0, 0 }, { swipeOverlayShadowWidth, static_cast<float>(height) } };
     graphene_point_t shadowStart = { 0, 0 };
     graphene_point_t shadowEnd = { swipeOverlayShadowWidth, 0 };
 

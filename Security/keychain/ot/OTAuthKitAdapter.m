@@ -51,7 +51,7 @@
     ACAccount *authKitAccount = [manager authKitAccountWithAltDSID:altDSID];
     BOOL isDemo = [manager demoAccountForAccount:authKitAccount];
 
-    secnotice("security-authkit", "Account with altDSID %@ is a demo account: %@", altDSID, isDemo ? @"true" : @"false");
+    secnotice("security-authkit", "Account with altDSID %@ is a demo account: %{bool}d", altDSID, isDemo);
 
     return isDemo;
 }
@@ -178,10 +178,10 @@
 {
     AKDeviceListDeltaMessagePayload* payload = [[AKDeviceListDeltaMessagePayload alloc] initWithResponseBody:notificationDictionary];
 
-    secnotice("authkit", "received notifyAKDeviceListDeltaMessagePayload: %@, parsed payload: %@",
+    secnotice("authkit", "received notifyAKDeviceListDeltaMessagePayload: %@, parsed payload: %{BOOL}d",
               notificationDictionary,
               // Logging the payload logs an address, so clean it up here.
-              payload ? @"YES" : @"NO");
+              payload != nil);
 
     [self.notifiers iterateListeners:^(id<OTAuthKitAdapterNotifier> listener) {
         NSString* altDSID = payload.altDSID;

@@ -155,10 +155,6 @@ struct FeaturesMtl : FeatureSetBase
         &members,
     };
 
-    FeatureInfo directMetalGeneration = {"directMetalGeneration", FeatureCategory::MetalFeatures,
-                                         "Direct translation to Metal.", &members,
-                                         "http://anglebug.com/5505"};
-
     FeatureInfo forceNonCSBaseMipmapGeneration = {
         "forceNonCSBaseMipmapGeneration",
         FeatureCategory::MetalFeatures,
@@ -196,6 +192,13 @@ struct FeaturesMtl : FeatureSetBase
         &members,
     };
 
+    FeatureInfo allowRenderpassWithoutAttachment = {
+        "allowRenderpassWithoutAttachment",
+        FeatureCategory::MetalFeatures,
+        "Allow creation of render passes without any attachments",
+        &members,
+    };
+
     FeatureInfo multisampleColorFormatShaderReadWorkaround = {
         "multisampleColorFormatShaderReadWorkaround", FeatureCategory::MetalWorkarounds,
         "Add shaderRead usage to some multisampled texture formats", &members,
@@ -205,7 +208,7 @@ struct FeaturesMtl : FeatureSetBase
         "copyIOSurfaceToNonIOSurfaceForReadOptimization", FeatureCategory::MetalWorkarounds,
         "some GPUs are faster to read an IOSurface texture by first copying the texture to a "
         "non-IOSurface texture",
-        &members, "http://anglebug.com/7117"};
+        &members, "http://anglebug.com/7117 http://anglebug.com/7573"};
 
     FeatureInfo copyTextureToBufferForReadOptimization = {
         "copyTextureToBufferForReadOptimization", FeatureCategory::MetalWorkarounds,
@@ -222,6 +225,35 @@ struct FeaturesMtl : FeatureSetBase
         "limitMaxColorTargetBitsForTesting", FeatureCategory::MetalFeatures,
         "Metal iOS has a limit on the number of color target bits per pixel.", &members,
         "http://anglebug.com/7280"};
+
+    FeatureInfo preemptivelyStartProvokingVertexCommandBuffer = {
+        "preemptivelyStartProvokingVertexCommandBuffer", FeatureCategory::MetalFeatures,
+        "AMD Metal Drivers appear to have a bug this works around", &members,
+        "http://anglebug.com/7635"};
+
+    FeatureInfo uploadDataToIosurfacesWithStagingBuffers = {
+        "uploadDataToIosurfacesWithStagingBuffers", FeatureCategory::MetalWorkarounds,
+        "When uploading data to IOSurface-backed textures, use a staging buffer.", &members,
+        "http://anglebug.com/7573"};
+
+    FeatureInfo disableProgrammableBlending = {
+        "disableProgrammableBlending", FeatureCategory::MetalFeatures,
+        "Disable programmable blending in order to test read_write pixel local storage textures",
+        &members, "http://anglebug.com/7279"};
+
+    FeatureInfo disableRWTextureTier2Support = {
+        "disableRWTextureTier2Support", FeatureCategory::MetalFeatures,
+        "Disable tier2 read_write textures in order to test tier1 support", &members,
+        "http://anglebug.com/7279"};
+
+    FeatureInfo disableRasterOrderGroups = {
+        "disableRasterOrderGroups", FeatureCategory::MetalFeatures,
+        "Disable raster order groups in order to test pixel local storage memory barriers",
+        &members, "http://anglebug.com/7279"};
+
+    FeatureInfo enableInMemoryMtlLibraryCache = {
+        "enableInMemoryMtlLibraryCache", FeatureCategory::MetalFeatures,
+        "Cache MTLLibrary objects in memory.", &members, "http://crbug.com/1385510"};
 };
 
 inline FeaturesMtl::FeaturesMtl()  = default;

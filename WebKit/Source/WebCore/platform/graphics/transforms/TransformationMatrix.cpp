@@ -389,7 +389,8 @@ static bool decompose4(const TransformationMatrix::Matrix4& mat, TransformationM
         // rightHandSide by the inverse. (This is the easiest way, not
         // necessarily the best.)
         TransformationMatrix::Matrix4 inversePerspectiveMatrix, transposedInversePerspectiveMatrix;
-        inverse(perspectiveMatrix, inversePerspectiveMatrix);
+        if (!inverse(perspectiveMatrix, inversePerspectiveMatrix))
+            return false;
         transposeMatrix4(inversePerspectiveMatrix, transposedInversePerspectiveMatrix);
 
         Vector4 perspectivePoint;
@@ -1157,6 +1158,17 @@ TransformationMatrix TransformationMatrix::rectToRect(const FloatRect& from, con
                                 to.y() - from.y());
 }
 
+TransformationMatrix& TransformationMatrix::zoom(double zoomFactor)
+{
+    m_matrix[0][3] /= zoomFactor;
+    m_matrix[1][3] /= zoomFactor;
+    m_matrix[2][3] /= zoomFactor;
+    m_matrix[3][0] *= zoomFactor;
+    m_matrix[3][1] *= zoomFactor;
+    m_matrix[3][2] *= zoomFactor;
+    return *this;
+}
+
 // this = mat * this.
 TransformationMatrix& TransformationMatrix::multiply(const TransformationMatrix& mat)
 {
@@ -1653,10 +1665,12 @@ static inline void blendFloat(double& from, double to, double progress, Composit
         from = from + (to - from) * progress;
         break;
     case CompositeOperation::Accumulate:
-        from += from + (to - from - 1) * progress;
+        ASSERT(progress == 1.0);
+        from += to - 1;
         break;
     case CompositeOperation::Add:
-        from += from + (to - from) * progress;
+        ASSERT(progress == 1.0);
+        from += to;
         break;
     }
 }

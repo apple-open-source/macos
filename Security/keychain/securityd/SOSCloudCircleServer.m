@@ -393,6 +393,10 @@ static void SOSCCProcessGestaltUpdate(SCDynamicStoreRef store, CFArrayRef keys, 
 
 static CFDictionaryRef CreateDeviceGestaltDictionaryAndRegisterForUpdate(dispatch_queue_t queue, void *info)
 {
+    IF_SOS_DISABLED {
+        return NULL;
+    }
+    
     SCDynamicStoreContext context = { .info = info };
     SCDynamicStoreRef store = SCDynamicStoreCreate(NULL, CFSTR("com.apple.securityd.cloudcircleserver"), SOSCCProcessGestaltUpdate, &context);
     CFStringRef computerKey = SCDynamicStoreKeyCreateComputerName(NULL);
@@ -448,6 +452,10 @@ static SOSAccount* GetSharedAccount(bool onlyIfItExists) {
     static SOSAccount* sSharedAccount = NULL;
     static dispatch_once_t onceToken;
 
+    IF_SOS_DISABLED {
+        return NULL;
+    }
+    
 #if !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
     if(geteuid() == 0){
         secerror("Cannot inflate account object as root");
@@ -717,7 +725,7 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
 #if GHOSTBUST_PERIODIC && (TARGET_OS_IOS || TARGET_OS_OSX)
             if(ghostbustnow) {
                 [account ghostBustPeriodic:gbOptions complete:^(bool ghostBusted, NSError *error) {
-                    secnotice("ghostbust", "GhostBusting: %@", ghostBusted ? CFSTR("true"): CFSTR("false"));
+                    secnotice("ghostbust", "GhostBusting: %{bool}d", ghostBusted);
                 }];
                 
                 [account removeV0Peers:^(bool removedV0Peers, NSError *error) {
@@ -1061,24 +1069,19 @@ static bool SOSCCAssertUserCredentialsAndOptionalDSID(CFStringRef user_label, CF
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameAssertUserCredentialsAndOptionalDSID);
 
     result = SOSDoWithCredentialsWhileUnlocked(error, ^bool(CFErrorRef *error) {
+        __block bool accountReset = false;
         __block bool localResult = false;
 
         // Shortcut if we're talking to the same account and can construct the same trusted key
         do_with_account(^void (SOSAccountTransaction* txn) {
-            CFStringRef accountDSID = SOSAccountGetValue(txn.account, kSOSDSIDKey, NULL);
-            if(CFEqualSafe(accountDSID, dsid) && txn.account.accountKeyDerivationParameters && txn.account.accountKeyIsTrusted) {
+            accountReset = SOSAccountAssertDSID(txn.account, dsid);
+            if(!accountReset && txn.account.accountKeyDerivationParameters && txn.account.accountKeyIsTrusted) {
                 localResult = SOSAccountTryUserCredentials(txn.account, user_label, user_password, error);
             }
         });
         if(localResult) {
             return true; // shortcut to not do the following work if we're duping a setcreds operation.
         }
-
-        do_with_account(^void (SOSAccountTransaction* txn) {
-            if (dsid != NULL && CFStringCompare(dsid, CFSTR(""), 0) != 0) {
-                SOSAccountAssertDSID(txn.account, dsid);
-            }
-        });
 
         if(SyncKVSAndWait(NULL) && Flush(NULL)) {
             sleep(1); // give the flush a chance - it will work on a different thread
@@ -2022,6 +2025,39 @@ bool SOSCCRegisterRecoveryPublicKey_Server(CFDataRef recovery_key, CFErrorRef *e
         }
         return result;
     });
+    
+    if (!registerResult) {
+        secerror("register-recovery-public-key: Failed to register recovery key");
+        return registerResult;
+    }
+    
+    SOSAccount *account = (__bridge SOSAccount *)(SOSKeychainAccountGetSharedAccount());
+    if (!account) {
+        secerror("register-recovery-public-key: Failed to get account object");
+        if (error) {
+            *error = CFErrorCreate(kCFAllocatorDefault, kSOSErrorDomain, kSOSErrorNoAccount, NULL);
+        }
+        return false;
+    }
+    
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    __block NSError* localError = nil;
+    [account triggerRingUpdateNow:^(NSError *triggerError) {
+        if (triggerError) {
+            secerror("trigger ring update error: %@", triggerError);
+            localError = triggerError;
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+    if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
+        secerror("timed out waiting for ring update");
+    }
+    
+    if (localError && error) {
+        *error = (CFErrorRef)CFBridgingRetain(localError);
+        return false;
+    }
+    
     OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRegisterRecoveryPublicKey, OctagonSignpostNumber1(SOSSignpostNameSOSCCRegisterRecoveryPublicKey), (int)registerResult);
     return registerResult;
 }

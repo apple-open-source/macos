@@ -88,7 +88,6 @@ public:
     AccessibilityObject* nextSibling() const override;
     AccessibilityObject* parentObject() const override;
     AccessibilityObject* parentObjectIfExists() const override;
-    AccessibilityObject* parentObjectUnignored() const override;
     AccessibilityObject* observableObject() const override;
     AccessibilityChildrenVector linkedObjects() const override;
     AccessibilityObject* titleUIElement() const override;
@@ -106,7 +105,6 @@ public:
     LayoutRect elementRect() const override;
     IntPoint clickPoint() override;
     
-    void setRenderer(RenderObject*);
     RenderObject* renderer() const override { return m_renderer.get(); }
     RenderBoxModelObject* renderBoxModelObject() const;
     Node* node() const override;
@@ -133,7 +131,7 @@ public:
     Widget* widgetForAttachmentView() const override;
     AccessibilityChildrenVector documentLinks() override;
     FrameView* documentFrameView() const override;
-    
+
     void setSelectedTextRange(const PlainTextRange&) override;
     bool setValue(const String&) override;
     void setSelectedRows(AccessibilityChildrenVector&) override;

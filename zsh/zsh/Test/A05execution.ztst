@@ -258,7 +258,7 @@ F:side of a pipe to block on write after the right side has exited
    print -u $ZTST_fd "Skipping pipe leak test, requires MONITOR option"
    print "[0] 0 0"
   fi
-0:Bug regression: piping to anonymous function; piping to backround function
+0:Bug regression: piping to anonymous function; piping to background function
 *>\[<->\] <-> <->
 F:This test checks for two different bugs, a parser segfault piping to an
 F:anonymous function, and a descriptor leak when backgrounding a pipeline
@@ -326,6 +326,7 @@ F:anonymous function, and a descriptor leak when backgrounding a pipeline
   callfromchld() { true && { print CHLD } }
   TRAPCHLD() { callfromchld }
   sleep 2 & sleep 3; print OK
+  unfunction TRAPCHLD # don't affect future tests
 0:Background job exit does not affect reaping foreground job
 >CHLD
 >OK
@@ -394,3 +395,23 @@ F:anonymous function, and a descriptor leak when backgrounding a pipeline
 >127
 # TBD: the 0 above is believed to be bogus and should also be turned
 # into 127 when the ccorresponding bug is fixed in the main shell.
+
+# Without the outer subshell, the test harness reports the pre-46060 behaviour
+# as "skipped" rather than "failed".
+ (( exit 130 ) | { sleep 1; echo hello })
+0:exit code 130 isn't mistaken for a signal (unit test for workers/46060)
+>hello
+
+  (exit 3); repeat "$?" echo x
+  (exit 3); repeat '?' echo y
+0:'repeat' loop can use lastval in the count
+>x
+>x
+>x
+>y
+>y
+>y
+
+ (exit 4); repeat 0 do done
+0:'repeat 0' resets lastval
+

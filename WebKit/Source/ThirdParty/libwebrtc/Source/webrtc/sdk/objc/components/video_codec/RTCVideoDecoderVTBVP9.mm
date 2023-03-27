@@ -149,14 +149,15 @@ void vp9DecompressionOutputCallback(void *decoderRef,
                                  CVImageBufferRef imageBuffer,
                                  CMTime timestamp,
                                  CMTime duration) {
+  std::unique_ptr<RTCFrameDecodeParams> decodeParams(reinterpret_cast<RTCFrameDecodeParams *>(params));
   if (status != noErr || !imageBuffer) {
     RTCVideoDecoderVTBVP9 *decoder = (__bridge RTCVideoDecoderVTBVP9 *)decoderRef;
     [decoder setError:status != noErr ? status : 1];
     RTC_LOG(LS_ERROR) << "Failed to decode frame. Status: " << status;
+    decodeParams->callback(nil);
     return;
   }
 
-  std::unique_ptr<RTCFrameDecodeParams> decodeParams(reinterpret_cast<RTCFrameDecodeParams *>(params));
   RTCCVPixelBuffer *frameBuffer = [[RTCCVPixelBuffer alloc] initWithPixelBuffer:imageBuffer];
   RTCVideoFrame *decodedFrame =
       [[RTCVideoFrame alloc] initWithBuffer:frameBuffer
@@ -213,7 +214,7 @@ void vp9DecompressionOutputCallback(void *decoderRef,
 
 - (NSInteger)decodeData:(const uint8_t *)data
         size:(size_t)size
-        timeStamp:(uint32_t)timeStamp {
+        timeStamp:(int64_t)timeStamp {
 
   if (_error != noErr) {
     RTC_LOG(LS_WARNING) << "Last frame decode failed.";
@@ -368,6 +369,11 @@ void vp9DecompressionOutputCallback(void *decoderRef,
     CFRelease(_decompressionSession);
     _decompressionSession = nullptr;
   }
+}
+
+- (void)flush {
+  if (_decompressionSession)
+    VTDecompressionSessionWaitForAsynchronousFrames(_decompressionSession);
 }
 
 - (void)setVideoFormat:(CMVideoFormatDescriptionRef)videoFormat {

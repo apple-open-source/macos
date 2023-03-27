@@ -954,6 +954,7 @@ errOut:
     SecPolicySetSHA256Pins(policy, NULL, (__bridge CFArrayRef)pins);
     SecTrustSetPolicies(test.trust, policy);
     XCTAssert([test evaluate:nil]);
+    CFReleaseNull(policy);
 }
 
 static void test_shortcut_signing(CFDateRef date, bool disableTemporalCheck, bool useShortcutPolicy, bool expectedResult)
@@ -1062,6 +1063,49 @@ exit:
     CFBridgingRelease((__bridge SecCertificateRef)intermediate);
     CFReleaseNull(noExpirationPolicy);
     CFReleaseNull(expirationPolicy);
+}
+
+- (void)testLargePolicyTreeLimit
+{
+    static const UInt8 *blobs[31] = {
+        lptcert_00, lptcert_01, lptcert_02, lptcert_03, lptcert_04, lptcert_05, lptcert_06, lptcert_07,
+        lptcert_08, lptcert_09, lptcert_10, lptcert_11, lptcert_12, lptcert_13, lptcert_14, lptcert_15,
+        lptcert_16, lptcert_17, lptcert_18, lptcert_19, lptcert_20, lptcert_21, lptcert_22, lptcert_23,
+        lptcert_24, lptcert_25, lptcert_26, lptcert_27, lptcert_28, lptcert_29, lptcert_30
+    };
+    CFIndex lengths[31] = {
+        sizeof(lptcert_00), sizeof(lptcert_01), sizeof(lptcert_02), sizeof(lptcert_03),
+        sizeof(lptcert_04), sizeof(lptcert_05), sizeof(lptcert_06), sizeof(lptcert_07),
+        sizeof(lptcert_08), sizeof(lptcert_09), sizeof(lptcert_10), sizeof(lptcert_11),
+        sizeof(lptcert_12), sizeof(lptcert_13), sizeof(lptcert_14), sizeof(lptcert_15),
+        sizeof(lptcert_16), sizeof(lptcert_17), sizeof(lptcert_18), sizeof(lptcert_19),
+        sizeof(lptcert_20), sizeof(lptcert_21), sizeof(lptcert_22), sizeof(lptcert_23),
+        sizeof(lptcert_24), sizeof(lptcert_25), sizeof(lptcert_26), sizeof(lptcert_27),
+        sizeof(lptcert_28), sizeof(lptcert_29), sizeof(lptcert_30)
+    };
+    CFAbsoluteTime startTime, finishTime;
+    CFMutableArrayRef certs = NULL;
+    SecPolicyRef policy = NULL;
+    TestTrustEvaluation *test = nil;
+
+    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "certs");
+    if (!certs) { goto exit; }
+    for (CFIndex idx=0; idx<31; idx++) {
+        SecCertificateRef certificate = NULL;
+        isnt(certificate = SecCertificateCreateWithBytes(kCFAllocatorDefault, blobs[idx], lengths[idx]), NULL, "cert");
+        CFArrayAppendValue(certs, certificate);
+        CFReleaseNull(certificate);
+    }
+    isnt(policy = SecPolicyCreateBasicX509(), NULL, "policy");
+    test = [[TestTrustEvaluation alloc] initWithCertificates:(__bridge NSArray*)certs policies:(__bridge id)policy];
+    // the primary goal of this test is to check that evaluation completes within one second
+    startTime = CFAbsoluteTimeGetCurrent();
+    [test evaluate:nil];
+    finishTime = CFAbsoluteTimeGetCurrent();
+    XCTAssert(finishTime >= startTime && ((finishTime - startTime) <= 1));
+exit:
+    CFReleaseNull(policy);
+    CFReleaseNull(certs);
 }
 
 @end

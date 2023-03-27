@@ -83,7 +83,7 @@ NS_ASSUME_NONNULL_END
 
 @implementation SFAnalyticsSQLiteStore
 
-+ (instancetype)storeWithPath:(NSString*)path schema:(NSString*)schema
++ (nullable instancetype)storeWithPath:(NSString*)path schema:(NSString*)schema
 {
     if (![path length]) {
         seccritical("Cannot init db with empty path");

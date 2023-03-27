@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <numeric>
 #include <unordered_map>
 #include <unordered_set>
@@ -235,7 +236,11 @@ class ConvertStructState : angle::NonCopyable
             const TType mt = modified->getType();
             ASSERT(ot.isArray() == mt.isArray());
 
-            if (ot.isArray() && (ot.getLayoutQualifier().matrixPacking == EmpRowMajor || ot != mt))
+            // Clip distance output uses float[n] type, so the field must be assigned per-element
+            // when filling the modified struct. Explicit path name is used because original types
+            // are not available here.
+            if (ot.isArray() && (ot.getLayoutQualifier().matrixPacking == EmpRowMajor || ot != mt ||
+                                 info.pathName == ImmutableString("gl_ClipDistance")))
             {
                 ASSERT(ot.getArraySizes() == mt.getArraySizes());
                 if (ot.isArrayOfArrays())
@@ -366,7 +371,7 @@ class ConvertStructState : angle::NonCopyable
             reflection->addOriginalName(structure.uniqueId().get(), structure.name().data());
             const Name name = idGen.createNewName(structure.name().data());
             if (!TryCreateModifiedStruct(mCompiler, symbolEnv, idGen, config, structure, name,
-                                         outMachineries, isUBORecurse, true))
+                                         outMachineries, isUBORecurse, config.allowPadding))
             {
                 return false;
             }
@@ -778,7 +783,7 @@ bool SaturateMatrixRows(ConvertStructState &state,
     const bool isRowMajor    = type.getLayoutQualifier().matrixPacking == EmpRowMajor;
     const uint8_t rows       = type.getRows();
     const uint8_t saturation = state.config.saturateMatrixRows(field);
-    if (saturation <= rows && !isRowMajor)
+    if (saturation <= rows)
     {
         return false;
     }
@@ -1059,12 +1064,10 @@ bool sh::TryCreateModifiedStruct(TCompiler &compiler,
 
     state.finalize(allowPadding);
 
-    if (identicalFieldCount == originalFields.size() && !state.hasPacking() &&
-        !state.hasPadding() && !isUBO)
+    if (identicalFieldCount == originalFields.size() && !state.hasPacking() && !state.hasPadding())
     {
         return false;
     }
-
     state.publish(originalStruct, modifiedStructName);
 
     return true;

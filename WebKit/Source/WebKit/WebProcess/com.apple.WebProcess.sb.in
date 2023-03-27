@@ -21,24 +21,38 @@
 ; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 ; THE POSSIBILITY OF SUCH DAMAGE.
 
-(version 1)
-(deny default (with partial-symbolication))
-(deny nvram*)
-(deny system-privilege)
-(allow system-audit file-read-metadata)
-
-;; We can remove the catch once we no longer need to support older macOS
-(catch (lambda)
-    (import "dyld-support.sb"))
-
-;; Silence spurious logging due to rdar://20117923 and rdar://72366475
-(deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
- 
+#include "Shared/Sandbox/macOS/common.sb"
 #include "Shared/Sandbox/preferences.sb"
 
-#if ENABLE(SYSTEM_CONTENT_PATH_SANDBOX_RULES)
-#include <WebKitAdditions/SystemContentSandbox-macos.defs>
+#if USE(SANDBOX_VERSION_3)
+(allow dynamic-code-generation)
+
+(with-filter (mac-policy-name "Sandbox")
+    (allow system-mac-syscall (mac-syscall-number 5 65)))
+
+(with-filter (mac-policy-name "Quarantine")
+    (allow system-mac-syscall (mac-syscall-number 180)))
+
+(allow process-info-rusage (target self))
+
+(allow iokit-open-service (iokit-user-client-class "IOSurfaceRoot"))
+(allow iokit-open-service (iokit-registry-entry-class
+    "AGPM"
+    "IOAccelerator"
+    "AppleM2ScalerCSCDriver"))
+
+(deny iokit-open-service (with no-report) (iokit-registry-entry-class "AppleJPEGDriver"))
+
+#if HAVE(SANDBOX_STATE_FLAGS)
+(with-filter (require-not (state-flag "WebContentProcessLaunched"))
+    (allow file-map-executable))
+(allow file-map-executable
+    (subpath "/System/Library/Components")
+    (subpath "/System/Library/Video/Plug-Ins"))
+#else
+    (allow file-map-executable)
 #endif
+#endif // USE(SANDBOX_VERSION_3)
 
 ;;;
 ;;; The following rules were originally contained in 'system.sb'. We are duplicating them here so we can
@@ -147,7 +161,7 @@
 #endif
         )
         (allow iokit-external-method
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000 && __MAC_OS_X_VERSION_MIN_REQUIRED < 130000
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000 && __MAC_OS_X_VERSION_MIN_REQUIRED < 130000
             (iokit-method-number
                 0
                 1
@@ -200,7 +214,7 @@
             )
 #endif
         )
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000 && __MAC_OS_X_VERSION_MIN_REQUIRED < 130000
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000 && __MAC_OS_X_VERSION_MIN_REQUIRED < 130000
         (if (equal? (param "CPU") "arm64")
             (allow iokit-external-method
                 (iokit-method-number
@@ -213,9 +227,11 @@
             )
         )
 #endif
-        (deny
-            iokit-external-trap
-        )
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 140000
+        (deny iokit-external-trap)
+#else
+        (allow iokit-external-trap)
+#endif
     )
 )
 
@@ -322,39 +338,29 @@
         (preference-domain "com.apple.opengl")
         (preference-domain "com.nvidia.OpenGL"))
     ;; CVMS
-    (allow mach-lookup
-        (require-all
-            (extension "com.apple.webkit.extension.mach")
-            (global-name "com.apple.cvmsServ")
-        )
-    )
-    (deny mach-lookup
-        (require-all
-            (require-not (extension "com.apple.webkit.extension.mach"))
-            (global-name "com.apple.cvmsServ")
-        )
-    )
-    (allow file-read*
+    (deny mach-lookup (with telemetry-backtrace)
+        (global-name "com.apple.cvmsServ"))
+    (deny file-read*
         (prefix "/private/var/db/CVMS/cvmsCodeSignObj"))
     ;; OpenCL
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
-                (iokit-connection "IOAccelerator")
+                (iokit-registry-entry-class "IOAccelerator")
             )
             (IOAcceleratorMessageFilter)
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
-                (iokit-connection "IOAccelerator")
+                (iokit-registry-entry-class "IOAccelerator")
             )
         )
     )
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "IOAccelerationUserClient")
@@ -368,7 +374,7 @@
             )
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "IOAccelerationUserClient")
@@ -376,7 +382,7 @@
         )
     )
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "IOSurfaceRootUserClient")
@@ -384,22 +390,17 @@
             (IOSurfaceRootUserClientMessageFilter)
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "IOSurfaceRootUserClient")
             )
         )
     )
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000
-    ;; CoreVideo CVCGDisplayLink
-    (allow iokit-open
-        (iokit-registry-entry-class "IOFramebufferSharedUserClient"))
-#endif
 
     ;; This is needed for Encrypted Media on some hardware (MacMini8,1 for example)
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleIntelMEUserClient")
@@ -422,7 +423,7 @@
             )
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleIntelMEUserClient")
@@ -432,7 +433,7 @@
 
     ;; This is needed for Encrypted Media on some hardware (MacMini8,1 for example)
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleSNBFBUserClient")
@@ -455,7 +456,7 @@
             )
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleSNBFBUserClient")
@@ -465,17 +466,17 @@
 
     ;; QuartzCore
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED > 110000
-    (deny iokit-open (with no-log)
+    (deny IOKIT_OPEN_USER_CLIENT (with no-report)
         (iokit-registry-entry-class "AGPMClient"))
 #else
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-registry-entry-class "AGPMClient")))
 #endif
 
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleGraphicsControlClient")
@@ -501,7 +502,7 @@
             )
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleGraphicsControlClient")
@@ -509,7 +510,7 @@
         )
     )
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleGraphicsPolicyClient")
@@ -523,7 +524,7 @@
             )
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleGraphicsPolicyClient")
@@ -532,7 +533,7 @@
     )
     ;; OpenGL
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleMGPUPowerControlClient")
@@ -557,7 +558,7 @@
             )
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-registry-entry-class "AppleMGPUPowerControlClient")
@@ -645,6 +646,9 @@
     (sysctl-name-prefix "hw.optional.") ;; <rdar://problem/71462790>
     (sysctl-name-prefix "hw.perflevel") ;; <rdar://problem/76783596>
 )
+
+(deny sysctl-read (with no-report)
+    (sysctl-name "vm.task_no_footprint_for_debug"))
 
 (allow sysctl-write
     (sysctl-name
@@ -994,7 +998,7 @@
 (allow mach-lookup
     (xpc-service-name "com.apple.audio.SandboxHelper"))
 #else
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
     (xpc-service-name "com.apple.audio.SandboxHelper"))
 #endif
 
@@ -1013,16 +1017,6 @@
 
 (deny mach-lookup (with no-report)
     (global-name "com.apple.windowmanager.server"))
-
-;; Utility functions for home directory relative path filters
-(define (home-regex home-relative-regex)
-  (regex (string-append "^" (regex-quote (param "HOME_DIR")) home-relative-regex)))
-
-(define (home-subpath home-relative-subpath)
-  (subpath (string-append (param "HOME_DIR") home-relative-subpath)))
-
-(define (home-literal home-relative-literal)
-  (literal (string-append (param "HOME_DIR") home-relative-literal)))
 
 (define (allow-read-directory-and-issue-read-extensions path)
     (if path
@@ -1135,18 +1129,6 @@
     read-directory-and-issue-read-extension-secondary-paths)
 #endif
 
-;; Sandbox extensions
-(define (apply-read-and-issue-extension op path-filter)
-    (op file-read* path-filter)
-    (op file-issue-extension (require-all (extension-class "com.apple.app-sandbox.read") path-filter)))
-(define (apply-write-and-issue-extension op path-filter)
-    (op file-write* path-filter)
-    (op file-issue-extension (require-all (extension-class "com.apple.app-sandbox.read-write") path-filter)))
-(define (read-only-and-issue-extensions path-filter)
-    (apply-read-and-issue-extension allow path-filter))
-(define (read-write-and-issue-extensions path-filter)
-    (apply-read-and-issue-extension allow path-filter)
-    (apply-write-and-issue-extension allow path-filter))
 (read-only-and-issue-extensions (extension "com.apple.app-sandbox.read"))
 (read-write-and-issue-extensions (extension "com.apple.app-sandbox.read-write"))
 
@@ -1169,27 +1151,11 @@
     (allow-read-write-directory-and-issue-read-write-extensions (param "DARWIN_USER_TEMP_DIR")))
 
 ;; IOKit user clients
-(deny iokit-open (with no-report)
+(deny IOKIT_OPEN_USER_CLIENT (with no-report)
     (iokit-user-client-class "AppleJPEGDriverUserClient"))
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000
-(allow iokit-open
-    (iokit-user-client-class "AppleMultitouchDeviceUserClient")
-    (iokit-user-client-class "IOHIDParamUserClient")
-)
-#endif
-
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 110000
-(deny iokit-open
-    (with send-signal SIGKILL)
-    (iokit-user-client-class "AppleMultitouchDeviceUserClient")
-    (iokit-user-client-class "IOHIDParamUserClient")
-    (iokit-registry-entry-class "IOFramebufferSharedUserClient")
-)
-#endif
-
 (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-user-client-class "AppleUpstreamUserClient")
@@ -1216,7 +1182,7 @@
         )
     )
     ; else
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-user-client-class "AppleUpstreamUserClient")
@@ -1226,7 +1192,7 @@
 
 ;; <rdar://problem/10427451> && <rdar://problem/10808817>
 (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-user-client-class "AudioAUUC")
@@ -1253,7 +1219,7 @@
         )
     )
     ; else
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-user-client-class "AudioAUUC")
@@ -1262,7 +1228,7 @@
 )
 
 (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-user-client-class "IOAudioControlUserClient")
@@ -1276,7 +1242,7 @@
         )
     )
     ; else
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-user-client-class "IOAudioControlUserClient")
@@ -1285,7 +1251,7 @@
 )
 
 (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-user-client-class "IOAudioEngineUserClient")
@@ -1299,7 +1265,7 @@
         )
     )
     ; else
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-user-client-class "IOAudioEngineUserClient")
@@ -1310,7 +1276,7 @@
 ;; <rdar://problem/60088861>
 (when (equal? (param "CPU") "arm64")
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-user-client-class
@@ -1322,7 +1288,7 @@
 #endif
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-user-client-class
@@ -1332,7 +1298,7 @@
         )
     )
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-user-client-class
@@ -1344,7 +1310,7 @@
 #endif
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-user-client-class
@@ -1354,7 +1320,7 @@
         )
     )
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-user-client-class
@@ -1366,7 +1332,7 @@
 #endif
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (extension "com.apple.webkit.extension.iokit")
                 (iokit-user-client-class
@@ -1376,15 +1342,6 @@
         )
     )
 )
-
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000
-;; cookied.
-;; FIXME: Update for <rdar://problem/13642852>.
-(allow ipc-posix-shm-read-data
-    (ipc-posix-name "FNetwork.defaultStorageSession")
-    (ipc-posix-name-regex #"\.PrivateBrowsing-")
-    (ipc-posix-name-prefix "WebKit Test-"))
-#endif
 
 ;; Audio
 (allow ipc-posix-shm-read* ipc-posix-shm-write-data
@@ -1400,7 +1357,7 @@
 (allow mach-lookup
     (global-name "com.apple.tccd.system"))
 #else
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
     (global-name "com.apple.tccd.system"))
 #endif
 
@@ -1478,14 +1435,14 @@
     )
 )
 
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
     (global-name "com.apple.CoreServices.coreservicesd")
     (global-name "com.apple.DiskArbitration.diskarbitrationd")
     (global-name "com.apple.ViewBridgeAuxiliary")
     (global-name "com.apple.windowserver.active"))
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 110000
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
     (global-name "com.apple.CoreDisplay.Notification"))
 #endif
 
@@ -1526,7 +1483,7 @@
 #endif
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
     (global-name-prefix "com.apple.distributed_notifications"))
 #else
 (allow mach-lookup
@@ -1535,7 +1492,7 @@
 
 (allow file-read-data
     (literal "/dev/autofs_nowait")) ; Used by CF to circumvent automount triggers
-#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 110000
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 110000
 (allow ipc-posix-shm
     (ipc-posix-name-prefix "CFPBS:")) ; <rdar://problem/13757475>
 #endif
@@ -1612,19 +1569,19 @@
 ;; Reserve a namespace for additional protected extended attributes.
 (deny file-read-xattr file-write-xattr (xattr-prefix "com.apple.security.private."))
 
-(deny file-read* file-write* (with no-log)
+(deny file-read* file-write* (with no-report)
        ;; FIXME: Should be removed after <rdar://problem/10463881> is fixed.
        (home-literal "/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2")
        (home-literal "/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2-journal"))
 
 ;; Deny access needed for unnecessary NSApplication initialization.
 ;; FIXME: This can be removed once <rdar://problem/13011633> is fixed.
-(deny file-read* (with no-log)
+(deny file-read* (with no-report)
        (subpath "/Library/InputManagers")
        (home-subpath "/Library/InputManagers"))
-(deny user-preference-read (with no-log)
+(deny user-preference-read (with no-report)
     (preference-domain "com.apple.speech.recognition.AppleSpeechRecognition.prefs"))
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
        (global-name "com.apple.coreservices.appleevents")
        (global-name "com.apple.pasteboard.1")
        (global-name "com.apple.speech.recognitionserver"))
@@ -1705,7 +1662,7 @@
         ))
     ;; QuickTimeUSBVDCDigitizer
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (iokit-usb-interface-class kUSBVideoInterfaceClass)
                 (iokit-user-client-class "IOUSBDeviceUserClientV2")
@@ -1721,7 +1678,7 @@
             )
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (iokit-usb-interface-class kUSBVideoInterfaceClass)
                 (iokit-user-client-class "IOUSBDeviceUserClientV2")
@@ -1730,7 +1687,7 @@
     )
 
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (iokit-usb-interface-class kUSBVideoInterfaceClass)
                 (iokit-user-client-class "IOUSBInterfaceUserClientV2")
@@ -1746,7 +1703,7 @@
             )
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (iokit-usb-interface-class kUSBVideoInterfaceClass)
                 (iokit-user-client-class "IOUSBInterfaceUserClientV2")
@@ -1760,9 +1717,9 @@
 ;; <rdar://problem/60983812>
 (deny file-write*
     (home-subpath "/Library/Preferences/")
-    (with no-log))
+    (with no-report))
 
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
     (xpc-service-name "com.apple.audio.toolbox.reporting.service")
 )
 
@@ -1803,7 +1760,7 @@
         (require-not (extension "com.apple.webkit.extension.mach"))
         (global-name "com.apple.audio.AudioComponentRegistrar")))
 #else
-(deny mach-lookup (with no-log)
+(deny mach-lookup (with no-report)
     (global-name "com.apple.audio.AudioComponentRegistrar"))
 #endif
 
@@ -1891,11 +1848,6 @@
 (disable-syscall-inference)
 #endif
 
-#if HAVE(SANDBOX_STATE_FLAGS)
-(deny user-preference-read (with enable-state-flag "WebContentProcessLaunched")
-    (preference-domain "com.apple.WebKit.WebContent.Launch"))
-#endif
-
 (define (syscall-unix-common)
     (syscall-number
         SYS___disable_threadsignal
@@ -1970,6 +1922,7 @@
         SYS_thread_selfusage
 #endif
         SYS_ulock_wait
+        SYS_ulock_wait2
         SYS_ulock_wake
         SYS_workq_kernreturn
         SYS_write_nocancel
@@ -2011,7 +1964,6 @@
         SYS_setsockopt ;; <rdar://90249455>
         SYS_shm_open
         SYS_sigaction
-        SYS_sigreturn
         SYS_unlink
         SYS_write
 #if !PLATFORM(MAC)
@@ -2023,7 +1975,6 @@
         SYS_open_dprotected_np
         SYS_setrlimit
         SYS_shared_region_map_and_slide_2_np
-        SYS_ulock_wait2
 #endif
 ))
 
@@ -2056,13 +2007,18 @@
 
 (allow syscall-unix (syscall-unix-common))
 
+#if ENABLE(LOCKDOWN_MODE_TELEMETRY)
 (with-filter (require-entitlement "com.apple.security.cs.allow-jit")
     (allow syscall-unix (syscall-unix-blocked-in-lockdown-mode))
-
     (when (equal? (param "CPU") "arm64")
         (allow syscall-unix (syscall-unix-apple-silicon)))
-
     (allow syscall-unix (syscalls-rarely-used)))
+#else
+(allow syscall-unix (syscall-unix-blocked-in-lockdown-mode))
+(when (equal? (param "CPU") "arm64")
+    (allow syscall-unix (syscall-unix-apple-silicon)))
+(allow syscall-unix (syscalls-rarely-used))
+#endif
 
 (when (defined? 'SYS_objc_bp_assist_cfg_np)
     (allow syscall-unix (syscall-number SYS_objc_bp_assist_cfg_np)))
@@ -2077,11 +2033,13 @@
     (allow syscall-unix (syscall-number SYS_quotactl)))
 #endif
 
+#if ENABLE(LOCKDOWN_MODE_TELEMETRY)
 (with-filter (require-not (require-entitlement "com.apple.security.cs.allow-jit"))
     (allow syscall-unix (with report) (with telemetry) (syscall-unix-blocked-in-lockdown-mode))
     (allow syscall-unix (with report) (with telemetry) (syscalls-rarely-used))
     (when (equal? (param "CPU") "arm64")
         (allow syscall-unix (with report) (with telemetry) (syscall-unix-apple-silicon))))
+#endif
 
 #if HAVE(ADDITIONAL_APPLE_CAMERA_SERVICE)
 (if (equal? (param "CPU") "arm64")
@@ -2110,21 +2068,17 @@
 (if (and (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES") (defined? 'mach-bootstrap))
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
 #if HAVE(SANDBOX_STATE_FLAGS)
-    (begin
-        (if (require-ancestor-with-entitlement "com.apple.private.security.enable-state-flags")
-            (allow mach-bootstrap
-                (apply-message-filter
-                    (deny mach-message-send)
-                    (allow mach-message-send
-                        (mach-bootstrap-message-numbers-post-launch))))
-        ;; else
-            (allow-mach-bootstrap-with-filter))
-
-        (with-filter
-            (require-any
-                (require-not (state-flag "WebContentProcessLaunched"))
-                (state-flag "EnableMachBootstrap"))
-            (allow-mach-bootstrap-with-filter))))
+(allow mach-bootstrap
+    (apply-message-filter
+        (deny mach-message-send)
+#if HAVE(MACH_BOOTSTRAP_EXTENSION)
+        (with-filter (extension "com.apple.webkit.mach-bootstrap")
+            (allow mach-message-send (mach-bootstrap-message-numbers-post-launch)))
+#else
+        (allow mach-message-send (mach-bootstrap-message-numbers-post-launch))
+#endif
+        (with-filter (require-not (state-flag "WebContentProcessLaunched"))
+            (allow mach-message-send (mach-bootstrap-message-numbers))))))
 #else
     (allow-mach-bootstrap-with-filter))
 #endif // HAVE(SANDBOX_STATE_FLAGS)
@@ -2204,11 +2158,15 @@
     (allow mach-kernel-endpoint
         (apply-message-filter
             (deny mach-message-send)
-            (allow mach-message-send (kernel-mig-routines-common))
+#if ENABLE(LOCKDOWN_MODE_TELEMETRY)
             (with-filter (require-entitlement "com.apple.security.cs.allow-jit")
                 (allow mach-message-send (kernel-mig-routines-blocked-in-lockdown-mode)))
             (with-filter (require-not (require-entitlement "com.apple.security.cs.allow-jit"))
-                (allow mach-message-send (with report) (with telemetry) (kernel-mig-routines-blocked-in-lockdown-mode))))))
+                (allow mach-message-send (with report) (with telemetry) (kernel-mig-routines-blocked-in-lockdown-mode)))
+#else
+            (allow mach-message-send (kernel-mig-routines-blocked-in-lockdown-mode))
+#endif
+            (allow mach-message-send (kernel-mig-routines-common)))))
 
 (define (syscall-mach-common) (machtrap-number
     MSC__kernelrpc_mach_port_allocate_trap
@@ -2257,17 +2215,20 @@
 (when (and (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES") (defined? 'syscall-mach))
     (deny syscall-mach)
     (allow syscall-mach (syscall-mach-common))
+#if ENABLE(LOCKDOWN_MODE_TELEMETRY)
     (with-filter (require-entitlement "com.apple.security.cs.allow-jit")
         (allow syscall-mach (syscall-mach-blocked-in-lockdown-mode)))
     (with-filter (require-not (require-entitlement "com.apple.security.cs.allow-jit"))
         (allow syscall-mach (with report) (with telemetry) (syscall-mach-blocked-in-lockdown-mode)))
-
+#else
+    (allow syscall-mach (syscall-mach-blocked-in-lockdown-mode))
+#endif
     (when (defined? 'MSC_mach_msg2_trap)
         (allow syscall-mach (machtrap-number MSC_mach_msg2_trap))))
 #endif // HAVE(SANDBOX_MESSAGE_FILTERING)
 
 (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (require-not (extension "com.apple.webkit.extension.iokit"))
             (iokit-registry-entry-class
@@ -2277,7 +2238,7 @@
         (IOSurfaceRootUserClientMessageFilter)
     )
     ; else
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (require-not (extension "com.apple.webkit.extension.iokit"))
             (iokit-registry-entry-class
@@ -2289,7 +2250,7 @@
 
 (when (equal? (param "CPU") "arm64")
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (require-not (extension "com.apple.webkit.extension.iokit"))
                 (iokit-user-client-class
@@ -2301,7 +2262,7 @@
 #endif
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (require-not (extension "com.apple.webkit.extension.iokit"))
                 (iokit-user-client-class
@@ -2311,7 +2272,7 @@
         )
     )
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (require-not (extension "com.apple.webkit.extension.iokit"))
                 (iokit-user-client-class
@@ -2323,7 +2284,7 @@
 #endif
         )
         ; else
-        (allow iokit-open
+        (allow IOKIT_OPEN_USER_CLIENT
             (require-all
                 (require-not (extension "com.apple.webkit.extension.iokit"))
                 (iokit-user-client-class
@@ -2335,7 +2296,7 @@
 )
 
 (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (require-not (extension "com.apple.webkit.extension.iokit"))
             (iokit-connection
@@ -2345,7 +2306,7 @@
         (IOAcceleratorMessageFilter)
     )
     ; else
-    (allow iokit-open
+    (allow IOKIT_OPEN_USER_CLIENT
         (require-all
             (require-not (extension "com.apple.webkit.extension.iokit"))
             (iokit-connection
@@ -2355,7 +2316,7 @@
     )
 )
 
-(deny iokit-open
+(deny IOKIT_OPEN_USER_CLIENT
     (require-all
         (require-not (extension "com.apple.webkit.extension.iokit"))
         (iokit-user-client-class
@@ -2366,7 +2327,7 @@
     )
 )
 
-(deny iokit-open
+(deny IOKIT_OPEN_USER_CLIENT
     (require-all
         (require-not (extension "com.apple.webkit.extension.iokit"))
         (iokit-registry-entry-class
@@ -2381,7 +2342,7 @@
     )
 )
 
-(deny iokit-open
+(deny IOKIT_OPEN_USER_CLIENT
     (require-all
         (require-not (extension "com.apple.webkit.extension.iokit"))
         (iokit-user-client-class
@@ -2389,6 +2350,16 @@
         )
     )
 )
+
+#if HAVE(SANDBOX_STATE_FLAGS)
+(with-filter (state-flag "BlockIOKitInWebContentSandbox")
+    (deny iokit-open-service (with telemetry-backtrace))
+    (deny iokit-open-user-client (with telemetry-backtrace))
+    (deny mach-lookup (with telemetry-backtrace)
+        (require-all
+            (require-not (extension "com.apple.webkit.extension.mach"))
+            (xpc-service-name "com.apple.MTLCompilerService"))))
+#endif
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED > 110000
 (deny darwin-notification-post)

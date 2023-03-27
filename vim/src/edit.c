@@ -1049,12 +1049,19 @@ doESCkey:
 
 	case K_COMMAND:		    // <Cmd>command<CR>
 	case K_SCRIPT_COMMAND:	    // <ScriptCmd>command<CR>
-	    do_cmdkey_command(c, 0);
+	    {
+		do_cmdkey_command(c, 0);
+
 #ifdef FEAT_TERMINAL
-	    if (term_use_loop())
-		// Started a terminal that gets the input, exit Insert mode.
-		goto doESCkey;
+		if (term_use_loop())
+		    // Started a terminal that gets the input, exit Insert mode.
+		    goto doESCkey;
 #endif
+		if (curbuf->b_u_synced)
+		    // The command caused undo to be synced.  Need to save the
+		    // line for undo before inserting the next char.
+		    ins_need_undo = TRUE;
+	    }
 	    break;
 
 	case K_CURSORHOLD:	// Didn't type something for a while.
@@ -1659,49 +1666,49 @@ edit_putchar(int c, int highlight)
 {
     int	    attr;
 
-    if (ScreenLines != NULL)
-    {
-	update_topline();	// just in case w_topline isn't valid
-	validate_cursor();
-	if (highlight)
-	    attr = HL_ATTR(HLF_8);
-	else
-	    attr = 0;
-	pc_row = W_WINROW(curwin) + curwin->w_wrow;
-	pc_col = curwin->w_wincol;
-	pc_status = PC_STATUS_UNSET;
-#ifdef FEAT_RIGHTLEFT
-	if (curwin->w_p_rl)
-	{
-	    pc_col += curwin->w_width - 1 - curwin->w_wcol;
-	    if (has_mbyte)
-	    {
-		int fix_col = mb_fix_col(pc_col, pc_row);
+    if (ScreenLines == NULL)
+	return;
 
-		if (fix_col != pc_col)
-		{
-		    screen_putchar(' ', pc_row, fix_col, attr);
-		    --curwin->w_wcol;
-		    pc_status = PC_STATUS_RIGHT;
-		}
+    update_topline();	// just in case w_topline isn't valid
+    validate_cursor();
+    if (highlight)
+	attr = HL_ATTR(HLF_8);
+    else
+	attr = 0;
+    pc_row = W_WINROW(curwin) + curwin->w_wrow;
+    pc_col = curwin->w_wincol;
+    pc_status = PC_STATUS_UNSET;
+#ifdef FEAT_RIGHTLEFT
+    if (curwin->w_p_rl)
+    {
+	pc_col += curwin->w_width - 1 - curwin->w_wcol;
+	if (has_mbyte)
+	{
+	    int fix_col = mb_fix_col(pc_col, pc_row);
+
+	    if (fix_col != pc_col)
+	    {
+		screen_putchar(' ', pc_row, fix_col, attr);
+		--curwin->w_wcol;
+		pc_status = PC_STATUS_RIGHT;
 	    }
 	}
-	else
-#endif
-	{
-	    pc_col += curwin->w_wcol;
-	    if (mb_lefthalve(pc_row, pc_col))
-		pc_status = PC_STATUS_LEFT;
-	}
-
-	// save the character to be able to put it back
-	if (pc_status == PC_STATUS_UNSET)
-	{
-	    screen_getbytes(pc_row, pc_col, pc_bytes, &pc_attr);
-	    pc_status = PC_STATUS_SET;
-	}
-	screen_putchar(c, pc_row, pc_col, attr);
     }
+    else
+#endif
+    {
+	pc_col += curwin->w_wcol;
+	if (mb_lefthalve(pc_row, pc_col))
+	    pc_status = PC_STATUS_LEFT;
+    }
+
+    // save the character to be able to put it back
+    if (pc_status == PC_STATUS_UNSET)
+    {
+	screen_getbytes(pc_row, pc_col, pc_bytes, &pc_attr);
+	pc_status = PC_STATUS_SET;
+    }
+    screen_putchar(c, pc_row, pc_col, attr);
 }
 
 #if defined(FEAT_JOB_CHANNEL) || defined(PROTO)
@@ -1777,11 +1784,11 @@ display_dollar(colnr_T col_arg)
     void
 undisplay_dollar(void)
 {
-    if (dollar_vcol >= 0)
-    {
-	dollar_vcol = -1;
-	redrawWinline(curwin, curwin->w_cursor.lnum);
-    }
+    if (dollar_vcol < 0)
+	return;
+
+    dollar_vcol = -1;
+    redrawWinline(curwin, curwin->w_cursor.lnum);
 }
 
 /*
@@ -2549,17 +2556,17 @@ set_last_insert(int c)
 
     vim_free(last_insert);
     last_insert = alloc(MB_MAXBYTES * 3 + 5);
-    if (last_insert != NULL)
-    {
-	s = last_insert;
-	// Use the CTRL-V only when entering a special char
-	if (c < ' ' || c == DEL)
-	    *s++ = Ctrl_V;
-	s = add_char2buf(c, s);
-	*s++ = ESC;
-	*s++ = NUL;
-	last_insert_skip = 0;
-    }
+    if (last_insert == NULL)
+	return;
+
+    s = last_insert;
+    // Use the CTRL-V only when entering a special char
+    if (c < ' ' || c == DEL)
+	*s++ = Ctrl_V;
+    s = add_char2buf(c, s);
+    *s++ = ESC;
+    *s++ = NUL;
+    last_insert_skip = 0;
 }
 
 #if defined(EXITFREE) || defined(PROTO)
@@ -2965,12 +2972,12 @@ get_last_insert_save(void)
     if (last_insert == NULL)
 	return NULL;
     s = vim_strsave(last_insert + last_insert_skip);
-    if (s != NULL)
-    {
-	len = (int)STRLEN(s);
-	if (len > 0 && s[len - 1] == ESC)	// remove trailing ESC
-	    s[len - 1] = NUL;
-    }
+    if (s == NULL)
+	return NULL;
+
+    len = (int)STRLEN(s);
+    if (len > 0 && s[len - 1] == ESC)	// remove trailing ESC
+	s[len - 1] = NUL;
     return s;
 }
 
@@ -3709,7 +3716,7 @@ ins_esc(
 	MAY_WANT_TO_LOG_THIS;
 
 	// Re-enable bracketed paste mode.
-	out_str(T_BE);
+	out_str_t_BE();
 
 	// Re-enable modifyOtherKeys.
 	out_str_t_TI();

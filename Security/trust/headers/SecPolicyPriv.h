@@ -2051,6 +2051,7 @@ SecPolicyRef SecPolicyCreateApplePayModelSigning(bool checkExpiration)
  @discussion The resulting policy uses the Basic X.509 policy with no validity check and
  pinning options:
      * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+     * Signing algorithm uses SHA-256 or greater (no MD2/MD4/MD5/SHA1/SHA224).
  The intended use of this policy is that the caller pass in the trusted roots to SecTrustSetAnchorCertificates().
  @result A policy object. The caller is responsible for calling CFRelease on this when
  it is no longer needed.

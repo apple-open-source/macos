@@ -74,6 +74,16 @@ typedef NS_OPTIONS(NSUInteger, _WKWebsiteColorSchemePreference) {
     _WKWebsiteColorSchemePreferenceDark,
 } WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
+// Allow controlling a per-page network connection integrity policy.
+typedef NS_OPTIONS(NSUInteger, _WKWebsiteNetworkConnectionIntegrityPolicy) {
+    _WKWebsiteNetworkConnectionIntegrityPolicyNone = 0,
+    _WKWebsiteNetworkConnectionIntegrityPolicyEnabled = 1 << 0,
+    _WKWebsiteNetworkConnectionIntegrityPolicyHTTPSFirst = 1 << 1,
+    _WKWebsiteNetworkConnectionIntegrityPolicyHTTPSOnly = 1 << 2,
+    _WKWebsiteNetworkConnectionIntegrityPolicyHTTPSOnlyExplicitlyBypassedForDomain = 1 << 3,
+    _WKWebsiteNetworkConnectionIntegrityPolicyFailClosed = 1 << 4,
+} WK_API_AVAILABLE(macos(13.3), ios(16.4));
+
 @class _WKCustomHeaderFields;
 @class WKUserContentController;
 @class WKWebsiteDataStore;
@@ -100,8 +110,11 @@ typedef NS_OPTIONS(NSUInteger, _WKWebsiteColorSchemePreference) {
 @property (nonatomic, setter=_setModalContainerObservationPolicy:) _WKWebsiteModalContainerObservationPolicy _modalContainerObservationPolicy WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
 @property (nonatomic, setter=_setCaptivePortalModeEnabled:) BOOL _captivePortalModeEnabled WK_API_AVAILABLE(macos(13.0), ios(16.0));
-@property (nonatomic, setter=_setAllowPrivacyProxy:) BOOL _allowPrivacyProxy WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+@property (nonatomic, setter=_setAllowPrivacyProxy:) BOOL _allowPrivacyProxy WK_API_AVAILABLE(macos(13.1), ios(16.2));
 
 @property (nonatomic, setter=_setColorSchemePreference:) _WKWebsiteColorSchemePreference _colorSchemePreference;
+
+@property (nonatomic, setter=_setNetworkConnectionIntegrityEnabled:) BOOL _networkConnectionIntegrityEnabled WK_API_AVAILABLE(macos(13.3), ios(16.4));
+@property (nonatomic, setter=_setNetworkConnectionIntegrityPolicy:) _WKWebsiteNetworkConnectionIntegrityPolicy _networkConnectionIntegrityPolicy WK_API_AVAILABLE(macos(13.3), ios(16.4));
 
 @end

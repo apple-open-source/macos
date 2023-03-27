@@ -55,6 +55,7 @@
 #import <Security/OTJoiningConfiguration.h>
 #import "keychain/ot/OTOperationDependencies.h"
 #import "keychain/ot/CuttlefishXPCWrapper.h"
+#import "keychain/ot/OTStashAccountSettingsOperation.h"
 #import <Security/SecEscrowRequest.h>
 
 #import <CoreCDP/CDPAccount.h>
@@ -65,6 +66,9 @@
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ot/proto/generated_source/OTSecureElementPeerIdentity.h"
 #import "keychain/ot/proto/generated_source/OTCurrentSecureElementIdentities.h"
+#import "keychain/ot/proto/generated_source/OTAccountSettings.h"
+#import "keychain/ot/proto/generated_source/OTWalrus.h"
+#import "keychain/ot/proto/generated_source/OTWebAccess.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -73,7 +77,8 @@ NS_ASSUME_NONNULL_BEGIN
                                            OctagonStateMachineEngine,
                                            CKKSCloudKitAccountStateListener,
                                            CKKSPeerUpdateListener,
-                                           OTDeviceInformationNameUpdateListener>
+                                           OTDeviceInformationNameUpdateListener,
+                                           OTAccountSettingsContainer>
 
 @property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 @property (readonly) OTFollowup *followupHandler;
@@ -153,7 +158,15 @@ NS_ASSUME_NONNULL_BEGIN
        vouchSig:(NSData*)vouchSig
           reply:(void (^)(NSError * _Nullable error))reply;
 
-- (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason reply:(nonnull void (^)(NSError * _Nullable))reply;
+- (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason
+           idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+      idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+                  notifyIdMS:(bool)notifyIdMS
+             accountSettings:(OTAccountSettings *_Nullable)accountSettings
+                       reply:(nonnull void (^)(NSError * _Nullable))reply;
+
+- (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason
+                       reply:(nonnull void (^)(NSError * _Nullable))reply;
 
 - (void)localReset:(nonnull void (^)(NSError * _Nullable))reply;
 
@@ -185,6 +198,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)preflightRecoverOctagonUsingRecoveryKey:(NSString *)recoveryKey
                                           reply:(void (^)(BOOL, NSError * _Nullable))reply;
+
+- (void)getAccountMetadataWithReply:(void (^)(OTAccountMetadataClassC*_Nullable, NSError *_Nullable))reply;
 
 - (void)rpcRemoveFriendsInClique:(NSArray<NSString*>*)peerIDs
                            reply:(void (^)(NSError * _Nullable))reply;
@@ -246,6 +261,11 @@ NS_ASSUME_NONNULL_BEGIN
                                           reply:(void (^)(NSArray<NSString*>* views,
                                                           NSError* replyError))reply;
 
+- (void)rpcSetAccountSetting:(OTAccountSettings*)setting
+                       reply:(void (^)(NSError* _Nullable))reply;
+
+- (void)rpcFetchAccountSettings:(void (^)(OTAccountSettings* _Nullable setting, NSError* _Nullable replyError))reply;
+- (void)rpcAccountWideSettingsWithForceFetch:(bool)forceFetch reply:(void (^)(OTAccountSettings* _Nullable setting, NSError* _Nullable replyError))reply;
 
 - (void)rpcWaitForPriorityViewKeychainDataRecovery:(void (^)(NSError* _Nullable replyError))reply NS_SWIFT_NAME(rpcWaitForPriorityViewKeychainDataRecovery(reply:));;
 
@@ -262,12 +282,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)waitForReady:(int64_t)timeOffset;
 
+- (void)rpcIsRecoveryKeySet:(void (^)(BOOL isSet, NSError * _Nullable error))reply;
+- (void)rpcRemoveRecoveryKey:(void (^)(BOOL removed, NSError * _Nullable error))reply;
+
 // For testing.
 - (OTAccountMetadataClassC_AccountState)currentMemoizedAccountState;
 - (OTAccountMetadataClassC_TrustState)currentMemoizedTrustState;
 - (NSDate* _Nullable) currentMemoizedLastHealthCheck;
 - (void)checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError * _Nullable error))reply;
-- (void)rpcResetAccountCDPContents:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcResetAccountCDPContentsWithIdmsTargetContext:(NSString *_Nullable)idmsTargetContext idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword 	       notifyIdMS:(bool)notifyIdMS
+reply:(void (^)(NSError* _Nullable error))reply;
 - (BOOL)checkAllStateCleared;
 - (void)clearCKKS;
 - (void)setMachineIDOverride:(NSString*)machineID;
@@ -280,6 +304,8 @@ NS_ASSUME_NONNULL_BEGIN
 // For reporting
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;
 - (TrustedPeersHelperEgoPeerStatus* _Nullable)egoPeerStatus:(NSError**)error;
+
+- (void)setAccountSettings:(OTAccountSettings*_Nullable)accountSettings;
 
 @end
 

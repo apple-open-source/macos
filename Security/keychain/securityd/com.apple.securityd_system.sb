@@ -1,0 +1,65 @@
+(version 1)
+
+(deny default)
+
+(import "system.sb")
+
+(allow file-write-data
+    (literal "/dev/random"))
+
+(allow file-read* file-write*
+    (subpath "/private/var/db/mds")
+    (subpath "/Library/Keychains"))
+
+(allow user-preference-read
+    (preference-domain ".GlobalPreferences")
+    (preference-domain "com.apple.security"))
+
+(allow distributed-notification-post)
+
+(allow iokit-open
+   (iokit-user-client-class "AppleKeyStoreUserClient")
+   (iokit-user-client-class "AppleAPFSUserClient")
+   (iokit-user-client-class "RootDomainUserClient"))
+
+
+(allow file-read*
+    (literal "/usr/libexec/securityd_system")
+    (literal "/Library/Preferences/com.apple.security.plist")
+    (literal "/Library/Preferences/.GlobalPreferences.plist")
+    (literal "/AppleInternal")
+    (literal "/usr/libexec"))
+
+(allow file-read-metadata
+    (literal "/Library"))
+
+(allow mach-lookup
+        (global-name "com.apple.system.opendirectoryd.api")
+        (global-name "com.apple.SystemConfiguration.configd")
+        (global-name "com.apple.CoreServices.coreservicesd")
+        (global-name "com.apple.distributed_notifications@Uv3")
+        (global-name "com.apple.analyticsd")
+        (global-name "com.apple.symptom_diagnostics")
+        (global-name "com.apple.windowserver.active")
+        (global-name "com.apple.powerlog.plxpclogger.xpc")
+        (global-name "com.apple.mobile.usermanagerd.xpc")
+)
+
+(allow iokit-get-properties (iokit-registry-entry-class "IOPlatformExpertDevice"))
+
+(allow ipc-posix-shm
+    (ipc-posix-name "com.apple.AppleDatabaseChanged"))
+
+(allow network-outbound)
+(allow system-socket)
+
+;; to be deleted once SecTrustEvaluate and SecTrustCopyKey can avoid touching legacy cert and keychain stack
+(allow file-read* file-write*
+    (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds/mdsDirectory\.db$")
+    (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds/mdsObject\.db$")
+    (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds/mds\.lock$"))
+(allow mach-lookup
+    (global-name "com.apple.SecurityServer"))
+
+(allow system-fsctl (fsctl-command afpfsByteRangeLock2FSCTL))
+

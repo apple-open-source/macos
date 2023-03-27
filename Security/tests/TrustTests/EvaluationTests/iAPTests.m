@@ -531,6 +531,7 @@ trustFail:
     CFReleaseNull(provisioning_leaf);
     CFReleaseNull(provisioning_ca);
     CFReleaseNull(root);
+    CFReleaseNull(iAPPolicy);
 }
 
 - (void)testMFIv4Compression {

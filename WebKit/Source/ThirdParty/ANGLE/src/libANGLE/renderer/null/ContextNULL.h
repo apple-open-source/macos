@@ -201,6 +201,7 @@ class ContextNULL : public ContextImpl
     const gl::TextureCapsMap &getNativeTextureCaps() const override;
     const gl::Extensions &getNativeExtensions() const override;
     const gl::Limitations &getNativeLimitations() const override;
+    const ShPixelLocalStorageOptions &getNativePixelLocalStorageOptions() const override;
 
     // Shader creation
     CompilerImpl *createCompiler() override;
@@ -266,6 +267,7 @@ class ContextNULL : public ContextImpl
     gl::TextureCapsMap mTextureCaps;
     gl::Extensions mExtensions;
     gl::Limitations mLimitations;
+    ShPixelLocalStorageOptions mPLSOptions;
 
     AllocationTrackerNULL *mAllocationTracker;
 };

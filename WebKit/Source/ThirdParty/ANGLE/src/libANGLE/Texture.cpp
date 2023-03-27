@@ -6,9 +6,6 @@
 
 // Texture.cpp: Implements the gl::Texture class. [OpenGL ES 2.0.24] section 3.7 page 63.
 
-// TODO: Remove the following line with follow-up labeledObject changes (b/229105865)
-#include "libANGLE/Context.inl.h"
-
 #include "libANGLE/Texture.h"
 
 #include "common/mathutil.h"
@@ -55,24 +52,6 @@ InitState DetermineInitState(const Context *context, Buffer *unpackBuffer, const
     return (!pixels && !unpackBuffer) ? InitState::MayNeedInit : InitState::Initialized;
 }
 }  // namespace
-
-bool IsMipmapFiltered(GLenum minFilterMode)
-{
-    switch (minFilterMode)
-    {
-        case GL_NEAREST:
-        case GL_LINEAR:
-            return false;
-        case GL_NEAREST_MIPMAP_NEAREST:
-        case GL_LINEAR_MIPMAP_NEAREST:
-        case GL_NEAREST_MIPMAP_LINEAR:
-        case GL_LINEAR_MIPMAP_LINEAR:
-            return true;
-        default:
-            UNREACHABLE();
-            return false;
-    }
-}
 
 GLenum ConvertToNearestFilterMode(GLenum filterMode)
 {
@@ -812,14 +791,10 @@ Texture::~Texture()
     SafeDelete(mTexture);
 }
 
-void Texture::setLabel(const Context *context, const std::string &label)
+angle::Result Texture::setLabel(const Context *context, const std::string &label)
 {
     mState.mLabel = label;
-
-    if (mTexture)
-    {
-        ANGLE_CONTEXT_TRY(mTexture->onLabelUpdate(context));
-    }
+    return mTexture->onLabelUpdate(context);
 }
 
 const std::string &Texture::getLabel() const
@@ -2142,7 +2117,7 @@ const OffsetBindingPointer<Buffer> &Texture::getBuffer() const
     return mState.mBuffer;
 }
 
-void Texture::onAttach(const Context *context, rx::Serial framebufferSerial)
+void Texture::onAttach(const Context *context, rx::UniqueSerial framebufferSerial)
 {
     addRef();
 
@@ -2156,7 +2131,7 @@ void Texture::onAttach(const Context *context, rx::Serial framebufferSerial)
     }
 }
 
-void Texture::onDetach(const Context *context, rx::Serial framebufferSerial)
+void Texture::onDetach(const Context *context, rx::UniqueSerial framebufferSerial)
 {
     // Erase first instance. If there are multiple bindings, leave the others.
     ASSERT(isBoundToFramebuffer(framebufferSerial));

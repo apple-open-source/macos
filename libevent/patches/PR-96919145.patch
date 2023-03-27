@@ -1,0 +1,24 @@
+diff --git Makefile.in Makefile.in
+index 04e0ae3..e0d0eec 100644
+--- Makefile.in
++++ Makefile.in
+@@ -3132,6 +3132,7 @@ test_runner_timerfd_changelist: $(top_srcdir)/test/test.sh
+ test/regress.gen.c test/regress.gen.h: test/rpcgen-attempted
+ 
+ test/rpcgen-attempted: test/regress.rpc event_rpcgen.py test/rpcgen_wrapper.sh
++	$(AM_V_at)test -d test || $(MKDIR_P) test
+ 	$(AM_V_GEN)date -u > $@
+ 	$(AM_V_at)if $(srcdir)/test/rpcgen_wrapper.sh $(srcdir)/test; then \
+ 	   true; \
+diff --git test/include.am test/include.am
+index 0437524..73d03c7 100644
+--- test/include.am
++++ test/include.am
+@@ -162,6 +162,7 @@ test_bench_httpclient_LDADD = $(LIBEVENT_GC_SECTIONS) libevent_core.la
+ test/regress.gen.c test/regress.gen.h: test/rpcgen-attempted
+ 
+ test/rpcgen-attempted: test/regress.rpc event_rpcgen.py test/rpcgen_wrapper.sh
++	$(AM_V_at)test -d test || $(MKDIR_P) test
+ 	$(AM_V_GEN)date -u > $@
+ 	$(AM_V_at)if $(srcdir)/test/rpcgen_wrapper.sh $(srcdir)/test; then \
+ 	   true; \

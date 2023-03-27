@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2008-2010, 2015, 2017, 2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -101,7 +101,7 @@ typedef struct {
 
 		An empty list indicates that the SCDynamicStore server
 		restarted and that any assumptions based on prior content
-		of the SCDynamicStore should be disgarded.
+		of the SCDynamicStore should be discarded.
 
 	@param info A C pointer to a user-specified block of data.
  */

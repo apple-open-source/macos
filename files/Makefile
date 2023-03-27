@@ -138,4 +138,3 @@ ifeq "$(CONTENT_PLATFORM)" "ios"
 	# cp has -pR in the options..
 	$(_v) $(CP) "$(Destination)/private/var/mobile/" "$(Destination)/System/Library/Templates/User/"
 endif
-

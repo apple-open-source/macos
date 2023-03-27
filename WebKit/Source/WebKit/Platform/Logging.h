@@ -53,6 +53,7 @@ extern "C" {
     M(DiskPersistency) \
     M(DragAndDrop) \
     M(EME) \
+    M(Extensions) \
     M(Fullscreen) \
     M(Gamepad) \
     M(IPC) \
@@ -65,6 +66,7 @@ extern "C" {
     M(IndexedDB) \
     M(Inspector) \
     M(KeyHandling) \
+    M(Keychain) \
     M(Language) \
     M(Layers) \
     M(Layout) \
@@ -102,6 +104,7 @@ extern "C" {
     M(SharedWorker) \
     M(Storage) \
     M(StorageAPI) \
+    M(SystemPreview) \
     M(TextInput) \
     M(TextInteraction) \
     M(Translation) \

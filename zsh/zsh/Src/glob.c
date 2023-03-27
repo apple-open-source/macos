@@ -279,11 +279,11 @@ addpath(char *s, int l)
  * foo/ can be used to reference a non-directory foo.  Returns nonzero if   *
  * the file does not exists.                                                */
 
-/**/
 static int
 statfullpath(const char *s, struct stat *st, int l)
 {
     char buf[PATH_MAX+1];
+    int check_for_being_a_directory = 0;
 
     DPUTS(strlen(s) + !*s + pathpos - pathbufcwd >= PATH_MAX,
 	  "BUG: statfullpath(): pathname too long");
@@ -294,16 +294,44 @@ statfullpath(const char *s, struct stat *st, int l)
 	 * Don't add the '.' if the path so far is empty, since
 	 * then we get bogus empty strings inserted as files.
 	 */
-	buf[pathpos - pathbufcwd] = '.';
-	buf[pathpos - pathbufcwd + 1] = '\0';
-	l = 0;
+	if (st) {
+	    buf[pathpos - pathbufcwd] = '.';
+	    buf[pathpos - pathbufcwd + 1] = '\0';
+	    l = 0;
+	}
+	else {
+	    check_for_being_a_directory = 1;
+	}
     }
     unmetafy(buf, NULL);
-    if (!st) {
-	char lbuf[1];
-	return access(buf, F_OK) && (!l || readlink(buf, lbuf, 1) < 0);
+    if (st) {
+	return l ? lstat(buf, st) : stat(buf, st);
     }
-    return l ? lstat(buf, st) : stat(buf, st);
+    else if (check_for_being_a_directory) {
+	struct stat tmp;
+	if (stat(buf, &tmp))
+	    return -1;
+
+	return S_ISDIR(tmp.st_mode) ? 0 : -1;
+    }
+    else {
+	char lbuf[1];
+
+	/* If it exists, signal success. */
+	if (access(buf, F_OK) == 0)
+	    return 0;
+
+	/* Would a dangling symlink be good enough? */
+	if (l == 0)
+	    return -1;
+
+	/* Is it a dangling symlink? */
+	if (readlink(buf, lbuf, 1) >= 0)
+	    return 0;
+
+	/* Guess it doesn't exist, then. */
+	return -1;
+    }
 }
 
 /* This may be set by qualifier functions to an array of strings to insert
@@ -327,10 +355,12 @@ insert(char *s, int checked)
     if (gf_listtypes || gf_markdirs) {
 	/* Add the type marker to the end of the filename */
 	mode_t mode;
-	checked = statted = 1;
 	if (statfullpath(s, &buf, 1)) {
 	    unqueue_signals();
 	    return;
+	}
+	else {
+	    checked = statted = 1;
 	}
 	mode = buf.st_mode;
 	if (gf_follow) {
@@ -387,11 +417,10 @@ insert(char *s, int checked)
 	    qn = qn->next;
 	}
     } else if (!checked) {
-	if (statfullpath(s, &buf, 1)) {
+	if (statfullpath(s, NULL, 1)) {
 	    unqueue_signals();
 	    return;
 	}
-	statted = 1;
 	news = dyncat(pathbuf, news);
     } else
 	news = dyncat(pathbuf, news);
@@ -2191,7 +2220,7 @@ bracechardots(char *str, convchar_t *c1p, convchar_t *c2p)
 #ifdef MULTIBYTE_SUPPORT
 	cstart == WEOF ||
 #else
-	!cstart ||
+	!*pconv ||
 #endif
 	pnext[0] != '.' || pnext[1] != '.')
 	return 0;
@@ -2212,7 +2241,7 @@ bracechardots(char *str, convchar_t *c1p, convchar_t *c2p)
 #ifdef MULTIBYTE_SUPPORT
 	cend == WEOF ||
 #else
-	!cend ||
+	!*pconv ||
 #endif
 	*pnext != Outbrace)
 	return 0;
@@ -2276,22 +2305,19 @@ xpandbraces(LinkList list, LinkNode *np)
 	    strp = str - str3;
 	    lenalloc = strp + strlen(str2+1) + 1;
 	    do {
-#ifdef MULTIBYTE_SUPPORT
 		char *ncptr;
 		int nclen;
+#ifdef MULTIBYTE_SUPPORT
 		mb_charinit();
 		ncptr = wcs_nicechar(cend, NULL, NULL);
+#else
+		ncptr = nicechar(cend);
+#endif
 		nclen = strlen(ncptr);
 		p = zhalloc(lenalloc + nclen);
 		memcpy(p, str3, strp);
 		memcpy(p + strp, ncptr, nclen);
 		strcpy(p + strp + nclen, str2 + 1);
-#else
-		p = zhalloc(lenalloc + 1);
-		memcpy(p, str3, strp);
-		sprintf(p + strp, "%c", cend);
-		strcat(p + strp, str2 + 1);
-#endif
 		insertlinknode(list, last, p);
 		if (rev)	/* decreasing:  add in reverse order. */
 		    last = nextnode(last);
@@ -2539,7 +2565,8 @@ get_match_ret(Imatchdata imd, int b, int e)
 		addlinknode(imd->repllist, rd);
 	    return imd->mstr;
 	}
-	ll += strlen(replstr);
+	if (replstr)
+	    ll += strlen(replstr);
     }
     if (fl & SUB_MATCH)			/* matched portion */
 	ll += 1 + (e - b);
@@ -2564,6 +2591,9 @@ get_match_ret(Imatchdata imd, int b, int e)
     }
     if (bl)
 	buf[bl - 1] = '\0';
+
+    if (ll == 0)
+	return NULL;
 
     rr = r = (char *) hcalloc(ll);
 
@@ -3253,6 +3283,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	return 1;
     }
     if (matched) {
+        /* Default is to match at the start; see comment in MULTIBYTE above */
 	switch (fl & (SUB_END|SUB_LONG|SUB_SUBSTR)) {
 	case 0:
 	case SUB_LONG:
@@ -3300,7 +3331,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	    /* Largest possible match at tail of string:       *
 	     * move forward along string until we get a match. *
 	     * Again there's no optimisation.                  */
-	    for (ioff = 0, t = s, umlen = uml; t < send;
+	    for (ioff = 0, t = s, umlen = uml; t <= send;
 		 ioff++, t++, umlen--) {
 		set_pat_start(p, t-s);
 		if (pattrylen(p, t, send - t, umlen, &patstralloc, ioff)) {
@@ -3322,7 +3353,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	    /* longest or smallest at start with substrings */
 	    t = s;
 	    if (fl & SUB_GLOBAL) {
-		imd.repllist = newlinklist();
+		imd.repllist = (fl & SUB_LIST) ? znewlinklist() : newlinklist();
 		if (repllistp)
 		    *repllistp = imd.repllist;
 	    }
@@ -3331,7 +3362,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	    do {
 		/* loop over all matches for global substitution */
 		matched = 0;
-		for (; t < send; t++, ioff++, umlen--) {
+		for (; t <= send; t++, ioff++, umlen--) {
 		    /* Find the longest match from this position. */
 		    set_pat_start(p, t-s);
 		    if (pattrylen(p, t, send - t, umlen, &patstralloc, ioff)) {
@@ -3372,6 +3403,8 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 			 * which is already marked for replacement.
 			 */
 			matched = 1;
+			if (t == send)
+			    break;
 			while (t < mpos) {
 			    ioff++;
 			    umlen--;
@@ -3379,8 +3412,10 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 			}
 			break;
 		    }
+		    if (t == send)
+			break;
 		}
-	    } while (matched);
+	    } while (matched && t < send);
 	    /*
 	     * check if we can match a blank string, if so do it
 	     * at the start.  Goodness knows if this is a good idea
@@ -3452,6 +3487,8 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	 * Results from get_match_ret in repllist are all metafied.
 	 */
 	s = *sp;
+	if (fl & SUB_LIST)
+	    return 1;
 	i = 0;			/* start of last chunk we got from *sp */
 	for (nd = firstnode(imd.repllist); nd; incnode(nd)) {
 	    rd = (Repldata) getdata(nd);
@@ -3481,7 +3518,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
     imd.replstr = NULL;
     imd.repllist = NULL;
     *sp = get_match_ret(&imd, 0, 0);
-    return 1;
+    return (fl & SUB_RETFAIL) ? 0 : 1;
 }
 
 /**/

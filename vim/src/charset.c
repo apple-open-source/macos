@@ -345,24 +345,25 @@ transstr(char_u *s)
     }
     else
 	res = alloc(vim_strsize(s) + 1);
-    if (res != NULL)
+
+    if (res == NULL)
+	return NULL;
+
+    *res = NUL;
+    p = s;
+    while (*p != NUL)
     {
-	*res = NUL;
-	p = s;
-	while (*p != NUL)
+	if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
 	{
-	    if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
-	    {
-		c = (*mb_ptr2char)(p);
-		if (vim_isprintc(c))
-		    STRNCAT(res, p, l);	// append printable multi-byte char
-		else
-		    transchar_hex(res + STRLEN(res), c);
-		p += l;
-	    }
+	    c = (*mb_ptr2char)(p);
+	    if (vim_isprintc(c))
+		STRNCAT(res, p, l);	// append printable multi-byte char
 	    else
-		STRCAT(res, transchar_byte(*p++));
+		transchar_hex(res + STRLEN(res), c);
+	    p += l;
 	}
+	else
+	    STRCAT(res, transchar_byte(*p++));
     }
     return res;
 }
@@ -537,7 +538,7 @@ transchar_byte(int c)
 
 /*
  * Convert non-printable character to two or more printable characters in
- * "buf[]".  "charbuf" needs to be able to hold five bytes.
+ * "charbuf[]".  "charbuf" needs to be able to hold five bytes.
  * Does NOT work for multi-byte characters, c must be <= 255.
  */
     void
@@ -812,6 +813,11 @@ win_linetabsize_cts(chartabsize_T *cts, colnr_T len)
     {
 	(void)win_lbr_chartabsize(cts, NULL);
 	cts->cts_vcol += cts->cts_cur_text_width;
+
+	// when properties are above or below the empty line must also be
+	// counted
+	if (cts->cts_prop_lines > 0)
+	    ++cts->cts_vcol;
     }
 #endif
 }
@@ -986,11 +992,15 @@ init_chartabsize_arg(
 		mch_memmove(cts->cts_text_props + count, prop_start,
 						   count * sizeof(textprop_T));
 		for (i = 0; i < count; ++i)
-		    if (cts->cts_text_props[i + count].tp_id < 0)
+		{
+		    textprop_T *tp = cts->cts_text_props + i + count;
+		    if (tp->tp_id < 0
+				     && text_prop_type_valid(wp->w_buffer, tp))
 		    {
 			cts->cts_has_prop_with_text = TRUE;
 			break;
 		    }
+		}
 		if (!cts->cts_has_prop_with_text)
 		{
 		    // won't use the text properties, free them
@@ -1147,6 +1157,8 @@ win_lbr_chartabsize(
      * First get the normal size, without 'linebreak' or text properties
      */
     size = win_chartabsize(wp, s, vcol);
+    if (*s == NUL)
+	size = 0;  // NUL is not displayed
 
 # ifdef FEAT_PROP_POPUP
     if (cts->cts_has_prop_with_text)
@@ -1177,7 +1189,7 @@ win_lbr_chartabsize(
 				? col == 0
 				: (s[0] == NUL || s[1] == NUL)
 						  && cts->cts_with_trailing)))
-		    && tp->tp_id - 1 < gap->ga_len)
+		    && -tp->tp_id - 1 < gap->ga_len)
 	    {
 		char_u *p = ((char_u **)gap->ga_data)[-tp->tp_id - 1];
 
@@ -1191,7 +1203,7 @@ win_lbr_chartabsize(
 
 			cells = text_prop_position(wp, tp, vcol,
 			     (vcol + size) % (wp->w_width - col_off) + col_off,
-						     &n_extra, &p, NULL, NULL);
+					      &n_extra, &p, NULL, NULL, FALSE);
 #ifdef FEAT_LINEBREAK
 			no_sbr = TRUE;  // don't use 'showbreak' now
 #endif
@@ -1210,6 +1222,10 @@ win_lbr_chartabsize(
 			tab_size = win_chartabsize(wp, s, vcol + size);
 			size += tab_size;
 		    }
+		    if (tp->tp_col == MAXCOL && (tp->tp_flags
+				& (TP_FLAG_ALIGN_ABOVE | TP_FLAG_ALIGN_BELOW)))
+			// count extra line for property above/below
+			++cts->cts_prop_lines;
 		}
 	    }
 	    if (tp->tp_col != MAXCOL && tp->tp_col - 1 > col)

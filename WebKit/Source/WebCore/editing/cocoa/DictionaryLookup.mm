@@ -43,6 +43,7 @@
 #import "Page.h"
 #import "Range.h"
 #import "RenderObject.h"
+#import "RevealUtilities.h"
 #import "TextIterator.h"
 #import "VisiblePosition.h"
 #import "VisibleSelection.h"
@@ -75,8 +76,7 @@ SOFT_LINK(UIKitMacHelper, UINSSharedRevealController, id<UINSRevealController>, 
 @property (nonatomic, readonly) BOOL useDefaultHighlight;
 @property (nonatomic, readonly) RetainPtr<NSAttributedString> attributedString;
 
-- (instancetype)initWithHighlightRect:(NSRect)highlightRect useDefaultHighlight:(BOOL)useDefaultHighlight attributedString:(NSAttributedString *) attributedString;
-- (void)setClearTextIndicator:(Function<void()>&&)clearTextIndicator;
+- (instancetype)initWithHighlightRect:(NSRect)highlightRect useDefaultHighlight:(BOOL)useDefaultHighlight attributedString:(NSAttributedString *)attributedString clearTextIndicatorCallback:(Function<void()>&&)clearTextIndicatorCallback;
 
 @end
 
@@ -84,7 +84,7 @@ SOFT_LINK(UIKitMacHelper, UINSSharedRevealController, id<UINSRevealController>, 
     Function<void()> _clearTextIndicator;
 }
 
-- (instancetype)initWithHighlightRect:(NSRect)highlightRect useDefaultHighlight:(BOOL)useDefaultHighlight attributedString:(NSAttributedString *) attributedString
+- (instancetype)initWithHighlightRect:(NSRect)highlightRect useDefaultHighlight:(BOOL)useDefaultHighlight attributedString:(NSAttributedString *)attributedString clearTextIndicatorCallback:(Function<void()>&&)clearTextIndicatorCallback
 {
     if (!(self = [super init]))
         return nil;
@@ -92,13 +92,9 @@ SOFT_LINK(UIKitMacHelper, UINSSharedRevealController, id<UINSRevealController>, 
     _highlightRect = highlightRect;
     _useDefaultHighlight = useDefaultHighlight;
     _attributedString = adoptNS([attributedString copy]);
+    _clearTextIndicator = WTFMove(clearTextIndicatorCallback);
     
     return self;
-}
-
-- (void)setClearTextIndicator:(Function<void()>&&)clearTextIndicator
-{
-    _clearTextIndicator = WTFMove(clearTextIndicator);
 }
 
 - (NSArray<NSValue *> *)revealContext:(RVPresentingContext *)context rectsForItem:(RVItem *)item
@@ -137,8 +133,7 @@ SOFT_LINK(UIKitMacHelper, UINSSharedRevealController, id<UINSRevealController>, 
 {
     UNUSED_PARAM(context);
     UNUSED_PARAM(item);
-    auto block = WTFMove(_clearTextIndicator);
-    if (block)
+    if (auto block = std::exchange(_clearTextIndicator, nullptr))
         block();
 }
 
@@ -431,7 +426,7 @@ static WKRevealController showPopupOrCreateAnimationController(bool createAnimat
         return nil;
 
     auto mutableOptions = adoptNS([[NSMutableDictionary alloc] init]);
-    if (NSDictionary *options = dictionaryPopupInfo.options.get())
+    if (NSDictionary *options = dictionaryPopupInfo.platformData.options.get())
         [mutableOptions addEntriesFromDictionary:options];
 
     auto textIndicator = TextIndicator::create(dictionaryPopupInfo.textIndicator);
@@ -462,15 +457,9 @@ static WKRevealController showPopupOrCreateAnimationController(bool createAnimat
         pointerLocation = [view convertPoint:textBaselineOrigin toView:nil];
     }
 
-    auto webHighlight =  adoptNS([[WebRevealHighlight alloc] initWithHighlightRect: highlightRect useDefaultHighlight:!textIndicator.get().contentImage() attributedString:dictionaryPopupInfo.attributedString.get()]);
-    auto context = adoptNS([PAL::allocRVPresentingContextInstance() initWithPointerLocationInView:pointerLocation inView:view highlightDelegate:webHighlight.get()]);
-    auto item = adoptNS([PAL::allocRVItemInstance() initWithText:dictionaryPopupInfo.attributedString.get().string selectedRange:NSMakeRange(0, dictionaryPopupInfo.attributedString.get().string.length)]);
-
-    [webHighlight setClearTextIndicator:[webHighlight = WTFMove(webHighlight), clearTextIndicator = WTFMove(clearTextIndicator)] {
-        if (clearTextIndicator)
-            clearTextIndicator();
-    }];
-
+    auto webHighlight = adoptNS([[WebRevealHighlight alloc] initWithHighlightRect:highlightRect useDefaultHighlight:!textIndicator.get().contentImage() attributedString:dictionaryPopupInfo.platformData.attributedString.get() clearTextIndicatorCallback:WTFMove(clearTextIndicator)]);
+    auto item = adoptNS([PAL::allocRVItemInstance() initWithText:dictionaryPopupInfo.platformData.attributedString.get().string selectedRange:NSMakeRange(0, dictionaryPopupInfo.platformData.attributedString.get().string.length)]);
+    auto context = createRVPresentingContextWithRetainedDelegate(pointerLocation, view, webHighlight.get());
     if (createAnimationController)
         return [presenter animationControllerForItem:item.get() documentContext:nil presentingContext:context.get() options:nil];
 
@@ -483,7 +472,7 @@ static WKRevealController showPopupOrCreateAnimationController(bool createAnimat
     ASSERT_UNUSED(createAnimationController, !createAnimationController);
     auto textIndicator = TextIndicator::create(dictionaryPopupInfo.textIndicator);
     auto webHighlight = adoptNS([[WebRevealHighlight alloc] initWithHighlightRect:[view convertRect:textIndicator->selectionRectInRootViewCoordinates() toView:nil] view:view image:textIndicator->contentImage()]);
-    auto item = adoptNS([PAL::allocRVItemInstance() initWithText:dictionaryPopupInfo.attributedString.get().string selectedRange:NSMakeRange(0, dictionaryPopupInfo.attributedString.get().string.length)]);
+    auto item = adoptNS([PAL::allocRVItemInstance() initWithText:dictionaryPopupInfo.platformData.attributedString.get().string selectedRange:NSMakeRange(0, dictionaryPopupInfo.platformData.attributedString.get().string.length)]);
 
     [UINSSharedRevealController() revealItem:item.get() locationInWindow:dictionaryPopupInfo.origin window:view.window highlighter:webHighlight.get()];
     return nil;

@@ -48,6 +48,7 @@ opt_in_rules:
 trailing_comma:
     mandatory_comma: true
 excluded:
+    - keychain/swift-argument-parser
     - keychain/trust/cuttlefish/
     - keychain/Trieste/OctagonTriesteTests/.build
     - keychain/postmodern/dependencies/

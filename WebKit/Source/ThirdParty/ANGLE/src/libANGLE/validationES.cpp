@@ -71,13 +71,6 @@ bool CompressedTextureFormatRequiresExactSize(GLenum internalFormat)
             return false;
     }
 }
-bool CompressedSubTextureFormatRequiresExactSize(GLenum internalFormat)
-{
-    // Compressed sub textures have additional formats that requires exact size.
-    // ES 3.1, Section 8.7, Page 171
-    return CompressedTextureFormatRequiresExactSize(internalFormat) ||
-           IsETC2EACFormat(internalFormat) || IsASTC2DFormat(internalFormat);
-}
 
 bool DifferenceCanOverflow(GLint a, GLint b)
 {
@@ -167,8 +160,7 @@ bool ValidReadPixelsUnsignedNormalizedDepthType(const Context *context,
                                                 const gl::InternalFormat *info,
                                                 GLenum type)
 {
-    bool supportsReadDepthNV = (context->getExtensions().readDepthNV && (info->depthBits > 0) &&
-                                (info->componentCount == 1));
+    bool supportsReadDepthNV = context->getExtensions().readDepthNV && (info->depthBits > 0);
     switch (type)
     {
         case GL_UNSIGNED_SHORT:
@@ -185,7 +177,7 @@ bool ValidReadPixelsFloatDepthType(const Context *context,
                                    GLenum type)
 {
     return context->getExtensions().readDepthNV && (type == GL_FLOAT) &&
-           context->getExtensions().depthBufferFloat2NV && (info->componentCount == 1);
+           context->getExtensions().depthBufferFloat2NV;
 }
 
 bool ValidReadPixelsFormatType(const Context *context,
@@ -210,6 +202,9 @@ bool ValidReadPixelsFormatType(const Context *context,
                     return context->getExtensions().readStencilNV && (type == GL_UNSIGNED_BYTE);
                 case GL_DEPTH_COMPONENT:
                     return ValidReadPixelsUnsignedNormalizedDepthType(context, info, type);
+                case GL_DEPTH_STENCIL_OES:
+                    return context->getExtensions().readDepthStencilNV &&
+                           (type == GL_UNSIGNED_INT_24_8_OES) && info->stencilBits > 0;
                 case GL_RGBX8_ANGLE:
                     return context->getExtensions().rgbxInternalFormatANGLE &&
                            (type == GL_UNSIGNED_BYTE);
@@ -234,6 +229,9 @@ bool ValidReadPixelsFormatType(const Context *context,
                     return (type == GL_FLOAT);
                 case GL_DEPTH_COMPONENT:
                     return ValidReadPixelsFloatDepthType(context, info, type);
+                case GL_DEPTH_STENCIL_OES:
+                    return context->getExtensions().readDepthStencilNV &&
+                           type == GL_FLOAT_32_UNSIGNED_INT_24_8_REV && info->stencilBits > 0;
                 default:
                     return false;
             }
@@ -475,7 +473,7 @@ bool ValidateFragmentShaderColorBufferMaskMatch(const Context *context)
 
 bool ValidateFragmentShaderColorBufferTypeMatch(const Context *context)
 {
-    const ProgramExecutable *executable = context->getState().getProgramExecutable();
+    const ProgramExecutable *executable = context->getState().getLinkedProgramExecutable(context);
     const Framebuffer *framebuffer      = context->getState().getDrawFramebuffer();
 
     return ValidateComponentTypeMasks(executable->getFragmentOutputsTypeMask().to_ulong(),
@@ -797,7 +795,7 @@ bool ValidateTransformFeedbackPrimitiveMode(const Context *context,
         return transformFeedbackPrimitiveMode == renderPrimitiveMode;
     }
 
-    const ProgramExecutable *executable = context->getState().getProgramExecutable();
+    const ProgramExecutable *executable = context->getState().getLinkedProgramExecutable(context);
     ASSERT(executable);
     if (executable->hasLinkedShaderStage(ShaderType::Geometry))
     {
@@ -906,7 +904,7 @@ bool ValidateDrawInstancedANGLE(const Context *context, angle::EntryPoint entryP
 {
     // Verify there is at least one active attribute with a divisor of zero
     const State &state                  = context->getState();
-    const ProgramExecutable *executable = state.getProgramExecutable();
+    const ProgramExecutable *executable = state.getLinkedProgramExecutable(context);
 
     if (!executable)
     {
@@ -1083,56 +1081,78 @@ bool ValidCompressedImageSize(const Context *context,
                               GLsizei height,
                               GLsizei depth)
 {
-    const InternalFormat &formatInfo = GetSizedInternalFormatInfo(internalFormat);
-    if (!formatInfo.compressed)
-    {
-        return false;
-    }
-
     if (width < 0 || height < 0)
     {
         return false;
     }
 
-    // Only PVRTC1 requires dimensions to be powers of two
-    if (IsPVRTC1Format(internalFormat))
+    const InternalFormat &formatInfo = GetSizedInternalFormatInfo(internalFormat);
+
+    if (!formatInfo.compressed && !formatInfo.paletted)
     {
-        if (!isPow2(width) || !isPow2(height))
+        return false;
+    }
+
+    // A texture format can not be both block-compressed and paletted
+    ASSERT(!(formatInfo.compressed && formatInfo.paletted));
+
+    if (formatInfo.compressed)
+    {
+        // Only PVRTC1 requires dimensions to be powers of two
+        if (IsPVRTC1Format(internalFormat))
+        {
+            if (!isPow2(width) || !isPow2(height))
+            {
+                return false;
+            }
+
+            if (context->getLimitations().squarePvrtc1)
+            {
+                if (width != height)
+                {
+                    return false;
+                }
+            }
+        }
+
+        if (CompressedTextureFormatRequiresExactSize(internalFormat))
+        {
+            // In WebGL compatibility mode and D3D, enforce that the base level implied
+            // by the compressed texture's mip level would conform to the block
+            // size.
+            if (context->isWebGL() ||
+                context->getLimitations().compressedBaseMipLevelMultipleOfFour)
+            {
+                // This check is performed only for BC formats.
+                ASSERT(formatInfo.compressedBlockDepth == 1);
+                if (!ValidCompressedBaseLevel(width, formatInfo.compressedBlockWidth, level) ||
+                    !ValidCompressedBaseLevel(height, formatInfo.compressedBlockHeight, level))
+                {
+                    return false;
+                }
+            }
+            // non-WebGL and non-D3D check is not necessary for the following formats
+            // From EXT_texture_compression_s3tc specification:
+            // If the width or height is not a multiple of four, there will be 4x4 blocks at the
+            // edge of the image that contain "extra" texels that are not part of the image. From
+            // EXT_texture_compression_bptc & EXT_texture_compression_rgtc specification: If an
+            // RGTC/BPTC image has a width or height that is not a multiple of four, the data
+            // corresponding to texels outside the image are irrelevant and undefined.
+        }
+    }
+
+    if (formatInfo.paletted)
+    {
+        // TODO(http://anglebug.com/7688): multi-level paletted images
+        if (level != 0)
         {
             return false;
         }
 
-        if (context->getLimitations().squarePvrtc1)
+        if (!isPow2(width) || !isPow2(height))
         {
-            if (width != height)
-            {
-                return false;
-            }
+            return false;
         }
-    }
-
-    if (CompressedTextureFormatRequiresExactSize(internalFormat))
-    {
-        // In WebGL compatibility mode and D3D, enforce that the base level implied
-        // by the compressed texture's mip level would conform to the block
-        // size.
-        if (context->isWebGL() || context->getLimitations().compressedBaseMipLevelMultipleOfFour)
-        {
-            // This check is performed only for BC formats.
-            ASSERT(formatInfo.compressedBlockDepth == 1);
-            if (!ValidCompressedBaseLevel(width, formatInfo.compressedBlockWidth, level) ||
-                !ValidCompressedBaseLevel(height, formatInfo.compressedBlockHeight, level))
-            {
-                return false;
-            }
-        }
-        // non-WebGL and non-D3D check is not necessary for the following formats
-        // From EXT_texture_compression_s3tc specification:
-        // If the width or height is not a multiple of four, there will be 4x4 blocks at the edge of
-        // the image that contain "extra" texels that are not part of the image. From
-        // EXT_texture_compression_bptc & EXT_texture_compression_rgtc specification: If an
-        // RGTC/BPTC image has a width or height that is not a multiple of four, the data
-        // corresponding to texels outside the image are irrelevant and undefined.
     }
 
     return true;
@@ -1150,50 +1170,64 @@ bool ValidCompressedSubImageSize(const Context *context,
                                  size_t textureHeight,
                                  size_t textureDepth)
 {
+    // Passing non-compressed internal format to sub-image compressed entry points generates
+    // INVALID_OPERATION, so check it here.
     const InternalFormat &formatInfo = GetSizedInternalFormatInfo(internalFormat);
     if (!formatInfo.compressed)
     {
         return false;
     }
 
-    if (xoffset < 0 || yoffset < 0 || zoffset < 0 || width < 0 || height < 0 || depth < 0)
+    // Negative dimensions already checked in ValidImageSizeParameters called by
+    // ValidateES2TexImageParametersBase or ValidateES3TexImageParametersBase.
+    ASSERT(width >= 0 && height >= 0 && depth >= 0);
+
+    // Negative and overflowed offsets already checked in ValidateES2TexImageParametersBase or
+    // ValidateES3TexImageParametersBase.
+    ASSERT(xoffset >= 0 && yoffset >= 0 && zoffset >= 0);
+    ASSERT(std::numeric_limits<GLsizei>::max() - xoffset >= width &&
+           std::numeric_limits<GLsizei>::max() - yoffset >= height &&
+           std::numeric_limits<GLsizei>::max() - zoffset >= depth);
+
+    // Ensure that format's block dimensions are set.
+    ASSERT(formatInfo.compressedBlockWidth > 0 && formatInfo.compressedBlockHeight > 0 &&
+           formatInfo.compressedBlockDepth > 0);
+
+    // Check if the whole image is being replaced. For 2D texture blocks, zoffset and depth do not
+    // affect whether the replaced region fills the entire image.
+    if ((xoffset == 0 && static_cast<size_t>(width) == textureWidth) &&
+        (yoffset == 0 && static_cast<size_t>(height) == textureHeight) &&
+        ((zoffset == 0 && static_cast<size_t>(depth) == textureDepth) ||
+         formatInfo.compressedBlockDepth == 1))
+    {
+        // All compressed formats support whole image replacement, early pass.
+        return true;
+    }
+
+    // The replaced region does not match the image size. Fail if the format does not support
+    // partial updates.
+    if (CompressedFormatRequiresWholeImage(internalFormat))
     {
         return false;
     }
 
-    // ANGLE does not support compressed 3D blocks (provided exclusively by ASTC 3D formats), so
-    // there is no need to check the depth here. Only width and height determine whether a 2D array
-    // element or a 2D slice of a sliced 3D texture fill the entire level.
-    bool fillsEntireMip = xoffset == 0 && yoffset == 0 &&
-                          static_cast<size_t>(width) == textureWidth &&
-                          static_cast<size_t>(height) == textureHeight;
-
-    if (CompressedFormatRequiresWholeImage(internalFormat))
+    // The format supports partial updates. Check that the origin of the replaced region is aligned
+    // to block boundaries.
+    if (xoffset % formatInfo.compressedBlockWidth != 0 ||
+        yoffset % formatInfo.compressedBlockHeight != 0 ||
+        zoffset % formatInfo.compressedBlockDepth != 0)
     {
-        return fillsEntireMip;
+        return false;
     }
 
-    if (CompressedSubTextureFormatRequiresExactSize(internalFormat))
-    {
-        if (xoffset % formatInfo.compressedBlockWidth != 0 ||
-            yoffset % formatInfo.compressedBlockHeight != 0 ||
-            zoffset % formatInfo.compressedBlockDepth != 0)
-        {
-            return false;
-        }
-
-        // Allowed to either have data that is a multiple of block size or is smaller than the block
-        // size but fills the entire mip
-        bool sizeMultipleOfBlockSize = (width % formatInfo.compressedBlockWidth) == 0 &&
-                                       (height % formatInfo.compressedBlockHeight) == 0 &&
-                                       (depth % formatInfo.compressedBlockDepth) == 0;
-        if (!sizeMultipleOfBlockSize && !fillsEntireMip)
-        {
-            return false;
-        }
-    }
-
-    return true;
+    // The replaced region dimensions must either be multiples of the block dimensions or exactly
+    // reach the image boundaries.
+    return (static_cast<size_t>(xoffset + width) == textureWidth ||
+            width % formatInfo.compressedBlockWidth == 0) &&
+           (static_cast<size_t>(yoffset + height) == textureHeight ||
+            height % formatInfo.compressedBlockHeight == 0) &&
+           (static_cast<size_t>(zoffset + depth) == textureDepth ||
+            depth % formatInfo.compressedBlockDepth == 0);
 }
 
 bool ValidImageDataSize(const Context *context,
@@ -1217,7 +1251,12 @@ bool ValidImageDataSize(const Context *context,
     // ...the data would be unpacked from the buffer object such that the memory reads required
     // would exceed the data store size.
     const InternalFormat &formatInfo = GetInternalFormatInfo(format, type);
-    ASSERT(formatInfo.internalFormat != GL_NONE);
+    if (formatInfo.internalFormat == GL_NONE)
+    {
+        UNREACHABLE();
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kInternalErrorFormatNotFound);
+        return false;
+    }
     const Extents size(width, height, depth);
     const auto &unpack = context->getState().getUnpackState();
 
@@ -2541,7 +2580,7 @@ bool ValidateGetQueryObjectValueBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -2957,7 +2996,7 @@ bool ValidateStateQuery(const Context *context,
         case GL_TEXTURE_BINDING_RECTANGLE_ANGLE:
             if (!context->getExtensions().textureRectangleANGLE)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -2965,7 +3004,7 @@ bool ValidateStateQuery(const Context *context,
             if (!context->getExtensions().EGLStreamConsumerExternalNV &&
                 !context->getExtensions().EGLImageExternalOES)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -3942,7 +3981,8 @@ bool ValidateCopyTexImageParametersBase(const Context *context,
 
         if (!formatInfo.textureSupport(context->getClientVersion(), context->getExtensions()))
         {
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported,
+                                      internalformat);
             return false;
         }
 
@@ -4200,7 +4240,7 @@ const char *ValidateDrawStates(const Context *context)
     if (context->getClientVersion() >= Version(2, 0))
     {
         Program *program                    = state.getLinkedProgram(context);
-        ProgramPipeline *programPipeline    = state.getProgramPipeline();
+        ProgramPipeline *programPipeline    = state.getLinkedProgramPipeline(context);
         const ProgramExecutable *executable = state.getProgramExecutable();
 
         bool programIsYUVOutput = false;
@@ -4330,6 +4370,25 @@ const char *ValidateDrawStates(const Context *context)
         }
     }
 
+    return nullptr;
+}
+
+const char *ValidateProgramPipeline(const Context *context)
+{
+    const State &state = context->getState();
+    // If we are running GLES1, there is no current program.
+    if (context->getClientVersion() >= Version(2, 0))
+    {
+        ProgramPipeline *programPipeline = state.getProgramPipeline();
+        if (programPipeline)
+        {
+            const char *errorMsg = ValidateProgramPipelineAttachedPrograms(programPipeline);
+            if (errorMsg)
+            {
+                return errorMsg;
+            }
+        }
+    }
     return nullptr;
 }
 
@@ -4896,17 +4955,16 @@ bool ValidatePushGroupMarkerEXT(const Context *context,
 bool ValidateEGLImageObject(const Context *context,
                             angle::EntryPoint entryPoint,
                             TextureType type,
-                            GLeglImageOES image)
+                            egl::ImageID imageID)
 {
-    egl::Image *imageObject = static_cast<egl::Image *>(image);
-
     ASSERT(context->getDisplay());
-    if (!context->getDisplay()->isValidImage(imageObject))
+    if (!context->getDisplay()->isValidImage(imageID))
     {
         context->validationError(entryPoint, GL_INVALID_VALUE, kInvalidEGLImage);
         return false;
     }
 
+    egl::Image *imageObject = context->getDisplay()->getImage(imageID);
     if (imageObject->getSamples() > 0)
     {
         context->validationError(entryPoint, GL_INVALID_OPERATION,
@@ -4970,7 +5028,7 @@ bool ValidateEGLImageObject(const Context *context,
 bool ValidateEGLImageTargetTexture2DOES(const Context *context,
                                         angle::EntryPoint entryPoint,
                                         TextureType type,
-                                        GLeglImageOES image)
+                                        egl::ImageID image)
 {
     if (!context->getExtensions().EGLImageOES && !context->getExtensions().EGLImageExternalOES)
     {
@@ -4983,21 +5041,24 @@ bool ValidateEGLImageTargetTexture2DOES(const Context *context,
         case TextureType::_2D:
             if (!context->getExtensions().EGLImageOES)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported,
+                                          ToGLenum(type));
             }
             break;
 
         case TextureType::_2DArray:
             if (!context->getExtensions().EGLImageArrayEXT)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported,
+                                          ToGLenum(type));
             }
             break;
 
         case TextureType::External:
             if (!context->getExtensions().EGLImageExternalOES)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported,
+                                          ToGLenum(type));
             }
             break;
 
@@ -5012,7 +5073,7 @@ bool ValidateEGLImageTargetTexture2DOES(const Context *context,
 bool ValidateEGLImageTargetRenderbufferStorageOES(const Context *context,
                                                   angle::EntryPoint entryPoint,
                                                   GLenum target,
-                                                  GLeglImageOES image)
+                                                  egl::ImageID image)
 {
     if (!context->getExtensions().EGLImageOES)
     {
@@ -5030,15 +5091,14 @@ bool ValidateEGLImageTargetRenderbufferStorageOES(const Context *context,
             return false;
     }
 
-    egl::Image *imageObject = static_cast<egl::Image *>(image);
-
     ASSERT(context->getDisplay());
-    if (!context->getDisplay()->isValidImage(imageObject))
+    if (!context->getDisplay()->isValidImage(image))
     {
         context->validationError(entryPoint, GL_INVALID_VALUE, kInvalidEGLImage);
         return false;
     }
 
+    egl::Image *imageObject = context->getDisplay()->getImage(image);
     if (!imageObject->isRenderable(context))
     {
         context->validationError(entryPoint, GL_INVALID_OPERATION,
@@ -5217,7 +5277,7 @@ bool ValidateGetBufferPointervBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -5495,7 +5555,7 @@ bool ValidateGetFramebufferAttachmentParameterivBase(const Context *context,
             if (clientVersion < 3 ||
                 !(context->getExtensions().multiviewOVR || context->getExtensions().multiview2OVR))
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -5503,7 +5563,7 @@ bool ValidateGetFramebufferAttachmentParameterivBase(const Context *context,
         case GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_SAMPLES_EXT:
             if (!context->getExtensions().multisampledRenderToTextureEXT)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -5511,7 +5571,17 @@ bool ValidateGetFramebufferAttachmentParameterivBase(const Context *context,
         case GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING:
             if (clientVersion < 3 && !context->getExtensions().sRGBEXT)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
+                return false;
+            }
+            break;
+
+        case GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE:
+            if (clientVersion < 3 && !context->getExtensions().colorBufferHalfFloatEXT &&
+                !context->getExtensions().colorBufferFloatRgbCHROMIUM &&
+                !context->getExtensions().colorBufferFloatRgbaCHROMIUM)
+            {
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -5522,7 +5592,6 @@ bool ValidateGetFramebufferAttachmentParameterivBase(const Context *context,
         case GL_FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE:
         case GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE:
         case GL_FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE:
-        case GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE:
         case GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LAYER:
             if (clientVersion < 3)
             {
@@ -5937,7 +6006,7 @@ bool ValidateGetProgramivBase(const Context *context,
             if (context->getClientMajorVersion() < 3 &&
                 !context->getExtensions().getProgramBinaryOES)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -6044,7 +6113,7 @@ bool ValidateGetProgramivBase(const Context *context,
             }
             break;
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -6706,7 +6775,7 @@ bool ValidateGetBufferParameterBase(const Context *context,
         case GL_BUFFER_ACCESS_OES:
             if (!extensions.mapbufferOES)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -6716,7 +6785,7 @@ bool ValidateGetBufferParameterBase(const Context *context,
             if (context->getClientMajorVersion() < 3 && !extensions.mapbufferOES &&
                 !extensions.mapBufferRangeEXT)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -6734,7 +6803,7 @@ bool ValidateGetBufferParameterBase(const Context *context,
         case GL_BUFFER_MAP_LENGTH:
             if (context->getClientMajorVersion() < 3 && !extensions.mapBufferRangeEXT)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -6757,7 +6826,7 @@ bool ValidateGetBufferParameterBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -6808,7 +6877,8 @@ bool ValidateGetRenderbufferParameterivBase(const Context *context,
             break;
 
         case GL_RENDERBUFFER_SAMPLES_ANGLE:
-            if (!context->getExtensions().framebufferMultisampleANGLE)
+            if (context->getClientMajorVersion() < 3 &&
+                !context->getExtensions().framebufferMultisampleANGLE)
             {
                 context->validationError(entryPoint, GL_INVALID_ENUM, kExtensionNotEnabled);
                 return false;
@@ -6842,7 +6912,7 @@ bool ValidateGetRenderbufferParameterivBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -6911,7 +6981,7 @@ bool ValidateGetShaderivBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -6949,7 +7019,7 @@ bool ValidateGetTexParameterBase(const Context *context,
 
     if (context->getClientMajorVersion() == 1 && !IsValidGLES1TextureParameter(pname))
     {
-        context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+        context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
         return false;
     }
 
@@ -6964,7 +7034,7 @@ bool ValidateGetTexParameterBase(const Context *context,
         case GL_TEXTURE_USAGE_ANGLE:
             if (!context->getExtensions().textureUsageANGLE)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -6979,7 +7049,7 @@ bool ValidateGetTexParameterBase(const Context *context,
         case GL_TEXTURE_IMMUTABLE_FORMAT:
             if (context->getClientMajorVersion() < 3 && !context->getExtensions().textureStorageEXT)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -7005,7 +7075,7 @@ bool ValidateGetTexParameterBase(const Context *context,
         case GL_TEXTURE_COMPARE_FUNC:
             if (context->getClientMajorVersion() < 3 && !context->getExtensions().shadowSamplersEXT)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -7013,7 +7083,7 @@ bool ValidateGetTexParameterBase(const Context *context,
         case GL_TEXTURE_SRGB_DECODE_EXT:
             if (!context->getExtensions().textureSRGBDecodeEXT)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -7041,13 +7111,13 @@ bool ValidateGetTexParameterBase(const Context *context,
         case GL_MEMORY_SIZE_ANGLE:
             if (!context->getExtensions().memorySizeANGLE)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
 
         case GL_TEXTURE_BORDER_COLOR:
-            if (!context->getExtensions().textureBorderClampOES &&
+            if (!context->getExtensions().textureBorderClampAny() &&
                 context->getClientVersion() < ES_3_2)
             {
                 context->validationError(entryPoint, GL_INVALID_ENUM, kExtensionNotEnabled);
@@ -7090,8 +7160,11 @@ bool ValidateGetTexParameterBase(const Context *context,
             }
             break;
 
+        case GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES:
+            break;
+
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -7131,7 +7204,7 @@ bool ValidateGetVertexAttribBase(const Context *context,
     {
         if (pname != GL_VERTEX_ATTRIB_ARRAY_POINTER)
         {
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
         }
     }
@@ -7155,7 +7228,8 @@ bool ValidateGetVertexAttribBase(const Context *context,
                 if (context->getClientMajorVersion() < 3 &&
                     !context->getExtensions().instancedArraysAny())
                 {
-                    context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                    context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported,
+                                              pname);
                     return false;
                 }
                 break;
@@ -7163,7 +7237,8 @@ bool ValidateGetVertexAttribBase(const Context *context,
             case GL_VERTEX_ATTRIB_ARRAY_INTEGER:
                 if (context->getClientMajorVersion() < 3)
                 {
-                    context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                    context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported,
+                                              pname);
                     return false;
                 }
                 break;
@@ -7178,7 +7253,7 @@ bool ValidateGetVertexAttribBase(const Context *context,
                 break;
 
             default:
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
         }
     }
@@ -7355,6 +7430,7 @@ bool ValidateReadPixelsBase(const Context *context,
             readBuffer = readFramebuffer->getDepthAttachment();
             break;
         case GL_STENCIL_INDEX_OES:
+        case GL_DEPTH_STENCIL_OES:
             readBuffer = readFramebuffer->getStencilOrDepthStencilAttachment();
             break;
         default:
@@ -7411,6 +7487,7 @@ bool ValidateReadPixelsBase(const Context *context,
     {
         case GL_DEPTH_COMPONENT:
         case GL_STENCIL_INDEX_OES:
+        case GL_DEPTH_STENCIL_OES:
             // Only rely on ValidReadPixelsFormatType for depth/stencil formats
             break;
         default:
@@ -7523,7 +7600,7 @@ bool ValidateTexParameterBase(const Context *context,
 
     if (context->getClientMajorVersion() == 1 && !IsValidGLES1TextureParameter(pname))
     {
-        context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+        context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
         return false;
     }
 
@@ -7549,12 +7626,12 @@ bool ValidateTexParameterBase(const Context *context,
             if (target == TextureType::External &&
                 !context->getExtensions().EGLImageExternalEssl3OES)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             if (target == TextureType::VideoImage && !context->getExtensions().videoTextureWEBGL)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             }
             break;
 
@@ -7627,7 +7704,7 @@ bool ValidateTexParameterBase(const Context *context,
         case GL_TEXTURE_USAGE_ANGLE:
             if (!context->getExtensions().textureUsageANGLE)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
 
@@ -7638,7 +7715,8 @@ bool ValidateTexParameterBase(const Context *context,
                     break;
 
                 default:
-                    context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                    context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported,
+                                              pname);
                     return false;
             }
             break;
@@ -7688,7 +7766,8 @@ bool ValidateTexParameterBase(const Context *context,
                     break;
 
                 default:
-                    context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                    context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported,
+                                              pname);
                     return false;
             }
             break;
@@ -7739,7 +7818,8 @@ bool ValidateTexParameterBase(const Context *context,
                     break;
 
                 default:
-                    context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                    context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported,
+                                              pname);
                     return false;
             }
             break;
@@ -7780,7 +7860,7 @@ bool ValidateTexParameterBase(const Context *context,
             break;
 
         case GL_TEXTURE_BORDER_COLOR:
-            if (!context->getExtensions().textureBorderClampOES &&
+            if (!context->getExtensions().textureBorderClampAny() &&
                 context->getClientVersion() < ES_3_2)
             {
                 context->validationError(entryPoint, GL_INVALID_ENUM, kExtensionNotEnabled);
@@ -7818,7 +7898,7 @@ bool ValidateTexParameterBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -7890,7 +7970,7 @@ bool ValidateGetActiveUniformBlockivBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -8001,7 +8081,7 @@ bool ValidateSamplerParameterBase(const Context *context,
         break;
 
         case GL_TEXTURE_BORDER_COLOR:
-            if (!context->getExtensions().textureBorderClampOES &&
+            if (!context->getExtensions().textureBorderClampAny() &&
                 context->getClientVersion() < ES_3_2)
             {
                 context->validationError(entryPoint, GL_INVALID_ENUM, kExtensionNotEnabled);
@@ -8015,7 +8095,7 @@ bool ValidateSamplerParameterBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -8090,13 +8170,13 @@ bool ValidateGetSamplerParameterBase(const Context *context,
         case GL_TEXTURE_SRGB_DECODE_EXT:
             if (!context->getExtensions().textureSRGBDecodeEXT)
             {
-                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+                context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
 
         case GL_TEXTURE_BORDER_COLOR:
-            if (!context->getExtensions().textureBorderClampOES &&
+            if (!context->getExtensions().textureBorderClampAny() &&
                 context->getClientVersion() < ES_3_2)
             {
                 context->validationError(entryPoint, GL_INVALID_ENUM, kExtensionNotEnabled);
@@ -8105,7 +8185,7 @@ bool ValidateGetSamplerParameterBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -8187,7 +8267,7 @@ bool ValidateGetInternalFormativBase(const Context *context,
             break;
 
         default:
-            context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
     }
 
@@ -8572,5 +8652,34 @@ bool ValidateProgramExecutableXFBBuffersPresent(const Context *context,
     }
 
     return true;
+}
+
+bool ValidateLogicOpCommon(const Context *context,
+                           angle::EntryPoint entryPoint,
+                           LogicalOperation opcodePacked)
+{
+    switch (opcodePacked)
+    {
+        case LogicalOperation::And:
+        case LogicalOperation::AndInverted:
+        case LogicalOperation::AndReverse:
+        case LogicalOperation::Clear:
+        case LogicalOperation::Copy:
+        case LogicalOperation::CopyInverted:
+        case LogicalOperation::Equiv:
+        case LogicalOperation::Invert:
+        case LogicalOperation::Nand:
+        case LogicalOperation::Noop:
+        case LogicalOperation::Nor:
+        case LogicalOperation::Or:
+        case LogicalOperation::OrInverted:
+        case LogicalOperation::OrReverse:
+        case LogicalOperation::Set:
+        case LogicalOperation::Xor:
+            return true;
+        default:
+            context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidLogicOp);
+            return false;
+    }
 }
 }  // namespace gl

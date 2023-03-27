@@ -127,7 +127,7 @@ struct nfsbuf {
 	uint64_t                nb_rpcs;        /* Count of RPCs remaining for this buffer. */
 };
 
-#define NFS_MAXBSIZE    (8 * 64 * PAGE_SIZE)    /* valid/dirty page masks limit buffer size */
+#define NFS_MAXBSIZE        NFS_MAXDATA     /* valid/dirty page masks limit buffer size */
 
 #define NFS_A_LOT_OF_NEEDCOMMITS        256                     /* max# uncommitted buffers for a node */
 #define NFS_A_LOT_OF_DELAYED_WRITES     MAX(nfsbufcnt/8,512)    /* max# "delwri" buffers in system */

@@ -1351,9 +1351,17 @@ _notify_lib_regenerate_registration(registration_node_t *r)
 
 	int remaining_retries = NOTIFY_SERVER_RETRY_NUMBER;
 	do {
-		kstatus = _notify_server_regenerate(globals->notify_server_port, (caddr_t)name, r->token, type, MACH_PORT_NULL, (type == NOTIFY_TYPE_SIGNAL) ? r->signal_or_xtra_mp : 0,
+		if (os_unlikely(client_opts(globals) & NOTIFY_OPT_FILTERED)) {
+			kstatus = _notify_server_regenerate(globals->notify_server_port, (caddr_t)name, r->token, type,
+				MACH_PORT_NULL, (type == NOTIFY_TYPE_SIGNAL) ? r->signal_or_xtra_mp : 0,
 				r->slot, r->set_state_val, r->set_state_time, r->path, (mach_msg_type_number_t)pathlen,
 				r->path_flags, &new_slot, &new_nid, &status);
+		} else {
+			kstatus = _filtered_notify_server_regenerate(globals->notify_server_port, (caddr_t)name, r->token, type,
+				MACH_PORT_NULL, (type == NOTIFY_TYPE_SIGNAL) ? r->signal_or_xtra_mp : 0,
+				r->slot, r->set_state_val, r->set_state_time, r->path, (mach_msg_type_number_t)pathlen,
+				r->path_flags, &new_slot, &new_nid, &status);
+		}
 		if (kstatus == KERN_SUCCESS) {
 			break;
 		}

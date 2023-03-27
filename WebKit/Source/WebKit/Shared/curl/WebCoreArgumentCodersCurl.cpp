@@ -26,8 +26,6 @@
 #include "config.h"
 #include "WebCoreArgumentCoders.h"
 
-#include "DaemonDecoder.h"
-#include "DaemonEncoder.h"
 #include "DataReference.h"
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/CurlProxySettings.h>
@@ -42,56 +40,6 @@ namespace IPC {
 
 using namespace WebCore;
 
-void ArgumentCoder<ResourceRequest>::encodePlatformData(Encoder& encoder, const ResourceRequest& resourceRequest)
-{
-    resourceRequest.encodeWithPlatformData(encoder);
-}
-
-bool ArgumentCoder<ResourceRequest>::decodePlatformData(Decoder& decoder, ResourceRequest& resourceRequest)
-{
-    return resourceRequest.decodeWithPlatformData(decoder);
-}
-
-template<typename Encoder>
-void ArgumentCoder<CertificateInfo>::encode(Encoder& encoder, const CertificateInfo& certificateInfo)
-{
-    encoder << certificateInfo.verificationError();
-    encoder << certificateInfo.certificateChain().size();
-
-    for (auto certificate : certificateInfo.certificateChain())
-        encoder << certificate;
-}
-template void ArgumentCoder<WebCore::CertificateInfo>::encode<Encoder>(Encoder&, const WebCore::CertificateInfo&);
-template void ArgumentCoder<WebCore::CertificateInfo>::encode<WebKit::Daemon::Encoder>(WebKit::Daemon::Encoder&, const WebCore::CertificateInfo&);
-
-template<typename Decoder>
-std::optional<CertificateInfo> ArgumentCoder<CertificateInfo>::decode(Decoder& decoder)
-{
-    std::optional<int> verificationError;
-    decoder >> verificationError;
-    if (!verificationError)
-        return std::nullopt;
-
-    std::optional<size_t> certificateChainSize;
-    decoder >> certificateChainSize;
-    if (!certificateChainSize)
-        return std::nullopt;
-
-    CertificateInfo::CertificateChain certificateChain;
-    for (size_t i = 0; i < *certificateChainSize; i++) {
-        std::optional<CertificateInfo::Certificate> certificate;
-        decoder >> certificate;
-        if (!certificate)
-            return std::nullopt;
-
-        certificateChain.append(WTFMove(*certificate));
-    }
-
-    return CertificateInfo { *verificationError, WTFMove(certificateChain) };
-}
-template std::optional<WebCore::CertificateInfo> ArgumentCoder<WebCore::CertificateInfo>::decode<Decoder>(Decoder&);
-template std::optional<WebCore::CertificateInfo> ArgumentCoder<WebCore::CertificateInfo>::decode<WebKit::Daemon::Decoder>(WebKit::Daemon::Decoder&);
-
 void ArgumentCoder<ResourceError>::encodePlatformData(Encoder& encoder, const ResourceError& resourceError)
 {
     encoder << resourceError.type();
@@ -102,7 +50,6 @@ void ArgumentCoder<ResourceError>::encodePlatformData(Encoder& encoder, const Re
     encoder << resourceError.errorCode();
     encoder << resourceError.failingURL().string();
     encoder << resourceError.localizedDescription();
-    encoder << resourceError.sslErrors();
 }
 
 bool ArgumentCoder<ResourceError>::decodePlatformData(Decoder& decoder, ResourceError& resourceError)
@@ -131,12 +78,7 @@ bool ArgumentCoder<ResourceError>::decodePlatformData(Decoder& decoder, Resource
     if (!decoder.decode(localizedDescription))
         return false;
 
-    unsigned sslErrors;
-    if (!decoder.decode(sslErrors))
-        return false;
-
     resourceError = ResourceError(domain, errorCode, URL { failingURL }, localizedDescription, errorType);
-    resourceError.setSslErrors(sslErrors);
 
     return true;
 }
@@ -218,17 +160,6 @@ std::optional<CurlProxySettings> ArgumentCoder<CurlProxySettings>::decode(Decode
         return std::nullopt;
 
     return CurlProxySettings { WTFMove(url), WTFMove(ignoreHosts) };
-}
-
-void ArgumentCoder<DictionaryPopupInfo>::encodePlatformData(Encoder&, const DictionaryPopupInfo&)
-{
-    ASSERT_NOT_REACHED();
-}
-
-bool ArgumentCoder<DictionaryPopupInfo>::decodePlatformData(Decoder&, DictionaryPopupInfo&)
-{
-    ASSERT_NOT_REACHED();
-    return false;
 }
 
 #if ENABLE(VIDEO)

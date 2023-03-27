@@ -154,7 +154,7 @@ public:
         Type::Submit,
     };
 
-    static Ref<InputType> create(HTMLInputElement&, const AtomString&);
+    static RefPtr<InputType> createIfDifferent(HTMLInputElement&, const AtomString&, InputType* currentInputType = nullptr);
     static Ref<InputType> createText(HTMLInputElement&);
     virtual ~InputType();
 
@@ -206,7 +206,7 @@ public:
     Type type() const { return m_type; }
 
     bool isInteractiveContent() const;
-    bool supportLabels() const;
+    bool isLabelable() const;
     bool isEnumeratable() const;
     bool needsShadowSubtree() const { return !nonShadowRootTypes.contains(m_type); }
     bool hasCreatedShadowSubtree() const { return m_hasCreatedShadowSubtree; }
@@ -320,7 +320,6 @@ public:
     virtual HTMLElement* innerBlockElement() const { return nullptr; }
     virtual RefPtr<TextControlInnerTextElement> innerTextElement() const;
     virtual HTMLElement* innerSpinButtonElement() const { return nullptr; }
-    virtual HTMLElement* capsLockIndicatorElement() const { return nullptr; }
     virtual HTMLElement* autoFillButtonElement() const { return nullptr; }
     virtual HTMLElement* resultsButtonElement() const { return nullptr; }
     virtual HTMLElement* cancelButtonElement() const { return nullptr; }

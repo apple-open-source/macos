@@ -32,7 +32,9 @@ class RegExpObject;
 class StringPrototype final : public StringObject {
 public:
     using Base = StringObject;
-    static constexpr unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
+    // We explicitly exclude InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero because StringPrototype's wrapped JSString is always empty, thus, we do not need to
+    // trap via getOwnPropertySlotByIndex.
+    static constexpr unsigned StructureFlags = (Base::StructureFlags | HasStaticPropertyTable) & ~InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero;
 
     static StringPrototype* create(VM&, JSGlobalObject*, Structure*);
 
@@ -40,6 +42,8 @@ public:
     {
         return Structure::create(vm, globalObject, prototype, TypeInfo(DerivedStringObjectType, StructureFlags), info());
     }
+
+    using JSObject::getOwnPropertySlotByIndex;
 
     DECLARE_INFO;
 
@@ -58,8 +62,8 @@ void substituteBackreferencesSlow(StringBuilder& result, StringView replacement,
 
 JSC_DECLARE_HOST_FUNCTION(stringProtoFuncRepeatCharacter);
 JSC_DECLARE_HOST_FUNCTION(stringProtoFuncSplitFast);
+JSC_DECLARE_HOST_FUNCTION(stringProtoFuncSubstring);
 
-JSC_DECLARE_HOST_FUNCTION(builtinStringSubstringInternal);
 JSC_DECLARE_HOST_FUNCTION(builtinStringIncludesInternal);
 JSC_DECLARE_HOST_FUNCTION(builtinStringIndexOfInternal);
 

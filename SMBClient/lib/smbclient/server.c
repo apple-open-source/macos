@@ -924,7 +924,6 @@ SMBGetNicInfoProperties(SMBHANDLE inConnection, void *outAttrs, uint8_t inClient
     }
 
     struct smbioc_nic_info *nic_info = outAttrs;
-    memset(nic_info, 0, sizeof(struct smbioc_nic_info));
     nic_info->ioc_version = SMB_IOC_STRUCT_VERSION;
     nic_info->flags = inClientOrServer;
     if (smb_ioctl_call(ctx->ct_fd, SMBIOC_NIC_INFO, nic_info) == -1) {

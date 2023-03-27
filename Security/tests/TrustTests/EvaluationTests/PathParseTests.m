@@ -72,6 +72,7 @@ const NSString *kSecTestPathFailureResources = @"si-18-certificate-parse/PathFai
             CFReleaseNull(policy);
         }];
     }
+    CFReleaseNull(root);
 }
 
 - (void)testUnparseableExtensions {

@@ -14,7 +14,6 @@
 
 #include "common/utilities.h"
 #include "libANGLE/renderer/ProgramImpl.h"
-#include "libANGLE/renderer/glslang_wrapper_utils.h"
 #include "libANGLE/renderer/vulkan/ContextVk.h"
 #include "libANGLE/renderer/vulkan/ProgramExecutableVk.h"
 #include "libANGLE/renderer/vulkan/RendererVk.h"
@@ -115,10 +114,7 @@ class ProgramVk : public ProgramImpl
     const ProgramExecutableVk &getExecutable() const { return mExecutable; }
     ProgramExecutableVk &getExecutable() { return mExecutable; }
 
-    const GlslangProgramInterfaceInfo &getGlslangProgramInterfaceInfo()
-    {
-        return mGlslangProgramInterfaceInfo;
-    }
+    const SpvProgramInterfaceInfo &getSpvProgramInterfaceInfo() { return mSpvProgramInterfaceInfo; }
 
   private:
     template <int cols, int rows>
@@ -129,7 +125,8 @@ class ProgramVk : public ProgramImpl
 
     void reset(ContextVk *contextVk);
     angle::Result initDefaultUniformBlocks(const gl::Context *glContext);
-    void generateUniformLayoutMapping(gl::ShaderMap<sh::BlockLayoutMap> &layoutMap,
+    void generateUniformLayoutMapping(const gl::Context *context,
+                                      gl::ShaderMap<sh::BlockLayoutMap> &layoutMap,
                                       gl::ShaderMap<size_t> &requiredBufferSize);
     void initDefaultUniformLayoutMapping(gl::ShaderMap<sh::BlockLayoutMap> &layoutMap);
 
@@ -138,13 +135,13 @@ class ProgramVk : public ProgramImpl
 
     template <typename T>
     void setUniformImpl(GLint location, GLsizei count, const T *v, GLenum entryPointType);
-    void linkResources(const gl::ProgramLinkedResources &resources);
+    void linkResources(const gl::Context *context, const gl::ProgramLinkedResources &resources);
 
     angle::Result createGraphicsPipelineWithDefaultState(const gl::Context *context,
-                                                         PipelineCacheAccess *pipelineCache);
+                                                         vk::PipelineCacheAccess *pipelineCache);
 
     // We keep the SPIR-V code to use for draw call pipeline creation.
-    GlslangProgramInterfaceInfo mGlslangProgramInterfaceInfo;
+    SpvProgramInterfaceInfo mSpvProgramInterfaceInfo;
 
     ProgramExecutableVk mExecutable;
 };

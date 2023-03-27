@@ -35,7 +35,6 @@
 #include "FetchLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "LibWebRTCProvider.h"
 #include "LoaderStrategy.h"
 #include "Logging.h"
 #include "MessageWithMessagePorts.h"
@@ -45,6 +44,7 @@
 #include "ServiceWorkerClientData.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "Settings.h"
+#include "WebRTCProvider.h"
 #include "WorkerGlobalScope.h"
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/MainThread.h>
@@ -69,7 +69,7 @@ ServiceWorkerThreadProxy::ServiceWorkerThreadProxy(UniqueRef<Page>&& page, Servi
 #if ENABLE(REMOTE_INSPECTOR)
     , m_remoteDebuggable(makeUnique<ServiceWorkerDebuggable>(*this, contextData))
 #endif
-    , m_serviceWorkerThread(ServiceWorkerThread::create(WTFMove(contextData), WTFMove(workerData), WTFMove(userAgent), workerThreadMode, m_document->settingsValues(), *this, *this, idbConnectionProxy(m_document), m_document->socketProvider(), WTFMove(notificationClient), m_page->sessionID()))
+    , m_serviceWorkerThread(ServiceWorkerThread::create(WTFMove(contextData), WTFMove(workerData), WTFMove(userAgent), workerThreadMode, m_document->settingsValues(), *this, *this, *this, idbConnectionProxy(m_document), m_document->socketProvider(), WTFMove(notificationClient), m_page->sessionID()))
     , m_cacheStorageProvider(cacheStorageProvider)
     , m_inspectorProxy(*this)
 {
@@ -83,7 +83,7 @@ ServiceWorkerThreadProxy::ServiceWorkerThreadProxy(UniqueRef<Page>&& page, Servi
     allServiceWorkerThreadProxies().add(this);
 
 #if ENABLE(REMOTE_INSPECTOR)
-    m_remoteDebuggable->setRemoteDebuggingAllowed(true);
+    m_remoteDebuggable->setInspectable(true);
     m_remoteDebuggable->init();
 #endif
 }
@@ -116,6 +116,11 @@ bool ServiceWorkerThreadProxy::postTaskForModeToWorkerOrWorkletGlobalScope(Scrip
 
     m_serviceWorkerThread->runLoop().postTaskForMode(WTFMove(task), mode);
     return true;
+}
+
+ScriptExecutionContextIdentifier ServiceWorkerThreadProxy::loaderContextIdentifier() const
+{
+    return m_document->identifier();
 }
 
 void ServiceWorkerThreadProxy::postTaskToLoader(ScriptExecutionContext::Task&& task)
@@ -152,7 +157,7 @@ RefPtr<CacheStorageConnection> ServiceWorkerThreadProxy::createCacheStorageConne
 RefPtr<RTCDataChannelRemoteHandlerConnection> ServiceWorkerThreadProxy::createRTCDataChannelRemoteHandlerConnection()
 {
     ASSERT(isMainThread());
-    return m_page->libWebRTCProvider().createRTCDataChannelRemoteHandlerConnection();
+    return m_page->webRTCProvider().createRTCDataChannelRemoteHandlerConnection();
 }
 
 std::unique_ptr<FetchLoader> ServiceWorkerThreadProxy::createBlobLoader(FetchLoaderClient& client, const URL& blobURL)
@@ -274,7 +279,7 @@ void ServiceWorkerThreadProxy::navigationPreloadIsReady(SWServerConnectionIdenti
     ASSERT(!isMainThread());
     postTaskForModeToWorkerOrWorkletGlobalScope([this, protectedThis = Ref { *this }, connectionIdentifier, fetchIdentifier, responseData = response.crossThreadData()] (auto&) mutable {
         if (auto client = m_ongoingFetchTasks.get({ connectionIdentifier, fetchIdentifier }))
-            client->navigationPreloadIsReady(ResourceResponse::fromCrossThreadData(WTFMove(responseData)));
+            client->navigationPreloadIsReady(WTFMove(responseData));
     }, WorkerRunLoop::defaultMode());
 }
 
@@ -416,6 +421,15 @@ void ServiceWorkerThreadProxy::fireNotificationEvent(NotificationData&& data, No
     UNUSED_PARAM(eventType);
     callback(false);
 #endif
+}
+
+void ServiceWorkerThreadProxy::setAppBadge(std::optional<uint64_t> badge)
+{
+    ASSERT(!isMainThread());
+
+    callOnMainRunLoop([badge = WTFMove(badge), this, protectedThis = Ref { *this }] {
+        m_page->badgeClient().setAppBadge(nullptr, SecurityOriginData::fromURL(scriptURL()), badge);
+    });
 }
 
 } // namespace WebCore

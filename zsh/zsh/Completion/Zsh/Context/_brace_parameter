@@ -140,8 +140,9 @@ if [[ $PREFIX = *'${('[^\)]# ]]; then
     flags+=("m:count number of character code points in padding calculation")
   fi
   flags+=(
-    "#:evaluate as numeric expression"
+    "#:interpret numeric expression as character code"
     "@:prevent double-quoted joining of arrays"
+    "*:enable extended globs for pattern"
     "A:assign as an array parameter"
     "a:sort in array index order (with O to reverse)"
     "b:backslash quote pattern characters only"
@@ -155,7 +156,8 @@ if [[ $PREFIX = *'${('[^\)]# ]]; then
     "i:sort case-insensitively"
     "k:substitute keys of associative arrays"
     "L:lower case all letters"
-    "n:sort decimal integers numerically"
+    "n:sort positive decimal integers numerically"
+    "-:sort decimal integers numerically"
     "o:sort in ascending order (lexically if no other sort option)"
     "O:sort in descending order (lexically if no other sort option)"
     "P:use parameter value as name of parameter for redirected lookup"

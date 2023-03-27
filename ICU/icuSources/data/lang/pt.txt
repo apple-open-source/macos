@@ -43,6 +43,7 @@ pt{
         ang{"inglês arcaico"}
         anp{"angika"}
         apw{"apache oriental"}
+        apw_Latn{"apache oriental"}
         ar{"árabe"}
         ar_001{"árabe moderno"}
         arc{"aramaico"}
@@ -106,9 +107,12 @@ pt{
         chm{"mari"}
         chn{"jargão Chinook"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"cheroqui"}
         chy{"cheiene"}
+        cic{"chickasaw"}
+        cic_Latn{"chickasaw"}
         ckb{"curdo sorâni"}
         co{"corso"}
         cop{"copta"}

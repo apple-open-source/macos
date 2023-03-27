@@ -49,8 +49,8 @@ WebBackForwardCacheEntry::WebBackForwardCacheEntry(WebBackForwardCache& backForw
 WebBackForwardCacheEntry::~WebBackForwardCacheEntry()
 {
     if (m_backForwardItemID && !m_suspendedPage) {
-        auto& process = this->process();
-        process.sendWithAsyncReply(Messages::WebProcess::ClearCachedPage(m_backForwardItemID), [] { });
+        if (auto process = this->process())
+            process->sendWithAsyncReply(Messages::WebProcess::ClearCachedPage(m_backForwardItemID), [] { });
     }
 }
 
@@ -62,17 +62,17 @@ std::unique_ptr<SuspendedPageProxy> WebBackForwardCacheEntry::takeSuspendedPage(
     return std::exchange(m_suspendedPage, nullptr);
 }
 
-WebProcessProxy& WebBackForwardCacheEntry::process() const
+RefPtr<WebProcessProxy> WebBackForwardCacheEntry::process() const
 {
-    auto* process = WebProcessProxy::processForIdentifier(m_processIdentifier);
+    auto process = WebProcessProxy::processForIdentifier(m_processIdentifier);
     ASSERT(process);
     ASSERT(!m_suspendedPage || process == &m_suspendedPage->process());
-    return *process;
+    return process;
 }
 
 void WebBackForwardCacheEntry::expirationTimerFired()
 {
-    RELEASE_LOG(BackForwardCache, "%p - WebBackForwardCacheEntry::expirationTimerFired backForwardItemID=%s, hasSuspendedPage=%d", this, m_backForwardItemID.string().utf8().data(), !!m_suspendedPage);
+    RELEASE_LOG(BackForwardCache, "%p - WebBackForwardCacheEntry::expirationTimerFired backForwardItemID=%s, hasSuspendedPage=%d", this, m_backForwardItemID.toString().utf8().data(), !!m_suspendedPage);
     ASSERT(m_backForwardItemID);
     auto* item = WebBackForwardListItem::itemForID(m_backForwardItemID);
     ASSERT(item);

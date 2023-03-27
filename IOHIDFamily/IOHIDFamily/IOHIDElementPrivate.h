@@ -183,7 +183,8 @@ public:
                                 UInt32                      reportBits,
                                 const AbsoluteTime *        timestamp,
                                 IOHIDElementPrivate **      next    = 0,
-                                IOOptionBits                options = 0 );
+                                IOOptionBits                options = 0,
+                                IOReturn *                  error = nullptr);
 
     virtual bool createReport( UInt8           reportID,
                                void *        reportData, // report should be allocated outside this method

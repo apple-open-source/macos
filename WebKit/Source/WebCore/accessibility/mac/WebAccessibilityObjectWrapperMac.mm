@@ -33,6 +33,7 @@
 
 #import "AXLogger.h"
 #import "AXObjectCache.h"
+#import "AXTextMarker.h"
 #import "AccessibilityARIAGridRow.h"
 #import "AccessibilityLabel.h"
 #import "AccessibilityList.h"
@@ -232,15 +233,15 @@ using namespace WebCore;
 #define NSAccessibilityDocumentEncodingAttribute @"AXDocumentEncoding"
 #endif
 
-#ifndef NSAccessibilityAriaControlsAttribute
-#define NSAccessibilityAriaControlsAttribute @"AXARIAControls"
-#endif
-
 #define NSAccessibilityDOMIdentifierAttribute @"AXDOMIdentifier"
 #define NSAccessibilityDOMClassListAttribute @"AXDOMClassList"
 
 #ifndef NSAccessibilityARIACurrentAttribute
 #define NSAccessibilityARIACurrentAttribute @"AXARIACurrent"
+#endif
+
+#ifndef NSAccessibilityKeyShortcutsAttribute
+#define NSAccessibilityKeyShortcutsAttribute @"AXKeyShortcutsValue"
 #endif
 
 // Table/grid attributes
@@ -713,38 +714,22 @@ static std::pair<std::optional<SimpleRange>, AccessibilitySearchDirection> acces
 
 #pragma mark Text Marker helpers
 
-static RetainPtr<AXTextMarkerRef> nextTextMarkerForCharacterOffset(AXObjectCache* cache, CharacterOffset& characterOffset)
+static RetainPtr<AXTextMarkerRef> nextTextMarker(AXObjectCache* cache, const AXTextMarker& marker)
 {
     if (!cache)
         return nil;
-    
-    TextMarkerData textMarkerData;
-    cache->textMarkerDataForNextCharacterOffset(textMarkerData, characterOffset);
-    if (!textMarkerData.axID)
-        return nil;
-    return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&textMarkerData, sizeof(textMarkerData)));
+
+    auto nextMarker = cache->nextTextMarker(marker);
+    return nextMarker ? nextMarker.platformData() : nil;
 }
 
-static RetainPtr<AXTextMarkerRef> previousTextMarkerForCharacterOffset(AXObjectCache* cache, CharacterOffset& characterOffset)
+static RetainPtr<AXTextMarkerRef> previousTextMarker(AXObjectCache* cache, const AXTextMarker& marker)
 {
     if (!cache)
         return nil;
-    
-    TextMarkerData textMarkerData;
-    cache->textMarkerDataForPreviousCharacterOffset(textMarkerData, characterOffset);
-    if (!textMarkerData.axID)
-        return nil;
-    return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&textMarkerData, sizeof(textMarkerData)));
-}
 
-- (RetainPtr<AXTextMarkerRef>)nextTextMarkerForCharacterOffset:(CharacterOffset&)characterOffset
-{
-    return nextTextMarkerForCharacterOffset(self.axBackingObject->axObjectCache(), characterOffset);
-}
-
-- (RetainPtr<AXTextMarkerRef>)previousTextMarkerForCharacterOffset:(CharacterOffset&)characterOffset
-{
-    return previousTextMarkerForCharacterOffset(self.axBackingObject->axObjectCache(), characterOffset);
+    auto previousMarker = cache->previousTextMarker(marker);
+    return previousMarker ? previousMarker.platformData() : nil;
 }
 
 // FIXME: Remove this method since clients should not need to call this method and should not be exposed in the public interface.
@@ -865,6 +850,8 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
                 AXAttributeStringSetNumber(attrString, @"AXIsSuggestedDeletion", @YES, range);
             else if (equalLettersIgnoringASCIICase(roleValue, "suggestion"_s))
                 AXAttributeStringSetNumber(attrString, @"AXIsSuggestion", @YES, range);
+            else if (equalLettersIgnoringASCIICase(roleValue, "mark"_s))
+                AXAttributeStringSetNumber(attrString, @"AXHighlight", @YES, range);
         }
     }
 }
@@ -1049,12 +1036,12 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
 
 - (NSAttributedString *)doAXAttributedStringForTextMarkerRange:(AXTextMarkerRangeRef)textMarkerRange spellCheck:(BOOL)spellCheck
 {
-    return Accessibility::retrieveAutoreleasedValueFromMainThread<NSAttributedString *>([&textMarkerRange, &spellCheck, protectedSelf = retainPtr(self)] () -> RetainPtr<NSAttributedString> {
+    return Accessibility::retrieveAutoreleasedValueFromMainThread<NSAttributedString *>([textMarkerRange = retainPtr(textMarkerRange), &spellCheck, protectedSelf = retainPtr(self)] () -> RetainPtr<NSAttributedString> {
         auto* backingObject = protectedSelf.get().axBackingObject;
         if (!backingObject)
             return nil;
 
-        auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange);
+        auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange.get());
         if (!range)
             return nil;
         auto attrString = adoptNS([[NSMutableAttributedString alloc] init]);
@@ -1184,6 +1171,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if (backingObject->supportsPosInSet())
         [additional addObject:NSAccessibilityARIAPosInSetAttribute];
+
+    if (backingObject->supportsKeyShortcuts())
+        [additional addObject:NSAccessibilityKeyShortcutsAttribute];
 
     AccessibilitySortDirection sortDirection = backingObject->sortDirection();
     if (sortDirection != AccessibilitySortDirection::None && sortDirection != AccessibilitySortDirection::Invalid)
@@ -1895,13 +1885,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     });
 }
 
-- (void)logMissingBackingObject
-{
-    TextStream stream;
-    stream << "No backingObject for wrapper " << &self << "!";
-    AXLOG(stream.release());
-}
-
 // FIXME: split up this function in a better way.
 // suggestions: Use a hash table that maps attribute names to function calls,
 // or maybe pointers to member functions
@@ -1913,7 +1896,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     RefPtr<AXCoreObject> backingObject = self.updateObjectBackingStore;
     if (!backingObject) {
-        [self logMissingBackingObject];
+        AXLOG(makeString("No backingObject for wrapper ", hex(reinterpret_cast<uintptr_t>(self))));
         return nil;
     }
 
@@ -2128,14 +2111,14 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if ([attributeName isEqualToString: NSAccessibilityMinValueAttribute]) {
         // Indeterminate progress indicator should return 0.
-        if (backingObject->ariaRoleAttribute() == AccessibilityRole::ProgressIndicator && !backingObject->hasARIAValueNow())
+        if (backingObject->isIndeterminate())
             return @0;
         return [NSNumber numberWithFloat:backingObject->minValueForRange()];
     }
 
     if ([attributeName isEqualToString: NSAccessibilityMaxValueAttribute]) {
         // Indeterminate progress indicator should return 0.
-        if (backingObject->ariaRoleAttribute() == AccessibilityRole::ProgressIndicator && !backingObject->hasARIAValueNow())
+        if (backingObject->isIndeterminate())
             return @0;
         return [NSNumber numberWithFloat:backingObject->maxValueForRange()];
     }
@@ -2592,8 +2575,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if ([attributeName isEqualToString:NSAccessibilityPopupValueAttribute])
         return backingObject->popupValue();
 
-    if ([attributeName isEqualToString:@"AXKeyShortcutsValue"])
-        return backingObject->keyShortcutsValue();
+    if ([attributeName isEqualToString:NSAccessibilityKeyShortcutsAttribute])
+        return backingObject->keyShortcuts();
 
     if ([attributeName isEqualToString:@"AXARIAPressedIsPresent"])
         return [NSNumber numberWithBool:backingObject->pressedIsPresent()];
@@ -2631,8 +2614,13 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if ([attributeName isEqualToString:NSAccessibilityRelativeFrameAttribute])
         return [NSValue valueWithRect:(NSRect)backingObject->relativeFrame()];
 
-    if ([attributeName isEqualToString:@"AXErrorMessageElements"])
+    if ([attributeName isEqualToString:@"AXErrorMessageElements"]) {
+        // Only expose error messages for objects in an invalid state.
+        // https://www.w3.org/TR/wai-aria-1.2/#aria-errormessage
+        if (backingObject->invalidStatus() == "false"_s)
+            return nil;
         return makeNSArray(backingObject->errorMessageObjects());
+    }
 
     // Multi-selectable
     if ([attributeName isEqualToString:NSAccessibilityIsMultiSelectableAttribute])
@@ -2644,10 +2632,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if ([attributeName isEqualToString:NSAccessibilityDocumentEncodingAttribute])
         return backingObject->documentEncoding();
-
-    // Aria controls element
-    if ([attributeName isEqualToString:NSAccessibilityAriaControlsAttribute])
-        return makeNSArray(backingObject->controlledObjects());
 
     if ([attributeName isEqualToString:NSAccessibilityFocusableAncestorAttribute]) {
         AXCoreObject* object = backingObject->focusableAncestor();
@@ -2666,6 +2650,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if ([attributeName isEqualToString:@"AXIsOnScreen"])
         return [NSNumber numberWithBool:backingObject->isOnScreen()];
+
+    if ([attributeName isEqualToString:@"AXIsIndeterminate"])
+        return [NSNumber numberWithBool: backingObject->isIndeterminate()];
 
     return nil;
 }
@@ -2887,8 +2874,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 {
     // In case anything we do by performing the press action causes an alert or other modal
     // behaviors, we need to return now, so that VoiceOver doesn't hang indefinitely.
-    RunLoop::main().dispatch([self, protectedSelf = retainPtr(self)] {
-        [self _accessibilityPerformPressAction];
+    RunLoop::main().dispatch([protectedSelf = retainPtr(self)] {
+        [protectedSelf _accessibilityPerformPressAction];
     });
 }
 
@@ -2906,8 +2893,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 - (void)accessibilityPerformIncrementAction
 {
-    RunLoop::main().dispatch([self, protectedSelf = retainPtr(self)] {
-        [self _accessibilityPerformIncrementAction];
+    RunLoop::main().dispatch([protectedSelf = retainPtr(self)] {
+        [protectedSelf _accessibilityPerformIncrementAction];
     });
 }
 
@@ -2925,8 +2912,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 - (void)accessibilityPerformDecrementAction
 {
-    RunLoop::main().dispatch([self, protectedSelf = retainPtr(self)] {
-        [self _accessibilityPerformDecrementAction];
+    RunLoop::main().dispatch([protectedSelf = retainPtr(self)] {
+        [protectedSelf _accessibilityPerformDecrementAction];
     });
 }
 
@@ -2946,9 +2933,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)accessibilityPerformShowMenuAction
 {
+    AXTRACE("WebAccessibilityObjectWrapper accessibilityPerformShowMenuAction"_s);
+
     auto* backingObject = self.axBackingObject;
     if (!backingObject) {
-        [self logMissingBackingObject];
+        AXLOG(makeString("No backingObject for wrapper ", hex(reinterpret_cast<uintptr_t>(self))));
         return;
     }
 
@@ -2966,11 +2955,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)_accessibilityShowContextMenu
 {
+    AXTRACE("WebAccessibilityObjectWrapper _accessibilityShowContextMenu"_s);
     ASSERT(isMainThread());
 
     RefPtr<AXCoreObject> backingObject = self.axBackingObject;
     if (!backingObject) {
-        [self logMissingBackingObject];
+        AXLOG(makeString("No backingObject for wrapper ", hex(reinterpret_cast<uintptr_t>(self))));
         return;
     }
 
@@ -3077,7 +3067,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     RefPtr<AXCoreObject> backingObject = self.updateObjectBackingStore;
     if (!backingObject) {
-        [self logMissingBackingObject];
+        AXLOG(makeString("No backingObject for wrapper ", hex(reinterpret_cast<uintptr_t>(self))));
         return;
     }
 
@@ -3100,11 +3090,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         array = value;
 
     // handle the command
-    if ([attributeName isEqualToString: @"AXSelectedTextMarkerRange"]) {
+    if ([attributeName isEqualToString:@"AXSelectedTextMarkerRange"]) {
         ASSERT(textMarkerRange);
-        Accessibility::performFunctionOnMainThread([&textMarkerRange, protectedSelf = retainPtr(self)] {
+        Accessibility::performFunctionOnMainThread([textMarkerRange = retainPtr(textMarkerRange), protectedSelf = retainPtr(self)] {
             if (auto* backingObject = protectedSelf.get().axBackingObject)
-                backingObject->setSelectedVisiblePositionRange(visiblePositionRangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange));
+                backingObject->setSelectedVisiblePositionRange(visiblePositionRangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange.get()));
         });
     } else if ([attributeName isEqualToString: NSAccessibilityFocusedAttribute]) {
         backingObject->setFocused([number boolValue]);
@@ -3203,13 +3193,13 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!marker)
         return NSNotFound;
 
-    return Accessibility::retrieveValueFromMainThread<NSInteger>([&marker, protectedSelf = retainPtr(self)] () -> NSInteger {
+    return Accessibility::retrieveValueFromMainThread<NSInteger>([marker = retainPtr(marker), protectedSelf = retainPtr(self)] () -> NSInteger {
         auto* backingObject = protectedSelf.get().axBackingObject;
         if (!backingObject)
             return NSNotFound;
 
         if (auto* cache = backingObject->axObjectCache()) {
-            CharacterOffset characterOffset = characterOffsetForTextMarker(cache, marker);
+            auto characterOffset = characterOffsetForTextMarker(cache, marker.get());
             auto range = cache->rangeForUnorderedCharacterOffsets(characterOffset, characterOffset);
             if (!range)
                 return NSNotFound;
@@ -3322,7 +3312,7 @@ enum class TextUnit {
 
 - (AXTextMarkerRangeRef)textMarkerRangeAtTextMarker:(AXTextMarkerRef)textMarker forUnit:(TextUnit)textUnit
 {
-    return Accessibility::retrieveAutoreleasedValueFromMainThread<AXTextMarkerRangeRef>([&textMarker, &textUnit, protectedSelf = retainPtr(self)] () -> RetainPtr<AXTextMarkerRangeRef> {
+    return Accessibility::retrieveAutoreleasedValueFromMainThread<AXTextMarkerRangeRef>([textMarker = retainPtr(textMarker), &textUnit, protectedSelf = retainPtr(self)] () -> RetainPtr<AXTextMarkerRangeRef> {
         auto* backingObject = protectedSelf.get().axBackingObject;
         if (!backingObject)
             return nil;
@@ -3331,7 +3321,7 @@ enum class TextUnit {
         if (!cache)
             return nil;
 
-        auto characterOffset = characterOffsetForTextMarker(cache, textMarker);
+        auto characterOffset = characterOffsetForTextMarker(cache, textMarker.get());
         std::optional<SimpleRange> range;
         switch (textUnit) {
         case TextUnit::LeftWord:
@@ -3357,7 +3347,7 @@ enum class TextUnit {
 
 - (AXTextMarkerRangeRef)lineTextMarkerRangeForTextMarker:(AXTextMarkerRef)textMarker forUnit:(TextUnit)textUnit
 {
-    return Accessibility::retrieveAutoreleasedValueFromMainThread<AXTextMarkerRangeRef>([&textMarker, &textUnit, protectedSelf = retainPtr(self)] () -> RetainPtr<AXTextMarkerRangeRef> {
+    return Accessibility::retrieveAutoreleasedValueFromMainThread<AXTextMarkerRangeRef>([textMarker = retainPtr(textMarker), &textUnit, protectedSelf = retainPtr(self)] () -> RetainPtr<AXTextMarkerRangeRef> {
         auto* backingObject = protectedSelf.get().axBackingObject;
         if (!backingObject)
             return nil;
@@ -3366,30 +3356,30 @@ enum class TextUnit {
         if (!cache)
             return nil;
 
-        auto visiblePosition = visiblePositionForTextMarker(cache, textMarker);
+        AXTextMarker marker(textMarker.get());
         VisiblePositionRange visiblePositionRange;
         switch (textUnit) {
         case TextUnit::Line:
-            visiblePositionRange = backingObject->lineRangeForPosition(visiblePosition);
+            visiblePositionRange = backingObject->lineRangeForPosition(marker);
             break;
         case TextUnit::LeftLine:
-            visiblePositionRange = backingObject->leftLineVisiblePositionRange(visiblePosition);
+            visiblePositionRange = backingObject->leftLineVisiblePositionRange(marker);
             break;
         case TextUnit::RightLine:
-            visiblePositionRange = backingObject->rightLineVisiblePositionRange(visiblePosition);
+            visiblePositionRange = backingObject->rightLineVisiblePositionRange(marker);
             break;
         default:
             ASSERT_NOT_REACHED();
             break;
         }
 
-        return textMarkerRangeFromVisiblePositions(cache, visiblePositionRange.start, visiblePositionRange.end);
+        return AXTextMarkerRange(visiblePositionRange).platformData();
     });
 }
 
 - (AXTextMarkerRef)textMarkerForTextMarker:(AXTextMarkerRef)textMarker atUnit:(TextUnit)textUnit
 {
-    return Accessibility::retrieveAutoreleasedValueFromMainThread<AXTextMarkerRef>([&textMarker, &textUnit, protectedSelf = retainPtr(self)] () -> RetainPtr<AXTextMarkerRef> {
+    return Accessibility::retrieveAutoreleasedValueFromMainThread<AXTextMarkerRef>([textMarker = retainPtr(textMarker), &textUnit, protectedSelf = retainPtr(self)] () -> RetainPtr<AXTextMarkerRef> {
         auto* backingObject = protectedSelf.get().axBackingObject;
         if (!backingObject)
             return nil;
@@ -3398,7 +3388,7 @@ enum class TextUnit {
         if (!cache)
             return nil;
 
-        CharacterOffset oldOffset = characterOffsetForTextMarker(cache, textMarker);
+        auto oldOffset = characterOffsetForTextMarker(cache, textMarker.get());
         CharacterOffset newOffset;
         switch (textUnit) {
         case TextUnit::NextWordEnd:
@@ -3420,11 +3410,11 @@ enum class TextUnit {
             newOffset = cache->previousParagraphStartCharacterOffset(oldOffset);
             break;
         case TextUnit::NextLineEnd: {
-            auto visiblePosition = visiblePositionForTextMarker(cache, textMarker);
+            auto visiblePosition = visiblePositionForTextMarker(cache, textMarker.get());
             return textMarkerForVisiblePosition(cache, backingObject->nextLineEndPosition(visiblePosition));
         }
         case TextUnit::PreviousLineStart: {
-            auto visiblePosition = visiblePositionForTextMarker(cache, textMarker);
+            auto visiblePosition = visiblePositionForTextMarker(cache, textMarker.get());
             return textMarkerForVisiblePosition(cache, backingObject->previousLineStartPosition(visiblePosition));
         }
         default:
@@ -3659,12 +3649,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     if ([attribute isEqualToString:NSAccessibilityTextMarkerIsValidParameterizedAttribute]) {
-        bool result = Accessibility::retrieveValueFromMainThread<bool>([&textMarker, protectedSelf = retainPtr(self)] () -> bool {
+        bool result = Accessibility::retrieveValueFromMainThread<bool>([textMarker = retainPtr(textMarker), protectedSelf = retainPtr(self)] () -> bool {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
                 return false;
 
-            return !visiblePositionForTextMarker(backingObject->axObjectCache(), textMarker).isNull();
+            return !visiblePositionForTextMarker(backingObject->axObjectCache(), textMarker.get()).isNull();
         });
 
         return [NSNumber numberWithBool:result];
@@ -3677,35 +3667,33 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return (id)[self _textMarkerForIndex:[number integerValue]];
 
     if ([attribute isEqualToString:@"AXUIElementForTextMarker"]) {
-        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&textMarker, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
-            auto* backingObject = protectedSelf.get().axBackingObject;
-            if (!backingObject)
-                return nil;
+        AXTextMarker marker(textMarker);
+        auto* object = marker.object();
+        if (!object)
+            return nil;
 
-            auto* axObject = accessibilityObjectForTextMarker(backingObject->axObjectCache(), textMarker);
-            if (!axObject)
-                return nil;
+        auto* wrapper = object->wrapper();
+        if (!wrapper)
+            return nil;
 
-            if (axObject->isAttachment() && [axObject->wrapper() attachmentView])
-                return [axObject->wrapper() attachmentView];
-
-            return axObject->wrapper();
-        });
+        if (id attachmentView = wrapper.attachmentView)
+            return attachmentView;
+        return wrapper;
     }
 
     if ([attribute isEqualToString:@"AXTextMarkerRangeForUIElement"]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&uiElement] () -> RetainPtr<id> {
-            return (id)textMarkerRangeFromRange(uiElement.get()->axObjectCache(), uiElement.get()->elementRange());
+            return (id)textMarkerRangeFromRange(uiElement->axObjectCache(), uiElement->elementRange());
         });
     }
 
     if ([attribute isEqualToString:@"AXLineForTextMarker"]) {
-        int result = Accessibility::retrieveValueFromMainThread<int>([&textMarker, protectedSelf = retainPtr(self)] () -> int {
+        int result = Accessibility::retrieveValueFromMainThread<int>([textMarker = retainPtr(textMarker), protectedSelf = retainPtr(self)] () -> int {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
                 return -1;
 
-            auto visiblePos = visiblePositionForTextMarker(backingObject->axObjectCache(), textMarker);
+            auto visiblePos = visiblePositionForTextMarker(backingObject->axObjectCache(), textMarker.get());
             return backingObject->lineForPosition(visiblePos);
         });
         return @(result);
@@ -3726,12 +3714,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     if ([attribute isEqualToString:@"AXStringForTextMarkerRange"]) {
-        return Accessibility::retrieveValueFromMainThread<String>([&textMarkerRange, protectedSelf = retainPtr(self)] () -> String {
+        return Accessibility::retrieveValueFromMainThread<String>([textMarkerRange = retainPtr(textMarkerRange), protectedSelf = retainPtr(self)] () -> String {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
                 return String();
 
-            auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange);
+            auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange.get());
             return range ? backingObject->stringForRange(*range) : String();
         });
     }
@@ -3746,17 +3734,17 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             if (!backingObject)
                 return nil;
 
-            return (id)textMarkerForVisiblePosition(backingObject->axObjectCache(), backingObject->visiblePositionForPoint(webCorePoint));
+            return AXTextMarker(backingObject->visiblePositionForPoint(webCorePoint)).platformData().bridgingAutorelease();
         });
     }
 
     if ([attribute isEqualToString:@"AXBoundsForTextMarkerRange"]) {
-        NSRect rect = Accessibility::retrieveValueFromMainThread<NSRect>([&textMarkerRange, protectedSelf = retainPtr(self)] () -> NSRect {
+        NSRect rect = Accessibility::retrieveValueFromMainThread<NSRect>([textMarkerRange = retainPtr(textMarkerRange), protectedSelf = retainPtr(self)] () -> NSRect {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
                 return CGRectZero;
 
-            auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange);
+            auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange.get());
             if (!range)
                 return CGRectZero;
 
@@ -3835,9 +3823,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             || !AXObjectIsTextMarker([array objectAtIndex:0])
             || !AXObjectIsTextMarker([array objectAtIndex:1]))
             return nil;
-        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&array] () -> RetainPtr<id> {
-            return (id)textMarkerRangeFromMarkers((AXTextMarkerRef)[array objectAtIndex:0], (AXTextMarkerRef)[array objectAtIndex:1]).get();
-        });
+
+        return AXTextMarkerRange { { (AXTextMarkerRef)[array objectAtIndex:0] }, { (AXTextMarkerRef)[array objectAtIndex:1] } }.platformData().bridgingAutorelease();
     }
 
     if ([attribute isEqualToString:@"AXTextMarkerRangeForUnorderedTextMarkers"]) {
@@ -3849,7 +3836,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         AXTextMarkerRef textMarker1 = (AXTextMarkerRef)[array objectAtIndex:0];
         AXTextMarkerRef textMarker2 = (AXTextMarkerRef)[array objectAtIndex:1];
 
-        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&textMarker1, &textMarker2, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
+        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([textMarker1 = retainPtr(textMarker1), textMarker2 = retainPtr(textMarker2), protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
                 return nil;
@@ -3858,8 +3845,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             if (!cache)
                 return nil;
 
-            auto characterOffset1 = characterOffsetForTextMarker(cache, textMarker1);
-            auto characterOffset2 = characterOffsetForTextMarker(cache, textMarker2);
+            auto characterOffset1 = characterOffsetForTextMarker(cache, textMarker1.get());
+            auto characterOffset2 = characterOffsetForTextMarker(cache, textMarker2.get());
             auto range = cache->rangeForUnorderedCharacterOffsets(characterOffset1, characterOffset2);
 
             return (id)textMarkerRangeFromRange(cache, range);
@@ -3867,7 +3854,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     if ([attribute isEqualToString:@"AXNextTextMarkerForTextMarker"]) {
-        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&textMarker, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
+        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([textMarker = retainPtr(textMarker), protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
                 return nil;
@@ -3876,13 +3863,13 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             if (!cache)
                 return nil;
 
-            CharacterOffset characterOffset = characterOffsetForTextMarker(cache, textMarker);
-            return bridge_id_cast([protectedSelf nextTextMarkerForCharacterOffset:characterOffset]);
+            AXTextMarker marker(textMarker.get());
+            return nextTextMarker(cache, marker).bridgingAutorelease();
         });
     }
 
     if ([attribute isEqualToString:@"AXPreviousTextMarkerForTextMarker"]) {
-        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&textMarker, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
+        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([textMarker = retainPtr(textMarker), protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
                 return nil;
@@ -3891,8 +3878,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             if (!cache)
                 return nil;
 
-            CharacterOffset characterOffset = characterOffsetForTextMarker(cache, textMarker);
-            return bridge_id_cast([protectedSelf previousTextMarkerForCharacterOffset:characterOffset]);
+            AXTextMarker marker(textMarker.get());
+            return previousTextMarker(cache, marker).bridgingAutorelease();
         });
     }
 
@@ -3939,7 +3926,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return (id)[self textMarkerForTextMarker:textMarker atUnit:TextUnit::PreviousParagraphStart];
 
     if ([attribute isEqualToString:@"AXStyleTextMarkerRangeForTextMarker"]) {
-        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&textMarker, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
+        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([textMarker = retainPtr(textMarker), protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
                 return nil;
@@ -3948,7 +3935,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             if (!cache)
                 return nil;
 
-            VisiblePosition visiblePos = visiblePositionForTextMarker(cache, textMarker);
+            auto visiblePos = visiblePositionForTextMarker(cache, textMarker.get());
             VisiblePositionRange vpRange = backingObject->styleRangeForPosition(visiblePos);
 
             return (id)textMarkerRangeFromVisiblePositions(cache, vpRange.start, vpRange.end);
@@ -3956,12 +3943,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     if ([attribute isEqualToString:@"AXLengthForTextMarkerRange"]) {
-        int length = Accessibility::retrieveValueFromMainThread<int>([&textMarkerRange, protectedSelf = retainPtr(self)] () -> int {
+        int length = Accessibility::retrieveValueFromMainThread<int>([textMarkerRange = retainPtr(textMarkerRange), protectedSelf = retainPtr(self)] () -> int {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
                 return 0;
 
-            auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange);
+            auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange.get());
             if (!range)
                 return 0;
             return AXObjectCache::lengthForRange(SimpleRange { *range });
@@ -3973,26 +3960,13 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     // Used only by DumpRenderTree (so far).
     if ([attribute isEqualToString:@"AXStartTextMarkerForTextMarkerRange"]) {
-        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&textMarkerRange, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
-            auto* backingObject = protectedSelf.get().axBackingObject;
-            if (!backingObject)
-                return nil;
-
-            auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange);
-
-            return (id)startOrEndTextMarkerForRange(backingObject->axObjectCache(), range, true);
-        });
+        AXTextMarkerRange axTextMarkerRange { textMarkerRange };
+        return axTextMarkerRange.start().platformData().bridgingAutorelease();
     }
 
     if ([attribute isEqualToString:@"AXEndTextMarkerForTextMarkerRange"]) {
-        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&textMarkerRange, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
-            auto* backingObject = protectedSelf.get().axBackingObject;
-            if (!backingObject)
-                return nil;
-
-            auto range = rangeForTextMarkerRange(backingObject->axObjectCache(), textMarkerRange);
-            return (id)startOrEndTextMarkerForRange(backingObject->axObjectCache(), range, false);
-        });
+        AXTextMarkerRange axTextMarkerRange { textMarkerRange };
+        return axTextMarkerRange.end().platformData().bridgingAutorelease();
     }
 
 #if ENABLE(TREE_DEBUGGING)

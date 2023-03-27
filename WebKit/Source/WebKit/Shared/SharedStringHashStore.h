@@ -44,7 +44,7 @@ public:
 
     SharedStringHashStore(Client&);
 
-    bool createSharedMemoryHandle(SharedMemory::Handle&);
+    std::optional<SharedMemory::Handle> createSharedMemoryHandle();
 
     void scheduleAddition(WebCore::SharedStringHash);
     void scheduleRemoval(WebCore::SharedStringHash);
@@ -71,7 +71,7 @@ private:
     unsigned m_tableLength { 0 };
     SharedStringHashTable m_table;
     Vector<Operation> m_pendingOperations;
-    RunLoop::Timer<SharedStringHashStore> m_pendingOperationsTimer;
+    RunLoop::Timer m_pendingOperationsTimer;
 };
 
 } // namespace WebKit

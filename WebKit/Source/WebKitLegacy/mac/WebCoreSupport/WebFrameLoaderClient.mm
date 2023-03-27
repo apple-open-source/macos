@@ -203,11 +203,6 @@ std::optional<WebCore::PageIdentifier> WebFrameLoaderClient::pageID() const
     return std::nullopt;
 }
 
-std::optional<WebCore::FrameIdentifier> WebFrameLoaderClient::frameID() const
-{
-    return std::nullopt;
-}
-
 WebFrameLoaderClient::~WebFrameLoaderClient()
 {
     [m_webFrame.get() _clearCoreFrame];
@@ -1101,17 +1096,6 @@ void WebFrameLoaderClient::didRunInsecureContent(WebCore::SecurityOrigin& origin
     }
 }
 
-void WebFrameLoaderClient::didDetectXSS(const URL& insecureURL, bool didBlockEntirePage)
-{
-    WebView *webView = getWebView(m_webFrame.get());   
-    WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(webView);
-    if (implementations->didDetectXSSFunc) {
-        // FIXME: must pass didBlockEntirePage if we want to do more on mac than just pass tests.
-        NSURL* insecureNSURL = insecureURL;
-        CallFrameLoadDelegate(implementations->didDetectXSSFunc, webView, @selector(webView:didDetectXSS:), insecureNSURL);
-    }
-}
-
 WebCore::ResourceError WebFrameLoaderClient::cancelledError(const WebCore::ResourceRequest& request) const
 {
     return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorCancelled URL:request.url()];
@@ -1451,7 +1435,7 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
 
     if (isMainFrame) {
 #if PLATFORM(IOS_FAMILY)
-        coreView->setDelegatesScrolling(true);
+        coreView->setDelegatedScrollingMode(WebCore::DelegatedScrollingMode::DelegatedToNativeScrollView);
 #endif
         coreView->setParentVisible(true);
     }
@@ -1704,8 +1688,9 @@ IGNORE_WARNINGS_END
         };
         LOG(Plugins, "arguments:\n%@", arguments);
     }
+    (void)arguments;
 
-    return [pluginController plugInViewWithArguments:arguments fromPluginPackage:pluginPackage];
+    return nil;
 }
 
 class PluginWidget : public WebCore::PluginViewBase {
@@ -1906,34 +1891,13 @@ void WebFrameLoaderClient::sendH2Ping(const URL& url, CompletionHandler<void(Exp
     completionHandler(makeUnexpected(WebCore::internalError(url)));
 }
 
-String WebFrameLoaderClient::overrideMediaType() const
+AtomString WebFrameLoaderClient::overrideMediaType() const
 {
     NSString* overrideType = [getWebView(m_webFrame.get()) mediaStyle];
     if (overrideType)
-        return overrideType;
-    return String();
+        return AtomString(overrideType);
+    return nullAtom();
 }
-
-#if ENABLE(WEBGL)
-static bool shouldBlockWebGL()
-{
-#if PLATFORM(MAC)
-    return WebCore::WebGLBlocklist::shouldBlockWebGL();
-#else
-    return false;
-#endif
-}
-
-WebCore::WebGLLoadPolicy WebFrameLoaderClient::webGLPolicyForURL(const URL&) const
-{
-    return shouldBlockWebGL() ? WebCore::WebGLLoadPolicy::WebGLBlockCreation : WebCore::WebGLLoadPolicy::WebGLAllowCreation;
-}
-
-WebCore::WebGLLoadPolicy WebFrameLoaderClient::resolveWebGLPolicyForURL(const URL&) const
-{
-    return shouldBlockWebGL() ? WebCore::WebGLLoadPolicy::WebGLBlockCreation : WebCore::WebGLLoadPolicy::WebGLAllowCreation;
-}
-#endif // ENABLE(WEBGL)
 
 void WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld& world)
 {

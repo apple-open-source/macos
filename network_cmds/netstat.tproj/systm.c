@@ -82,8 +82,8 @@
 #define ADVANCE64(x, n) (((char *)x) += ROUNDUP64(n))
 
 struct xgen_n {
-	u_int32_t	xgn_len;			/* length of this structure */
-	u_int32_t	xgn_kind;		/* number of PCBs at this time */
+	u_int32_t	xgn_len;	/* length of this structure */
+	u_int32_t	xgn_kind;	/* type of structure */
 };
 
 #define	ALL_XGN_KIND_KCREG (XSO_KCREG)

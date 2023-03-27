@@ -1115,64 +1115,6 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
 #endif // TARGET_OS_IOS || TARGET_OS_WATCH
 
 #if TARGET_OS_OSX
-    static char *model = NULL;
-    static uint32_t majorRev = 0;
-    static uint32_t minorRev = 0;
-    static IOReturn modelFound = kIOReturnSuccess;
-    if (!model) {
-        modelFound = IOCopyModel(&model, &majorRev, &minorRev);
-    }
-
-    if (CFEqual(PMFeature, CFSTR(kIOPMLowPowerModeKey)))
-    {
-        // Only supported currently on AC and Battery
-        if (CFEqual(power_source, CFSTR(kIOPMUPSPowerKey))) {
-            ret = false;
-        } else {
-            bool hasBattery = IOPSPowerSourceSupported(NULL, CFSTR(kIOPMBatteryPowerKey));
-            // Only supported currently on Skylake+ MacBook Pro and Air (2016+)
-            if (modelFound != kIOReturnSuccess) {
-                // Try again
-                modelFound = IOCopyModel(&model, &majorRev, &minorRev);
-            }
-            if (modelFound != kIOReturnSuccess) {
-                os_log(OS_LOG_DEFAULT, "kIOPMLowPowerModeKey: Could not find machine model\n");
-                ret = false;
-            } else if ((strlen(model) == 3 && !strncmp(model, "Mac", 3) && hasBattery) || // 2022+ Devices use MacX,Y. Model will have "Mac"
-                (!strncmp(model, "MacBookPro", 10) && (majorRev >= 13)) ||
-                (!strncmp(model, "MacBookAir", 10) && (majorRev >= 8))) {
-                ret = true;
-            } else {
-                ret = false;
-            }
-        }
-        goto exit;
-    }
-
-#if !RC_HIDE_J316
-    if (CFEqual(PMFeature, CFSTR(kIOPMHighPowerModeKey)))
-    {
-        // Only supported currently on AC and Battery
-        if (CFEqual(power_source, CFSTR(kIOPMUPSPowerKey))) {
-            ret = false;
-        } else {
-            if (modelFound != kIOReturnSuccess) {
-                // Try again
-                modelFound = IOCopyModel(&model, &majorRev, &minorRev);
-            }
-            if (modelFound != kIOReturnSuccess) {
-                os_log(OS_LOG_DEFAULT, "kIOPMHighPowerModeKey: Could not find machine model\n");
-                ret = false;
-            } else if ((!strncmp(model, "MacBookPro", 10) && majorRev == 18 && minorRev == 2) ||
-                       (strlen(model) == 3 && !strncmp(model, "Mac", 3) && majorRev == 14 && minorRev == 6)) {
-                ret = true;
-            } else {
-                ret = false;
-            }
-        }
-        goto exit;
-    }
-#endif // !RC_HIDE_J316
 #endif // TARGET_OS_OSX
 
     // ***********************************

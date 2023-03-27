@@ -12,5 +12,7 @@
 	<true/>
 	<key>com.apple.private.securityd.stash-agent-client</key>
 	<true/>
+	<key>com.apple.private.security.storage.SFAnalytics</key>
+	<true/>
 </dict>
 </plist>

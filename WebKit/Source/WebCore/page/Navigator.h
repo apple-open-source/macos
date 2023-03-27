@@ -43,6 +43,7 @@ public:
     String appVersion() const;
     DOMPluginArray& plugins();
     DOMMimeTypeArray& mimeTypes();
+    bool pdfViewerEnabled();
     bool cookieEnabled() const;
     bool javaEnabled() const { return false; }
     const String& userAgent() const final;
@@ -66,6 +67,16 @@ public:
 
     GPU* gpu();
 
+    Document* document();
+
+#if ENABLE(BADGING)
+    void setAppBadge(std::optional<unsigned long long>, Ref<DeferredPromise>&&);
+    void clearAppBadge(Ref<DeferredPromise>&&);
+
+    void setClientBadge(std::optional<unsigned long long>, Ref<DeferredPromise>&&);
+    void clearClientBadge(Ref<DeferredPromise>&&);
+#endif
+
 private:
     void showShareData(ExceptionOr<ShareDataWithParsedURL&>, Ref<DeferredPromise>&&);
     explicit Navigator(ScriptExecutionContext*, DOMWindow&);
@@ -74,6 +85,7 @@ private:
 
     mutable RefPtr<ShareDataReader> m_loader;
     mutable bool m_hasPendingShare { false };
+    mutable bool m_pdfViewerEnabled { false };
     mutable RefPtr<DOMPluginArray> m_plugins;
     mutable RefPtr<DOMMimeTypeArray> m_mimeTypes;
     mutable String m_userAgent;

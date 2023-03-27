@@ -45,6 +45,7 @@ id{
         ang{"Inggris Kuno"}
         anp{"Angika"}
         apw{"Apache, Barat"}
+        apw_Latn{"Apache, Barat"}
         ar{"Arab"}
         ar_001{"Arab Standar Modern"}
         arc{"Aram"}
@@ -115,9 +116,12 @@ id{
         chm{"Mari"}
         chn{"Jargon Chinook"}
         cho{"Koktaw"}
+        cho_Latn{"Koktaw"}
         chp{"Chipewyan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}
+        cic{"Chickasaw"}
+        cic_Latn{"Chickasaw"}
         ckb{"Kurdi Sorani"}
         co{"Korsika"}
         cop{"Koptik"}

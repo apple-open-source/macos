@@ -46,6 +46,7 @@ enum Command {
     case fetchRecoverableTLKShares(String)
     case allow(Set<String>, Bool)
     case supportApp
+    case performATOPRVActions
 }
 
 func printUsage() {
@@ -62,6 +63,7 @@ func printUsage() {
     print("  healthInquiry             Request peers to check in with reportHealth")
     print("  join VOUCHER VOUCHERSIG   Join a circle using this (base64) voucher and voucherSig")
     print("  local-reset               Resets the local cuttlefish database, and ignores all previous information. Does not change anything off-device")
+    print("  performATOPRVActions      Call the ATOPRV action in Cuttlefish")
     print("  prepare [--modelid MODELID] [--machineid MACHINEID] [--epoch EPOCH] [--bottlesalt BOTTLESALT]")
     print("                            Creates a new identity and returns its attributes. If not provided, modelid and machineid will be given some defaults (ignoring the local device)")
     print("  supportApp                Get SupportApp information from Cuttlefish")
@@ -476,6 +478,9 @@ while let arg = argIterator.next() {
         }
         commands.append(.allow(machineIDs, performIDMS))
 
+    case "performATOPRVActions":
+        commands.append(.performATOPRVActions)
+
     default:
         print("Unknown argument:", arg)
         exitUsage(1)
@@ -710,7 +715,9 @@ for command in commands {
                         policyVersion: nil,
                         policySecrets: policySecrets,
                         syncUserControllableViews: nil,
-                        secureElementIdentity: nil) { _, _, error in
+                        secureElementIdentity: nil,
+                        walrusSetting: nil,
+                        webAccess: nil) { _, _, error in
                             guard error == nil else {
                                 print("Error updating:", error!)
                                 return
@@ -721,7 +728,7 @@ for command in commands {
 
     case .reset:
         logger.log("resetting (\(container), \(context))")
-        tpHelper.reset(with: specificUser, resetReason: .userInitiatedReset) { error in
+        tpHelper.reset(with: specificUser, resetReason: .userInitiatedReset, idmsTargetContext: nil, idmsCuttlefishPassword: nil, notifyIdMS: false) { error in
             guard error == nil else {
                 print("Error during reset:", error!)
                 return
@@ -877,6 +884,16 @@ for command in commands {
             }
 
             print("Allow complete, differences: \(listChanged)")
+        }
+
+    case .performATOPRVActions:
+        logger.log("performing ATOPRV actions (\(container), \(context))")
+        tpHelper.performATOPRVActions(with: specificUser) { error in
+            guard error == nil else {
+                print("Error performing ATOPRV actions: \(error!)")
+                return
+            }
+            print("ATOPRV actions complete")
         }
     }
 }

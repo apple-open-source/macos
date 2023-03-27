@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,30 +34,45 @@
 #include "RemoteGPU.h"
 #include "RemoteGPUMessages.h"
 #include "RemoteGPUProxyMessages.h"
+#include "RemotePresentationContextProxy.h"
 #include "WebGPUConvertToBackingContext.h"
+#include <pal/graphics/WebGPU/WebGPUPresentationContextDescriptor.h>
 #include <pal/graphics/WebGPU/WebGPUSupportedFeatures.h>
 #include <pal/graphics/WebGPU/WebGPUSupportedLimits.h>
 
 namespace WebKit {
 
-static constexpr size_t defaultStreamSize = 1 << 21;
+RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(GPUProcessConnection& gpuProcessConnection, WebGPU::ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier, RenderingBackendIdentifier renderingBackend)
+{
+    constexpr size_t connectionBufferSizeLog2 = 21;
+    auto [clientConnection, serverConnectionHandle] = IPC::StreamClientConnection::create(connectionBufferSizeLog2);
+    if (!clientConnection)
+        return nullptr;
+    auto remoteGPUProxy = adoptRef(new RemoteGPUProxy(gpuProcessConnection, clientConnection.releaseNonNull(), convertToBackingContext, identifier));
+    remoteGPUProxy->initializeIPC(WTFMove(serverConnectionHandle), renderingBackend);
+    return remoteGPUProxy;
+}
 
-RemoteGPUProxy::RemoteGPUProxy(GPUProcessConnection& gpuProcessConnection, WebGPU::ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier, RenderingBackendIdentifier renderingBackend)
+
+RemoteGPUProxy::RemoteGPUProxy(GPUProcessConnection& gpuProcessConnection, Ref<IPC::StreamClientConnection> clientConnection, WebGPU::ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
     : m_backing(identifier)
     , m_convertToBackingContext(convertToBackingContext)
     , m_gpuProcessConnection(&gpuProcessConnection)
-    , m_streamConnection(gpuProcessConnection.connection(), defaultStreamSize)
+    , m_streamConnection(WTFMove(clientConnection))
+{
+}
+
+RemoteGPUProxy::~RemoteGPUProxy() = default;
+
+void RemoteGPUProxy::initializeIPC(IPC::StreamServerConnection::Handle&& serverConnectionHandle, RenderingBackendIdentifier renderingBackend)
 {
     m_gpuProcessConnection->addClient(*this);
-    m_gpuProcessConnection->messageReceiverMap().addMessageReceiver(Messages::RemoteGPUProxy::messageReceiverName(), identifier.toUInt64(), *this);
-    m_gpuProcessConnection->connection().send(Messages::GPUConnectionToWebProcess::CreateRemoteGPU(identifier, renderingBackend, m_streamConnection.streamBuffer()), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
-    m_streamConnection.open();
+    m_gpuProcessConnection->connection().send(Messages::GPUConnectionToWebProcess::CreateRemoteGPU(m_backing, renderingBackend, WTFMove(serverConnectionHandle)), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+    m_streamConnection->open(*this);
     // TODO: We must wait until initialized, because at the moment we cannot receive IPC messages
     // during wait while in synchronous stream send. Should be fixed as part of https://bugs.webkit.org/show_bug.cgi?id=217211.
     waitUntilInitialized();
 }
-
-RemoteGPUProxy::~RemoteGPUProxy() = default;
 
 void RemoteGPUProxy::gpuProcessConnectionDidClose(GPUProcessConnection& connection)
 {
@@ -68,9 +83,7 @@ void RemoteGPUProxy::gpuProcessConnectionDidClose(GPUProcessConnection& connecti
 
 void RemoteGPUProxy::abandonGPUProcess()
 {
-    auto gpuProcessConnection = std::exchange(m_gpuProcessConnection, nullptr);
-    m_streamConnection.invalidate();
-    gpuProcessConnection->messageReceiverMap().removeMessageReceiver(Messages::RemoteGPUProxy::messageReceiverName(), m_backing.toUInt64());
+    m_streamConnection->invalidate();
     m_gpuProcessConnection = nullptr;
     m_lost = true;
 }
@@ -78,7 +91,7 @@ void RemoteGPUProxy::abandonGPUProcess()
 void RemoteGPUProxy::wasCreated(bool didSucceed, IPC::Semaphore&& wakeUpSemaphore, IPC::Semaphore&& clientWaitSemaphore)
 {
     ASSERT(!m_didInitialize);
-    m_streamConnection.setSemaphores(WTFMove(wakeUpSemaphore), WTFMove(clientWaitSemaphore));
+    m_streamConnection->setSemaphores(WTFMove(wakeUpSemaphore), WTFMove(clientWaitSemaphore));
     m_didInitialize = true;
     m_lost = !didSucceed;
 }
@@ -87,7 +100,7 @@ void RemoteGPUProxy::waitUntilInitialized()
 {
     if (m_didInitialize)
         return;
-    if (m_streamConnection.waitForAndDispatchImmediately<Messages::RemoteGPUProxy::WasCreated>(m_backing, defaultSendTimeout))
+    if (m_streamConnection->waitForAndDispatchImmediately<Messages::RemoteGPUProxy::WasCreated>(m_backing, defaultSendTimeout))
         return;
     m_lost = true;
 }
@@ -107,13 +120,13 @@ void RemoteGPUProxy::requestAdapter(const PAL::WebGPU::RequestAdapterOptions& op
     }
 
     auto identifier = WebGPUIdentifier::generate();
-    std::optional<RemoteGPU::RequestAdapterResponse> response;
-    auto sendResult = sendSync(Messages::RemoteGPU::RequestAdapter(*convertedOptions, identifier), { response });
+    auto sendResult = sendSync(Messages::RemoteGPU::RequestAdapter(*convertedOptions, identifier));
     if (!sendResult) {
         m_lost = true;
         callback(nullptr);
         return;
     }
+    auto [response] = sendResult.takeReply();
     if (!response) {
         callback(nullptr);
         return;
@@ -149,6 +162,23 @@ void RemoteGPUProxy::requestAdapter(const PAL::WebGPU::RequestAdapterOptions& op
         response->limits.maxComputeWorkgroupsPerDimension
     );
     callback(WebGPU::RemoteAdapterProxy::create(WTFMove(response->name), WTFMove(resultSupportedFeatures), WTFMove(resultSupportedLimits), response->isFallbackAdapter, *this, m_convertToBackingContext, identifier));
+}
+
+Ref<PAL::WebGPU::PresentationContext> RemoteGPUProxy::createPresentationContext(const PAL::WebGPU::PresentationContextDescriptor& descriptor)
+{
+    // FIXME: Should we be consulting m_lost?
+
+    auto convertedDescriptor = m_convertToBackingContext->convertToBacking(descriptor);
+    if (!convertedDescriptor) {
+        // FIXME: Implement error handling.
+        return WebGPU::RemotePresentationContextProxy::create(*this, m_convertToBackingContext, WebGPUIdentifier::generate());
+    }
+
+    auto identifier = WebGPUIdentifier::generate();
+    auto sendResult = send(Messages::RemoteGPU::CreatePresentationContext(*convertedDescriptor, identifier));
+    UNUSED_VARIABLE(sendResult);
+
+    return WebGPU::RemotePresentationContextProxy::create(*this, m_convertToBackingContext, identifier);
 }
 
 } // namespace WebKit

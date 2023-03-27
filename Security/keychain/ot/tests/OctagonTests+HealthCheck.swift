@@ -25,7 +25,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -122,9 +122,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         // now let's ruin account state, and say we are untrusted
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             accountState.trustState = OTAccountMetadataClassC_TrustState(rawValue: 1)!
-            try accountState.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            try accountState.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(1, accountState.trustState.rawValue, "Saved account state should have the same peer ID that prepare returned")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -182,7 +182,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "Saved account state should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -243,7 +243,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let originalCliqueIdentifier = clique.cliqueMemberIdentifier
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -381,7 +381,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -432,7 +432,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -482,7 +482,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -532,7 +532,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
     func testHealthCheckWaitingForCDP() throws {
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
@@ -553,7 +553,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
     func testHealthCheckRecoversFromWrongWaitingForCDP() throws {
         // Tell SOS that it is absent, so we don't enable CDP on bringup
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
@@ -607,7 +607,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -646,7 +646,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
 
         do {
-            _ = try OTAccountMetadataClassC.loadFromKeychain(forContainer: self.cuttlefishContext.containerName, contextID: self.cuttlefishContext.contextID, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            _ = try OTAccountMetadataClassC.loadFromKeychain(forContainer: self.cuttlefishContext.containerName, contextID: self.cuttlefishContext.contextID, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTFail("shouldn't have been able to load the class c metadata")
         } catch {
             // We expected this error; fall through
@@ -690,7 +690,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -701,7 +701,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             do {
-                let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+                let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
                 XCTAssertNotNil(state)
                 XCTAssertNotNil(state.lastHealthCheckup, "last Health Check should not be nil")
                 before = state.lastHealthCheckup
@@ -735,7 +735,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         var after: UInt64 = 0
         do {
-            let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertNotNil(state)
             XCTAssertNotNil(state.lastHealthCheckup, "last Health Check should not be nil")
             after = state.lastHealthCheckup
@@ -748,10 +748,10 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         var healthCheckMinusTwoDays: UInt64 = 0
         // update the last health check to something way in the past
         do {
-            let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             state.lastHealthCheckup -= 172800000 /* 2 days of seconds * 1000*/
             healthCheckMinusTwoDays = state.lastHealthCheckup
-            XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
+            XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "saving to the keychain should work")
         } catch {
             XCTFail("error loading from keychain: \(error)")
         }
@@ -764,7 +764,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             do {
-                let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+                let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
                 XCTAssertNotNil(state)
                 XCTAssertNotNil(state.lastHealthCheckup, "last Health Check should not be nil")
                 updatedHealthCheck = state.lastHealthCheckup
@@ -782,7 +782,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let initiatorContextID = "initiator-context-id"
         let bottlerContext = self.manager.context(forContainerName: OTCKContainerName,
                                                   contextID: initiatorContextID,
-                                                  sosAdapter: self.mockSOSAdapter,
+                                                  sosAdapter: self.mockSOSAdapter!,
                                                   accountsAdapter: self.mockAuthKit2,
                                                   authKitAdapter: self.mockAuthKit2,
                                                   tooManyPeersAdapter: self.mockTooManyPeers,
@@ -986,13 +986,13 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         // Peer1 is never told about the follow-on joins.
         // Then, the test can begin.
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer3SOSMockPeer = self.createSOSPeer(peerID: "peer3ID")
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
-        self.mockSOSAdapter.trustedPeers.add(peer3SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.trustedPeers.add(peer3SOSMockPeer)
 
         // Due to how everything is shaking out, SOS TLKShares will be uploaded in a second transaction after Octagon uploads its TLKShares
         // This isn't great: <rdar://problem/49080104> Octagon: upload SOS TLKShares alongside initial key hierarchy
@@ -1007,7 +1007,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         // peer2
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.makeInitiatorContext(contextID: "peer2", authKitAdapter: self.mockAuthKit2, sosAdapter: peer2mockSOS)
 
         peer2.startOctagonStateMachine()
@@ -1016,7 +1016,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let peer2ID = try peer2.accountMetadataStore.getEgoPeerID()
 
         // peer3
-        let peer3mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer3SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer3mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer3SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer3 = self.makeInitiatorContext(contextID: "peer3", authKitAdapter: self.mockAuthKit3, sosAdapter: peer3mockSOS)
 
         peer3.startOctagonStateMachine()

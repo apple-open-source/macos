@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,10 +42,10 @@
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <pal/spi/cf/CoreAudioSPI.h>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
-#include <pal/spi/cocoa/IOSurfaceSPI.h>
 #include <sys/time.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/spi/cocoa/IOSurfaceSPI.h>
 
 #if PLATFORM(IOS)
 #include "ReplayKitCaptureSource.h"
@@ -110,7 +110,7 @@ DisplayCaptureSourceCocoa::DisplayCaptureSourceCocoa(UniqueRef<Capturer>&& captu
     : RealtimeMediaSource(device, WTFMove(hashSalts), pageIdentifier)
     , m_capturer(WTFMove(capturer))
     , m_timer(RunLoop::current(), this, &DisplayCaptureSourceCocoa::emitFrame)
-    , m_userActivity("App nap disabled for screen capture")
+    , m_userActivity("App nap disabled for screen capture"_s)
 {
     m_capturer->setObserver(this);
 }
@@ -144,6 +144,7 @@ const RealtimeMediaSourceSettings& DisplayCaptureSourceCocoa::settings()
         settings.setWidth(size.width());
         settings.setHeight(size.height());
         settings.setDeviceId(hashedId());
+        settings.setLabel(name());
 
         settings.setDisplaySurface(m_capturer->surfaceType());
         settings.setLogicalSurface(false);

@@ -27,7 +27,6 @@
 #include "ArgumentCoders.h"
 #include "Connection.h"
 #include "MessageNames.h"
-#include "TestWithImageDataMessagesReplies.h"
 #include <WebCore/ImageData.h>
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
@@ -44,7 +43,7 @@ static inline IPC::ReceiverName messageReceiverName()
 
 class SendImageData {
 public:
-    using Arguments = std::tuple<const RefPtr<WebCore::ImageData>&>;
+    using Arguments = std::tuple<RefPtr<WebCore::ImageData>>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithImageData_SendImageData; }
     static constexpr bool isSync = false;
@@ -54,13 +53,13 @@ public:
     {
     }
 
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<const RefPtr<WebCore::ImageData>&> m_arguments;
 };
 
 class ReceiveImageData {
@@ -70,20 +69,16 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithImageData_ReceiveImageData; }
     static constexpr bool isSync = false;
 
-    static void callReply(IPC::Decoder&, CompletionHandler<void(RefPtr<WebCore::ImageData>&&)>&&);
-    static void cancelReply(CompletionHandler<void(RefPtr<WebCore::ImageData>&&)>&&);
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithImageData_ReceiveImageDataReply; }
-    using AsyncReply = ReceiveImageDataAsyncReply;
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
-    using Reply = std::tuple<RefPtr<WebCore::ImageData>&>;
     using ReplyArguments = std::tuple<RefPtr<WebCore::ImageData>>;
-    const Arguments& arguments() const
+    const auto& arguments() const
     {
         return m_arguments;
     }
 
 private:
-    Arguments m_arguments;
+    std::tuple<> m_arguments;
 };
 
 } // namespace TestWithImageData

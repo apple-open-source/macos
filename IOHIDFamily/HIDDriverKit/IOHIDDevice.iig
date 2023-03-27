@@ -61,7 +61,7 @@ public:
                                        IOMemoryDescriptor        *report,
                                        uint32_t                  reportLength,
                                        IOHIDReportType           reportType = kIOHIDReportTypeInput,
-                                       IOOptionBits              options    = 0) LOCALONLY;
+                                       IOOptionBits              options    = 0) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
 
 
     
@@ -83,7 +83,7 @@ public:
                                     IOHIDReportType         reportType,
                                     IOOptionBits            options,
                                     uint32_t                completionTimeout,
-                                    OSAction                * action) LOCALONLY;
+                                    OSAction                * action) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
     
     
     /*!
@@ -104,7 +104,7 @@ public:
                                     IOHIDReportType         reportType,
                                     IOOptionBits            options,
                                     uint32_t                completionTimeout,
-                                    OSAction                * action) LOCALONLY;
+                                    OSAction                * action) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
 
     
 protected:
@@ -120,11 +120,11 @@ protected:
 
     virtual void  CompleteReport (OSAction            * action TARGET,
                                   IOReturn            status,
-                                  uint32_t            actualByteCount) LOCAL = 0;
+                                  uint32_t            actualByteCount) LOCAL __attribute__((availability(driverkit, introduced=19.0))) = 0;
 
     
 
-    virtual void setProperty (OSObject * key, OSObject * value) LOCALONLY;
+    virtual void setProperty (OSObject * key, OSObject * value) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
     
 
 public:

@@ -180,14 +180,22 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 #endif
         {
             DALogInfo( "mounted disk, id = %@, ongoing.", context->disk );
-            
+            CFStringRef preferredMountMethod = NULL;
+#if TARGET_OS_OSX
+            preferredMountMethod = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountMethodkey );
+#else
+            if ( true == DAMountGetPreference( context->disk, kDAMountPreferenceEnableUserFSMount ) )
+            {
+                preferredMountMethod = CFSTR("UserFS");
+            }
+#endif
             DAFileSystemMountWithArguments( DADiskGetFileSystem( context->disk ),
                                             context->devicePath,
                                             DADiskGetDescription( context->disk, kDADiskDescriptionVolumeNameKey ),
                                             context->mountpoint,
                                             DADiskGetUserUID( context->disk ),
                                             DADiskGetUserGID( context->disk ),
-                                            DAMountGetPreference( context->disk, kDAMountPreferenceEnableUserFSMount ),
+                                            preferredMountMethod,
                                             __DAMountWithArgumentsCallbackStage2,
                                             context,
                                             context->options,
@@ -635,60 +643,7 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
             /*
              * Determine whether the media is removable.
              */
-#if TARGET_OS_OSX
-            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
-            {
-                value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountRemovableKey );
-
-                value = value ? value : kCFBooleanTrue;
-            }
-            else
-            {
-                /*
-                 * Determine whether the device is internal.
-                 */
-
-                if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
-                {
-                    value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountInternalKey );
-
-                    value = value ? value : kCFBooleanFalse;
-                }
-                else
-                {
-                    value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountExternalKey );
-
-                    value = value ? value : kCFBooleanTrue;
-                }
-            }
-            
-            if ( value == kCFBooleanTrue )
-            {
-                CFArrayRef filesystemsArray = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceFileSystemDisableUserFSKey );
-                DAFileSystemRef filesystem = DADiskGetFileSystem( disk );
-                CFIndex    argumentListCount;
-                CFIndex    argumentListIndex;
-                
-                if ( filesystemsArray )
-                {
-                    argumentListCount = CFArrayGetCount( filesystemsArray );
-
-                    for ( argumentListIndex = 0; argumentListIndex < argumentListCount; argumentListIndex++ )
-                    {
-                        CFStringRef compare;
-
-                        compare = CFArrayGetValueAtIndex( filesystemsArray, argumentListIndex );
-
-                        if ( CFEqual( compare, DAFileSystemGetKind( filesystem ) ) == TRUE )
-                        {
-                            value = kCFBooleanFalse;
-                            break;
-                        }
-                    }
-                }
-            }
-            
-#elif TARGET_OS_IOS
+#if TARGET_OS_IOS
             if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanFalse )
             {
                 value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountExternalKey );

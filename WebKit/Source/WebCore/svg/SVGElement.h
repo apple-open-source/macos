@@ -52,6 +52,7 @@ void mapAttributeToCSSProperty(HashMap<AtomStringImpl*, CSSPropertyID>* property
 class SVGElement : public StyledElement, public SVGPropertyOwner {
     WTF_MAKE_ISO_ALLOCATED(SVGElement);
 public:
+    bool isInnerSVGSVGElement() const;
     bool isOutermostSVGSVGElement() const;
 
     SVGSVGElement* ownerSVGElement() const;
@@ -59,11 +60,16 @@ public:
 
     String title() const override;
     virtual bool supportsMarkers() const { return false; }
-    bool hasRelativeLengths() const { return !m_elementsWithRelativeLengths.computesEmpty(); }
+    bool hasRelativeLengths() const { return !m_elementsWithRelativeLengths.isEmptyIgnoringNullReferences(); }
     virtual bool needsPendingResourceHandling() const { return true; }
     bool instanceUpdatesBlocked() const;
     void setInstanceUpdatesBlocked(bool);
     virtual AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const;
+
+    bool hasPendingResources() const { return hasNodeFlag(NodeFlag::HasPendingResources); }
+    void setHasPendingResources() { setNodeFlag(NodeFlag::HasPendingResources); }
+    void clearHasPendingResources() { clearNodeFlag(NodeFlag::HasPendingResources); }
+    virtual void buildPendingResource() { }
 
     virtual bool isSVGGraphicsElement() const { return false; }
     virtual bool isSVGGeometryElement() const { return false; }
@@ -81,7 +87,8 @@ public:
     void loadEventTimerFired();
     virtual Timer* loadEventTimer();
 
-    virtual AffineTransform* supplementalTransform() { return nullptr; }
+    virtual AffineTransform* ensureSupplementalTransform() { return nullptr; }
+    virtual AffineTransform* supplementalTransform() const { return nullptr; }
 
     inline void setAnimatedSVGAttributesAreDirty();
     inline void setPresentationalHintStyleIsDirty();
@@ -107,7 +114,7 @@ public:
 
     void setCorrespondingElement(SVGElement*);
 
-    std::optional<Style::ElementStyle> resolveCustomStyle(const Style::ResolutionContext&, const RenderStyle* shadowHostStyle) override;
+    std::optional<Style::ResolvedStyle> resolveCustomStyle(const Style::ResolutionContext&, const RenderStyle* shadowHostStyle) override;
 
     static QualifiedName animatableAttributeForName(const AtomString&);
 #ifndef NDEBUG
@@ -131,7 +138,7 @@ public:
     class InstanceInvalidationGuard;
 
     using PropertyRegistry = SVGPropertyOwnerRegistry<SVGElement>;
-    virtual const SVGPropertyRegistry& propertyRegistry() const { return m_propertyRegistry; }
+    const SVGPropertyRegistry& propertyRegistry() const { return m_propertyRegistry.get(); }
     void detachAllProperties() { propertyRegistry().detachAllProperties(); }
 
     bool isAnimatedPropertyAttribute(const QualifiedName&) const;
@@ -157,8 +164,11 @@ public:
     AtomString className() const { return AtomString { m_className->currentValue() }; }
     SVGAnimatedString& classNameAnimated() { return m_className; }
 
+    SVGConditionalProcessingAttributes& conditionalProcessingAttributes();
+    SVGConditionalProcessingAttributes* conditionalProcessingAttributesIfExists() const;
+
 protected:
-    SVGElement(const QualifiedName&, Document&, ConstructionType = CreateSVGElement);
+    SVGElement(const QualifiedName&, Document&, UniqueRef<SVGPropertyRegistry>&&, ConstructionType = CreateSVGElement);
     virtual ~SVGElement();
 
     bool rendererIsNeeded(const RenderStyle&) override;
@@ -203,7 +213,7 @@ private:
 
     std::unique_ptr<SVGPropertyAnimatorFactory> m_propertyAnimatorFactory;
 
-    PropertyRegistry m_propertyRegistry { *this };
+    UniqueRef<SVGPropertyRegistry> m_propertyRegistry;
     Ref<SVGAnimatedString> m_className { SVGAnimatedString::create(this) };
 };
 

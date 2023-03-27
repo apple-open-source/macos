@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 
 #include <Security/SecAccessControlPriv.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecCodePriv.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecKeyPriv.h>
@@ -93,7 +94,7 @@ extern const SecAsn1Template kSecAsn1SubjectPublicKeyInfoTemplate[];
 ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
-#if HAVE(SEC_TRUST_SERIALIZATION)
+#if PLATFORM(COCOA)
 CF_RETURNS_RETAINED CFDataRef SecTrustSerialize(SecTrustRef, CFErrorRef *);
 CF_RETURNS_RETAINED SecTrustRef SecTrustDeserialize(CFDataRef serializedTrust, CFErrorRef *);
 #endif

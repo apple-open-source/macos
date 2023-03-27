@@ -6,7 +6,7 @@ _mysqldiff () {
     {-p{,1,2},--password{,1,2}=}':server password: ' \
     {-u{,1,2},--user{,1,2}=}':server username:_mysql_users' \
     {-s{,1,2},--socket{,1,2}=}':server socket:_directories' \
-    {-d,--debug=}':debugging level (default 1):(1 2 3 4 5 6 7 8)' \
+    {-d,--debug=}':debugging level [1]:(1 2 3 4 5 6 7 8)' \
     {-i,--tolerant}':ignore DEFAULT and formatting changes: ' \
     {-k,--keep-old-tables}":don\'t output DROP TABLE commands: " \
     {-n,--no-old-defs}"[don't output old defs as comments]" \
@@ -20,8 +20,8 @@ _mysqldiff () {
 
 _mysql_db_or_file () {
   _alternative \
-    'databases:MySQL databases:_mysql_databases' \
-    'files:MySQL database definition files:_files -g "*.(my|)sql(-.)"'
+    'databases:MySQL database:_mysql_databases' \
+    'files:MySQL database definition file:_files -g "*.(my|)sql(-.)"'
 }
 
 _mysql_utils

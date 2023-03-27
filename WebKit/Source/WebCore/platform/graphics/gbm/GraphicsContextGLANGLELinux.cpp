@@ -26,22 +26,32 @@
 
 #include "config.h"
 
-#if ENABLE(WEBGL) && USE(ANGLE)
+#if ENABLE(WEBGL)
 #include "GraphicsContextGLANGLE.h"
 
 #include "ANGLEHeaders.h"
 #include "GraphicsContextGLFallback.h"
 #include "GraphicsContextGLGBMTextureMapper.h"
 #include "PixelBuffer.h"
+#include "PlatformDisplay.h"
 
 namespace WebCore {
 
-RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes& attributes)
+#if USE(EGL)
+static inline bool isDMABufSupportedByNativePlatform(const PlatformDisplay::EGLExtensions& eglExtensions)
 {
-#if USE(TEXTURE_MAPPER_DMABUF)
-    auto context = GraphicsContextGLGBMTextureMapper::create(GraphicsContextGLAttributes(attributes));
-    if (context)
-        return context;
+    return eglExtensions.KHR_image_base && eglExtensions.EXT_image_dma_buf_import;
+}
+#endif
+
+RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes& attributes, SerialFunctionDispatcher*)
+{
+#if USE(TEXTURE_MAPPER_DMABUF) && USE(EGL)
+    if (isDMABufSupportedByNativePlatform(PlatformDisplay::sharedDisplayForCompositing().eglExtensions())) {
+        auto context = GraphicsContextGLGBMTextureMapper::create(GraphicsContextGLAttributes(attributes));
+        if (context)
+            return context;
+    }
 #endif
 
     return GraphicsContextGLFallback::create(GraphicsContextGLAttributes(attributes));
@@ -111,4 +121,4 @@ bool GraphicsContextGLANGLE::makeContextCurrent()
 
 } // namespace WebCore
 
-#endif // ENABLE(WEBGL) && USE(ANGLE)
+#endif // ENABLE(WEBGL)

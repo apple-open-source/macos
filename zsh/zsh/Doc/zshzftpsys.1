@@ -1,4 +1,4 @@
-.TH "ZSHZFTPSYS" "1" "February 12, 2022" "zsh 5\&.8\&.1"
+.TH "ZSHZFTPSYS" "1" "May 14, 2022" "zsh 5\&.9"
 .SH "NAME"
 zshzftpsys \- zftp function front\-end
 .\" Yodl file: Zsh/zftpsys.yo
@@ -515,13 +515,11 @@ command `\fBzstyle \&':zftp:*'\fP \fIstyle\fP \fIvalue\fP \&.\&.\&.'\&.
 defines the \fIstyle\fP to have value \fIvalue\fP; more than one value may be
 given, although that is not useful in the cases described here\&.  These
 values will then be used throughout the zftp function system\&.  For more
-precise control, the first argument, which gives a context in which the
+precise control, the first argument, which gives a pattern that matches \fIcontexts\fP in which the
 style applies, can be modified to include a particular function, as for
 example `\fB:zftp:zfget\fP\&': the style will then have the given value only
-in the \fBzfget\fP function\&.  Values for the same style in different contexts
-may be set; the most specific function will be used, where
-strings are held to be more specific than patterns, and longer patterns and
-shorter patterns\&.  Note that only the top level function name, as called by
+in the \fBzfget\fP function, and will override styles set under `\fB:zftp:*\fP\&'\&.
+Note that only the top level function name, as called by
 the user, is used; calling of lower level functions is transparent to the
 user\&.  Hence modifications to the title bar in \fBzftp_chpwd\fP use the
 contexts \fB:zftp:zfopen\fP, \fB:zftp:zfcd\fP, etc\&., depending where it was

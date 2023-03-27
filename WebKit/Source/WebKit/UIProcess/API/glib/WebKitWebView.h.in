@@ -41,6 +41,7 @@
 #include <@API_INCLUDE_PREFIX@/WebKitNotification.h>
 #include <@API_INCLUDE_PREFIX@/WebKitOptionMenu.h>
 #include <@API_INCLUDE_PREFIX@/WebKitPermissionRequest.h>
+#include <@API_INCLUDE_PREFIX@/WebKitPermissionStateQuery.h>
 #include <@API_INCLUDE_PREFIX@/WebKitPolicyDecision.h>
 #include <@API_INCLUDE_PREFIX@/WebKitScriptDialog.h>
 #include <@API_INCLUDE_PREFIX@/WebKitSettings.h>
@@ -49,15 +50,19 @@
 #include <@API_INCLUDE_PREFIX@/WebKitUserMessage.h>
 #include <@API_INCLUDE_PREFIX@/WebKitWebContext.h>
 #include <@API_INCLUDE_PREFIX@/WebKitWebResource.h>
-#include <@API_INCLUDE_PREFIX@/WebKitWebsitePolicies.h>
 #include <@API_INCLUDE_PREFIX@/WebKitWebViewSessionState.h>
+#include <@API_INCLUDE_PREFIX@/WebKitWebsitePolicies.h>
 #include <@API_INCLUDE_PREFIX@/WebKitWindowProperties.h>
+
+#if ENABLE(2022_GLIB_API)
+#include <@API_INCLUDE_PREFIX@/WebKitNetworkSession.h>
+#endif
 
 #if PLATFORM(GTK)
 #include <JavaScriptCore/JSBase.h>
-#include <webkit2/WebKitColorChooserRequest.h>
-#include <webkit2/WebKitWebInspector.h>
-#include <webkit2/WebKitWebViewBase.h>
+#include <webkit/WebKitColorChooserRequest.h>
+#include <webkit/WebKitWebInspector.h>
+#include <webkit/WebKitWebViewBase.h>
 #elif PLATFORM(WPE)
 #include <wpe/WebKitColor.h>
 #include <wpe/WebKitRectangle.h>
@@ -93,7 +98,7 @@ typedef struct _WebKitWebViewPrivate WebKitWebViewPrivate;
  *   a #WebKitNavigationPolicyDecision. These decisions are useful for implementing
  *   special actions for new windows, such as forcing the new window to open
  *   in a tab when a keyboard modifier is active or handling a special
- *   target attribute on &lt;a&gt; elements.
+ *   target attribute on <a> elements.
  * @WEBKIT_POLICY_DECISION_TYPE_RESPONSE: This type of decision is used when WebKit has
  *   received a response for a network resource and is about to start the load.
  *   Note that these resources include all subresources of a page such as images
@@ -325,17 +330,16 @@ struct _WebKitWebViewClass {
     gboolean   (* run_file_chooser)            (WebKitWebView               *web_view,
                                                 WebKitFileChooserRequest    *request);
 
+    gboolean   (* context_menu)                (WebKitWebView               *web_view,
+                                                WebKitContextMenu           *context_menu,
+#if !ENABLE(2022_GLIB_API)
 #if PLATFORM(GTK)
-    gboolean   (* context_menu)                (WebKitWebView               *web_view,
-                                                WebKitContextMenu           *context_menu,
                                                 GdkEvent                    *event,
-                                                WebKitHitTestResult         *hit_test_result);
 #elif PLATFORM(WPE)
-    gboolean   (* context_menu)                (WebKitWebView               *web_view,
-                                                WebKitContextMenu           *context_menu,
-                                                void                        *event, /* FIXME: Use a wpe thing here. I'm not sure we want to expose libwpe in the API. */
-                                                WebKitHitTestResult         *hit_test_result);
+                                                void                        *event,
 #endif
+#endif
+                                                WebKitHitTestResult         *hit_test_result);
 
     void       (* context_menu_dismissed)      (WebKitWebView               *web_view);
     void       (* submit_form)                 (WebKitWebView               *web_view,
@@ -357,8 +361,11 @@ struct _WebKitWebViewClass {
     gboolean   (* run_color_chooser)           (WebKitWebView               *web_view,
                                                 WebKitColorChooserRequest   *request);
     gboolean   (* show_option_menu)            (WebKitWebView               *web_view,
-                                                GdkRectangle                *rectangle,
-                                                WebKitOptionMenu            *menu);
+                                                WebKitOptionMenu            *menu,
+#if !USE(GTK4)
+                                                GdkEvent                    *event,
+#endif
+                                                GdkRectangle                *rectangle);
 #endif
 
     void       (* web_process_terminated)      (WebKitWebView               *web_view,
@@ -372,15 +379,51 @@ struct _WebKitWebViewClass {
                                                 WebKitRectangle             *rectangle);
 #endif
 
+    gboolean   (* query_permission_state)      (WebKitWebView               *web_view,
+                                                WebKitPermissionStateQuery  *query);
+
+#if PLATFORM(WPE) && !ENABLE(2022_GLIB_API)
     /*< private >*/
     void (*_webkit_reserved0) (void);
-
-#if PLATFORM(WPE)
     void (*_webkit_reserved1) (void);
     void (*_webkit_reserved2) (void);
     void (*_webkit_reserved3) (void);
     void (*_webkit_reserved4) (void);
-    void (*_webkit_reserved5) (void);
+#endif
+
+#if ENABLE(2022_GLIB_API)
+    /*< private >*/
+    void (*_webkit_reserved0)  (void);
+    void (*_webkit_reserved1)  (void);
+    void (*_webkit_reserved2)  (void);
+    void (*_webkit_reserved3)  (void);
+    void (*_webkit_reserved4)  (void);
+    void (*_webkit_reserved5)  (void);
+    void (*_webkit_reserved6)  (void);
+    void (*_webkit_reserved7)  (void);
+    void (*_webkit_reserved8)  (void);
+    void (*_webkit_reserved9)  (void);
+    void (*_webkit_reserved10) (void);
+    void (*_webkit_reserved11) (void);
+    void (*_webkit_reserved12) (void);
+    void (*_webkit_reserved13) (void);
+    void (*_webkit_reserved14) (void);
+    void (*_webkit_reserved15) (void);
+    void (*_webkit_reserved16) (void);
+    void (*_webkit_reserved17) (void);
+    void (*_webkit_reserved18) (void);
+    void (*_webkit_reserved19) (void);
+    void (*_webkit_reserved20) (void);
+    void (*_webkit_reserved21) (void);
+    void (*_webkit_reserved22) (void);
+    void (*_webkit_reserved23) (void);
+    void (*_webkit_reserved24) (void);
+    void (*_webkit_reserved25) (void);
+    void (*_webkit_reserved26) (void);
+    void (*_webkit_reserved27) (void);
+    void (*_webkit_reserved28) (void);
+    void (*_webkit_reserved29) (void);
+    void (*_webkit_reserved30) (void);
 #endif
 };
 
@@ -392,22 +435,29 @@ WEBKIT_API GtkWidget *
 webkit_web_view_new                                  (void);
 
 WEBKIT_API GtkWidget *
+webkit_web_view_new_with_related_view                (WebKitWebView             *web_view);
+
+#if !ENABLE(2022_GLIB_API)
+WEBKIT_API GtkWidget *
 webkit_web_view_new_with_context                     (WebKitWebContext          *context);
 
 WEBKIT_API GtkWidget *
 webkit_web_view_new_with_settings                    (WebKitSettings            *settings);
 
 WEBKIT_API GtkWidget *
-webkit_web_view_new_with_related_view                (WebKitWebView             *web_view);
-
-WEBKIT_API GtkWidget *
 webkit_web_view_new_with_user_content_manager        (WebKitUserContentManager  *user_content_manager);
+#endif
 #endif
 
 #if PLATFORM(WPE)
 WEBKIT_API WebKitWebView *
 webkit_web_view_new                                  (WebKitWebViewBackend      *backend);
 
+WEBKIT_API WebKitWebView *
+webkit_web_view_new_with_related_view                (WebKitWebViewBackend      *backend,
+                                                      WebKitWebView             *web_view);
+
+#if !ENABLE(2022_GLIB_API)
 WEBKIT_API WebKitWebView *
 webkit_web_view_new_with_context                     (WebKitWebViewBackend      *backend,
                                                       WebKitWebContext          *context);
@@ -417,19 +467,18 @@ webkit_web_view_new_with_settings                    (WebKitWebViewBackend      
                                                       WebKitSettings            *settings);
 
 WEBKIT_API WebKitWebView *
-webkit_web_view_new_with_related_view                (WebKitWebViewBackend      *backend,
-                                                      WebKitWebView             *web_view);
-
-WEBKIT_API WebKitWebView *
 webkit_web_view_new_with_user_content_manager        (WebKitWebViewBackend      *backend,
                                                       WebKitUserContentManager  *user_content_manager);
+#endif
 
 WEBKIT_API WebKitWebViewBackend *
 webkit_web_view_get_backend                          (WebKitWebView             *web_view);
 #endif
 
+#if !ENABLE(2022_GLIB_API)
 WEBKIT_API gboolean
 webkit_web_view_is_ephemeral                         (WebKitWebView             *web_view);
+#endif
 
 WEBKIT_API gboolean
 webkit_web_view_is_controlled_by_automation          (WebKitWebView             *web_view);
@@ -437,8 +486,13 @@ webkit_web_view_is_controlled_by_automation          (WebKitWebView             
 WEBKIT_API WebKitAutomationBrowsingContextPresentation
 webkit_web_view_get_automation_presentation_type     (WebKitWebView             *web_view);
 
+#if ENABLE(2022_GLIB_API)
+WEBKIT_API WebKitNetworkSession *
+webkit_web_view_get_network_session                  (WebKitWebView             *web_view);
+#else
 WEBKIT_API WebKitWebsiteDataManager *
 webkit_web_view_get_website_data_manager             (WebKitWebView             *web_view);
+#endif
 
 WEBKIT_API WebKitWebContext *
 webkit_web_view_get_context                          (WebKitWebView             *web_view);
@@ -578,7 +632,7 @@ webkit_web_view_execute_editing_command_with_argument(WebKitWebView             
 WEBKIT_API WebKitFindController *
 webkit_web_view_get_find_controller                  (WebKitWebView             *web_view);
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
 WEBKIT_DEPRECATED JSGlobalContextRef
 webkit_web_view_get_javascript_global_context        (WebKitWebView             *web_view);
 #endif

@@ -72,6 +72,7 @@ gsw{
         chm{"Tscheremissisch"}
         chn{"Chinook"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chp{"Chipewyan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}

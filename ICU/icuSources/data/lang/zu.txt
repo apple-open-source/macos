@@ -78,6 +78,7 @@ zu{
         chk{"isi-Chuukese"}
         chm{"isi-Mari"}
         cho{"isi-Choctaw"}
+        cho_Latn{"isi-Choctaw"}
         chr{"isi-Cherokee"}
         chy{"isi-Cheyenne"}
         ckb{"isi-Central Kurdish"}

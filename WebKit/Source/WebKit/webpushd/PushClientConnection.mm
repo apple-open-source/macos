@@ -57,6 +57,8 @@ void ClientConnection::updateConnectionConfiguration(const WebPushDaemonConnecti
     if (configuration.hostAppAuditTokenData)
         setHostAppAuditTokenData(*configuration.hostAppAuditTokenData);
 
+    m_pushPartitionString = configuration.pushPartitionString;
+    m_dataStoreIdentifier = configuration.dataStoreIdentifier;
     m_useMockBundlesForTesting = configuration.useMockBundlesForTesting;
 }
 
@@ -79,6 +81,15 @@ void ClientConnection::setHostAppAuditTokenData(const Vector<uint8_t>& tokenData
 
     m_hostAppAuditToken = WTFMove(token);
     Daemon::singleton().broadcastAllConnectionIdentities();
+}
+
+WebCore::PushSubscriptionSetIdentifier ClientConnection::subscriptionSetIdentifier()
+{
+    return {
+        hostAppCodeSigningIdentifier(),
+        pushPartitionString(),
+        dataStoreIdentifier()
+    };
 }
 
 const String& ClientConnection::hostAppCodeSigningIdentifier()
@@ -131,7 +142,7 @@ void ClientConnection::setDebugModeIsEnabled(bool enabled)
     broadcastDebugMessage(makeString("Turned Debug Mode ", m_debugModeEnabled ? "on" : "off"));
 }
 
-void ClientConnection::broadcastDebugMessage(StringView message)
+void ClientConnection::broadcastDebugMessage(const String& message)
 {
     String messageIdentifier;
     auto signingIdentifier = hostAppCodeSigningIdentifier();
@@ -143,7 +154,7 @@ void ClientConnection::broadcastDebugMessage(StringView message)
     Daemon::singleton().broadcastDebugMessage(makeString(messageIdentifier, message));
 }
 
-void ClientConnection::sendDebugMessage(StringView message)
+void ClientConnection::sendDebugMessage(const String& message)
 {
     // FIXME: We currently send the debug message twice.
     // After getting all debug message clients onto the encoder/decoder mechanism, remove the old style message.

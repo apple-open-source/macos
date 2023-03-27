@@ -684,7 +684,7 @@ fail:
             } else if(iAmPeer) {
                 change |= [self fixICloudIdentities:account circle:circle];
             }
-            secnotice("updatingGenSignature", "we changed the circle? %@", change ? CFSTR("YES") : CFSTR("NO"));
+            secnotice("updatingGenSignature", "we changed the circle? %{BOOL}d", change);
             SOSIntervalEvent *iCloudCheckEvent = [self iCloudCheckEventHandle: account];
             [iCloudCheckEvent followup];
             return change;

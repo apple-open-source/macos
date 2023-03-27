@@ -246,7 +246,7 @@ exit:
 }
 
 
-static void initSleepCnt()
+static void initSleepCnt(void)
 {
     int cnt = -1; // Init to invalid value
     size_t msgCnt;
@@ -408,8 +408,8 @@ __private_extern__ CFStringRef _updateSleepReason(void)
 
 }
 
-__private_extern__ CFStringRef 
-_getSleepReason()
+__private_extern__ CFStringRef
+_getSleepReason(void)
 {
     return (reasons.sleepReason);
 }
@@ -906,6 +906,7 @@ __private_extern__ CFUserNotificationRef _copyUPSWarning(void)
     CFBundleRef                 myBundle;
     CFStringRef                 header_unlocalized;
     CFStringRef                 message_unlocalized;
+    CFStringRef                 button_unlocalized;
     CFURLRef                    bundle_url;
 
     myBundle = CFBundleGetBundleWithIdentifier(kPowerdBundleIdentifier);
@@ -923,9 +924,11 @@ __private_extern__ CFUserNotificationRef _copyUPSWarning(void)
 
     header_unlocalized = CFSTR("WARNING!");
     message_unlocalized = CFSTR("YOUR COMPUTER IS NOW RUNNING ON UPS BACKUP BATTERY. SAVE YOUR DOCUMENTS AND SHUTDOWN SOON.");
+    button_unlocalized = CFSTR("OK");
 
     CFDictionaryAddValue(alert_dict, kCFUserNotificationAlertHeaderKey, header_unlocalized);
     CFDictionaryAddValue(alert_dict, kCFUserNotificationAlertMessageKey, message_unlocalized);
+    CFDictionaryAddValue(alert_dict, kCFUserNotificationDefaultButtonTitleKey, button_unlocalized);
 
     note_ref = CFUserNotificationCreate(kCFAllocatorDefault, 0, 0, &error, alert_dict);
     CFRelease(alert_dict);

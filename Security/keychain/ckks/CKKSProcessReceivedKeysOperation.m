@@ -133,7 +133,7 @@
         // If processRemoteKeys didn't return a state, or if it thinks everything is okay, double-check!
         if(newZoneState == nil || [newZoneState isEqualToString:SecCKKSZoneKeyStateReady]) {
             NSError* localProcessingError = nil;
-            ckksnotice("ckkskey", viewState.zoneID, "Checking consistency of key hierarchy");
+            ckksinfo("ckkskey", viewState.zoneID, "Checking consistency of key hierarchy");
             newZoneState = [self checkExistingKeyHierarchy:set
                                                     zoneID:viewState.zoneID
                                         currentTrustStates:currentTrustStates

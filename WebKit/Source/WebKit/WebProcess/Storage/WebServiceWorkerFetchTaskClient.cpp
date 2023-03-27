@@ -86,9 +86,9 @@ void WebServiceWorkerFetchTaskClient::didReceiveData(const SharedBuffer& buffer)
     }
 
     if (m_isDownload)
-        m_connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
+        m_connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer), buffer.size() }, m_fetchIdentifier);
     else
-        m_connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
+        m_connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer), buffer.size() }, m_fetchIdentifier);
 }
 
 void WebServiceWorkerFetchTaskClient::didReceiveFormDataAndFinish(Ref<FormData>&& formData)
@@ -143,9 +143,9 @@ void WebServiceWorkerFetchTaskClient::didReceiveBlobChunk(const SharedBuffer& bu
         return;
 
     if (m_isDownload)
-        m_connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
+        m_connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer), buffer.size() }, m_fetchIdentifier);
     else
-        m_connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
+        m_connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer), buffer.size() }, m_fetchIdentifier);
 }
 
 void WebServiceWorkerFetchTaskClient::didFinishBlobLoading()
@@ -230,8 +230,9 @@ void WebServiceWorkerFetchTaskClient::setFetchEvent(Ref<WebCore::FetchEvent>&& e
 {
     m_event = WTFMove(event);
 
-    if (!m_preloadResponse.isNull()) {
-        m_event->navigationPreloadIsReady(WTFMove(m_preloadResponse));
+    if (m_preloadResponse) {
+        m_event->navigationPreloadIsReady(ResourceResponse::fromCrossThreadData(WTFMove(*m_preloadResponse)));
+        m_preloadResponse = std::nullopt;
         m_event = nullptr;
         return;
     }
@@ -242,14 +243,14 @@ void WebServiceWorkerFetchTaskClient::setFetchEvent(Ref<WebCore::FetchEvent>&& e
     }
 }
 
-void WebServiceWorkerFetchTaskClient::navigationPreloadIsReady(ResourceResponse&& response)
+void WebServiceWorkerFetchTaskClient::navigationPreloadIsReady(ResourceResponse::CrossThreadData&& response)
 {
     if (!m_event) {
         m_preloadResponse = WTFMove(response);
         return;
     }
 
-    m_event->navigationPreloadIsReady(WTFMove(response));
+    m_event->navigationPreloadIsReady(ResourceResponse::fromCrossThreadData(WTFMove(response)));
     m_event = nullptr;
 }
 

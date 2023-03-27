@@ -6,6 +6,7 @@ if [ $# -ne 3 ]; then
 fi
 
 if [[ "${DRIVERKIT}" == "1" ]]; then exit 0; fi; # No compatibility symlinks in DriverKit SDK
+if [[ "${EXCLAVEKIT}" == "1" ]]; then exit 0; fi; # No compatibility symlinks in ExclaveKit SDK
 
 DSTROOT="$1${INSTALL_PATH_PREFIX}"
 ACTION="$2"

@@ -43,20 +43,17 @@ static void encodeImage(Encoder& encoder, Image& image)
 {
     RefPtr<ShareableBitmap> bitmap = ShareableBitmap::create(IntSize(image.size()), { });
     bitmap->createGraphicsContext()->drawImage(image, IntPoint());
-
-    ShareableBitmap::Handle handle;
-    bitmap->createHandle(handle);
-
-    encoder << handle;
+    encoder << bitmap->createHandle();
 }
 
 static WARN_UNUSED_RETURN bool decodeImage(Decoder& decoder, RefPtr<Image>& image)
 {
-    ShareableBitmap::Handle handle;
-    if (!decoder.decode(handle))
+    std::optional<std::optional<ShareableBitmapHandle>> handle;
+    decoder >> handle;
+    if (!handle || !*handle)
         return false;
 
-    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::create(handle);
+    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::create(**handle);
     if (!bitmap)
         return false;
     image = bitmap->createImage();
@@ -198,10 +195,11 @@ static WARN_UNUSED_RETURN bool decodeGKeyFile(Decoder& decoder, GUniquePtr<GKeyF
     return true;
 }
 
-void encode(Encoder& encoder, GtkPrintSettings* printSettings)
+void encode(Encoder& encoder, GtkPrintSettings* settings)
 {
+    GRefPtr<GtkPrintSettings> printSettings = settings ? settings : adoptGRef(gtk_print_settings_new());
     GUniquePtr<GKeyFile> keyFile(g_key_file_new());
-    gtk_print_settings_to_key_file(printSettings, keyFile.get(), "Print Settings");
+    gtk_print_settings_to_key_file(printSettings.get(), keyFile.get(), "Print Settings");
     encodeGKeyFile(encoder, keyFile.get());
 }
 
@@ -215,16 +213,17 @@ bool decode(Decoder& decoder, GRefPtr<GtkPrintSettings>& printSettings)
     if (!keyFile)
         return true;
 
-    if (!gtk_print_settings_load_key_file(printSettings.get(), keyFile.get(), "Print Settings", 0))
-        printSettings = 0;
+    if (!gtk_print_settings_load_key_file(printSettings.get(), keyFile.get(), "Print Settings", nullptr))
+        printSettings = nullptr;
 
     return printSettings;
 }
 
-void encode(Encoder& encoder, GtkPageSetup* pageSetup)
+void encode(Encoder& encoder, GtkPageSetup* setup)
 {
+    GRefPtr<GtkPageSetup> pageSetup = setup ? setup : adoptGRef(gtk_page_setup_new());
     GUniquePtr<GKeyFile> keyFile(g_key_file_new());
-    gtk_page_setup_to_key_file(pageSetup, keyFile.get(), "Page Setup");
+    gtk_page_setup_to_key_file(pageSetup.get(), keyFile.get(), "Page Setup");
     encodeGKeyFile(encoder, keyFile.get());
 }
 
@@ -238,8 +237,8 @@ bool decode(Decoder& decoder, GRefPtr<GtkPageSetup>& pageSetup)
     if (!keyFile)
         return true;
 
-    if (!gtk_page_setup_load_key_file(pageSetup.get(), keyFile.get(), "Page Setup", 0))
-        pageSetup = 0;
+    if (!gtk_page_setup_load_key_file(pageSetup.get(), keyFile.get(), "Page Setup", nullptr))
+        pageSetup = nullptr;
 
     return pageSetup;
 }

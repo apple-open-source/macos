@@ -1157,7 +1157,22 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dnp->dn_left->dn_flags |= DT_NF_REF; /* force pass-by-ref */
 
 		dt_cg_node(dnp->dn_left, dlp, drp);
-		dt_cg_store(dnp, dlp, drp, dnp->dn_left);
+
+		/*
+		 * When the source of the assignment is a DT_NODE_STRING the
+		 * size of the assignment should not exceed the DT_NODE_STRING
+		 * length (which can be less than the length of a "regular"
+		 * string).
+		 */
+		if (dnp->dn_right->dn_kind == DT_NODE_STRING &&
+		    dt_node_type_size(dnp->dn_right) < dt_node_type_size(dnp)) {
+			assert(dnp->dn_type == dnp->dn_right->dn_type);
+			assert(dnp->dn_reg == dnp->dn_right->dn_reg);
+			dt_cg_store(dnp->dn_right, dlp, drp, dnp->dn_left);
+		} else {
+			dt_cg_store(dnp, dlp, drp, dnp->dn_left);
+		}
+
 		dt_regset_free(drp, dnp->dn_left->dn_reg);
 
 		dnp->dn_left->dn_flags &= ~DT_NF_REF;

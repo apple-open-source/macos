@@ -88,18 +88,12 @@ void ProgramPipelineState::useProgramStage(const Context *context,
 
 void ProgramPipelineState::useProgramStages(
     const Context *context,
-    GLbitfield stages,
+    const gl::ShaderBitSet &shaderTypes,
     Program *shaderProgram,
     std::vector<angle::ObserverBinding> *programObserverBindings)
 {
-    for (size_t singleShaderBit : angle::BitSet16<16>(static_cast<uint16_t>(stages)))
+    for (ShaderType shaderType : shaderTypes)
     {
-        // Cast back to a bit after the iterator returns an index.
-        ShaderType shaderType = GetShaderTypeFromBitfield(angle::Bit<size_t>(singleShaderBit));
-        if (shaderType == ShaderType::InvalidEnum)
-        {
-            break;
-        }
         useProgramStage(context, shaderType, shaderProgram,
                         &programObserverBindings->at(static_cast<size_t>(shaderType)));
     }
@@ -178,9 +172,15 @@ void ProgramPipeline::onDestroy(const Context *context)
     getImplementation()->destroy(context);
 }
 
-void ProgramPipeline::setLabel(const Context *context, const std::string &label)
+angle::Result ProgramPipeline::setLabel(const Context *context, const std::string &label)
 {
     mState.mLabel = label;
+
+    if (mProgramPipelineImpl)
+    {
+        return mProgramPipelineImpl->onLabelUpdate(context);
+    }
+    return angle::Result::Continue;
 }
 
 const std::string &ProgramPipeline::getLabel() const
@@ -202,12 +202,47 @@ angle::Result ProgramPipeline::useProgramStages(const Context *context,
                                                 GLbitfield stages,
                                                 Program *shaderProgram)
 {
-    mState.useProgramStages(context, stages, shaderProgram, &mProgramObserverBindings);
+    bool needToUpdatePipelineState = false;
+    gl::ShaderBitSet shaderTypes;
+    if (stages != GL_ALL_SHADER_BITS)
+    {
+        ASSERT(stages < 256u);
+        for (size_t singleShaderBit : angle::BitSet<8>(stages))
+        {
+            // Cast back to a bit after the iterator returns an index.
+            ShaderType shaderType = GetShaderTypeFromBitfield(angle::Bit<size_t>(singleShaderBit));
+            ASSERT(shaderType != ShaderType::InvalidEnum);
+            shaderTypes.set(shaderType);
+        }
+    }
+    else
+    {
+        shaderTypes.set();
+    }
+    ASSERT(shaderTypes.any());
+
+    for (ShaderType shaderType : shaderTypes)
+    {
+        if (mState.getShaderProgram(shaderType) != shaderProgram ||
+            (shaderProgram && shaderProgram->hasAnyDirtyBit()))
+        {
+            needToUpdatePipelineState = true;
+            break;
+        }
+    }
+
+    if (!needToUpdatePipelineState)
+    {
+        return angle::Result::Continue;
+    }
+
+    mState.useProgramStages(context, shaderTypes, shaderProgram, &mProgramObserverBindings);
     updateLinkedShaderStages();
 
     mState.mIsLinked = false;
+    onStateChange(angle::SubjectMessage::SubjectChanged);
 
-    return link(context);
+    return angle::Result::Continue;
 }
 
 void ProgramPipeline::updateLinkedShaderStages()
@@ -365,6 +400,7 @@ void ProgramPipeline::updateFragmentInoutRangeAndEnablesPerSampleShading()
 
     const ProgramExecutable &fragmentExecutable  = fragmentProgram->getExecutable();
     mState.mExecutable->mFragmentInoutRange      = fragmentExecutable.mFragmentInoutRange;
+    mState.mExecutable->mHasDiscard              = fragmentExecutable.mHasDiscard;
     mState.mExecutable->mEnablesPerSampleShading = fragmentExecutable.mEnablesPerSampleShading;
 }
 
@@ -422,10 +458,7 @@ void ProgramPipeline::updateExecutable()
 // The code gets compiled into binaries.
 angle::Result ProgramPipeline::link(const Context *context)
 {
-    if (mState.mIsLinked)
-    {
-        return angle::Result::Continue;
-    }
+    ASSERT(!mState.mIsLinked);
 
     ProgramMergedVaryings mergedVaryings;
     ProgramVaryingPacking varyingPacking;
@@ -627,11 +660,11 @@ void ProgramPipeline::validate(const gl::Context *context)
         }
     }
 
-    intptr_t drawStatesError = context->getStateCache().getBasicDrawStatesError(context);
-    if (drawStatesError)
+    intptr_t programPipelineError = context->getStateCache().getProgramPipelineError(context);
+    if (programPipelineError)
     {
         mState.mValid            = false;
-        const char *errorMessage = reinterpret_cast<const char *>(drawStatesError);
+        const char *errorMessage = reinterpret_cast<const char *>(programPipelineError);
         infoLog << errorMessage << "\n";
         return;
     }

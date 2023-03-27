@@ -162,7 +162,7 @@ void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredential
         }
     }
         
-    if (!d->m_initialCredential.isEmpty()) {
+    if (!d->m_initialCredential.isEmpty() && !firstRequest().hasHTTPHeaderField(HTTPHeaderName::Authorization)) {
         // FIXME: Support Digest authentication, and Proxy-Authorization.
         applyBasicAuthorizationHeader(firstRequest(), d->m_initialCredential);
     }
@@ -416,16 +416,22 @@ void ResourceHandle::willSendRequest(ResourceRequest&& request, ResourceResponse
         if (!equalIgnoringASCIICase(lastHTTPMethod, request.httpMethod())) {
             request.setHTTPMethod(lastHTTPMethod);
     
-            FormData* body = d->m_firstRequest.httpBody();
+            auto body = d->m_firstRequest.httpBody();
             if (!equalLettersIgnoringASCIICase(lastHTTPMethod, "get"_s) && body && !body->isEmpty())
-                request.setHTTPBody(body);
+                request.setHTTPBody(WTFMove(body));
 
             String originalContentType = d->m_firstRequest.httpContentType();
             if (!originalContentType.isEmpty())
                 request.setHTTPHeaderField(HTTPHeaderName::ContentType, originalContentType);
         }
-    } else if (redirectResponse.httpStatusCode() == 303 && equalLettersIgnoringASCIICase(d->m_firstRequest.httpMethod(), "head"_s)) // FIXME: (rdar://problem/13706454).
-        request.setHTTPMethod("HEAD"_s);
+    } else if (redirectResponse.httpStatusCode() == 303) { // FIXME: (rdar://problem/13706454).
+        if (equalLettersIgnoringASCIICase(d->m_firstRequest.httpMethod(), "head"_s))
+            request.setHTTPMethod("HEAD"_s);
+
+        String originalContentType = d->m_firstRequest.httpContentType();
+        if (!originalContentType.isEmpty())
+            request.setHTTPHeaderField(HTTPHeaderName::ContentType, originalContentType);
+    }
 
     // Should not set Referer after a redirect from a secure resource to non-secure one.
     if (!request.url().protocolIs("https"_s) && protocolIs(request.httpReferrer(), "https"_s) && d->m_context->shouldClearReferrerOnHTTPSToHTTPRedirect())
@@ -523,7 +529,7 @@ bool ResourceHandle::tryHandlePasswordBasedAuthentication(const AuthenticationCh
     if (!challenge.protectionSpace().isPasswordBased())
         return false;
 
-    if (!d->m_user.isNull() && !d->m_password.isNull()) {
+    if (!d->m_user.isEmpty() || !d->m_password.isEmpty()) {
         auto credential = adoptNS([[NSURLCredential alloc] initWithUser:d->m_user
             password:d->m_password persistence:NSURLCredentialPersistenceForSession]);
         d->m_currentMacChallenge = challenge.nsURLAuthenticationChallenge();

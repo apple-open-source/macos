@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2018, 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1053,7 +1053,7 @@ do_renew(char *if_name)
 
 
 static void
-waitKeyFound()
+waitKeyFound(void)
 {
 	return;
 }
@@ -1076,7 +1076,7 @@ do_wait(char *waitKey, int timeout)
 	CFMutableArrayRef	keys;
 	Boolean			ok;
 
-	store = SCDynamicStoreCreate(NULL, CFSTR("scutil (wait)"), waitKeyFound, NULL);
+	store = SCDynamicStoreCreate(NULL, CFSTR("scutil (wait)"), (SCDynamicStoreCallBack)waitKeyFound, NULL);
 	if (store == NULL) {
 		SCPrint(TRUE, stderr,
 			CFSTR("SCDynamicStoreCreate() failed: %s\n"), SCErrorString(SCError()));

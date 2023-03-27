@@ -38,7 +38,6 @@
 #include <WebCore/COMPtr.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformDisplay.h>
-#include <WebCore/RenderThemeWin.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/WebCoreInstanceHandle.h>
 #include <WebCore/Widget.h>
@@ -46,6 +45,10 @@
 #include <wchar.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Vector.h>
+
+#if !PLATFORM(WIN_CAIRO)
+#include <WebCore/RenderThemeWin.h>
+#endif
 
 using namespace WebCore;
 
@@ -92,7 +95,9 @@ STDAPI_(BOOL) DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID /*lpRe
             return TRUE;
 
         case DLL_PROCESS_DETACH:
+#if !PLATFORM(WIN_CAIRO)
             WebCore::RenderThemeWin::setWebKitIsBeingUnloaded();
+#endif
             break;
 
         case DLL_THREAD_ATTACH:
@@ -106,7 +111,7 @@ _Check_return_
 STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid, _Outptr_ LPVOID* ppv)
 {
     bool found = false;
-    for (size_t i = 0; i < WTF_ARRAY_LENGTH(gRegCLSIDs); ++i) {
+    for (size_t i = 0; i < std::size(gRegCLSIDs); ++i) {
         if (IsEqualGUID(rclsid, gRegCLSIDs[i])) {
             found = true;
             break;
@@ -164,6 +169,7 @@ void shutDownWebKit()
     WebKit::WebStorageNamespaceProvider::closeLocalStorage();
 }
 
+#if !PLATFORM(WIN_CAIRO)
 //FIXME: We should consider moving this to a new file for cross-project functionality
 WEBKIT_API RefPtr<WebCore::FragmentedSharedBuffer> loadResourceIntoBuffer(const char* name);
 RefPtr<WebCore::FragmentedSharedBuffer> loadResourceIntoBuffer(const char* name)
@@ -234,6 +240,7 @@ RefPtr<WebCore::FragmentedSharedBuffer> loadResourceIntoBuffer(const char* name)
 
     return WebCore::SharedBuffer::create(reinterpret_cast<const char*>(resource), size);
 }
+#endif // !PLATFORM(WIN_CAIRO)
 
 // Force symbols to be included so we can export them for legacy clients.
 // DEPRECATED! People should get these symbols from JavaScriptCore.dll, not WebKit.dll!

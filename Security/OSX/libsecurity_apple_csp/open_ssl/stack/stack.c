@@ -95,9 +95,10 @@ const char *STACK_version="Stack" OPENSSL_VERSION_PTEXT;
 #define	FP_ICC	(int (*)(const void *,const void *))
 #include <errno.h>
 
-int (*sk_set_cmp_func(STACK *sk, int (*c)()))(void)
+int (*sk_set_cmp_func(STACK *sk, int (*c)(const char * const *,const char * const *)))
+		(const char * const *, const char * const *)
 	{
-	int (*old)()=sk->comp;
+	int (*old)(const char * const *,const char * const *)=sk->comp;
 
 	if (sk->comp != c)
 		sk->sorted=0;
@@ -127,7 +128,7 @@ err:
 	return(NULL);
 	}
 
-STACK *sk_new(int (*c)())
+STACK *sk_new(int (*c)(const char * const *, const char * const *))
 	{
 	STACK *ret;
 	int i;
@@ -225,7 +226,7 @@ int sk_find(STACK *st, char *data)
 	{
 	char **r;
 	int i;
-	int (*comp_func)();
+	int (*comp_func)(const void *, const void *);
 	if(st == NULL) return -1;
 
 	if (st->comp == NULL)
@@ -237,13 +238,18 @@ int sk_find(STACK *st, char *data)
 		}
 	sk_sort(st);
 	if (data == NULL) return(-1);
-	comp_func=(int (*)())st->comp;
+	comp_func=(int (*)(const void *, const void *))st->comp;
 	r=(char **)bsearch(&data,(char *)st->data,
 		st->num,sizeof(char *),FP_ICC comp_func);
 	if (r == NULL) return(-1);
 	i=(int)(r-st->data);
 	for ( ; i>0; i--)
-		if ((*st->comp)(&(st->data[i-1]),&data) < 0)
+		/* This needs a cast because the type being pointed to from
+		 * the "&" expressions are (char *) rather than (const char *).
+		 * For an explanation, read:
+		 * http://www.eskimo.com/~scs/C-faq/q11.10.html :-) */
+		if ((*st->comp)((const char * const *)&(st->data[i-1]),
+				(const char * const *)&data) < 0)
 			break;
 	return(i);
 	}
@@ -280,7 +286,7 @@ void sk_zero(STACK *st)
 	st->num=0;
 	}
 
-void sk_pop_free(STACK *st, void (*func)())
+void sk_pop_free(STACK *st, void (*func)(void *))
 	{
 	int i;
 
@@ -298,13 +304,13 @@ void sk_free(STACK *st)
 	Free(st);
 	}
 
-int sk_num(STACK *st)
+int sk_num(const STACK *st)
 {
 	if(st == NULL) return -1;
 	return st->num;
 }
 
-char *sk_value(STACK *st, int i)
+char *sk_value(const STACK *st, int i)
 {
 	if(st == NULL) return NULL;
 	return st->data[i];

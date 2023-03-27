@@ -208,7 +208,7 @@ IDBError MemoryIDBBackingStore::clearObjectStore(const IDBResourceIdentifier& tr
 
 #ifndef NDEBUG
     auto transaction = m_transactions.get(transactionIdentifier);
-    ASSERT(transaction->isWriting());
+    ASSERT_UNUSED(transaction, transaction->isWriting());
 #endif
 
     auto objectStore = m_objectStoresByIdentifier.get(objectStoreIdentifier);
@@ -308,6 +308,18 @@ IDBError MemoryIDBBackingStore::renameIndex(const IDBResourceIdentifier& transac
     indexInfo->rename(newName);
 
     return IDBError { };
+}
+
+void MemoryIDBBackingStore::renameObjectStoreForVersionChangeAbort(MemoryObjectStore& objectStore, const String& oldName)
+{
+    LOG(IndexedDB, "MemoryIDBBackingStore::renameObjectStoreForVersionChangeAbort");
+
+    auto identifier = objectStore.info().identifier();
+    auto currentName = objectStore.info().name();
+    m_objectStoresByName.remove(currentName);
+    m_objectStoresByName.set(oldName, &objectStore);
+    m_databaseInfo->renameObjectStore(identifier, oldName);
+    objectStore.rename(oldName);
 }
 
 void MemoryIDBBackingStore::removeObjectStoreForVersionChangeAbort(MemoryObjectStore& objectStore)

@@ -27,7 +27,7 @@
 #include "config.h"
 #include "GraphicsContextGLGBM.h"
 
-#if ENABLE(WEBGL) && USE(LIBGBM) && USE(ANGLE)
+#if ENABLE(WEBGL) && USE(LIBGBM)
 
 #include "ANGLEHeaders.h"
 #include "DMABufEGLUtilities.h"
@@ -39,6 +39,12 @@
 #endif
 
 namespace WebCore {
+
+static inline bool isDMABufSupportedByANGLEPlatform(const GraphicsContextGLGBM::EGLExtensions& eglExtensions)
+{
+    return eglExtensions.KHR_image_base && eglExtensions.KHR_surfaceless_context
+        && eglExtensions.EXT_image_dma_buf_import;
+}
 
 RefPtr<GraphicsContextGLGBM> GraphicsContextGLGBM::create(GraphicsContextGLAttributes&& attributes)
 {
@@ -89,14 +95,6 @@ void GraphicsContextGLGBM::prepareForDisplay()
     allocateDrawBufferObject();
 }
 
-bool GraphicsContextGLGBM::isDMABufSupportedInPlatform(const char* displayExtensions)
-{
-    return (strstr(displayExtensions, "EGL_MESA_platform_surfaceless") || strstr(displayExtensions, "EGL_KHR_surfaceless_context"))
-        && (strstr(displayExtensions, "EGL_KHR_image_base") || strstr(displayExtensions, "EGL_KHR_image"))
-        && strstr(displayExtensions, "EGL_EXT_image_dma_buf_import")
-        && strstr(displayExtensions, "EGL_EXT_image_dma_buf_import_modifiers");
-}
-
 bool GraphicsContextGLGBM::platformInitializeContext()
 {
 #if ENABLE(WEBGL2)
@@ -121,16 +119,34 @@ bool GraphicsContextGLGBM::platformInitializeContext()
     }
     LOG(WebGL, "ANGLE initialised Major: %d Minor: %d", majorVersion, minorVersion);
 
-    const char* displayExtensions = EGL_QueryString(m_displayObj, EGL_EXTENSIONS);
-    LOG(WebGL, "Extensions: %s\n", displayExtensions);
+    {
+        const char* extensionsString = EGL_QueryString(m_displayObj, EGL_EXTENSIONS);
+        LOG(WebGL, "Extensions: %s\n", extensionsString);
 
-    if (!isDMABufSupportedInPlatform(displayExtensions)) {
+        auto displayExtensions = StringView::fromLatin1(extensionsString).split(' ');
+        auto findExtension =
+            [&](auto extensionName) {
+                return std::any_of(displayExtensions.begin(), displayExtensions.end(),
+                    [&](auto extensionEntry) {
+                        return extensionEntry == extensionName;
+                    });
+            };
+
+        m_eglExtensions.KHR_image_base = findExtension("EGL_KHR_image_base"_s);
+        m_eglExtensions.KHR_surfaceless_context = findExtension("EGL_KHR_surfaceless_context"_s);
+        m_eglExtensions.EXT_image_dma_buf_import = findExtension("EGL_EXT_image_dma_buf_import"_s);
+        m_eglExtensions.EXT_image_dma_buf_import_modifiers = findExtension("EGL_EXT_image_dma_buf_import_modifiers"_s);
+        m_eglExtensions.ANGLE_power_preference = findExtension("EGL_ANGLE_power_preference"_s);
+    }
+
+    if (!isDMABufSupportedByANGLEPlatform(m_eglExtensions)) {
         LOG(WebGL, "Warning: GL images could not be created using DMABuf buffers backend, we fallback to common GL images, they require a copy, that causes a performance penalty.");
         return false;
     }
 
     EGLint configAttributes[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8,
@@ -176,7 +192,7 @@ bool GraphicsContextGLGBM::platformInitializeContext()
     eglContextAttributes.append(EGL_CONTEXT_BIND_GENERATES_RESOURCE_CHROMIUM);
     eglContextAttributes.append(EGL_FALSE);
 
-    if (strstr(displayExtensions, "EGL_ANGLE_power_preference")) {
+    if (m_eglExtensions.ANGLE_power_preference) {
         eglContextAttributes.append(EGL_POWER_PREFERENCE_ANGLE);
         // EGL_LOW_POWER_ANGLE is the default. Change to
         // EGL_HIGH_POWER_ANGLE if desired.
@@ -193,9 +209,6 @@ bool GraphicsContextGLGBM::platformInitializeContext()
         LOG(WebGL, "ANGLE makeContextCurrent failed.");
         return false;
     }
-
-    if (strstr(displayExtensions, "EGL_EXT_image_dma_buf_import_modifiers"))
-        m_eglExtensions.EXT_image_dma_buf_import_modifiers = true;
 
     LOG(WebGL, "Got EGLContext");
     return true;
@@ -263,18 +276,13 @@ bool GraphicsContextGLGBM::reshapeDisplayBufferBacking()
     m_swapchain = Swapchain(platformDisplay());
     allocateDrawBufferObject();
 
-    auto attrs = contextAttributes();
-    const auto size = getInternalFramebufferSize();
-    const int width = size.width();
-    const int height = size.height();
-    GLuint colorFormat = attrs.alpha ? GL_RGBA : GL_RGB;
-    GLenum textureTarget = drawingBufferTextureTarget();
-    GLuint internalColorFormat = textureTarget == GL_TEXTURE_2D ? colorFormat : m_internalColorFormat;
-    ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQueryForDrawingTarget(textureTarget), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
+    {
+        GLenum textureTarget = drawingBufferTextureTarget();
+        ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQueryForDrawingTarget(textureTarget), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
 
-    GL_BindTexture(textureTarget, m_texture);
-    GL_TexImage2D(textureTarget, 0, internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
-    GL_FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textureTarget, m_texture, 0);
+        GL_BindTexture(textureTarget, m_texture);
+        GL_FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textureTarget, m_texture, 0);
+    }
 
     return true;
 }
@@ -306,28 +314,6 @@ void GraphicsContextGLGBM::allocateDrawBufferObject()
 
     GL_BindTexture(textureTarget, m_texture);
     GL_EGLImageTargetTexture2DOES(textureTarget, result.iterator->value);
-
-    // If just created, the dmabuf has to be cleared to provide a zeroed-out buffer.
-    // Current color-clear and framebuffer state has to be preserved and re-established after this.
-    if (result.isNewEntry) {
-        GCGLuint boundFBO { 0 };
-        GL_GetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GCGLint*>(&boundFBO));
-
-        GCGLuint targetFBO = contextAttributes().antialias ? m_multisampleFBO : m_fbo;
-        if (targetFBO != boundFBO)
-            GL_BindFramebuffer(GL_FRAMEBUFFER, targetFBO);
-
-        std::array<float, 4> clearColor { 0, 0, 0, 0 };
-        GL_GetFloatv(GL_COLOR_CLEAR_VALUE, clearColor.data());
-
-        GL_ClearColor(0, 0, 0, 0);
-        GL_Clear(GL_COLOR_BUFFER_BIT);
-
-        GL_ClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
-
-        if (targetFBO != boundFBO)
-            GL_BindFramebuffer(GL_FRAMEBUFFER, boundFBO);
-    }
 }
 
 GraphicsContextGLGBM::Swapchain::Swapchain(GCGLDisplay platformDisplay)
@@ -345,4 +331,4 @@ GraphicsContextGLGBM::Swapchain::~Swapchain()
 
 } // namespace WebCore
 
-#endif // ENABLE(WEBGL) && USE(LIBGBM) && USE(ANGLE)
+#endif // ENABLE(WEBGL) && USE(LIBGBM)

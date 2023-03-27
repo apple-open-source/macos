@@ -4,10 +4,14 @@ import Foundation
 class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
     let bottleID: String?
     let entropy: Data?
+    var recoveryKey: String?
+    var kvsError: NSError?
 
     init(bottleID: String?, entropy: Data?) {
         self.bottleID = bottleID
         self.entropy = entropy
+        self.recoveryKey = nil
+        self.kvsError = nil
 
         super.init()
     }
@@ -40,6 +44,31 @@ class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
 
     func disable(withInfo info: [AnyHashable: Any]!) -> Error? {
         return nil
+    }
+
+    func isRecoveryKeySet(_ error: NSErrorPointer) -> Bool {
+        if self.kvsError != nil {
+            error!.pointee = self.kvsError
+            return false
+        }
+        return self.recoveryKey != nil ? true : false
+    }
+
+    func setRecoveryKey(recoveryKey: String?) {
+        self.recoveryKey = recoveryKey
+    }
+
+    func restoreKeychain(withBackupPassword password: Data!, error: NSErrorPointer) -> Bool {
+        if self.kvsError != nil {
+            error!.pointee = self.kvsError
+            return false
+        }
+        let RK = String(data: password!, encoding: String.Encoding.utf8)
+        return RK == self.recoveryKey ? true : false
+    }
+
+    func setExpectKVSError(_ error: NSError) {
+        self.kvsError = error
     }
 
     @objc

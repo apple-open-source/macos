@@ -1962,7 +1962,16 @@ hfs_vnop_reclaim(struct vnode *vp)
      */
     hfs_chash_mark_in_transit(hfsmp, cp);
 
-    hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
+    hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_ALLOW_NOEXISTS);
+
+    /*
+	 * If C_NOEXISTS is set on the cnode, then there's nothing teardown needs to do
+	 * because the catalog entry for this cnode is already gone.
+	 */
+    if (!ISSET(cp->c_flag, C_NOEXISTS)) {
+        err = hfs_cnode_teardown(vp, 1);
+    }
+
     lf_hfs_generic_buf_cache_LockBufCache();
 
     //In case we have other open lookups

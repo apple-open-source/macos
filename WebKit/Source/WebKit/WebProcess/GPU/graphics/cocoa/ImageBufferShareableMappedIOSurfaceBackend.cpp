@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,16 +31,16 @@
 #include "Logging.h"
 #include <WebCore/GraphicsContextCG.h>
 #include <WebCore/IOSurfacePool.h>
-#include <pal/spi/cocoa/IOSurfaceSPI.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/spi/cocoa/IOSurfaceSPI.h>
 
 namespace WebKit {
 using namespace WebCore;
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(ImageBufferShareableMappedIOSurfaceBackend);
 
-std::unique_ptr<ImageBufferShareableMappedIOSurfaceBackend> ImageBufferShareableMappedIOSurfaceBackend::create(const Parameters& parameters, const ImageBuffer::CreationContext& creationContext)
+std::unique_ptr<ImageBufferShareableMappedIOSurfaceBackend> ImageBufferShareableMappedIOSurfaceBackend::create(const Parameters& parameters, const ImageBufferCreationContext& creationContext)
 {
     IntSize backendSize = calculateSafeBackendSize(parameters);
     if (backendSize.isEmpty())
@@ -66,10 +66,11 @@ std::unique_ptr<ImageBufferShareableMappedIOSurfaceBackend> ImageBufferShareable
         return nullptr;
     }
 
-    auto surface = IOSurface::createFromSendRight(WTFMove(std::get<MachSendRight>(handle)), parameters.colorSpace);
+    auto surface = IOSurface::createFromSendRight(WTFMove(std::get<MachSendRight>(handle)));
     if (!surface)
         return nullptr;
 
+    ASSERT(surface->colorSpace() == parameters.colorSpace);
     return makeUnique<ImageBufferShareableMappedIOSurfaceBackend>(parameters, WTFMove(surface), nullptr);
 }
 

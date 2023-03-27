@@ -6,13 +6,13 @@ WIFI_FRAMEWORK=-framework CoreWLAN -framework Apple80211
 ifeq ($(PLATFORM),iphoneos)
 # iOS internal SDK
 CORETELEPHONY=-framework CoreTelephony
-ARCHS=armv7
+#ARCHS=armv7
 WIFI_FRAMEWORK=-framework MobileWiFi -lio80211
 endif
 
 ifeq ($(PLATFORM),macosx)
 # Mac OS X internal SDK
-ARCHS=i386 x86_64
+#ARCHS=i386 x86_64
 CORETELEPHONY=
 endif
 
@@ -46,12 +46,10 @@ wireless_p: wireless.c
 Dialogue: Dialogue.c
 	cc -Wall -DTEST_DIALOGUE -g -o Dialogue Dialogue.c mylog.c ../EAP8021X.fproj/EAPLog.c -I../EAP8021X.fproj ../EAP8021X.fproj/myCFUtil.c -framework CoreFoundation -framework SystemConfiguration -framework EAP8021X -F/System/Library/PrivateFrameworks -framework Security
 
-InterestNotification: InterestNotification.c
-	cc -DTEST_INTERESTNOTIFICATION -Wall -g -o InterestNotification InterestNotification.c -framework CoreFoundation -framework IOKit
-
-InterestNotification_p: InterestNotification.c
-	$(CC) -arch armv6 -isysroot $(SYSROOT) -I../EAP8021X.fproj -DTEST_INTERESTNOTIFICATION -Wall -g -o InterestNotification_p InterestNotification.c -framework CoreFoundation -framework IOKit
+InterestNotification: InterestNotification.c ../EAP8021X.fproj/EAPLog.c
+	$(CC) -DTEST_INTERESTNOTIFICATION -I../EAP8021x.fproj -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) -framework SystemConfiguration -framework CoreFoundation -framework IOKit $(WARNING_CFLAGS) -g -o $@ $^
+	codesign -s - $@
 
 clean:
-	rm -f Dialogue wireless_p wireless InterestNotification InterestNotification_p
+	rm -f Dialogue wireless_p wireless InterestNotification
 	rm -rf *.dSYM/

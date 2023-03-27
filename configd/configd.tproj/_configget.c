@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2013, 2015, 2016, 2019-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -280,9 +280,12 @@ typedef struct {
 static void
 update_multiple(const void *key, const void *value, void *context)
 {
-	CFDictionaryRef			controls	= (CFDictionaryRef)value;
 	int				status;
+	CFDictionaryRef			controls	= (CFDictionaryRef)value;
 	updateContextRef		update		= (updateContextRef)context;
+#ifdef	DEBUG
+	SCDynamicStorePrivateRef	storePrivate;
+#endif	// DEBUG
 
 	status = checkReadAccess(update->mySession, key, controls);
 	switch (status) {

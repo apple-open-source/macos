@@ -61,8 +61,11 @@
 #import <WebCore/CaptionUserPreferencesMediaAF.h>
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 #import "WindowServerConnection.h"
+#endif
+
+#if PLATFORM(MAC)
 #import "TCCSoftLink.h"
 #endif
 
@@ -103,9 +106,9 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGra
         RetainPtr<id> transformObject(id object) const override
         {
             if (auto* handle = dynamic_objc_cast<WKBrowsingContextHandle>(object)) {
-                if (auto* webPageProxy = m_webProcessProxy.webPage(handle.pageProxyID)) {
+                if (auto webPageProxy = m_webProcessProxy.webPage(handle.pageProxyID)) {
                     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-                    return [WKBrowsingContextController _browsingContextControllerForPageRef:toAPI(webPageProxy)];
+                    return [WKBrowsingContextController _browsingContextControllerForPageRef:toAPI(webPageProxy.get())];
                     ALLOW_DEPRECATED_DECLARATIONS_END
                 }
 
@@ -247,7 +250,7 @@ void WebProcessProxy::unblockAccessibilityServerIfNeeded()
     Vector<SandboxExtension::Handle> handleArray;
 #if PLATFORM(IOS_FAMILY)
     handleArray = SandboxExtension::createHandlesForMachLookup({ "com.apple.iphone.axserver-systemwide"_s, "com.apple.frontboard.systemappservices"_s }, auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
-    ASSERT(handleArray.size() == 2);
+    ASSERT(handleArray.size() == 3);
 #endif
 
     send(Messages::WebProcess::UnblockServicesRequiredByAccessibility(handleArray), 0);
@@ -328,9 +331,9 @@ std::optional<audit_token_t> WebProcessProxy::auditToken() const
     return connection()->getAuditToken();
 }
 
-SandboxExtension::Handle WebProcessProxy::fontdMachExtensionHandle(SandboxExtension::MachBootstrapOptions machBootstrapOptions) const
+Vector<SandboxExtension::Handle> WebProcessProxy::fontdMachExtensionHandles(SandboxExtension::MachBootstrapOptions machBootstrapOptions) const
 {
-    return SandboxExtension::createHandleForMachLookup("com.apple.fonts"_s, auditToken(), machBootstrapOptions).value_or(SandboxExtension::Handle { });
+    return SandboxExtension::createHandlesForMachLookup({ "com.apple.fonts"_s }, auditToken(), machBootstrapOptions);
 }
 
 

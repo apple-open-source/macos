@@ -44,6 +44,7 @@ enum {
 #include <libkern/OSAtomic.h>
 #include "IOHIDDebug.h"
 #include "IOHIDPrivateKeys.h"
+#include "IOHIDFamilyPrivate.h"
 #include "IOHIDFamilyTrace.h"
 
 #define kHIDQueueSize           16384
@@ -483,16 +484,13 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(IOExternalMethodArguments *
     require_action(_properties, exit, result=kIOReturnNoMemory);
     _properties->retain();
     
-    if (_properties->getObject(kIOUserClientClassKey) ||
-        _properties->getObject(kIOClassKey) ||
-        _properties->getObject(kIOProviderClassKey) ||
-        _properties->getObject(kIOKitDebugKey)) {
+    if (IsIOHIDRestrictedIOKitPropertyDictionary(_properties)) {
         result = kIOReturnBadArgument;
         goto exit;
     }
     
     // add privilege entitlements
-    _properties->setObject("Privileged", _privileged ? kOSBooleanTrue : kOSBooleanFalse);
+    _properties->setObject(kIOHIDDevicePrivilegedKey, _privileged ? kOSBooleanTrue : kOSBooleanFalse);
     
     if (arguments->scalarInput[0] & kIOHIDUserDeviceCreateOptionStartWhenScheduled) {
         _properties->setObject(kIOHIDRegisterServiceKey, kOSBooleanFalse);
@@ -1150,6 +1148,9 @@ IOReturn IOHIDResourceDeviceUserClient::setPropertiesGated(OSObject *properties)
         require_action(_device, exit, ret = kIOReturnOffline);
         
         propertyDict->iterateObjects(^bool(const OSSymbol * key, OSObject * object) {
+            if (IsIOHIDRestrictedIOKitProperty(key)) {
+                return false;
+            }
             _device->setProperty(key, object);
             return false;
         });

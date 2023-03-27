@@ -848,7 +848,7 @@ extern const CFStringRef kSecAttrPRFHmacAlgSHA512
     @constant kSecMatchEmailAddressIfPresent Specifies a dictionary key whose
         value is a CFStringRef containing an RFC822 email address. If
         provided, returned certificates or identities will be limited to those
-        that contain the address, or do not contain any email address.
+        that contain the address in their subject or subject alternative name.
     @constant kSecMatchSubjectContains Specifies a dictionary key whose value
         is a CFStringRef. If provided, returned certificates or identities
         will be limited to those containing this string in the subject.

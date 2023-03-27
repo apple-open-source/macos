@@ -485,6 +485,7 @@ void ShaderConstants11::setMultiviewWriteToViewportIndex(GLfloat index)
 
 void ShaderConstants11::onViewportChange(const gl::Rectangle &glViewport,
                                          const D3D11_VIEWPORT &dxViewport,
+                                         const gl::Offset &glFragCoordOffset,
                                          bool is9_3,
                                          bool presentPathFast)
 {
@@ -538,6 +539,9 @@ void ShaderConstants11::onViewportChange(const gl::Rectangle &glViewport,
 
     mVertex.viewScale[0] = mPixel.viewScale[0];
     mVertex.viewScale[1] = mPixel.viewScale[1];
+
+    mPixel.fragCoordOffset[0] = static_cast<float>(glFragCoordOffset.x);
+    mPixel.fragCoordOffset[1] = static_cast<float>(glFragCoordOffset.y);
 }
 
 // Update the ShaderConstants with a new first vertex and return whether the update dirties them.
@@ -598,6 +602,18 @@ void ShaderConstants11::onClipControlChange(bool lowerLeft, bool zeroToOne)
     mVertex.clipControlOrigin    = lowerLeft ? -1.0f : 1.0f;
     mVertex.clipControlZeroToOne = zeroToOne ? 1.0f : 0.0f;
     mShaderConstantsDirty.set(gl::ShaderType::Vertex);
+}
+
+bool ShaderConstants11::onClipDistancesEnabledChange(const uint32_t value)
+{
+    ASSERT(value == (value & 0xFF));
+    const bool clipDistancesEnabledDirty = (mVertex.clipDistancesEnabled != value);
+    if (clipDistancesEnabledDirty)
+    {
+        mVertex.clipDistancesEnabled = value;
+        mShaderConstantsDirty.set(gl::ShaderType::Vertex);
+    }
+    return clipDistancesEnabledDirty;
 }
 
 angle::Result ShaderConstants11::updateBuffer(const gl::Context *context,
@@ -739,6 +755,7 @@ StateManager11::StateManager11(Renderer11 *renderer)
     mCurRasterState.polygonOffsetFill   = false;
     mCurRasterState.polygonOffsetFactor = 0.0f;
     mCurRasterState.polygonOffsetUnits  = 0.0f;
+    mCurRasterState.polygonOffsetClamp  = 0.0f;
     mCurRasterState.pointDrawMode       = false;
     mCurRasterState.multiSample         = false;
     mCurRasterState.dither              = false;
@@ -1093,7 +1110,8 @@ void StateManager11::syncState(const gl::Context *context,
             {
                 const gl::RasterizerState &rasterState = state.getRasterizerState();
                 if (rasterState.polygonOffsetFactor != mCurRasterState.polygonOffsetFactor ||
-                    rasterState.polygonOffsetUnits != mCurRasterState.polygonOffsetUnits)
+                    rasterState.polygonOffsetUnits != mCurRasterState.polygonOffsetUnits ||
+                    rasterState.polygonOffsetClamp != mCurRasterState.polygonOffsetClamp)
                 {
                     mInternalDirtyBits.set(DIRTY_BIT_RASTERIZER_STATE);
                 }
@@ -1226,6 +1244,13 @@ void StateManager11::syncState(const gl::Context *context,
                         case gl::State::EXTENDED_DIRTY_BIT_CLIP_CONTROL:
                             checkPresentPath(context);
                             break;
+                        case gl::State::EXTENDED_DIRTY_BIT_CLIP_DISTANCES:
+                            if (mShaderConstants.onClipDistancesEnabledChange(
+                                    state.getEnabledClipDistances().bits()))
+                            {
+                                mInternalDirtyBits.set(DIRTY_BIT_DRIVER_UNIFORMS);
+                            }
+                            break;
                     }
                 }
                 break;
@@ -1262,7 +1287,7 @@ angle::Result StateManager11::syncBlendState(const gl::Context *context,
 {
     const d3d11::BlendState *dxBlendState = nullptr;
     const d3d11::BlendStateKey &key       = RenderStateCache::GetBlendStateKey(
-              context, mFramebuffer11, blendStateExt, sampleAlphaToCoverage);
+        context, mFramebuffer11, blendStateExt, sampleAlphaToCoverage);
 
     ANGLE_TRY(mRenderer->getBlendState(context, key, &dxBlendState));
 
@@ -1526,7 +1551,8 @@ void StateManager11::syncViewport(const gl::Context *context)
                                            static_cast<FLOAT>(dxViewportHeight),
                                            actualZNear,
                                            actualZFar};
-    mShaderConstants.onViewportChange(viewport, adjustViewport, is9_3, mCurPresentPathFastEnabled);
+    mShaderConstants.onViewportChange(viewport, adjustViewport, mCurViewportOffset, is9_3,
+                                      mCurPresentPathFastEnabled);
 }
 
 void StateManager11::invalidateRenderTarget()
@@ -2305,10 +2331,10 @@ angle::Result StateManager11::updateState(const gl::Context *context,
     }
 
     auto dirtyBitsCopy = mInternalDirtyBits & mGraphicsDirtyBitsMask;
-    mInternalDirtyBits &= ~mGraphicsDirtyBitsMask;
 
     for (auto iter = dirtyBitsCopy.begin(), end = dirtyBitsCopy.end(); iter != end; ++iter)
     {
+        mInternalDirtyBits.reset(*iter);
         switch (*iter)
         {
             case DIRTY_BIT_RENDER_TARGET:
@@ -2332,7 +2358,6 @@ angle::Result StateManager11::updateState(const gl::Context *context,
                 ANGLE_TRY(syncDepthStencilState(context));
                 break;
             case DIRTY_BIT_GRAPHICS_SRV_STATE:
-                iter.resetLaterBit(DIRTY_BIT_TEXTURE_AND_SAMPLER_STATE);
                 ANGLE_TRY(syncTextures(context));
                 break;
             case DIRTY_BIT_GRAPHICS_UAV_STATE:
@@ -2879,7 +2904,11 @@ angle::Result StateManager11::setTextureForImage(const gl::Context *context,
         return angle::Result::Continue;
     }
 
-    textureImpl                = GetImplAs<TextureD3D>(imageUnit.texture.get());
+    textureImpl = GetImplAs<TextureD3D>(imageUnit.texture.get());
+
+    // Ensure that texture has unordered access; convert it if not.
+    ANGLE_TRY(textureImpl->ensureUnorderedAccess(context));
+
     TextureStorage *texStorage = nullptr;
     ANGLE_TRY(textureImpl->getNativeTexture(context, &texStorage));
     // Texture should be complete and have a storage
@@ -2912,7 +2941,11 @@ angle::Result StateManager11::getUAVForRWImage(const gl::Context *context,
         return angle::Result::Continue;
     }
 
-    textureImpl                = GetImplAs<TextureD3D>(imageUnit.texture.get());
+    textureImpl = GetImplAs<TextureD3D>(imageUnit.texture.get());
+
+    // Ensure that texture has unordered access; convert it if not.
+    ANGLE_TRY(textureImpl->ensureUnorderedAccess(context));
+
     TextureStorage *texStorage = nullptr;
     ANGLE_TRY(textureImpl->getNativeTexture(context, &texStorage));
     // Texture should be complete and have a storage
@@ -3005,8 +3038,8 @@ angle::Result StateManager11::syncProgramForCompute(const gl::Context *context)
     ASSERT(mProgramD3D->hasComputeExecutableForCachedImage2DBindLayout());
 
     ShaderExecutableD3D *computeExe = nullptr;
-    ANGLE_TRY(
-        mProgramD3D->getComputeExecutableForImage2DBindLayout(context11, &computeExe, nullptr));
+    ANGLE_TRY(mProgramD3D->getComputeExecutableForImage2DBindLayout(context, context11, &computeExe,
+                                                                    nullptr));
 
     const d3d11::ComputeShader *computeShader =
         (computeExe ? &GetAs<ShaderExecutable11>(computeExe)->getComputeShader() : nullptr);

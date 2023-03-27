@@ -48,7 +48,8 @@ enum class TapHandlingResult : uint8_t;
 - (void)_contentSizeCategoryDidChange:(NSNotification *)notification;
 - (void)_accessibilitySettingsDidChange:(NSNotification *)notification;
 
-- (void)_frameOrBoundsChanged;
+- (void)_frameOrBoundsMayHaveChanged;
+- (BOOL)_shouldDeferGeometryUpdates;
 #if HAVE(UIKIT_RESIZABLE_WINDOWS)
 - (void)_invalidateResizeAssertions;
 #endif
@@ -154,8 +155,10 @@ enum class TapHandlingResult : uint8_t;
 - (BOOL)_effectiveAppearanceIsDark;
 - (BOOL)_effectiveUserInterfaceLevelIsElevated;
 
+#if HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
 - (void)_beginLiveResize;
 - (void)_endLiveResize;
+#endif
 
 #if ENABLE(LOCKDOWN_MODE_API)
 + (void)_clearLockdownModeWarningNeeded;
@@ -181,10 +184,6 @@ enum class TapHandlingResult : uint8_t;
 
 #if HAVE(UIKIT_RESIZABLE_WINDOWS)
 @property (nonatomic, readonly) BOOL _isWindowResizingEnabled;
-#endif
-
-#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-- (NSArray<NSData *> *)_overlayRegions;
 #endif
 
 @end

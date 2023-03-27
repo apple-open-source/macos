@@ -66,6 +66,7 @@ tk{
         chk{"çuuk dili"}
         chm{"mariý dili"}
         cho{"çokto"}
+        cho_Latn{"çokto"}
         chr{"çeroki"}
         chy{"şaýenn dili"}
         ckb{"merkezi kürt dili"}

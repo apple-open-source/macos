@@ -34,34 +34,16 @@ namespace WebKit {
 
 #if !PLATFORM(IOS_FAMILY)
 
-WebTouchEvent::WebTouchEvent(WebEvent::Type type, Vector<WebPlatformTouchPoint>&& touchPoints, OptionSet<Modifier> modifiers, WallTime timestamp)
-    : WebEvent(type, modifiers, timestamp)
+WebTouchEvent::WebTouchEvent(WebEvent&& event, Vector<WebPlatformTouchPoint>&& touchPoints)
+    : WebEvent(WTFMove(event))
     , m_touchPoints(WTFMove(touchPoints))
 {
-    ASSERT(isTouchEventType(type));
+    ASSERT(isTouchEventType(type()));
 }
 
-void WebTouchEvent::encode(IPC::Encoder& encoder) const
+bool WebTouchEvent::isTouchEventType(WebEventType type)
 {
-    WebEvent::encode(encoder);
-
-    encoder << m_touchPoints;
-}
-
-bool WebTouchEvent::decode(IPC::Decoder& decoder, WebTouchEvent& result)
-{
-    if (!WebEvent::decode(decoder, result))
-        return false;
-
-    if (!decoder.decode(result.m_touchPoints))
-        return false;
-
-    return true;
-}
-
-bool WebTouchEvent::isTouchEventType(Type type)
-{
-    return type == TouchStart || type == TouchMove || type == TouchEnd || type == TouchCancel;
+    return type == WebEventType::TouchStart || type == WebEventType::TouchMove || type == WebEventType::TouchEnd || type == WebEventType::TouchCancel;
 }
 
 #endif // !PLATFORM(IOS_FAMILY)

@@ -145,7 +145,6 @@ class TextureState final : private angle::NonCopyable
     GLenum getUsage() const { return mUsage; }
     bool hasProtectedContent() const { return mHasProtectedContent; }
     GLenum getDepthStencilTextureMode() const { return mDepthStencilTextureMode; }
-    bool isStencilMode() const { return mDepthStencilTextureMode == GL_STENCIL_INDEX; }
 
     bool hasBeenBoundAsImage() const { return mHasBeenBoundAsImage; }
     bool is3DTextureAndHasBeenBoundAs2DImage() const { return mIs3DAndHasBeenBoundAs2DImage; }
@@ -156,6 +155,15 @@ class TextureState final : private angle::NonCopyable
     // Returns the desc of the base level. Only valid for cube-complete/mip-complete textures.
     const ImageDesc &getBaseLevelDesc() const;
     const ImageDesc &getLevelZeroDesc() const;
+
+    // This helper is used by backends that require special setup to read stencil data
+    bool isStencilMode() const
+    {
+        const GLenum format =
+            getImageDesc(getBaseImageTarget(), getEffectiveBaseLevel()).format.info->format;
+        return (format == GL_DEPTH_STENCIL) ? (mDepthStencilTextureMode == GL_STENCIL_INDEX)
+                                            : (format == GL_STENCIL_INDEX);
+    }
 
     // GLES1 emulation: For GL_OES_draw_texture
     void setCrop(const Rectangle &rect);
@@ -268,7 +276,8 @@ class Texture final : public RefCountObject<TextureID>,
 
     void onDestroy(const Context *context) override;
 
-    void setLabel(const Context *context, const std::string &label) override;
+    angle::Result setLabel(const Context *context, const std::string &label) override;
+
     const std::string &getLabel() const override;
 
     TextureType getType() const { return mState.mType; }
@@ -569,8 +578,8 @@ class Texture final : public RefCountObject<TextureID>,
     void setGenerateMipmapHint(GLenum generate);
     GLenum getGenerateMipmapHint() const;
 
-    void onAttach(const Context *context, rx::Serial framebufferSerial) override;
-    void onDetach(const Context *context, rx::Serial framebufferSerial) override;
+    void onAttach(const Context *context, rx::UniqueSerial framebufferSerial) override;
+    void onDetach(const Context *context, rx::UniqueSerial framebufferSerial) override;
 
     // Used specifically for FramebufferAttachmentObject.
     GLuint getId() const override;
@@ -584,7 +593,7 @@ class Texture final : public RefCountObject<TextureID>,
     void setInitState(GLenum binding, const ImageIndex &imageIndex, InitState initState) override;
     void setInitState(InitState initState);
 
-    bool isBoundToFramebuffer(rx::Serial framebufferSerial) const
+    bool isBoundToFramebuffer(rx::UniqueSerial framebufferSerial) const
     {
         for (size_t index = 0; index < mBoundFramebufferSerials.size(); ++index)
         {
@@ -700,7 +709,7 @@ class Texture final : public RefCountObject<TextureID>,
     // attachment Feedback Loop checks we then need to check further to see when a Texture is bound
     // to mulitple bindings that the bindings don't overlap.
     static constexpr uint32_t kFastFramebufferSerialCount = 8;
-    angle::FastVector<rx::Serial, kFastFramebufferSerialCount> mBoundFramebufferSerials;
+    angle::FastVector<rx::UniqueSerial, kFastFramebufferSerialCount> mBoundFramebufferSerials;
 
     struct SamplerCompletenessCache
     {

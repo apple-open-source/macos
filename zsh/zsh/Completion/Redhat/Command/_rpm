@@ -129,6 +129,7 @@ _rpm () {
     '--scm=[select the SCM to use with %autosetup]:scm [patch]:(patch gendiff git quilt)'
     '*--buildpolicy=[set buildroot policy]:policy:->brp_policies'
     '!--sign'
+    '--trace[trace macro expansion]'
     "--nodebuginfo[don't generate debuginfo for this package]"
   )
 
@@ -282,7 +283,7 @@ _rpm () {
     build_r) tmp=( '*:source package:_files -g "*.(#i)src.rpm(-.)"' ) ;|
     build_t) tmp=( '*:tar file:_files -g "*.(#i)tar(.*|)(-.)"' ) ;|
     build_?)
-      _arguments -s -C $buildopts $commonopts $pathopts \
+      _arguments -s -C $buildopts $commonopts $pathopts "${tmp[@]}" \
       ;;
     checksig)
       _arguments -s -C \!-K \

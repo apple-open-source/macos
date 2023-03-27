@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-void SOSCCDumpCircleInformation(void);
+bool SOSCCDumpCircleInformation(void);
 void SOSCCDumpEngineInformation(void);
 void SOSCCDumpViewUnwarePeers(void);
 bool SOSCCDumpCircleKVSInformation(char *itemName);

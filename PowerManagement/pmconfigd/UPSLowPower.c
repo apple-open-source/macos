@@ -185,8 +185,12 @@ UPSLowPowerPSChange_sync(void)
 #endif 
 
         }
-        
-        if(_batteryCount() > 0)
+
+        // getActiveBatteryDictionary is an alternative method to IOPSCopyPowerSourcesInfo because it would dispatch
+        // batteryTimeRemainingQ main queue again that causes dead lock
+        CFBooleanRef built_in_battery = IOPSPowerSourceSupported(NULL, CFSTR(kIOPMBatteryPowerKey));
+        CFDictionaryRef battery_info = getActiveBatteryDictionary();
+        if (built_in_battery == kCFBooleanTrue || battery_info)
         {
             // Do not do UPS shutdown if internal battery is present.
             // Internal battery may still be providing power. 

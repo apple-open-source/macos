@@ -27,25 +27,39 @@
 
 #include "APIObject.h"
 #include <wtf/URL.h>
+#include <wtf/UUID.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
+
+enum class UnifiedOriginStorageLevel : uint8_t;
 
 namespace WebPushD {
 struct WebPushDaemonConnectionConfiguration;
 }
 
 enum class IsPersistent : bool { No, Yes };
-enum class WillCopyPathsFromExistingConfiguration : bool { No, Yes };
 
 class WebsiteDataStoreConfiguration : public API::ObjectImpl<API::Object::Type::WebsiteDataStoreConfiguration> {
 public:
-    static Ref<WebsiteDataStoreConfiguration> create(IsPersistent isPersistent, WillCopyPathsFromExistingConfiguration willCopyPaths = WillCopyPathsFromExistingConfiguration::No) { return adoptRef(*new WebsiteDataStoreConfiguration(isPersistent, willCopyPaths)); }
-    WebsiteDataStoreConfiguration(IsPersistent, WillCopyPathsFromExistingConfiguration = WillCopyPathsFromExistingConfiguration::No);
+    enum class ShouldInitializePaths : bool { No, Yes };
+    static Ref<WebsiteDataStoreConfiguration> create(IsPersistent isPersistent) { return adoptRef(*new WebsiteDataStoreConfiguration(isPersistent, ShouldInitializePaths::Yes)); }
+    WebsiteDataStoreConfiguration(IsPersistent, ShouldInitializePaths = ShouldInitializePaths::Yes);
+
+#if PLATFORM(COCOA)
+    WebsiteDataStoreConfiguration(const UUID&);
+#endif
+
+#if !PLATFORM(COCOA)
+    // All cache and data directories are initialized relative to baseCacheDirectory and
+    // baseDataDirectory, respectively, if provided. On Cocoa ports, these are always null.
+    static Ref<WebsiteDataStoreConfiguration> createWithBaseDirectories(const String& baseCacheDirectory, const String& baseDataDirectory) { return adoptRef(*new WebsiteDataStoreConfiguration(baseCacheDirectory, baseDataDirectory)); }
+#endif
 
     Ref<WebsiteDataStoreConfiguration> copy() const;
 
     bool isPersistent() const { return m_isPersistent == IsPersistent::Yes; }
+    std::optional<UUID> identifier() const { return m_identifier; }
 
     uint64_t perOriginStorageQuota() const { return m_perOriginStorageQuota; }
     void setPerOriginStorageQuota(uint64_t quota) { m_perOriginStorageQuota = quota; }
@@ -64,7 +78,9 @@ public:
 
     const String& javaScriptConfigurationDirectory() const { return m_javaScriptConfigurationDirectory; }
     void setJavaScriptConfigurationDirectory(String&& directory) { m_javaScriptConfigurationDirectory = WTFMove(directory); }
-    
+
+    // indexedDBDatabaseDirectory is sort of deprecated. Data is migrated from here to
+    // generalStoragePath unless useCustomStoragePaths is true.
     const String& indexedDBDatabaseDirectory() const { return m_indexedDBDatabaseDirectory; }
     void setIndexedDBDatabaseDirectory(String&& directory) { m_indexedDBDatabaseDirectory = WTFMove(directory); }
 
@@ -74,6 +90,8 @@ public:
     const String& hstsStorageDirectory() const { return m_hstsStorageDirectory; }
     void setHSTSStorageDirectory(String&& directory) { m_hstsStorageDirectory = WTFMove(directory); }
 
+    // localStorageDirectory is sort of deprecated. Data is migrated from here to
+    // generalStoragePath unless useCustomStoragePaths is true.
     const String& localStorageDirectory() const { return m_localStorageDirectory; }
     void setLocalStorageDirectory(String&& directory) { m_localStorageDirectory = WTFMove(directory); }
 
@@ -103,6 +121,9 @@ public:
     bool staleWhileRevalidateEnabled() const { return m_staleWhileRevalidateEnabled; }
     void setStaleWhileRevalidateEnabled(bool enabled) { m_staleWhileRevalidateEnabled = enabled; }
 
+    bool resourceLoadStatisticsDebugModeEnabled() const { return m_trackingPreventionDebugModeEnabled; }
+    void setResourceLoadStatisticsDebugModeEnabled(bool enabled) { m_trackingPreventionDebugModeEnabled = enabled; }
+
     unsigned testSpeedMultiplier() const { return m_testSpeedMultiplier; }
     void setTestSpeedMultiplier(unsigned multiplier) { m_testSpeedMultiplier = multiplier; }
 
@@ -120,9 +141,6 @@ public:
     const String& resourceLoadStatisticsDirectory() const { return m_resourceLoadStatisticsDirectory; }
     void setResourceLoadStatisticsDirectory(String&& directory) { m_resourceLoadStatisticsDirectory = WTFMove(directory); }
 
-    const String& privateClickMeasurementStorageDirectory() const { return m_privateClickMeasurementStorageDirectory; }
-    void setPrivateClickMeasurementStorageDirectory(String&& directory) { m_privateClickMeasurementStorageDirectory = WTFMove(directory); }
-
     const String& networkCacheDirectory() const { return m_networkCacheDirectory; }
     void setNetworkCacheDirectory(String&& directory) { m_networkCacheDirectory = WTFMove(directory); }
     
@@ -132,8 +150,11 @@ public:
     const String& generalStorageDirectory() const { return m_generalStorageDirectory; }
     void setGeneralStorageDirectory(String&& directory) { m_generalStorageDirectory = WTFMove(directory); }
 
-    bool shouldUseCustomStoragePaths() const { return m_shouldUseCustomStoragePaths; }
-    void setShouldUseCustomStoragePaths(bool use) { m_shouldUseCustomStoragePaths = use; }
+    UnifiedOriginStorageLevel unifiedOriginStorageLevel() const { return m_unifiedOriginStorageLevel; }
+    void setUnifiedOriginStorageLevel(UnifiedOriginStorageLevel level) { m_unifiedOriginStorageLevel = level; }
+
+    const String& webPushPartitionString() const { return m_webPushPartitionString; }
+    void setWebPushPartitionString(String&& string) { m_webPushPartitionString = WTFMove(string); }
 
     const String& applicationCacheFlatFileSubdirectoryName() const { return m_applicationCacheFlatFileSubdirectoryName; }
     void setApplicationCacheFlatFileSubdirectoryName(String&& directory) { m_applicationCacheFlatFileSubdirectoryName = WTFMove(directory); }
@@ -207,9 +228,17 @@ public:
 #endif
 
 private:
+    WebsiteDataStoreConfiguration(const String& baseCacheDirectory, const String& baseDataDirectory);
+    static Ref<WebsiteDataStoreConfiguration> create(IsPersistent isPersistent, ShouldInitializePaths shouldInitializePaths) { return adoptRef(*new WebsiteDataStoreConfiguration(isPersistent, shouldInitializePaths)); }
+
+    void initializePaths();
+
     IsPersistent m_isPersistent { IsPersistent::No };
 
-    bool m_shouldUseCustomStoragePaths;
+    UnifiedOriginStorageLevel m_unifiedOriginStorageLevel;
+    std::optional<UUID> m_identifier;
+    String m_baseCacheDirectory;
+    String m_baseDataDirectory;
     String m_cacheStorageDirectory;
     String m_generalStorageDirectory;
     uint64_t m_perOriginStorageQuota;
@@ -235,7 +264,6 @@ private:
     String m_alternativeServicesDirectory;
     String m_deviceIdHashSaltsStorageDirectory;
     String m_resourceLoadStatisticsDirectory;
-    String m_privateClickMeasurementStorageDirectory;
     String m_javaScriptConfigurationDirectory;
     String m_cookieStorageFile;
     String m_sourceApplicationBundleIdentifier;
@@ -262,8 +290,10 @@ private:
     URL m_standaloneApplicationURL;
     bool m_enableInAppBrowserPrivacyForTesting { false };
     bool m_allowsHSTSWithUntrustedRootCertificate { false };
+    bool m_trackingPreventionDebugModeEnabled { false };
     String m_pcmMachServiceName;
     String m_webPushMachServiceName;
+    String m_webPushPartitionString;
 #if !HAVE(NSURLSESSION_WEBSOCKET)
     bool m_shouldAcceptInsecureCertificatesForWebSockets { false };
 #endif

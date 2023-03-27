@@ -690,10 +690,9 @@
  # This is a bit brittle as it depends on PATH_MAX.
  # We could use sysconf..
  bad_pwd="/${(l:16000:: :):-}"
- print ${bad_pwd:P}
+ print ${#${bad_pwd:P}}
 0:modifier ':P' with path too long
-?(eval):4: path expansion failed, using root directory
->/
+>16001
 
  foo=a
  value="ac"
@@ -734,7 +733,7 @@
  mkdir -m 444 glob.tmp/secret-d444
  for 1 in 000 111 444 ; do ln -s secret-d$1 glob.tmp/secret-s$1; done
  print -rC 2 -- glob.tmp/secret-*/ glob.tmp/secret-*(-/)
--f:unreadable directories can be globbed (users/24619, users/24626)
+0:unreadable directories can be globbed (users/24619, users/24626)
 >glob.tmp/secret-d000/  glob.tmp/secret-d000
 >glob.tmp/secret-d111/  glob.tmp/secret-d111
 >glob.tmp/secret-d444/  glob.tmp/secret-d444
@@ -742,9 +741,86 @@
 >glob.tmp/secret-s111/  glob.tmp/secret-s111
 >glob.tmp/secret-s444/  glob.tmp/secret-s444
 
+ for 1 in 000 111 444 ; do
+  chmod 777 glob.tmp/secret-d$1
+  touch glob.tmp/secret-d$1/file
+  mkdir -m 777 glob.tmp/secret-d$1/dir
+  touch glob.tmp/secret-d$1/dir/file
+  chmod $1 glob.tmp/secret-d$1
+ done
+ if (( EUID == 0 )); then
+   ZTST_skip='Not testing unreadable directories (root reads anything)'
+ else
+   print -raC 2 -- glob.tmp/secret-*/* glob.tmp/secret-*/file
+ fi
+0:names inside unreadable directories can be globbed if searchable
+>glob.tmp/secret-d444/dir   glob.tmp/secret-d444/file
+>glob.tmp/secret-s444/dir   glob.tmp/secret-s444/file
+>glob.tmp/secret-d111/file  glob.tmp/secret-s111/file
+
+ if (( EUID == 0 )); then
+   ZTST_skip='Not testing unreadable directories (root reads anything)'
+ else
+   print -rC 2 -- glob.tmp/secret-*/dir/*
+ fi
+0:glob files in readable directories inside unreadable directories
+>glob.tmp/secret-d111/dir/file  glob.tmp/secret-s111/dir/file
+
+ # On macOS, stat(2) allows files to be treated as directories if the calling
+ # process has super-user privileges. e.g., stat() on /my/regular/file/. will
+ # succeed as root but (correctly) fail otherwise. This can produce strange
+ # results when globbing, depending on how it's implemented. This test should,
+ # when run with privileges, confirm that the implementation avoids this
+ # problem. See workers/42891 and workers/45291
+ : > glob.tmp/not-a-directory
+ print -r - glob.tmp/not-a-dir*(N) , glob.tmp/not-a-dir*/(N)
+0:non-directories not globbed as directories
+>glob.tmp/not-a-directory ,
+
  () { echo $1:P } ////dev
 -f:(workers/45367) modifier ':P' squashes multiple slashes
 >/dev  
+
+  ln -s loop glob.tmp/loop
+  ln -s loop glob.tmp/trap
+  { 
+    (set -- glob.tmp/trap; echo $1:P)
+    (set -- glob.tmp/loop; echo $1:P)
+  } always {
+    rm -f glob.tmp/trap glob.tmp/loop
+  }
+0:the ':P' modifier handles symlink loops in the last path component
+*>*/(trap|loop)
+*>*/(trap|loop)
+
+  ln -s loop glob.tmp/loop
+  ln -s loop glob.tmp/trap
+  { 
+    (set -- glob.tmp/loop/trailing/components; echo $1:P)
+    (set -- glob.tmp/trap/trailing/components; echo $1:P)
+  } always {
+    rm -f glob.tmp/trap glob.tmp/loop
+  }
+0:the ':P' modifier handles symlink loops before the last path component
+*>*/glob.tmp/loop/trailing/components
+*>*/glob.tmp/(loop|trap)/trailing/components
+
+  ln -s flip glob.tmp/flop
+  ln -s flop glob.tmp/flip
+  {
+    (set -- glob.tmp/flip; echo $1:P)
+    (set -- glob.tmp/flip/trailing/components; echo $1:P)
+  } always {
+    rm -f glob.tmp/flip glob.tmp/flop
+  }
+0:the ':P' modifier handles symlink loops other than the trivial case
+*>*/glob.tmp/(flip|flop)
+*>*/glob.tmp/(flip|flop)/trailing/components
+
+  unsetopt extendedglob
+  print -r -- ${(*)=${(@s.+.):-A+B}/(#b)(?)/-${(L)match[1]} ${match[1]}}
+0:the '*' qualfier enables extended_glob for pattern matching
+>-a A -b B
 
 %clean
 

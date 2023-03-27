@@ -29,7 +29,9 @@ G_BEGIN_DECLS
 
 #define WEBKIT_NETWORK_ERROR             webkit_network_error_quark ()
 #define WEBKIT_POLICY_ERROR              webkit_policy_error_quark ()
+#if !ENABLE(2022_GLIB_API)
 #define WEBKIT_PLUGIN_ERROR              webkit_plugin_error_quark ()
+#endif
 #define WEBKIT_DOWNLOAD_ERROR            webkit_download_error_quark ()
 #define WEBKIT_JAVASCRIPT_ERROR          webkit_javascript_error_quark ()
 #define WEBKIT_SNAPSHOT_ERROR            webkit_snapshot_error_quark ()
@@ -37,6 +39,10 @@ G_BEGIN_DECLS
 
 #if PLATFORM(GTK)
 #define WEBKIT_PRINT_ERROR               webkit_print_error_quark ()
+#endif
+
+#if ENABLE(2022_GLIB_API)
+#define WEBKIT_MEDIA_ERROR               webkit_media_error_quark ()
 #endif
 
 /**
@@ -75,6 +81,7 @@ typedef enum {
     WEBKIT_POLICY_ERROR_CANNOT_USE_RESTRICTED_PORT = 103
 } WebKitPolicyError;
 
+#if !ENABLE(2022_GLIB_API)
 /**
  * WebKitPluginError:
  * @WEBKIT_PLUGIN_ERROR_FAILED: Generic plugin load failure. Deprecated 2.32
@@ -94,6 +101,7 @@ typedef enum {
     WEBKIT_PLUGIN_ERROR_CONNECTION_CANCELLED = 203,
     WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD = 204,
 } WebKitPluginError;
+#endif
 
 /**
  * WebKitDownloadError:
@@ -159,14 +167,30 @@ typedef enum {
     WEBKIT_USER_CONTENT_FILTER_ERROR_NOT_FOUND,
 } WebKitUserContentFilterError;
 
+#if ENABLE(2022_GLIB_API)
+/**
+ * WebKitMediaError:
+ * @WEBKIT_MEDIA_ERROR_WILL_HANDLE_LOAD: Preliminary load failure for media content types. A new load will be started to perform the media load. Since: 2.40
+ *
+ * Enum values used to denote the various media errors.
+ *
+ * Since: 2.40
+ */
+typedef enum {
+    WEBKIT_MEDIA_ERROR_WILL_HANDLE_LOAD = 204
+} WebKitMediaError;
+#endif
+
 WEBKIT_API GQuark
 webkit_network_error_quark             (void);
 
 WEBKIT_API GQuark
 webkit_policy_error_quark              (void);
 
+#if !ENABLE(2022_GLIB_API)
 WEBKIT_API GQuark
 webkit_plugin_error_quark              (void);
+#endif
 
 WEBKIT_API GQuark
 webkit_download_error_quark            (void);
@@ -184,6 +208,11 @@ webkit_snapshot_error_quark            (void);
 
 WEBKIT_API GQuark
 webkit_user_content_filter_error_quark (void);
+
+#if ENABLE(2022_GLIB_API)
+WEBKIT_API GQuark
+webkit_media_error_quark               (void);
+#endif
 
 G_END_DECLS
 

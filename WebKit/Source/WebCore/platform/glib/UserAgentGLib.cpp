@@ -48,7 +48,7 @@ namespace WebCore {
 
 static const char* platformForUAString()
 {
-#if OS(MAC_OS_X)
+#if OS(MACOS)
     return "Macintosh";
 #else
     if (chassisType() == WTF::ChassisType::Mobile)
@@ -104,7 +104,7 @@ static String buildUserAgentString(const UserAgentQuirks& quirks)
     // Version/X is mandatory *before* Safari/X to be a valid Safari UA. See
     // https://bugs.webkit.org/show_bug.cgi?id=133403 for details.
     } else
-        uaString.append("Version/15.0 ");
+        uaString.append("Version/16.0 ");
 
     if (chassisType() == WTF::ChassisType::Mobile)
         uaString.append("Mobile ");

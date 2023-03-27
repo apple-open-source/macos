@@ -313,6 +313,16 @@ void PlatformCALayerCocoa::commonInit()
         m_customSublayers = makeUnique<PlatformCALayerList>(tileController->containerLayers());
     }
 
+#if HAVE(CALAYER_USES_WEBKIT_BEHAVIOR)
+    if (m_owner && m_owner->platformCALayerUseCSS3DTransformInteroperability() && [m_layer respondsToSelector:@selector(setUsesWebKitBehavior:)]) {
+        [m_layer setUsesWebKitBehavior:YES];
+        if (m_layerType == LayerTypeTransformLayer) {
+            [m_layer setSortsSublayers:YES];
+        } else
+            [m_layer setSortsSublayers:NO];
+    }
+#endif
+
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -747,26 +757,6 @@ void PlatformCALayerCocoa::setWantsDeepColorBackingStore(bool wantsDeepColorBack
     updateContentsFormat();
 }
 
-bool PlatformCALayerCocoa::supportsSubpixelAntialiasedText() const
-{
-    return m_supportsSubpixelAntialiasedText;
-}
-
-void PlatformCALayerCocoa::setSupportsSubpixelAntialiasedText(bool supportsSubpixelAntialiasedText)
-{
-    if (supportsSubpixelAntialiasedText == m_supportsSubpixelAntialiasedText)
-        return;
-    
-    m_supportsSubpixelAntialiasedText = supportsSubpixelAntialiasedText;
-
-    if (usesTiledBackingLayer()) {
-        [static_cast<WebTiledBackingLayer *>(m_layer.get()) setSupportsSubpixelAntialiasedText:m_supportsSubpixelAntialiasedText];
-        return;
-    }
-
-    updateContentsFormat();
-}
-
 bool PlatformCALayerCocoa::hasContents() const
 {
     return [m_layer contents];
@@ -801,7 +791,7 @@ void PlatformCALayerCocoa::setContents(const WebCore::IOSurface& surface)
 
 void PlatformCALayerCocoa::setContents(const WTF::MachSendRight& surfaceHandle)
 {
-    auto surface = WebCore::IOSurface::createFromSendRight(surfaceHandle.copySendRight(), WebCore::DestinationColorSpace::SRGB());
+    auto surface = WebCore::IOSurface::createFromSendRight(surfaceHandle.copySendRight());
     setContents(*surface);
 }
 #endif
@@ -892,9 +882,9 @@ bool PlatformCALayerCocoa::filtersCanBeComposited(const FilterOperations& filter
     for (unsigned i = 0; i < filters.size(); ++i) {
         const FilterOperation* filterOperation = filters.at(i);
         switch (filterOperation->type()) {
-        case FilterOperation::REFERENCE:
+        case FilterOperation::Type::Reference:
             return false;
-        case FilterOperation::DROP_SHADOW:
+        case FilterOperation::Type::DropShadow:
             // FIXME: For now we can only handle drop-shadow is if it's last in the list
             if (i < (filters.size() - 1))
                 return false;
@@ -942,6 +932,9 @@ float PlatformCALayerCocoa::contentsScale() const
 
 void PlatformCALayerCocoa::setContentsScale(float value)
 {
+    if (m_layerType == LayerTypeTransformLayer)
+        return;
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_layer setContentsScale:value];
     [m_layer setRasterizationScale:value];
@@ -960,10 +953,10 @@ void PlatformCALayerCocoa::setCornerRadius(float value)
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void PlatformCALayerCocoa::setEdgeAntialiasingMask(unsigned mask)
+void PlatformCALayerCocoa::setAntialiasesEdges(bool antialiases)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [m_layer setEdgeAntialiasingMask:mask];
+    [m_layer setEdgeAntialiasingMask:antialiases ? (kCALayerLeftEdge | kCALayerRightEdge | kCALayerBottomEdge | kCALayerTopEdge) : 0];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -1102,23 +1095,13 @@ void PlatformCALayerCocoa::setIsDescendentOfSeparatedPortal(bool)
 #endif
 #endif
 
-static NSString *layerContentsFormat(bool acceleratesDrawing, bool wantsDeepColor, bool supportsSubpixelAntialiasedFonts)
+static NSString *layerContentsFormat(bool wantsDeepColor)
 {
 #if HAVE(IOSURFACE_RGB10)
     if (wantsDeepColor)
         return kCAContentsFormatRGBA10XR;
 #else
     UNUSED_PARAM(wantsDeepColor);
-#endif
-
-#if PLATFORM(MAC)
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    if (supportsSubpixelAntialiasedFonts && acceleratesDrawing)
-        return kCAContentsFormatRGBA8ColorRGBA8LinearGlyphMask;
-    ALLOW_DEPRECATED_DECLARATIONS_END
-#else
-    UNUSED_PARAM(supportsSubpixelAntialiasedFonts);
-    UNUSED_PARAM(acceleratesDrawing);
 #endif
 
     return nil;
@@ -1128,7 +1111,7 @@ void PlatformCALayerCocoa::updateContentsFormat()
 {
     if (m_layerType == LayerTypeWebLayer || m_layerType == LayerTypeTiledBackingTileLayer) {
         BEGIN_BLOCK_OBJC_EXCEPTIONS
-        if (NSString *formatString = layerContentsFormat(acceleratesDrawing(), wantsDeepColorBackingStore(), supportsSubpixelAntialiasedText()))
+        if (NSString *formatString = layerContentsFormat(wantsDeepColorBackingStore()))
             [m_layer setContentsFormat:formatString];
         END_BLOCK_OBJC_EXCEPTIONS
     }
@@ -1239,11 +1222,6 @@ void PlatformCALayer::drawLayerContents(GraphicsContext& graphicsContext, WebCor
         }
 
         {
-            if (!layerContents->platformCALayerContentsOpaque() && !platformCALayer->supportsSubpixelAntialiasedText() && FontCascade::isSubpixelAntialiasingAvailable()) {
-                // Turn off font smoothing to improve the appearance of text rendered onto a transparent background.
-                graphicsContext.setShouldSmoothFonts(false);
-            }
-
 #if PLATFORM(MAC)
             // It's important to get the clip from the context, because it may be significantly
             // smaller than the layer bounds (e.g. tiled layers)
@@ -1316,10 +1294,6 @@ unsigned PlatformCALayerCocoa::backingStoreBytesPerPixel() const
         return isOpaque() ? 4 : 5;
 #endif
 
-#if PLATFORM(MAC)
-    if (!isOpaque() && supportsSubpixelAntialiasedText())
-        return 8;
-#endif
     return 4;
 }
 

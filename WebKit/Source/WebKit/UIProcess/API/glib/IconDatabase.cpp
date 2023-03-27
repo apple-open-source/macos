@@ -56,7 +56,7 @@ IconDatabase::IconDatabase(const String& path, AllowDatabaseWrite allowDatabaseW
     // We initialize the database synchronously, it's hopefully fast enough because it makes
     // the implementation a lot simpler.
     m_workQueue->dispatchSync([&] {
-        if (allowDatabaseWrite == AllowDatabaseWrite::No && !FileSystem::fileExists(path))
+        if (allowDatabaseWrite == AllowDatabaseWrite::No && (path.isNull() || !FileSystem::fileExists(path)))
             return;
 
         auto databaseDirectory = FileSystem::parentPath(path);
@@ -88,7 +88,7 @@ IconDatabase::IconDatabase(const String& path, AllowDatabaseWrite allowDatabaseW
         m_db.executeCommand("PRAGMA cache_size = 200;"_s);
 
         if (allowDatabaseWrite == AllowDatabaseWrite::Yes) {
-            m_pruneTimer = makeUnique<RunLoop::Timer<IconDatabase>>(RunLoop::current(), this, &IconDatabase::pruneTimerFired);
+            m_pruneTimer = makeUnique<RunLoop::Timer>(RunLoop::current(), this, &IconDatabase::pruneTimerFired);
             m_pruneTimer->setPriority(RunLoopSourcePriority::ReleaseUnusedResourcesTimer);
         }
 

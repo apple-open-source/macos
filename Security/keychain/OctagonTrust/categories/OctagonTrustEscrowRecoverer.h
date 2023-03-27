@@ -9,16 +9,22 @@
 - (NSError *)getAccountInfoWithInfo:(NSDictionary *)info results:(NSDictionary**)results;
 - (NSError *)disableWithInfo:(NSDictionary *)info;
 - (NSDictionary*)recoverWithCDPContext:(OTICDPRecordContext*)cdpContext
-                                    escrowRecord:(OTEscrowRecord*)escrowRecord
-                                           error:(NSError**)error;
+                          escrowRecord:(OTEscrowRecord*)escrowRecord
+                                 error:(NSError**)error;
 - (NSDictionary*)recoverSilentWithCDPContext:(OTICDPRecordContext*)cdpContext
-                                            allRecords:(NSArray<OTEscrowRecord*>*)allRecords
-                                                 error:(NSError**)error;
+                                  allRecords:(NSArray<OTEscrowRecord*>*)allRecords
+                                       error:(NSError**)error;
 - (void)restoreKeychainAsyncWithPassword:password
                             keybagDigest:(NSData *)keybagDigest
                          haveBottledPeer:(BOOL)haveBottledPeer
                     viewsNotToBeRestored:(NSMutableSet <NSString*>*)viewsNotToBeRestored
                                    error:(NSError **)error;
+
+- (bool)isRecoveryKeySet:(NSError * __autoreleasing *)error;
+
+- (bool)restoreKeychainWithBackupPassword:(NSData *)password
+                                    error:(NSError * __autoreleasing *)error;
+- (NSError*)backupWithInfo:(NSDictionary*)info;
 
 @end
 

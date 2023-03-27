@@ -26,6 +26,8 @@
 #ifndef WEBGPUEXT_H_
 #define WEBGPUEXT_H_
 
+#include <IOSurface/IOSurfaceRef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -47,6 +49,8 @@ typedef enum WGPUSTypeExtended {
     WGPUSTypeExtended_ShaderModuleDescriptorHints = 0x348970F3, // Random
     WGPUSTypeExtended_TextureDescriptorViewFormats = 0x1D5BC57, // Random
     WGPUSTypeExtended_InstanceCocoaDescriptor = 0x151BBC00, // Random
+    WGPUSTypeExtended_SurfaceDescriptorCocoaSurfaceBacking = 0x017E9710, // Random
+    WGPUSTypeExtended_TextureDescriptorCocoaSurfaceBacking = 0xCCE4ED61, // Random
     WGPUSTypeExtended_Force32 = 0x7FFFFFFF
 } WGPUSTypeExtended;
 
@@ -83,6 +87,15 @@ typedef struct WGPUTextureDescriptorViewFormats {
     uint32_t viewFormatsCount;
     WGPUTextureFormat const * viewFormats;
 } WGPUTextureDescriptorViewFormats;
+
+typedef struct WGPUSurfaceDescriptorCocoaCustomSurface {
+    WGPUChainedStruct chain;
+} WGPUSurfaceDescriptorCocoaCustomSurface;
+
+typedef struct WGPUTextureDescriptorCocoaCustomSurface {
+    WGPUChainedStruct chain;
+    IOSurfaceRef surface;
+} WGPUTextureDescriptorCocoaCustomSurface;
 
 #if !defined(WGPU_SKIP_PROCS)
 
@@ -194,6 +207,9 @@ WGPU_EXPORT void wgpuDeviceSetUncapturedErrorCallbackWithBlock(WGPUDevice device
 WGPU_EXPORT void wgpuInstanceRequestAdapterWithBlock(WGPUInstance instance, WGPURequestAdapterOptions const * options, WGPURequestAdapterBlockCallback callback);
 WGPU_EXPORT void wgpuQueueOnSubmittedWorkDoneWithBlock(WGPUQueue queue, uint64_t signalValue, WGPUQueueWorkDoneBlockCallback callback);
 WGPU_EXPORT void wgpuShaderModuleGetCompilationInfoWithBlock(WGPUShaderModule shaderModule, WGPUCompilationInfoBlockCallback callback);
+
+WGPU_EXPORT IOSurfaceRef wgpuSurfaceCocoaCustomSurfaceGetDisplayBuffer(WGPUSurface);
+WGPU_EXPORT IOSurfaceRef wgpuSurfaceCocoaCustomSurfaceGetDrawingBuffer(WGPUSurface);
 
 #endif  // !defined(WGPU_SKIP_DECLARATIONS)
 

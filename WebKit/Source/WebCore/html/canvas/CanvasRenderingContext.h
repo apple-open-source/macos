@@ -27,6 +27,7 @@
 
 #include "CanvasBase.h"
 #include "GraphicsLayer.h"
+#include "GraphicsLayerContentsDisplayDelegate.h"
 #include "ScriptWrappable.h"
 #include <wtf/Forward.h>
 #include <wtf/IsoMalloc.h>
@@ -64,6 +65,7 @@ public:
     virtual bool isWebGL1() const { return false; }
     virtual bool isWebGL2() const { return false; }
     bool isWebGL() const { return isWebGL1() || isWebGL2(); }
+    virtual bool isWebGPU() const { return false; }
     virtual bool isGPUBased() const { return false; }
     virtual bool isAccelerated() const { return false; }
     virtual bool isBitmapRenderer() const { return false; }
@@ -78,6 +80,7 @@ public:
     virtual void prepareForDisplayWithPaint() { }
     virtual void paintRenderingResultsToCanvas() { }
     virtual RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate();
+    virtual void setContentsToLayer(GraphicsLayer&);
 
     bool hasActiveInspectorCanvasCallTracer() const { return m_hasActiveInspectorCanvasCallTracer; }
     void setHasActiveInspectorCanvasCallTracer(bool hasActiveInspectorCanvasCallTracer) { m_hasActiveInspectorCanvasCallTracer = hasActiveInspectorCanvasCallTracer; }
@@ -91,16 +94,16 @@ public:
 
 protected:
     explicit CanvasRenderingContext(CanvasBase&);
-    bool wouldTaintOrigin(const CanvasPattern*);
-    bool wouldTaintOrigin(const CanvasBase*);
-    bool wouldTaintOrigin(const HTMLImageElement*);
-    bool wouldTaintOrigin(const HTMLVideoElement*);
-    bool wouldTaintOrigin(const ImageBitmap*);
-    bool wouldTaintOrigin(const URL&);
+    bool taintsOrigin(const CanvasPattern*);
+    bool taintsOrigin(const CanvasBase*);
+    bool taintsOrigin(const HTMLImageElement*);
+    bool taintsOrigin(const HTMLVideoElement*);
+    bool taintsOrigin(const ImageBitmap*);
+    bool taintsOrigin(const URL&);
 
     template<class T> void checkOrigin(const T* arg)
     {
-        if (wouldTaintOrigin(arg))
+        if (taintsOrigin(arg))
             m_canvas.setOriginTainted();
     }
     void checkOrigin(const URL&);

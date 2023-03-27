@@ -416,7 +416,7 @@ static void SOSTransportSendPendingMessage(CFArrayRef attributes, SOSMessage* tr
                 shouldSend = true;
             }
 
-            secnotice("ratelimit","should send? : %@", shouldSend ? @"YES" : @"NO");
+            secnotice("ratelimit", "should send? : %{BOOL}d", shouldSend);
         }
         if (shouldSend && message_to_send) {
             SOSTransportSendPendingMessage(attributes, transport, peer);

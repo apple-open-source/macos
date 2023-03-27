@@ -45,16 +45,9 @@
 #if PLATFORM(GTK)
 #include <gtk/gtk.h>
 
-#if PLATFORM(WAYLAND) && USE(WPE_RENDERER)
+#if PLATFORM(WAYLAND)
 #include <wpe/wpe.h>
 #include <wpe/fdo.h>
-#endif
-#endif
-
-#if PLATFORM(X11)
-#include <WebCore/PlatformDisplayX11.h>
-#if USE(GLX)
-#include <GL/glx.h>
 #endif
 #endif
 
@@ -71,6 +64,17 @@
 #include <epoxy/egl.h>
 #else
 #include <EGL/egl.h>
+#endif
+#endif
+
+#if PLATFORM(X11)
+#include <WebCore/PlatformDisplayX11.h>
+#if USE(GLX)
+#if USE(LIBEPOXY)
+#include <epoxy/glx.h>
+#else
+#include <GL/glx.h>
+#endif
 #endif
 #endif
 
@@ -134,46 +138,30 @@ static const char* hardwareAccelerationPolicy(WebKitURISchemeRequest* request)
     RELEASE_ASSERT_NOT_REACHED();
 }
 
+#if ENABLE(WEBGL)
 static bool webGLEnabled(WebKitURISchemeRequest* request)
 {
     auto* webView = webkit_uri_scheme_request_get_web_view(request);
     ASSERT(webView);
     return webkit_settings_get_enable_webgl(webkit_web_view_get_settings(webView));
 }
+#endif
 
-static const char* openGLAPI()
+static const char* openGLAPI(bool isEGL)
 {
 #if USE(LIBEPOXY)
     if (epoxy_is_desktop_gl())
         return "OpenGL (libepoxy)";
     return "OpenGL ES 2 (libepoxy)";
 #else
-#if USE(GLX)
-    if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::X11)
-        return "OpenGL";
-#endif
 #if USE(EGL)
+    if (isEGL) {
 #if USE(OPENGL_ES)
-    return "OpenGL ES 2";
-#else
+        return "OpenGL ES 2";
+#endif
+    }
+#endif
     return "OpenGL";
-#endif
-#endif
-#endif
-    RELEASE_ASSERT_NOT_REACHED();
-}
-
-static const char* nativeInterface()
-{
-#if PLATFORM(GTK)
-#if USE(GLX)
-    if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::X11)
-        return "GLX";
-#endif
-#endif
-
-#if USE(EGL)
-    return "EGL";
 #endif
     RELEASE_ASSERT_NOT_REACHED();
 }
@@ -254,7 +242,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
         GTK_MAJOR_VERSION, GTK_MINOR_VERSION, GTK_MICRO_VERSION,
         gtk_get_major_version(), gtk_get_minor_version(), gtk_get_micro_version());
 
-#if PLATFORM(WAYLAND) && USE(WPE_RENDERER)
+#if PLATFORM(WAYLAND)
     if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland) {
         g_string_append_printf(html,
             " <tbody><tr>"
@@ -370,23 +358,27 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
         "  <td>%s</td>"
         " </tbody></tr>",
         webGLEnabled(request) ? "Yes" : "No");
+#endif
 
+#if USE(EGL) || USE(GLX)
     auto glContext = GLContext::createOffscreenContext();
     glContext->makeContextCurrent();
+
+    bool isEGL = glContext->isEGLContext();
 
     g_string_append_printf(html,
         " <tbody><tr>"
         "  <td><div class=\"titlename\">API</div></td>"
         "  <td>%s</td>"
         " </tbody></tr>",
-        openGLAPI());
+        openGLAPI(isEGL));
 
     g_string_append_printf(html,
         " <tbody><tr>"
         "  <td><div class=\"titlename\">Native interface</div></td>"
         "  <td>%s</td>"
         " </tbody></tr>",
-        nativeInterface());
+        isEGL ? "EGL" : "GLX");
 
     g_string_append_printf(html,
         " <tbody><tr>"
@@ -441,10 +433,8 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
     g_string_free(extensions, TRUE);
 #endif
 
-    bool isGLX = false;
 #if USE(GLX)
-    if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::X11) {
-        isGLX = true;
+    if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::X11 && !isEGL) {
         auto* x11Display = downcast<PlatformDisplayX11>(PlatformDisplay::sharedDisplay()).native();
 
         g_string_append_printf(html,
@@ -471,7 +461,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
 #endif
 
 #if USE(EGL)
-    if (!isGLX) {
+    if (isEGL) {
         auto eglDisplay = PlatformDisplay::sharedDisplay().eglDisplay();
 
         g_string_append_printf(html,
@@ -497,7 +487,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
             eglQueryString(eglDisplay, EGL_EXTENSIONS));
     }
 #endif
-#endif // ENABLE(WEBGL)
+#endif // USE(EGL) || USE(GLX)
 
     g_string_append(html, "<table>");
 

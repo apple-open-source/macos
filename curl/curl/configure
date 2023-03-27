@@ -997,8 +997,8 @@ CURL_DISABLE_FILE
 CURL_DISABLE_FTP
 CURL_DISABLE_RTSP
 CURL_DISABLE_HTTP
-OS_WINDOWS_FALSE
-OS_WINDOWS_TRUE
+HAVE_WINDRES_FALSE
+HAVE_WINDRES_TRUE
 USE_WIN32_CRYPTO
 USE_WIN32_SMALL_FILES
 USE_WIN32_LARGE_FILES
@@ -1051,6 +1051,7 @@ build_os
 build_vendor
 build_cpu
 build
+TEST_NGHTTPX
 PKGADD_VENDOR
 PKGADD_NAME
 PKGADD_PKG
@@ -1182,6 +1183,7 @@ with_bearssl
 with_rustls
 with_nss_deprecated
 with_nss
+with_test_nghttpx
 with_darwinssl
 enable_largefile
 enable_shared
@@ -2068,6 +2070,8 @@ Optional Packages:
   --with-nss-deprecated   confirm you realize NSS is going away
   --with-nss=PATH         where to look for NSS, PATH points to the
                           installation root
+  --with-test-nghttpx=PATH
+                          where to find nghttpx for testing
 
   --with-pic[=PKGS]       try to use only PIC/non-PIC objects [default=use
                           both]
@@ -6826,6 +6830,20 @@ then :
   fi
 
 fi
+
+
+TEST_NGHTTPX=nghttpx
+
+# Check whether --with-test-nghttpx was given.
+if test ${with_test_nghttpx+y}
+then :
+  withval=$with_test_nghttpx; TEST_NGHTTPX=$withval
+  if test X"$OPT_TEST_NGHTTPX" = "Xno" ; then
+      TEST_NGHTTPX=""
+  fi
+
+fi
+
 
 
 if test -z "$TLSCHOICE"; then
@@ -21202,14 +21220,21 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 
 
- if test "$curl_cv_native_windows" = "yes"; then
-  OS_WINDOWS_TRUE=
-  OS_WINDOWS_FALSE='#'
+ if test "$curl_cv_native_windows" = "yes" && test -n "${RC}"; then
+  HAVE_WINDRES_TRUE=
+  HAVE_WINDRES_FALSE='#'
 else
-  OS_WINDOWS_TRUE='#'
-  OS_WINDOWS_FALSE=
+  HAVE_WINDRES_TRUE='#'
+  HAVE_WINDRES_FALSE=
 fi
 
+
+if test "$curl_cv_native_windows" = "yes"; then
+  if test -z "$HAVE_WINDRES_TRUE"; then :
+  else
+  as_fn_error $? "windres not found in PATH. Windows builds require windres. Cannot continue." "$LINENO" 5
+fi
+fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether to support http" >&5
 printf %s "checking whether to support http... " >&6; }
@@ -25762,7 +25787,6 @@ printf "%s\n" "$as_me: PKG_CONFIG_LIBDIR will be set to \"$OPENSSL_PCDIR\"" >&6;
       SSL_LDFLAGS="-L$LIB_OPENSSL"
       SSL_CPPFLAGS="-I$PREFIX_OPENSSL/include"
     fi
-    SSL_CPPFLAGS="$SSL_CPPFLAGS -I$PREFIX_OPENSSL/include/openssl"
     ;;
   esac
 
@@ -25992,7 +26016,7 @@ else $as_nop
      fi
      if test "$PKGCONFIG" = "no" -a -n "$PREFIX_OPENSSL" ; then
        # only set this if pkg-config wasn't used
-       CPPFLAGS="$CLEANCPPFLAGS -I$PREFIX_OPENSSL/include/openssl -I$PREFIX_OPENSSL/include"
+       CPPFLAGS="$CLEANCPPFLAGS -I$PREFIX_OPENSSL/include"
      fi
      # Linking previously failed, try extra paths from --with-openssl or
      # pkg-config.  Use a different function name to avoid reusing the earlier
@@ -27507,6 +27531,19 @@ printf "%s\n" "#define HAVE_WOLFSSL_DES_ECB_ENCRYPT 1" >>confdefs.h
 fi
 
 
+            ac_fn_c_check_func "$LINENO" "wolfSSL_BIO_set_shutdown" "ac_cv_func_wolfSSL_BIO_set_shutdown"
+if test "x$ac_cv_func_wolfSSL_BIO_set_shutdown" = xyes
+then :
+
+
+printf "%s\n" "#define HAVE_WOLFSSL_FULL_BIO 1" >>confdefs.h
+
+            WOLFSSL_FULL_BIO=1
+
+
+fi
+
+
       if test -n "$wolfssllibpath"; then
                                         if test "x$cross_compiling" != "xyes"; then
           CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$wolfssllibpath"
@@ -27696,6 +27733,14 @@ if test "x$OPT_RUSTLS" != xno; then
     if test "$OPT_RUSTLS" = "yes"; then
       OPT_RUSTLS=""
     fi
+
+    case $host_os in
+      darwin*)
+        LDFLAGS="$LDFLAGS -framework Security"
+        ;;
+      *)
+        ;;
+    esac
 
     if test -z "$OPT_RUSTLS" ; then
 
@@ -29756,9 +29801,6 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam \
   if test "$tst_links_winidn" = "yes"; then
 
 printf "%s\n" "#define USE_WIN32_IDN 1" >>confdefs.h
-
-
-printf "%s\n" "#define WANT_IDN_PROTOTYPES 1" >>confdefs.h
 
     IDN_ENABLED=1
 
@@ -32646,38 +32688,6 @@ then :
   printf "%s\n" "#define HAVE_SYS_UIO_H 1" >>confdefs.h
 
 fi
-ac_fn_c_check_header_compile "$LINENO" "assert.h" "ac_cv_header_assert_h" "
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-#ifdef HAVE_SYS_SELECT_H
-#include <sys/select.h>
-#elif defined(HAVE_UNISTD_H)
-#include <unistd.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif
-#ifdef HAVE_NETINET_IN6_H
-#include <netinet/in6.h>
-#endif
-#ifdef HAVE_SYS_UN_H
-#include <sys/un.h>
-#endif
-
-
-"
-if test "x$ac_cv_header_assert_h" = xyes
-then :
-  printf "%s\n" "#define HAVE_ASSERT_H 1" >>confdefs.h
-
-fi
 ac_fn_c_check_header_compile "$LINENO" "unistd.h" "ac_cv_header_unistd_h" "
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -33540,38 +33550,6 @@ ac_fn_c_check_header_compile "$LINENO" "locale.h" "ac_cv_header_locale_h" "
 if test "x$ac_cv_header_locale_h" = xyes
 then :
   printf "%s\n" "#define HAVE_LOCALE_H 1" >>confdefs.h
-
-fi
-ac_fn_c_check_header_compile "$LINENO" "errno.h" "ac_cv_header_errno_h" "
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-#ifdef HAVE_SYS_SELECT_H
-#include <sys/select.h>
-#elif defined(HAVE_UNISTD_H)
-#include <unistd.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif
-#ifdef HAVE_NETINET_IN6_H
-#include <netinet/in6.h>
-#endif
-#ifdef HAVE_SYS_UN_H
-#include <sys/un.h>
-#endif
-
-
-"
-if test "x$ac_cv_header_errno_h" = xyes
-then :
-  printf "%s\n" "#define HAVE_ERRNO_H 1" >>confdefs.h
 
 fi
 ac_fn_c_check_header_compile "$LINENO" "stdbool.h" "ac_cv_header_stdbool_h" "
@@ -43347,7 +43325,7 @@ fi
 
 
 
-  for ac_func in fnmatch fchmod geteuid getpass_r getppid getpwuid getpwuid_r getrlimit gettimeofday if_nametoindex mach_absolute_time pipe sched_yield sendmsg setlocale setmode setrlimit snprintf utime utimes
+  for ac_func in fnmatch fchmod fork geteuid getpass_r getppid getpwuid getpwuid_r getrlimit gettimeofday if_nametoindex mach_absolute_time pipe sched_yield sendmsg setlocale setmode setrlimit snprintf utime utimes
 do :
   as_ac_var=`printf "%s\n" "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
@@ -44376,6 +44354,8 @@ printf %s "checking whether to enable NTLM delegation to winbind's helper... " >
     test "x$SSL_ENABLED" = "x"; then
     want_ntlm_wb_file=""
     want_ntlm_wb="no"
+  elif test "x$ac_cv_func_fork" != "xyes"; then
+        want_ntlm_wb="no"
   fi
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $want_ntlm_wb" >&5
 printf "%s\n" "$want_ntlm_wb" >&6; }
@@ -45042,8 +45022,17 @@ if test "x$CURL_WITH_MULTI_SSL" = "x1"; then
 fi
 
 if test "x$https_proxy" != "xno"; then
-  if test "x$OPENSSL_ENABLED" = "x1" -o "x$GNUTLS_ENABLED" = "x1" \
-      -o "x$NSS_ENABLED" = "x1"; then
+  if test "x$OPENSSL_ENABLED" = "x1" \
+      -o "x$GNUTLS_ENABLED" = "x1" \
+      -o "x$NSS_ENABLED" = "x1" \
+      -o "x$SECURETRANSPORT_ENABLED" = "x1" \
+      -o "x$RUSTLS_ENABLED" = "x1" \
+      -o "x$BEARSSL_ENABLED" = "x1" \
+      -o "x$SCHANNEL_ENABLED" = "x1" \
+      -o "x$GNUTLS_ENABLED" = "x1" \
+      -o "x$MBEDTLS_ENABLED" = "x1"; then
+    SUPPORT_FEATURES="$SUPPORT_FEATURES HTTPS-proxy"
+  elif test "x$WOLFSSL_ENABLED" = "x1" -a "x$WOLFSSL_FULL_BIO" = "x1"; then
     SUPPORT_FEATURES="$SUPPORT_FEATURES HTTPS-proxy"
   fi
 fi
@@ -45371,7 +45360,7 @@ if test "x$want_curldebug_assumed" = "xyes" &&
   ac_configure_args="$ac_configure_args --enable-curldebug"
 fi
 
-ac_config_files="$ac_config_files Makefile docs/Makefile docs/examples/Makefile docs/libcurl/Makefile docs/libcurl/opts/Makefile docs/cmdline-opts/Makefile include/Makefile include/curl/Makefile src/Makefile lib/Makefile scripts/Makefile lib/libcurl.vers lib/libcurl.plist tests/Makefile tests/certs/Makefile tests/certs/scripts/Makefile tests/data/Makefile tests/server/Makefile tests/libtest/Makefile tests/unit/Makefile packages/Makefile packages/vms/Makefile curl-config libcurl.pc"
+ac_config_files="$ac_config_files Makefile docs/Makefile docs/examples/Makefile docs/libcurl/Makefile docs/libcurl/opts/Makefile docs/cmdline-opts/Makefile include/Makefile include/curl/Makefile src/Makefile lib/Makefile scripts/Makefile lib/libcurl.vers lib/libcurl.plist tests/Makefile tests/config tests/certs/Makefile tests/certs/scripts/Makefile tests/data/Makefile tests/server/Makefile tests/libtest/Makefile tests/unit/Makefile packages/Makefile packages/vms/Makefile curl-config libcurl.pc"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -45542,8 +45531,8 @@ if test -z "${DOING_NATIVE_WINDOWS_TRUE}" && test -z "${DOING_NATIVE_WINDOWS_FAL
   as_fn_error $? "conditional \"DOING_NATIVE_WINDOWS\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
-if test -z "${OS_WINDOWS_TRUE}" && test -z "${OS_WINDOWS_FALSE}"; then
-  as_fn_error $? "conditional \"OS_WINDOWS\" was never defined.
+if test -z "${HAVE_WINDRES_TRUE}" && test -z "${HAVE_WINDRES_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_WINDRES\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_LIBZ_TRUE}" && test -z "${HAVE_LIBZ_FALSE}"; then
@@ -46539,6 +46528,7 @@ do
     "lib/libcurl.vers") CONFIG_FILES="$CONFIG_FILES lib/libcurl.vers" ;;
     "lib/libcurl.plist") CONFIG_FILES="$CONFIG_FILES lib/libcurl.plist" ;;
     "tests/Makefile") CONFIG_FILES="$CONFIG_FILES tests/Makefile" ;;
+    "tests/config") CONFIG_FILES="$CONFIG_FILES tests/config" ;;
     "tests/certs/Makefile") CONFIG_FILES="$CONFIG_FILES tests/certs/Makefile" ;;
     "tests/certs/scripts/Makefile") CONFIG_FILES="$CONFIG_FILES tests/certs/scripts/Makefile" ;;
     "tests/data/Makefile") CONFIG_FILES="$CONFIG_FILES tests/data/Makefile" ;;

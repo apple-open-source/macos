@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015, 2016, 2018, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,19 +43,19 @@ static boolean_t _available	= TRUE;
 // handle pthread_atfork callbacks.
 
 void
-_libSC_info_fork_prepare()
+_libSC_info_fork_prepare(void)
 {
 	return;
 }
 
 void
-_libSC_info_fork_parent()
+_libSC_info_fork_parent(void)
 {
 	return;
 }
 
 void
-_libSC_info_fork_child()
+_libSC_info_fork_child(void)
 {
 	if (_dispatch_is_fork_of_multithreaded_parent()) {
 		_available = FALSE;
@@ -82,7 +82,7 @@ log_xpc_object(const char *msg, xpc_object_t obj)
 
 __private_extern__
 _Bool
-libSC_info_available()
+libSC_info_available(void)
 {
 	return _available;
 }

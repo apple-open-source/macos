@@ -36,14 +36,18 @@ public:
     LayoutRect replacedContentRect(const LayoutSize& intrinsicSize) const;
     LayoutRect replacedContentRect() const { return replacedContentRect(intrinsicSize()); }
 
-    bool hasReplacedLogicalWidth() const;
-    bool hasReplacedLogicalHeight() const;
     bool setNeedsLayoutIfNeededAfterIntrinsicSizeChange();
 
     LayoutSize intrinsicSize() const final
     {
-        if (shouldApplySizeContainment())
-            return LayoutSize();
+        if (shouldApplySizeContainment()) {
+            LayoutSize size;
+            if (auto width = explicitIntrinsicInnerWidth())
+                size.setWidth(width.value());
+            if (auto height = explicitIntrinsicInnerHeight())
+                size.setHeight(height.value());
+            return size;
+        }
         return m_intrinsicSize;
     }
     
@@ -107,6 +111,8 @@ private:
     
     Color calculateHighlightColor() const;
     bool isHighlighted(HighlightState, const HighlightData&) const;
+
+    bool hasReplacedLogicalHeight() const;
 
     mutable LayoutSize m_intrinsicSize;
     mutable FloatSize m_intrinsicRatio;

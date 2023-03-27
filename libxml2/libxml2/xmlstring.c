@@ -45,7 +45,6 @@ xmlStrndup(const xmlChar *cur, int len) {
     if ((cur == NULL) || (len < 0)) return(NULL);
     ret = (xmlChar *) xmlMallocAtomic(((size_t) len + 1) * sizeof(xmlChar));
     if (ret == NULL) {
-        xmlErrMemory(NULL, NULL);
         return(NULL);
     }
     memcpy(ret, cur, len * sizeof(xmlChar));
@@ -90,7 +89,6 @@ xmlCharStrndup(const char *cur, int len) {
     if ((cur == NULL) || (len < 0)) return(NULL);
     ret = (xmlChar *) xmlMallocAtomic(((size_t) len + 1) * sizeof(xmlChar));
     if (ret == NULL) {
-        xmlErrMemory(NULL, NULL);
         return(NULL);
     }
     for (i = 0;i < len;i++) {
@@ -465,7 +463,6 @@ xmlStrncat(xmlChar *cur, const xmlChar *add, int len) {
         return(NULL);
     ret = (xmlChar *) xmlRealloc(cur, ((size_t) size + len + 1) * sizeof(xmlChar));
     if (ret == NULL) {
-        xmlErrMemory(NULL, NULL);
         return(cur);
     }
     memcpy(&ret[size], add, len * sizeof(xmlChar));
@@ -505,7 +502,6 @@ xmlStrncatNew(const xmlChar *str1, const xmlChar *str2, int len) {
         return(NULL);
     ret = (xmlChar *) xmlMalloc(((size_t) size + len + 1) * sizeof(xmlChar));
     if (ret == NULL) {
-        xmlErrMemory(NULL, NULL);
         return(xmlStrndup(str1, size));
     }
     memcpy(ret, str1, size * sizeof(xmlChar));
@@ -1034,7 +1030,6 @@ xmlEscapeFormatString(xmlChar **msg)
            out-of-memory situations. */
         xmlFree(*msg);
         *msg = NULL;
-        xmlErrMemory(NULL, NULL);
         return(NULL);
     }
 

@@ -19,6 +19,7 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/accessibility/atspi"
+    "${WEBCORE_DIR}/crypto/openssl"
     "${WEBCORE_DIR}/platform/adwaita"
     "${WEBCORE_DIR}/platform/audio/glib"
     "${WEBCORE_DIR}/platform/glib"
@@ -138,5 +139,24 @@ if (USE_LIBGBM)
     list(APPEND WebCore_LIBRARIES
         ${GBM_LIBRARIES}
         ${LIBDRM_LIBRARIES}
+    )
+endif ()
+
+if (ENABLE_GAMEPAD)
+    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/platform/gamepad/libwpe"
+    )
+
+    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+        platform/gamepad/libwpe/GamepadProviderLibWPE.h
+    )
+endif ()
+
+if (ENABLE_SPEECH_SYNTHESIS)
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
+        ${Flite_INCLUDE_DIRS}
+    )
+    list(APPEND WebCore_LIBRARIES
+        ${Flite_LIBRARIES}
     )
 endif ()

@@ -45,6 +45,7 @@
 #include <smbclient/smbclient_internal.h>
 #include <netsmb/smb_sleephandler.h>
 #include <netsmb/smb_read_write.h>
+#include <netsmb/smb_dev_2.h>
 
 #include <sys/sysctl.h>
 
@@ -1478,7 +1479,7 @@ resend:
 
     /* If we are using persistent handle, Oplock level is none */
     if ((createp->flags & (SMB2_CREATE_DUR_HANDLE | SMB2_CREATE_DUR_HANDLE_RECONNECT)) &&
-        (SS_TO_SESSION(share)->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) &&
+        (SS_TO_SESSION(share)->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) &&
         (share->ss_share_caps & SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY)) {
         mb_put_uint8(mbp, SMB2_OPLOCK_LEVEL_NONE);  /* Oplock level */
     }
@@ -1662,6 +1663,40 @@ resend:
         goto bad;
     }
 
+    if (SS_TO_SESSION(share)->session_sopt.sv_active_capabilities &
+        SMB2_GLOBAL_CAP_LEASING) {
+        if (createp->ret_oplock_level != SMB2_OPLOCK_LEVEL_LEASE &&
+            createp->ret_oplock_level != SMB2_OPLOCK_LEVEL_NONE) {
+            /*
+             * we don't support oplocks other than leasing
+             * if a create response returns an oplock:
+             * 1) turn off leasing for this session
+             * 2) close the file and reopen it
+             */
+            SS_TO_SESSION(share)->session_sopt.sv_active_capabilities &=
+                                                    ~SMB2_GLOBAL_CAP_LEASING;
+            
+            struct smb2_close_rq closep = {0};
+            closep.share = share;
+            closep.fid = createp->ret_fid;
+            
+            error = smb2_smb_close(share, &closep, NULL, iod, context);
+            if (error) {
+                SMBDEBUG("smb2_smb_close failed %d ntstatus 0x%x\n",
+                         error,
+                         closep.ret_ntstatus);
+                goto bad;
+            }
+            
+            
+            /* Rebuild and try sending again */
+            createp->oplock_level = SMB2_OPLOCK_LEVEL_NONE;
+            smb_rq_done(rqp);
+            rqp = NULL;
+            iod = NULL;
+            goto resend;
+        }
+    }
 bad:    
     smb_rq_done(rqp);
     return error;
@@ -1974,14 +2009,51 @@ smb2_smb_get_client_dialects(struct smb_session *sessionp, int inReconnect,
     }
     else {
         /*
-         * In reconnect, stay with whatever version we had before.
+         * In reconnect, stay with whatever version we had before
+         * unless session_max_dialect is set
          */
         *dialect_cnt = 1;
 
-        /*
-         * In reconnect, stay with whatever version we had before.
-         */
-        if (sessionp->session_flags & SMBV_SMB311) {
+        if (sessionp->session_max_dialect != 0) {
+           /*
+            * <rdar://problem/102811989>
+            * This happens in DFS, when a tree connect response returns BAD_CLUSTER_DIALECT
+            * In this case we need to negotiate with max_dialect
+            */
+            dialects[0] = SMB2_DIALECT_0202;        /* 2.002 Dialect */
+            dialects[1] = SMB2_DIALECT_0210;        /* 2.1 Dialect */
+            dialects[2] = SMB2_DIALECT_0300;        /* 3.0 Dialect */
+            dialects[3] = SMB2_DIALECT_0302;        /* 3.0.2 Dialect */
+            dialects[4] = SMB2_DIALECT_0311;        /* 3.1.1 Dialect */
+            switch (sessionp->session_max_dialect) {
+                case SMB2_DIALECT_0202:
+                    *dialect_cnt = 1;
+                    break;
+                case SMB2_DIALECT_0210:
+                    *dialect_cnt = 2;
+                    break;
+                case SMB2_DIALECT_0300:
+                    *dialect_cnt = 3;
+                    break;
+                case SMB2_DIALECT_0302:
+                    *dialect_cnt = 4;
+                    break;
+                case SMB2_DIALECT_0311:
+                    *dialect_cnt = 5;
+                    break;
+                default:
+                    // Should not happen
+                    SMBERROR("session_max_dialect set to unknown dialect 0x%x",
+                             sessionp->session_max_dialect);
+                    *dialect_cnt = 5;
+            }
+            /* Zero out the part of the array that's not needed */
+            memset(dialects + *dialect_cnt, 0, sizeof(uint16_t)*(max_dialects_size - *dialect_cnt));
+
+            /* Zero session_max_dialect so the next reconnect uses only one dialect*/
+            sessionp->session_max_dialect = 0;
+       }
+        else if (sessionp->session_flags & SMBV_SMB311) {
             dialects[0] = SMB2_DIALECT_0311;        /* 3.1.1 Dialect */
         }
         else if (sessionp->session_flags & SMBV_SMB302) {
@@ -2612,7 +2684,7 @@ resend:
 
         if (auio != NULL) {
             /* ASSUME ioctl will work and write entire amount */
-            uio_update(ioctlp->snd_input_uio, ioctlp->snd_input_len);
+            smbfs_uio_update(ioctlp->snd_input_uio, ioctlp->snd_input_len);
 
             uio_free(auio);
             auio = NULL;
@@ -2668,7 +2740,7 @@ resend:
     else {
         if (auio != NULL) {
             /* Update uio with amount of data written */
-            uio_update(ioctlp->snd_input_uio, ioctlp->snd_input_len);
+            smbfs_uio_update(ioctlp->snd_input_uio, ioctlp->snd_input_len);
         }
     }
 
@@ -6392,31 +6464,32 @@ smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int s
     if (error) {
         goto bad;
     }
-    
-    /* Paranoid check */
-    if (!(temp32 & SMB2_GLOBAL_CAP_LEASING)) {
-        /* How can you not support leasing, but support dir leasing??? */
-        SMBWARNING("Server does not support leasing but supports dir leases? Disabling dir leases. \n");
-        temp32 &= ~SMB2_GLOBAL_CAP_DIRECTORY_LEASING;
-    }
 
     if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
         /* Alt Channel: validate */
-        if (temp32 != sp->sv_capabilities) {
-            SMBERROR("sv_capabilities mismatch (0x%x 0x%x).\n",
-                     temp32, sp->sv_capabilities);
+        if (temp32 != sp->sv_saved_capabilities) {
+            SMBERROR("sv_saved_capabilities mismatch (0x%x 0x%x).\n",
+                     temp32, sp->sv_saved_capabilities);
             error = EINVAL;
             goto bad;
         }
     }
     else {
         /* Main Channel: save value */
-        sp->sv_capabilities = temp32;
+        sp->sv_saved_capabilities = temp32;
+
+        if (!(temp32 & SMB2_GLOBAL_CAP_LEASING)) {
+            /* we don't support dir leasing if leasing is not supported, we should: rdar://103353045 */
+            SMBWARNING("Server does not support leasing but supports dir leases? Disabling dir leases. \n");
+            temp32 &= ~SMB2_GLOBAL_CAP_DIRECTORY_LEASING;
+        }
+        
+        sp->sv_active_capabilities = temp32;
 
         /*
-         * %%% To Do - too many places are looking at sv_capabilities
+         * %%% To Do - too many places are looking at sv_active_capabilities
          * so for now, prefill it in.  Later we should use the
-         * sv_capabilities for SMB 2/3.
+         * sv_active_capabilities for SMB 2/3.
          */
         sp->sv_caps = (SMB_CAP_UNICODE |
                        SMB_CAP_LARGE_FILES |
@@ -6431,12 +6504,12 @@ smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int s
                        SMB_CAP_LARGE_WRITEX |
                        SMB_CAP_EXT_SECURITY);
 
-        if (sp->sv_capabilities & SMB2_GLOBAL_CAP_DFS) {
+        if (sp->sv_active_capabilities & SMB2_GLOBAL_CAP_DFS) {
             sp->sv_caps |= SMB_CAP_DFS;
         }
 
         if ((SMBV_SMB3_OR_LATER(sessionp)) &&
-            (sp->sv_capabilities & SMB2_GLOBAL_CAP_MULTI_CHANNEL) &&
+            (sp->sv_active_capabilities & SMB2_GLOBAL_CAP_MULTI_CHANNEL) &&
             (sessionp->neg_capabilities & SMB2_GLOBAL_CAP_MULTI_CHANNEL)) {
             sessionp->session_flags |= SMBV_MULTICHANNEL_ON;
         }
@@ -6445,7 +6518,7 @@ smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int s
         }
         
         if ((SMBV_SMB21_OR_LATER(sessionp)) &&
-            (sp->sv_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
+            (sp->sv_active_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
             (sessionp->session_resp_wait_timeout < SMB_RESP_TIMO_W_LEASING)) {
                 /* <93379514>:
                  * Lease breaks may take up to 35 sec to timeout.
@@ -8550,7 +8623,7 @@ smb2_smb_read_write_async(struct smb_share *share,
         }
     }
 
-    if (sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_LARGE_MTU) {
+    if (sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LARGE_MTU) {
         /* Get the quantum size and number to use */
         smb2_smb_get_quantum_sizes(sessionp, *len, do_read, &quantumSize, &quantumNbr, &recheck);
     }
@@ -8973,7 +9046,7 @@ bad:
         in_read_writep->io_len = tmp_read_write.io_len;
         in_read_writep->ret_len = tmp_read_write.ret_len;
 
-        uio_update(in_read_writep->auio, *rresid);
+        smbfs_uio_update(in_read_writep->auio, *rresid);
     }
 
     if (tmp_read_write.auio) {
@@ -8989,7 +9062,7 @@ bad:
      * quantum size and number.
      */
     if ((error == 0) &&
-        (sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_LARGE_MTU) &&
+        (sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LARGE_MTU) &&
         (recheck == 1)) {
         /* Get elapsed time for this transfer */
         timersub (&current_time, &start_time, &elapsed_time);
@@ -9089,7 +9162,7 @@ smb2_smb_read_write_fill(struct smb_share *share,
 	(*rqp)->sr_state = SMBRQ_NOTSENT;
     
     /* ASSUME read/write will work and read entire amount */
-    uio_update(master_read_writep->auio, len);
+    smbfs_uio_update(master_read_writep->auio, len);
     
 bad:
     SMB_LOG_KTRACE(SMB_DBG_SMB_RW_FILL | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -9412,23 +9485,108 @@ bad:
     return error;
 }
 
+/* Parse the error response and get the max_dialect */
+static int
+smb2_smb_tree_connect_bad_cluster_dialect(struct smb_rq* rqp)
+{
+    int error = 0;
+    uint32_t byte_count = 0;
+    uint16_t structure_size = 0, max_dialect = 0;
+    uint8_t error_context_count = 0, reserved = 0;
+    struct mdchain *mdp = NULL;
+    struct smb_session *sessionp = rqp->sr_session;
+
+    smb_rq_getreply(rqp, &mdp);
+
+    /* Check structure size is 9 */
+    error = md_get_uint16le(mdp, &structure_size);
+    if (error) {
+        goto bad;
+    }
+    if (structure_size != 9) {
+        SMBERROR("Bad struct size: %u\n", (uint32_t)structure_size);
+        error = EBADRPC;
+        goto bad;
+    }
+
+    /* Should have 1 error context */
+    error = md_get_uint8(mdp, &error_context_count);
+    if (error) {
+        goto bad;
+    }
+    if (error_context_count != 1) {
+        SMBERROR("Too many error contexts: %u\n", (uint32_t)error_context_count);
+        error = EBADRPC;
+        goto bad;
+    }
+
+    /* reserved */
+    error = md_get_uint8(mdp, &reserved);
+    if (error) {
+        goto bad;
+    }
+
+    /* Get the byte count of the error context */
+    error = md_get_uint32le(mdp, &byte_count);
+    if (error) {
+        goto bad;
+    }
+    if (byte_count < 2) {
+        SMBERROR("Error context data byte count <%d> < 2", byte_count);
+        error = EINVAL;
+        goto bad;
+    }
+    /* Read all data except last two bytes */
+    error = md_get_mem(mdp, NULL, byte_count - 2, MB_MSYSTEM);
+    if (error) {
+        goto bad;
+    }
+
+    /* The last two bytes contain max_dialect */
+    error = md_get_uint16le(mdp, &max_dialect);
+    if (error) {
+        goto bad;
+    }
+
+    switch(max_dialect) {
+        case SMB2_DIALECT_0202:
+        case SMB2_DIALECT_0210:
+            /* turn off SMB3 for this session, reconnecting with SMB2 */
+            sessionp->session_flags &= ~(SMBV_SMB30 | SMBV_SMB302 | SMBV_SMB311);
+        case SMB2_DIALECT_0300:
+        case SMB2_DIALECT_0302:
+        case SMB2_DIALECT_0311:
+            sessionp->session_max_dialect = max_dialect;
+            break;
+        default:
+            SMBERROR("Unknown dialect 0x%x", max_dialect);
+            error = EINVAL;
+            goto bad;
+    }
+
+bad:
+    return error;
+}
+
 int 
 smb2_smb_tree_connect(struct smb_session *sessionp, struct smb_share *share,
                       const char *serverName, size_t serverNameLen,
                       vfs_context_t context)
 {
 #pragma unused(sessionp)
-	struct smb_rq *rqp;
-	struct mbchain *mbp;
-	struct mdchain *mdp;
-	int error;
-    uint16_t structure_size;
-    uint8_t share_type;
-    uint8_t reserved;
+	struct smb_rq *rqp = NULL;
+	struct mbchain *mbp = NULL;
+	struct mdchain *mdp = NULL;
+	int error = 0;
+    uint16_t structure_size = 0;
+    uint8_t share_type = 0;
+    uint8_t reserved = 0;
 	share->ss_tree_id = SMB2_TID_UNKNOWN;
     struct smbiod *iod = NULL;
     bool replay = false;
     uint32_t was_encrypted = 0;
+    uint32_t sleep_attempts = 0;
+    struct timespec sleeptime = {0};
 
 resend:
     /*
@@ -9547,6 +9705,48 @@ resend:
             goto resend;
         }
         
+        if (rqp->sr_ntstatus == STATUS_SMB_BAD_CLUSTER_DIALECT) {
+            /*
+             * <rdar://problem/102811989>
+             * 3.2.5.5: The SMB dialect is not supported and need to renegotiate
+             * with ErrorContextData as the new maximum dialect
+             */
+            error = smb2_smb_tree_connect_bad_cluster_dialect(rqp);
+            SMBERROR("TreeConnect returned bad_culster_dialect with max_dialect 0x%x",
+                     sessionp->session_max_dialect);
+            if (error) {
+                SMBERROR("smb2_smb_tree_connect_bad_cluster_dialect failed with %d", error);
+                goto bad;
+            }
+
+            /* start reconnect with max_dialect */
+            smb_iod_start_reconnect(iod);
+
+            /* sleep for one second at a time */
+            sleeptime.tv_sec = 1;
+            sleeptime.tv_nsec = 0;
+
+            SMBERROR("Waiting for reconnect to finish for %d seconds",
+                     sessionp->reconnect_wait_time);
+            /* Wait for reconnect to finish and return succesfully */
+            while (iod->iod_state != SMBIOD_ST_SESSION_ACTIVE) {
+                msleep(&iod->iod_state, NULL, 0, "waiting for reconnect", &sleeptime);
+                sleep_attempts++;
+                if (sleep_attempts > sessionp->reconnect_wait_time ||
+                    iod->iod_state == SMBIOD_ST_DEAD) {
+                    /*
+                     * did the server go down while we are reconnecting?
+                     * reconnect_wait_time is the most we'll wait for reconnect, give up
+                     */
+                    SMBERROR("Failed to reconnect with %d attempts, iod_state: %d",
+                             sleep_attempts,
+                             iod->iod_state);
+                    error = ENOTCONN;
+                    goto bad;
+                }
+            }
+            SMBERROR("Finished waiting for reconnect, made %d attempts", sleep_attempts);
+        }
 		goto bad;
     }
     
@@ -9923,7 +10123,7 @@ resend:
 
         if (auio != NULL) {
             /* ASSUME write will work and write entire amount */
-            uio_update(writep->auio, *len);
+            smbfs_uio_update(writep->auio, *len);
 
             uio_free(auio);
             auio = NULL;
@@ -9961,7 +10161,7 @@ resend:
     else {
         if (auio != NULL) {
             /* Update uio with amount of data written */
-            uio_update(writep->auio, *len);
+            smbfs_uio_update(writep->auio, *len);
         }
     }
     
@@ -10051,7 +10251,7 @@ again:
     else {
         /* Update the actual uio */
         write_count -= uio_resid(temp_uio);
-        uio_update(uio, write_count);
+        smbfs_uio_update(uio, write_count);
     }
     
 done:

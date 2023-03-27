@@ -53,9 +53,9 @@
 #define GSS_S_UNAVAILABLE (((uint32_t) 16ul) << GSS_C_ROUTINE_ERROR_OFFSET)
 #define KRB5_CC_READONLY (-1765328138L)
 
-#define dummy(func, ret) int func() { return (ret); }
+#define dummy(func, ret) int func(void) { return (ret); }
 
-#define quietdummy(func, ret) int func() { return (ret); }
+#define quietdummy(func, ret) int func(void) { return (ret); }
 
 
 dummy(add_error_table, 0);

@@ -202,7 +202,7 @@ luo{
         TM{"Turkmenistan"}
         TN{"Tunisia"}
         TO{"Tonga"}
-        TR{"Turkey"}
+        TR{"Türkiye"}
         TT{"Trinidad gi Tobago"}
         TV{"Tuvalu"}
         TW{"Taiwan"}

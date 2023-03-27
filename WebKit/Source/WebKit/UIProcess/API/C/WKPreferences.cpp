@@ -25,9 +25,10 @@
 
 #include "config.h"
 
+#include "APIArray.h"
+#include "WKAPICast.h"
 #include "WKPreferencesRef.h"
 #include "WKPreferencesRefPrivate.h"
-#include "WKAPICast.h"
 #include "WebPreferences.h"
 #include <WebCore/Settings.h>
 #include <wtf/RefPtr.h>
@@ -67,6 +68,12 @@ void WKPreferencesEndBatchingUpdates(WKPreferencesRef preferencesRef)
     toImpl(preferencesRef)->endBatchingUpdates();
 }
 
+WKArrayRef WKPreferencesCopyExperimentalFeatures(WKPreferencesRef preferencesRef)
+{
+    auto experimentalFeatures = toImpl(preferencesRef)->experimentalFeatures();
+    return toAPI(&API::Array::create(WTFMove(experimentalFeatures)).leakRef());
+}
+
 void WKPreferencesEnableAllExperimentalFeatures(WKPreferencesRef preferencesRef)
 {
     toImpl(preferencesRef)->enableAllExperimentalFeatures();
@@ -74,7 +81,13 @@ void WKPreferencesEnableAllExperimentalFeatures(WKPreferencesRef preferencesRef)
 
 void WKPreferencesSetExperimentalFeatureForKey(WKPreferencesRef preferencesRef, bool value, WKStringRef experimentalFeatureKey)
 {
-    toImpl(preferencesRef)->setExperimentalFeatureEnabledForKey(toWTFString(experimentalFeatureKey), value);
+    toImpl(preferencesRef)->setFeatureEnabledForKey(toWTFString(experimentalFeatureKey), value);
+}
+
+WKArrayRef WKPreferencesCopyInternalDebugFeatures(WKPreferencesRef preferencesRef)
+{
+    auto internalDebugFeatures = toImpl(preferencesRef)->internalDebugFeatures();
+    return toAPI(&API::Array::create(WTFMove(internalDebugFeatures)).leakRef());
 }
 
 void WKPreferencesResetAllInternalDebugFeatures(WKPreferencesRef preferencesRef)
@@ -84,27 +97,27 @@ void WKPreferencesResetAllInternalDebugFeatures(WKPreferencesRef preferencesRef)
 
 void WKPreferencesSetInternalDebugFeatureForKey(WKPreferencesRef preferencesRef, bool value, WKStringRef internalDebugFeatureKey)
 {
-    toImpl(preferencesRef)->setInternalDebugFeatureEnabledForKey(toWTFString(internalDebugFeatureKey), value);
+    toImpl(preferencesRef)->setFeatureEnabledForKey(toWTFString(internalDebugFeatureKey), value);
 }
 
 void WKPreferencesSetBoolValueForKeyForTesting(WKPreferencesRef preferencesRef, bool value, WKStringRef key)
 {
-    toImpl(preferencesRef)->setBoolValueForKey(toWTFString(key), value);
+    toImpl(preferencesRef)->setBoolValueForKey(toWTFString(key), value, true);
 }
 
 void WKPreferencesSetDoubleValueForKeyForTesting(WKPreferencesRef preferencesRef, double value, WKStringRef key)
 {
-    toImpl(preferencesRef)->setBoolValueForKey(toWTFString(key), value);
+    toImpl(preferencesRef)->setBoolValueForKey(toWTFString(key), value, true);
 }
 
 void WKPreferencesSetUInt32ValueForKeyForTesting(WKPreferencesRef preferencesRef, uint32_t value, WKStringRef key)
 {
-    toImpl(preferencesRef)->setUInt32ValueForKey(toWTFString(key), value);
+    toImpl(preferencesRef)->setUInt32ValueForKey(toWTFString(key), value, true);
 }
 
 void WKPreferencesSetStringValueForKeyForTesting(WKPreferencesRef preferencesRef, WKStringRef value, WKStringRef key)
 {
-    toImpl(preferencesRef)->setStringValueForKey(toWTFString(key), toWTFString(value));
+    toImpl(preferencesRef)->setStringValueForKey(toWTFString(key), toWTFString(value), true);
 }
 
 void WKPreferencesResetTestRunnerOverrides(WKPreferencesRef preferencesRef)
@@ -387,12 +400,11 @@ bool WKPreferencesGetTextAreasAreResizable(WKPreferencesRef preferencesRef)
 
 void WKPreferencesSetSubpixelAntialiasedLayerTextEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
-    toImpl(preferencesRef)->setSubpixelAntialiasedLayerTextEnabled(flag);
 }
 
 bool WKPreferencesGetSubpixelAntialiasedLayerTextEnabled(WKPreferencesRef preferencesRef)
 {
-    return toImpl(preferencesRef)->subpixelAntialiasedLayerTextEnabled();
+    return false;
 }
 
 void WKPreferencesSetAcceleratedDrawingEnabled(WKPreferencesRef preferencesRef, bool flag)
@@ -592,16 +604,6 @@ void WKPreferencesSetPageCacheSupportsPlugins(WKPreferencesRef, bool)
 bool WKPreferencesGetPageCacheSupportsPlugins(WKPreferencesRef)
 {
     return false;
-}
-
-void WKPreferencesSetPaginateDuringLayoutEnabled(WKPreferencesRef preferencesRef, bool enabled)
-{
-    toImpl(preferencesRef)->setPaginateDuringLayoutEnabled(enabled);
-}
-
-bool WKPreferencesGetPaginateDuringLayoutEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->paginateDuringLayoutEnabled();
 }
 
 void WKPreferencesSetDOMPasteAllowed(WKPreferencesRef preferencesRef, bool enabled)
@@ -1265,16 +1267,6 @@ bool WKPreferencesGetPeerConnectionEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->peerConnectionEnabled();
 }
 
-void WKPreferencesSetWebRTCMDNSICECandidatesEnabled(WKPreferencesRef preferencesRef, bool enabled)
-{
-    toImpl(preferencesRef)->setWebRTCMDNSICECandidatesEnabled(enabled);
-}
-
-bool WKPreferencesGetWebRTCMDNSICECandidatesEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->webRTCMDNSICECandidatesEnabled();
-}
-
 void WKPreferencesSetSpatialNavigationEnabled(WKPreferencesRef preferencesRef, bool enabled)
 {
     toImpl(preferencesRef)->setSpatialNavigationEnabled(enabled);
@@ -1765,16 +1757,6 @@ bool WKPreferencesGetStorageAccessAPIEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->storageAccessAPIEnabled();
 }
 
-void WKPreferencesSetAccessibilityObjectModelEnabled(WKPreferencesRef preferencesRef, bool flag)
-{
-    toImpl(preferencesRef)->setAccessibilityObjectModelEnabled(flag);
-}
-
-bool WKPreferencesGetAccessibilityObjectModelEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->accessibilityObjectModelEnabled();
-}
-
 void WKPreferencesSetSyntheticEditingCommandsEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setSyntheticEditingCommandsEnabled(flag);
@@ -2151,3 +2133,13 @@ bool WKPreferencesGetJavaEnabled(WKPreferencesRef)
 {
     return false;
 }
+
+void WKPreferencesSetPaginateDuringLayoutEnabled(WKPreferencesRef, bool)
+{
+}
+
+bool WKPreferencesGetPaginateDuringLayoutEnabled(WKPreferencesRef)
+{
+    return false;
+}
+

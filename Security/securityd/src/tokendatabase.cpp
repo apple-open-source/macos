@@ -231,7 +231,7 @@ bool TokenDatabase::isLocked()
 	bool lockState = pinState(1);
 //	bool lockState = access().isLocked();
 	
-	secinfo("tokendb", "returning isLocked=%d", lockState);
+	secinfo("tokendb", "returning isLocked=%{bool}d", lockState);
 	return lockState;
 }
 

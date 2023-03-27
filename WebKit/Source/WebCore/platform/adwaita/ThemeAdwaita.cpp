@@ -36,13 +36,12 @@
 
 namespace WebCore {
 
-static const unsigned focusLineWidth = 1;
-static constexpr auto focusRingColorLight = SRGBA<uint8_t> { 46, 52, 54, 150 };
-static constexpr auto focusRingColorDark = SRGBA<uint8_t> { 238, 238, 236, 150 };
+static const double focusRingOpacity = 0.8; // Keep in sync with focusRingOpacity in RenderThemeAdwaita.
+static const unsigned focusLineWidth = 2;
 static const unsigned arrowSize = 16;
 static constexpr auto arrowColorLight = SRGBA<uint8_t> { 46, 52, 54 };
 static constexpr auto arrowColorDark = SRGBA<uint8_t> { 238, 238, 236 };
-static const int buttonFocusOffset = -3;
+static const int buttonFocusOffset = -2;
 static const unsigned buttonPadding = 5;
 static const int buttonBorderSize = 1; // Keep in sync with menuListButtonBorderSize in RenderThemeAdwaita.
 static const double disabledOpacity = 0.5;
@@ -63,7 +62,7 @@ static constexpr auto toggleBorderHoveredColorDark = SRGBA<uint8_t> { 255, 255, 
 
 static const double toggleSize = 14.;
 static const int toggleBorderSize = 2;
-static const int toggleFocusOffset = 2;
+static const int toggleFocusOffset = 1;
 
 static constexpr auto spinButtonBorderColorLight = SRGBA<uint8_t> { 0, 0, 0, 25 };
 static constexpr auto spinButtonBackgroundColorLight = Color::white;
@@ -81,18 +80,26 @@ Theme& Theme::singleton()
     return theme;
 }
 
-Color ThemeAdwaita::focusColor(bool useDarkAppearance)
+Color ThemeAdwaita::focusColor(const Color& accentColor)
 {
-    return useDarkAppearance ? focusRingColorDark : focusRingColorLight;
+    return accentColor.colorWithAlphaMultipliedBy(focusRingOpacity);
 }
 
-void ThemeAdwaita::paintFocus(GraphicsContext& graphicsContext, const FloatRect& rect, int offset, bool useDarkAppearance)
+static inline float getRectRadius(const FloatRect& rect, int offset)
+{
+    return (std::min(rect.width(), rect.height()) + offset) / 2;
+}
+
+void ThemeAdwaita::paintFocus(GraphicsContext& graphicsContext, const FloatRect& rect, int offset, const Color& color, PaintRounded rounded)
 {
     FloatRect focusRect = rect;
     focusRect.inflate(offset);
+
+    float radius = (rounded == PaintRounded::Yes) ? getRectRadius(rect, offset) : 2;
+
     Path path;
-    path.addRoundedRect(focusRect, { 2, 2 });
-    paintFocus(graphicsContext, path, focusColor(useDarkAppearance));
+    path.addRoundedRect(focusRect, { radius, radius });
+    paintFocus(graphicsContext, path, color);
 }
 
 void ThemeAdwaita::paintFocus(GraphicsContext& graphicsContext, const Path& path, const Color& color)
@@ -100,10 +107,11 @@ void ThemeAdwaita::paintFocus(GraphicsContext& graphicsContext, const Path& path
     GraphicsContextStateSaver stateSaver(graphicsContext);
 
     graphicsContext.beginTransparencyLayer(color.alphaAsFloat());
-    graphicsContext.setStrokeThickness(focusLineWidth);
-    graphicsContext.setLineDash({ focusLineWidth, 2 * focusLineWidth }, 0);
-    graphicsContext.setLineCap(LineCap::Square);
-    graphicsContext.setLineJoin(LineJoin::Miter);
+    // Since we cut off a half of it by erasing the rect contents, and half
+    // of the stroke ends up inside that area, it needs to be twice as thick.
+    graphicsContext.setStrokeThickness(focusLineWidth * 2);
+    graphicsContext.setLineCap(LineCap::Round);
+    graphicsContext.setLineJoin(LineJoin::Round);
     graphicsContext.setStrokeColor(color.opaqueColor());
     graphicsContext.strokePath(path);
     graphicsContext.setFillRule(WindRule::NonZero);
@@ -113,28 +121,45 @@ void ThemeAdwaita::paintFocus(GraphicsContext& graphicsContext, const Path& path
     graphicsContext.endTransparencyLayer();
 }
 
-void ThemeAdwaita::paintFocus(GraphicsContext& graphicsContext, const Vector<FloatRect>& rects, const Color& color)
+void ThemeAdwaita::paintFocus(GraphicsContext& graphicsContext, const Vector<FloatRect>& rects, const Color& color, PaintRounded rounded)
 {
-    FloatSize corner(2, 2);
     Path path;
-    for (const auto& rect : rects)
-        path.addRoundedRect(rect, corner);
+    for (const auto& rect : rects) {
+        float radius = (rounded == PaintRounded::Yes) ? getRectRadius(rect, 0) : 2;
+
+        path.addRoundedRect(rect, { radius, radius });
+    }
     paintFocus(graphicsContext, path, color);
 }
 
-void ThemeAdwaita::paintArrow(GraphicsContext& graphicsContext, ArrowDirection direction, bool useDarkAppearance)
+void ThemeAdwaita::paintArrow(GraphicsContext& graphicsContext, const FloatRect& rect, ArrowDirection direction, bool useDarkAppearance)
 {
+    auto offset = rect.location();
+    float size;
+    if (rect.width() > rect.height()) {
+        size = rect.height();
+        offset.move((rect.width() - size) / 2, 0);
+    } else {
+        size = rect.width();
+        offset.move(0, (rect.height() - size) / 2);
+    }
+    float zoomFactor = size / arrowSize;
+    auto transform = [&](FloatPoint point) {
+        point.scale(zoomFactor);
+        point.moveBy(offset);
+        return point;
+    };
     Path path;
     switch (direction) {
     case ArrowDirection::Down:
-        path.moveTo({ 3, 6 });
-        path.addLineTo({ 13, 6 });
-        path.addLineTo({ 8, 11 });
+        path.moveTo(transform({ 3, 6 }));
+        path.addLineTo(transform({ 13, 6 }));
+        path.addLineTo(transform({ 8, 11 }));
         break;
     case ArrowDirection::Up:
-        path.moveTo({ 3, 10 });
-        path.addLineTo({ 8, 5 });
-        path.addLineTo({ 13, 10});
+        path.moveTo(transform({ 3, 10 }));
+        path.addLineTo(transform({ 8, 5 }));
+        path.addLineTo(transform({ 13, 10 }));
         break;
     }
     path.closeSubpath();
@@ -143,25 +168,25 @@ void ThemeAdwaita::paintArrow(GraphicsContext& graphicsContext, ArrowDirection d
     graphicsContext.fillPath(path);
 }
 
-LengthSize ThemeAdwaita::controlSize(ControlPart part, const FontCascade& fontCascade, const LengthSize& zoomedSize, float zoomFactor) const
+LengthSize ThemeAdwaita::controlSize(StyleAppearance appearance, const FontCascade& fontCascade, const LengthSize& zoomedSize, float zoomFactor) const
 {
     if (!zoomedSize.width.isIntrinsicOrAuto() && !zoomedSize.height.isIntrinsicOrAuto())
-        return Theme::controlSize(part, fontCascade, zoomedSize, zoomFactor);
+        return Theme::controlSize(appearance, fontCascade, zoomedSize, zoomFactor);
 
-    switch (part) {
-    case CheckboxPart:
-    case RadioPart: {
+    switch (appearance) {
+    case StyleAppearance::Checkbox:
+    case StyleAppearance::Radio: {
         LengthSize buttonSize = zoomedSize;
         if (buttonSize.width.isIntrinsicOrAuto())
-            buttonSize.width = Length(12, LengthType::Fixed);
+            buttonSize.width = Length(12 * zoomFactor, LengthType::Fixed);
         if (buttonSize.height.isIntrinsicOrAuto())
-            buttonSize.height = Length(12, LengthType::Fixed);
+            buttonSize.height = Length(12 * zoomFactor, LengthType::Fixed);
         return buttonSize;
     }
-    case InnerSpinButtonPart: {
+    case StyleAppearance::InnerSpinButton: {
         LengthSize spinButtonSize = zoomedSize;
         if (spinButtonSize.width.isIntrinsicOrAuto())
-            spinButtonSize.width = Length(static_cast<int>(arrowSize), LengthType::Fixed);
+            spinButtonSize.width = Length(static_cast<int>(arrowSize * zoomFactor), LengthType::Fixed);
         if (spinButtonSize.height.isIntrinsicOrAuto() || fontCascade.pixelSize() > static_cast<int>(arrowSize))
             spinButtonSize.height = Length(fontCascade.pixelSize(), LengthType::Fixed);
         return spinButtonSize;
@@ -170,10 +195,10 @@ LengthSize ThemeAdwaita::controlSize(ControlPart part, const FontCascade& fontCa
         break;
     }
 
-    return Theme::controlSize(part, fontCascade, zoomedSize, zoomFactor);
+    return Theme::controlSize(appearance, fontCascade, zoomedSize, zoomFactor);
 }
 
-LengthSize ThemeAdwaita::minimumControlSize(ControlPart, const FontCascade&, const LengthSize& zoomedSize, float) const
+LengthSize ThemeAdwaita::minimumControlSize(StyleAppearance, const FontCascade&, const LengthSize& zoomedSize, float) const
 {
     if (!zoomedSize.width.isIntrinsicOrAuto() && !zoomedSize.height.isIntrinsicOrAuto())
         return zoomedSize;
@@ -186,37 +211,37 @@ LengthSize ThemeAdwaita::minimumControlSize(ControlPart, const FontCascade&, con
     return minSize;
 }
 
-LengthBox ThemeAdwaita::controlBorder(ControlPart part, const FontCascade& font, const LengthBox& zoomedBox, float zoomFactor) const
+LengthBox ThemeAdwaita::controlBorder(StyleAppearance appearance, const FontCascade& font, const LengthBox& zoomedBox, float zoomFactor) const
 {
-    switch (part) {
-    case PushButtonPart:
-    case DefaultButtonPart:
-    case ButtonPart:
-    case SquareButtonPart:
+    switch (appearance) {
+    case StyleAppearance::PushButton:
+    case StyleAppearance::DefaultButton:
+    case StyleAppearance::Button:
+    case StyleAppearance::SquareButton:
         return zoomedBox;
     default:
         break;
     }
 
-    return Theme::controlBorder(part, font, zoomedBox, zoomFactor);
+    return Theme::controlBorder(appearance, font, zoomedBox, zoomFactor);
 }
 
-void ThemeAdwaita::paint(ControlPart part, ControlStates& states, GraphicsContext& context, const FloatRect& zoomedRect, float, ScrollView*, float, float, bool, bool useDarkAppearance, const Color& effectiveAccentColor)
+void ThemeAdwaita::paint(StyleAppearance appearance, ControlStates& states, GraphicsContext& context, const FloatRect& zoomedRect, float, ScrollView*, float, float, bool, bool useDarkAppearance, const Color& effectiveAccentColor)
 {
-    switch (part) {
-    case CheckboxPart:
+    switch (appearance) {
+    case StyleAppearance::Checkbox:
         paintCheckbox(states, context, zoomedRect, useDarkAppearance, effectiveAccentColor);
         break;
-    case RadioPart:
+    case StyleAppearance::Radio:
         paintRadio(states, context, zoomedRect, useDarkAppearance, effectiveAccentColor);
         break;
-    case PushButtonPart:
-    case DefaultButtonPart:
-    case ButtonPart:
-    case SquareButtonPart:
+    case StyleAppearance::PushButton:
+    case StyleAppearance::DefaultButton:
+    case StyleAppearance::Button:
+    case StyleAppearance::SquareButton:
         paintButton(states, context, zoomedRect, useDarkAppearance);
         break;
-    case InnerSpinButtonPart:
+    case StyleAppearance::InnerSpinButton:
         paintSpinButton(states, context, zoomedRect, useDarkAppearance);
         break;
     default:
@@ -285,25 +310,25 @@ void ThemeAdwaita::paintCheckbox(ControlStates& states, GraphicsContext& graphic
         }
 
         graphicsContext.setFillColor(foregroundColor);
-
         graphicsContext.fillPath(path);
-        path.clear();
     } else {
         path.addRoundedRect(fieldRect, corner);
-        fieldRect.inflate(-toggleBorderSize);
-        corner.expand(-buttonBorderSize, -buttonBorderSize);
-        path.addRoundedRect(fieldRect, corner);
-        graphicsContext.setFillRule(WindRule::EvenOdd);
         if (states.states().contains(ControlStates::States::Hovered) && states.states().contains(ControlStates::States::Enabled))
             graphicsContext.setFillColor(toggleBorderHoverColor);
         else
             graphicsContext.setFillColor(toggleBorderColor);
         graphicsContext.fillPath(path);
         path.clear();
+
+        fieldRect.inflate(-toggleBorderSize);
+        corner.expand(-buttonBorderSize, -buttonBorderSize);
+        path.addRoundedRect(fieldRect, corner);
+        graphicsContext.setFillColor(foregroundColor);
+        graphicsContext.fillPath(path);
     }
 
     if (states.states().contains(ControlStates::States::Focused))
-        paintFocus(graphicsContext, zoomedRect, toggleFocusOffset, useDarkAppearance);
+        paintFocus(graphicsContext, zoomedRect, toggleFocusOffset, focusColor(accentColor));
 
     if (!states.states().contains(ControlStates::States::Enabled))
         graphicsContext.endTransparencyLayer();
@@ -358,19 +383,21 @@ void ThemeAdwaita::paintRadio(ControlStates& states, GraphicsContext& graphicsCo
         graphicsContext.fillPath(path);
     } else {
         path.addEllipse(fieldRect);
-        fieldRect.inflate(-toggleBorderSize);
-        path.addEllipse(fieldRect);
-        graphicsContext.setFillRule(WindRule::EvenOdd);
         if (states.states().contains(ControlStates::States::Hovered) && states.states().contains(ControlStates::States::Enabled))
             graphicsContext.setFillColor(toggleBorderHoverColor);
         else
             graphicsContext.setFillColor(toggleBorderColor);
         graphicsContext.fillPath(path);
         path.clear();
+
+        fieldRect.inflate(-toggleBorderSize);
+        path.addEllipse(fieldRect);
+        graphicsContext.setFillColor(foregroundColor);
+        graphicsContext.fillPath(path);
     }
 
     if (states.states().contains(ControlStates::States::Focused))
-        paintFocus(graphicsContext, zoomedRect, toggleFocusOffset, useDarkAppearance);
+        paintFocus(graphicsContext, zoomedRect, toggleFocusOffset, focusColor(accentColor), PaintRounded::Yes);
 
     if (!states.states().contains(ControlStates::States::Enabled))
         graphicsContext.endTransparencyLayer();
@@ -424,7 +451,7 @@ void ThemeAdwaita::paintButton(ControlStates& states, GraphicsContext& graphicsC
     graphicsContext.fillPath(path);
 
     if (states.states().contains(ControlStates::States::Focused))
-        paintFocus(graphicsContext, zoomedRect, buttonFocusOffset, useDarkAppearance);
+        paintFocus(graphicsContext, zoomedRect, buttonFocusOffset, focusColor(m_accentColor));
 
     if (!states.states().contains(ControlStates::States::Enabled))
         graphicsContext.endTransparencyLayer();
@@ -482,14 +509,7 @@ void ThemeAdwaita::paintSpinButton(ControlStates& states, GraphicsContext& graph
             path.clear();
         }
 
-        GraphicsContextStateSaver buttonStateSaver(graphicsContext);
-        if (buttonRect.height() > arrowSize)
-            graphicsContext.translate(buttonRect.x(), buttonRect.y() + (buttonRect.height() / 2.0) - (arrowSize / 2.));
-        else {
-            graphicsContext.translate(buttonRect.x(), buttonRect.y());
-            graphicsContext.scale(FloatSize::narrowPrecision(buttonRect.width() / arrowSize, buttonRect.height() / arrowSize));
-        }
-        paintArrow(graphicsContext, ArrowDirection::Up, useDarkAppearance);
+        paintArrow(graphicsContext, buttonRect, ArrowDirection::Up, useDarkAppearance);
     }
 
     buttonRect.move(0, buttonRect.height());
@@ -500,18 +520,13 @@ void ThemeAdwaita::paintSpinButton(ControlStates& states, GraphicsContext& graph
                 graphicsContext.setFillColor(spinButtonBackgroundPressedColor);
             else if (states.states().contains(ControlStates::States::Hovered))
                 graphicsContext.setFillColor(spinButtonBackgroundHoveredColor);
+            else
+                graphicsContext.setFillColor(spinButtonBackgroundColor);
             graphicsContext.fillPath(path);
             path.clear();
         }
 
-        GraphicsContextStateSaver buttonStateSaver(graphicsContext);
-        if (buttonRect.height() > arrowSize)
-            graphicsContext.translate(buttonRect.x(), buttonRect.y() + (buttonRect.height() / 2.0) - (arrowSize / 2.));
-        else {
-            graphicsContext.translate(buttonRect.x(), buttonRect.y());
-            graphicsContext.scale(FloatSize::narrowPrecision(buttonRect.width() / arrowSize, buttonRect.height() / arrowSize));
-        }
-        paintArrow(graphicsContext, ArrowDirection::Down, useDarkAppearance);
+        paintArrow(graphicsContext, buttonRect, ArrowDirection::Down, useDarkAppearance);
     }
 }
 
@@ -527,7 +542,7 @@ void ThemeAdwaita::setAccentColor(const Color& color)
 
 Color ThemeAdwaita::accentColor()
 {
-    return m_accentColor.isValid() ? m_accentColor : SRGBA<uint8_t> { 52, 132, 228 };
+    return m_accentColor;
 }
 
 } // namespace WebCore

@@ -151,8 +151,6 @@ public:
 
     void momentarilyRevealLastTypedCharacter(unsigned offsetAfterLastTypedCharacter);
 
-    LegacyInlineTextBox* findNextInlineTextBox(int offset, int& pos) const { return m_lineBoxes.findNext(offset, pos); }
-
     bool isAllCollapsibleWhitespace() const;
 
     bool canUseSimpleFontCodePath() const { return m_canUseSimpleFontCodePath; }
@@ -183,6 +181,8 @@ public:
 
     template <typename MeasureTextCallback>
     static float measureTextConsideringPossibleTrailingSpace(bool currentCharacterIsSpace, unsigned startIndex, unsigned wordLength, WordTrailingSpace&, HashSet<const Font*>& fallbackFonts, MeasureTextCallback&&);
+
+    static std::optional<bool> emphasisMarkExistsAndIsAbove(const RenderText&, const RenderStyle&);
 
 protected:
     virtual void computePreferredLogicalWidths(float leadWidth);
@@ -250,8 +250,8 @@ private:
     // FIXME: This should probably be part of the text sizing structures in Document instead. That would save some memory.
     float m_candidateComputedTextSize { 0 };
 #endif
-    float m_minWidth { -1 };
-    float m_maxWidth { -1 };
+    std::optional<float> m_minWidth;
+    std::optional<float> m_maxWidth;
     float m_beginMinWidth { 0 };
     float m_endMinWidth { 0 };
 

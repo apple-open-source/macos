@@ -69,6 +69,41 @@
 
 #pragma mark - Tests
 
+- (void)testNetworkReachability {
+    // Test starts with nothing in database, but one in our fake CloudKit.
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
+
+    // Network is unavailable
+    [self.reachabilityTracker setNetworkReachability:false];
+
+    // Fail next upload
+    NSError* noNetwork = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{
+                                                                                                                       CKErrorRetryAfterKey: @(0.2),
+                                                                                                                       }];
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:noNetwork];
+
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:8*NSEC_PER_SEC], "CKKS state machine should enter ready");
+
+    // cheat an run the network dependency pretending the timer expired, about 12h early
+    NSOperation *oldOperation = self.reachabilityTracker.reachabilityDependency;
+    [[[NSOperationQueue alloc] init] addOperation:self.reachabilityTracker.reachabilityDependency];
+    // wait it out so we can have a new dependency operation
+    [oldOperation waitUntilFinished];
+
+    XCTAssertFalse(self.reachabilityTracker.currentReachability, "should not have network");
+
+    XCTAssert([self.reachabilityTracker.reachabilityDependency isPending], "net dep op should be pending");
+}
+
 - (void)testBringupToKeyStateReady {
     // As part of the initial bringup, we should send these 'view ready' notifications
     XCTestExpectation* keychainReadyLibNotifyNotification = [self expectLibNotifyReadyForView:self.keychainZoneID.zoneName];
@@ -1197,6 +1232,9 @@
 
     // We expect a single record to be uploaded, but that the write will be rejected
     // We then expect that item to be reuploaded with the current key
+
+    // By modifying these delays, this test can check whether the 'etag-only' upload quick retry is functioning.
+    [self.defaultCKKS.outgoingQueueOperationScheduler changeDelays:10*NSEC_PER_USEC continuingDelay:60*NSEC_PER_SEC];
 
     [self expectCKAtomicModifyItemRecordsUpdateFailure: self.keychainZoneID];
     [self addGenericPassword: @"data" account: @"account-delete-me-rolled-key"];

@@ -89,11 +89,12 @@ struct BuiltinVarying final : private angle::NonCopyable
 
     std::string str() const;
     void enableSystem(const std::string &systemValueSemantic);
+    void enableSystem(const std::string &systemValueSemantic, unsigned int sizeVal);
     void enable(const std::string &semanticVal, unsigned int indexVal);
 
     bool enabled;
     std::string semantic;
-    unsigned int index;
+    unsigned int indexOrSize;
     bool systemValue;
 };
 
@@ -104,6 +105,8 @@ struct BuiltinInfo
 
     BuiltinVarying dxPosition;
     BuiltinVarying glPosition;
+    BuiltinVarying glClipDistance;
+    BuiltinVarying glCullDistance;
     BuiltinVarying glFragCoord;
     BuiltinVarying glPointCoord;
     BuiltinVarying glPointSize;
@@ -167,7 +170,8 @@ class DynamicHLSL : angle::NonCopyable
         std::vector<sh::ShaderVariable> &image2DUniforms,
         const gl::ImageUnitTextureTypeMap &image2DBindLayout,
         unsigned int baseUAVRegister) const;
-    void generateShaderLinkHLSL(const gl::Caps &caps,
+    void generateShaderLinkHLSL(const gl::Context *context,
+                                const gl::Caps &caps,
                                 const gl::ProgramState &programData,
                                 const ProgramD3DMetadata &programMetadata,
                                 const gl::VaryingPacking &varyingPacking,

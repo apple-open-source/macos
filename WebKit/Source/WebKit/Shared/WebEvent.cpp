@@ -33,33 +33,48 @@
 namespace WebKit {
 
 WebEvent::WebEvent()
-    : m_type(static_cast<uint32_t>(NoType))
+    : m_type(WebEventType::NoType)
 {
 }
 
-WebEvent::WebEvent(Type type, OptionSet<Modifier> modifiers, WallTime timestamp)
+WebEvent::WebEvent(WebEventType type, OptionSet<WebEventModifier> modifiers, WallTime timestamp)
     : m_type(type)
     , m_modifiers(modifiers)
     , m_timestamp(timestamp)
 {
 }
 
-void WebEvent::encode(IPC::Encoder& encoder) const
+TextStream& operator<<(TextStream& ts, WebEventType eventType)
 {
-    encoder << m_type;
-    encoder << m_modifiers;
-    encoder << m_timestamp;
-}
+    switch (eventType) {
+    case WebEventType::NoType: ts << "NoType"; break;
+    case WebEventType::MouseDown: ts << "MouseDown"; break;
+    case WebEventType::MouseUp: ts << "MouseUp"; break;
+    case WebEventType::MouseMove: ts << "MouseMove"; break;
+    case WebEventType::MouseForceChanged: ts << "MouseForceChanged"; break;
+    case WebEventType::MouseForceDown: ts << "MouseForceDown"; break;
+    case WebEventType::MouseForceUp: ts << "MouseForceUp"; break;
+    case WebEventType::Wheel: ts << "Wheel"; break;
+    case WebEventType::KeyDown: ts << "KeyDown"; break;
+    case WebEventType::KeyUp: ts << "KeyUp"; break;
+    case WebEventType::RawKeyDown: ts << "RawKeyDown"; break;
+    case WebEventType::Char: ts << "Char"; break;
 
-bool WebEvent::decode(IPC::Decoder& decoder, WebEvent& result)
-{
-    if (!decoder.decode(result.m_type))
-        return false;
-    if (!decoder.decode(result.m_modifiers))
-        return false;
-    if (!decoder.decode(result.m_timestamp))
-        return false;
-    return true;
+#if ENABLE(TOUCH_EVENTS)
+    case WebEventType::TouchStart: ts << "TouchStart"; break;
+    case WebEventType::TouchMove: ts << "TouchMove"; break;
+    case WebEventType::TouchEnd: ts << "TouchEnd"; break;
+    case WebEventType::TouchCancel: ts << "TouchCancel"; break;
+#endif
+
+#if ENABLE(MAC_GESTURE_EVENTS)
+    case WebEventType::GestureStart: ts << "GestureStart"; break;
+    case WebEventType::GestureChange: ts << "GestureChange"; break;
+    case WebEventType::GestureEnd: ts << "GestureEnd"; break;
+#endif
+    }
+
+    return ts;
 }
 
 } // namespace WebKit

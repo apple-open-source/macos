@@ -1,0 +1,34 @@
+{
+  "configurations" : [
+    {
+      "id" : "9F71F02F-F4A1-4AC9-B04D-CFB3CE749185",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "nfsclntTests_mount"
+      ],
+      "target" : {
+        "containerPath" : "container:NFS.xcodeproj",
+        "identifier" : "C47BB91225C1BE8A00DB38E2",
+        "name" : "nfsclntTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:NFS.xcodeproj",
+        "identifier" : "C47CD3D828A0077C000C5AEE",
+        "name" : "nfsrvTests"
+      }
+    }
+  ],
+  "version" : 1
+}

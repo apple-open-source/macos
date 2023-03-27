@@ -104,9 +104,12 @@ lv{
         chm{"mariešu"}
         chn{"činuku žargons"}
         cho{"čoktavu"}
+        cho_Latn{"čoktavu"}
         chp{"čipevaianu"}
         chr{"čiroku"}
         chy{"šejenu"}
+        cic{"čikaso"}
+        cic_Latn{"čikaso"}
         ckb{"centrālkurdu"}
         co{"korsikāņu"}
         cop{"koptu"}

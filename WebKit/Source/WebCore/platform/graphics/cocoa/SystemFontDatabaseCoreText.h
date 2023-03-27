@@ -87,8 +87,10 @@ public:
         bool italic { false };
     };
 
-    static SystemFontDatabaseCoreText& singleton();
+    SystemFontDatabaseCoreText();
+    static SystemFontDatabaseCoreText& forCurrentThread();
 
+    std::optional<SystemFontKind> matchSystemFontUse(const AtomString& family);
     Vector<RetainPtr<CTFontDescriptorRef>> cascadeList(const FontDescription&, const AtomString& cssFamily, SystemFontKind, AllowUserInstalledFonts);
 
     String serifFamily(const String& locale);
@@ -101,13 +103,10 @@ public:
     float systemFontShorthandSize(FontShorthand);
     FontSelectionValue systemFontShorthandWeight(FontShorthand);
 
-protected:
     void clear();
 
 private:
     friend class SystemFontDatabase;
-
-    SystemFontDatabaseCoreText();
 
     Vector<RetainPtr<CTFontDescriptorRef>> cascadeList(const CascadeListParameters&, SystemFontKind);
 
@@ -134,6 +133,8 @@ private:
     MemoryCompactRobinHoodHashMap<String, String> m_cursiveFamilies;
     MemoryCompactRobinHoodHashMap<String, String> m_fantasyFamilies;
     MemoryCompactRobinHoodHashMap<String, String> m_monospaceFamilies;
+
+    Vector<AtomString> m_textStyles;
 };
 
 inline void add(Hasher& hasher, const SystemFontDatabaseCoreText::CascadeListParameters& parameters)

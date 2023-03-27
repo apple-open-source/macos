@@ -3,21 +3,23 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2012-02-14</string>
+	<string>2022-10-06</string>
 	<key>OpenSourceLicense</key>
-	<string>MIT</string>
+	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>libevent.txt</string>
 	<key>OpenSourceMD5</key>
-	<string>dad64aaaaff16b5fbec25160c06fee9a</string>
+	<string>b5333f021f880fe76490d8a799cd79f4</string>
 	<key>OpenSourceModifications</key>
-	<array/>
+	<array>
+	  <string>Fix srcdir != destdir error when building tests (#96919145)</string>
+	</array>
 	<key>OpenSourceProject</key>
 	<string>libevent</string>
 	<key>OpenSourceURL</key>
-	<string>https://github.com/downloads/libevent/libevent/libevent-2.0.17-stable.tar.gz</string>
+	<string>https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>2.0.17</string>
+	<string>2.1.12</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://libevent.org/</string>
 </dict>

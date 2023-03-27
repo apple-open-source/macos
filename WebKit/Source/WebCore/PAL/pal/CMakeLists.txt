@@ -23,6 +23,7 @@ set(PAL_PUBLIC_HEADERS
     graphics/WebGPU/Impl/WebGPUExternalTextureImpl.h
     graphics/WebGPU/Impl/WebGPUImpl.h
     graphics/WebGPU/Impl/WebGPUPipelineLayoutImpl.h
+    graphics/WebGPU/Impl/WebGPUPresentationContextImpl.h
     graphics/WebGPU/Impl/WebGPUQuerySetImpl.h
     graphics/WebGPU/Impl/WebGPUQueueImpl.h
     graphics/WebGPU/Impl/WebGPURenderBundleEncoderImpl.h
@@ -107,6 +108,9 @@ set(PAL_PUBLIC_HEADERS
     graphics/WebGPU/WebGPUPipelineLayoutDescriptor.h
     graphics/WebGPU/WebGPUPowerPreference.h
     graphics/WebGPU/WebGPUPredefinedColorSpace.h
+    graphics/WebGPU/WebGPUPresentationConfiguration.h
+    graphics/WebGPU/WebGPUPresentationContext.h
+    graphics/WebGPU/WebGPUPresentationContextDescriptor.h
     graphics/WebGPU/WebGPUPrimitiveState.h
     graphics/WebGPU/WebGPUPrimitiveTopology.h
     graphics/WebGPU/WebGPUProgrammableStage.h
@@ -208,6 +212,7 @@ set(PAL_SOURCES
     graphics/WebGPU/Impl/WebGPUExternalTextureImpl.cpp
     graphics/WebGPU/Impl/WebGPUImpl.cpp
     graphics/WebGPU/Impl/WebGPUPipelineLayoutImpl.cpp
+    graphics/WebGPU/Impl/WebGPUPresentationContextImpl.cpp
     graphics/WebGPU/Impl/WebGPUQuerySetImpl.cpp
     graphics/WebGPU/Impl/WebGPUQueueImpl.cpp
     graphics/WebGPU/Impl/WebGPURenderBundleEncoderImpl.cpp
@@ -265,4 +270,3 @@ WEBKIT_COPY_FILES(PAL_CopyHeaders
 )
 
 WEBKIT_FRAMEWORK(PAL)
-WEBKIT_FRAMEWORK_TARGET(PAL)

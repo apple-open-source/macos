@@ -111,8 +111,9 @@ class TSymbolTableBase
     TSymbol *m_gl_MaxSamples                                 = nullptr;
     TSymbol *m_gl_MaxSamplesES3_2                            = nullptr;
     TSymbol *m_gl_MaxClipDistancesAPPLE                      = nullptr;
-    TSymbol *m_gl_MaxCullDistancesEXT                        = nullptr;
-    TSymbol *m_gl_MaxCombinedClipAndCullDistancesEXT         = nullptr;
+    TSymbol *m_gl_MaxClipDistances                           = nullptr;
+    TSymbol *m_gl_MaxCullDistances                           = nullptr;
+    TSymbol *m_gl_MaxCombinedClipAndCullDistances            = nullptr;
     TSymbol *m_gl_FragData                                   = nullptr;
     TSymbol *m_gl_SecondaryFragDataEXT                       = nullptr;
     TSymbol *m_gl_FragDepthEXT                               = nullptr;
@@ -122,10 +123,7 @@ class TSymbolTableBase
     TSymbol *m_gl_SampleMaskInES3_2                          = nullptr;
     TSymbol *m_gl_SampleMask                                 = nullptr;
     TSymbol *m_gl_SampleMaskES3_2                            = nullptr;
-    TSymbol *m_gl_CullDistance                               = nullptr;
-    TSymbol *m_gl_ClipDistance                               = nullptr;
     TSymbol *m_gl_ClipDistanceAPPLE                          = nullptr;
-    TSymbol *m_gl_CullDistanceEXT                            = nullptr;
     TSymbol *m_gl_PerVertex                                  = nullptr;
     TSymbol *m_gl_PerVertexES3_2                             = nullptr;
     TSymbol *m_gl_in                                         = nullptr;
@@ -162,6 +160,8 @@ class TSymbolTableBase
     TSymbol *m_gl_outTESES3_2                                = nullptr;
     TSymbol *m_gl_PositionTES                                = nullptr;
     TSymbol *m_gl_PositionTESES3_2                           = nullptr;
+    TSymbol *m_gl_ClipDistance                               = nullptr;
+    TSymbol *m_gl_CullDistance                               = nullptr;
 };
 
 }  // namespace sh

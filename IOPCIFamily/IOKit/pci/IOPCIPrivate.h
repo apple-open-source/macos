@@ -79,6 +79,7 @@ struct IOPCIDeviceExpansionData
     uint16_t expressCapability;
     uint16_t expressCapabilities;
     uint16_t expressASPMDefault;
+    int16_t  expressMaxReadRequestSize;
 	uint16_t aspmCaps;
     uint16_t l1pmCapability;
     uint32_t l1pmCaps;
@@ -151,6 +152,8 @@ struct IOPCIDeviceExpansionData
 	uint32_t                _powerAssertionRefCnt;
 	IONotifier*             _publishNotifier;
 	IONotifier*             _matchedNotifier;
+
+	uint32_t probeTimeMS;
 };
 
 enum
@@ -334,6 +337,9 @@ enum
 
 #define kIOPCIPowerOnProbeKey      "IOPCIPowerOnProbe"
 
+#define kIOPCISlotMaxLinkWidthKey            "slot-max-link-width"
+#define kIOPCIExpressMaxLinkWidthOverrideKey "IOPCIExpressMaxLinkWidthOverride"
+
 #define kIOCLxEnabledKey           "CLx Enabled"
 
 enum
@@ -389,6 +395,8 @@ enum
 
 #define kIOPCIDeviceChangedKey			"IOPCIDeviceChanged"
 
+#define kIOPCILinkUpTimeoutKey			"link-up-timeout"
+
 // Entitlements
 #define kIOPCITransportDextEntitlement                     "com.apple.developer.driverkit.transport.pci"
 #define kIOPCITransportBridgeDextEntitlement               "com.apple.developer.driverkit.transport.pci.bridge"
@@ -408,6 +416,7 @@ extern const OSSymbol *           gIOPolledInterfaceActiveKey;
 #if ACPI_SUPPORT
 extern const OSSymbol *           gIOPCIPSMethods[kIOPCIDevicePowerStateCount];
 #endif
+extern const OSSymbol *           gIOPCIExpressLinkStatusKey;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

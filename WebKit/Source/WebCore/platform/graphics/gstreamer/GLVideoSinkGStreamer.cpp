@@ -88,25 +88,7 @@ static void webKitGLVideoSinkConstructed(GObject* object)
     ASSERT(colorconvert);
     gst_bin_add_many(GST_BIN_CAST(sink), upload, colorconvert, sink->priv->appSink.get(), nullptr);
 
-    // Workaround until we can depend on GStreamer 1.16.2.
-    // https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/commit/8d32de090554cf29fe359f83aa46000ba658a693
-    // Forcing a color conversion to RGBA here allows glupload to internally use
-    // an uploader that adds a VideoMeta, through the TextureUploadMeta caps
-    // feature, without needing the patch above. However this specific caps
-    // feature is going to be removed from GStreamer so it is considered a
-    // short-term workaround. This code path most likely will have a negative
-    // performance impact on embedded platforms as well. Downstream embedders
-    // are highly encouraged to cherry-pick the patch linked above in their BSP
-    // and set the WEBKIT_GST_NO_RGBA_CONVERSION environment variable until
-    // GStreamer 1.16.2 is released.
-    // See also https://bugs.webkit.org/show_bug.cgi?id=201422
-    GRefPtr<GstCaps> caps;
-    if (webkitGstCheckVersion(1, 16, 2) || getenv("WEBKIT_GST_NO_RGBA_CONVERSION"))
-        caps = adoptGRef(gst_caps_from_string("video/x-raw, format = (string) " GST_GL_CAPS_FORMAT));
-    else {
-        GST_INFO_OBJECT(sink, "Forcing RGBA as GStreamer is not new enough.");
-        caps = adoptGRef(gst_caps_from_string("video/x-raw, format = (string) RGBA"));
-    }
+    GRefPtr<GstCaps> caps = adoptGRef(gst_caps_from_string("video/x-raw, format = (string) " GST_GL_CAPS_FORMAT));
     gst_caps_set_features(caps.get(), 0, gst_caps_features_new(GST_CAPS_FEATURE_MEMORY_GL_MEMORY, nullptr));
     g_object_set(sink->priv->appSink.get(), "caps", caps.get(), nullptr);
 
@@ -230,8 +212,8 @@ static void webkit_gl_video_sink_class_init(WebKitGLVideoSinkClass* klass)
     gst_element_class_add_pad_template(elementClass, gst_static_pad_template_get(&sinkTemplate));
     gst_element_class_set_static_metadata(elementClass, "WebKit GL video sink", "Sink/Video", "Renders video", "Philippe Normand <philn@igalia.com>");
 
-    g_object_class_install_property(objectClass, PROP_STATS, g_param_spec_boxed("stats", "Statistics",
-        "Sink Statistics", GST_TYPE_STRUCTURE, static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(objectClass, PROP_STATS, g_param_spec_boxed("stats",
+        nullptr, nullptr, GST_TYPE_STRUCTURE, static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
 
     elementClass->change_state = GST_DEBUG_FUNCPTR(webKitGLVideoSinkChangeState);
 }

@@ -33,7 +33,7 @@
 #include "config.h"
 #include "EventSource.h"
 
-#include "CachedResourceRequestInitiators.h"
+#include "CachedResourceRequestInitiatorTypes.h"
 #include "ContentSecurityPolicy.h"
 #include "EventNames.h"
 #include "MessageEvent.h"
@@ -95,7 +95,7 @@ void EventSource::connect()
     ASSERT(!m_requestInFlight);
 
     ResourceRequest request { m_url };
-    request.setRequester(ResourceRequest::Requester::EventSource);
+    request.setRequester(ResourceRequestRequester::EventSource);
     request.setHTTPMethod("GET"_s);
     request.setHTTPHeaderField(HTTPHeaderName::Accept, "text/event-stream"_s);
     request.setHTTPHeaderField(HTTPHeaderName::CacheControl, "no-cache"_s);
@@ -110,7 +110,7 @@ void EventSource::connect()
     options.cache = FetchOptions::Cache::NoStore;
     options.dataBufferingPolicy = DataBufferingPolicy::DoNotBufferData;
     options.contentSecurityPolicyEnforcement = scriptExecutionContext()->shouldBypassMainWorldContentSecurityPolicy() ? ContentSecurityPolicyEnforcement::DoNotEnforce : ContentSecurityPolicyEnforcement::EnforceConnectSrcDirective;
-    options.initiator = cachedResourceRequestInitiators().eventsource;
+    options.initiatorType = cachedResourceRequestInitiatorTypes().eventsource;
 
     ASSERT(scriptExecutionContext());
     m_loader = ThreadableLoader::create(*scriptExecutionContext(), *this, WTFMove(request), options);
@@ -382,9 +382,7 @@ void EventSource::parseEventStreamLine(unsigned position, std::optional<unsigned
         if (!valueLength)
             m_reconnectDelay = defaultReconnectDelay;
         else {
-            // FIXME: Do we really want to ignore trailing junk here?
-            // FIXME: When we can't parse the value, should we really leave m_reconnectDelay alone? Shouldn't we set it to defaultReconnectDelay?
-            if (auto reconnectDelay = parseIntegerAllowingTrailingJunk<uint64_t>({ &m_receiveBuffer[position], valueLength }))
+            if (auto reconnectDelay = parseInteger<uint64_t>({ &m_receiveBuffer[position], valueLength }))
                 m_reconnectDelay = *reconnectDelay;
         }
     }

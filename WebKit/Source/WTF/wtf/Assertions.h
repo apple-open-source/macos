@@ -69,7 +69,7 @@ extern "C" void _ReadWriteBarrier(void);
 #endif
 #endif
 
-/* ASSERT_ENABLED is defined in Platform.h. */
+/* ASSERT_ENABLED is defined in PlatformEnable.h. */
 
 #ifndef BACKTRACE_DISABLED
 #define BACKTRACE_DISABLED !ASSERT_ENABLED
@@ -228,12 +228,12 @@ WTF_EXPORT_PRIVATE void WTFLogWithLevel(WTFLogChannel*, WTFLogLevel, const char*
 WTF_EXPORT_PRIVATE void WTFSetLogChannelLevel(WTFLogChannel*, WTFLogLevel);
 WTF_EXPORT_PRIVATE bool WTFWillLogWithLevel(WTFLogChannel*, WTFLogLevel);
 
-WTF_EXPORT_PRIVATE void WTFGetBacktrace(void** stack, int* size);
+WTF_EXPORT_PRIVATE NEVER_INLINE void WTFGetBacktrace(void** stack, int* size);
 WTF_EXPORT_PRIVATE void WTFReportBacktraceWithPrefix(const char*);
 WTF_EXPORT_PRIVATE void WTFReportBacktrace(void);
 #ifdef __cplusplus
 WTF_EXPORT_PRIVATE void WTFReportBacktraceWithPrefixAndPrintStream(WTF::PrintStream&, const char*);
-void WTFPrintBacktraceWithPrefixAndPrintStream(WTF::PrintStream&, void** stack, int size, const char* prefix);
+WTF_EXPORT_PRIVATE void WTFPrintBacktraceWithPrefixAndPrintStream(WTF::PrintStream&, void** stack, int size, const char* prefix);
 #endif
 WTF_EXPORT_PRIVATE void WTFPrintBacktrace(void** stack, int size);
 #if !RELEASE_LOG_DISABLED
@@ -257,7 +257,7 @@ WTF_EXPORT_PRIVATE bool WTFIsDebuggerAttached(void);
 #endif
 
 #if COMPILER(MSVC)
-#define WTFBreakpointTrapUnderConstexprContext() __debugbreak()
+#define WTFBreakpointTrapUnderConstexprContext() ((void) 0)
 #else
 #define WTFBreakpointTrapUnderConstexprContext() __builtin_trap()
 #endif
@@ -553,6 +553,7 @@ constexpr bool assertionFailureDueToUnreachableCode = false;
 
 #define PUBLIC_LOG_STRING "s"
 #define PRIVATE_LOG_STRING "s"
+#define SENSITIVE_LOG_STRING "s"
 #define RELEASE_LOG(channel, ...) ((void)0)
 #define RELEASE_LOG_ERROR(channel, ...) LOG_ERROR(__VA_ARGS__)
 #define RELEASE_LOG_FAULT(channel, ...) LOG_ERROR(__VA_ARGS__)
@@ -571,6 +572,7 @@ constexpr bool assertionFailureDueToUnreachableCode = false;
 
 #define PUBLIC_LOG_STRING "{public}s"
 #define PRIVATE_LOG_STRING "{private}s"
+#define SENSITIVE_LOG_STRING "{sensitive}s"
 #define RELEASE_LOG(channel, ...) os_log(LOG_CHANNEL(channel).osLogChannel, __VA_ARGS__)
 #define RELEASE_LOG_ERROR(channel, ...) os_log_error(LOG_CHANNEL(channel).osLogChannel, __VA_ARGS__)
 #define RELEASE_LOG_FAULT(channel, ...) os_log_fault(LOG_CHANNEL(channel).osLogChannel, __VA_ARGS__)
@@ -589,6 +591,7 @@ constexpr bool assertionFailureDueToUnreachableCode = false;
 
 #define PUBLIC_LOG_STRING "s"
 #define PRIVATE_LOG_STRING "s"
+#define SENSITIVE_LOG_STRING "s"
 #define SD_JOURNAL_SEND(channel, priority, file, line, function, ...) do { \
     if (LOG_CHANNEL(channel).state != WTFLogChannelState::Off) \
         sd_journal_send_with_location("CODE_FILE=" file, "CODE_LINE=" line, function, "WEBKIT_SUBSYSTEM=%s", LOG_CHANNEL(channel).subsystem, "WEBKIT_CHANNEL=%s", LOG_CHANNEL(channel).name, "PRIORITY=%i", priority, "MESSAGE=" __VA_ARGS__, nullptr); \
@@ -615,6 +618,7 @@ constexpr bool assertionFailureDueToUnreachableCode = false;
 
 #define PUBLIC_LOG_STRING "s"
 #define PRIVATE_LOG_STRING "s"
+#define SENSITIVE_LOG_STRING "s"
 #define LOGF(channel, priority, fmt, ...) do { \
     auto& logChannel = LOG_CHANNEL(channel); \
     if (logChannel.state != WTFLogChannelState::Off) \
@@ -822,7 +826,7 @@ inline void compilerFenceForCrash()
 // This would be a macro except that its use of #pragma works best around
 // a function. Hence it uses macro naming convention.
 IGNORE_WARNINGS_BEGIN("missing-noreturn")
-static inline void UNREACHABLE_FOR_PLATFORM()
+static inline void UNREACHABLE_FOR_PLATFORM(void)
 {
     // This *MUST* be a release assert. We use it in places where it's better to crash than to keep
     // going.

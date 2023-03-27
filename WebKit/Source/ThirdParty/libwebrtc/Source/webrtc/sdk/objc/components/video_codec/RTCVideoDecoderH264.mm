@@ -58,16 +58,17 @@ void decompressionOutputCallback(void *decoderRef,
                                  CVImageBufferRef imageBuffer,
                                  CMTime timestamp,
                                  CMTime duration) {
+  std::unique_ptr<RTCFrameDecodeParams> decodeParams(reinterpret_cast<RTCFrameDecodeParams *>(params));
   if (status != noErr || !imageBuffer) {
     RTCVideoDecoderH264 *decoder = (__bridge RTCVideoDecoderH264 *)decoderRef;
     [decoder setError:status != noErr ? status : 1];
     RTC_LOG(LS_ERROR) << "Failed to decode frame. Status: " << status;
+    decodeParams->callback(nil);
     return;
   }
 
   overrideColorSpaceAttachments(imageBuffer);
 
-  std::unique_ptr<RTCFrameDecodeParams> decodeParams(reinterpret_cast<RTCFrameDecodeParams *>(params));
   // TODO(tkchin): Handle CVO properly.
   RTCCVPixelBuffer *frameBuffer = [[RTCCVPixelBuffer alloc] initWithPixelBuffer:imageBuffer];
   RTCVideoFrame *decodedFrame =
@@ -85,12 +86,14 @@ void decompressionOutputCallback(void *decoderRef,
   VTDecompressionSessionRef _decompressionSession;
   RTCVideoDecoderCallback _callback;
   OSStatus _error;
+  bool _useAVC;
 }
 
 - (instancetype)init {
   self = [super init];
   if (self) {
     _memoryPool = CMMemoryPoolCreate(nil);
+    _useAVC = false;
   }
   return self;
 }
@@ -106,6 +109,27 @@ void decompressionOutputCallback(void *decoderRef,
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
+CMSampleBufferRef H264BufferToCMSampleBuffer(const uint8_t* buffer, size_t buffer_size, CMVideoFormatDescriptionRef video_format) {
+  CMBlockBufferRef new_block_buffer;
+  if (auto error = CMBlockBufferCreateWithMemoryBlock(kCFAllocatorDefault, NULL, buffer_size, kCFAllocatorDefault, NULL, 0, buffer_size, kCMBlockBufferAssureMemoryNowFlag, &new_block_buffer)) {
+    RTC_LOG(LS_ERROR) << "H264BufferToCMSampleBuffer CMBlockBufferCreateWithMemoryBlock failed with: " << error;
+    return nullptr;
+  }
+  auto block_buffer = rtc::ScopedCF(new_block_buffer);
+
+  if (auto error = CMBlockBufferReplaceDataBytes(buffer, block_buffer.get(), 0, buffer_size)) {
+    RTC_LOG(LS_ERROR) << "H264BufferToCMSampleBuffer CMBlockBufferReplaceDataBytes failed with: " << error;
+    return nullptr;
+  }
+
+  CMSampleBufferRef sample_buffer = nullptr;
+  if (auto error = CMSampleBufferCreate(kCFAllocatorDefault, block_buffer.get(), true, nullptr, nullptr, video_format, 1, 0, nullptr, 0, nullptr, &sample_buffer)) {
+    RTC_LOG(LS_ERROR) << "H264BufferToCMSampleBuffer CMSampleBufferCreate failed with: " << error;
+    return nullptr;
+  }
+  return sample_buffer;
+}
+
 - (NSInteger)decode:(RTCEncodedImage *)inputImage
         missingFrames:(BOOL)missingFrames
     codecSpecificInfo:(nullable id<RTCCodecSpecificInfo>)info
@@ -117,11 +141,15 @@ void decompressionOutputCallback(void *decoderRef,
 
 - (NSInteger)decodeData:(const uint8_t *)data
         size:(size_t)size
-        timeStamp:(uint32_t)timeStamp {
+        timeStamp:(int64_t)timeStamp {
 
   if (_error != noErr) {
     RTC_LOG(LS_WARNING) << "Last frame decode failed.";
     _error = noErr;
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+  if (!data || !size) {
+    RTC_LOG(LS_WARNING) << "Empty frame.";
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
@@ -129,7 +157,7 @@ void decompressionOutputCallback(void *decoderRef,
       rtc::ScopedCF(webrtc::CreateVideoFormatDescription(data, size));
   if (inputFormat) {
     // Check if the video format has changed, and reinitialize decoder if
-    // needed.
+     // needed.
     if (!CMFormatDescriptionEqual(inputFormat.get(), _videoFormat)) {
       [self setVideoFormat:inputFormat.get()];
       int resetDecompressionSessionError = [self resetDecompressionSession];
@@ -148,7 +176,13 @@ void decompressionOutputCallback(void *decoderRef,
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
   CMSampleBufferRef sampleBuffer = nullptr;
-  if (!webrtc::H264AnnexBBufferToCMSampleBuffer(data,
+  if (_useAVC) {
+    sampleBuffer = H264BufferToCMSampleBuffer(data, size, _videoFormat);
+    if (!sampleBuffer) {
+      RTC_LOG(LS_ERROR) << "Cannot create sample from data.";
+      return WEBRTC_VIDEO_CODEC_ERROR;
+    }
+  } else if (!webrtc::H264AnnexBBufferToCMSampleBuffer(data,
                                                 size,
                                                 _videoFormat,
                                                 &sampleBuffer,
@@ -179,6 +213,49 @@ void decompressionOutputCallback(void *decoderRef,
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
   return WEBRTC_VIDEO_CODEC_OK;
+}
+
+- (NSInteger)setAVCFormat:(const uint8_t *)data size:(size_t)size width:(uint16_t)width height:(uint16_t)height {
+  CFStringRef avcCString = (CFStringRef)@"avcC";
+  CFDataRef codecConfig = CFDataCreate(kCFAllocatorDefault, data, size);
+  CFDictionaryRef atomsDict = CFDictionaryCreate(NULL,
+    (const void **)&avcCString,
+    (const void **)&codecConfig,
+    1,
+    &kCFTypeDictionaryKeyCallBacks,
+    &kCFTypeDictionaryValueCallBacks);
+  CFDictionaryRef extensionsDict = CFDictionaryCreate(NULL,
+    (const void **)&kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms,
+    (const void **)&atomsDict,
+    1,
+    &kCFTypeDictionaryKeyCallBacks,
+    &kCFTypeDictionaryValueCallBacks);
+
+  CMVideoFormatDescriptionRef videoFormatDescription = nullptr;
+  auto err = CMVideoFormatDescriptionCreate(NULL, kCMVideoCodecType_H264, width, height, extensionsDict, &videoFormatDescription);
+  CFRelease(codecConfig);
+  CFRelease(atomsDict);
+  CFRelease(extensionsDict);
+
+  if (err) {
+      RTC_LOG(LS_ERROR) << "Cannot create fromat description.";
+      return err;
+  }
+
+  rtc::ScopedCFTypeRef<CMVideoFormatDescriptionRef> inputFormat = rtc::ScopedCF(videoFormatDescription);
+  if (inputFormat) {
+    // Check if the video format has changed, and reinitialize decoder if
+    // needed.
+    if (!CMFormatDescriptionEqual(inputFormat.get(), _videoFormat)) {
+      [self setVideoFormat:inputFormat.get()];
+      int resetDecompressionSessionError = [self resetDecompressionSession];
+      if (resetDecompressionSessionError != WEBRTC_VIDEO_CODEC_OK) {
+        return resetDecompressionSessionError;
+      }
+    }
+  }
+  _useAVC = true;
+  return 0;
 }
 
 - (void)setCallback:(RTCVideoDecoderCallback)callback {
@@ -277,6 +354,11 @@ void decompressionOutputCallback(void *decoderRef,
     CFRelease(_decompressionSession);
     _decompressionSession = nullptr;
   }
+}
+
+- (void)flush {
+  if (_decompressionSession)
+    VTDecompressionSessionWaitForAsynchronousFrames(_decompressionSession);
 }
 
 - (void)setVideoFormat:(CMVideoFormatDescriptionRef)videoFormat {

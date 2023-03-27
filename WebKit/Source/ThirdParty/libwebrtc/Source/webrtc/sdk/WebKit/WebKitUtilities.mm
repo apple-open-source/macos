@@ -25,6 +25,7 @@
 
 #include "WebKitUtilities.h"
 
+#include "api/make_ref_counted.h"
 #include "api/video/i420_buffer.h"
 #include "api/video/video_frame.h"
 #include "native/src/objc_frame_buffer.h"
@@ -50,12 +51,12 @@ void setApplicationStatus(bool isActive)
 rtc::scoped_refptr<webrtc::VideoFrameBuffer> pixelBufferToFrame(CVPixelBufferRef pixelBuffer)
 {
     RTCCVPixelBuffer *frameBuffer = [[RTCCVPixelBuffer alloc] initWithPixelBuffer:pixelBuffer];
-    return new rtc::RefCountedObject<ObjCFrameBuffer>(frameBuffer);
+    return rtc::make_ref_counted<ObjCFrameBuffer>(frameBuffer);
 }
 
 rtc::scoped_refptr<webrtc::VideoFrameBuffer> toWebRTCVideoFrameBuffer(void* pointer, GetBufferCallback getBufferCallback, ReleaseBufferCallback releaseBufferCallback, int width, int height)
 {
-    return new rtc::RefCountedObject<ObjCFrameBuffer>(ObjCFrameBuffer::BufferProvider { pointer, getBufferCallback, releaseBufferCallback }, width, height);
+    return rtc::make_ref_counted<ObjCFrameBuffer>(ObjCFrameBuffer::BufferProvider { pointer, getBufferCallback, releaseBufferCallback }, width, height);
 }
 
 void* videoFrameBufferProvider(const VideoFrame& frame)
@@ -65,6 +66,67 @@ void* videoFrameBufferProvider(const VideoFrame& frame)
         return nullptr;
 
     return static_cast<ObjCFrameBuffer*>(buffer.get())->frame_buffer_provider();
+}
+
+static bool copyI420BufferToPixelBuffer(CVPixelBufferRef pixelBuffer, const uint8_t* buffer, size_t length, size_t width, size_t height, I420BufferLayout layout)
+{
+    auto sourceWidthY = width;
+    auto sourceHeightY = height;
+    auto sourceWidthUV = (width + 1) / 2;
+    auto sourceHeightUV = (height + 1) / 2;
+
+    auto destinationWidthY = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0);
+    auto destinationHeightY = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0);
+
+    auto destinationWidthUV = CVPixelBufferGetWidthOfPlane(pixelBuffer, 1);
+    auto destinationHeightUV = CVPixelBufferGetHeightOfPlane(pixelBuffer, 1);
+
+    if (sourceWidthY != destinationWidthY
+        || sourceHeightY != destinationHeightY
+        || sourceWidthUV != destinationWidthUV
+        || sourceHeightUV != destinationHeightUV)
+        return false;
+
+    uint8_t* destinationY = reinterpret_cast<uint8_t*>(CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0));
+    int destinationStrideY = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0);
+    uint8_t* destinationUV = reinterpret_cast<uint8_t*>(CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 1));
+    int destinationStrideUV = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 1);
+
+    auto* sourceY = buffer + layout.offsetY;
+    int sourceStrideY = layout.strideY;
+    auto* sourceU = buffer + layout.offsetU;
+    int sourceStrideU = layout.strideU;
+    auto* sourceV = buffer + layout.offsetV;
+    int sourceStrideV = layout.strideV;
+
+    return !libyuv::I420ToNV12(
+        sourceY, sourceStrideY,
+        sourceU, sourceStrideU,
+        sourceV, sourceStrideV,
+        destinationY, destinationStrideY, destinationUV, destinationStrideUV,
+        width, height);
+
+}
+
+CVPixelBufferRef pixelBufferFromI420Buffer(const uint8_t* buffer, size_t length, size_t width, size_t height, I420BufferLayout layout)
+{
+    CVPixelBufferRef pixelBuffer = nullptr;
+
+    auto status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, nullptr, &pixelBuffer);
+    if (status != noErr || !pixelBuffer)
+        return nullptr;
+
+    if (CVPixelBufferLockBaseAddress(pixelBuffer, 0) != kCVReturnSuccess)
+        return nullptr;
+
+    bool result = copyI420BufferToPixelBuffer(pixelBuffer, buffer, length, width, height, layout);
+    CVPixelBufferUnlockBaseAddress(pixelBuffer, 0);
+
+    if (!result) {
+        CFRelease(pixelBuffer);
+        return nullptr;
+    }
+    return pixelBuffer;
 }
 
 static bool CopyVideoFrameToPixelBuffer(const webrtc::I420BufferInterface* frame, CVPixelBufferRef pixel_buffer) {
@@ -169,13 +231,13 @@ CVPixelBufferRef createPixelBufferFromFrameBuffer(VideoFrameBuffer& buffer, cons
     if (buffer.type() != VideoFrameBuffer::Type::kNative) {
         auto type = buffer.type();
         if (type != VideoFrameBuffer::Type::kI420 && type != VideoFrameBuffer::Type::kI010) {
-            RTC_LOG(WARNING) << "Video frame buffer type is not expected.";
+            RTC_LOG(LS_WARNING) << "Video frame buffer type is not expected.";
             return nullptr;
         }
 
         auto pixelBuffer = createPixelBuffer(buffer.width(), buffer.height(), type == VideoFrameBuffer::Type::kI420 ? BufferType::I420 : BufferType::I010);
         if (!pixelBuffer) {
-            RTC_LOG(WARNING) << "Pixel buffer creation failed.";
+            RTC_LOG(LS_WARNING) << "Pixel buffer creation failed.";
             return nullptr;
         }
 

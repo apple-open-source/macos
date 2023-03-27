@@ -52,15 +52,12 @@ static FloatRect calculateDocumentMarkerBounds(const InlineIterator::TextBoxIter
 LegacyTextBoxPainter::LegacyTextBoxPainter(const LegacyInlineTextBox& textBox, PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     : TextBoxPainter(InlineIterator::BoxLegacyPath { &textBox }, paintInfo, paintOffset)
 {
-    m_emphasisMarkExistsAndIsAbove = textBox.emphasisMarkExistsAndIsAbove(m_style);
 }
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 ModernTextBoxPainter::ModernTextBoxPainter(const LayoutIntegration::InlineContent& inlineContent, const InlineDisplay::Box& box, PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     : TextBoxPainter(InlineIterator::BoxModernPath { inlineContent, inlineContent.indexForBox(box) }, paintInfo, paintOffset)
 {
 }
-#endif
 
 template<typename TextBoxPath>
 TextBoxPainter<TextBoxPath>::TextBoxPainter(TextBoxPath&& textBox, PaintInfo& paintInfo, const LayoutPoint& paintOffset)
@@ -69,7 +66,7 @@ TextBoxPainter<TextBoxPath>::TextBoxPainter(TextBoxPath&& textBox, PaintInfo& pa
     , m_document(m_renderer.document())
     , m_style(m_textBox.style())
     , m_logicalRect(m_textBox.isHorizontal() ? m_textBox.visualRectIgnoringBlockDirection() : m_textBox.visualRectIgnoringBlockDirection().transposedRect())
-    , m_paintTextRun(m_textBox.createTextRun(InlineIterator::CreateTextRunMode::Painting))
+    , m_paintTextRun(m_textBox.textRun())
     , m_paintInfo(paintInfo)
     , m_selectableRange(m_textBox.selectableRange())
     , m_paintOffset(paintOffset)
@@ -80,6 +77,7 @@ TextBoxPainter<TextBoxPath>::TextBoxPainter(TextBoxPath&& textBox, PaintInfo& pa
     , m_haveSelection(computeHaveSelection())
     , m_containsComposition(m_renderer.textNode() && m_renderer.frame().editor().compositionNode() == m_renderer.textNode())
     , m_useCustomUnderlines(m_containsComposition && m_renderer.frame().editor().compositionUsesCustomUnderlines())
+    , m_emphasisMarkExistsAndIsAbove(RenderText::emphasisMarkExistsAndIsAbove(m_renderer, m_style))
 {
     ASSERT(paintInfo.phase == PaintPhase::Foreground || paintInfo.phase == PaintPhase::Selection || paintInfo.phase == PaintPhase::TextClip || paintInfo.phase == PaintPhase::EventRegion);
 }
@@ -103,7 +101,8 @@ void TextBoxPainter<TextBoxPath>::paint()
         return;
 
     if (m_paintInfo.phase == PaintPhase::EventRegion) {
-        if (m_renderer.parent()->visibleToHitTesting())
+        constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::IgnoreCSSPointerEventsProperty };
+        if (m_renderer.parent()->visibleToHitTesting(hitType))
             m_paintInfo.eventRegionContext->unite(enclosingIntRect(m_paintRect), const_cast<RenderText&>(m_renderer), m_style);
         return;
     }
@@ -359,10 +358,16 @@ void TextBoxPainter<TextBoxPath>::paintBackground(unsigned startOffset, unsigned
     auto deltaY = LayoutUnit { m_style.isFlippedLinesWritingMode() ? selectionBottom - m_logicalRect.maxY() : m_logicalRect.y() - selectionTop };
     auto selectionHeight = LayoutUnit { std::max(0.f, selectionBottom - selectionTop) };
     auto selectionRect = LayoutRect { LayoutUnit(m_paintRect.x()), LayoutUnit(m_paintRect.y() - deltaY), LayoutUnit(m_logicalRect.width()), selectionHeight };
-    fontCascade().adjustSelectionRectForText(m_paintTextRun, selectionRect, startOffset, endOffset);
+    auto adjustedSelectionRect = selectionRect;
+    fontCascade().adjustSelectionRectForText(m_paintTextRun, adjustedSelectionRect, startOffset, endOffset);
+    if (m_paintTextRun.length() == endOffset - startOffset) {
+        // FIXME: We should reconsider re-measuring the content when non-whitespace runs are joined together (see webkit.org/b/251318).
+        auto visualRight = std::max(adjustedSelectionRect.maxX(), selectionRect.maxX());
+        adjustedSelectionRect.shiftMaxXEdgeTo(visualRight);
+    }
 
     // FIXME: Support painting combined text. See <https://bugs.webkit.org/show_bug.cgi?id=180993>.
-    auto backgroundRect = snapRectToDevicePixelsWithWritingDirection(selectionRect, m_document.deviceScaleFactor(), m_paintTextRun.ltr());
+    auto backgroundRect = snapRectToDevicePixels(adjustedSelectionRect, m_document.deviceScaleFactor());
     if (backgroundStyle == BackgroundStyle::Rounded) {
         backgroundRect.expand(-1, -1);
         backgroundRect.move(0.5, 0.5);
@@ -406,10 +411,8 @@ void TextBoxPainter<TextBoxPath>::paintForeground(const StyledMarkedText& marked
 
     if constexpr (std::is_same_v<TextBoxPath, InlineIterator::BoxLegacyPath>)
         textPainter.setGlyphDisplayListIfNeeded(downcast<LegacyInlineTextBox>(*textBox().legacyInlineBox()), m_paintInfo, m_paintTextRun);
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
     else
         textPainter.setGlyphDisplayListIfNeeded(textBox().box(), m_paintInfo, m_paintTextRun);
-#endif
 
     // TextPainter wants the box rectangle and text origin of the entire line box.
     textPainter.paintRange(m_paintTextRun, m_paintRect, textOriginFromPaintRect(m_paintRect), markedText.startOffset, markedText.endOffset);
@@ -597,10 +600,67 @@ void TextBoxPainter<TextBoxPath>::paintForegroundDecorations(TextDecorationPaint
         m_paintInfo.context().concatCTM(rotation(m_paintRect, Counterclockwise));
 }
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/TextBoxPainterAdditions.cpp>
+#else
+static FloatRoundedRect::Radii radiiForUnderline(const CompositionUnderline&, unsigned, unsigned)
+{
+    return FloatRoundedRect::Radii { 0 };
+}
+
+template<typename TextBoxPath>
+void TextBoxPainter<TextBoxPath>::fillCompositionUnderline(float start, float width, const CompositionUnderline& underline, const FloatRoundedRect::Radii&, bool) const
+{
+    // Thick marked text underlines are 2px thick as long as there is room for the 2px line under the baseline.
+    // All other marked text underlines are 1px thick.
+    // If there's not enough space the underline will touch or overlap characters.
+    int lineThickness = 1;
+    int baseline = m_style.metricsOfPrimaryFont().ascent();
+    if (underline.thick && m_logicalRect.height() - baseline >= 2)
+        lineThickness = 2;
+
+    // We need to have some space between underlines of subsequent clauses, because some input methods do not use different underline styles for those.
+    // We make each line shorter, which has a harmless side effect of shortening the first and last clauses, too.
+    start += 1;
+    width -= 2;
+
+    auto& style = m_renderer.style();
+    auto underlineColor = underline.compositionUnderlineColor == CompositionUnderlineColor::TextColor ? style.visitedDependentColorWithColorFilter(CSSPropertyWebkitTextFillColor) : style.colorByApplyingColorFilter(underline.color);
+
+    auto& context = m_paintInfo.context();
+    context.setStrokeColor(underlineColor);
+    context.setStrokeThickness(lineThickness);
+    context.drawLineForText(FloatRect(m_paintRect.x() + start, m_paintRect.y() + m_logicalRect.height() - lineThickness, width, lineThickness), m_isPrinting);
+}
+#endif
+
 template<typename TextBoxPath>
 void TextBoxPainter<TextBoxPath>::paintCompositionUnderlines()
-{
-    for (auto& underline : m_renderer.frame().editor().customCompositionUnderlines()) {
+{        
+    auto& underlines = m_renderer.frame().editor().customCompositionUnderlines();
+    auto underlineCount = underlines.size();
+
+    if (!underlineCount)
+        return;
+
+    auto hasLiveConversion = false;
+
+    auto markedTextStartOffset = underlines[0].startOffset;
+    auto markedTextEndOffset = underlines[0].endOffset;
+
+    for (const auto& underline : underlines) {
+        if (underline.thick)
+            hasLiveConversion = true;
+
+        if (underline.startOffset < markedTextStartOffset)
+            markedTextStartOffset = underline.startOffset;
+
+        if (underline.endOffset > markedTextEndOffset)
+            markedTextEndOffset = underline.endOffset;
+    }
+
+    for (size_t i = 0; i < underlineCount; ++i) {
+        auto& underline = underlines[i];
         if (underline.endOffset <= textBox().start()) {
             // Underline is completely before this run. This might be an underline that sits
             // before the first run we draw, or underlines that were within runs we skipped
@@ -611,8 +671,10 @@ void TextBoxPainter<TextBoxPath>::paintCompositionUnderlines()
         if (underline.startOffset >= textBox().end())
             break; // Underline is completely after this run, bail. A later run will paint it.
 
+        auto underlineRadii = radiiForUnderline(underline, markedTextStartOffset, markedTextEndOffset);
+
         // Underline intersects this run. Paint it.
-        paintCompositionUnderline(underline);
+        paintCompositionUnderline(underline, underlineRadii, hasLiveConversion);
 
         if (underline.endOffset > textBox().end())
             break; // Underline also runs into the next run. Bail now, no more marker advancement.
@@ -637,7 +699,7 @@ float TextBoxPainter<TextBoxPath>::textPosition()
 }
 
 template<typename TextBoxPath>
-void TextBoxPainter<TextBoxPath>::paintCompositionUnderline(const CompositionUnderline& underline)
+void TextBoxPainter<TextBoxPath>::paintCompositionUnderline(const CompositionUnderline& underline, const FloatRoundedRect::Radii& radii, bool hasLiveConversion)
 {
     float start = 0; // start of line to draw, relative to tx
     float width = m_logicalRect.width(); // how much line to draw
@@ -662,26 +724,7 @@ void TextBoxPainter<TextBoxPath>::paintCompositionUnderline(const CompositionUnd
         mirrorRTLSegment(m_logicalRect.width(), textBox().direction(), start, width);
     }
 
-    // Thick marked text underlines are 2px thick as long as there is room for the 2px line under the baseline.
-    // All other marked text underlines are 1px thick.
-    // If there's not enough space the underline will touch or overlap characters.
-    int lineThickness = 1;
-    int baseline = m_style.metricsOfPrimaryFont().ascent();
-    if (underline.thick && m_logicalRect.height() - baseline >= 2)
-        lineThickness = 2;
-
-    // We need to have some space between underlines of subsequent clauses, because some input methods do not use different underline styles for those.
-    // We make each line shorter, which has a harmless side effect of shortening the first and last clauses, too.
-    start += 1;
-    width -= 2;
-
-    auto& style = m_renderer.style();
-    Color underlineColor = underline.compositionUnderlineColor == CompositionUnderlineColor::TextColor ? style.visitedDependentColorWithColorFilter(CSSPropertyWebkitTextFillColor) : style.colorByApplyingColorFilter(underline.color);
-
-    GraphicsContext& context = m_paintInfo.context();
-    context.setStrokeColor(underlineColor);
-    context.setStrokeThickness(lineThickness);
-    context.drawLineForText(FloatRect(m_paintRect.x() + start, m_paintRect.y() + m_logicalRect.height() - lineThickness, width, lineThickness), m_isPrinting);
+    fillCompositionUnderline(start, width, underline, radii, hasLiveConversion);
 }
 
 template<typename TextBoxPath>
@@ -762,7 +805,7 @@ FloatRect TextBoxPainter<TextBoxPath>::computePaintRect(const LayoutPoint& paint
     localPaintOffset.move(0, m_style.isHorizontalWritingMode() ? 0 : -m_logicalRect.height());
 
     auto visualRect = textBox().visualRectIgnoringBlockDirection();
-    textBox().containingBlock().flipForWritingMode(visualRect);
+    textBox().formattingContextRoot().flipForWritingMode(visualRect);
 
     auto boxOrigin = visualRect.location();
     boxOrigin.moveBy(localPaintOffset);
@@ -779,8 +822,8 @@ FloatRect calculateDocumentMarkerBounds(const InlineIterator::TextBoxIterator& t
 
     // Avoid measuring the text when the entire line box is selected as an optimization.
     if (markedText.startOffset || markedText.endOffset != textBox->selectableRange().clamp(textBox->end())) {
-        TextRun run = textBox->createTextRun();
-        LayoutRect selectionRect = LayoutRect(0, y, 0, height);
+        auto run = textBox->textRun();
+        auto selectionRect = LayoutRect { 0_lu, y, 0_lu, height };
         font.adjustSelectionRectForText(run, selectionRect, markedText.startOffset, markedText.endOffset);
         return selectionRect;
     }
@@ -826,18 +869,14 @@ const ShadowData* TextBoxPainter<TextBoxPath>::debugTextShadow() const
 {
     if (!m_renderer.settings().legacyLineLayoutVisualCoverageEnabled())
         return nullptr;
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
     if constexpr (std::is_same_v<TextBoxPath, InlineIterator::BoxModernPath>)
         return nullptr;
-#endif
 
     static NeverDestroyed<ShadowData> debugTextShadow(LengthPoint(Length(LengthType::Fixed), Length(LengthType::Fixed)), Length(10, LengthType::Fixed), Length(20, LengthType::Fixed), ShadowStyle::Normal, true, SRGBA<uint8_t> { 150, 0, 0, 190 });
     return &debugTextShadow.get();
 }
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 template class TextBoxPainter<InlineIterator::BoxModernPath>;
-#endif
 template class TextBoxPainter<InlineIterator::BoxLegacyPath>;
 
 }

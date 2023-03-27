@@ -26,6 +26,7 @@
 #include "config.h"
 #include "Scrollbar.h"
 
+#include "DeprecatedGlobalSettings.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "PlatformMouseEvent.h"
@@ -476,6 +477,15 @@ bool Scrollbar::supportsUpdateOnSecondaryThread() const
 #else
     return false;
 #endif
+}
+
+NativeScrollbarVisibility Scrollbar::nativeScrollbarVisibility(const Scrollbar* scrollbar)
+{
+    if (scrollbar && scrollbar->isHiddenByStyle())
+        return NativeScrollbarVisibility::HiddenByStyle;
+    if (DeprecatedGlobalSettings::mockScrollbarsEnabled() || (scrollbar && scrollbar->isCustomScrollbar()))
+        return NativeScrollbarVisibility::ReplacedByCustomScrollbar;
+    return NativeScrollbarVisibility::Visible;
 }
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "ArgumentCoders.h"
+#include "RemoteImageBufferProxy.h"
 #include "RemoteRenderingBackendProxy.h"
 
 namespace WebKit {
@@ -46,26 +47,39 @@ RemoteResourceCacheProxy::~RemoteResourceCacheProxy()
     clearDecomposedGlyphsMap();
 }
 
-void RemoteResourceCacheProxy::cacheImageBuffer(WebCore::ImageBuffer& imageBuffer)
+void RemoteResourceCacheProxy::clear()
+{
+    clearNativeImageMap();
+    clearImageBufferBackends();
+    m_imageBuffers.clear();
+    clearDecomposedGlyphsMap();
+}
+
+void RemoteResourceCacheProxy::cacheImageBuffer(RemoteImageBufferProxy& imageBuffer)
 {
     auto addResult = m_imageBuffers.add(imageBuffer.renderingResourceIdentifier(), imageBuffer);
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }
 
-ImageBuffer* RemoteResourceCacheProxy::cachedImageBuffer(RenderingResourceIdentifier renderingResourceIdentifier) const
+RemoteImageBufferProxy* RemoteResourceCacheProxy::cachedImageBuffer(RenderingResourceIdentifier renderingResourceIdentifier) const
 {
     return m_imageBuffers.get(renderingResourceIdentifier).get();
 }
 
-void RemoteResourceCacheProxy::releaseImageBuffer(RenderingResourceIdentifier renderingResourceIdentifier)
+void RemoteResourceCacheProxy::releaseImageBuffer(RemoteImageBufferProxy& imageBuffer)
 {
-    auto iterator = m_imageBuffers.find(renderingResourceIdentifier);
+    forgetImageBuffer(imageBuffer.renderingResourceIdentifier());
+
+    m_remoteRenderingBackendProxy.releaseRemoteResource(imageBuffer.renderingResourceIdentifier());
+}
+
+void RemoteResourceCacheProxy::forgetImageBuffer(RenderingResourceIdentifier identifier)
+{
+    auto iterator = m_imageBuffers.find(identifier);
     RELEASE_ASSERT(iterator != m_imageBuffers.end());
 
     auto success = m_imageBuffers.remove(iterator);
     ASSERT_UNUSED(success, success);
-
-    m_remoteRenderingBackendProxy.releaseRemoteResource(renderingResourceIdentifier);
 }
 
 inline static RefPtr<ShareableBitmap> createShareableBitmapFromNativeImage(NativeImage& image)
@@ -100,12 +114,11 @@ void RemoteResourceCacheProxy::recordNativeImageUse(NativeImage& image)
     if (!bitmap)
         return;
 
-    ShareableBitmap::Handle handle;
-    bitmap->createHandle(handle);
-    if (handle.isNull())
+    auto handle = bitmap->createHandle();
+    if (!handle)
         return;
 
-    handle.takeOwnershipOfMemory(MemoryLedger::Graphics);
+    handle->takeOwnershipOfMemory(MemoryLedger::Graphics);
     m_nativeImages.add(image.renderingResourceIdentifier(), image);
 
     // Set itself as an observer to NativeImage, so releaseNativeImage()
@@ -113,7 +126,7 @@ void RemoteResourceCacheProxy::recordNativeImageUse(NativeImage& image)
     image.addObserver(*this);
 
     // Tell the GPU process to cache this resource.
-    m_remoteRenderingBackendProxy.cacheNativeImage(handle, image.renderingResourceIdentifier());
+    m_remoteRenderingBackendProxy.cacheNativeImage(*handle, image.renderingResourceIdentifier());
 }
 
 void RemoteResourceCacheProxy::recordFontUse(Font& font)
@@ -155,7 +168,7 @@ void RemoteResourceCacheProxy::releaseNativeImage(RenderingResourceIdentifier re
 void RemoteResourceCacheProxy::clearNativeImageMap()
 {
     for (auto& nativeImage : m_nativeImages.values())
-        nativeImage->removeObserver(*this);
+        nativeImage.get()->removeObserver(*this);
     m_nativeImages.clear();
 }
 
@@ -191,7 +204,7 @@ void RemoteResourceCacheProxy::clearImageBufferBackends()
 void RemoteResourceCacheProxy::clearDecomposedGlyphsMap()
 {
     for (auto& decomposedGlyphs : m_decomposedGlyphs.values())
-        decomposedGlyphs->removeObserver(*this);
+        decomposedGlyphs.get()->removeObserver(*this);
     m_decomposedGlyphs.clear();
 }
 

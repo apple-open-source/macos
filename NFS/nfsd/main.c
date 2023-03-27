@@ -70,6 +70,7 @@
 #include <pthread.h>
 #include <spawn.h>
 #include <dns_sd.h>
+#include <sysexits.h>
 
 #include <mach/mach.h>
 #include <mach/host_special_ports.h>
@@ -104,10 +105,7 @@
 #include "pathnames.h"
 #include "common.h"
 
-#define GETOPT                  "F:Nn:P:p:Rrtuv"
-
-#define MAX_NFSD_THREADS_SOFT   192
-#define MAX_NFSD_THREADS_HARD   512
+#define GETOPT                  "F:Nn:P:p:Rrtuv?"
 
 const struct nfs_conf_server config_defaults =
 {
@@ -148,20 +146,17 @@ int recheckexports = 0;
 
 DNSServiceRef nfs_dns_service;
 
-static int config_read(struct nfs_conf_server *);
-static void config_sanity_check(struct nfs_conf_server *conf);
+static int config_read(const char *, struct nfs_conf_server *);
+static void config_sanity_check(struct nfs_conf_server *);
 static void config_sysctl_changed(struct nfs_conf_server *, struct nfs_conf_server *);
-static void config_loop(void);
+static void config_loop(const char *);
 
-pid_t get_nfsd_pid(void);
 static pid_t get_pid(const char *);
 static void signal_nfsd(int);
 static void sigmux(int);
 
 static int service_is_enabled(CFStringRef);
 static int service_is_loaded(CFStringRef);
-static int nfsd_is_enabled(void);
-static int nfsd_is_loaded(void);
 static int nfsd_is_running(void);
 
 static int nfsd_enable(void);
@@ -172,7 +167,7 @@ static int nfsd_start(void);
 static int nfsd_kickstart(void);
 
 static void register_services(void);
-static int safe_exec(char *const*, int);
+static int safe_exec(char *const*);
 static void do_lockd_ping(void);
 static void do_lockd_shutdown(void);
 static int rquotad_start(void);
@@ -184,7 +179,7 @@ usage(void)
 	fprintf(stderr, "usage: nfsd [-NRrtuv] [-F export_file] [-n num_servers] "
 	    "[-p nfsport] [-P mountport] [command]\n");
 	fprintf(stderr, "commands: enable, disable, start, stop, restart, update, status, checkexports, verbose [up|down]\n");
-	exit(1);
+	exit(EX_USAGE);
 }
 
 static int
@@ -193,17 +188,19 @@ handle_unprivileged_user(void)
 	if (getuid()) {
 		printf("Sorry, nfsd must be run as root\n");
 		printf("unprivileged usage: nfsd [ status | [-F file] checkexports]\n");
-		/* try to make sure the nfsd service isn't loaded in the per-user launchd */
-		if (nfsd_is_loaded()) {
-			nfsd_unload();
-		}
-		exit(2);
+		exit(EX_NOPERM);
 	}
 	return 1;
 }
 
 int
-main(int argc, char *argv[], __unused char *envp[])
+main(int argc, char *argv[])
+{
+	return nfsd_imp(argc, argv, _PATH_NFS_CONF);
+}
+
+int
+nfsd_imp(int argc, char *argv[], const char *conf_path)
 {
 	struct pidfh *nfsd_pfh, *mountd_pfh;
 	pid_t pid;
@@ -216,7 +213,7 @@ main(int argc, char *argv[], __unused char *envp[])
 
 	/* set defaults then do config_read() to get config values */
 	config = config_defaults;
-	config_read(&config);
+	config_read(conf_path, &config);
 
 	/* init command-line flags */
 	reregister = 0;
@@ -301,7 +298,7 @@ main(int argc, char *argv[], __unused char *envp[])
 
 	if (reregister) {
 		signal_nfsd(SIGHUP);
-		exit(0);
+		exit(EXIT_SUCCESS);
 	}
 
 	rv = 0;
@@ -324,7 +321,7 @@ main(int argc, char *argv[], __unused char *envp[])
 				sysctl_get("vfs.generic.nfs.server.nfsd_thread_count", &cur);
 				printf("nfsd is running (pid %d, %d threads)\n", pid, cur);
 			}
-			rv = enabled ? 0 : 1;
+			rv = (pid > 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 			if (config.verbose) {
 				/* print info about related daemons too */
 				/* lockd */
@@ -517,7 +514,7 @@ main(int argc, char *argv[], __unused char *envp[])
 	register_services();
 
 	/* main thread loops to handle config updates */
-	config_loop();
+	config_loop(conf_path);
 
 	/* nfsd is exiting... */
 	sysctl_set("vfs.generic.nfs.server.nfsd_thread_max", 0);
@@ -541,14 +538,14 @@ main(int argc, char *argv[], __unused char *envp[])
 	/* and get out */
 	pidfile_remove(mountd_pfh);
 	pidfile_remove(nfsd_pfh);
-	exit(0);
+	exit(EXIT_SUCCESS);
 }
 
 /*
  * read the NFS server values from nfs.conf
  */
 static int
-config_read(struct nfs_conf_server *conf)
+config_read(const char *conf_path, struct nfs_conf_server *conf)
 {
 	FILE *f;
 	size_t len, linenum = 0;
@@ -556,9 +553,9 @@ config_read(struct nfs_conf_server *conf)
 	int val;
 	long tmp;
 
-	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
+	if (!(f = fopen(conf_path, "r"))) {
 		if (errno != ENOENT) {
-			log(LOG_WARNING, "%s", _PATH_NFS_CONF);
+			log(LOG_WARNING, "%s", conf_path);
 		}
 		return 1;
 	}
@@ -705,7 +702,7 @@ config_sanity_check(struct nfs_conf_server *conf)
  * Just wait for a signal or mount notification.
  */
 static void
-config_loop(void)
+config_loop(const char *conf_path)
 {
 	int kq, rv, gotmount = 0, exports_changed;
 	struct kevent ke;
@@ -717,13 +714,13 @@ config_loop(void)
 	/* set up mount/unmount kqueue */
 	if ((kq = kqueue()) < 0) {
 		log(LOG_ERR, "kqueue: %s (%d)", strerror(errno), errno);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	EV_SET(&ke, 0, EVFILT_FS, EV_ADD, 0, 0, 0);
 	rv = kevent(kq, &ke, 1, NULL, 0, NULL);
 	if (rv < 0) {
 		log(LOG_ERR, "kevent(EVFILT_FS): %s (%d)", strerror(errno), errno);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* get baseline stat values for exports file */
@@ -731,13 +728,13 @@ config_loop(void)
 	if ((exports_fd = open(exportsfilepath, O_RDONLY)) == -1) {
 		log(LOG_ERR, "open(%s): %s (%d)", exportsfilepath,
 		    strerror(errno), errno);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	EV_SET(&ke, exports_fd, EVFILT_VNODE, EV_ADD | EV_ONESHOT, NOTE_DELETE, 0, 0);
 	rv = kevent(kq, &ke, 1, NULL, 0, NULL);
 	if (rv < 0) {
 		log(LOG_ERR, "kevent(EVFILT_VNODE): %s (%d)", strerror(errno), errno);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	if (fstat(exports_fd, &st)) {
@@ -789,7 +786,7 @@ config_loop(void)
 			if (gothup) {
 				DEBUG(1, "handling HUP");
 				newconf = config_defaults;
-				if (!config_read(&newconf)) {
+				if (!config_read(conf_path, &newconf)) {
 					config_sanity_check(&newconf);
 					/* if port/transport/reqcachesize change detected exit to initiate a restart */
 					if ((newconf.port != config.port) || (newconf.mount_port != config.mount_port) ||
@@ -1272,7 +1269,7 @@ get_pid(const char *path)
 {
 	char pidbuf[128], *pidend;
 	int fd, rv;
-	size_t len;
+	ssize_t len;
 	pid_t pid;
 	struct flock lock;
 
@@ -1385,7 +1382,7 @@ service_is_loaded(CFStringRef service)
 /*
  * Check whether the nfsd service appears to be enabled.
  */
-static int
+int
 nfsd_is_enabled(void)
 {
 	return service_is_enabled(CFSTR(_NFSD_SERVICE_LABEL));
@@ -1394,7 +1391,7 @@ nfsd_is_enabled(void)
 /*
  * Check whether the nfsd service is loaded.
  */
-static int
+int
 nfsd_is_loaded(void)
 {
 	return service_is_loaded(CFSTR(_NFSD_SERVICE_LABEL));
@@ -1412,7 +1409,7 @@ nfsd_enable(void)
 	}
 
 	const char *const args[] = { _PATH_LAUNCHCTL, "load", "-w", _PATH_NFSD_PLIST, NULL };
-	return safe_exec((char *const*)args, 0);
+	return safe_exec((char *const*)args);
 }
 
 /*
@@ -1429,7 +1426,7 @@ nfsd_disable(void)
 	}
 
 	const char *const args[] = { _PATH_LAUNCHCTL, "unload", "-w", _PATH_NFSD_PLIST, NULL };
-	return safe_exec((char *const*)args, 0);
+	return safe_exec((char *const*)args);
 }
 
 /*
@@ -1444,7 +1441,7 @@ nfsd_load(void)
 	}
 
 	const char *const args[] = { _PATH_LAUNCHCTL, "load", "-F", _PATH_NFSD_PLIST, NULL };
-	return safe_exec((char *const*)args, 0);
+	return safe_exec((char *const*)args);
 }
 
 /*
@@ -1465,7 +1462,7 @@ nfsd_unload(void)
 	}
 
 	const char *const args[] = { _PATH_LAUNCHCTL, "unload", _PATH_NFSD_PLIST, NULL };
-	return safe_exec((char *const*)args, 0);
+	return safe_exec((char *const*)args);
 }
 
 /*
@@ -1480,7 +1477,7 @@ nfsd_start(void)
 	}
 
 	const char *const args[] = { _PATH_LAUNCHCTL, "start", _NFSD_SERVICE_LABEL, NULL };
-	return safe_exec((char *const*)args, 0);
+	return safe_exec((char *const*)args);
 }
 
 /*
@@ -1495,7 +1492,7 @@ nfsd_kickstart(void)
 	}
 
 	const char *const args[] = { _PATH_LAUNCHCTL, "kickstart", "-k", _NFSD_KICKSTART_LABEL, NULL };
-	return safe_exec((char *const*)args, 0);
+	return safe_exec((char *const*)args);
 }
 
 /*
@@ -1511,23 +1508,13 @@ nfsd_is_running(void)
  * run an external program
  */
 static int
-safe_exec(char *const argv[], int silent)
+safe_exec(char *const argv[])
 {
-	posix_spawn_file_actions_t psfileact, *psfileactp = NULL;
+	posix_spawn_file_actions_t *psfileactp = NULL;
 	pid_t pid;
 	int status;
 	extern char **environ;
 
-	if (silent) {
-		psfileactp = &psfileact;
-		if ((status = posix_spawn_file_actions_init(psfileactp))) {
-			log(LOG_ERR, "spawn init of %s failed: %s (%d)", argv[0], strerror(status), status);
-			return 1;
-		}
-		posix_spawn_file_actions_addopen(psfileactp, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
-		posix_spawn_file_actions_addopen(psfileactp, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
-		posix_spawn_file_actions_addopen(psfileactp, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
-	}
 	status = posix_spawn(&pid, argv[0], psfileactp, NULL, argv, environ);
 	if (psfileactp) {
 		posix_spawn_file_actions_destroy(psfileactp);
@@ -1545,7 +1532,7 @@ safe_exec(char *const argv[], int silent)
 	} else if (WIFSTOPPED(status)) {
 		log(LOG_ERR, "%s stopped by signal %d ?", argv[0], WSTOPSIG(status));
 		return 1;
-	} else if (WEXITSTATUS(status) && !silent) {
+	} else if (WEXITSTATUS(status)) {
 		log(LOG_ERR, "%s exited with status %d", argv[0], WEXITSTATUS(status));
 	}
 	return WEXITSTATUS(status);

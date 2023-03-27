@@ -254,11 +254,11 @@ class SamplerManager : public TypedResourceManager<Sampler, SamplerManager, Samp
     ~SamplerManager() override;
 };
 
-class SyncManager : public TypedResourceManager<Sync, SyncManager, GLuint>
+class SyncManager : public TypedResourceManager<Sync, SyncManager, SyncID>
 {
   public:
-    GLuint createSync(rx::GLImplFactory *factory);
-    Sync *getSync(GLuint handle) const;
+    SyncID createSync(rx::GLImplFactory *factory);
+    Sync *getSync(SyncID handle) const;
 
     static void DeleteObject(const Context *context, Sync *sync);
 
@@ -278,17 +278,15 @@ class FramebufferManager
     void invalidateFramebufferCompletenessCache() const;
 
     Framebuffer *checkFramebufferAllocation(rx::GLImplFactory *factory,
-                                            const Caps &caps,
-                                            FramebufferID handle,
-                                            egl::ShareGroup *shareGroup)
+                                            const Context *context,
+                                            FramebufferID handle)
     {
-        return checkObjectAllocation<const Caps &>(factory, handle, caps, shareGroup);
+        return checkObjectAllocation(factory, handle, context);
     }
 
     static Framebuffer *AllocateNewObject(rx::GLImplFactory *factory,
                                           FramebufferID handle,
-                                          const Caps &caps,
-                                          egl::ShareGroup *shareGroup);
+                                          const Context *context);
     static void DeleteObject(const Context *context, Framebuffer *framebuffer);
 
   protected:

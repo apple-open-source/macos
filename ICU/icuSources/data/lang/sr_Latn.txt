@@ -96,6 +96,7 @@ sr_Latn{
         chm{"mari"}
         chn{"činučki"}
         cho{"čoktavski"}
+        cho_Latn{"čoktavski"}
         chp{"čipevjanski"}
         chr{"čeroki"}
         chy{"čejenski"}

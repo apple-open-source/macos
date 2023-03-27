@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2022 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,7 +77,7 @@ private:
     void appendBytes(DocumentWriter&, const uint8_t*, size_t) final;
     void createDocumentStructure();
 
-    HTMLMediaElement* m_mediaElement { nullptr };
+    WeakPtr<HTMLMediaElement, WeakPtrImplWithEventTargetData> m_mediaElement;
     String m_outgoingReferrer;
 };
     
@@ -107,7 +107,7 @@ void MediaDocumentParser::createDocumentStructure()
     rootElement->appendChild(body);
 
     auto videoElement = HTMLVideoElement::create(document);
-    m_mediaElement = videoElement.ptr();
+    m_mediaElement = videoElement.get();
     videoElement->setAttributeWithoutSynchronization(controlsAttr, emptyAtom());
     videoElement->setAttributeWithoutSynchronization(autoplayAttr, emptyAtom());
     videoElement->setAttributeWithoutSynchronization(srcAttr, AtomString { document.url().string() });
@@ -141,7 +141,7 @@ void MediaDocumentParser::appendBytes(DocumentWriter&, const uint8_t*, size_t)
 MediaDocument::MediaDocument(Frame* frame, const Settings& settings, const URL& url)
     : HTMLDocument(frame, settings, url, { }, { DocumentClass::Media })
 {
-    setCompatibilityMode(DocumentCompatibilityMode::QuirksMode);
+    setCompatibilityMode(DocumentCompatibilityMode::NoQuirksMode);
     lockCompatibilityMode();
     if (frame)
         m_outgoingReferrer = frame->loader().outgoingReferrer();

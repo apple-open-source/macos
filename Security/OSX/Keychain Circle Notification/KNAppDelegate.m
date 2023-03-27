@@ -51,6 +51,7 @@
 #import <CoreCDP/CDPFollowUpController.h>
 #import <CoreCDP/CDPFollowUpContext.h>
 #import <CoreCDP/CDPAccount.h>
+#import <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 
 static const char     * const kLaunchLaterXPCName      = "com.apple.security.Keychain-Circle-Notification-TICK";
 static const NSString * const kKickedOutKey            = @"KickedOut";
@@ -94,7 +95,7 @@ static void PSKeychainSyncIsUsingICDP(void)
     BOOL isICDPEnabled = NO;
     if (dsid) {
         isICDPEnabled = [CDPAccount isICDPEnabledForDSID:dsid];
-        NSLog(@"iCDP: PSKeychainSyncIsUsingICDP returning %@", isICDPEnabled ? @"TRUE" : @"FALSE");
+        NSLog(@"iCDP: PSKeychainSyncIsUsingICDP returning %{bool}d", isICDPEnabled);
     } else {
         NSLog(@"iCDP: no primary account");
     }
@@ -455,6 +456,11 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 
 - (void) applicationDidFinishLaunching: (NSNotification *) aNotification
 {
+    IF_SOS_DISABLED {
+        secnotice("nosos", "KCN triggered even though SOS is turned off for this platform");
+        return;
+    }
+
 	appropriateNotificationCenter().delegate = self;
     int out_taken;
     int available;

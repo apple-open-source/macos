@@ -1929,7 +1929,6 @@ fsw_rps_set_nthreads(struct nx_flowswitch* fsw, uint32_t n)
 		fsw->fsw_rps_threads = krealloc_type(struct fsw_rps_thread,
 		    fsw->fsw_rps_nthreads, n, fsw->fsw_rps_threads,
 		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
-		ASSERT(n != 0 ^ fsw->fsw_rps_threads == NULL);
 	} else if (n > fsw->fsw_rps_nthreads) {
 		fsw->fsw_rps_threads = krealloc_type(struct fsw_rps_thread,
 		    fsw->fsw_rps_nthreads, n, fsw->fsw_rps_threads,
@@ -2312,6 +2311,10 @@ convert_pkt_to_mbuf(struct __kern_packet *pkt)
 	m->m_pkthdr.pkt_flowsrc = pkt->pkt_flowsrc_type;
 	m->m_pkthdr.pkt_mpriv_srcid = pkt->pkt_flowsrc_token;
 	m->m_pkthdr.pkt_mpriv_fidx = pkt->pkt_flowsrc_fidx;
+
+	if (pkt->pkt_transport_protocol == IPPROTO_QUIC) {
+		m->m_pkthdr.pkt_ext_flags |= PKTF_EXT_QUIC;
+	}
 
 	/* The packet should have a timestamp by the time we get here. */
 	m->m_pkthdr.pkt_timestamp = pkt->pkt_timestamp;
@@ -3735,7 +3738,6 @@ fsw_purge_cache(struct nx_flowswitch *fsw, boolean_t low)
 	skmem_cache_reap_now(sk_fab_cache, purge);
 	skmem_cache_reap_now(flow_route_cache, purge);
 	skmem_cache_reap_now(flow_stats_cache, purge);
-	eventhandler_reap_caches(purge);
 	netns_reap_caches(purge);
 	skmem_reap_caches(purge);
 

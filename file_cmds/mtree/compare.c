@@ -671,6 +671,19 @@ typeerr:		LABEL;
 			}
 		}
 	}
+	if (s->flags & F_DATALESS) {
+		uint64_t dataless = IS_DATALESS(p->fts_statp);
+		uint64_t node_dataless = (s->st_flags & SF_DATALESS) > 0; // > 0 b/c it is being compared with a boolean
+		if (dataless != node_dataless) {
+			LABEL;
+			(void)printf("%sdataless expected %llu found %llu for file %s\n",
+				     tab, node_dataless, dataless, p->fts_accpath);
+			tab = "\t";
+			if (mflag) {
+				RECORD_FAILURE(1290419, EINVAL);
+			}
+		}
+	}
 	
 	return (label);
 }

@@ -15,6 +15,7 @@
 		<string>main.c, output.c: Don't ignore errors from flushing output (89146781)</string>
 		<string>ttyin.c: use stderr for commands if stdout is a terminal (86529734)</string>
 		<string>edit.c: support command substitution in examine file list (86529734)</string>
+		<string>less.nro: remove lesskey(1) SEE ALSO (100829510)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>less</string>

@@ -244,13 +244,40 @@ exit:
 	return ret;
 }
 
+int BLGetAPFSSnapshotData(BLContextPtr context,
+					  const char *mountpoint,
+					  uuid_string_t snap_data,
+					  bool is_name,
+					  apfs_snap_name_lookup_t *snap_lookup_data)
+{
+	int err = 0;
+	// passing an empty snapshot uuid/name is used to bless the live fs
+	// this is done by calling fs_snapshot_root with an empty snapshot name
+	// so no need for snapshot lookup when blessing the live fs
+	if (strlen(snap_data)) {
+		if (is_name) {
+			strlcpy(snap_lookup_data->snap_name, snap_data, sizeof(snap_lookup_data->snap_name));
+			snap_lookup_data->type = SNAP_LOOKUP_BY_NAME;
+		} else {
+			err = uuid_parse(snap_data, snap_lookup_data->snap_uuid);
+			if (err) {
+				return err;
+			}
+			snap_lookup_data->type = SNAP_LOOKUP_BY_UUID;
+		}
+	}
+	err = fsctl(mountpoint, APFSIOC_SNAP_LOOKUP, (void *)snap_lookup_data, 0);
+	return err;
+}
 
-int BLSetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uuid_string_t snap_uuid)
+
+
+int BLSetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uuid_string_t snap_data, bool is_name)
 {
     apfs_snap_name_lookup_t snap_lookup_data = {0};
     int vol_fd, err = 0;
 
-    if (!snap_uuid) {
+    if (!snap_data) {
         return -1;
     }
 
@@ -258,18 +285,7 @@ int BLSetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uui
         return -1;
     }
 
-    // passing an empty snapshot uuid is used to bless the live fs
-    // this is done by calling fs_snapshot_root with an empty snapshot name
-    // so no need for snapshot lookup when blessing the live fs
-    if (strlen(snap_uuid)) {
-        err = uuid_parse(snap_uuid, snap_lookup_data.snap_uuid);
-        snap_lookup_data.type = SNAP_LOOKUP_BY_UUID;
-
-        if (!err) {
-            err = fsctl(mountpoint, APFSIOC_SNAP_LOOKUP, (void *)&snap_lookup_data, 0);
-        }
-    }
-
+    err = BLGetAPFSSnapshotData(context, mountpoint, snap_data, is_name, &snap_lookup_data);
     if (!err) {
         err = fs_snapshot_root(vol_fd, snap_lookup_data.snap_name, 0);
     }
@@ -291,22 +307,22 @@ CFStringRef BLGetAPFSBlessedVolumeBSDName(BLContextPtr context, const char *moun
 	CFArrayRef	roleArray;
 	CFStringRef role;
 	kern_return_t kret;
+	char blessFolderUUID[MAXPATHLEN];
 	bool skipVolUUIDCheck;
 
     if (!vol_uuid) {
         return NULL;
     }
-
     memset(vol_uuid, 0, sizeof(uuid_string_t));
-    memmove(bless_folder, bless_folder + strlen(mountpoint), strlen(bless_folder) - strlen(mountpoint) + 1);
-    slash = strchr(bless_folder + 1, '/');
+    strlcpy(blessFolderUUID, bless_folder + strlen(mountpoint), strlen(bless_folder) - strlen(mountpoint) + 1);
+    slash = strchr(blessFolderUUID + 1, '/');
 
     if (slash) *slash = '\0';
-    if (uuid_parse(bless_folder + 1, c_uuid)) {
+    if (uuid_parse(blessFolderUUID+1, c_uuid)) {
         return NULL;
     }
 
-    inUUID = CFStringCreateWithCString(kCFAllocatorDefault, bless_folder + 1, kCFStringEncodingUTF8);
+    inUUID = CFStringCreateWithCString(kCFAllocatorDefault, blessFolderUUID + 1, kCFStringEncodingUTF8);
     matching = IOServiceMatching(APFS_VOLUME_OBJECT);
 	kret = IOServiceGetMatchingServices(kIOMasterPortDefault, matching, &iter);
 	if (kret == KERN_SUCCESS) {
@@ -358,7 +374,7 @@ CFStringRef BLGetAPFSBlessedVolumeBSDName(BLContextPtr context, const char *moun
 		IOObjectRelease(iter);
 		if (service) {
 			bsd_name = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
-			if (bsd_name) strlcpy(vol_uuid, bless_folder + 1, sizeof(uuid_string_t));
+			if (bsd_name) strlcpy(vol_uuid, blessFolderUUID + 1, sizeof(uuid_string_t));
 			IOObjectRelease(service);
 		} else {
 			// We didn't find an appropriate volume, did we find a data volume without a system volume?
@@ -366,13 +382,12 @@ CFStringRef BLGetAPFSBlessedVolumeBSDName(BLContextPtr context, const char *moun
 				// We did!  The system volume must be ARV and we can't see it because our OS is too old.
 				// Use the data volume instead.
 				bsd_name = IORegistryEntryCreateCFProperty(dataService, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
-				if (bsd_name) strlcpy(vol_uuid, bless_folder + 1, sizeof(uuid_string_t));
+				if (bsd_name) strlcpy(vol_uuid, blessFolderUUID + 1, sizeof(uuid_string_t));
 				IOObjectRelease(dataService);
 			}
 		}
 	}
     CFRelease(inUUID);
-
     if (slash) *slash = '/';
 
     return bsd_name;

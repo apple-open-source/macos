@@ -8,27 +8,28 @@
 # Subsequent elements are @stash_usernames for each owner.
 #
 
-@@@usersecrets awesterlund@apple.com kmowery@apple.com lyssa@apple.com mauricchio@apple.com murf@apple.com rlpm@apple.com toby@apple.com
+# Suppress info comment on pull request creation about added code owners. Comments are enabled by default.
+CODEOWNERS.toplevel.create_pull_request_comment disable
 
-Analytics/ @@usersecrets
-CircleJoinRequested/ @@usersecrets
-KeychainCircle/ @@usersecrets
-KeychainSyncAccountNotification/ @@usersecrets
-keychain/ @@usersecrets
-OSX/Keychain/ @@usersecrets
-"OSX/Keychain Circle Notification/" @@usersecrets
-OSX/libsecurityd/ @@usersecrets
-OSX/security2/ @@usersecrets
-OSX/sec/KeychainSyncingOverIDSProxy/ @@usersecrets
-OSX/sec/ipc/ @@usersecrets
-OSX/sec/SharedWebCredential/ @@usersecrets
-OSX/sec/os_log/ @@usersecrets
-secdtests/ @@usersecrets
-security-sysdiagnose/ @@usersecrets
-securityd/ @@usersecrets
-SecurityTool/ @@usersecrets
-SOSCCAuthPlugin/ @@usersecrets
-supd/ @@usersecrets
-supdctl/ @@usersecrets
-tests/secdmockaks/ @@usersecrets
+Analytics/ @@usersecrets-engineering
+CircleJoinRequested/ @@usersecrets-engineering
+KeychainCircle/ @@usersecrets-engineering
+KeychainSyncAccountNotification/ @@usersecrets-engineering
+keychain/ @@usersecrets-engineering
+OSX/Keychain/ @@usersecrets-engineering
+"OSX/Keychain Circle Notification/" @@usersecrets-engineering
+OSX/libsecurityd/ @@usersecrets-engineering
+OSX/security2/ @@usersecrets-engineering
+OSX/sec/KeychainSyncingOverIDSProxy/ @@usersecrets-engineering
+OSX/sec/ipc/ @@usersecrets-engineering
+OSX/sec/SharedWebCredential/ @@usersecrets-engineering
+OSX/sec/os_log/ @@usersecrets-engineering
+secdtests/ @@usersecrets-engineering
+security-sysdiagnose/ @@usersecrets-engineering
+securityd/ @@usersecrets-engineering
+SecurityTool/ @@usersecrets-engineering
+SOSCCAuthPlugin/ @@usersecrets-engineering
+supd/ @@usersecrets-engineering
+supdctl/ @@usersecrets-engineering
+tests/secdmockaks/ @@usersecrets-engineering
 

@@ -82,6 +82,15 @@
 		<key>Enabled</key>
 		<false/>
 	</dict>
+	<key>KCSharingAutomaticSyncing</key>
+	<dict>
+		<key>DisplayName</key>
+		<string>Sync shared items automatically</string>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+		<key>Radar</key>
+		<real>83175376</real>
+	</dict>
 	<key>SecCMSMessageSecurityShim</key>
 	<dict>
 		<key>Enabled</key>
@@ -92,10 +101,12 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
-	<key>Radar98687587</key>
+	<key>KCSharingUsePrototypeIDSService</key>
 	<dict>
-		<key>Enabled</key>
-		<true/>
+		<key>DisplayName</key>
+		<string>Use a prototype IDS service for kcsharing invites</string>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
 	</dict>
 </dict>
 </plist>

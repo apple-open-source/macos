@@ -1792,7 +1792,8 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount.osx.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
@@ -1807,7 +1808,8 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount.osx.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
@@ -1822,6 +1824,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount.osx.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1837,6 +1840,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount.osx.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = "$(TARGET_NAME)";

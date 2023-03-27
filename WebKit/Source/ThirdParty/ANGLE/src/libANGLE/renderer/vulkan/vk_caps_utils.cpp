@@ -310,6 +310,13 @@ void RendererVk::ensureCapsInitialized() const
         mNativeLimitations.emulatedEtc1 = true;
     }
 
+    // When ASTC formats are not natively supported
+    // mark potentially-available ASTC extension as emulated.
+    if (mPhysicalDeviceFeatures.textureCompressionASTC_LDR == VK_FALSE)
+    {
+        mNativeLimitations.emulatedAstc = true;
+    }
+
     // Vulkan doesn't support ASTC 3D block textures, which are required by
     // GL_OES_texture_compression_astc.
     mNativeExtensions.textureCompressionAstcOES = false;
@@ -344,10 +351,11 @@ void RendererVk::ensureCapsInitialized() const
     mNativeExtensions.copyTexture3dANGLE            = true;
     mNativeExtensions.copyCompressedTextureCHROMIUM = true;
     mNativeExtensions.debugMarkerEXT                = true;
-    mNativeExtensions.robustnessEXT                 = !IsARM(mPhysicalDeviceProperties.vendorID);
+    mNativeExtensions.robustnessEXT                 = true;
     mNativeExtensions.discardFramebufferEXT         = true;
     mNativeExtensions.textureBorderClampOES = getFeatures().supportsCustomBorderColor.enabled;
     mNativeExtensions.textureBorderClampEXT = getFeatures().supportsCustomBorderColor.enabled;
+    mNativeExtensions.polygonOffsetClampEXT = mPhysicalDeviceFeatures.depthBiasClamp == VK_TRUE;
     // Enable EXT_texture_type_2_10_10_10_REV
     mNativeExtensions.textureType2101010REVEXT = true;
 
@@ -508,6 +516,14 @@ void RendererVk::ensureCapsInitialized() const
     constexpr unsigned int kNotSupportedSampleCounts = VK_SAMPLE_COUNT_64_BIT;
     mNativeExtensions.sampleVariablesOES =
         supportSampleRateShading && vk_gl::GetMaxSampleCount(kNotSupportedSampleCounts) == 0;
+
+    // EXT_multisample_compatibility is necessary for GLES1 conformance so calls like
+    // glDisable(GL_MULTISAMPLE) don't fail.  This is not actually implemented in Vulkan.  However,
+    // no CTS tests actually test this extension.  GL_SAMPLE_ALPHA_TO_ONE requires the Vulkan
+    // alphaToOne feature.
+    mNativeExtensions.multisampleCompatibilityEXT =
+        mPhysicalDeviceFeatures.alphaToOne ||
+        mFeatures.exposeNonConformantExtensionsAndVersions.enabled;
 
     // GL_KHR_blend_equation_advanced.  According to the spec, only color attachment zero can be
     // used with advanced blend:
@@ -862,17 +878,11 @@ void RendererVk::ensureCapsInitialized() const
     mNativeCaps.maxCombinedShaderOutputResources =
         LimitToInt(maxPerStageResources - kReservedPerStageBindingCount);
 
-    // Reserve 1 extra varying for ANGLEPosition when GLLineRasterization is enabled
-    constexpr GLint kReservedVaryingComponentsForGLLineRasterization = 4;
     // Reserve 1 extra varying for transform feedback capture of gl_Position.
     constexpr GLint kReservedVaryingComponentsForTransformFeedbackExtension = 4;
 
     GLint reservedVaryingComponentCount = 0;
 
-    if (getFeatures().basicGLLineRasterization.enabled)
-    {
-        reservedVaryingComponentCount += kReservedVaryingComponentsForGLLineRasterization;
-    }
     if (getFeatures().supportsTransformFeedbackExtension.enabled &&
         (!getFeatures().supportsDepthClipControl.enabled ||
          getFeatures().enablePreRotateSurfaces.enabled ||
@@ -927,6 +937,7 @@ void RendererVk::ensureCapsInitialized() const
         // gl::IMPLEMENTATION_MAX_DRAW_BUFFERS is used to support the extension.
         mNativeExtensions.shaderFramebufferFetchEXT =
             mNativeCaps.maxDrawBuffers >= gl::IMPLEMENTATION_MAX_DRAW_BUFFERS;
+        mNativeExtensions.shaderFramebufferFetchARM = mNativeExtensions.shaderFramebufferFetchEXT;
     }
 
     if (getFeatures().supportsShaderFramebufferFetchNonCoherent.enabled)
@@ -940,6 +951,9 @@ void RendererVk::ensureCapsInitialized() const
     // Enable Program Binary extension.
     mNativeExtensions.getProgramBinaryOES = true;
     mNativeCaps.programBinaryFormats.push_back(GL_PROGRAM_BINARY_ANGLE);
+
+    // Enable Shader Binary extension.
+    mNativeCaps.shaderBinaryFormats.push_back(GL_SHADER_BINARY_ANGLE);
 
     // Enable GL_NV_pixel_buffer_object extension.
     mNativeExtensions.pixelBufferObjectNV = true;
@@ -973,7 +987,7 @@ void RendererVk::ensureCapsInitialized() const
     // Atomic image operations in the vertex and fragment shaders require the
     // vertexPipelineStoresAndAtomics and fragmentStoresAndAtomics Vulkan features respectively.
     // If either of these features is not present, the number of image uniforms for that stage is
-    // advertized as zero, so image atomic operations support can be agnostic of shader stages.
+    // advertised as zero, so image atomic operations support can be agnostic of shader stages.
     //
     // GL_OES_shader_image_atomic requires that image atomic functions have support for r32i and
     // r32ui formats.  These formats have mandatory support for STORAGE_IMAGE_ATOMIC and
@@ -983,14 +997,13 @@ void RendererVk::ensureCapsInitialized() const
     mNativeExtensions.shaderImageAtomicOES = true;
 
     // Geometry shaders are required for ES 3.2.
-    // We don't support GS when we are emulating line raster due to the tricky position varying.
-    if (mPhysicalDeviceFeatures.geometryShader && !mFeatures.basicGLLineRasterization.enabled)
+    if (mPhysicalDeviceFeatures.geometryShader)
     {
-        // TODO: geometry shader support is incomplete.  http://anglebug.com/3571
-        bool geometryShader = mFeatures.supportsTransformFeedbackExtension.enabled &&
-                              mFeatures.exposeNonConformantExtensionsAndVersions.enabled;
-        mNativeExtensions.geometryShaderEXT = geometryShader;
-        mNativeExtensions.geometryShaderOES = geometryShader;
+        bool geometryShaderEnabled = mFeatures.supportsTransformFeedbackExtension.enabled &&
+                                     (mFeatures.supportsPrimitivesGeneratedQuery.enabled ||
+                                      mFeatures.exposeNonConformantExtensionsAndVersions.enabled);
+        mNativeExtensions.geometryShaderEXT = geometryShaderEnabled;
+        mNativeExtensions.geometryShaderOES = geometryShaderEnabled;
         mNativeCaps.maxFramebufferLayers    = LimitToInt(limitsVk.maxFramebufferLayers);
 
         // Use "undefined" which means APP would have to set gl_Layer identically.
@@ -1014,16 +1027,17 @@ void RendererVk::ensureCapsInitialized() const
             LimitToInt(limitsVk.maxGeometryShaderInvocations);
     }
 
-    // We don't support TS when we are emulating line raster due to the tricky position varying.
-    if (mPhysicalDeviceFeatures.tessellationShader && !mFeatures.basicGLLineRasterization.enabled)
+    // Tessellation shaders are required for ES 3.2.
+    if (mPhysicalDeviceFeatures.tessellationShader)
     {
         constexpr uint32_t kReservedTessellationDefaultUniformBindingCount = 2;
 
-        // TODO: tessellation shader support is incomplete.  http://anglebug.com/3572
-        mNativeExtensions.tessellationShaderEXT =
+        bool tessellationShaderEnabled =
             mFeatures.supportsTransformFeedbackExtension.enabled &&
-            mFeatures.exposeNonConformantExtensionsAndVersions.enabled;
-        mNativeCaps.maxPatchVertices = LimitToInt(limitsVk.maxTessellationPatchSize);
+            (mFeatures.supportsPrimitivesGeneratedQuery.enabled ||
+             mFeatures.exposeNonConformantExtensionsAndVersions.enabled);
+        mNativeExtensions.tessellationShaderEXT = tessellationShaderEnabled;
+        mNativeCaps.maxPatchVertices            = LimitToInt(limitsVk.maxTessellationPatchSize);
         mNativeCaps.maxTessPatchComponents =
             LimitToInt(limitsVk.maxTessellationControlPerPatchOutputComponents);
         mNativeCaps.maxTessGenLevel = LimitToInt(limitsVk.maxTessellationGenerationLevel);
@@ -1059,7 +1073,7 @@ void RendererVk::ensureCapsInitialized() const
         }
     }
 
-    // GL_APPLE_clip_distance/GL_EXT_clip_cull_distance
+    // GL_APPLE_clip_distance / GL_EXT_clip_cull_distance / GL_ANGLE_clip_cull_distance
     // From the EXT_clip_cull_distance extension spec:
     //
     // > Modify Section 7.2, "Built-In Constants" (p. 126)
@@ -1078,8 +1092,9 @@ void RendererVk::ensureCapsInitialized() const
     if (mPhysicalDeviceFeatures.shaderClipDistance &&
         limitsVk.maxClipDistances >= kMaxClipDistancePerSpec)
     {
-        mNativeExtensions.clipDistanceAPPLE = true;
-        mNativeCaps.maxClipDistances        = limitsVk.maxClipDistances;
+        mNativeExtensions.clipDistanceAPPLE     = true;
+        mNativeExtensions.clipCullDistanceANGLE = true;
+        mNativeCaps.maxClipDistances            = limitsVk.maxClipDistances;
 
         if (mPhysicalDeviceFeatures.shaderCullDistance &&
             limitsVk.maxCullDistances >= kMaxCullDistancePerSpec &&
@@ -1092,7 +1107,7 @@ void RendererVk::ensureCapsInitialized() const
     }
 
     // GL_EXT_blend_func_extended
-    mNativeExtensions.blendFuncExtendedEXT = (mPhysicalDeviceFeatures.dualSrcBlend == VK_TRUE);
+    mNativeExtensions.blendFuncExtendedEXT = mPhysicalDeviceFeatures.dualSrcBlend == VK_TRUE;
     mNativeCaps.maxDualSourceDrawBuffers   = LimitToInt(limitsVk.maxFragmentDualSrcAttachments);
 
     // GL_ANGLE_relaxed_vertex_attribute_type
@@ -1101,7 +1116,7 @@ void RendererVk::ensureCapsInitialized() const
     // GL_OVR_multiview*.  Bresenham line emulation does not work with multiview.  There's no
     // limitation in Vulkan to restrict an application to multiview 1.
     mNativeExtensions.multiviewOVR =
-        mMultiviewFeatures.multiview && mFeatures.bresenhamLineRasterization.enabled;
+        mFeatures.supportsMultiview.enabled && mFeatures.bresenhamLineRasterization.enabled;
     mNativeExtensions.multiview2OVR = mNativeExtensions.multiviewOVR;
     mNativeCaps.maxViews            = mMultiviewProperties.maxMultiviewViewCount;
 
@@ -1127,8 +1142,40 @@ void RendererVk::ensureCapsInitialized() const
     // GL_KHR_parallel_shader_compile
     mNativeExtensions.parallelShaderCompileKHR = false;
 
+    // GL_NV_read_depth, GL_NV_read_depth_stencil, GL_NV_read_stencil
+    mNativeExtensions.readDepthNV        = true;
+    mNativeExtensions.readDepthStencilNV = true;
+    mNativeExtensions.readStencilNV      = true;
+
     // GL_QCOM_shading_rate
     mNativeExtensions.shadingRateQCOM = mFeatures.supportsFragmentShadingRate.enabled;
+
+    // GL_ANGLE_shader_pixel_local_storage
+    mNativeExtensions.shaderPixelLocalStorageANGLE = true;
+    if (getFeatures().supportsShaderFramebufferFetch.enabled)
+    {
+        mNativeExtensions.shaderPixelLocalStorageCoherentANGLE = true;
+        mNativePLSOptions.type             = ShPixelLocalStorageType::FramebufferFetch;
+        mNativePLSOptions.fragmentSyncType = ShFragmentSynchronizationType::Automatic;
+    }
+    else if (getFeatures().supportsFragmentShaderPixelInterlock.enabled)
+    {
+        // Use shader images with VK_EXT_fragment_shader_interlock, instead of attachments, if
+        // they're our only option to be coherent.
+        mNativeExtensions.shaderPixelLocalStorageCoherentANGLE = true;
+        mNativePLSOptions.type = ShPixelLocalStorageType::ImageLoadStore;
+        // GL_ARB_fragment_shader_interlock compiles to SPV_EXT_fragment_shader_interlock.
+        mNativePLSOptions.fragmentSyncType =
+            ShFragmentSynchronizationType::FragmentShaderInterlock_ARB_GL;
+        mNativePLSOptions.supportsNativeRGBA8ImageFormats = true;
+    }
+    else
+    {
+        mNativePLSOptions.type = ShPixelLocalStorageType::FramebufferFetch;
+        ASSERT(mNativePLSOptions.fragmentSyncType == ShFragmentSynchronizationType::NotSupported);
+    }
+
+    mNativeExtensions.logicOpANGLE = mPhysicalDeviceFeatures.logicOp == VK_TRUE;
 }
 
 namespace vk
@@ -1204,12 +1251,14 @@ egl::Config GenerateDefaultConfig(DisplayVk *display,
 
     const VkPhysicalDeviceProperties &physicalDeviceProperties =
         renderer->getPhysicalDeviceProperties();
-    gl::Version maxSupportedESVersion = renderer->getMaxSupportedESVersion();
+    gl::Version maxSupportedESVersion                = renderer->getMaxSupportedESVersion();
+    Optional<gl::Version> maxSupportedDesktopVersion = display->getMaxSupportedDesktopVersion();
 
     // ES3 features are required to emulate ES1
-    EGLint es1Support = (maxSupportedESVersion.major >= 3 ? EGL_OPENGL_ES_BIT : 0);
-    EGLint es2Support = (maxSupportedESVersion.major >= 2 ? EGL_OPENGL_ES2_BIT : 0);
-    EGLint es3Support = (maxSupportedESVersion.major >= 3 ? EGL_OPENGL_ES3_BIT : 0);
+    EGLint es1Support     = (maxSupportedESVersion.major >= 3 ? EGL_OPENGL_ES_BIT : 0);
+    EGLint es2Support     = (maxSupportedESVersion.major >= 2 ? EGL_OPENGL_ES2_BIT : 0);
+    EGLint es3Support     = (maxSupportedESVersion.major >= 3 ? EGL_OPENGL_ES3_BIT : 0);
+    EGLint desktopSupport = (maxSupportedDesktopVersion.valid() ? EGL_OPENGL_BIT : 0);
 
     egl::Config config;
 
@@ -1238,7 +1287,7 @@ egl::Config GenerateDefaultConfig(DisplayVk *display,
     config.nativeRenderable   = EGL_TRUE;
     config.nativeVisualID     = static_cast<EGLint>(GetNativeVisualID(colorFormat));
     config.nativeVisualType   = EGL_NONE;
-    config.renderableType     = es1Support | es2Support | es3Support;
+    config.renderableType     = es1Support | es2Support | es3Support | desktopSupport;
     config.sampleBuffers      = (sampleCount > 0) ? 1 : 0;
     config.samples            = sampleCount;
     config.surfaceType        = EGL_WINDOW_BIT | EGL_PBUFFER_BIT;

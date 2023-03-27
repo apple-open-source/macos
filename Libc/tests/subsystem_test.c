@@ -130,16 +130,22 @@ T_DECL(subsystem,
     posix_spawnattr_t attr = NULL;
     
     char file_name[RANDOM_STRING_LEN];
+    char second_file_name[RANDOM_STRING_LEN];
     char overflow_file_name[PATH_MAX - RANDOM_STRING_LEN];
     char subsystem_name[RANDOM_STRING_LEN];
+    char second_subsystem_name[RANDOM_STRING_LEN];
     
     char file_path[PATH_MAX];
+    char second_file_path[PATH_MAX];
     char subsystem_path[PATH_MAX];
     char subsystem_tmp_path[PATH_MAX];
+    char second_subsystem_path[PATH_MAX];
+    char second_subsystem_tmp_path[PATH_MAX];
+    char concatenated_subsystem_paths[PATH_MAX];
     char subsystem_file_path[PATH_MAX];
+    char second_subsystem_file_path[PATH_MAX];
     char overflow_file_path[PATH_MAX];
-    char overflow_subsystem_file_path[PATH_MAX];
-    
+
     char * args[] = { HELPER_PATH, HELPER_BEHAVIOR_NOT_SET, overflow_file_path, "", NULL};
     
     /* Seed rand() from /dev/random, and generate our random file names. */
@@ -148,13 +154,22 @@ T_DECL(subsystem,
     _generate_random_string(overflow_file_name, sizeof(overflow_file_name));
     _generate_random_string(subsystem_name, sizeof(subsystem_name));
 
+    _generate_random_string(second_file_name, sizeof(second_file_name));
+    _generate_random_string(second_subsystem_name, sizeof(second_subsystem_name));
+
     /* Generate pathnames. */
     sprintf(file_path, "/tmp/%s", file_name);
     sprintf(overflow_file_path, "/tmp/%s", overflow_file_name);
     sprintf(subsystem_path, "/tmp/%s", subsystem_name);
     sprintf(subsystem_tmp_path, "%s/tmp", subsystem_path);
     sprintf(subsystem_file_path, "%s/%s", subsystem_path, file_path);
-    
+
+    sprintf(second_file_path, "/tmp/%s", second_file_name);
+    sprintf(second_subsystem_path, "/tmp/%s", second_subsystem_name);
+    sprintf(second_subsystem_tmp_path, "%s/tmp", second_subsystem_path);
+    sprintf(second_subsystem_file_path, "%s/%s", second_subsystem_path, second_file_path);
+    sprintf(concatenated_subsystem_paths, "%s:%s", subsystem_path, second_subsystem_path);
+
     /*
      * Initial setup for the test; we'll need our subsystem
      * directory and a /tmp/ for it.
@@ -162,6 +177,9 @@ T_DECL(subsystem,
     T_QUIET; T_ASSERT_POSIX_SUCCESS(mkdir(subsystem_path, 0777), "Create subsystem directory");
     T_QUIET; T_ASSERT_POSIX_SUCCESS(mkdir(subsystem_tmp_path, 0777), "Create subsystem /tmp/ directory");
     T_QUIET; T_ASSERT_POSIX_SUCCESS(posix_spawnattr_init(&attr), "posix_spawnattr_init");
+
+    T_QUIET; T_ASSERT_POSIX_SUCCESS(mkdir(second_subsystem_path, 0777), "Create second subsystem directory");
+    T_QUIET; T_ASSERT_POSIX_SUCCESS(mkdir(second_subsystem_tmp_path, 0777), "Create second subsystem /tmp/ directory");
 
     /* open and stat with no subsystem. */
     args[1] = HELPER_BEHAVIOR_OPEN_AND_WRITE;
@@ -259,6 +277,23 @@ T_DECL(subsystem,
     args[1] = HELPER_BEHAVIOR_STAT_MAIN;
     
     T_ASSERT_EQ_INT(_spawn_and_wait(args, &attr), 0, "stat_with_subsystem with main file");
+
+    /* Multiple subsystems specified, file exists in second subsystem */
+    T_QUIET; T_ASSERT_TRUE(_create_file(second_subsystem_file_path), "Create second subsystem file");
+
+    T_QUIET; T_ASSERT_POSIX_SUCCESS(posix_spawnattr_set_subsystem_root_path_np(&attr,
+                                                                               concatenated_subsystem_paths), "Set combined subsystem root path");
+    args[1] = HELPER_BEHAVIOR_OPEN_AND_WRITE;
+    args[2] = second_file_path;
+    args[3] = "with subsystem file";
+
+    result = _spawn_and_wait(args, &attr);
+
+    if (!result) {
+        result = _check_file_contents(second_subsystem_file_path, args[3], strlen(args[3]));
+    }
+
+    T_ASSERT_EQ_INT(result, 0, "open_with_subsystem with second subsystem file");
 
     /* We're done; clean everything up. */
     T_QUIET; T_EXPECT_POSIX_SUCCESS(unlink(file_path), "Delete main file");

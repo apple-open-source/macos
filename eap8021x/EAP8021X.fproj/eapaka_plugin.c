@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -114,6 +114,7 @@ typedef struct {
     EAPSIMAKAPersistentStateRef		persist;
     bool				reauth_success;
     EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info;
+    CFDictionaryRef 			action_info;
     bool 				oob_pseudonym_used;
     AKAStaticKeys			static_keys;
     uint8_t				pkt[1500];
@@ -471,6 +472,7 @@ EAPAKAContextFree(EAPAKAContextRef context)
     EAPAKAContextSetLastIdentity(context, NULL);
     AKAStaticKeysRelease(&context->static_keys);
     EAPSIMAKAClearEncryptedIdentityInfo(context->encrypted_identity_info);
+    my_CFRelease(&context->action_info);
     EAPAKAContextClear(context);
     free(context);
     return;
@@ -1339,7 +1341,8 @@ eapaka_notification(EAPAKAContextRef context,
 	context->state = kEAPAKAClientStateSuccess;
     }
     else {
-	const char *	str;
+	const char 		*str;
+	CFDictionaryRef 	action_info = NULL;
 
 	context->state = kEAPAKAClientStateFailure;
 	*client_status = kEAPClientStatusPluginSpecificError;
@@ -1353,7 +1356,12 @@ eapaka_notification(EAPAKAContextRef context,
 	else {
 	    EAPLOG(LOG_NOTICE, "eapaka: Notification: %s", str);
 	}
-	if (*error == kEAPClientStatusIdentityDecryptionError &&
+	action_info = EAPSIMAKAActionInfoForNotificationCode(context->plugin->properties,
+							  notification_code);
+	if (action_info != NULL) {
+	    context->action_info = CFDictionaryCreateCopy(NULL, action_info);
+	    EAPLOG(LOG_NOTICE, "eapaka: Notification Action Info: %@", action_info);
+	} else if (*error == kEAPClientStatusIdentityDecryptionError &&
 	    context->encrypted_identity_info != NULL &&
 	    context->encrypted_identity_info->encrypted_identity != NULL) {
 	    /* notify CT that it may need to refresh the encryption key */
@@ -1462,7 +1470,6 @@ STATIC EAPClientPluginFuncPublishProperties eapaka_publish_props;
 STATIC EAPClientPluginFuncUserName eapaka_user_name_copy;
 STATIC EAPClientPluginFuncCopyIdentity eapaka_copy_identity;
 STATIC EAPClientPluginFuncCopyPacketDescription eapaka_copy_packet_description;
-
 
 STATIC EAPClientStatus
 eapaka_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
@@ -1666,7 +1673,21 @@ eapaka_msk_copy_bytes(EAPClientPluginDataRef plugin,
 STATIC CFDictionaryRef
 eapaka_publish_props(EAPClientPluginDataRef plugin)
 {
-    return (NULL);
+    CFStringRef			key = kEAPClientEAPAKASIMNotificationActionInfo;
+    CFDictionaryRef 		dict = NULL;
+    EAPAKAContextRef 		context = (EAPAKAContextRef)plugin->private;
+
+    if (context->action_info == NULL) {
+	goto done;
+    }
+    dict = CFDictionaryCreate(NULL,
+			      (const void * *)&key,
+			      (const void * *)&context->action_info,
+			      1,
+			      &kCFTypeDictionaryKeyCallBacks,
+			      &kCFTypeDictionaryValueCallBacks);
+done:
+    return dict;
 }
 
 STATIC CFStringRef

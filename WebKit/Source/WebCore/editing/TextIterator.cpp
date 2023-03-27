@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2004-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Google Inc. All rights reserved.
  * Copyright (C) 2005 Alexey Proskuryakov.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +48,6 @@
 #include "HTMLTextAreaElement.h"
 #include "HTMLTextFormControlElement.h"
 #include "ImageOverlay.h"
-#include "LegacyInlineTextBox.h"
 #include "NodeTraversal.h"
 #include "Range.h"
 #include "RenderImage.h"
@@ -174,7 +174,8 @@ bool BitStack::top() const
     if (!m_size)
         return false;
     unsigned shift = (m_size - 1) & bitInWordMask;
-    return m_words.last() & (1U << shift);
+    unsigned index = (m_size - 1) / bitsInWord;
+    return m_words[index] & (1U << shift);
 }
 
 // --------
@@ -425,6 +426,11 @@ static inline bool hasDisplayContents(Node& node)
     return is<Element>(node) && downcast<Element>(node).hasDisplayContents();
 }
 
+static bool isRendererVisible(const RenderObject* renderer, TextIteratorBehaviors behaviors)
+{
+    return renderer && !(renderer->style().effectiveUserSelect() == UserSelect::None && behaviors.contains(TextIteratorBehavior::IgnoresUserSelectNone));
+}
+
 void TextIterator::advance()
 {
     ASSERT(!atEnd());
@@ -470,9 +476,11 @@ void TextIterator::advance()
         
         auto* renderer = m_node->renderer();
         if (!m_handledNode) {
-            if (!renderer) {
+            if (!isRendererVisible(renderer, m_behaviors)) {
                 m_handledNode = true;
-                m_handledChildren = !hasDisplayContents(*m_node);
+                m_handledChildren = !hasDisplayContents(*m_node) && !renderer;
+            } else if (is<Element>(m_node) && renderer->shouldSkipContent()) {
+                m_handledChildren = true;
             } else {
                 // handle current node according to its type
                 if (renderer->isText() && m_node->isTextNode())
@@ -498,7 +506,7 @@ void TextIterator::advance()
                 while (!next && parentNode) {
                     if ((pastEnd && parentNode == m_endContainer) || isDescendantOf(m_behaviors, *m_endContainer, *parentNode))
                         return;
-                    bool haveRenderer = m_node->renderer();
+                    bool haveRenderer = isRendererVisible(m_node->renderer(), m_behaviors);
                     Node* exitedNode = m_node;
                     m_node = parentNode;
                     m_fullyClippedStack.pop();
@@ -511,7 +519,7 @@ void TextIterator::advance()
                         return;
                     }
                     next = nextSibling(m_behaviors, *m_node);
-                    if (next && m_node->renderer())
+                    if (next && isRendererVisible(m_node->renderer(), m_behaviors))
                         exitNode(m_node);
                 }
             }

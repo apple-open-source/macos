@@ -21,7 +21,8 @@ Patches = \
 	ksh-20120801-subshell-leak.patch \
 	src__cmd__INIT__cc.darwin.i386.diff \
 	src__lib__libast__comp__omitted.c.diff \
-	ksh-20120801-cve-2019-14868.patch
+	ksh-20120801-cve-2019-14868.patch \
+	skip_usr_lib_scan.patch
 
 #find ksh overrides before libSystem
 EXTRA_LDFLAGS = -Wl,-search_paths_first

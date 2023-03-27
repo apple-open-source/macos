@@ -40,7 +40,6 @@
 #include "MediaDeviceHashSalts.h"
 #include "MediaStreamPrivate.h"
 #include <wtf/CallbackAggregator.h>
-#include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/HexNumber.h>
 #include <wtf/SHA1.h>
 
@@ -66,6 +65,7 @@ RealtimeMediaSourceCenter::RealtimeMediaSourceCenter()
     m_supportedConstraints.setSupportsFacingMode(true);
     m_supportedConstraints.setSupportsVolume(true);
     m_supportedConstraints.setSupportsDeviceId(true);
+    m_supportedConstraints.setSupportsDisplaySurface(true);
 }
 
 RealtimeMediaSourceCenter::~RealtimeMediaSourceCenter() = default;

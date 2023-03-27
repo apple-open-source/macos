@@ -53,7 +53,7 @@ struct _WebKitURIRequestPrivate {
     GUniquePtr<SoupMessageHeaders> httpHeaders;
 };
 
-WEBKIT_DEFINE_TYPE(WebKitURIRequest, webkit_uri_request, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitURIRequest, webkit_uri_request, G_TYPE_OBJECT)
 
 static void webkitURIRequestGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -95,8 +95,7 @@ static void webkit_uri_request_class_init(WebKitURIRequestClass* requestClass)
     sObjProperties[PROP_URI] =
         g_param_spec_string(
             "uri",
-            _("URI"),
-            _("The URI to which the request will be made."),
+            nullptr, nullptr,
             "about:blank",
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 

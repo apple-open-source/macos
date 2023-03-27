@@ -117,6 +117,7 @@
 #import "WebUIDelegatePrivate.h"
 #import "WebValidationMessageClient.h"
 #import "WebViewGroup.h"
+#import "WebViewRenderingUpdateScheduler.h"
 #import "WebVisitedLinkStore.h"
 #import <CoreFoundation/CFSet.h>
 #import <Foundation/NSURLConnection.h>
@@ -154,6 +155,7 @@
 #import <WebCore/DummyStorageProvider.h>
 #import <WebCore/Editing.h>
 #import <WebCore/Editor.h>
+#import <WebCore/EmptyBadgeClient.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/FocusController.h>
@@ -182,13 +184,13 @@
 #import <WebCore/JSNotification.h>
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LegacySchemeRegistry.h>
-#import <WebCore/LibWebRTCProvider.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/LogInitialization.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MediaRecorderProvider.h>
 #import <WebCore/MemoryCache.h>
 #import <WebCore/MemoryRelease.h>
+#import <WebCore/MutableStyleProperties.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/NodeList.h>
 #import <WebCore/Notification.h>
@@ -196,7 +198,6 @@
 #import <WebCore/Page.h>
 #import <WebCore/PageConfiguration.h>
 #import <WebCore/PathUtilities.h>
-#import <WebCore/PermissionController.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/ProgressTracker.h>
@@ -216,7 +217,6 @@
 #import <WebCore/SocketProvider.h>
 #import <WebCore/SocketStreamHandleImpl.h>
 #import <WebCore/StringUtilities.h>
-#import <WebCore/StyleProperties.h>
 #import <WebCore/TextResourceDecoder.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/TranslationContextMenuInfo.h>
@@ -230,6 +230,7 @@
 #import <WebCore/WebCoreJITOperations.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreView.h>
+#import <WebCore/WebRTCProvider.h>
 #import <WebCore/WebViewVisualIdentificationOverlay.h>
 #import <WebCore/Widget.h>
 #import <WebKitLegacy/DOM.h>
@@ -1529,7 +1530,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         [[self preferences] privateBrowsingEnabled] ? PAL::SessionID::legacyPrivateSessionID() : PAL::SessionID::defaultSessionID(),
         makeUniqueRef<WebEditorClient>(self),
         WebCore::SocketProvider::create(),
-        WebCore::LibWebRTCProvider::create(),
+        WebCore::WebRTCProvider::create(),
         WebCore::CacheStorageProvider::create(),
         _private->group->userContentController(),
         BackForwardList::create(self),
@@ -1539,9 +1540,9 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
-        WebCore::DummyPermissionController::create(),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
-        makeUniqueRef<WebCore::DummyModelPlayerProvider>()
+        makeUniqueRef<WebCore::DummyModelPlayerProvider>(),
+        WebCore::EmptyBadgeClient::create()
     );
 #if !PLATFORM(IOS_FAMILY)
     pageConfiguration.chromeClient = new WebChromeClient(self);
@@ -1587,7 +1588,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR)
-    _private->page->setRemoteInspectionAllowed(true);
+    _private->page->setInspectable(true);
 #endif
 
     _private->page->setCanStartMedia([self window]);
@@ -1720,19 +1721,6 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     return self;
 }
 
-- (void)_updateRendering
-{
-#if PLATFORM(IOS_FAMILY)
-    // Ensure fixed positions layers are where they should be.
-    [self _synchronizeCustomFixedPositionLayoutRect];
-#endif
-
-    if (_private->page) {
-        _private->page->updateRendering();
-        _private->page->finalizeRenderingUpdate({ });
-    }
-}
-
 + (NSArray *)_supportedMIMETypes
 {
     // Load the plug-in DB allowing plug-ins to install types.
@@ -1810,7 +1798,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         [[self preferences] privateBrowsingEnabled] ? PAL::SessionID::legacyPrivateSessionID() : PAL::SessionID::defaultSessionID(),
         makeUniqueRef<WebEditorClient>(self),
         WebCore::SocketProvider::create(),
-        WebCore::LibWebRTCProvider::create(),
+        WebCore::WebRTCProvider::create(),
         WebCore::CacheStorageProvider::create(),
         _private->group->userContentController(),
         BackForwardList::create(self),
@@ -1820,9 +1808,9 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
-        WebCore::DummyPermissionController::create(),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
-        makeUniqueRef<WebCore::DummyModelPlayerProvider>()
+        makeUniqueRef<WebCore::DummyModelPlayerProvider>(),
+        WebCore::EmptyBadgeClient::create()
     );
     pageConfiguration.chromeClient = new WebChromeClientIOS(self);
 #if ENABLE(DRAG_SUPPORT)
@@ -1873,7 +1861,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     _private->page->setGroupName(groupName);
 
 #if ENABLE(REMOTE_INSPECTOR)
-    _private->page->setRemoteInspectionAllowed(isInternalInstall());
+    _private->page->setInspectable(isInternalInstall());
 #endif
 
     [self _updateScreenScaleFromWindow];
@@ -1925,8 +1913,11 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 - (void)updateLayoutIgnorePendingStyleSheets
 {
     WebThreadRun(^{
-        for (auto* frame = [self _mainCoreFrame]; frame; frame = frame->tree().traverseNext()) {
-            auto *document = frame->document();
+        for (WebCore::AbstractFrame* frame = [self _mainCoreFrame]; frame; frame = frame->tree().traverseNext()) {
+            auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(frame);
+            if (!localFrame)
+                continue;
+            auto *document = localFrame->document();
             if (document)
                 document->updateLayoutIgnorePendingStylesheets();
         }
@@ -2509,9 +2500,9 @@ static bool fastDocumentTeardownEnabled()
     }
 #endif
 
-    if (_private->layerFlushController) {
-        _private->layerFlushController->invalidate();
-        _private->layerFlushController = nullptr;
+    if (_private->renderingUpdateScheduler) {
+        _private->renderingUpdateScheduler->invalidate();
+        _private->renderingUpdateScheduler = nullptr;
     }
 
     [[self _notificationProvider] unregisterWebView:self];
@@ -2690,12 +2681,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (BOOL)allowsRemoteInspection
 {
-    return _private->page->remoteInspectionAllowed();
+    return _private->page->inspectable();
 }
 
 - (void)setAllowsRemoteInspection:(BOOL)allow
 {
-    _private->page->setRemoteInspectionAllowed(allow);
+    _private->page->setInspectable(allow);
 }
 
 - (void)setShowingInspectorIndication:(BOOL)showing
@@ -2940,8 +2931,8 @@ static bool needsSelfRetainWhileLoadingQuirk()
     settings.setDeveloperExtrasEnabled([preferences developerExtrasEnabled]);
 
     BOOL mediaPlaybackRequiresUserGesture = [preferences mediaPlaybackRequiresUserGesture];
-    settings.setVideoPlaybackRequiresUserGesture(mediaPlaybackRequiresUserGesture || [preferences videoPlaybackRequiresUserGesture]);
-    settings.setAudioPlaybackRequiresUserGesture(mediaPlaybackRequiresUserGesture || [preferences audioPlaybackRequiresUserGesture]);
+    settings.setRequiresUserGestureForVideoPlayback(mediaPlaybackRequiresUserGesture || [preferences videoPlaybackRequiresUserGesture]);
+    settings.setRequiresUserGestureForAudioPlayback(mediaPlaybackRequiresUserGesture || [preferences audioPlaybackRequiresUserGesture]);
 
     DeprecatedGlobalSettings::setWebSQLEnabled([preferences webSQLEnabled]);
     DatabaseManager::singleton().setIsAvailable([preferences databasesEnabled]);
@@ -2970,7 +2961,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
 #endif
 
     // FIXME: Is this relevent to WebKitLegacy? If not, we should remove it.
-    WebCore::DeprecatedGlobalSettings::setResourceLoadStatisticsEnabled([preferences resourceLoadStatisticsEnabled]);
+    WebCore::DeprecatedGlobalSettings::setTrackingPreventionEnabled([preferences resourceLoadStatisticsEnabled]);
 
     // Application Cache Preferences are stored on the global cache storage manager, not in Settings.
     [WebApplicationCache setDefaultOriginQuota:[preferences applicationCacheDefaultOriginQuota]];
@@ -3530,16 +3521,6 @@ IGNORE_WARNINGS_END
 
 #endif /* ENABLE(DASHBOARD_SUPPORT) */
 
-+ (void)_setShouldUseFontSmoothing:(BOOL)f
-{
-    WebCore::FontCascade::setShouldUseSmoothing(f);
-}
-
-+ (BOOL)_shouldUseFontSmoothing
-{
-    return WebCore::FontCascade::shouldUseSmoothing();
-}
-
 #if !PLATFORM(IOS_FAMILY)
 + (void)_setUsesTestModeFocusRingColor:(BOOL)f
 {
@@ -3811,7 +3792,7 @@ IGNORE_WARNINGS_END
     WebThreadLock();
 
     auto* mainCoreFrame = [self _mainCoreFrame];
-    for (auto* frame = mainCoreFrame; frame; frame = frame->tree().traverseNext()) {
+    for (auto* frame = mainCoreFrame; frame; frame = dynamicDowncast<WebCore::LocalFrame>(frame->tree().traverseNext())) {
         auto* coreView = frame ? frame->view() : 0;
         if (!coreView)
             continue;
@@ -3842,14 +3823,22 @@ IGNORE_WARNINGS_END
 
 - (void)_attachScriptDebuggerToAllFrames
 {
-    for (auto* frame = [self _mainCoreFrame]; frame; frame = frame->tree().traverseNext())
-        [kit(frame) _attachScriptDebugger];
+    for (WebCore::AbstractFrame* frame = [self _mainCoreFrame]; frame; frame = frame->tree().traverseNext()) {
+        auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        [kit(localFrame) _attachScriptDebugger];
+    }
 }
 
 - (void)_detachScriptDebuggerFromAllFrames
 {
-    for (auto* frame = [self _mainCoreFrame]; frame; frame = frame->tree().traverseNext())
-        [kit(frame) _detachScriptDebugger];
+    for (WebCore::AbstractFrame* frame = [self _mainCoreFrame]; frame; frame = frame->tree().traverseNext()) {
+        auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        [kit(localFrame) _detachScriptDebugger];
+    }
 }
 
 #if !PLATFORM(IOS_FAMILY)
@@ -4166,8 +4155,11 @@ IGNORE_WARNINGS_END
 - (BOOL)_isUsingAcceleratedCompositing
 {
     auto* coreFrame = [self _mainCoreFrame];
-    for (auto* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
-        NSView *documentView = [[kit(frame) frameView] documentView];
+    for (WebCore::AbstractFrame* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+        auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        NSView *documentView = [[kit(localFrame) frameView] documentView];
         if ([documentView isKindOfClass:[WebHTMLView class]] && [(WebHTMLView *)documentView _isUsingAcceleratedCompositing])
             return YES;
     }
@@ -4215,8 +4207,11 @@ IGNORE_WARNINGS_END
 - (BOOL)_isSoftwareRenderable
 {
     auto* coreFrame = [self _mainCoreFrame];
-    for (auto* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
-        if (auto* view = frame->view()) {
+    for (WebCore::AbstractFrame* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+        auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        if (auto* view = localFrame->view()) {
             if (!view->isSoftwareRenderable())
                 return NO;
         }
@@ -4691,20 +4686,11 @@ IGNORE_WARNINGS_END
 
 - (void)_setPaginationLineGridEnabled:(BOOL)lineGridEnabled
 {
-    auto* page = core(self);
-    if (!page)
-        return;
-
-    page->setPaginationLineGridEnabled(lineGridEnabled);
 }
 
 - (BOOL)_paginationLineGridEnabled
 {
-    auto* page = core(self);
-    if (!page)
-        return NO;
-
-    return page->paginationLineGridEnabled();
+    return NO;
 }
 
 - (NSUInteger)_pageCount
@@ -5537,9 +5523,9 @@ static bool needsWebViewInitThreadWorkaround()
     [self _close];
 
 #if PLATFORM(IOS_FAMILY)
-    if (_private->layerFlushController) {
-        _private->layerFlushController->invalidate();
-        _private->layerFlushController = nullptr;
+    if (_private->renderingUpdateScheduler) {
+        _private->renderingUpdateScheduler->invalidate();
+        _private->renderingUpdateScheduler = nullptr;
     }
 #endif
 }
@@ -6279,16 +6265,24 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
 
     auto* coreFrame = [self _mainCoreFrame];
 #if !PLATFORM(IOS_FAMILY)
-    for (auto* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame))
-        [[[kit(frame) frameView] documentView] viewWillMoveToHostWindow:hostWindow];
+    for (WebCore::AbstractFrame* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+        auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        [[[kit(localFrame) frameView] documentView] viewWillMoveToHostWindow:hostWindow];
+    }
     if (_private->hostWindow && [self window] != _private->hostWindow)
         [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowWillCloseNotification object:_private->hostWindow.get()];
     if (hostWindow)
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_windowWillClose:) name:NSWindowWillCloseNotification object:hostWindow];
 #endif
     _private->hostWindow = hostWindow;
-    for (auto* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame))
-        [[[kit(frame) frameView] documentView] viewDidMoveToHostWindow];
+    for (WebCore::AbstractFrame* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+        auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        [[[kit(localFrame) frameView] documentView] viewDidMoveToHostWindow];
+    }
 #if !PLATFORM(IOS_FAMILY)
     _private->page->setDeviceScaleFactor([self _deviceScaleFactor]);
 #endif
@@ -6547,8 +6541,8 @@ static WebFrame *incrementFrame(WebFrame *frame, WebFindOptions options = 0)
     auto* coreFrame = core(frame);
     WebCore::CanWrap canWrap = options & WebFindOptionsWrapAround ? WebCore::CanWrap::Yes : WebCore::CanWrap::No;
     return kit((options & WebFindOptionsBackwards)
-        ? coreFrame->tree().traversePrevious(canWrap)
-        : coreFrame->tree().traverseNext(canWrap));
+        ? dynamicDowncast<WebCore::LocalFrame>(coreFrame->tree().traversePrevious(canWrap))
+        : dynamicDowncast<WebCore::LocalFrame>(coreFrame->tree().traverseNext(canWrap)));
 }
 
 - (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag
@@ -8803,6 +8797,7 @@ FORWARD(toggleUnderline)
     networkingContext->storageSession()->credentialStorage().clearCredentials();
 }
 
+// FIXME: One-shot drawing synchronization is no longer necessary since all AppKit rendering is driven by Core Animation.
 - (BOOL)_needsOneShotDrawingSynchronization
 {
     return _private->needsOneShotDrawingSynchronization;
@@ -8813,65 +8808,6 @@ FORWARD(toggleUnderline)
     _private->needsOneShotDrawingSynchronization = needsSynchronization;
 }
 
-/*
-    The order of events with compositing updates is this:
-
-   Start of runloop                                        End of runloop
-        |                                                       |
-      --|-------------------------------------------------------|--
-           ^         ^                                        ^
-           |         |                                        |
-    NSWindow update, |                                     CA commit
-     NSView drawing  |
-        flush        |
-                layerSyncRunLoopObserverCallBack
-
-    To avoid flashing, we have to ensure that compositing changes (rendered via
-    the CoreAnimation rendering display link) appear on screen at the same time
-    as content painted into the window via the normal WebCore rendering path.
-
-    CoreAnimation will commit any layer changes at the end of the runloop via
-    its "CA commit" observer. Those changes can then appear onscreen at any time
-    when the display link fires, which can result in unsynchronized rendering.
-
-    To fix this, the GraphicsLayerCA code in WebCore does not change the CA
-    layer tree during style changes and layout; it stores up all changes and
-    commits them via flushCompositingState(). There are then two situations in
-    which we can call flushCompositingState():
-
-    1. When painting. FrameView::paintContents() makes a call to flushCompositingState().
-
-    2. When style changes/layout have made changes to the layer tree which do not
-       result in painting. In this case we need a run loop observer to do a
-       flushCompositingState() at an appropriate time. The observer will keep firing
-       until the time is right (essentially when there are no more pending layouts).
-
-*/
-bool LayerFlushController::flushLayers()
-{
-#if PLATFORM(IOS_FAMILY)
-    WebThreadLock();
-#endif
-
-#if PLATFORM(MAC)
-    NSWindow *window = [m_webView window];
-#endif // PLATFORM(MAC)
-
-    [m_webView _updateRendering];
-
-#if PLATFORM(MAC)
-    // AppKit may have disabled screen updates, thinking an upcoming window flush will re-enable them.
-    // In case setNeedsDisplayInRect() has prevented the window from needing to be flushed, re-enable screen
-    // updates here.
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    if (![window isFlushWindowDisabled])
-        [window _enableScreenUpdatesIfNeeded];
-    ALLOW_DEPRECATED_DECLARATIONS_END
-#endif
-
-    return true;
-}
-
 - (void)_scheduleUpdateRendering
 {
 #if PLATFORM(IOS_FAMILY)
@@ -8879,9 +8815,44 @@ bool LayerFlushController::flushLayers()
         return;
 #endif
 
-    if (!_private->layerFlushController)
-        _private->layerFlushController = LayerFlushController::create(self);
-    _private->layerFlushController->scheduleLayerFlush();
+    if (!_private->renderingUpdateScheduler)
+        _private->renderingUpdateScheduler = makeUnique<WebViewRenderingUpdateScheduler>(self);
+
+    _private->renderingUpdateScheduler->scheduleRenderingUpdate();
+}
+
+- (void)_updateRendering
+{
+#if PLATFORM(IOS_FAMILY)
+    // Ensure fixed position layers are where they should be.
+    [self _synchronizeCustomFixedPositionLayoutRect];
+#endif
+
+    if (_private->page) {
+        _private->page->updateRendering();
+        _private->page->finalizeRenderingUpdate({ });
+    }
+}
+
+- (void)_willStartRenderingUpdateDisplay
+{
+    if (_private->page)
+        _private->page->willStartRenderingUpdateDisplay();
+}
+
+- (void)_didCompleteRenderingUpdateDisplay
+{
+    if (_private->page)
+        _private->page->didCompleteRenderingUpdateDisplay();
+
+    if (_private->renderingUpdateScheduler)
+        _private->renderingUpdateScheduler->didCompleteRenderingUpdateDisplay();
+}
+
+- (void)_didCompleteRenderingFrame
+{
+    if (_private->page)
+        _private->page->didCompleteRenderingFrame();
 }
 
 - (BOOL)_flushCompositingChanges
@@ -9102,7 +9073,7 @@ bool LayerFlushController::flushLayers()
 
 - (id)_animationControllerForDictionaryLookupPopupInfo:(const WebCore::DictionaryPopupInfo&)dictionaryPopupInfo
 {
-    if (!dictionaryPopupInfo.attributedString)
+    if (!dictionaryPopupInfo.platformData.attributedString)
         return nil;
 
     [self _prepareForDictionaryLookup];
@@ -9170,7 +9141,7 @@ bool LayerFlushController::flushLayers()
 
 - (void)_showDictionaryLookupPopup:(const WebCore::DictionaryPopupInfo&)dictionaryPopupInfo
 {
-    if (!dictionaryPopupInfo.attributedString)
+    if (!dictionaryPopupInfo.platformData.attributedString)
         return;
 
     [self _prepareForDictionaryLookup];
@@ -9772,12 +9743,12 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const WebCore::RenderStyle
     return nil;
 }
 
-- (void)_notificationDidShow:(uint64_t)notificationID
+- (void)_notificationDidShow:(NSString *)notificationID
 {
     [[self _notificationProvider] webView:self didShowNotification:notificationID];
 }
 
-- (void)_notificationDidClick:(uint64_t)notificationID
+- (void)_notificationDidClick:(NSString *)notificationID
 {
     [[self _notificationProvider] webView:self didClickNotification:notificationID];
 }
@@ -9787,7 +9758,7 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const WebCore::RenderStyle
     [[self _notificationProvider] webView:self didCloseNotifications:notificationIDs];
 }
 
-- (uint64_t)_notificationIDForTesting:(JSValueRef)jsNotification
+- (NSString *)_notificationIDForTesting:(JSValueRef)jsNotification
 {
 #if ENABLE(NOTIFICATIONS)
     auto* page = _private->page;
@@ -9795,9 +9766,18 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const WebCore::RenderStyle
         return 0;
     JSContextRef context = [[self mainFrame] globalContext];
     auto* notification = WebCore::JSNotification::toWrapped(toJS(context)->vm(), toJS(toJS(context), jsNotification));
-    return static_cast<WebNotificationClient*>(WebCore::NotificationController::clientFrom(*page))->notificationIDForTesting(notification);
+    return notification->identifier().toString();
 #else
-    return 0;
+    return nil;
+#endif
+}
+
+- (void)_clearNotificationPermissionState
+{
+#if ENABLE(NOTIFICATIONS)
+    auto* page = _private->page;
+    if (page)
+        static_cast<WebNotificationClient*>(WebCore::NotificationController::clientFrom(*page))->clearNotificationPermissionState();
 #endif
 }
 @end

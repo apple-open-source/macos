@@ -64,7 +64,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Before resetAndEstablish, there shouldn't be any stored account state
-        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Before doing anything, loading a non-existent account state should fail")
+        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil), "Before doing anything, loading a non-existent account state should fail")
 
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish callback occurs")
         let escrowRequestNotification = expectation(forNotification: OTMockEscrowRequestNotification,
@@ -84,7 +84,7 @@ class OctagonResetTests: OctagonTestsBase {
 
         // After resetAndEstablish, you should be able to see the persisted account state
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(selfPeerID, accountState.peerID, "Saved account state should have the same peer ID that prepare returned")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -510,10 +510,13 @@ class OctagonResetTests: OctagonTestsBase {
         newCliqueContext.otControl = self.otControl
 
         // Calling with an unknown RK only resets if the local device is SOS capable, so pretend it is
-        OctagonSetSOSFeatureEnabled(false)
-        #if os(macOS) || os(iOS)
-        OctagonSetPlatformSupportsSOS(true)
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        #if os(macOS) || os(iOS) || os(watchOS)
+        OctagonSetSOSFeatureEnabled(true)
+        let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
+        mockSBD.setRecoveryKey(recoveryKey: recoveryKey)
+        self.otcliqueContext.sbd = mockSBD
+        newCliqueContext.sbd = mockSBD
+        newCliqueContext.overrideForJoinAfterRestore = true
 
         let resetExpectation = self.expectation(description: "resetExpectation")
 
@@ -524,22 +527,18 @@ class OctagonResetTests: OctagonTestsBase {
             return nil
         }
         #else
-        self.manager.setSOSEnabledForPlatformFlag(false)
-        OctagonSetPlatformSupportsSOS(false)
+        OctagonSetSOSFeatureEnabled(false)
         #endif
 
-        let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKeyExpectation callback occurs")
-        TestsObjectiveC.recoverOctagon(usingData: newCliqueContext, recoveryKey: recoveryKey) { error in
-            #if os(macOS) || os(iOS)
-            XCTAssertNil(error, "error should be nil")
-            #else
+        #if os(macOS) || os(iOS) || os(watchOS)
+        XCTAssertNoThrow(try OctagonTrustCliqueBridge.recover(withRecoveryKey: newCliqueContext, recoveryKey: recoveryKey), "recoverWithRecoveryKey should not throw an error")
+        #else
+        XCTAssertThrowsError(try OctagonTrustCliqueBridge.recover(withRecoveryKey: newCliqueContext, recoveryKey: recoveryKey)) { error in
             XCTAssertNotNil(error, "error should not be nil")
-            #endif
-            joinWithRecoveryKeyExpectation.fulfill()
         }
-        self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 20)
+        #endif
 
-        #if os(macOS) || os(iOS)
+        #if os(macOS) || os(iOS) || os(watchOS)
         self.wait(for: [resetExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         #else
@@ -615,7 +614,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -888,13 +887,14 @@ class OctagonResetTests: OctagonTestsBase {
     }
 
     func testResetAndEstablishClearsContextState() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.assertResetAndBecomeTrusted(context: self.cuttlefishContext)
 
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKey returns")
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         self.manager.createInheritanceKey(self.otcontrolArgumentsFor(context: self.cuttlefishContext), uuid: nil) { irk, error in
             XCTAssertNil(error, "error should be nil")
@@ -936,13 +936,14 @@ class OctagonResetTests: OctagonTestsBase {
     }
 
     func testLocalResetClearsContextState() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.assertResetAndBecomeTrusted(context: self.cuttlefishContext)
 
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKey returns")
 
-        self.manager.setSOSEnabledForPlatformFlag(true)
+        OctagonSetSOSFeatureEnabled(true)
 
         self.manager.createInheritanceKey(self.otcontrolArgumentsFor(context: self.cuttlefishContext), uuid: nil) { irk, error in
             XCTAssertNil(error, "error should be nil")

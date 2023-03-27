@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,65 +37,72 @@
 
 namespace WebKit {
 
+OptionSet<WebCore::PlatformEvent::Modifier> platform(OptionSet<WebEventModifier> modifiers)
+{
+    OptionSet<WebCore::PlatformEvent::Modifier> result;
+    if (modifiers.contains(WebEventModifier::ShiftKey))
+        result.add(WebCore::PlatformEvent::Modifier::ShiftKey);
+    if (modifiers.contains(WebEventModifier::ControlKey))
+        result.add(WebCore::PlatformEvent::Modifier::ControlKey);
+    if (modifiers.contains(WebEventModifier::AltKey))
+        result.add(WebCore::PlatformEvent::Modifier::AltKey);
+    if (modifiers.contains(WebEventModifier::MetaKey))
+        result.add(WebCore::PlatformEvent::Modifier::MetaKey);
+    if (modifiers.contains(WebEventModifier::CapsLockKey))
+        result.add(WebCore::PlatformEvent::Modifier::CapsLockKey);
+    return result;
+}
+
 class WebKit2PlatformMouseEvent : public WebCore::PlatformMouseEvent {
 public:
     WebKit2PlatformMouseEvent(const WebMouseEvent& webEvent)
     {
         // PlatformEvent
         switch (webEvent.type()) {
-        case WebEvent::MouseDown:
-            m_type = WebCore::PlatformEvent::MousePressed;
+        case WebEventType::MouseDown:
+            m_type = WebCore::PlatformEvent::Type::MousePressed;
             m_force = WebCore::ForceAtClick;
             break;
-        case WebEvent::MouseUp:
-            m_type = WebCore::PlatformEvent::MouseReleased;
+        case WebEventType::MouseUp:
+            m_type = WebCore::PlatformEvent::Type::MouseReleased;
             m_force = WebCore::ForceAtClick;
             break;
-        case WebEvent::MouseMove:
-            m_type = WebCore::PlatformEvent::MouseMoved;
+        case WebEventType::MouseMove:
+            m_type = WebCore::PlatformEvent::Type::MouseMoved;
             m_force = webEvent.force();
             break;
-        case WebEvent::MouseForceChanged:
-            m_type = WebCore::PlatformEvent::MouseForceChanged;
+        case WebEventType::MouseForceChanged:
+            m_type = WebCore::PlatformEvent::Type::MouseForceChanged;
             m_force = webEvent.force();
             break;
-        case WebEvent::MouseForceDown:
-            m_type = WebCore::PlatformEvent::MouseForceDown;
+        case WebEventType::MouseForceDown:
+            m_type = WebCore::PlatformEvent::Type::MouseForceDown;
             m_force = WebCore::ForceAtForceClick;
             break;
-        case WebEvent::MouseForceUp:
-            m_type = WebCore::PlatformEvent::MouseForceUp;
+        case WebEventType::MouseForceUp:
+            m_type = WebCore::PlatformEvent::Type::MouseForceUp;
             m_force = WebCore::ForceAtForceClick;
             break;
         default:
             ASSERT_NOT_REACHED();
         }
 
-        if (webEvent.shiftKey())
-            m_modifiers.add(Modifier::ShiftKey);
-        if (webEvent.controlKey())
-            m_modifiers.add(Modifier::ControlKey);
-        if (webEvent.altKey())
-            m_modifiers.add(Modifier::AltKey);
-        if (webEvent.metaKey())
-            m_modifiers.add(Modifier::MetaKey);
-        if (webEvent.capsLockKey())
-            m_modifiers.add(Modifier::CapsLockKey);
+        m_modifiers = platform(webEvent.modifiers());
 
         m_timestamp = webEvent.timestamp();
 
         // PlatformMouseEvent
         switch (webEvent.button()) {
-        case WebMouseEvent::NoButton:
+        case WebMouseEventButton::NoButton:
             m_button = WebCore::NoButton;
             break;
-        case WebMouseEvent::LeftButton:
+        case WebMouseEventButton::LeftButton:
             m_button = WebCore::LeftButton;
             break;
-        case WebMouseEvent::MiddleButton:
+        case WebMouseEventButton::MiddleButton:
             m_button = WebCore::MiddleButton;
             break;
-        case WebMouseEvent::RightButton:
+        case WebMouseEventButton::RightButton:
             m_button = WebCore::RightButton;
             break;
         default:
@@ -116,13 +123,13 @@ public:
 #endif
         m_modifierFlags = 0;
         if (webEvent.shiftKey())
-            m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::ShiftKey);
+            m_modifierFlags |= static_cast<unsigned>(WebEventModifier::ShiftKey);
         if (webEvent.controlKey())
-            m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::ControlKey);
+            m_modifierFlags |= static_cast<unsigned>(WebEventModifier::ControlKey);
         if (webEvent.altKey())
-            m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::AltKey);
+            m_modifierFlags |= static_cast<unsigned>(WebEventModifier::AltKey);
         if (webEvent.metaKey())
-            m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::MetaKey);
+            m_modifierFlags |= static_cast<unsigned>(WebEventModifier::MetaKey);
 
         m_pointerId = webEvent.pointerId();
         m_pointerType = webEvent.pointerType();
@@ -139,18 +146,9 @@ public:
     WebKit2PlatformWheelEvent(const WebWheelEvent& webEvent)
     {
         // PlatformEvent
-        m_type = PlatformEvent::Wheel;
+        m_type = PlatformEvent::Type::Wheel;
 
-        if (webEvent.shiftKey())
-            m_modifiers.add(Modifier::ShiftKey);
-        if (webEvent.controlKey())
-            m_modifiers.add(Modifier::ControlKey);
-        if (webEvent.altKey())
-            m_modifiers.add(Modifier::AltKey);
-        if (webEvent.metaKey())
-            m_modifiers.add(Modifier::MetaKey);
-        if (webEvent.capsLockKey())
-            m_modifiers.add(Modifier::CapsLockKey);
+        m_modifiers = platform(webEvent.modifiers());
 
         m_timestamp = webEvent.timestamp();
 
@@ -191,32 +189,23 @@ public:
     {
         // PlatformEvent
         switch (webEvent.type()) {
-        case WebEvent::KeyDown:
-            m_type = WebCore::PlatformEvent::KeyDown;
+        case WebEventType::KeyDown:
+            m_type = WebCore::PlatformEvent::Type::KeyDown;
             break;
-        case WebEvent::KeyUp:
-            m_type = WebCore::PlatformEvent::KeyUp;
+        case WebEventType::KeyUp:
+            m_type = WebCore::PlatformEvent::Type::KeyUp;
             break;
-        case WebEvent::RawKeyDown:
-            m_type = WebCore::PlatformEvent::RawKeyDown;
+        case WebEventType::RawKeyDown:
+            m_type = WebCore::PlatformEvent::Type::RawKeyDown;
             break;
-        case WebEvent::Char:
-            m_type = WebCore::PlatformEvent::Char;
+        case WebEventType::Char:
+            m_type = WebCore::PlatformEvent::Type::Char;
             break;
         default:
             ASSERT_NOT_REACHED();
         }
 
-        if (webEvent.shiftKey())
-            m_modifiers.add(Modifier::ShiftKey);
-        if (webEvent.controlKey())
-            m_modifiers.add(Modifier::ControlKey);
-        if (webEvent.altKey())
-            m_modifiers.add(Modifier::AltKey);
-        if (webEvent.metaKey())
-            m_modifiers.add(Modifier::MetaKey);
-        if (webEvent.capsLockKey())
-            m_modifiers.add(Modifier::CapsLockKey);
+        m_modifiers = platform(webEvent.modifiers());
 
         m_timestamp = webEvent.timestamp();
 
@@ -337,32 +326,23 @@ public:
     {
         // PlatformEvent
         switch (webEvent.type()) {
-        case WebEvent::TouchStart: 
-            m_type = WebCore::PlatformEvent::TouchStart;
+        case WebEventType::TouchStart:
+            m_type = WebCore::PlatformEvent::Type::TouchStart;
             break;
-        case WebEvent::TouchMove: 
-            m_type = WebCore::PlatformEvent::TouchMove;
+        case WebEventType::TouchMove:
+            m_type = WebCore::PlatformEvent::Type::TouchMove;
             break;
-        case WebEvent::TouchEnd: 
-            m_type = WebCore::PlatformEvent::TouchEnd;
+        case WebEventType::TouchEnd:
+            m_type = WebCore::PlatformEvent::Type::TouchEnd;
             break;
-        case WebEvent::TouchCancel:
-            m_type = WebCore::PlatformEvent::TouchCancel;
+        case WebEventType::TouchCancel:
+            m_type = WebCore::PlatformEvent::Type::TouchCancel;
             break;
         default:
             ASSERT_NOT_REACHED();
         }
 
-        if (webEvent.shiftKey())
-            m_modifiers.add(Modifier::ShiftKey);
-        if (webEvent.controlKey())
-            m_modifiers.add(Modifier::ControlKey);
-        if (webEvent.altKey())
-            m_modifiers.add(Modifier::AltKey);
-        if (webEvent.metaKey())
-            m_modifiers.add(Modifier::MetaKey);
-        if (webEvent.capsLockKey())
-            m_modifiers.add(Modifier::CapsLockKey);
+        m_modifiers = platform(webEvent.modifiers());
 
         m_timestamp = webEvent.timestamp();
 
@@ -399,29 +379,20 @@ public:
     WebKit2PlatformGestureEvent(const WebGestureEvent& webEvent)
     {
         switch (webEvent.type()) {
-        case WebEvent::GestureStart:
-            m_type = WebCore::PlatformEvent::GestureStart;
+        case WebEventType::GestureStart:
+            m_type = WebCore::PlatformEvent::Type::GestureStart;
             break;
-        case WebEvent::GestureChange:
-            m_type = WebCore::PlatformEvent::GestureChange;
+        case WebEventType::GestureChange:
+            m_type = WebCore::PlatformEvent::Type::GestureChange;
             break;
-        case WebEvent::GestureEnd:
-            m_type = WebCore::PlatformEvent::GestureEnd;
+        case WebEventType::GestureEnd:
+            m_type = WebCore::PlatformEvent::Type::GestureEnd;
             break;
         default:
             ASSERT_NOT_REACHED();
         }
 
-        if (webEvent.shiftKey())
-            m_modifiers.add(Modifier::ShiftKey);
-        if (webEvent.controlKey())
-            m_modifiers.add(Modifier::ControlKey);
-        if (webEvent.altKey())
-            m_modifiers.add(Modifier::AltKey);
-        if (webEvent.metaKey())
-            m_modifiers.add(Modifier::MetaKey);
-        if (webEvent.capsLockKey())
-            m_modifiers.add(Modifier::CapsLockKey);
+        m_modifiers = platform(webEvent.modifiers());
 
         m_timestamp = webEvent.timestamp();
 

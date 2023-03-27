@@ -24,57 +24,8 @@
  */
 
 #import "config.h"
-#import "_WKInternalDebugFeatureInternal.h"
+#import "_WKInternalDebugFeature.h"
 
-#import <WebCore/WebCoreObjCExtras.h>
-
+// Empty implementation for binary compatibility. All logic should live in the superclass, _WKFeature.
 @implementation _WKInternalDebugFeature
-
-- (void)dealloc
-{
-    if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKInternalDebugFeature.class, self))
-        return;
-
-    _internalDebugFeature->API::InternalDebugFeature::~InternalDebugFeature();
-
-    [super dealloc];
-}
-
-- (NSString *)description
-{
-    return [NSString stringWithFormat:@"<%@: %p; name = %@; key = %@; defaultValue = %s >", NSStringFromClass(self.class), self, self.name, self.key, self.defaultValue ? "on" : "off"];
-}
-
-- (NSString *)name
-{
-    return _internalDebugFeature->name();
-}
-
-- (NSString *)key
-{
-    return _internalDebugFeature->key();
-}
-
-- (NSString *)details
-{
-    return _internalDebugFeature->details();
-}
-
-- (BOOL)defaultValue
-{
-    return _internalDebugFeature->defaultValue();
-}
-
-- (BOOL)isHidden
-{
-    return _internalDebugFeature->isHidden();
-}
-
-#pragma mark WKObject protocol implementation
-
-- (API::Object&)_apiObject
-{
-    return *_internalDebugFeature;
-}
-
 @end

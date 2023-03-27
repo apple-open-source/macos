@@ -32,8 +32,6 @@
 #include "Logging.h"
 #include "RenderAncestorIterator.h"
 #include "RenderChildIterator.h"
-#include "RenderSVGForeignObject.h"
-#include "RenderSVGHiddenContainer.h"
 #include "RenderSVGInline.h"
 #include "RenderSVGModelObject.h"
 #include "RenderSVGRoot.h"
@@ -61,10 +59,8 @@ void SVGContainerLayout::layoutChildren(bool containerNeedsLayout)
 
     m_positionedChildren.clear();
     for (auto& child : childrenOfType<RenderObject>(m_container)) {
-        if (child.isSVGLayerAwareRenderer()) {
-            ASSERT(child.hasLayer());
+        if (child.isSVGLayerAwareRenderer())
             m_positionedChildren.append(downcast<RenderLayerModelObject>(child));
-        }
 
         bool needsLayout = containerNeedsLayout;
         bool childEverHadLayout = child.everHadLayout();
@@ -76,20 +72,24 @@ void SVGContainerLayout::layoutChildren(bool containerNeedsLayout)
             needsLayout = true;
         }
 
-        if (layoutSizeChanged && child.node() && is<SVGElement>(*child.node())) {
-            // When containerNeedsLayout is false and the layout size changed, we have to check whether this child uses relative lengths
-            auto& element = downcast<SVGElement>(*child.node());
-            if (element.hasRelativeLengths() && 1) {
-                // When the layout size changed and when using relative values tell the RenderSVGShape to update its shape object
-                if (is<RenderSVGShape>(child))
-                    downcast<RenderSVGShape>(child).setNeedsShapeUpdate();
-                else if (is<RenderSVGText>(child)) {
-                    auto& svgText = downcast<RenderSVGText>(child);
-                    svgText.setNeedsTextMetricsUpdate();
-                    svgText.setNeedsPositioningValuesUpdate();
-                }
-
+        if (layoutSizeChanged) {
+            if (child.isAnonymous()) {
+                ASSERT(is<RenderSVGViewportContainer>(child));
                 needsLayout = true;
+            } else if (is<SVGElement>(*child.node())) {
+                // When containerNeedsLayout is false and the layout size changed, we have to check whether this child uses relative lengths
+                if (auto& element = downcast<SVGElement>(*child.node()); element.hasRelativeLengths()) {
+                    // When the layout size changed and when using relative values tell the RenderSVGShape to update its shape object
+                    if (is<RenderSVGShape>(child))
+                        downcast<RenderSVGShape>(child).setNeedsShapeUpdate();
+                    else if (is<RenderSVGText>(child)) {
+                        auto& svgText = downcast<RenderSVGText>(child);
+                        svgText.setNeedsTextMetricsUpdate();
+                        svgText.setNeedsPositioningValuesUpdate();
+                    }
+
+                    needsLayout = true;
+                }
             }
         }
 
@@ -141,8 +141,26 @@ void SVGContainerLayout::positionChildrenRelativeToContainer()
 #endif
     };
 
+    auto computeContainerLayoutLocation = [&]() -> LayoutPoint {
+        // The nominal SVG layout location (== flooredLayoutPoint(objectBoundingBoxWithoutTransformsTopLeft), where
+        // objectBoundingBoxWithoutTransforms = union of child boxes, not mapped through their tranforms) is
+        // only meaningful for the children of the RenderSVGRoot. RenderSVGRoot itself is positioned according to
+        // the CSS box model object, where we need to respect border & padding, encoded in the contentBoxLocation().
+        // -> Position all RenderSVGRoot children relative to the contentBoxLocation() to avoid intruding border/padding area.
+        if (is<RenderSVGRoot>(m_container))
+            return -downcast<RenderSVGRoot>(m_container).contentBoxLocation();
+
+        // For (inner) RenderSVGViewportContainer nominalSVGLayoutLocation() returns the viewport boundaries,
+        // including the effect of the 'x'/'y' attribute values. Do not subtract the location, otherwise the
+        // effect of the x/y translation is removed.
+        if (is<RenderSVGViewportContainer>(m_container) && !m_container.isAnonymous())
+            return { };
+
+        return m_container.nominalSVGLayoutLocation();
+    };
+
     // Arrange layout location for all child renderers relative to the container layout location.
-    auto parentLayoutLocation = m_container.nominalSVGLayoutLocation();
+    auto parentLayoutLocation = computeContainerLayoutLocation();
     for (RenderLayerModelObject& child : m_positionedChildren) {
         verifyPositionedChildRendererExpectation(child);
 
@@ -220,14 +238,17 @@ void SVGContainerLayout::invalidateResourcesOfChildren(RenderElement& renderer)
 bool SVGContainerLayout::layoutSizeOfNearestViewportChanged() const
 {
     RenderElement* ancestor = &m_container;
-    while (ancestor && !is<RenderSVGRoot>(*ancestor) && !is<RenderSVGViewportContainer>(*ancestor))
+    while (ancestor && !is<RenderSVGRoot>(ancestor) && !is<RenderSVGViewportContainer>(ancestor))
         ancestor = ancestor->parent();
 
     ASSERT(ancestor);
-    if (is<RenderSVGViewportContainer>(*ancestor))
-        return downcast<RenderSVGViewportContainer>(*ancestor).isLayoutSizeChanged();
+    if (auto* viewportContainer = dynamicDowncast<RenderSVGViewportContainer>(ancestor))
+        return viewportContainer->isLayoutSizeChanged();
 
-    return downcast<RenderSVGRoot>(*ancestor).isLayoutSizeChanged();
+    if (auto* svgRoot = dynamicDowncast<RenderSVGRoot>(ancestor))
+        return svgRoot->isLayoutSizeChanged();
+
+    return false;
 }
 
 bool SVGContainerLayout::transformToRootChanged(const RenderObject* ancestor)
@@ -236,9 +257,8 @@ bool SVGContainerLayout::transformToRootChanged(const RenderObject* ancestor)
         if (is<RenderSVGTransformableContainer>(*ancestor))
             return downcast<const RenderSVGTransformableContainer>(*ancestor).didTransformToRootUpdate();
 
-        // FIXME: [LBSE] Upstream RenderSVGViewportContainer changes
-        // if (is<RenderSVGViewportContainer>(*ancestor))
-        //     return downcast<const RenderSVGViewportContainer>(*ancestor).didTransformToRootUpdate();
+        if (is<RenderSVGViewportContainer>(*ancestor))
+            return downcast<const RenderSVGViewportContainer>(*ancestor).didTransformToRootUpdate();
 
         if (is<RenderSVGRoot>(*ancestor))
             return downcast<const RenderSVGRoot>(*ancestor).didTransformToRootUpdate();

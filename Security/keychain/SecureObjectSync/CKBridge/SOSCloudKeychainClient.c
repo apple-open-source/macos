@@ -59,7 +59,7 @@
 
 #include <os/activity.h>
 #include <os/state_private.h>
-
+#include <Security/OTConstants.h>
 
 static CFStringRef sErrorDomain = CFSTR("com.apple.security.sos.transport.error");
 
@@ -241,6 +241,15 @@ static bool messageToProxy(SOSXPCCloudTransportRef transport, xpc_object_t messa
 
 static void talkWithKVS(SOSXPCCloudTransportRef transport, xpc_object_t message, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock)
 {
+    if (!OctagonIsSOSFeatureEnabled()) {
+        secdebug("SOSCKCSCOPE", "SOS is currently not supported or enabled");
+        if (replyBlock) {
+            CFErrorRef notSupportedError = makeError(kSOSMessageNotSupported);
+            replyBlock(NULL, notSupportedError);
+            CFReleaseSafe(notSupportedError);
+        }
+        return;
+    }
     CFErrorRef messagingError = NULL;
     dispatch_retain(processQueue);
     bool messaged = messageToProxy(transport, message, &messagingError, transport->xpc_queue, ^(xpc_object_t reply) {

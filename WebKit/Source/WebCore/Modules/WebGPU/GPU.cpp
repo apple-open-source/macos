@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,9 +26,19 @@
 #include "config.h"
 #include "GPU.h"
 
+#include "GPUPresentationContext.h"
+#include "GPUPresentationContextDescriptor.h"
+#include "JSDOMPromiseDeferred.h"
 #include "JSGPUAdapter.h"
 
 namespace WebCore {
+
+GPU::GPU(Ref<PAL::WebGPU::GPU>&& backing)
+    : m_backing(WTFMove(backing))
+{
+}
+
+GPU::~GPU() = default;
 
 static PAL::WebGPU::RequestAdapterOptions convertToBacking(const std::optional<GPURequestAdapterOptions>& options)
 {
@@ -38,22 +48,13 @@ static PAL::WebGPU::RequestAdapterOptions convertToBacking(const std::optional<G
     return options->convertToBacking();
 }
 
-void GPU::setBacking(PAL::WebGPU::GPU& backing)
-{
-    m_backing = &backing;
-    while (!m_pendingRequestAdapterArguments.isEmpty()) {
-        auto arguments = m_pendingRequestAdapterArguments.takeFirst();
-        requestAdapter(arguments.options, WTFMove(arguments.promise));
-    }
-}
+struct GPU::PendingRequestAdapterArguments {
+    std::optional<GPURequestAdapterOptions> options;
+    RequestAdapterPromise promise;
+};
 
 void GPU::requestAdapter(const std::optional<GPURequestAdapterOptions>& options, RequestAdapterPromise&& promise)
 {
-    if (!m_backing) {
-        m_pendingRequestAdapterArguments.append({ options, WTFMove(promise) });
-        return;
-    }
-
     m_backing->requestAdapter(convertToBacking(options), [promise = WTFMove(promise)] (RefPtr<PAL::WebGPU::Adapter>&& adapter) mutable {
         if (!adapter) {
             promise.reject(nullptr);
@@ -63,4 +64,14 @@ void GPU::requestAdapter(const std::optional<GPURequestAdapterOptions>& options,
     });
 }
 
+GPUTextureFormat GPU::getPreferredCanvasFormat()
+{
+    return GPUTextureFormat::Bgra8unorm;
 }
+
+Ref<GPUPresentationContext> GPU::createPresentationContext(const GPUPresentationContextDescriptor& presentationContextDescriptor)
+{
+    return GPUPresentationContext::create(m_backing->createPresentationContext(presentationContextDescriptor.convertToBacking()));
+}
+
+} // namespace WebCore

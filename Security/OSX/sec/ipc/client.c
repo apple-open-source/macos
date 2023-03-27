@@ -657,14 +657,19 @@ static bool securityd_message_is_for_system_keychain(xpc_object_t message) {
     CFReleaseNull(error);
 
     bool result = false;
-    bool flagAlways = CFDictionaryGetValueIfPresent(query, kSecUseSystemKeychainAlways, NULL);
+#if TARGET_OS_OSX
+    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS;
+#elif TARGET_OS_IOS
+    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlways;
+#endif
+    bool flagAlways = CFDictionaryGetValueIfPresent(query, localSecUseSystemKeychainAlways, NULL);
     bool inEduMode = device_is_in_edu_mode();
     bool flagOld = CFDictionaryGetValueIfPresent(query, kSecUseSystemKeychain, NULL);
 
-    secinfo("xpc", "flagAlways:%d inEduMode:%d flagOld:%d", flagAlways, inEduMode, flagOld);
+    secinfo("xpc", "flagAlways:%{bool}d inEduMode:%{bool}d flagOld:%{bool}d", flagAlways, inEduMode, flagOld);
 
     if (flagAlways) {
-        secnotice("xpc", "kSecUseSystemKeychainAlways present, using system keychain");
+        secnotice("xpc", "kSecUseSystemKeychainAlways… present, using system keychain");
         result = true;
     } else if (inEduMode && flagOld) {
         secnotice("xpc", "kSecUseSystemKeychain present, using system keychain");

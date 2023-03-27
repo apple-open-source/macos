@@ -157,6 +157,7 @@ inline CapabilityLevel canCompile(Node* node)
     case GetArgument:
     case InvalidationPoint:
     case StringCharAt:
+    case StringLocaleCompare:
     case CheckIsConstant:
     case CheckBadValue:
     case CheckNotEmpty:
@@ -172,6 +173,7 @@ inline CapabilityLevel canCompile(Node* node)
     case GetTypedArrayByteOffset:
     case GetTypedArrayByteOffsetAsInt52:
     case GetPrototypeOf:
+    case GetWebAssemblyInstanceExports:
     case NotifyWrite:
     case StoreBarrier:
     case FencedStoreBarrier:
@@ -184,7 +186,7 @@ inline CapabilityLevel canCompile(Node* node)
     case Construct:
     case DirectConstruct:
     case CallVarargs:
-    case CallEval:
+    case CallDirectEval:
     case TailCallVarargs:
     case TailCallVarargsInlinedCaller:
     case ConstructVarargs:
@@ -192,6 +194,7 @@ inline CapabilityLevel canCompile(Node* node)
     case TailCallForwardVarargs:
     case TailCallForwardVarargsInlinedCaller:
     case ConstructForwardVarargs:
+    case CallWasm:
     case VarargsLength:
     case LoadVarargs:
     case ValueToInt32:
@@ -228,8 +231,10 @@ inline CapabilityLevel canCompile(Node* node)
     case ObjectCreate:
     case ObjectKeys:
     case ObjectGetOwnPropertyNames:
+    case ObjectToString:
     case MakeRope:
     case NewArrayWithSize:
+    case NewArrayWithSpecies:
     case TryGetById:
     case GetById:
     case GetByIdFlush:
@@ -261,6 +266,7 @@ inline CapabilityLevel canCompile(Node* node)
     case ExtractValueFromWeakMapGet:
     case SetAdd:
     case MapSet:
+    case MapOrSetDelete:
     case WeakMapGet:
     case WeakSetAdd:
     case WeakMapSet:
@@ -345,7 +351,8 @@ inline CapabilityLevel canCompile(Node* node)
     case RegExpMatchFastGlobal:
     case NewRegexp:
     case StringReplace:
-    case StringReplaceRegExp: 
+    case StringReplaceRegExp:
+    case StringReplaceString:
     case GetRegExpObjectLastIndex:
     case SetRegExpObjectLastIndex:
     case RecordRegExpCachedResult:
@@ -370,6 +377,7 @@ inline CapabilityLevel canCompile(Node* node)
     case DefineAccessorProperty:
     case StringValueOf:
     case StringSlice:
+    case StringSubstring:
     case ToLowerCase:
     case NumberToStringWithRadix:
     case NumberToStringWithValidRadixConstant:

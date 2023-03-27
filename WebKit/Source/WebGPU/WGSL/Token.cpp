@@ -49,6 +49,8 @@ String toString(TokenType type)
         return "Identifier"_s;
     case TokenType::ReservedWord:
         return "ReservedWord"_s;
+    case TokenType::KeywordArray:
+        return "array"_s;
     case TokenType::KeywordStruct:
         return "struct"_s;
     case TokenType::KeywordFn:
@@ -107,6 +109,14 @@ String toString(TokenType type)
         return ">"_s;
     case TokenType::LT:
         return "<"_s;
+    case TokenType::Minus:
+        return "-"_s;
+    case TokenType::MinusMinus:
+        return "--"_s;
+    case TokenType::Plus:
+        return "+"_s;
+    case TokenType::PlusPlus:
+        return "++"_s;
     case TokenType::Period:
         return "."_s;
     case TokenType::ParenLeft:
@@ -115,6 +125,8 @@ String toString(TokenType type)
         return ")"_s;
     case TokenType::Semicolon:
         return ";"_s;
+    case TokenType::Star:
+        return "*"_s;
     }
 }
 

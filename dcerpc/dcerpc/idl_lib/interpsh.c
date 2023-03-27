@@ -358,13 +358,7 @@ void rpc_ss_ndr_clean_up
     }
 
     /* Clean up unmarshalling state */
-    if (IDL_msp->IDL_elt_p != NULL)
-    {
-        if ((IDL_msp->IDL_elt_p->buff_dealloc != NULL)
-                && (IDL_msp->IDL_elt_p->data_len != 0))
-            (*IDL_msp->IDL_elt_p->buff_dealloc)(IDL_msp->IDL_elt_p->buff_addr);
-        IDL_msp->IDL_elt_p = NULL;
-    }
+    idl_es_dealloc_elt_buffer(IDL_msp);
 }
 
 /******************************************************************************/

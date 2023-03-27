@@ -26,8 +26,6 @@
 #include "config.h"
 #include "DisplayBoxDecorationPainter.h"
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
 #include "BorderEdge.h" // For BoxSideSet.
 #include "Color.h"
 #include "DisplayBoxDecorationData.h"
@@ -87,7 +85,7 @@ private:
 
     static bool borderWillArcInnerEdge(const FloatSize& firstRadius, const FloatSize& secondRadius)
     {
-        return !firstRadius.isZero() || !secondRadius.isZero();
+        return !firstRadius.isEmpty() || !secondRadius.isEmpty();
     }
 
     static bool borderStyleHasUnmatchedColorsAtCorner(BorderStyle, BoxSide, BoxSide adjacentSide);
@@ -1554,4 +1552,3 @@ void BoxDecorationPainter::paintBackgroundAndBorders(PaintingContext& paintingCo
 } // namespace Display
 } // namespace WebCore
 
-#endif // ENABLE(LAYOUT_FORMATTING_CONTEXT)

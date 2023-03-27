@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -134,7 +134,7 @@ mirror(SCDynamicStoreRef store, CFArrayRef changes, void *info)
 
 
 static void
-mirror_setup()
+mirror_setup(void)
 {
 	CFStringRef	key;
 	CFStringRef	pattern;

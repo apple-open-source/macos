@@ -29,8 +29,6 @@
 #include "WebCoreArgumentCoders.h"
 
 #include "ArgumentCodersGLib.h"
-#include "DaemonDecoder.h"
-#include "DaemonEncoder.h"
 #include "DataReference.h"
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/Credential.h>
@@ -44,53 +42,6 @@
 
 namespace IPC {
 using namespace WebCore;
-
-void ArgumentCoder<ResourceRequest>::encodePlatformData(Encoder& encoder, const ResourceRequest& resourceRequest)
-{
-    resourceRequest.encodeWithPlatformData(encoder);
-}
-
-bool ArgumentCoder<ResourceRequest>::decodePlatformData(Decoder& decoder, ResourceRequest& resourceRequest)
-{
-    return resourceRequest.decodeWithPlatformData(decoder);
-}
-
-template<typename Encoder>
-void ArgumentCoder<CertificateInfo>::encode(Encoder& encoder, const CertificateInfo& certificateInfo)
-{
-    GRefPtr<GTlsCertificate> certificate = certificateInfo.certificate();
-    encoder << certificate;
-    if (!certificate)
-        return;
-
-    encoder << static_cast<uint32_t>(certificateInfo.tlsErrors());
-}
-template void ArgumentCoder<CertificateInfo>::encode<Encoder>(Encoder&, const CertificateInfo&);
-template void ArgumentCoder<CertificateInfo>::encode<WebKit::Daemon::Encoder>(WebKit::Daemon::Encoder&, const CertificateInfo&);
-
-template<typename Decoder>
-std::optional<CertificateInfo> ArgumentCoder<CertificateInfo>::decode(Decoder& decoder)
-{
-    std::optional<GRefPtr<GTlsCertificate>> certificate;
-    decoder >> certificate;
-    if (!certificate)
-        return std::nullopt;
-
-    CertificateInfo certificateInfo;
-    if (certificate.value()) {
-        std::optional<uint32_t> tlsErrors;
-        decoder >> tlsErrors;
-        if (!tlsErrors)
-            return std::nullopt;
-
-        certificateInfo.setCertificate(certificate->get());
-        certificateInfo.setTLSErrors(static_cast<GTlsCertificateFlags>(*tlsErrors));
-    }
-
-    return certificateInfo;
-}
-template std::optional<CertificateInfo> ArgumentCoder<CertificateInfo>::decode<Decoder>(Decoder&);
-template std::optional<CertificateInfo> ArgumentCoder<CertificateInfo>::decode<WebKit::Daemon::Decoder>(WebKit::Daemon::Decoder&);
 
 void ArgumentCoder<ResourceError>::encodePlatformData(Encoder& encoder, const ResourceError& resourceError)
 {
@@ -126,7 +77,7 @@ bool ArgumentCoder<ResourceError>::decodePlatformData(Decoder& decoder, Resource
     if (!decoder.decode(certificateInfo))
         return false;
 
-    resourceError.setCertificate(certificateInfo.certificate());
+    resourceError.setCertificate(certificateInfo.certificate().get());
     resourceError.setTLSErrors(certificateInfo.tlsErrors());
     return true;
 }
@@ -135,10 +86,13 @@ void ArgumentCoder<SoupNetworkProxySettings>::encode(Encoder& encoder, const Sou
 {
     ASSERT(!settings.isEmpty());
     encoder << settings.mode;
-    if (settings.mode != SoupNetworkProxySettings::Mode::Custom)
+    if (settings.mode != SoupNetworkProxySettings::Mode::Custom && settings.mode != SoupNetworkProxySettings::Mode::Auto)
         return;
 
     encoder << settings.defaultProxyURL;
+    if (settings.mode == SoupNetworkProxySettings::Mode::Auto)
+        return;
+
     uint32_t ignoreHostsCount = settings.ignoreHosts ? g_strv_length(settings.ignoreHosts.get()) : 0;
     encoder << ignoreHostsCount;
     if (ignoreHostsCount) {
@@ -153,11 +107,14 @@ bool ArgumentCoder<SoupNetworkProxySettings>::decode(Decoder& decoder, SoupNetwo
     if (!decoder.decode(settings.mode))
         return false;
 
-    if (settings.mode != SoupNetworkProxySettings::Mode::Custom)
+    if (settings.mode != SoupNetworkProxySettings::Mode::Custom && settings.mode != SoupNetworkProxySettings::Mode::Auto)
         return true;
 
     if (!decoder.decode(settings.defaultProxyURL))
         return false;
+
+    if (settings.mode == SoupNetworkProxySettings::Mode::Auto)
+        return !settings.isEmpty();
 
     uint32_t ignoreHostsCount;
     if (!decoder.decode(ignoreHostsCount))
@@ -211,17 +168,6 @@ bool ArgumentCoder<Credential>::decodePlatformData(Decoder& decoder, Credential&
 
     credential = Credential(certificate->get(), persistence);
     return true;
-}
-
-void ArgumentCoder<DictionaryPopupInfo>::encodePlatformData(Encoder&, const DictionaryPopupInfo&)
-{
-    ASSERT_NOT_REACHED();
-}
-
-bool ArgumentCoder<DictionaryPopupInfo>::decodePlatformData(Decoder&, DictionaryPopupInfo&)
-{
-    ASSERT_NOT_REACHED();
-    return false;
 }
 
 void ArgumentCoder<Font>::encodePlatformData(Encoder&, const Font&)

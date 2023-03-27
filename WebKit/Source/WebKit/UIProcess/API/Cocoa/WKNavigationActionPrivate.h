@@ -26,6 +26,7 @@
 #import <WebKit/WKNavigationAction.h>
 
 @class WKNavigation;
+@class _WKHitTestResult;
 @class _WKUserInitiatedAction;
 
 #if TARGET_OS_IPHONE
@@ -60,6 +61,10 @@ typedef NS_ENUM(NSInteger, WKSyntheticClickType) {
 
 @property (nonatomic, readonly) BOOL _isRedirect WK_API_AVAILABLE(macos(10.13), ios(11.0));
 @property (nonatomic, readonly) WKNavigation *_mainFrameNavigation WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
-- (void)_storeSKAdNetworkAttribution WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_storeSKAdNetworkAttribution WK_API_AVAILABLE(macos(13.0), ios(16.1));
+
+@property (nonatomic, readonly) _WKHitTestResult *_hitTestResult WK_API_AVAILABLE(macos(13.3), ios(16.4));
+
+@property (nonatomic, readonly) BOOL _hasOpener WK_API_AVAILABLE(macos(13.3), ios(16.4));
 
 @end

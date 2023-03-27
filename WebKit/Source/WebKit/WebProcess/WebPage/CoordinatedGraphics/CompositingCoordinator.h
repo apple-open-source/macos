@@ -30,16 +30,17 @@
 
 #include "WebPage.h"
 #include <WebCore/CoordinatedGraphicsLayer.h>
-#include <WebCore/CoordinatedGraphicsState.h>
 #include <WebCore/FloatPoint.h>
 #include <WebCore/GraphicsLayerClient.h>
 #include <WebCore/GraphicsLayerFactory.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/NicosiaBuffer.h>
 #include <WebCore/NicosiaPlatformLayer.h>
+#include <WebCore/NicosiaScene.h>
 #include <WebCore/NicosiaSceneIntegration.h>
 
 namespace Nicosia {
+class ImageBackingStore;
 class PaintingEngine;
 class SceneIntegration;
 }
@@ -47,6 +48,7 @@ class SceneIntegration;
 namespace WebCore {
 class GraphicsContext;
 class GraphicsLayer;
+class Image;
 }
 
 namespace WebKit {
@@ -61,7 +63,7 @@ public:
     public:
         virtual void didFlushRootLayer(const WebCore::FloatRect& visibleContentRect) = 0;
         virtual void notifyFlushRequired() = 0;
-        virtual void commitSceneState(const WebCore::CoordinatedGraphicsState&) = 0;
+        virtual void commitSceneState(const RefPtr<Nicosia::Scene>&) = 0;
         virtual void updateScene() = 0;
     };
 
@@ -84,8 +86,6 @@ public:
     void forceFrameSync() { m_shouldSyncFrame = true; }
 
     bool flushPendingLayerChanges(OptionSet<WebCore::FinalizeRenderingUpdateFlags>);
-    WebCore::CoordinatedGraphicsState& state() { return m_state; }
-
     void syncDisplayState();
 
     double nextAnimationServiceTime() const;
@@ -102,6 +102,7 @@ private:
     void detachLayer(WebCore::CoordinatedGraphicsLayer*) override;
     void attachLayer(WebCore::CoordinatedGraphicsLayer*) override;
     Nicosia::PaintingEngine& paintingEngine() override;
+    RefPtr<Nicosia::ImageBackingStore> imageBackingStore(uint64_t, Function<RefPtr<Nicosia::Buffer>()>) override;
     void syncLayerState() override;
 
     // GraphicsLayerFactory
@@ -128,11 +129,11 @@ private:
         RefPtr<Nicosia::SceneIntegration> sceneIntegration;
         Nicosia::Scene::State state;
     } m_nicosia;
-    WebCore::CoordinatedGraphicsState m_state;
 
     HashMap<Nicosia::PlatformLayer::LayerID, WebCore::CoordinatedGraphicsLayer*> m_registeredLayers;
 
     std::unique_ptr<Nicosia::PaintingEngine> m_paintingEngine;
+    HashMap<uint64_t, Ref<Nicosia::ImageBackingStore>> m_imageBackingStores;
 
     // We don't send the messages related to releasing resources to renderer during purging, because renderer already had removed all resources.
     bool m_isPurging { false };

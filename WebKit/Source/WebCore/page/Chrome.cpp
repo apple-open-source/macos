@@ -29,8 +29,6 @@
 #include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentType.h"
-#include "FileChooser.h"
-#include "FileIconLoader.h"
 #include "FileList.h"
 #include "FloatRect.h"
 #include "Frame.h"
@@ -53,6 +51,7 @@
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
 #include "WindowFeatures.h"
+#include "WorkerClient.h"
 #include <JavaScriptCore/VM.h>
 #include <wtf/SetForScope.h>
 #include <wtf/Vector.h>
@@ -536,6 +535,16 @@ void Chrome::setCursorHiddenUntilMouseMoves(bool hiddenUntilMouseMoves)
 RefPtr<ImageBuffer> Chrome::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, bool avoidBackendSizeCheck) const
 {
     return m_client.createImageBuffer(size, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat, avoidBackendSizeCheck);
+}
+
+RefPtr<ImageBuffer> Chrome::sinkIntoImageBuffer(std::unique_ptr<SerializedImageBuffer> imageBuffer)
+{
+    return m_client.sinkIntoImageBuffer(WTFMove(imageBuffer));
+}
+
+std::unique_ptr<WorkerClient> Chrome::createWorkerClient(SerialFunctionDispatcher& dispatcher)
+{
+    return m_client.createWorkerClient(dispatcher);
 }
 
 #if ENABLE(WEBGL)

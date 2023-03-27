@@ -99,7 +99,7 @@ bool AuxiliaryProcess::parentProcessHasEntitlement(ASCIILiteral entitlement)
 
 void AuxiliaryProcess::platformStopRunLoop()
 {
-    XPCServiceExit(WTFMove(m_priorityBoostMessage));
+    XPCServiceExit();
 }
 
 #if USE(OS_STATE)
@@ -129,7 +129,7 @@ void AuxiliaryProcess::registerWithStateDumper(ASCIILiteral title)
             auto data = [NSPropertyListSerialization dataWithPropertyList:stateDictionary.get() format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
 
             if (!data) {
-                ASSERT(data);
+                ASSERT_NOT_REACHED_WITH_MESSAGE("Failed to serialize OS state info with error: %@", error);
                 return os_state;
             }
 

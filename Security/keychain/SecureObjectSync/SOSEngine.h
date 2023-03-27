@@ -160,11 +160,6 @@ bool SOSTestEngineSaveWithDER(SOSEngineRef engine, CFDataRef derState, CFErrorRe
 bool SOSTestEngineSave(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
 bool SOSTestEngineLoad(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
 CFMutableDictionaryRef derStateToDictionaryCopy(CFDataRef state, CFErrorRef *error);
-bool SOSTestEngineSaveCoders(CFTypeRef engine, SOSTransactionRef txn, CFErrorRef *error);
-bool TestSOSEngineLoadCoders(CFTypeRef engine, SOSTransactionRef txn, CFErrorRef *error);
-void TestSOSEngineDoOnQueue(CFTypeRef engine, dispatch_block_t action);
-bool TestSOSEngineDoTxnOnQueue(CFTypeRef engine, CFErrorRef *error, void(^transaction)(SOSTransactionRef txn, bool *commit));
-CFMutableDictionaryRef TestSOSEngineGetCoders(CFTypeRef engine);
 
 // MARK: Sync completion notification registration
 

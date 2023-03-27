@@ -1257,3 +1257,13 @@ authdb_connection_create(authdb_t db)
 done:
     return dbconn;
 }
+
+OSStatus authdb_reset(authdb_connection_t dbconn)
+{
+    os_log(AUTHD_LOG, "Resetting database");
+    const char *query = "DROP TABLE buttons; DROP TABLE delegates_map; DROP TABLE mechanisms_map; DROP TABLE rules; DROP TABLE config; DROP TABLE mechanisms; DROP TABLE prompts;";
+    int32_t res = _sqlite3_exec(dbconn->handle, query); // error is logged inside exec and we need to continue even when error occured
+    authdb_maintenance(dbconn);
+    os_log(AUTHD_LOG, "Reset finished");
+    return (OSStatus)res;
+}

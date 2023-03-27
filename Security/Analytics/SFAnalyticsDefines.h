@@ -28,6 +28,8 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 extern NSString* const SFAnalyticsTableSuccessCount;
 extern NSString* const SFAnalyticsTableHardFailures;
 extern NSString* const SFAnalyticsTableSoftFailures;
@@ -78,6 +80,8 @@ extern NSString* const SFAnalyticsTableSchema;
 extern NSUInteger const SFAnalyticsMaxEventsToReport;
 
 extern NSString* const SFAnalyticsErrorDomain;
+
+NS_ASSUME_NONNULL_END
 
 #endif /* __OBJC2__ */
 

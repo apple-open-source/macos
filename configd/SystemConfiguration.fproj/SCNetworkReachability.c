@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -146,7 +146,7 @@ static const CFRuntimeClass __SCNetworkReachabilityClass = {
 
 
 static dispatch_queue_t
-_callback_queue()
+_callback_queue(void)
 {
 	static dispatch_once_t	once;
 	static dispatch_queue_t	q;
@@ -982,23 +982,27 @@ SCNetworkReachabilityCopyResolvedAddress(SCNetworkReachabilityRef	target,
 #pragma unused(index)
 			nw_endpoint_type_t endpoint_type = nw_endpoint_get_type((nw_endpoint_t)object);
 			if (endpoint_type == nw_endpoint_type_address) {
+                CFDataRef addressData = NULL;
+                
 				const struct sockaddr *address = nw_endpoint_get_address((nw_endpoint_t)object);
 				if (address == NULL) {
 					SC_log(LOG_ERR, "nw_endpoint_type_address w/no address");
 					return TRUE;
 				}
 
-				CFDataRef addressData = CFDataCreate(kCFAllocatorDefault, (const uint8_t *)address, address->sa_len);
+				addressData = CFDataCreate(kCFAllocatorDefault, (const uint8_t *)address, address->sa_len);
 				CFArrayAppendValue(array, addressData);
 				CFRelease(addressData);
 			} else if (endpoint_type == nw_endpoint_type_host) {
+                CFStringRef string = NULL;
+                
 				const char *host = nw_endpoint_get_hostname((nw_endpoint_t)object);
 				if (host == NULL) {
 					SC_log(LOG_ERR, "nw_endpoint_type_host w/no host");
 					return TRUE;
 				}
 
-				CFStringRef string = CFStringCreateWithCString(kCFAllocatorDefault, host, kCFStringEncodingASCII);
+				string = CFStringCreateWithCString(kCFAllocatorDefault, host, kCFStringEncodingASCII);
 				if (string == NULL) {
 					SC_log(LOG_ERR, "nw_endpoint_type_host w/non-ASCII host");
 					return TRUE;
@@ -1109,6 +1113,7 @@ __SCNetworkReachabilityGetFlagsFromPath(const char			*log_prefix,
 	if (path != NULL) {
 		nw_path_status_t status = nw_path_get_status(path);
 		if (status == nw_path_status_satisfied) {
+			xpc_object_t agent_dictionary;
 			__block bool checkDNSFlags = TRUE;
 			flags = kSCNetworkReachabilityFlagsReachable;
 			why = "nw_path_status_satisfied";
@@ -1118,7 +1123,7 @@ __SCNetworkReachabilityGetFlagsFromPath(const char			*log_prefix,
 				why = "nw_path_status_satisfied, cellular";
 			}
 #endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-			xpc_object_t agent_dictionary = nw_path_copy_netagent_dictionary(path);
+			agent_dictionary = nw_path_copy_netagent_dictionary(path);
 			if (agent_dictionary != NULL) {
 				if (xpc_dictionary_get_count(agent_dictionary) > 0) {
 					xpc_dictionary_apply(agent_dictionary, ^bool(const char *key, xpc_object_t value) {
@@ -1178,9 +1183,9 @@ __SCNetworkReachabilityGetFlagsFromPath(const char			*log_prefix,
 			}
 #endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 		} else if (status == nw_path_status_satisfiable) {
+            uuid_t vpn_uuid;
 			flags = (kSCNetworkReachabilityFlagsReachable | kSCNetworkReachabilityFlagsConnectionRequired | kSCNetworkReachabilityFlagsTransientConnection);
 			why = "nw_path_status_satisfiable";
-			uuid_t vpn_uuid;
 			if (nw_path_get_vpn_config_id(path, &vpn_uuid)) {
 				flags |= kSCNetworkReachabilityFlagsConnectionOnDemand;
 				why = "nw_path_status_satisfiable, OnDemand";
@@ -1537,6 +1542,19 @@ SCNetworkReachabilityScheduleWithRunLoop(SCNetworkReachabilityRef	target,
 {
 	Boolean				success = FALSE;
 	SCNetworkReachabilityPrivateRef	targetPrivate	= (SCNetworkReachabilityPrivateRef)target;
+	CFRunLoopSourceContext	context = {
+		0				// version
+		, (void *)target		// info
+		, CFRetain			// retain
+		, CFRelease			// release
+		, reachRLSCopyDescription	// copyDescription
+		, CFEqual			// equal
+		, CFHash			// hash
+		, NULL				// schedule
+		, NULL				// cancel
+		, reachPerform			// perform
+	};
+
 	if (!isA_SCNetworkReachability(target) || (runLoop == NULL) || (runLoopMode == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
@@ -1564,19 +1582,6 @@ SCNetworkReachabilityScheduleWithRunLoop(SCNetworkReachabilityRef	target,
 			return FALSE;
 		}
 	}
-
-	CFRunLoopSourceContext	context = {
-		0				// version
-		, (void *)target		// info
-		, CFRetain			// retain
-		, CFRelease			// release
-		, reachRLSCopyDescription	// copyDescription
-		, CFEqual			// equal
-		, CFHash			// hash
-		, NULL				// schedule
-		, NULL				// cancel
-		, reachPerform			// perform
-	};
 
 	targetPrivate->rls    = CFRunLoopSourceCreate(NULL, 0, &context);
 	targetPrivate->rlList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -1741,6 +1746,7 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 		if (!nw_resolver_set_update_handler(resolver, targetPrivate->dispatchQueue, ^(nw_resolver_status_t status, nw_array_t resolved_endpoints) {
 			MUTEX_LOCK(&targetPrivate->lock);
 			if (targetPrivate->scheduled) {
+				__block Boolean hasFlags = FALSE;
 				SCNetworkReachabilityFlags	oldFlags		= 0;
 				uint				oldIFIndex		= 0;
 				size_t				oldEndpointCount	= 0;
@@ -1755,8 +1761,7 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 				nw_release(targetPrivate->lastResolvedEndpoints);
 				targetPrivate->lastResolvedEndpoints = nw_retain(resolved_endpoints);
 
-				// Run path evaluation on the resolved endpoints
-				__block Boolean hasFlags = FALSE;
+                // Run path evaluation on the resolved endpoints
 				targetPrivate->lastResolvedEndpointHasFlags = FALSE;
 				targetPrivate->lastResolvedEndpointFlags = 0;
 				targetPrivate->lastResolvedEndpointInterfaceIndex = 0;
@@ -2032,14 +2037,17 @@ Boolean
 SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityRef	target,
 				      dispatch_queue_t		queue)
 {
+	SCNetworkReachabilityPrivateRef	targetPrivate = NULL;
+	Boolean success = FALSE;
+
 	if (!isA_SCNetworkReachability(target)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
 
-	SCNetworkReachabilityPrivateRef	targetPrivate	= (SCNetworkReachabilityPrivateRef)target;
+	targetPrivate	= (SCNetworkReachabilityPrivateRef)target;
 	MUTEX_LOCK(&targetPrivate->lock);
-	Boolean success = __SCNetworkReachabilitySetDispatchQueue(targetPrivate, queue);
+	success = __SCNetworkReachabilitySetDispatchQueue(targetPrivate, queue);
 	MUTEX_UNLOCK(&targetPrivate->lock);
 	return success;
 }

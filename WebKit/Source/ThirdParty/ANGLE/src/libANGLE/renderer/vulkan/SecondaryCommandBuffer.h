@@ -11,10 +11,15 @@
 #ifndef LIBANGLE_RENDERER_VULKAN_SECONDARYCOMMANDBUFFERVK_H_
 #define LIBANGLE_RENDERER_VULKAN_SECONDARYCOMMANDBUFFERVK_H_
 
-#include "common/PoolAlloc.h"
 #include "common/vulkan/vk_headers.h"
 #include "libANGLE/renderer/vulkan/vk_command_buffer_utils.h"
 #include "libANGLE/renderer/vulkan/vk_wrapper.h"
+
+#if ANGLE_ENABLE_VULKAN_SHARED_RING_BUFFER_CMD_ALLOC
+#    include "libANGLE/renderer/vulkan/AllocatorHelperRing.h"
+#else
+#    include "libANGLE/renderer/vulkan/AllocatorHelperPool.h"
+#endif
 
 namespace rx
 {
@@ -25,10 +30,20 @@ namespace vk
 class Context;
 class RenderPassDesc;
 
+#if ANGLE_ENABLE_VULKAN_SHARED_RING_BUFFER_CMD_ALLOC
+using SecondaryCommandMemoryAllocator = SharedCommandMemoryAllocator;
+using SecondaryCommandBlockPool       = SharedCommandBlockPool;
+using SecondaryCommandBlockAllocator  = SharedCommandBlockAllocator;
+#else
+using SecondaryCommandMemoryAllocator = DedicatedCommandMemoryAllocator;
+using SecondaryCommandBlockPool       = DedicatedCommandBlockPool;
+using SecondaryCommandBlockAllocator  = DedicatedCommandBlockAllocator;
+#endif
+
 namespace priv
 {
 
-// NOTE: Please keep command-related enums, stucts, functions
+// NOTE: Please keep command-related enums, structs, functions
 //  and other code dealing with commands in alphabetical order
 //  This simplifies searching and updating commands.
 enum class CommandID : uint16_t
@@ -90,6 +105,7 @@ enum class CommandID : uint16_t
     SetFragmentShadingRate,
     SetFrontFace,
     SetLineWidth,
+    SetLogicOp,
     SetPrimitiveRestartEnable,
     SetRasterizerDiscardEnable,
     SetScissor,
@@ -499,6 +515,12 @@ struct SetLineWidthParams
 };
 VERIFY_4_BYTE_ALIGNMENT(SetLineWidthParams)
 
+struct SetLogicOpParams
+{
+    VkLogicOp logicOp;
+};
+VERIFY_4_BYTE_ALIGNMENT(SetLogicOpParams)
+
 struct SetPrimitiveRestartEnableParams
 {
     VkBool32 primitiveRestartEnable;
@@ -614,7 +636,7 @@ class SecondaryCommandBuffer final : angle::NonCopyable
     static angle::Result InitializeCommandPool(Context *context,
                                                CommandPool *pool,
                                                uint32_t queueFamilyIndex,
-                                               bool hasProtectedContent)
+                                               ProtectionType protectionType)
     {
         return angle::Result::Continue;
     }
@@ -822,6 +844,7 @@ class SecondaryCommandBuffer final : angle::NonCopyable
                                 VkFragmentShadingRateCombinerOpKHR ops[2]);
     void setFrontFace(VkFrontFace frontFace);
     void setLineWidth(float lineWidth);
+    void setLogicOp(VkLogicOp logicOp);
     void setPrimitiveRestartEnable(VkBool32 primitiveRestartEnable);
     void setRasterizerDiscardEnable(VkBool32 rasterizerDiscardEnable);
     void setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D *scissors);
@@ -859,30 +882,30 @@ class SecondaryCommandBuffer final : angle::NonCopyable
 
     // Calculate memory usage of this command buffer for diagnostics.
     void getMemoryUsageStats(size_t *usedMemoryOut, size_t *allocatedMemoryOut) const;
+    void getMemoryUsageStatsForPoolAlloc(size_t blockSize,
+                                         size_t *usedMemoryOut,
+                                         size_t *allocatedMemoryOut) const;
 
     // Traverse the list of commands and build a summary for diagnostics.
     std::string dumpCommands(const char *separator) const;
-
-    // Pool Alloc uses 16kB pages w/ 16byte header = 16368bytes. To minimize waste
-    //  using a 16368/12 = 1364. Also better perf than 1024 due to fewer block allocations
-    static constexpr size_t kBlockSize = 1364;
-    // Make sure block size is 4-byte aligned to avoid Android errors
-    static_assert((kBlockSize % 4) == 0, "Check kBlockSize alignment");
 
     // Initialize the SecondaryCommandBuffer by setting the allocator it will use
     angle::Result initialize(vk::Context *context,
                              vk::CommandPool *pool,
                              bool isRenderPassCommandBuffer,
-                             angle::PoolAllocator *allocator)
+                             SecondaryCommandMemoryAllocator *allocator)
     {
-        ASSERT(allocator);
-        ASSERT(mCommands.empty());
-        mAllocator = allocator;
-        allocateNewBlock();
-        // Set first command to Invalid to start
-        reinterpret_cast<CommandHeader *>(mCurrentWritePointer)->id = CommandID::Invalid;
+        return mCommandAllocator.initialize(allocator);
+    }
 
-        return angle::Result::Continue;
+    void attachAllocator(vk::SecondaryCommandMemoryAllocator *source)
+    {
+        mCommandAllocator.attachAllocator(source);
+    }
+
+    void detachAllocator(vk::SecondaryCommandMemoryAllocator *destination)
+    {
+        mCommandAllocator.detachAllocator(destination);
     }
 
     angle::Result begin(Context *context, const VkCommandBufferInheritanceInfo &inheritanceInfo)
@@ -897,46 +920,43 @@ class SecondaryCommandBuffer final : angle::NonCopyable
     void reset()
     {
         mCommands.clear();
-        mCurrentWritePointer   = nullptr;
-        mCurrentBytesRemaining = 0;
-        mCommandTracker.reset();
+        mCommandAllocator.reset(&mCommandTracker);
     }
 
-    // This will cause the SecondaryCommandBuffer to become invalid by clearing its allocator
-    void releaseHandle() { mAllocator = nullptr; }
     // The SecondaryCommandBuffer is valid if it's been initialized
-    bool valid() const { return mAllocator != nullptr; }
+    bool valid() const { return mCommandAllocator.valid(); }
 
-    bool empty() const { return mCommands.size() == 0 || mCommands[0]->id == CommandID::Invalid; }
+    bool empty() const { return mCommandAllocator.empty(); }
+    bool checkEmptyForPoolAlloc() const
+    {
+        return mCommands.size() == 0 || mCommands[0]->id == CommandID::Invalid;
+    }
+
     uint32_t getRenderPassWriteCommandCount() const
     {
         return mCommandTracker.getRenderPassWriteCommandCount();
     }
 
+    void clearCommands() { mCommands.clear(); }
+    bool hasEmptyCommands() { return mCommands.empty(); }
+    void pushToCommands(uint8_t *command)
+    {
+        mCommands.push_back(reinterpret_cast<priv::CommandHeader *>(command));
+    }
+
   private:
     void commonDebugUtilsLabel(CommandID cmd, const VkDebugUtilsLabelEXT &label);
     template <class StructType>
-    ANGLE_INLINE StructType *commonInit(CommandID cmdID, size_t allocationSize)
+    ANGLE_INLINE StructType *commonInit(CommandID cmdID, size_t allocationSize, uint8_t *header)
     {
         ASSERT(mIsOpen);
-        mCurrentBytesRemaining -= allocationSize;
-
-        CommandHeader *header = reinterpret_cast<CommandHeader *>(mCurrentWritePointer);
-        header->id            = cmdID;
-        header->size          = static_cast<uint16_t>(allocationSize);
         ASSERT(allocationSize <= std::numeric_limits<uint16_t>::max());
 
-        mCurrentWritePointer += allocationSize;
-        // Set next cmd header to Invalid (0) so cmd sequence will be terminated
-        reinterpret_cast<CommandHeader *>(mCurrentWritePointer)->id = CommandID::Invalid;
-        return Offset<StructType>(header, sizeof(CommandHeader));
-    }
-    ANGLE_INLINE void allocateNewBlock(size_t blockSize = kBlockSize)
-    {
-        ASSERT(mAllocator);
-        mCurrentWritePointer   = mAllocator->fastAllocate(blockSize);
-        mCurrentBytesRemaining = blockSize;
-        mCommands.push_back(reinterpret_cast<CommandHeader *>(mCurrentWritePointer));
+        auto commandHeader  = reinterpret_cast<CommandHeader *>(header);
+        commandHeader->id   = cmdID;
+        commandHeader->size = static_cast<uint16_t>(allocationSize);
+
+        return Offset<StructType>(commandHeader, sizeof(CommandHeader));
     }
 
     // Allocate and initialize memory for given commandID & variable param size, setting
@@ -949,23 +969,15 @@ class SecondaryCommandBuffer final : angle::NonCopyable
     {
         constexpr size_t fixedAllocationSize = sizeof(StructType) + sizeof(CommandHeader);
         const size_t allocationSize          = fixedAllocationSize + variableSize;
+
         // Make sure we have enough room to mark follow-on header "Invalid"
         const size_t requiredSize = allocationSize + sizeof(CommandHeader);
-        if (mCurrentBytesRemaining < requiredSize)
-        {
-            // variable size command can potentially exceed default cmd allocation blockSize
-            if (requiredSize <= kBlockSize)
-                allocateNewBlock();
-            else
-            {
-                // Make sure allocation is 4-byte aligned
-                const size_t alignedSize = roundUpPow2<size_t>(requiredSize, 4);
-                ASSERT((alignedSize % 4) == 0);
-                allocateNewBlock(alignedSize);
-            }
-        }
-        *variableDataPtr = Offset<uint8_t>(mCurrentWritePointer, fixedAllocationSize);
-        return commonInit<StructType>(cmdID, allocationSize);
+        uint8_t *header           = nullptr;
+
+        mCommandAllocator.onNewVariableSizedCommand(requiredSize, allocationSize, &header);
+        StructType *const result = commonInit<StructType>(cmdID, allocationSize, header);
+        *variableDataPtr         = Offset<uint8_t>(header, fixedAllocationSize);
+        return result;
     }
 
     // Initialize a command that doesn't have variable-sized ptr data
@@ -975,13 +987,13 @@ class SecondaryCommandBuffer final : angle::NonCopyable
         constexpr size_t paramSize =
             std::is_same<StructType, EmptyParams>::value ? 0 : sizeof(StructType);
         constexpr size_t allocationSize = paramSize + sizeof(CommandHeader);
+
         // Make sure we have enough room to mark follow-on header "Invalid"
-        if (mCurrentBytesRemaining < (allocationSize + sizeof(CommandHeader)))
-        {
-            ASSERT((allocationSize + sizeof(CommandHeader)) < kBlockSize);
-            allocateNewBlock();
-        }
-        return commonInit<StructType>(cmdID, allocationSize);
+        const size_t requiredSize = allocationSize + sizeof(CommandHeader);
+        uint8_t *header           = nullptr;
+        mCommandAllocator.onNewCommand(requiredSize, allocationSize, &header);
+
+        return commonInit<StructType>(cmdID, allocationSize, header);
     }
 
     // Return a ptr to the parameter type
@@ -1007,19 +1019,20 @@ class SecondaryCommandBuffer final : angle::NonCopyable
     std::vector<CommandHeader *> mCommands;
 
     // Allocator used by this class. If non-null then the class is valid.
-    angle::PoolAllocator *mAllocator;
-
-    uint8_t *mCurrentWritePointer;
-    size_t mCurrentBytesRemaining;
+    SecondaryCommandBlockPool mCommandAllocator;
 
     CommandBufferCommandTracker mCommandTracker;
 };
 
-ANGLE_INLINE SecondaryCommandBuffer::SecondaryCommandBuffer()
-    : mIsOpen(true), mAllocator(nullptr), mCurrentWritePointer(nullptr), mCurrentBytesRemaining(0)
-{}
+ANGLE_INLINE SecondaryCommandBuffer::SecondaryCommandBuffer() : mIsOpen(true)
+{
+    mCommandAllocator.setCommandBuffer(this);
+}
 
-ANGLE_INLINE SecondaryCommandBuffer::~SecondaryCommandBuffer() {}
+ANGLE_INLINE SecondaryCommandBuffer::~SecondaryCommandBuffer()
+{
+    mCommandAllocator.resetCommandBuffer();
+}
 
 // begin and insert DebugUtilsLabelEXT funcs share this same function body
 ANGLE_INLINE void SecondaryCommandBuffer::commonDebugUtilsLabel(CommandID cmd,
@@ -1097,7 +1110,10 @@ ANGLE_INLINE void SecondaryCommandBuffer::bindDescriptorSets(const PipelineLayou
     paramStruct->dynamicOffsetCount = dynamicOffsetCount;
     // Copy variable sized data
     writePtr = storePointerParameter(writePtr, descriptorSets, descSize);
-    storePointerParameter(writePtr, dynamicOffsets, offsetSize);
+    if (offsetSize)
+    {
+        storePointerParameter(writePtr, dynamicOffsets, offsetSize);
+    }
 }
 
 ANGLE_INLINE void SecondaryCommandBuffer::bindGraphicsPipeline(const Pipeline &pipeline)
@@ -1566,9 +1582,18 @@ ANGLE_INLINE void SecondaryCommandBuffer::pipelineBarrier(
     paramStruct->bufferMemoryBarrierCount = bufferMemoryBarrierCount;
     paramStruct->imageMemoryBarrierCount  = imageMemoryBarrierCount;
     // Copy variable sized data
-    writePtr = storePointerParameter(writePtr, memoryBarriers, memBarrierSize);
-    writePtr = storePointerParameter(writePtr, bufferMemoryBarriers, buffBarrierSize);
-    storePointerParameter(writePtr, imageMemoryBarriers, imgBarrierSize);
+    if (memBarrierSize)
+    {
+        writePtr = storePointerParameter(writePtr, memoryBarriers, memBarrierSize);
+    }
+    if (buffBarrierSize)
+    {
+        writePtr = storePointerParameter(writePtr, bufferMemoryBarriers, buffBarrierSize);
+    }
+    if (imgBarrierSize)
+    {
+        storePointerParameter(writePtr, imageMemoryBarriers, imgBarrierSize);
+    }
 }
 
 ANGLE_INLINE void SecondaryCommandBuffer::pushConstants(const PipelineLayout &layout,
@@ -1715,6 +1740,12 @@ ANGLE_INLINE void SecondaryCommandBuffer::setLineWidth(float lineWidth)
 {
     SetLineWidthParams *paramStruct = initCommand<SetLineWidthParams>(CommandID::SetLineWidth);
     paramStruct->lineWidth          = lineWidth;
+}
+
+ANGLE_INLINE void SecondaryCommandBuffer::setLogicOp(VkLogicOp logicOp)
+{
+    SetLogicOpParams *paramStruct = initCommand<SetLogicOpParams>(CommandID::SetLogicOp);
+    paramStruct->logicOp          = logicOp;
 }
 
 ANGLE_INLINE void SecondaryCommandBuffer::setPrimitiveRestartEnable(VkBool32 primitiveRestartEnable)

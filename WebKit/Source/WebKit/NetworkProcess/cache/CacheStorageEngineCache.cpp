@@ -107,7 +107,7 @@ RecordInformation Cache::toRecordInformation(const Record& record)
     return recordInformation;
 }
 
-Cache::Cache(Caches& caches, uint64_t identifier, State state, String&& name, String&& uniqueName)
+Cache::Cache(Caches& caches, DOMCacheIdentifier identifier, State state, String&& name, String&& uniqueName)
     : m_caches(caches)
     , m_state(state)
     , m_identifier(identifier)
@@ -134,7 +134,7 @@ RecordInformation RecordInformation::isolatedCopy() &&
 }
 
 struct TraversalResult {
-    uint64_t cacheIdentifier;
+    WebCore::DOMCacheIdentifier cacheIdentifier;
     HashMap<String, Vector<RecordInformation>> records;
     Vector<Key> failedRecords;
 
@@ -316,7 +316,7 @@ void Cache::retrieveRecords(const RetrieveRecordsOptions& options, RecordsCallba
     if (!records)
         return;
 
-    CacheQueryOptions queryOptions { options.ignoreSearch, options.ignoreMethod, options.ignoreVary, { } };
+    CacheQueryOptions queryOptions { options.ignoreSearch, options.ignoreMethod, options.ignoreVary };
     for (auto& record : *records) {
         if (DOMCacheEngine::queryCacheMatch(options.request, record.url, record.hasVaryStar, record.varyHeaders, queryOptions))
             retrieveRecord(record, taskCounter.copyRef());
@@ -555,7 +555,7 @@ Storage::Record Cache::encode(const RecordInformation& recordInformation, const 
     encoder << recordInformation.insertionTime;
     encoder << recordInformation.size;
     encoder << record.requestHeadersGuard;
-    record.request.encodeWithoutPlatformData(encoder);
+    encoder << record.request;
     record.options.encodePersistent(encoder);
     encoder << record.referrer;
 
@@ -584,8 +584,9 @@ static std::optional<WebCore::DOMCacheEngine::Record> decodeDOMCacheRecord(WTF::
     if (!requestHeadersGuard)
         return std::nullopt;
     
-    ResourceRequest request;
-    if (!request.decodeWithoutPlatformData(decoder))
+    std::optional<ResourceRequest> request;
+    decoder >> request;
+    if (!request)
         return std::nullopt;
     
     FetchOptions options;
@@ -602,8 +603,9 @@ static std::optional<WebCore::DOMCacheEngine::Record> decodeDOMCacheRecord(WTF::
     if (!responseHeadersGuard)
         return std::nullopt;
 
-    ResourceResponse response;
-    if (!ResourceResponse::decode(decoder, response))
+    std::optional<ResourceResponse> response;
+    decoder >> response;
+    if (!response)
         return std::nullopt;
     
     std::optional<uint64_t> responseBodySize;
@@ -618,11 +620,11 @@ static std::optional<WebCore::DOMCacheEngine::Record> decodeDOMCacheRecord(WTF::
         0,
         0,
         WTFMove(*requestHeadersGuard),
-        WTFMove(request),
+        WTFMove(*request),
         WTFMove(options),
         WTFMove(*referrer),
         WTFMove(*responseHeadersGuard),
-        WTFMove(response),
+        WTFMove(*response),
         { },
         WTFMove(*responseBodySize)
     }};

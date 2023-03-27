@@ -65,6 +65,7 @@
 #include <libkern/OSByteOrder.h>
 #include <ctype.h>
 #include <Security/SecInternal.h>
+#include <Security/SecCertificateInternal.h>
 #include <Security/SecFrameworkStrings.h>
 #include "SecBase64.h"
 #include "AppleBaselineEscrowCertificates.h"
@@ -491,7 +492,7 @@ static OSStatus parseX501Name(const DERItem *x501Name, void *context,
 
 static bool SecCEPSubjectKeyIdentifier(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERDecodedInfo keyIdentifier;
 	DERReturn drtn = DERDecodeItem(&extn->extnValue, &keyIdentifier);
 	require_noerr_quiet(drtn, badDER);
@@ -506,7 +507,7 @@ badDER:
 
 static bool SecCEPKeyUsage(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     SecKeyUsage keyUsage = extn->critical ? kSecKeyUsageCritical : 0;
     DERDecodedInfo bitStringContent;
     DERReturn drtn = DERDecodeItem(&extn->extnValue, &bitStringContent);
@@ -545,7 +546,7 @@ badDER:
 
 static bool SecCEPPrivateKeyUsagePeriod(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     return true;
 }
 
@@ -557,7 +558,7 @@ static OSStatus verifySubjectAltGeneralName(void *context, SecCEGeneralNameType 
 
 static bool SecCEPSubjectAltName(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     // Make sure that the SAN is parse-able
     require_noerr_quiet(SecCertificateParseGeneralNames(&extn->extnValue, NULL, verifySubjectAltGeneralName), badDER);
 	certificate->_subjectAltName = extn;
@@ -570,13 +571,13 @@ badDER:
 
 static bool SecCEPIssuerAltName(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     return true;
 }
 
 static bool SecCEPBasicConstraints(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
 	DERBasicConstraints basicConstraints;
 	require_noerr_quiet(DERParseSequence(&extn->extnValue,
         DERNumBasicConstraintsItemSpecs, DERBasicConstraintsItemSpecs,
@@ -674,7 +675,7 @@ badDER:
 
 static bool SecCEPNameConstraints(SecCertificateRef certificate,
     const SecCertificateExtension *extn) {
-    secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+    secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERNameConstraints nc;
     DERReturn drtn;
     drtn = DERParseSequence(&extn->extnValue,
@@ -731,7 +732,7 @@ static OSStatus appendCRLDPFromGeneralNames(void *context, SecCEGeneralNameType 
  */
 static bool SecCEPCrlDistributionPoints(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERSequence crlDPSeq;
     DERTag tag;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &crlDPSeq);
@@ -795,7 +796,7 @@ badDER:
 */
 static bool SecCEPCertificatePolicies(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERTag tag;
     DERSequence piSeq;
     SecCEPolicyInformation *policies = NULL;
@@ -849,7 +850,7 @@ badDER:
 */
 static bool SecCEPPolicyMappings(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERTag tag;
     DERSequence pmSeq;
     SecCEPolicyMapping *mappings = NULL;
@@ -908,7 +909,7 @@ KeyIdentifier ::= OCTET STRING
 */
 static bool SecCEPAuthorityKeyIdentifier(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
 	DERAuthorityKeyIdentifier akid;
 	DERReturn drtn;
 	drtn = DERParseSequence(&extn->extnValue,
@@ -936,7 +937,7 @@ badDER:
 
 static bool SecCEPPolicyConstraints(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
 	DERPolicyConstraints pc;
 	DERReturn drtn;
 	drtn = DERParseSequence(&extn->extnValue,
@@ -969,7 +970,7 @@ badDER:
 
 static bool SecCEPExtendedKeyUsage(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERSequence ekuSeq;
     DERTag ekuTag;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &ekuTag, &ekuSeq);
@@ -996,7 +997,7 @@ badDER:
 */
 static bool SecCEPInhibitAnyPolicy(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERDecodedInfo iapContent;
     require_noerr_quiet(DERDecodeItem(&extn->extnValue, &iapContent), badDER);
     require_quiet(iapContent.tag == ASN1_INTEGER, badDER);
@@ -1031,7 +1032,7 @@ badDER:
  */
 static bool SecCEPAuthorityInfoAccess(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERTag tag;
     DERSequence adSeq;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &adSeq);
@@ -1098,31 +1099,31 @@ badDER:
 
 static bool SecCEPSubjectInfoAccess(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     return true;
 }
 
 static bool SecCEPNetscapeCertType(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     return true;
 }
 
 static bool SecCEPEntrustVersInfo(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     return true;
 }
 
 static bool SecCEPEscrowMarker(SecCertificateRef certificate,
                                const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     return true;
 }
 
 static bool SecCEPOCSPNoCheck(SecCertificateRef certificate,
                               const SecCertificateExtension *extn) {
-    secdebug("cert", "ocsp-nocheck critical: %s", extn->critical ? "yes" : "no");
+    secdebug("cert", "ocsp-nocheck critical: %{BOOL}d", extn->critical);
     return true;
 }
 
@@ -2537,9 +2538,23 @@ static void appendPublicKeyProperty(CFMutableArrayRef parent, CFStringRef label,
     /* Public Key Size */
     SecKeyRef publicKey = SecCertificateCopyKey(certificate);
     if (publicKey) {
-        size_t sizeInBytes = SecKeyGetBlockSize(publicKey);
+        /* To get key size in bits, call SecKeyCopyAttributes() and examine kSecAttrKeySizeInBits.
+           This is expected to work for both RSA and EC public keys. */
+        size_t sizeInBitsValue = 0;
+        CFDictionaryRef keyAttrs = SecKeyCopyAttributes(publicKey);
+        if (keyAttrs) {
+            CFNumberRef sizeInBits = CFDictionaryGetValue(keyAttrs, kSecAttrKeySizeInBits);
+            if (sizeInBits) {
+                (void)CFNumberGetValue(sizeInBits, kCFNumberLongType, &sizeInBitsValue);
+            }
+            CFReleaseNull(keyAttrs);
+        }
+        if (!sizeInBitsValue) {
+            /* Unable to get kSecAttrKeySizeInBits, try older RSA method */
+            sizeInBitsValue = SecKeyGetBlockSize(publicKey) * 8;
+        }
         CFStringRef sizeInBitsString = CFStringCreateWithFormat(allocator, NULL,
-                                                                CFSTR("%ld"), (sizeInBytes*8));
+                                                                CFSTR("%ld"), sizeInBitsValue);
         if (sizeInBitsString) {
             appendProperty(properties, kSecPropertyTypeString, SEC_PUBLIC_KEY_SIZE_KEY,
                            NULL, sizeInBitsString, localized);
@@ -4360,18 +4375,27 @@ CFDataRef SecCertificateCopySerialNumberData(
 	return certificate->_serialNumber;
 }
 
-#if TARGET_OS_OSX && TARGET_CPU_ARM64
+#if TARGET_OS_OSX
+#if TARGET_CPU_ARM64
 /* force this implementation to be _SecCertificateCopySerialNumber on arm64 macOS.
    note: the legacy function in SecCertificate.cpp is now _SecCertificateCopySerialNumber$LEGACYMAC
    when both TARGET_OS_OSX and TARGET_CPU_ARM64 are true.
  */
-extern CFDataRef SecCertificateCopySerialNumber_ios(SecCertificateRef certificate) __asm("_SecCertificateCopySerialNumber");
+extern CFDataRef SecCertificateCopySerialNumber_m_ios(SecCertificateRef certificate) __asm("_SecCertificateCopySerialNumber");
+
+__nullable CFDataRef
+SecCertificateCopySerialNumber_m_ios(SecCertificateRef certificate) {
+    return SecCertificateCopySerialNumberData(certificate, NULL);
+}
+
+#endif /* TARGET_CPU_ARM64 */
+
 CFDataRef SecCertificateCopySerialNumber_ios(SecCertificateRef certificate) {
     return SecCertificateCopySerialNumberData(certificate, NULL);
 }
-#endif
 
-#if !TARGET_OS_OSX
+#else /* !TARGET_OS_OSX */
+
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate)
 {
 	return SecCertificateCopySerialNumberData(certificate, NULL);
@@ -4953,6 +4977,40 @@ CFArrayRef SecCertificateCopyRFC822NamesFromSubject(SecCertificateRef certificat
     return rfc822Names;
 }
 
+static OSStatus appendURIsFromGeneralNames(void *context,
+    SecCEGeneralNameType gnType, const DERItem *generalName) {
+    CFMutableArrayRef uris = (CFMutableArrayRef)context;
+    if (gnType == GNT_URI) {
+        if (generalName->length > LONG_MAX) {
+            return errSecInvalidCertificate;
+        }
+        CFStringRef string = CFStringCreateWithBytes(kCFAllocatorDefault,
+            generalName->data, (CFIndex)generalName->length,
+            kCFStringEncodingASCII, FALSE);
+        if (string) {
+            CFArrayAppendValue(uris, string);
+            CFRelease(string);
+        } else {
+            return errSecInvalidCertificate;
+        }
+    }
+    return errSecSuccess;
+}
+
+CFArrayRef SecCertificateCopyURIs(SecCertificateRef certificate) {
+    CFMutableArrayRef uris = CFArrayCreateMutable(kCFAllocatorDefault,
+        0, &kCFTypeArrayCallBacks);
+    OSStatus status = errSecSuccess;
+    if (certificate->_subjectAltName) {
+        status = SecCertificateParseGeneralNames(&certificate->_subjectAltName->extnValue,
+            uris, appendURIsFromGeneralNames);
+    }
+    if (status || CFArrayGetCount(uris) == 0) {
+        CFReleaseNull(uris);
+    }
+    return uris;
+}
+
 static OSStatus appendCommonNamesFromX501Name(void *context,
     const DERItem *type, const DERItem *value, CFIndex rdnIX, bool localized) {
 	CFMutableArrayRef commonNames = (CFMutableArrayRef)context;
@@ -5378,20 +5436,39 @@ const DERItem *SecCertificateGetPublicKeyData(SecCertificateRef certificate) {
 }
 
 #if TARGET_OS_OSX
+
 #if TARGET_CPU_ARM64
 /* force this implementation to be _SecCertificateCopyPublicKey on arm64 macOS.
    note: the legacy function in SecCertificate.cpp is now _SecCertificateCopyPublicKey$LEGACYMAC
    when both TARGET_OS_OSX and TARGET_CPU_ARM64 are true.
  */
-extern __nullable SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate) __asm("_SecCertificateCopyPublicKey");
-#endif /* TARGET_CPU_ARM64 */
-__nullable SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate)
-#else /* !TARGET_OS_OSX */
-__nullable SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
-#endif
+
+extern __nullable SecKeyRef SecCertificateCopyPublicKey_m_ios(SecCertificateRef certificate) __asm("_SecCertificateCopyPublicKey");
+
+__nullable SecKeyRef
+SecCertificateCopyPublicKey_m_ios(SecCertificateRef certificate) {
+    return SecCertificateCopyKey(certificate);
+}
+
+#endif /* TARGET_OS_OSX && TARGET_CPU_ARM64 */
+
+// always provide a glue function because Catalyst ABI require it
+__nullable SecKeyRef
+SecCertificateCopyPublicKey_ios(SecCertificateRef certificate)
 {
     return SecCertificateCopyKey(certificate);
 }
+
+#else /* !TARGET_OS_OSX */
+
+__nullable SecKeyRef
+SecCertificateCopyPublicKey(SecCertificateRef certificate)
+{
+    return SecCertificateCopyKey(certificate);
+}
+
+#endif
+
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"

@@ -31,6 +31,7 @@
 #include "ArrayBuffer.h"
 #include "ButterflyInlines.h"
 #include "JSArrayBuffer.h"
+#include "JSArrayBufferViewInlines.h"
 #include "JSCJSValueInlines.h"
 #include "JSGlobalObjectInlines.h"
 #include "JSObjectInlines.h"
@@ -76,7 +77,7 @@ JSC_DEFINE_HOST_FUNCTION(webAssemblyModuleCustomSections, (JSGlobalObject* globa
     if (!module)
         return JSValue::encode(throwException(globalObject, throwScope, createTypeError(globalObject, "WebAssembly.Module.customSections called with non WebAssembly.Module argument"_s)));
 
-    const String sectionNameString = callFrame->uncheckedArgument(1).getString(globalObject);
+    String sectionNameString = callFrame->uncheckedArgument(1).toWTFString(globalObject);
     RETURN_IF_EXCEPTION(throwScope, { });
 
     JSArray* result = constructEmptyArray(globalObject, nullptr);
@@ -184,7 +185,7 @@ JSWebAssemblyModule* WebAssemblyModuleConstructor::createModule(JSGlobalObject* 
     Structure* structure = JSC_GET_DERIVED_STRUCTURE(vm, webAssemblyModuleStructure, newTarget, callFrame->jsCallee());
     RETURN_IF_EXCEPTION(scope, nullptr);
 
-    RELEASE_AND_RETURN(scope, JSWebAssemblyModule::createStub(vm, globalObject, structure, Wasm::Module::validateSync(&vm.wasmContext, WTFMove(buffer))));
+    RELEASE_AND_RETURN(scope, JSWebAssemblyModule::createStub(vm, globalObject, structure, Wasm::Module::validateSync(vm, WTFMove(buffer))));
 }
 
 WebAssemblyModuleConstructor* WebAssemblyModuleConstructor::create(VM& vm, Structure* structure, WebAssemblyModulePrototype* thisPrototype)

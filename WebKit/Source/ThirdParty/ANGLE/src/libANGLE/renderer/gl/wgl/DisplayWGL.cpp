@@ -9,6 +9,7 @@
 #include "libANGLE/renderer/gl/wgl/DisplayWGL.h"
 
 #include "common/debug.h"
+#include "common/system_utils.h"
 #include "libANGLE/Config.h"
 #include "libANGLE/Context.h"
 #include "libANGLE/Display.h"
@@ -41,8 +42,8 @@ std::string GetErrorMessage()
     DWORD errorCode     = GetLastError();
     LPSTR messageBuffer = nullptr;
     size_t size         = FormatMessageA(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+                FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
     std::string message(messageBuffer, size);
     if (size == 0)
     {
@@ -162,9 +163,9 @@ egl::Error DisplayWGL::initializeImpl(egl::Display *display)
     mWindowClass                        = RegisterClassW(&intermediateClassDesc);
     if (!mWindowClass)
     {
-        return egl::EglNotInitialized()
-               << "Failed to register intermediate OpenGL window class \"" << className.c_str()
-               << "\":" << gl::FmtErr(HRESULT_CODE(GetLastError()));
+        return egl::EglNotInitialized() << "Failed to register intermediate OpenGL window class \""
+                                        << gl::FmtHex<egl::Display *, char>(display)
+                                        << "\":" << gl::FmtErr(HRESULT_CODE(GetLastError()));
     }
 
     HWND placeholderWindow =
@@ -225,7 +226,7 @@ egl::Error DisplayWGL::initializeImpl(egl::Display *display)
 
     const egl::AttributeMap &displayAttributes = display->getAttributeMap();
     EGLint requestedDisplayType                = static_cast<EGLint>(displayAttributes.get(
-        EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_DEFAULT_ANGLE));
+                       EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_DEFAULT_ANGLE));
     if (requestedDisplayType == EGL_PLATFORM_ANGLE_TYPE_OPENGLES_ANGLE &&
         !mFunctionsWGL->hasExtension("WGL_EXT_create_context_es2_profile") &&
         !mFunctionsWGL->hasExtension("WGL_EXT_create_context_es_profile"))
@@ -678,7 +679,8 @@ egl::Error DisplayWGL::makeCurrent(egl::Display *display,
                                    egl::Surface *readSurface,
                                    gl::Context *context)
 {
-    CurrentNativeContext &currentContext = mCurrentNativeContexts[std::this_thread::get_id()];
+    CurrentNativeContext &currentContext =
+        mCurrentNativeContexts[angle::GetCurrentThreadUniqueId()];
 
     HDC newDC = mDeviceContext;
     if (drawSurface)
@@ -907,9 +909,10 @@ egl::Error DisplayWGL::createRenderer(std::shared_ptr<RendererWGL> *outRenderer)
     {
         return egl::EglNotInitialized() << "Failed to make the intermediate WGL context current.";
     }
-    CurrentNativeContext &currentContext = mCurrentNativeContexts[std::this_thread::get_id()];
-    currentContext.dc                    = mDeviceContext;
-    currentContext.glrc                  = context;
+    CurrentNativeContext &currentContext =
+        mCurrentNativeContexts[angle::GetCurrentThreadUniqueId()];
+    currentContext.dc   = mDeviceContext;
+    currentContext.glrc = context;
 
     std::unique_ptr<FunctionsGL> functionsGL(
         new FunctionsGLWindows(mOpenGLModule, mFunctionsWGL->getProcAddress));

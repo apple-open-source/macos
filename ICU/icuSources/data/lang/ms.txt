@@ -41,6 +41,7 @@ ms{
         an{"Aragon"}
         anp{"Angika"}
         apw{"Apache, Barat"}
+        apw_Latn{"Apache, Barat"}
         ar{"Arab"}
         ar_001{"Arab Standard Moden"}
         arc{"Aramia"}
@@ -103,8 +104,11 @@ ms{
         chk{"Chukese"}
         chm{"Mari"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chr{"Cherokee"}
         chy{"Cheyenne"}
+        cic{"Chickasaw"}
+        cic_Latn{"Chickasaw"}
         ckb{"Kurdi Sorani"}
         co{"Corsica"}
         cop{"Coptic"}

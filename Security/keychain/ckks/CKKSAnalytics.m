@@ -269,7 +269,11 @@ CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyti
             remove(filename);
         });
     });
+#if TARGET_OS_OSX
+    return [CKKSAnalytics defaultProtectedAnalyticsDatabasePath:@"ckks_analytics"];
+#else
     return [CKKSAnalytics defaultAnalyticsDatabasePath:@"ckks_analytics"];
+#endif
 }
 
 + (instancetype)logger

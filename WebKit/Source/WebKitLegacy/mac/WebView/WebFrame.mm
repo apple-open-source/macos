@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -90,6 +90,7 @@
 #import <WebCore/JSNode.h>
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/MIMETypeRegistry.h>
+#import <WebCore/MutableStyleProperties.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/PluginData.h>
@@ -101,11 +102,11 @@
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/RenderedDocumentMarker.h>
+#import <WebCore/ReportingScope.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SmartReplace.h>
-#import <WebCore/StyleProperties.h>
 #import <WebCore/SubframeLoader.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/ThreadCheck.h>
@@ -301,14 +302,10 @@ WebView *getWebView(WebFrame *webFrame)
     WebView *webView = kit(page);
 
     RetainPtr<WebFrame> frame = adoptNS([[self alloc] _initWithWebFrameView:frameView webView:webView]);
-    auto coreFrame = WebCore::Frame::create(page, ownerElement, makeUniqueRef<WebFrameLoaderClient>(frame.get()));
+    auto coreFrame = WebCore::Frame::create(page, ownerElement, makeUniqueRef<WebFrameLoaderClient>(frame.get()), WebCore::FrameIdentifier::generate());
     frame->_private->coreFrame = coreFrame.ptr();
 
     coreFrame.get().tree().setName(name);
-    if (ownerElement) {
-        ASSERT(ownerElement->document().frame());
-        ownerElement->document().frame()->tree().appendChild(coreFrame.get());
-    }
 
     coreFrame.get().init();
 
@@ -428,7 +425,10 @@ static NSURL *createUniqueWebDataURL();
 #endif
 
     auto coreFrame = _private->coreFrame;
-    for (auto frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+    for (WebCore::AbstractFrame* abstractFrame = coreFrame; abstractFrame; abstractFrame = abstractFrame->tree().traverseNext(coreFrame)) {
+        auto* frame = dynamicDowncast<WebCore::LocalFrame>(abstractFrame);
+        if (!frame)
+            continue;
         // Don't call setDrawsBackground:YES here because it may be NO because of a load
         // in progress; WebFrameLoaderClient keeps it set to NO during the load process.
         WebFrame *webFrame = kit(frame);
@@ -466,7 +466,10 @@ static NSURL *createUniqueWebDataURL();
 - (void)_unmarkAllBadGrammar
 {
     auto coreFrame = _private->coreFrame;
-    for (auto frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+    for (WebCore::AbstractFrame* abstractFrame = coreFrame; abstractFrame; abstractFrame = abstractFrame->tree().traverseNext(coreFrame)) {
+        auto* frame = dynamicDowncast<WebCore::LocalFrame>(abstractFrame);
+        if (!frame)
+            continue;
         if (auto* document = frame->document())
             document->markers().removeMarkers(WebCore::DocumentMarker::Grammar);
     }
@@ -476,7 +479,10 @@ static NSURL *createUniqueWebDataURL();
 {
 #if !PLATFORM(IOS_FAMILY)
     auto coreFrame = _private->coreFrame;
-    for (auto frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+    for (WebCore::AbstractFrame* abstractFrame = coreFrame; abstractFrame; abstractFrame = abstractFrame->tree().traverseNext(coreFrame)) {
+        auto* frame = dynamicDowncast<WebCore::LocalFrame>(abstractFrame);
+        if (!frame)
+            continue;
         if (auto* document = frame->document())
             document->markers().removeMarkers(WebCore::DocumentMarker::Spelling);
     }
@@ -511,7 +517,10 @@ static NSURL *createUniqueWebDataURL();
     // FIXME: 4186050 is one known case that makes this debug check fail.
     BOOL found = NO;
     auto coreFrame = _private->coreFrame;
-    for (auto frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+    for (WebCore::AbstractFrame* abstractFrame = coreFrame; abstractFrame; abstractFrame = abstractFrame->tree().traverseNext(coreFrame)) {
+        auto* frame = dynamicDowncast<WebCore::LocalFrame>(abstractFrame);
+        if (!frame)
+            continue;
         if ([kit(frame) _hasSelection]) {
             if (found)
                 return NO;
@@ -525,7 +534,10 @@ static NSURL *createUniqueWebDataURL();
 - (WebFrame *)_findFrameWithSelection
 {
     auto coreFrame = _private->coreFrame;
-    for (auto frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+    for (WebCore::AbstractFrame* abstractFrame = coreFrame; abstractFrame; abstractFrame = abstractFrame->tree().traverseNext(coreFrame)) {
+        auto* frame = dynamicDowncast<WebCore::LocalFrame>(abstractFrame);
+        if (!frame)
+            continue;
         WebFrame *webFrame = kit(frame);
         if ([webFrame _hasSelection])
             return webFrame;
@@ -631,7 +643,7 @@ static NSURL *createUniqueWebDataURL();
     OptionSet<WebCore::PaintBehavior> oldBehavior = view->paintBehavior();
     OptionSet<WebCore::PaintBehavior> paintBehavior = oldBehavior;
     
-    if (auto* parentFrame = _private->coreFrame->tree().parent()) {
+    if (auto* parentFrame = dynamicDowncast<WebCore::LocalFrame>(_private->coreFrame->tree().parent())) {
         // For subframes, we need to inherit the paint behavior from our parent
         if (auto* parentView = parentFrame ? parentFrame->view() : nullptr) {
             if (parentView->paintBehavior().contains(WebCore::PaintBehavior::FlattenCompositingLayers))
@@ -860,7 +872,7 @@ static NSURL *createUniqueWebDataURL();
     if (!document)
         return nil;
 
-    return kit(createFragmentFromMarkup(*document, markupString, baseURLString, WebCore::DisallowScriptingContent).ptr());
+    return kit(createFragmentFromMarkup(*document, markupString, baseURLString, { WebCore::ParserContentPolicy::AllowPluginContent }).ptr());
 }
 
 - (DOMDocumentFragment *)_documentFragmentWithNodesAsParagraphs:(NSArray *)nodes
@@ -945,7 +957,7 @@ static NSURL *createUniqueWebDataURL();
         return;
     // FIXME: These are fake modifier keys here, but they should be real ones instead.
     WebCore::PlatformMouseEvent event(WebCore::IntPoint(windowLoc), WebCore::IntPoint(WebCore::globalPoint(windowLoc, [view->platformWidget() window])),
-        WebCore::LeftButton, WebCore::PlatformEvent::MouseMoved, 0, false, false, false, false, WallTime::now(), WebCore::ForceAtClick, WebCore::NoTap);
+        WebCore::LeftButton, WebCore::PlatformEvent::Type::MouseMoved, 0, { }, WallTime::now(), WebCore::ForceAtClick, WebCore::NoTap);
     _private->coreFrame->eventHandler().dragSourceEndedAt(event, coreDragOperationMask(dragOperationMask));
 }
 #endif // ENABLE(DRAG_SUPPORT) && PLATFORM(MAC)
@@ -1234,9 +1246,10 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
 #if ENABLE(ORIENTATION_EVENTS)
         WebView *webView = getWebView(self);
         [webView _setDeviceOrientation:[[webView _UIKitDelegateForwarder] deviceOrientation]];
-#endif
+
         if (auto* frame = core(self))
             frame->orientationChanged();
+#endif
     });
 }
 
@@ -1865,8 +1878,11 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
         return;
     
     auto coreFrame = core(self);
-    for (auto* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
-        WebCore::Document* doc = frame->document();
+    for (WebCore::AbstractFrame* frame = coreFrame; frame; frame = frame->tree().traverseNext(coreFrame)) {
+        auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        WebCore::Document* doc = localFrame->document();
         if (!doc || !doc->renderView())
             continue;
         doc->renderView()->resetTextAutosizing();
@@ -2307,6 +2323,16 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
     return [[self _dataSource] unreachableURL];
 }
 
+- (void)_generateTestReport:(NSString *) message withGroup:(NSString *)group
+{
+    auto coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return;
+
+    if (RefPtr document = coreFrame->document())
+        document->reportingScope().generateTestReport(message, group);
+}
+
 @end
 
 @implementation WebFrame
@@ -2522,7 +2548,7 @@ static NSURL *createUniqueWebDataURL()
     auto coreFrame = _private->coreFrame;
     if (!coreFrame)
         return nil;
-    return kit(coreFrame->tree().find(name, *coreFrame));
+    return kit(dynamicDowncast<WebCore::LocalFrame>(coreFrame->tree().find(name, *coreFrame)));
 }
 
 - (WebFrame *)parentFrame
@@ -2530,7 +2556,7 @@ static NSURL *createUniqueWebDataURL()
     auto coreFrame = _private->coreFrame;
     if (!coreFrame)
         return nil;
-    return retainPtr(kit(coreFrame->tree().parent())).autorelease();
+    return retainPtr(kit(dynamicDowncast<WebCore::LocalFrame>(coreFrame->tree().parent()))).autorelease();
 }
 
 - (NSArray *)childFrames
@@ -2539,8 +2565,8 @@ static NSURL *createUniqueWebDataURL()
     if (!coreFrame)
         return @[];
     NSMutableArray *children = [NSMutableArray arrayWithCapacity:coreFrame->tree().childCount()];
-    for (WebCore::Frame* child = coreFrame->tree().firstChild(); child; child = child->tree().nextSibling())
-        [children addObject:kit(child)];
+    for (WebCore::AbstractFrame* child = coreFrame->tree().firstChild(); child; child = child->tree().nextSibling())
+        [children addObject:kit(dynamicDowncast<WebCore::LocalFrame>(child))];
     return children;
 }
 

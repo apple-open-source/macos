@@ -42,15 +42,15 @@ PIXELFORMATDESCRIPTOR GetDefaultPixelFormatDescriptor()
 PFNWGLGETPROCADDRESSPROC gCurrentWGLGetProcAddress = nullptr;
 HMODULE gCurrentModule                             = nullptr;
 
-angle::GenericProc WINAPI GetProcAddressWithFallback(const char *name)
+GenericProc WINAPI GetProcAddressWithFallback(const char *name)
 {
-    angle::GenericProc proc = reinterpret_cast<angle::GenericProc>(gCurrentWGLGetProcAddress(name));
+    GenericProc proc = reinterpret_cast<GenericProc>(gCurrentWGLGetProcAddress(name));
     if (proc)
     {
         return proc;
     }
 
-    return reinterpret_cast<angle::GenericProc>(GetProcAddress(gCurrentModule, name));
+    return reinterpret_cast<GenericProc>(GetProcAddress(gCurrentModule, name));
 }
 
 bool HasExtension(const std::vector<std::string> &extensions, const char *ext)
@@ -114,8 +114,8 @@ std::vector<int> GetPixelFormatAttributes(const ConfigParameters &configParams)
 
 }  // namespace
 
-WGLWindow::WGLWindow(int glesMajorVersion, int glesMinorVersion)
-    : GLWindowBase(glesMajorVersion, glesMinorVersion),
+WGLWindow::WGLWindow(EGLenum clientType, int majorVersion, int minorVersion, int profileMask)
+    : GLWindowBase(clientType, majorVersion, minorVersion, profileMask),
       mDeviceContext(nullptr),
       mWGLContext(nullptr),
       mWindow(nullptr)
@@ -145,7 +145,7 @@ GLWindowResult WGLWindow::initializeGLWithResult(OSWindow *osWindow,
     }
 
     gCurrentModule = reinterpret_cast<HMODULE>(glWindowingLibrary->getNative());
-    angle::LoadWGL(GetProcAddressWithFallback);
+    LoadWGL(GetProcAddressWithFallback);
 
     mWindow                                           = osWindow->getNativeWindow();
     mDeviceContext                                    = GetDC(mWindow);
@@ -211,7 +211,7 @@ GLWindowResult WGLWindow::initializeGLWithResult(OSWindow *osWindow,
     mPlatform     = platformParams;
     mConfigParams = configParams;
 
-    angle::LoadGLES(GetProcAddressWithFallback);
+    LoadUtilGLES(GetProcAddressWithFallback);
     return GLWindowResult::NoError;
 }
 
@@ -241,7 +241,7 @@ HGLRC WGLWindow::createContext(const ConfigParameters &configParams, HGLRC share
     }
 
     // Reload entry points to capture extensions.
-    angle::LoadWGL(GetProcAddressWithFallback);
+    LoadWGL(GetProcAddressWithFallback);
 
     if (!_wglGetExtensionsStringARB)
     {
@@ -269,17 +269,34 @@ HGLRC WGLWindow::createContext(const ConfigParameters &configParams, HGLRC share
     // Tear down the context and create another with ES2 compatibility.
     _wglDeleteContext(context);
 
-    // This could be extended to cover ES1 compatiblity.
-    int kCreateAttribs[] = {WGL_CONTEXT_MAJOR_VERSION_ARB,
-                            mClientMajorVersion,
-                            WGL_CONTEXT_MINOR_VERSION_ARB,
-                            mClientMinorVersion,
-                            WGL_CONTEXT_PROFILE_MASK_ARB,
-                            WGL_CONTEXT_ES2_PROFILE_BIT_EXT,
-                            0,
-                            0};
+    // This could be extended to cover ES1 compatibility and desktop GL profiles.
+    int profileMask = 0;
+    if (mClientType == EGL_OPENGL_ES_API)
+    {
+        profileMask = WGL_CONTEXT_ES2_PROFILE_BIT_EXT;
+    }
+    else
+    {
+        if ((mProfileMask & EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT) != 0)
+        {
+            profileMask |= WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
+        }
+        if ((mProfileMask & EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT) != 0)
+        {
+            profileMask |= WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
+        }
+    }
 
-    context = _wglCreateContextAttribsARB(mDeviceContext, shareContext, kCreateAttribs);
+    const int createAttribs[] = {WGL_CONTEXT_MAJOR_VERSION_ARB,
+                                 mClientMajorVersion,
+                                 WGL_CONTEXT_MINOR_VERSION_ARB,
+                                 mClientMinorVersion,
+                                 WGL_CONTEXT_PROFILE_MASK_ARB,
+                                 profileMask,
+                                 0,
+                                 0};
+
+    context = _wglCreateContextAttribsARB(mDeviceContext, shareContext, createAttribs);
     if (!context)
     {
         std::cerr << "Failed to create an ES2 compatible WGL context." << std::endl;
@@ -380,6 +397,71 @@ EGLBoolean WGLWindow::destroyImageKHR(Image image)
     return EGL_FALSE;
 }
 
+WGLWindow::Sync WGLWindow::createSync(EGLDisplay dpy, EGLenum type, const EGLAttrib *attrib_list)
+{
+    return nullptr;
+}
+
+WGLWindow::Sync WGLWindow::createSyncKHR(EGLDisplay dpy, EGLenum type, const EGLint *attrib_list)
+{
+    return nullptr;
+}
+
+EGLBoolean WGLWindow::destroySync(EGLDisplay dpy, Sync sync)
+{
+    return EGL_FALSE;
+}
+
+EGLBoolean WGLWindow::destroySyncKHR(EGLDisplay dpy, Sync sync)
+{
+    return EGL_FALSE;
+}
+
+EGLint WGLWindow::clientWaitSync(EGLDisplay dpy, Sync sync, EGLint flags, EGLTimeKHR timeout)
+{
+    return EGL_FALSE;
+}
+
+EGLint WGLWindow::clientWaitSyncKHR(EGLDisplay dpy, Sync sync, EGLint flags, EGLTimeKHR timeout)
+{
+    return EGL_FALSE;
+}
+
+EGLint WGLWindow::getEGLError()
+{
+    return EGL_SUCCESS;
+}
+
+WGLWindow::Surface WGLWindow::createPbufferSurface(const EGLint *attrib_list)
+{
+    std::cerr << "WGLWindow::createPbufferSurface not implemented.\n";
+    return EGL_FALSE;
+}
+
+EGLBoolean WGLWindow::destroySurface(Surface surface)
+{
+    std::cerr << "WGLWindow::destroySurface not implemented.\n";
+    return EGL_FALSE;
+}
+
+EGLBoolean WGLWindow::bindTexImage(EGLSurface surface, EGLint buffer)
+{
+    std::cerr << "WGLWindow::bindTexImage not implemented.\n";
+    return EGL_FALSE;
+}
+
+EGLBoolean WGLWindow::releaseTexImage(EGLSurface surface, EGLint buffer)
+{
+    std::cerr << "WGLWindow::releaseTexImage not implemented.\n";
+    return EGL_FALSE;
+}
+
+bool WGLWindow::makeCurrent(EGLSurface draw, EGLSurface read, EGLContext context)
+{
+    std::cerr << "WGLWindow::makeCurrent(draw, read, context) not implemented.\n";
+    return EGL_FALSE;
+}
+
 bool WGLWindow::setSwapInterval(EGLint swapInterval)
 {
     if (!_wglSwapIntervalEXT || _wglSwapIntervalEXT(swapInterval) == FALSE)
@@ -403,15 +485,15 @@ bool WGLWindow::hasError() const
     return GetLastError() != S_OK;
 }
 
-angle::GenericProc WGLWindow::getProcAddress(const char *name)
+GenericProc WGLWindow::getProcAddress(const char *name)
 {
     return GetProcAddressWithFallback(name);
 }
 
 // static
-WGLWindow *WGLWindow::New(int glesMajorVersion, int glesMinorVersion)
+WGLWindow *WGLWindow::New(EGLenum clientType, int majorVersion, int minorVersion, int profileMask)
 {
-    return new WGLWindow(glesMajorVersion, glesMinorVersion);
+    return new WGLWindow(clientType, majorVersion, minorVersion, profileMask);
 }
 
 // static

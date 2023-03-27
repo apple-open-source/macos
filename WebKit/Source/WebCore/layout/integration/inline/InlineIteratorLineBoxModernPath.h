@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
 #include "InlineIteratorBoxModernPath.h"
 #include "LayoutIntegrationInlineContent.h"
 #include "RenderBlockFlow.h"
@@ -49,23 +47,28 @@ public:
     LineBoxIteratorModernPath& operator=(const LineBoxIteratorModernPath&) = default;
     LineBoxIteratorModernPath& operator=(LineBoxIteratorModernPath&&) = default;
 
-    float contentLogicalTop() const { return line().enclosingContentTop(); }
-    float contentLogicalBottom() const { return line().enclosingContentBottom(); }
-    float top() const { return line().lineBoxTop(); }
-    float bottom() const { return line().lineBoxBottom(); }
+    float contentLogicalTop() const { return line().enclosingContentLogicalTop(); }
+    float contentLogicalBottom() const { return line().enclosingContentLogicalBottom(); }
+    float logicalTop() const { return line().lineBoxLogicalRect().y(); }
+    float logicalBottom() const { return line().lineBoxLogicalRect().maxY(); }
+    float logicalWidth() const { return line().lineBoxLogicalRect().width(); }
     float inkOverflowTop() const { return line().inkOverflow().y(); }
     float inkOverflowBottom() const { return line().inkOverflow().maxY(); }
+
+    bool hasEllipsis() const { return line().hasEllipsis(); }
+    FloatRect ellipsisVisualRectIgnoringBlockDirection() const { return line().ellipsisVisualRect(); }
+    TextRun ellipsisText() const { return line().ellipsisText(); }
 
     float contentLogicalTopAdjustedForPrecedingLineBox() const { return !m_lineIndex ? contentLogicalTop() : LineBoxIteratorModernPath(*m_inlineContent, m_lineIndex - 1).contentLogicalBottomAdjustedForFollowingLineBox(); }
     // FIXME: Implement.
     float contentLogicalBottomAdjustedForFollowingLineBox() const { return contentLogicalBottom(); }
 
-    float contentLogicalLeft() const { return line().lineBoxLeft() + line().contentLogicalOffset(); }
+    float contentLogicalLeft() const { return line().lineBoxLeft() + line().contentLogicalLeftIgnoringInlineDirection(); }
     float contentLogicalRight() const { return contentLogicalLeft() + line().contentLogicalWidth(); }
     bool isHorizontal() const { return line().isHorizontal(); }
     FontBaseline baselineType() const { return line().baselineType(); }
 
-    const RenderBlockFlow& containingBlock() const { return m_inlineContent->containingBlock(); }
+    const RenderBlockFlow& formattingContextRoot() const { return m_inlineContent->formattingContextRoot(); }
 
     RenderFragmentContainer* containingFragment() const { return nullptr; }
     bool isFirstAfterPageBreak() const { return line().isFirstAfterPageBreak(); }
@@ -126,6 +129,4 @@ private:
 
 }
 }
-
-#endif
 

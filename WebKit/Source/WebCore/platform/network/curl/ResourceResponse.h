@@ -46,11 +46,14 @@ public:
     {
     }
 
-    ResourceResponse(const CurlResponse&);
+    ResourceResponse(CurlResponse&);
+    
+    ResourceResponse(ResourceResponseBase&& base)
+        : ResourceResponseBase(WTFMove(base))
+    {
+    }
 
     void appendHTTPHeaderField(const String&);
-
-    void setCertificateInfo(CertificateInfo&&);
 
     bool shouldRedirect();
     bool isMovedPermanently() const;

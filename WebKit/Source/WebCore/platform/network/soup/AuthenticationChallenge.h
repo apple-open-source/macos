@@ -46,6 +46,12 @@ public:
     {
     }
 
+    AuthenticationChallenge(const ProtectionSpace& protectionSpace, const Credential& proposedCredential, unsigned previousFailureCount, const ResourceResponse& response, const ResourceError& error, uint32_t tlsPasswordFlags)
+        : AuthenticationChallengeBase(protectionSpace, proposedCredential, previousFailureCount, response, error)
+        , m_tlsPasswordFlags(tlsPasswordFlags)
+    {
+    }
+
     AuthenticationChallenge(SoupMessage*, SoupAuth*, bool retrying);
     AuthenticationChallenge(SoupMessage*, GTlsClientConnection*);
     AuthenticationChallenge(SoupMessage*, GTlsPassword*);
@@ -59,6 +65,9 @@ public:
 
     uint32_t tlsPasswordFlags() const { return m_tlsPasswordFlags; }
     void setTLSPasswordFlags(uint32_t tlsPasswordFlags) { m_tlsPasswordFlags = tlsPasswordFlags; }
+
+    static ProtectionSpace protectionSpaceForClientCertificate(const URL&);
+    static ProtectionSpace protectionSpaceForClientCertificatePassword(const URL&, GTlsPassword*);
 
 private:
     friend class AuthenticationChallengeBase;

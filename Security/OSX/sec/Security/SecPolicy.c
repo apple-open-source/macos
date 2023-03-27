@@ -4871,6 +4871,7 @@ errOut:
 
 SecPolicyRef SecPolicyCreateMDLTerminalAuth(bool checkExtension, bool leafIsCA) {
     CFMutableDictionaryRef options = NULL;
+    CFMutableArrayRef disallowedHashes = NULL;
     SecPolicyRef result = NULL;
 
     require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
@@ -4892,6 +4893,12 @@ SecPolicyRef SecPolicyCreateMDLTerminalAuth(bool checkExtension, bool leafIsCA) 
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
     require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+
+    /* Explicitly remove weak signature algorithms. */
+    require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    /* Add SHA224 here as this is not yet disallowed by SecPolicyRemoveWeakHashOptions. */
+    require(disallowedHashes = (CFMutableArrayRef) CFDictionaryGetValue(options, kSecPolicyCheckSignatureHashAlgorithms), errOut);
+    CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmSHA224);
 
     require(result = SecPolicyCreate(kSecPolicyAppleMDLTerminalAuth,
                                      kSecPolicyNameMDLTerminalAuth, options), errOut);

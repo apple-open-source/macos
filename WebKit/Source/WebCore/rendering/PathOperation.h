@@ -39,6 +39,7 @@
 
 namespace WebCore {
 
+struct BlendingContext;
 class SVGElement;
 
 class PathOperation : public RefCounted<PathOperation> {
@@ -55,25 +56,29 @@ public:
     virtual bool operator==(const PathOperation&) const = 0;
     bool operator!=(const PathOperation& o) const { return !(*this == o); }
 
+    virtual bool canBlend(const PathOperation&) const { return false; }
+    virtual RefPtr<PathOperation> blend(const PathOperation*, const BlendingContext&) const { return nullptr; }
+
     OperationType type() const { return m_type; }
     bool isSameType(const PathOperation& o) const { return o.type() == m_type; }
-
+    virtual const std::optional<Path> getPath(const FloatRect& reference = { }, FloatPoint anchor = { }, OffsetRotation rotation = { }) const = 0;
 protected:
     explicit PathOperation(OperationType type)
         : m_type(type)
     {
     }
-
     OperationType m_type;
 };
 
 class ReferencePathOperation final : public PathOperation {
 public:
     static Ref<ReferencePathOperation> create(const String& url, const AtomString& fragment, const RefPtr<SVGElement>);
+    WEBCORE_EXPORT static Ref<ReferencePathOperation> create(std::optional<Path>&&);
     const String& url() const { return m_url; }
     const AtomString& fragment() const { return m_fragment; }
     const SVGElement* element() const;
-
+    const std::optional<Path> getPath(const FloatRect&, FloatPoint, OffsetRotation) const final { return m_path; }
+    const std::optional<Path> path() const { return m_path; }
 private:
     bool operator==(const PathOperation& other) const override
     {
@@ -84,10 +89,12 @@ private:
     }
 
     ReferencePathOperation(const String& url, const AtomString& fragment, const RefPtr<SVGElement>);
+    ReferencePathOperation(std::optional<Path>&&);
 
     String m_url;
     AtomString m_fragment;
     RefPtr<SVGElement> m_element;
+    std::optional<Path> m_path;
 };
 
 class ShapePathOperation final : public PathOperation {
@@ -97,12 +104,30 @@ public:
         return adoptRef(*new ShapePathOperation(WTFMove(shape)));
     }
 
+    static Ref<ShapePathOperation> create(Ref<BasicShape>&& shape, CSSBoxType referenceBox)
+    {
+        return adoptRef(*new ShapePathOperation(WTFMove(shape), referenceBox));
+    }
+
+    bool canBlend(const PathOperation& to) const final
+    {
+        return is<ShapePathOperation>(to) && m_shape->canBlend(downcast<ShapePathOperation>(to).basicShape());
+    }
+
+    RefPtr<PathOperation> blend(const PathOperation* to, const BlendingContext& context) const final
+    {
+        ASSERT(is<ShapePathOperation>(to));
+        return ShapePathOperation::create(downcast<ShapePathOperation>(*to).basicShape().blend(m_shape, context));
+    }
+
     const BasicShape& basicShape() const { return m_shape; }
+    const Ref<BasicShape>& shape() const { return m_shape; }
     WindRule windRule() const { return m_shape.get().windRule(); }
     const Path& pathForReferenceRect(const FloatRect& boundingRect) const { return m_shape.get().path(boundingRect); }
 
     void setReferenceBox(CSSBoxType referenceBox) { m_referenceBox = referenceBox; }
     CSSBoxType referenceBox() const { return m_referenceBox; }
+    const std::optional<Path> getPath(const FloatRect& reference, FloatPoint, OffsetRotation) const final { return pathForReferenceRect(reference); }
 
 private:
     bool operator==(const PathOperation& other) const override
@@ -121,6 +146,13 @@ private:
     {
     }
 
+    ShapePathOperation(Ref<BasicShape>&& shape, CSSBoxType referenceBox)
+        : PathOperation(Shape)
+        , m_shape(WTFMove(shape))
+        , m_referenceBox(referenceBox)
+    {
+    }
+
     Ref<BasicShape> m_shape;
     CSSBoxType m_referenceBox;
 };
@@ -130,6 +162,11 @@ public:
     static Ref<BoxPathOperation> create(CSSBoxType referenceBox)
     {
         return adoptRef(*new BoxPathOperation(referenceBox));
+    }
+
+    static Ref<BoxPathOperation> create(Path&& path, CSSBoxType referenceBox)
+    {
+        return adoptRef(*new BoxPathOperation(WTFMove(path), referenceBox));
     }
 
     const Path pathForReferenceRect(const FloatRoundedRect& boundingRect) const
@@ -145,7 +182,8 @@ public:
         m_path.addRoundedRect(boundingRect);
     }
     
-    const Path getPath() const { return m_path; }
+    const std::optional<Path> getPath(const FloatRect&, FloatPoint, OffsetRotation) const final { return m_path; }
+    const Path& path() const { return m_path; }
     CSSBoxType referenceBox() const { return m_referenceBox; }
 
 private:
@@ -162,6 +200,14 @@ private:
         , m_referenceBox(referenceBox)
     {
     }
+
+    BoxPathOperation(Path&& path, CSSBoxType referenceBox)
+        : PathOperation(Box)
+        , m_path(WTFMove(path))
+        , m_referenceBox(referenceBox)
+    {
+    }
+
     Path m_path;
     CSSBoxType m_referenceBox;
 };
@@ -169,7 +215,7 @@ private:
 
 class RayPathOperation final : public PathOperation {
 public:
-    enum class Size {
+    enum class Size : uint8_t {
         ClosestSide,
         ClosestCorner,
         FarthestSide,
@@ -182,22 +228,15 @@ public:
         return adoptRef(*new RayPathOperation(angle, size, isContaining));
     }
 
+    WEBCORE_EXPORT static Ref<RayPathOperation> create(float angle, Size, bool isContaining, FloatRect&& containingBlockBoundingRect, FloatPoint&& position);
+
     float angle() const { return m_angle; }
     Size size() const { return m_size; }
     bool isContaining() const { return m_isContaining; }
 
-    bool canBlend(const RayPathOperation& other) const
-    {
-        // Two rays can only be blended if they have the same size and are both containing.
-        return m_size == other.m_size && m_isContaining == other.m_isContaining;
-    }
+    bool canBlend(const PathOperation&) const final;
+    RefPtr<PathOperation> blend(const PathOperation*, const BlendingContext&) const final;
 
-    Ref<RayPathOperation> blend(const RayPathOperation& to, const BlendingContext& context) const
-    {
-        return RayPathOperation::create(WebCore::blend(m_angle, to.m_angle, context), m_size, m_isContaining);
-    }
-
-    const Path pathForReferenceRect(const FloatRect& elementRect, const FloatPoint& anchor, const OffsetRotation rotation) const;
     double lengthForPath() const;
     double lengthForContainPath(const FloatRect& elementRect, double computedPathLength, const FloatPoint& anchor, const OffsetRotation rotation) const;
     
@@ -209,6 +248,11 @@ public:
     {
         m_position = position;
     }
+    const std::optional<Path> getPath(const FloatRect& referenceRect = { }, FloatPoint anchor = { }, OffsetRotation rotation = { }) const final;
+
+    const FloatRect& containingBlockBoundingRect() const { return m_containingBlockBoundingRect; }
+    const FloatPoint& position() const { return m_position; }
+
 private:
     bool operator==(const PathOperation& other) const override
     {
@@ -226,6 +270,16 @@ private:
         , m_angle(angle)
         , m_size(size)
         , m_isContaining(isContaining)
+    {
+    }
+
+    RayPathOperation(float angle, Size size, bool isContaining, FloatRect&& containingBlockBoundingRect, FloatPoint&& position)
+        : PathOperation(Ray)
+        , m_angle(angle)
+        , m_size(size)
+        , m_isContaining(isContaining)
+        , m_containingBlockBoundingRect(WTFMove(containingBlockBoundingRect))
+        , m_position(WTFMove(position))
     {
     }
 

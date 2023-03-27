@@ -39,11 +39,38 @@
 
 namespace WebGPU {
 
+static MTLLoadAction loadAction(WGPULoadOp loadOp)
+{
+    switch (loadOp) {
+    case WGPULoadOp_Load:
+        return MTLLoadActionLoad;
+    case WGPULoadOp_Clear:
+        return MTLLoadActionClear;
+    case WGPULoadOp_Force32:
+        ASSERT_NOT_REACHED();
+        return MTLLoadActionClear;
+    }
+}
+
+static MTLStoreAction storeAction(WGPUStoreOp storeOp)
+{
+    switch (storeOp) {
+    case WGPUStoreOp_Store:
+        return MTLStoreActionStore;
+    case WGPUStoreOp_Discard:
+        return MTLStoreActionDontCare;
+    case WGPUStoreOp_Force32:
+        ASSERT_NOT_REACHED();
+        return MTLStoreActionDontCare;
+    }
+}
+
 Ref<CommandEncoder> Device::createCommandEncoder(const WGPUCommandEncoderDescriptor& descriptor)
 {
     if (descriptor.nextInChain)
         return CommandEncoder::createInvalid(*this);
 
+    captureFrameIfNeeded();
     // https://gpuweb.github.io/gpuweb/#dom-gpudevice-createcommandencoder
 
     auto *commandBufferDescriptor = [MTLCommandBufferDescriptor new];
@@ -93,10 +120,99 @@ Ref<ComputePassEncoder> CommandEncoder::beginComputePass(const WGPUComputePassDe
     return ComputePassEncoder::createInvalid(m_device);
 }
 
+bool CommandEncoder::validateRenderPassDescriptor(const WGPURenderPassDescriptor& descriptor) const
+{
+    // FIXME: Implement this according to
+    // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-beginrenderpass.
+    UNUSED_PARAM(descriptor);
+
+    return true;
+}
+
 Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescriptor& descriptor)
 {
     UNUSED_PARAM(descriptor);
-    return RenderPassEncoder::createInvalid(m_device);
+    if (descriptor.nextInChain)
+        return RenderPassEncoder::createInvalid(m_device);
+
+    if (!validateRenderPassDescriptor(descriptor))
+        return RenderPassEncoder::createInvalid(m_device);
+
+    MTLRenderPassDescriptor* mtlDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+
+    if (descriptor.colorAttachmentCount > 8)
+        return RenderPassEncoder::createInvalid(m_device);
+
+    for (uint32_t i = 0; i < descriptor.colorAttachmentCount; ++i) {
+        const auto& attachment = descriptor.colorAttachments[i];
+        const auto& mtlAttachment = mtlDescriptor.colorAttachments[i];
+
+        mtlAttachment.clearColor = MTLClearColorMake(attachment.clearColor.r,
+            attachment.clearColor.g,
+            attachment.clearColor.b,
+            attachment.clearColor.a);
+
+        mtlAttachment.texture = fromAPI(attachment.view).texture();
+        mtlAttachment.level = 0;
+        mtlAttachment.slice = 0;
+        mtlAttachment.depthPlane = 0;
+        mtlAttachment.loadAction = loadAction(attachment.loadOp);
+        mtlAttachment.storeAction = attachment.resolveTarget ? MTLStoreActionStoreAndMultisampleResolve : storeAction(attachment.storeOp);
+
+        if (attachment.resolveTarget) {
+            mtlDescriptor.colorAttachments[i].resolveTexture = fromAPI(attachment.resolveTarget).texture();
+            mtlAttachment.resolveLevel = 0;
+            mtlAttachment.resolveSlice = 0;
+            mtlAttachment.resolveDepthPlane = 0;
+            mtlAttachment.storeAction = MTLStoreActionMultisampleResolve;
+        }
+    }
+
+    bool depthReadOnly = false, stencilReadOnly = false;
+    if (const auto* attachment = descriptor.depthStencilAttachment) {
+        const auto& mtlAttachment = mtlDescriptor.depthAttachment;
+        depthReadOnly = attachment->depthReadOnly;
+        mtlAttachment.clearDepth = attachment->clearDepth;
+        mtlAttachment.texture = fromAPI(attachment->view).texture();
+        mtlAttachment.loadAction = loadAction(attachment->depthLoadOp);
+        mtlAttachment.storeAction = storeAction(attachment->depthStoreOp);
+    }
+
+    if (const auto* attachment = descriptor.depthStencilAttachment) {
+        const auto& mtlAttachment = mtlDescriptor.stencilAttachment;
+        stencilReadOnly = attachment->stencilReadOnly;
+        // FIXME: assign the correct stencil texture
+        // mtlAttachment.texture = fromAPI(attachment->view).texture();
+        mtlAttachment.clearStencil = attachment->clearStencil;
+        mtlAttachment.loadAction = loadAction(attachment->stencilLoadOp);
+        mtlAttachment.storeAction = storeAction(attachment->stencilStoreOp);
+    }
+
+    size_t visibilityResultBufferSize = 0;
+    if (auto* wgpuOcclusionQuery = descriptor.occlusionQuerySet) {
+        const auto& occlusionQuery = fromAPI(wgpuOcclusionQuery);
+        mtlDescriptor.visibilityResultBuffer = occlusionQuery.visibilityBuffer();
+        visibilityResultBufferSize = occlusionQuery.visibilityBuffer().length;
+    }
+
+    // FIXME: we can only implement a subset of what the WebGPU specification promises, basically
+    // the start and end times of the vertex and fragment stages
+    if (auto* timestampWrites = descriptor.timestampWrites) {
+        ASSERT(descriptor.timestampWriteCount > 0);
+        auto& timestampWrite = descriptor.timestampWrites[0];
+        auto& querySet = fromAPI(timestampWrite.querySet);
+
+        MTLRenderPassSampleBufferAttachmentDescriptor *sampleAttachment = mtlDescriptor.sampleBufferAttachments[0];
+        sampleAttachment.sampleBuffer = querySet.counterSampleBuffer();
+        sampleAttachment.startOfVertexSampleIndex = 0;
+        sampleAttachment.endOfVertexSampleIndex = 1;
+        sampleAttachment.startOfFragmentSampleIndex = 2;
+        sampleAttachment.endOfFragmentSampleIndex = 3;
+    }
+
+    auto mtlRenderCommandEncoder = [m_commandBuffer renderCommandEncoderWithDescriptor:mtlDescriptor];
+
+    return RenderPassEncoder::create(mtlRenderCommandEncoder, visibilityResultBufferSize, depthReadOnly, stencilReadOnly, m_device);
 }
 
 bool CommandEncoder::validateCopyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, const Buffer& destination, uint64_t destinationOffset, uint64_t size)
@@ -813,14 +929,28 @@ void CommandEncoder::pushDebugGroup(String&& groupLabel)
 
 void CommandEncoder::resolveQuerySet(const QuerySet& querySet, uint32_t firstQuery, uint32_t queryCount, const Buffer& destination, uint64_t destinationOffset)
 {
-    UNUSED_PARAM(querySet);
-    UNUSED_PARAM(firstQuery);
-    UNUSED_PARAM(queryCount);
-    UNUSED_PARAM(destination);
-    UNUSED_PARAM(destinationOffset);
+    if (querySet.queryCount() < firstQuery + queryCount)
+        return;
+
+    auto block = [&querySet, firstQuery, queryCount, &destination, destinationOffset](id<MTLCommandBuffer>) {
+        if (querySet.counterSampleBuffer()) {
+            auto timestamps = querySet.resolveTimestamps();
+            memcpy(static_cast<char*>(destination.buffer().contents) + destinationOffset, &timestamps[firstQuery], sizeof(uint64_t) * queryCount);
+            return;
+        }
+
+        id<MTLBuffer> visibilityBuffer = querySet.visibilityBuffer();
+        ASSERT(visibilityBuffer.length);
+        memcpy(static_cast<char*>(destination.buffer().contents) + destinationOffset, (char*)visibilityBuffer.contents + sizeof(uint64_t) * firstQuery, sizeof(uint64_t) * queryCount);
+    };
+
+    if (m_commandBuffer)
+        [m_commandBuffer addCompletedHandler:block];
+    else
+        block(nil);
 }
 
-void CommandEncoder::writeTimestamp(const QuerySet& querySet, uint32_t queryIndex)
+void CommandEncoder::writeTimestamp(QuerySet& querySet, uint32_t queryIndex)
 {
     UNUSED_PARAM(querySet);
     UNUSED_PARAM(queryIndex);

@@ -55,6 +55,7 @@
     if(cferror) {
         ckkserror_global("ckks", "error doing database transaction, major problems ahead: %@", cferror);
     }
+    CFReleaseNull(cferror);
     return ret;
 }
 
@@ -75,6 +76,7 @@
     if(cferror) {
         ckkserror_global("ckks", "error getting database connection, major problems ahead: %@", cferror);
     }
+    CFReleaseNull(cferror);
 
     (void)transaction;
 }
@@ -98,6 +100,7 @@
     if(cferror) {
         ckkserror_global("ckks", "error getting database connection, major problems ahead: %@", cferror);
     }
+    CFReleaseNull(cferror);
 
     (void)transaction;
 }

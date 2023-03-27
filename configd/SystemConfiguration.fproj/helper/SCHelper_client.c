@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2008, 2010, 2011, 2013, 2015, 2016, 2018, 2019, 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -233,7 +233,7 @@ _SCHelperClose(mach_port_t *helper_port)
 
 
 static CFDataRef
-_SCHelperExecCopyBacktrace()
+_SCHelperExecCopyBacktrace(void)
 {
 	static Boolean		loggingEnabled	= FALSE;
 	static dispatch_once_t	once;

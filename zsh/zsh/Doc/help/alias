@@ -3,7 +3,13 @@ alias [ {+|-}gmrsL ] [ name[=value] ... ]
        that value.  A trailing space in value causes the next  word  to
        be  checked for alias expansion.  If the -g flag is present, de-
        fine a global alias; global aliases are expanded even if they do
-       not occur in command position.
+       not occur in command position:
+
+              % perldoc --help 2>&1 | grep 'built-in functions'
+                  -f   Search Perl built-in functions
+              % alias -g HG='--help 2>&1 | grep'
+              % perldoc HG 'built-in functions'
+                  -f   Search Perl built-in functions
 
        If the -s flag is present, define a suffix alias: if the command
        word on a command line is in the form `text.name', where text is

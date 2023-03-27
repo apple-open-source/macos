@@ -5,9 +5,6 @@ local nm=$compstate[nmatches] taglist patterns contexts MATCH
 integer MBEGIN MEND
 typeset -A opt_args styles
 
-_vcs_info_hooks() {
-  compadd - ${functions[(I)+vi-*]#+vi-}
-}
 # Assoc array of styles; the values give the possible top-level
 # contexts:
 #   c   completion
@@ -65,6 +62,7 @@ styles=(
   ignore-parents         c:ignorepar
   ignored-patterns	 c:
   insert-ids             c:insert-ids
+  insert-sections	 c:insert-sections
   insert-tab             c:bool
   insert-unambiguous	 c:insunambig
   keep-prefix		 c:keep-prefix
@@ -103,6 +101,7 @@ styles=(
   preserve-prefix        c:preserve-prefix
   range                  c:
   recent-dirs-insert     c:recent-dirs-insert
+  recursive-files        c:
   regular                c:bool
   rehash		 c:bool
   remote-access		 c:bool
@@ -113,7 +112,7 @@ styles=(
   show-ambiguity	 c:
   show-completer	 c:bool
   single-ignored         c:single-ignored
-  sort			 c:bool
+  sort			 c:sort-order
   special-dirs		 c:sdirs
   squeeze-slashes	 c:bool
   stop			 c:stop
@@ -145,6 +144,7 @@ styles=(
   cursor                 e:
   edit-buffer            e:bool
   edit-previous          e:bool
+  editor                 e:
   insert-kept            e:
   leave-cursor           e:bool
   match                  e:
@@ -218,7 +218,7 @@ taglist=(
 )
 
 # Be careful with the context arguments here.  They like to masquerade.
-_arguments -C \
+_arguments -C -A '-*' \
   '(: -)-L[output in form of zstyle commands]:pattern for context patterns:->metapatterns:style:->metastyles' \
   '(: -)-d[delete style definitions]:verbatim context pattern:->patterns:*:styles:->pstyles' \
   '(: -)-e[value is evaluated when style is looked up]:context pattern:->contexts:style:->styles:*:command:_cmdstring' \
@@ -229,7 +229,7 @@ _arguments -C \
   '(: -)-t[test a style, returning false if it'\''s undefined]:context name:->contexts:style:->styles:*:strings to test presence of: ' \
   '(: -)-T[test a style, returning true if it'\''s undefined]:context name:->contexts:style:->styles:*:strings to test presence of: ' \
   '(: -)-m[pattern-match values of a style]:context name:->contexts:style:->styles:pattern: ' \
-  '(-):context pattern:->contexts' '(-):style:->styles' '(-)*:argument:->style-arg'
+  ':context pattern:->contexts' ':style:->styles' '*:argument:->style-arg'
 
 while (( $#state )); do
   case "$state[1]" in
@@ -412,14 +412,15 @@ while (( $#state )); do
       ;;
 
     (function)
-      _wanted control-function expl 'control function' \
+      _wanted control-functions expl 'control function' \
           compadd predict-on all-matches
       ;;
 
     (functions)
-      _wanted comp-widget expl 'completion widget' \
-          compadd $suf - all-matches complete-debug complete-tag \
-	  correct-word expand-word expand-alias-word history-words
+      _wanted comp-widgets expl 'completion widget' \
+          compadd $suf -M 'r:|-=* r:|=*' - all-matches complete-debug complete-tag \
+	  correct-word expand-word expand-alias-word history-words \
+	  ${${${(M)${(f)"$(_call_program comp-widgets zle -l)"}:#*-C*}:#_*}/ -C*}
       ;;
 
     (user-host-port)
@@ -490,7 +491,7 @@ while (( $#state )); do
       elif compset -P '*:'; then
         _message -e tags tag
       else
-        _message -e patterns 'glob patterns'
+        _message -e patterns 'glob pattern'
       fi
       ;;
 
@@ -522,6 +523,11 @@ while (( $#state )); do
     (insert-ids)
       _wanted values expl 'when to insert process IDs' \
           compadd - menu single longer
+      ;;
+
+    (insert-sections)
+      _wanted values expl 'where to insert man page section' \
+          compadd - true false prepend suffix
       ;;
 
     (fake-files)
@@ -569,6 +575,10 @@ while (( $#state )); do
 
     (separator)
       _message -e separators 'separator string'
+      ;;
+
+    (sort-order)
+      _wanted sort-orders expl 'sort order' compadd -F line - true false match nosort numeric reverse
       ;;
 
     (max-matches-width)
@@ -659,7 +669,7 @@ while (( $#state )); do
           'p[name of top-most patch (applied-string)]' \
           'u[number of unapplied patches (unapplied-string)]' \
           'n[number of applied patches]' \
-          'c[number of unapplied patches.]' \
+          'c[number of unapplied patches]' \
           'a[number of all patches]' \
           'g[names of active mq guards (hg backend)]' \
           'G[number of active mq guards (hg backend)]'

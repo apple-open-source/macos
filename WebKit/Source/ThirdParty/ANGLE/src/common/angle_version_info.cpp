@@ -5,6 +5,7 @@
 //
 // angle_version_info.cpp: ANGLE version queries.
 
+#include "GLSLANG/ShaderLang.h"
 #include "common/angle_version.h"
 
 namespace angle
@@ -29,12 +30,18 @@ int GetANGLECommitHashSize()
     return ANGLE_COMMIT_HASH_SIZE;
 }
 
-bool GetANGLEHasBinaryLoading()
+const char *GetANGLEShaderProgramVersion()
 {
-#ifdef ANGLE_HAS_BINARY_LOADING
-    return true;
-#else
-    return false;
-#endif  //  #ifndef ANGLE_HAS_BINARY_LOADING
+    return ANGLE_PROGRAM_VERSION;
+}
+
+int GetANGLEShaderProgramVersionHashSize()
+{
+    return ANGLE_PROGRAM_VERSION_HASH_SIZE;
+}
+
+int GetANGLESHVersion()
+{
+    return ANGLE_SH_VERSION;
 }
 }  // namespace angle

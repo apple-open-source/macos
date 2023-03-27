@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013, 2015-2017, 2019, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -119,7 +119,7 @@ server_queue(void)
 
 __private_extern__
 void
-server_init()
+server_init(void)
 {
 	char			*service_name;
 	mach_port_t		service_port	= MACH_PORT_NULL;

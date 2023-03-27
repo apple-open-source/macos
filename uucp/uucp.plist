@@ -23,6 +23,7 @@
 		<string>PR-4883535.patch</string>
 		<string>PR-4383204.patch</string>
 		<string>PR-4905054.manpages.patch</string>
+		<string>Fix configure due to missing includes (#95279817)</string>
 	</array>
 </dict>
 </array>

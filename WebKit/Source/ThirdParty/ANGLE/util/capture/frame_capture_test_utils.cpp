@@ -9,7 +9,9 @@
 
 #include "frame_capture_test_utils.h"
 
+#include "common/frame_capture_utils.h"
 #include "common/string_utils.h"
+#include "trace_fixture.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
@@ -83,7 +85,7 @@ bool LoadTraceInfoFromJSON(const std::string &traceName,
         return false;
     }
 
-    const rapidjson::Document::Object &meta = doc["TraceMetadata"].GetObject();
+    const rapidjson::Document::Object &meta = doc["TraceMetadata"].GetObj();
 
     strncpy(traceInfoOut->name, traceName.c_str(), kTraceInfoMaxNameLen);
     traceInfoOut->contextClientMajorVersion = meta["ContextClientMajorVersion"].GetInt();
@@ -112,8 +114,72 @@ bool LoadTraceInfoFromJSON(const std::string &traceName,
         meta["IsBindGeneratesResourcesEnabled"].GetBool();
     traceInfoOut->isWebGLCompatibilityEnabled = meta["IsWebGLCompatibilityEnabled"].GetBool();
     traceInfoOut->isRobustResourceInitEnabled = meta["IsRobustResourceInitEnabled"].GetBool();
-    traceInfoOut->initialized                 = true;
+    traceInfoOut->windowSurfaceContextId      = doc["WindowSurfaceContextID"].GetInt();
 
+    if (doc.HasMember("RequiredExtensions"))
+    {
+        const rapidjson::Value &requiredExtensions = doc["RequiredExtensions"];
+        if (!requiredExtensions.IsArray())
+        {
+            return false;
+        }
+        for (rapidjson::SizeType i = 0; i < requiredExtensions.Size(); i++)
+        {
+            std::string ext = std::string(requiredExtensions[i].GetString());
+            traceInfoOut->requiredExtensions.push_back(ext);
+        }
+    }
+
+    const rapidjson::Document::Array &traceFiles = doc["TraceFiles"].GetArray();
+    for (const rapidjson::Value &value : traceFiles)
+    {
+        traceInfoOut->traceFiles.push_back(value.GetString());
+    }
+
+    traceInfoOut->initialized = true;
     return true;
+}
+
+void ReplayTraceFunction(const TraceFunction &func, const TraceFunctionMap &customFunctions)
+{
+    for (const CallCapture &call : func)
+    {
+        ReplayTraceFunctionCall(call, customFunctions);
+    }
+}
+
+GLuint GetResourceIDMapValue(ResourceIDType resourceIDType, GLuint key)
+{
+    switch (resourceIDType)
+    {
+        case ResourceIDType::Buffer:
+            return gBufferMap[key];
+        case ResourceIDType::FenceNV:
+            return gFenceNVMap[key];
+        case ResourceIDType::Framebuffer:
+            return gFramebufferMap[key];
+        case ResourceIDType::ProgramPipeline:
+            return gProgramPipelineMap[key];
+        case ResourceIDType::Query:
+            return gQueryMap[key];
+        case ResourceIDType::Renderbuffer:
+            return gRenderbufferMap[key];
+        case ResourceIDType::Sampler:
+            return gSamplerMap[key];
+        case ResourceIDType::Semaphore:
+            return gSemaphoreMap[key];
+        case ResourceIDType::ShaderProgram:
+            return gShaderProgramMap[key];
+        case ResourceIDType::Texture:
+            return gTextureMap[key];
+        case ResourceIDType::TransformFeedback:
+            return gTransformFeedbackMap[key];
+        case ResourceIDType::VertexArray:
+            return gVertexArrayMap[key];
+        default:
+            printf("Incompatible resource ID type: %d\n", static_cast<int>(resourceIDType));
+            UNREACHABLE();
+            return 0;
+    }
 }
 }  // namespace angle

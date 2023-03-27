@@ -25,20 +25,20 @@
 
 #pragma once
 
+#include "CGDisplayList.h"
 #include "ShareableBitmap.h"
-#include "SharedBufferReference.h"
 #include <variant>
 #include <wtf/MachSendRight.h>
 
 namespace WebKit {
 
 using ImageBufferBackendHandle = std::variant<
-    ShareableBitmap::Handle
+    ShareableBitmapHandle
 #if PLATFORM(COCOA) // FIXME: This is really about IOSurface.
     , MachSendRight
 #endif
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-    , IPC::SharedBufferReference
+    , CGDisplayList
 #endif
 >;
 

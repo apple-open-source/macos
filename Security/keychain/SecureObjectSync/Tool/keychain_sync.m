@@ -521,8 +521,9 @@ keychain_sync(int argc, char * const *argv)
             }
             case 'i':
             {
-                SOSCCDumpCircleInformation();
-                SOSCCDumpEngineInformation();
+                if(SOSCCDumpCircleInformation()) {
+                    SOSCCDumpEngineInformation();
+                }
                 break;
             }
             case 'k':

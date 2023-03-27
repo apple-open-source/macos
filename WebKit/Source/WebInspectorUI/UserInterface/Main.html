@@ -53,6 +53,7 @@
     <link rel="stylesheet" href="Views/BoxModelDetailsSectionRow.css">
     <link rel="stylesheet" href="Views/BoxShadowEditor.css">
     <link rel="stylesheet" href="Views/BreakpointActionView.css">
+    <link rel="stylesheet" href="Views/BreakpointInlineWidget.css">
     <link rel="stylesheet" href="Views/BreakpointPopover.css">
     <link rel="stylesheet" href="Views/BreakpointTreeElement.css">
     <link rel="stylesheet" href="Views/ButtonNavigationItem.css">
@@ -84,6 +85,7 @@
     <link rel="stylesheet" href="Views/ConsoleDrawer.css">
     <link rel="stylesheet" href="Views/ConsoleMessageView.css">
     <link rel="stylesheet" href="Views/ConsolePrompt.css">
+    <link rel="stylesheet" href="Views/ConsoleSnippetTreeElement.css">
     <link rel="stylesheet" href="Views/ContentBrowser.css">
     <link rel="stylesheet" href="Views/ContentBrowserTabContentView.css">
     <link rel="stylesheet" href="Views/ContentView.css">
@@ -108,8 +110,8 @@
     <link rel="stylesheet" href="Views/DividerNavigationItem.css">
     <link rel="stylesheet" href="Views/DropZoneView.css">
     <link rel="stylesheet" href="Views/Editing.css">
+    <link rel="stylesheet" href="Views/ElementsTabContentView.css">
     <link rel="stylesheet" href="Views/ErrorObjectView.css">
-    <link rel="stylesheet" href="Views/EventBreakpointPopover.css">
     <link rel="stylesheet" href="Views/EventBreakpointTreeElement.css">
     <link rel="stylesheet" href="Views/EventListenerSectionGroup.css">
     <link rel="stylesheet" href="Views/FilterBar.css">
@@ -118,6 +120,7 @@
     <link rel="stylesheet" href="Views/FolderIcon.css">
     <link rel="stylesheet" href="Views/FontDetailsPanel.css">
     <link rel="stylesheet" href="Views/FontResourceContentView.css">
+    <link rel="stylesheet" href="Views/FontVariationDetailsSectionRow.css">
     <link rel="stylesheet" href="Views/FormattedValue.css">
     <link rel="stylesheet" href="Views/GaugeChart.css">
     <link rel="stylesheet" href="Views/GeneralStyleDetailsSidebarPanel.css">
@@ -177,6 +180,7 @@
     <link rel="stylesheet" href="Views/ObjectTreePropertyTreeElement.css">
     <link rel="stylesheet" href="Views/ObjectTreeView.css">
     <link rel="stylesheet" href="Views/OpenResourceDialog.css">
+    <link rel="stylesheet" href="Views/OverrideUserPreferencesPopover.css">
     <link rel="stylesheet" href="Views/OverviewTimelineView.css">
     <link rel="stylesheet" href="Views/PathComponentIcons.css">
     <link rel="stylesheet" href="Views/Popover.css">
@@ -236,6 +240,7 @@
     <link rel="stylesheet" href="Views/StorageIcons.css">
     <link rel="stylesheet" href="Views/StorageSidebarPanel.css">
     <link rel="stylesheet" href="Views/StyleRuleIcons.css">
+    <link rel="stylesheet" href="Views/SymbolicBreakpointTreeElement.css">
     <link rel="stylesheet" href="Views/SyntaxHighlightingDefaultTheme.css">
     <link rel="stylesheet" href="Views/TabBar.css">
     <link rel="stylesheet" href="Views/TabBrowser.css">
@@ -261,7 +266,6 @@
     <link rel="stylesheet" href="Views/TypeTokenView.css">
     <link rel="stylesheet" href="Views/TypeTreeElement.css">
     <link rel="stylesheet" href="Views/TypeTreeView.css">
-    <link rel="stylesheet" href="Views/URLBreakpointPopover.css">
     <link rel="stylesheet" href="Views/URLBreakpointTreeElement.css">
     <link rel="stylesheet" href="Views/Variables.css">
     <link rel="stylesheet" href="Views/WebInspectorExtensionTabContentView.css">
@@ -419,6 +423,7 @@
     <script src="Models/CollectionTypes.js"></script>
     <script src="Models/Color.js"></script>
     <script src="Models/ConsoleCommandResultMessage.js"></script>
+    <script src="Models/ConsoleSnippet.js"></script>
     <script src="Models/Cookie.js"></script>
     <script src="Models/CookieStorageObject.js"></script>
     <script src="Models/DOMBreakpoint.js"></script>
@@ -436,6 +441,7 @@
     <script src="Models/ExecutionContextList.js"></script>
     <script src="Models/FPSInstrument.js"></script>
     <script src="Models/Font.js"></script>
+    <script src="Models/FontStyles.js"></script>
     <script src="Models/FontVariationAxis.js"></script>
     <script src="Models/Frame.js"></script>
     <script src="Models/GarbageCollection.js"></script>
@@ -510,6 +516,7 @@
     <script src="Models/SourceMap.js"></script>
     <script src="Models/StackTrace.js"></script>
     <script src="Models/StructureDescription.js"></script>
+    <script src="Models/SymbolicBreakpoint.js"></script>
     <script src="Models/TextMarker.js"></script>
     <script src="Models/TextRange.js"></script>
     <script src="Models/TimelineMarker.js"></script>
@@ -656,14 +663,13 @@
     <script src="Views/BoxModelDetailsSectionRow.js"></script>
     <script src="Views/BoxShadowEditor.js"></script>
     <script src="Views/BreakpointActionView.js"></script>
+    <script src="Views/BreakpointInlineWidget.js"></script>
     <script src="Views/BreakpointPopover.js"></script>
     <script src="Views/BreakpointTreeElement.js"></script>
     <script src="Views/CPUTimelineOverviewGraph.js"></script>
     <script src="Views/CPUTimelineView.js"></script>
     <script src="Views/CPUUsageCombinedView.js"></script>
     <script src="Views/CPUUsageView.js"></script>
-    <script src="Views/CSSFlexNodeOverlayListSection.js"></script>
-    <script src="Views/CSSGridNodeOverlayListSection.js"></script>
     <script src="Views/CSSStyleSheetTreeElement.js"></script>
     <script src="Views/CallFrameTreeElement.js"></script>
     <script src="Views/CallFrameView.js"></script>
@@ -692,6 +698,7 @@
     <script src="Views/ConsoleGroup.js"></script>
     <script src="Views/ConsolePrompt.js"></script>
     <script src="Views/ConsoleSession.js"></script>
+    <script src="Views/ConsoleSnippetTreeElement.js"></script>
     <script src="Views/ContentViewContainer.js"></script>
     <script src="Views/ContextMenu.js"></script>
     <script src="Views/ContextMenuUtilities.js"></script>
@@ -733,6 +740,7 @@
     <script src="Views/FontDetailsPanel.js"></script>
     <script src="Views/FontDetailsSidebarPanel.js"></script>
     <script src="Views/FontResourceContentView.js"></script>
+    <script src="Views/FontVariationDetailsSectionRow.js"></script>
     <script src="Views/FormattedValue.js"></script>
     <script src="Views/FrameDOMTreeContentView.js"></script>
     <script src="Views/FrameTreeElement.js"></script>
@@ -811,6 +819,7 @@
     <script src="Views/ObjectTreeView.js"></script>
     <script src="Views/OpenResourceDialog.js"></script>
     <script src="Views/OriginTreeElement.js"></script>
+    <script src="Views/OverrideUserPreferencesPopover.js"></script>
     <script src="Views/OverviewTimelineView.js"></script>
     <script src="Views/ProbeDetailsSidebarPanel.js"></script>
     <script src="Views/ProbeSetDataGrid.js"></script>
@@ -874,7 +883,7 @@
     <script src="Views/SpreadsheetCSSStyleDeclarationEditor.js"></script>
     <script src="Views/SpreadsheetCSSStyleDeclarationSection.js"></script>
     <script src="Views/SpreadsheetRulesStyleDetailsPanel.js"></script>
-    <script src="Views/SpreadsheetSelectorField.js"></script>
+    <script src="Views/SpreadsheetRuleHeaderField.js"></script>
     <script src="Views/SpreadsheetStyleProperty.js"></script>
     <script src="Views/SpreadsheetTextField.js"></script>
     <script src="Views/StyleOriginView.js"></script>
@@ -884,6 +893,8 @@
     <script src="Views/StackedAreaChart.js"></script>
     <script src="Views/StackedColumnChart.js"></script>
     <script src="Views/StorageSidebarPanel.js"></script>
+    <script src="Views/SymbolicBreakpointPopover.js"></script>
+    <script src="Views/SymbolicBreakpointTreeElement.js"></script>
     <script src="Views/SyntaxHighlightingSupport.js"></script>
     <script src="Views/TextNavigationItem.js"></script>
     <script src="Views/TextResourceContentView.js"></script>
@@ -918,7 +929,6 @@
     <script src="Controllers/BreakpointLogMessageLexer.js"></script>
     <script src="Controllers/BrowserManager.js"></script>
     <script src="Controllers/CSSManager.js"></script>
-    <script src="Controllers/CallFrameTreeController.js"></script>
     <script src="Controllers/CanvasManager.js"></script>
     <script src="Controllers/CodeMirrorColorEditingController.js"></script>
     <script src="Controllers/CodeMirrorCompletionController.js"></script>
@@ -948,6 +958,7 @@
     <script src="Controllers/CSSQueryController.js"></script>
     <script src="Controllers/ResourceQueryController.js"></script>
     <script src="Controllers/RuntimeManager.js"></script>
+    <script src="Controllers/StackTraceTreeController.js"></script>
     <script src="Controllers/TargetManager.js"></script>
     <script src="Controllers/TimelineManager.js"></script>
     <script src="Controllers/TypeTokenAnnotator.js"></script>

@@ -1474,7 +1474,9 @@ errOut:
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
+#if TARGET_OS_BRIDGE
     NSArray *enforce_anchors = nil;
+#endif
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
     CFErrorRef error = nil;
     id persistentRef = nil;
@@ -1484,7 +1486,9 @@ errOut:
     require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
+#if TARGET_OS_BRIDGE
     enforce_anchors = @[ (__bridge id)system_root ];
+#endif
     require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
     require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 

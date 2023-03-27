@@ -18,13 +18,12 @@
 #include <thread>
 
 #include "common/PackedEnums.h"
-#include "common/PoolAlloc.h"
+#include "common/WorkerThread.h"
 #include "common/angleutils.h"
 #include "common/vulkan/vk_headers.h"
 #include "common/vulkan/vulkan_icd.h"
 #include "libANGLE/BlobCache.h"
 #include "libANGLE/Caps.h"
-#include "libANGLE/WorkerThread.h"
 #include "libANGLE/renderer/vulkan/CommandProcessor.h"
 #include "libANGLE/renderer/vulkan/DebugAnnotatorVk.h"
 #include "libANGLE/renderer/vulkan/QueryVk.h"
@@ -92,14 +91,59 @@ struct SkippedSyncvalMessage
     const char *messageContents2                      = "";
     bool isDueToNonConformantCoherentFramebufferFetch = false;
 };
+
+// Used to designate memory allocation type for tracking purposes.
+enum class MemoryAllocationType
+{
+    Unspecified                              = 0,
+    ImageExternal                            = 1,
+    OffscreenSurfaceAttachmentImage          = 2,
+    SwapchainMSAAImage                       = 3,
+    SwapchainDepthStencilImage               = 4,
+    StagingImage                             = 5,
+    ImplicitMultisampledRenderToTextureImage = 6,
+    TextureImage                             = 7,
+    FontImage                                = 8,
+    RenderBufferStorageImage                 = 9,
+    Buffer                                   = 10,
+    BufferExternal                           = 11,
+
+    InvalidEnum = 12,
+    EnumCount   = InvalidEnum,
+};
+
+constexpr const char *kMemoryAllocationTypeMessage[] = {
+    "Unspecified",
+    "ImageExternal",
+    "OffscreenSurfaceAttachmentImage",
+    "SwapchainMSAAImage",
+    "SwapchainDepthStencilImage",
+    "StagingImage",
+    "ImplicitMultisampledRenderToTextureImage",
+    "TextureImage",
+    "FontImage",
+    "RenderBufferStorageImage",
+    "Buffer",
+    "BufferExternal",
+    "Invalid",
+};
+constexpr const uint32_t kMemoryAllocationTypeCount =
+    static_cast<uint32_t>(MemoryAllocationType::EnumCount);
+
+// Used to select the severity for memory allocation logs.
+enum class MemoryLogSeverity
+{
+    INFO,
+    WARN,
+};
 }  // namespace vk
 
 // Supports one semaphore from current surface, and one semaphore passed to
 // glSignalSemaphoreEXT.
 using SignalSemaphoreVector = angle::FixedVector<VkSemaphore, 2>;
 
+// Recursive function to process variable arguments for garbage collection
 inline void CollectGarbage(std::vector<vk::GarbageObject> *garbageOut) {}
-
 template <typename ArgT, typename... ArgsT>
 void CollectGarbage(std::vector<vk::GarbageObject> *garbageOut, ArgT object, ArgsT... objectsIn)
 {
@@ -108,6 +152,18 @@ void CollectGarbage(std::vector<vk::GarbageObject> *garbageOut, ArgT object, Arg
         garbageOut->emplace_back(vk::GarbageObject::Get(object));
     }
     CollectGarbage(garbageOut, objectsIn...);
+}
+
+// Recursive function to process variable arguments for garbage destroy
+inline void DestroyGarbage(VkDevice device) {}
+template <typename ArgT, typename... ArgsT>
+void DestroyGarbage(VkDevice device, ArgT object, ArgsT... objectsIn)
+{
+    if (object->valid())
+    {
+        object->destroy(device);
+    }
+    DestroyGarbage(device, objectsIn...);
 }
 
 class WaitableCompressEvent
@@ -123,10 +179,101 @@ class WaitableCompressEvent
 
     bool isReady() { return mWaitableEvent->isReady(); }
 
-    virtual bool getResult() = 0;
-
   private:
     std::shared_ptr<angle::WaitableEvent> mWaitableEvent;
+};
+
+class OneOffCommandPool : angle::NonCopyable
+{
+  public:
+    OneOffCommandPool();
+    void init(vk::ProtectionType protectionType);
+    angle::Result getCommandBuffer(vk::Context *context,
+                                   vk::PrimaryCommandBuffer *commandBufferOut);
+    void releaseCommandBuffer(const QueueSerial &submitQueueSerial,
+                              vk::PrimaryCommandBuffer &&primary);
+    void destroy(VkDevice device);
+
+  private:
+    vk::ProtectionType mProtectionType;
+    std::mutex mMutex;
+    vk::CommandPool mCommandPool;
+    struct PendingOneOffCommands
+    {
+        vk::ResourceUse use;
+        vk::PrimaryCommandBuffer commandBuffer;
+    };
+    std::deque<PendingOneOffCommands> mPendingCommands;
+};
+
+// Memory tracker for allocations and deallocations, which is used in RendererVk.
+class MemoryAllocationTracker : angle::NonCopyable
+{
+  public:
+    MemoryAllocationTracker(RendererVk *renderer);
+    void initMemoryTrackers();
+
+    // Collect information regarding memory allocations and deallocations.
+    void onMemoryAllocImpl(vk::MemoryAllocationType allocType,
+                           VkDeviceSize size,
+                           uint32_t memoryTypeIndex,
+                           void *handle);
+    void onMemoryDeallocImpl(vk::MemoryAllocationType allocType,
+                             VkDeviceSize size,
+                             uint32_t memoryTypeIndex,
+                             void *handle);
+
+    // Memory allocation statistics functions.
+    VkDeviceSize getActiveMemoryAllocationsSize(uint32_t allocTypeIndex) const;
+    VkDeviceSize getActiveHeapMemoryAllocationsSize(uint32_t allocTypeIndex,
+                                                    uint32_t heapIndex) const;
+
+    uint64_t getActiveMemoryAllocationsCount(uint32_t allocTypeIndex) const;
+    uint64_t getActiveHeapMemoryAllocationsCount(uint32_t allocTypeIndex, uint32_t heapIndex) const;
+
+    // Pending memory allocation information is used for logging in case of an unsuccessful
+    // allocation. It is cleared in onMemoryAlloc().
+    VkDeviceSize getPendingMemoryAllocationSize() const;
+    vk::MemoryAllocationType getPendingMemoryAllocationType() const;
+    uint32_t getPendingMemoryTypeIndex() const;
+
+    void resetPendingMemoryAlloc();
+    void setPendingMemoryAlloc(vk::MemoryAllocationType allocType,
+                               VkDeviceSize size,
+                               uint32_t memoryTypeIndex);
+
+  private:
+    // Pointer to parent renderer object.
+    RendererVk *const mRenderer;
+
+    // For tracking the overall memory allocation sizes and counts per memory allocation type.
+    std::array<std::atomic<VkDeviceSize>, vk::kMemoryAllocationTypeCount>
+        mActiveMemoryAllocationsSize;
+    std::array<std::atomic<uint64_t>, vk::kMemoryAllocationTypeCount> mActiveMemoryAllocationsCount;
+
+    // Memory allocation data per memory heap. To update the data, a mutex is used.
+    std::mutex mMemoryAllocationMutex;
+
+    using PerHeapMemoryAllocationSizeVector  = std::vector<VkDeviceSize>;
+    using PerHeapMemoryAllocationCountVector = std::vector<uint64_t>;
+
+    std::array<PerHeapMemoryAllocationSizeVector, vk::kMemoryAllocationTypeCount>
+        mActivePerHeapMemoryAllocationsSize;
+    std::array<PerHeapMemoryAllocationCountVector, vk::kMemoryAllocationTypeCount>
+        mActivePerHeapMemoryAllocationsCount;
+
+    // Pending memory allocation information is used for logging in case of an allocation error.
+    // It includes the size and type of the last attempted allocation, which are cleared after
+    // the allocation is successful.
+    std::atomic<VkDeviceSize> mPendingMemoryAllocationSize;
+    std::atomic<vk::MemoryAllocationType> mPendingMemoryAllocationType;
+    std::atomic<uint32_t> mPendingMemoryTypeIndex;
+
+    // Additional information regarding memory allocation with debug layers enabled, including
+    // allocation ID and a record of all active allocations.
+    uint64_t mMemoryAllocationID;
+    using MemoryAllocInfoMap = angle::HashMap<vk::MemoryAllocInfoMapKey, vk::MemoryAllocationInfo>;
+    angle::HashMap<angle::BacktraceInfo, MemoryAllocInfoMap> mMemoryAllocationRecord;
 };
 
 class RendererVk : angle::NonCopyable
@@ -146,7 +293,6 @@ class RendererVk : angle::NonCopyable
     void notifyDeviceLost();
     bool isDeviceLost() const;
     bool hasSharedGarbage();
-    void releaseSharedResources(vk::ResourceUseList *resourceList);
 
     std::string getVendorString() const;
     std::string getRendererDescription() const;
@@ -155,16 +301,21 @@ class RendererVk : angle::NonCopyable
     gl::Version getMaxSupportedESVersion() const;
     gl::Version getMaxConformantESVersion() const;
 
-    uint32_t getApiVersion() const { return mApiVersion; }
+    uint32_t getDeviceVersion();
     VkInstance getInstance() const { return mInstance; }
     VkPhysicalDevice getPhysicalDevice() const { return mPhysicalDevice; }
     const VkPhysicalDeviceProperties &getPhysicalDeviceProperties() const
     {
         return mPhysicalDeviceProperties;
     }
-    const VkPhysicalDeviceSubgroupProperties &getPhysicalDeviceSubgroupProperties() const
+    const VkPhysicalDeviceDrmPropertiesEXT &getPhysicalDeviceDrmProperties() const
     {
-        return mSubgroupProperties;
+        return mDrmProperties;
+    }
+    const VkPhysicalDevicePrimitivesGeneratedQueryFeaturesEXT &
+    getPhysicalDevicePrimitivesGeneratedQueryFeatures() const
+    {
+        return mPrimitivesGeneratedQueryFeatures;
     }
     const VkPhysicalDeviceFeatures &getPhysicalDeviceFeatures() const
     {
@@ -172,6 +323,9 @@ class RendererVk : angle::NonCopyable
     }
     const VkPhysicalDeviceFeatures2KHR &getEnabledFeatures() const { return mEnabledFeatures; }
     VkDevice getDevice() const { return mDevice; }
+
+    bool isVulkan11Instance() const;
+    bool isVulkan11Device() const;
 
     const vk::Allocator &getAllocator() const { return mAllocator; }
 
@@ -183,6 +337,7 @@ class RendererVk : angle::NonCopyable
     const gl::TextureCapsMap &getNativeTextureCaps() const;
     const gl::Extensions &getNativeExtensions() const;
     const gl::Limitations &getNativeLimitations() const;
+    const ShPixelLocalStorageOptions &getNativePixelLocalStorageOptions() const;
     void initializeFrontendFeatures(angle::FrontendFeatures *features) const;
 
     uint32_t getQueueFamilyIndex() const { return mCurrentQueueFamilyIndex; }
@@ -203,9 +358,6 @@ class RendererVk : angle::NonCopyable
     angle::Result getPipelineCacheSize(DisplayVk *displayVk, size_t *pipelineCacheSizeOut);
     angle::Result syncPipelineCacheVk(DisplayVk *displayVk, const gl::Context *context);
 
-    // Issues a new serial for linked shader modules. Used in the pipeline cache.
-    Serial issueShaderSerial();
-
     const angle::FeaturesVk &getFeatures() const { return mFeatures; }
     uint32_t getMaxVertexAttribDivisor() const { return mMaxVertexAttribDivisor; }
     VkDeviceSize getMaxVertexAttribStride() const { return mMaxVertexAttribStride; }
@@ -219,9 +371,9 @@ class RendererVk : angle::NonCopyable
     angle::vk::ICD getEnabledICD() const { return mEnabledICD; }
     bool isMockICDEnabled() const { return mEnabledICD == angle::vk::ICD::Mock; }
 
-    // Query the format properties for select bits (linearTilingFeatures, optimalTilingFeatures and
-    // bufferFeatures).  Looks through mandatory features first, and falls back to querying the
-    // device (first time only).
+    // Query the format properties for select bits (linearTilingFeatures, optimalTilingFeatures
+    // and bufferFeatures).  Looks through mandatory features first, and falls back to querying
+    // the device (first time only).
     bool hasLinearImageFormatFeatureBits(angle::FormatID format,
                                          const VkFormatFeatureFlags featureBits) const;
     VkFormatFeatureFlags getLinearImageFormatFeatureBits(
@@ -238,43 +390,19 @@ class RendererVk : angle::NonCopyable
 
     ANGLE_INLINE egl::ContextPriority getDriverPriority(egl::ContextPriority priority)
     {
-        if (isAsyncCommandQueueEnabled())
-        {
-            return mCommandProcessor.getDriverPriority(priority);
-        }
-        else
-        {
-            return mCommandQueue.getDriverPriority(priority);
-        }
+        return mCommandQueue.getDriverPriority(priority);
     }
-    ANGLE_INLINE uint32_t getDeviceQueueIndex()
-    {
-        if (isAsyncCommandQueueEnabled())
-        {
-            return mCommandProcessor.getDeviceQueueIndex();
-        }
-        else
-        {
-            return mCommandQueue.getDeviceQueueIndex();
-        }
-    }
+    ANGLE_INLINE uint32_t getDeviceQueueIndex() { return mCommandQueue.getDeviceQueueIndex(); }
 
-    VkQueue getQueue(egl::ContextPriority priority)
-    {
-        if (isAsyncCommandQueueEnabled())
-        {
-            return mCommandProcessor.getQueue(priority);
-        }
-        else
-        {
-            return mCommandQueue.getQueue(priority);
-        }
-    }
+    VkQueue getQueue(egl::ContextPriority priority) { return mCommandQueue.getQueue(priority); }
 
     // This command buffer should be submitted immediately via queueSubmitOneOff.
     angle::Result getCommandBufferOneOff(vk::Context *context,
-                                         bool hasProtectedContent,
-                                         vk::PrimaryCommandBuffer *commandBufferOut);
+                                         vk::ProtectionType protectionType,
+                                         vk::PrimaryCommandBuffer *commandBufferOut)
+    {
+        return mOneOffCommandPoolMap[protectionType].getCommandBuffer(context, commandBufferOut);
+    }
 
     void resetOutsideRenderPassCommandBuffer(vk::OutsideRenderPassCommandBuffer &&commandBuffer)
     {
@@ -290,43 +418,43 @@ class RendererVk : angle::NonCopyable
     // Command buffer must be allocated with getCommandBufferOneOff and is reclaimed.
     angle::Result queueSubmitOneOff(vk::Context *context,
                                     vk::PrimaryCommandBuffer &&primary,
-                                    bool hasProtectedContent,
+                                    vk::ProtectionType protectionType,
                                     egl::ContextPriority priority,
                                     const vk::Semaphore *waitSemaphore,
                                     VkPipelineStageFlags waitSemaphoreStageMasks,
                                     const vk::Fence *fence,
                                     vk::SubmitPolicy submitPolicy,
-                                    Serial *serialOut);
+                                    QueueSerial *queueSerialOut);
 
     template <typename... ArgsT>
-    void collectGarbageAndReinit(vk::SharedResourceUse *use, ArgsT... garbageIn)
+    void collectGarbage(const vk::ResourceUse &use, ArgsT... garbageIn)
     {
-        std::vector<vk::GarbageObject> sharedGarbage;
-        CollectGarbage(&sharedGarbage, garbageIn...);
-        if (!sharedGarbage.empty())
+        if (hasUnfinishedUse(use))
         {
-            collectGarbage(std::move(*use), std::move(sharedGarbage));
+            std::vector<vk::GarbageObject> sharedGarbage;
+            CollectGarbage(&sharedGarbage, garbageIn...);
+            if (!sharedGarbage.empty())
+            {
+                collectGarbage(use, std::move(sharedGarbage));
+            }
         }
         else
         {
-            // Force releasing "use" even if no garbage was created.
-            use->release();
+            DestroyGarbage(mDevice, garbageIn...);
         }
-        // Keep "use" valid.
-        use->init();
     }
 
-    void collectGarbage(vk::SharedResourceUse &&use, std::vector<vk::GarbageObject> &&sharedGarbage)
+    void collectGarbage(const vk::ResourceUse &use, vk::GarbageList &&sharedGarbage)
     {
         if (!sharedGarbage.empty())
         {
-            vk::SharedGarbage garbage(std::move(use), std::move(sharedGarbage));
-            if (garbage.usedInRecordedCommands())
+            vk::SharedGarbage garbage(use, std::move(sharedGarbage));
+            if (hasUnsubmittedUse(use))
             {
                 std::unique_lock<std::mutex> lock(mGarbageMutex);
                 mPendingSubmissionGarbage.push(std::move(garbage));
             }
-            else if (!garbage.destroyIfComplete(this, getLastCompletedQueueSerial()))
+            else if (!garbage.destroyIfComplete(this))
             {
                 std::unique_lock<std::mutex> lock(mGarbageMutex);
                 mSharedGarbage.push(std::move(garbage));
@@ -334,42 +462,44 @@ class RendererVk : angle::NonCopyable
         }
     }
 
-    void collectSuballocationGarbage(vk::SharedResourceUse &use,
+    void collectSuballocationGarbage(const vk::ResourceUse &use,
                                      vk::BufferSuballocation &&suballocation,
                                      vk::Buffer &&buffer)
     {
-        if (use.isCurrentlyInUse(getLastCompletedQueueSerial()))
+        if (hasUnfinishedUse(use))
         {
             std::unique_lock<std::mutex> lock(mGarbageMutex);
-            if (use.usedInRecordedCommands())
+            if (hasUnsubmittedUse(use))
             {
-                mPendingSubmissionSuballocationGarbage.emplace(
-                    std::move(use), std::move(suballocation), std::move(buffer));
+                mPendingSubmissionSuballocationGarbage.emplace(use, std::move(suballocation),
+                                                               std::move(buffer));
             }
             else
             {
                 mSuballocationGarbageSizeInBytes += suballocation.getSize();
-                mSuballocationGarbage.emplace(std::move(use), std::move(suballocation),
-                                              std::move(buffer));
+                mSuballocationGarbage.emplace(use, std::move(suballocation), std::move(buffer));
             }
-            use.init();
         }
         else
         {
-            // mSuballocationGarbageDestroyed is atomic, so we dont need mGarbageMutex to protect
-            // it.
+            // mSuballocationGarbageDestroyed is atomic, so we dont need mGarbageMutex to
+            // protect it.
             mSuballocationGarbageDestroyed += suballocation.getSize();
             buffer.destroy(mDevice);
             suballocation.destroy(this);
         }
     }
 
-    angle::Result getPipelineCache(PipelineCacheAccess *pipelineCacheOut);
+    angle::Result getPipelineCache(vk::PipelineCacheAccess *pipelineCacheOut);
     angle::Result mergeIntoPipelineCache(const vk::PipelineCache &pipelineCache);
 
     void onNewValidationMessage(const std::string &message);
     std::string getAndClearLastValidationMessage(uint32_t *countSinceLastClear);
 
+    const std::vector<const char *> &getSkippedValidationMessages() const
+    {
+        return mSkippedValidationMessages;
+    }
     const std::vector<vk::SkippedSyncvalMessage> &getSkippedSyncvalMessages() const
     {
         return mSkippedSyncvalMessages;
@@ -380,74 +510,52 @@ class RendererVk : angle::NonCopyable
 
     uint64_t getMaxFenceWaitTimeNs() const;
 
-    ANGLE_INLINE Serial getLastCompletedQueueSerial()
-    {
-        if (isAsyncCommandQueueEnabled())
-        {
-            return mCommandProcessor.getLastCompletedQueueSerial();
-        }
-        else
-        {
-            return mCommandQueue.getLastCompletedQueueSerial();
-        }
-    }
-
     ANGLE_INLINE bool isCommandQueueBusy()
     {
-        std::unique_lock<std::mutex> lock(mCommandQueueMutex);
         if (isAsyncCommandQueueEnabled())
         {
-            return mCommandProcessor.isBusy();
+            return mCommandProcessor.isBusy(this);
         }
         else
         {
-            return mCommandQueue.isBusy();
+            return mCommandQueue.isBusy(this);
         }
     }
 
-    angle::Result ensureNoPendingWork(vk::Context *context)
+    angle::Result waitForResourceUseToBeSubmitted(vk::Context *context, const vk::ResourceUse &use)
     {
+        // This is only needed for async submission code path. For immediate submission, it is a nop
+        // since everything is submitted immediately.
         if (isAsyncCommandQueueEnabled())
         {
-            return mCommandProcessor.ensureNoPendingWork(context);
+            return mCommandProcessor.waitForResourceUseToBeSubmitted(context, use);
         }
-        else
+        // This ResourceUse must have been submitted.
+        ASSERT(!mCommandQueue.hasUnsubmittedUse(use));
+        return angle::Result::Continue;
+    }
+
+    angle::Result waitForQueueSerialToBeSubmitted(vk::Context *context,
+                                                  const QueueSerial &queueSerial)
+    {
+        // This is only needed for async submission code path. For immediate submission, it is a nop
+        // since everything is submitted immediately.
+        if (isAsyncCommandQueueEnabled())
         {
-            return mCommandQueue.ensureNoPendingWork(context);
+            return mCommandProcessor.waitForQueueSerialToBeSubmitted(context, queueSerial);
         }
+        // This queueSerial must have been submitted.
+        ASSERT(!mCommandQueue.hasUnsubmittedUse(vk::ResourceUse(queueSerial)));
+        return angle::Result::Continue;
     }
 
     angle::VulkanPerfCounters getCommandQueuePerfCounters()
     {
-        std::unique_lock<std::mutex> lock(mCommandQueueMutex);
-        if (isAsyncCommandQueueEnabled())
-        {
-            return mCommandProcessor.getPerfCounters();
-        }
-        else
-        {
-            return mCommandQueue.getPerfCounters();
-        }
+        return mCommandQueue.getPerfCounters();
     }
-    void resetCommandQueuePerFrameCounters()
-    {
-        std::unique_lock<std::mutex> lock(mCommandQueueMutex);
-        if (isAsyncCommandQueueEnabled())
-        {
-            mCommandProcessor.resetPerFramePerfCounters();
-        }
-        else
-        {
-            mCommandQueue.resetPerFramePerfCounters();
-        }
-    }
+    void resetCommandQueuePerFrameCounters() { mCommandQueue.resetPerFramePerfCounters(); }
 
     egl::Display *getDisplay() const { return mDisplay; }
-
-    VkResult getLastPresentResult(VkSwapchainKHR swapchain)
-    {
-        return mCommandProcessor.getLastPresentResult(swapchain);
-    }
 
     bool enableDebugUtils() const { return mEnableDebugUtils; }
     bool angleDebuggerMode() const { return mAngleDebuggerMode; }
@@ -468,49 +576,52 @@ class RendererVk : angle::NonCopyable
 
     bool haveSameFormatFeatureBits(angle::FormatID formatID1, angle::FormatID formatID2) const;
 
-    void cleanupGarbage(Serial lastCompletedQueueSerial);
-    void cleanupCompletedCommandsGarbage();
+    void cleanupGarbage();
     void cleanupPendingSubmissionGarbage();
 
-    angle::Result submitFrame(vk::Context *context,
-                              bool hasProtectedContent,
-                              egl::ContextPriority contextPriority,
-                              std::vector<VkSemaphore> &&waitSemaphores,
-                              std::vector<VkPipelineStageFlags> &&waitSemaphoreStageMasks,
-                              const vk::Semaphore *signalSemaphore,
-                              vk::GarbageList &&currentGarbage,
-                              vk::SecondaryCommandPools *commandPools,
-                              Serial *submitSerialOut);
+    angle::Result submitCommands(vk::Context *context,
+                                 vk::ProtectionType protectionType,
+                                 egl::ContextPriority contextPriority,
+                                 const vk::Semaphore *signalSemaphore,
+                                 vk::SecondaryCommandPools *commandPools,
+                                 const QueueSerial &submitSerialOut);
 
     void handleDeviceLost();
-    angle::Result finishToSerial(vk::Context *context, Serial serial);
-    angle::Result waitForSerialWithUserTimeout(vk::Context *context,
-                                               Serial serial,
-                                               uint64_t timeout,
-                                               VkResult *result);
-    angle::Result finish(vk::Context *context, bool hasProtectedContent);
+    angle::Result finishResourceUse(vk::Context *context, const vk::ResourceUse &use);
+    angle::Result finishQueueSerial(vk::Context *context, const QueueSerial &queueSerial);
+    angle::Result waitForResourceUseToFinishWithUserTimeout(vk::Context *context,
+                                                            const vk::ResourceUse &use,
+                                                            uint64_t timeout,
+                                                            VkResult *result);
+    angle::Result finish(vk::Context *context);
     angle::Result checkCompletedCommands(vk::Context *context);
 
+    angle::Result flushWaitSemaphores(vk::ProtectionType protectionType,
+                                      std::vector<VkSemaphore> &&waitSemaphores,
+                                      std::vector<VkPipelineStageFlags> &&waitSemaphoreStageMasks);
     angle::Result flushRenderPassCommands(vk::Context *context,
-                                          bool hasProtectedContent,
+                                          vk::ProtectionType protectionType,
                                           const vk::RenderPass &renderPass,
                                           vk::RenderPassCommandBufferHelper **renderPassCommands);
     angle::Result flushOutsideRPCommands(
         vk::Context *context,
-        bool hasProtectedContent,
+        vk::ProtectionType protectionType,
         vk::OutsideRenderPassCommandBufferHelper **outsideRPCommands);
 
     VkResult queuePresent(vk::Context *context,
                           egl::ContextPriority priority,
-                          const VkPresentInfoKHR &presentInfo);
+                          const VkPresentInfoKHR &presentInfo,
+                          vk::SwapchainStatus *swapchainStatus);
 
     angle::Result getOutsideRenderPassCommandBufferHelper(
         vk::Context *context,
         vk::CommandPool *commandPool,
+        vk::SecondaryCommandMemoryAllocator *commandsAllocator,
         vk::OutsideRenderPassCommandBufferHelper **commandBufferHelperOut);
     angle::Result getRenderPassCommandBufferHelper(
         vk::Context *context,
         vk::CommandPool *commandPool,
+        vk::SecondaryCommandMemoryAllocator *commandsAllocator,
         vk::RenderPassCommandBufferHelper **commandBufferHelperOut);
 
     void recycleOutsideRenderPassCommandBufferHelper(
@@ -538,6 +649,11 @@ class RendererVk : angle::NonCopyable
     VkPipelineStageFlags getSupportedVulkanPipelineStageMask() const
     {
         return mSupportedVulkanPipelineStageMask;
+    }
+
+    VkShaderStageFlags getSupportedVulkanShaderStageMask() const
+    {
+        return mSupportedVulkanShaderStageMask;
     }
 
     angle::Result getFormatDescriptorCountForVkFormat(ContextVk *contextVk,
@@ -606,17 +722,92 @@ class RendererVk : angle::NonCopyable
         return mSuballocationGarbageSizeInBytesCachedAtomic.load(std::memory_order_consume);
     }
 
-    ANGLE_INLINE VkFilter getPreferredFilterForYUV()
+    ANGLE_INLINE VkFilter getPreferredFilterForYUV(VkFilter defaultFilter)
     {
-        return getFeatures().preferLinearFilterForYUV.enabled ? VK_FILTER_LINEAR
-                                                              : VK_FILTER_NEAREST;
+        return getFeatures().preferLinearFilterForYUV.enabled ? VK_FILTER_LINEAR : defaultFilter;
     }
+
+    angle::Result allocateQueueSerialIndex(QueueSerial *queueSerialOut);
+    size_t getLargestQueueSerialIndexEverAllocated() const
+    {
+        return mQueueSerialIndexAllocator.getLargestIndexEverAllocated();
+    }
+    void releaseQueueSerialIndex(SerialIndex index);
+    Serial generateQueueSerial(SerialIndex index);
+    void reserveQueueSerials(SerialIndex index,
+                             size_t count,
+                             RangedSerialFactory *rangedSerialFactory);
+
+    // The ResourceUse still have unfinished queue serial by vulkan.
+    bool hasUnfinishedUse(const vk::ResourceUse &use) const;
+    // The ResourceUse still have queue serial not yet submitted to vulkan.
+    bool hasUnsubmittedUse(const vk::ResourceUse &use) const;
+
+    // Memory statistics can be updated on allocation and deallocation.
+    template <typename HandleT>
+    void onMemoryAlloc(vk::MemoryAllocationType allocType,
+                       VkDeviceSize size,
+                       uint32_t memoryTypeIndex,
+                       HandleT handle)
+    {
+        mMemoryAllocationTracker.onMemoryAllocImpl(allocType, size, memoryTypeIndex,
+                                                   reinterpret_cast<void *>(handle));
+    }
+
+    template <typename HandleT>
+    void onMemoryDealloc(vk::MemoryAllocationType allocType,
+                         VkDeviceSize size,
+                         uint32_t memoryTypeIndex,
+                         HandleT handle)
+    {
+        mMemoryAllocationTracker.onMemoryDeallocImpl(allocType, size, memoryTypeIndex,
+                                                     reinterpret_cast<void *>(handle));
+    }
+
+    // Memory statistics are logged when handling a context error.
+    void logMemoryStatsOnError();
+
+    MemoryAllocationTracker *getMemoryAllocationTracker() { return &mMemoryAllocationTracker; }
 
   private:
     angle::Result initializeDevice(DisplayVk *displayVk, uint32_t queueFamilyIndex);
     void ensureCapsInitialized() const;
+    void initializeValidationMessageSuppressions();
 
     void queryDeviceExtensionFeatures(const vk::ExtensionNameList &deviceExtensionNames);
+    void appendDeviceExtensionFeaturesNotPromoted(const vk::ExtensionNameList &deviceExtensionNames,
+                                                  VkPhysicalDeviceFeatures2KHR *deviceFeatures,
+                                                  VkPhysicalDeviceProperties2 *deviceProperties);
+    void appendDeviceExtensionFeaturesPromotedTo11(
+        const vk::ExtensionNameList &deviceExtensionNames,
+        VkPhysicalDeviceFeatures2KHR *deviceFeatures,
+        VkPhysicalDeviceProperties2 *deviceProperties);
+    void appendDeviceExtensionFeaturesPromotedTo12(
+        const vk::ExtensionNameList &deviceExtensionNames,
+        VkPhysicalDeviceFeatures2KHR *deviceFeatures,
+        VkPhysicalDeviceProperties2 *deviceProperties);
+    void appendDeviceExtensionFeaturesPromotedTo13(
+        const vk::ExtensionNameList &deviceExtensionNames,
+        VkPhysicalDeviceFeatures2KHR *deviceFeatures,
+        VkPhysicalDeviceProperties2 *deviceProperties);
+
+    angle::Result enableInstanceExtensions(DisplayVk *displayVk,
+                                           const VulkanLayerVector &enabledInstanceLayerNames,
+                                           const char *wsiExtension,
+                                           bool canLoadDebugUtils);
+    angle::Result enableDeviceExtensions(DisplayVk *displayVk,
+                                         const VulkanLayerVector &enabledDeviceLayerNames);
+
+    void enableDeviceExtensionsNotPromoted(const vk::ExtensionNameList &deviceExtensionNames);
+    void enableDeviceExtensionsPromotedTo11(const vk::ExtensionNameList &deviceExtensionNames);
+    void enableDeviceExtensionsPromotedTo12(const vk::ExtensionNameList &deviceExtensionNames);
+    void enableDeviceExtensionsPromotedTo13(const vk::ExtensionNameList &deviceExtensionNames);
+
+    void initInstanceExtensionEntryPoints();
+    void initDeviceExtensionEntryPoints();
+    // Initialize extension entry points from core ones if needed
+    void initializeInstanceExtensionEntryPointsFromCore() const;
+    void initializeDeviceExtensionEntryPointsFromCore() const;
 
     void initFeatures(DisplayVk *display, const vk::ExtensionNameList &extensions);
     void appBasedFeatureOverrides(DisplayVk *display, const vk::ExtensionNameList &extensions);
@@ -637,10 +828,13 @@ class RendererVk : angle::NonCopyable
 
     // Query and cache supported fragment shading rates
     bool canSupportFragmentShadingRate(const vk::ExtensionNameList &deviceExtensionNames);
+    // Prefer host visible device local via device local based on device type and heap size.
+    bool canPreferDeviceLocalMemoryHostVisible(VkPhysicalDeviceType deviceType);
 
     template <typename CommandBufferHelperT, typename RecyclerT>
     angle::Result getCommandBufferImpl(vk::Context *context,
                                        vk::CommandPool *commandPool,
+                                       vk::SecondaryCommandMemoryAllocator *commandsAllocator,
                                        RecyclerT *recycler,
                                        CommandBufferHelperT **commandBufferHelperOut);
 
@@ -653,24 +847,40 @@ class RendererVk : angle::NonCopyable
     mutable gl::TextureCapsMap mNativeTextureCaps;
     mutable gl::Extensions mNativeExtensions;
     mutable gl::Limitations mNativeLimitations;
+    mutable ShPixelLocalStorageOptions mNativePLSOptions;
     mutable angle::FeaturesVk mFeatures;
 
-    uint32_t mApiVersion;
+    // The instance and device versions.  The instance version is the one from the Vulkan loader,
+    // while the device version comes from VkPhysicalDeviceProperties::apiVersion.  With instance
+    // version 1.0, only device version 1.0 can be used.  If instance version is at least 1.1, any
+    // device version (even higher than that) can be used.  Some extensions have been promoted to
+    // Vulkan 1.1 or higher, but the version check must be done against the instance or device
+    // version, depending on whether it's an instance or device extension.
+    //
+    // Note that mDeviceVersion is technically redundant with mPhysicalDeviceProperties.apiVersion,
+    // but ANGLE may use a smaller version with problematic ICDs.
+    uint32_t mInstanceVersion;
+    uint32_t mDeviceVersion;
+
     VkInstance mInstance;
     bool mEnableValidationLayers;
     // True if ANGLE is enabling the VK_EXT_debug_utils extension.
     bool mEnableDebugUtils;
-    // True if ANGLE should call the vkCmd*DebugUtilsLabelEXT functions in order to communicate to
-    // debuggers (e.g. AGI) the OpenGL ES commands that the application uses.  This is independent
-    // of mEnableDebugUtils, as an external graphics debugger can enable the VK_EXT_debug_utils
-    // extension and cause this to be set true.
+    // True if ANGLE should call the vkCmd*DebugUtilsLabelEXT functions in order to communicate
+    // to debuggers (e.g. AGI) the OpenGL ES commands that the application uses.  This is
+    // independent of mEnableDebugUtils, as an external graphics debugger can enable the
+    // VK_EXT_debug_utils extension and cause this to be set true.
     bool mAngleDebuggerMode;
     angle::vk::ICD mEnabledICD;
     VkDebugUtilsMessengerEXT mDebugUtilsMessenger;
-    VkDebugReportCallbackEXT mDebugReportCallback;
     VkPhysicalDevice mPhysicalDevice;
+
     VkPhysicalDeviceProperties mPhysicalDeviceProperties;
+    VkPhysicalDeviceVulkan11Properties mPhysicalDevice11Properties;
+
     VkPhysicalDeviceFeatures mPhysicalDeviceFeatures;
+    VkPhysicalDeviceVulkan11Features mPhysicalDevice11Features;
+
     VkPhysicalDeviceLineRasterizationFeaturesEXT mLineRasterizationFeatures;
     VkPhysicalDeviceProvokingVertexFeaturesEXT mProvokingVertexFeatures;
     VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT mVertexAttributeDivisorFeatures;
@@ -684,6 +894,8 @@ class RendererVk : angle::NonCopyable
     VkPhysicalDeviceExternalMemoryHostPropertiesEXT mExternalMemoryHostProperties;
     VkPhysicalDeviceShaderFloat16Int8FeaturesKHR mShaderFloat16Int8Features;
     VkPhysicalDeviceDepthStencilResolvePropertiesKHR mDepthStencilResolveProperties;
+    VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesGOOGLEX
+        mMultisampledRenderToSingleSampledFeaturesGOOGLEX;
     VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesEXT
         mMultisampledRenderToSingleSampledFeatures;
     VkPhysicalDeviceImage2DViewOf3DFeaturesEXT mImage2dViewOf3dFeatures;
@@ -693,15 +905,27 @@ class RendererVk : angle::NonCopyable
     VkPhysicalDeviceDriverPropertiesKHR mDriverProperties;
     VkPhysicalDeviceCustomBorderColorFeaturesEXT mCustomBorderColorFeatures;
     VkPhysicalDeviceProtectedMemoryFeatures mProtectedMemoryFeatures;
-    VkPhysicalDeviceProtectedMemoryProperties mProtectedMemoryProperties;
     VkPhysicalDeviceHostQueryResetFeaturesEXT mHostQueryResetFeatures;
+    VkPhysicalDeviceDepthClipEnableFeaturesEXT mDepthClipEnableFeatures;
     VkPhysicalDeviceDepthClipControlFeaturesEXT mDepthClipControlFeatures;
-    VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT mBlendOperationAdvancedFeatures;
+    VkPhysicalDevicePrimitivesGeneratedQueryFeaturesEXT mPrimitivesGeneratedQueryFeatures;
+    VkPhysicalDevicePrimitiveTopologyListRestartFeaturesEXT mPrimitiveTopologyListRestartFeatures;
     VkPhysicalDeviceSamplerYcbcrConversionFeatures mSamplerYcbcrConversionFeatures;
     VkPhysicalDevicePipelineCreationCacheControlFeaturesEXT mPipelineCreationCacheControlFeatures;
     VkPhysicalDeviceExtendedDynamicStateFeaturesEXT mExtendedDynamicStateFeatures;
     VkPhysicalDeviceExtendedDynamicState2FeaturesEXT mExtendedDynamicState2Features;
+    VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT mGraphicsPipelineLibraryFeatures;
+    VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT mGraphicsPipelineLibraryProperties;
     VkPhysicalDeviceFragmentShadingRateFeaturesKHR mFragmentShadingRateFeatures;
+    VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT mFragmentShaderInterlockFeatures;
+    VkPhysicalDeviceImagelessFramebufferFeaturesKHR mImagelessFramebufferFeatures;
+    VkPhysicalDevicePipelineRobustnessFeaturesEXT mPipelineRobustnessFeatures;
+    VkPhysicalDevicePipelineProtectedAccessFeaturesEXT mPipelineProtectedAccessFeatures;
+    VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesEXT
+        mRasterizationOrderAttachmentAccessFeatures;
+    VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT mSwapchainMaintenance1Features;
+    VkPhysicalDeviceDrmPropertiesEXT mDrmProperties;
+
     angle::PackedEnumBitSet<gl::ShadingRate, uint8_t> mSupportedFragmentShadingRates;
     std::vector<VkQueueFamilyProperties> mQueueFamilyProperties;
     uint32_t mMaxVertexAttribDivisor;
@@ -716,10 +940,10 @@ class RendererVk : angle::NonCopyable
     bool mDeviceLost;
 
     // We group garbage into four categories: mSharedGarbage is the garbage that has already
-    // submitted to vulkan, we expect them to finish in finite time. mPendingSubmissionGarbage is
-    // the garbage that is still referenced in the recorded commands. suballocations have its own
-    // dedicated garbage list for performance optimization since they tend to be the most common
-    // garbage objects. All these four groups of garbage share the same mutex lock.
+    // submitted to vulkan, we expect them to finish in finite time. mPendingSubmissionGarbage
+    // is the garbage that is still referenced in the recorded commands. suballocations have its
+    // own dedicated garbage list for performance optimization since they tend to be the most
+    // common garbage objects. All these four groups of garbage share the same mutex lock.
     std::mutex mGarbageMutex;
     vk::SharedGarbageList mSharedGarbage;
     vk::SharedGarbageList mPendingSubmissionGarbage;
@@ -728,12 +952,12 @@ class RendererVk : angle::NonCopyable
     // Total suballocation garbage size in bytes.
     VkDeviceSize mSuballocationGarbageSizeInBytes;
 
-    // Total bytes of suballocation that been destroyed since last prune call. This can be accessed
-    // without mGarbageMutex, thus needs to be atomic to avoid tsan complain.
+    // Total bytes of suballocation that been destroyed since last prune call. This can be
+    // accessed without mGarbageMutex, thus needs to be atomic to avoid tsan complain.
     std::atomic<VkDeviceSize> mSuballocationGarbageDestroyed;
     // This is the cached value of mSuballocationGarbageSizeInBytes but is accessed with atomic
-    // operation. This can be accessed from different threads without mGarbageMutex, so that thread
-    // sanitizer won't complain.
+    // operation. This can be accessed from different threads without mGarbageMutex, so that
+    // thread sanitizer won't complain.
     std::atomic<VkDeviceSize> mSuballocationGarbageSizeInBytesCachedAtomic;
 
     vk::FormatTable mFormatTable;
@@ -758,8 +982,8 @@ class RendererVk : angle::NonCopyable
     // Holds orphaned BufferBlocks when ShareGroup gets destroyed
     vk::BufferBlockPointerVector mOrphanedBufferBlocks;
 
-    // All access to the pipeline cache is done through EGL objects so it is thread safe to not use
-    // a lock.
+    // All access to the pipeline cache is done through EGL objects so it is thread safe to not
+    // use a lock.
     std::mutex mPipelineCacheMutex;
     vk::PipelineCache mPipelineCache;
     uint32_t mPipelineCacheVkUpdateTimeout;
@@ -770,6 +994,9 @@ class RendererVk : angle::NonCopyable
     std::string mLastValidationMessage;
     uint32_t mValidationMessageCount;
 
+    // Skipped validation messages.  The exact contents of the list depends on the availability
+    // of certain extensions.
+    std::vector<const char *> mSkippedValidationMessages;
     // Syncval skipped messages.  The exact contents of the list depends on the availability of
     // certain extensions.
     std::vector<vk::SkippedSyncvalMessage> mSkippedSyncvalMessages;
@@ -784,25 +1011,15 @@ class RendererVk : angle::NonCopyable
     uint32_t mGarbageCollectionFlushThreshold;
 
     // Only used for "one off" command buffers.
-    vk::CommandPool mOneOffCommandPool;
-
-    struct PendingOneOffCommands
-    {
-        Serial serial;
-        vk::PrimaryCommandBuffer commandBuffer;
-    };
-    std::deque<PendingOneOffCommands> mPendingOneOffCommands;
+    angle::PackedEnumMap<vk::ProtectionType, OneOffCommandPool> mOneOffCommandPoolMap;
 
     // Synchronous Command Queue
-    std::mutex mCommandQueueMutex;
     vk::CommandQueue mCommandQueue;
 
     // Async Command Queue
     vk::CommandProcessor mCommandProcessor;
 
     // Command buffer pool management.
-    std::mutex mCommandBufferRecyclerMutex;
-    vk::CommandBufferHandleAllocator mCommandBufferHandleAllocator;
     vk::CommandBufferRecycler<vk::OutsideRenderPassCommandBuffer,
                               vk::OutsideRenderPassCommandBufferHelper>
         mOutsideRenderPassCommandBufferRecycler;
@@ -817,6 +1034,10 @@ class RendererVk : angle::NonCopyable
 
     // Tracks resource serials.
     vk::ResourceSerialFactory mResourceSerialFactory;
+
+    // QueueSerial generator
+    vk::QueueSerialIndexAllocator mQueueSerialIndexAllocator;
+    std::array<AtomicSerialFactory, kMaxQueueSerialIndexCount> mQueueSerialFactory;
 
     // Application executable information
     VkApplicationInfo mApplicationInfo;
@@ -833,20 +1054,54 @@ class RendererVk : angle::NonCopyable
     // where multiple stages are prespecified (for example with image layout transitions):
     //
     // - Excludes GEOMETRY if geometry shaders are not supported.
-    // - Excludes TESSELLATION_CONTROL and TESSELLATION_EVALUATION if tessellation shaders are not
+    // - Excludes TESSELLATION_CONTROL and TESSELLATION_EVALUATION if tessellation shaders are
+    // not
     //   supported.
     //
-    // Note that this mask can have bits set that don't correspond to valid stages, so it's strictly
-    // only useful for masking out unsupported stages in an otherwise valid set of stages.
+    // Note that this mask can have bits set that don't correspond to valid stages, so it's
+    // strictly only useful for masking out unsupported stages in an otherwise valid set of
+    // stages.
     VkPipelineStageFlags mSupportedVulkanPipelineStageMask;
+    VkShaderStageFlags mSupportedVulkanShaderStageMask;
 
     // Use thread pool to compress cache data.
     std::shared_ptr<rx::WaitableCompressEvent> mCompressEvent;
 
     vk::ExtensionNameList mEnabledInstanceExtensions;
     vk::ExtensionNameList mEnabledDeviceExtensions;
+
+    // Memory tracker for allocations and deallocations.
+    MemoryAllocationTracker mMemoryAllocationTracker;
 };
 
+ANGLE_INLINE Serial RendererVk::generateQueueSerial(SerialIndex index)
+{
+    return mQueueSerialFactory[index].generate();
+}
+
+ANGLE_INLINE void RendererVk::reserveQueueSerials(SerialIndex index,
+                                                  size_t count,
+                                                  RangedSerialFactory *rangedSerialFactory)
+{
+    mQueueSerialFactory[index].reserve(rangedSerialFactory, count);
+}
+
+ANGLE_INLINE bool RendererVk::hasUnfinishedUse(const vk::ResourceUse &use) const
+{
+    return mCommandQueue.hasUnfinishedUse(use);
+}
+
+ANGLE_INLINE bool RendererVk::hasUnsubmittedUse(const vk::ResourceUse &use) const
+{
+    if (isAsyncCommandQueueEnabled())
+    {
+        return mCommandProcessor.hasUnsubmittedUse(use);
+    }
+    else
+    {
+        return mCommandQueue.hasUnsubmittedUse(use);
+    }
+}
 }  // namespace rx
 
 #endif  // LIBANGLE_RENDERER_VULKAN_RENDERERVK_H_

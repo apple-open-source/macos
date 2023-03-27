@@ -65,13 +65,13 @@ class CachedScript;
 class CSSFontSelector;
 class CSSValuePool;
 class DatabaseContext;
+class DeferredPromise;
 class EventQueue;
 class EventLoopTaskGroup;
 class EventTarget;
 class FontLoadRequest;
 class MessagePort;
 class NotificationClient;
-class PermissionController;
 class PublicURLManager;
 class RejectedPromiseTracker;
 class RTCDataChannelRemoteHandlerConnection;
@@ -124,7 +124,6 @@ public:
     virtual void disableWebAssembly(const String& errorMessage) = 0;
 
     virtual IDBClient::IDBConnectionProxy* idbConnectionProxy() = 0;
-    virtual RefPtr<PermissionController> permissionController();
 
     virtual SocketProvider* socketProvider() = 0;
 
@@ -169,8 +168,7 @@ public:
     void willDestroyDestructionObserver(ContextDestructionObserver&);
 
     // MessagePort is conceptually a kind of ActiveDOMObject, but it needs to be tracked separately for message dispatch.
-    void processMessageWithMessagePortsSoon();
-    void dispatchMessagePortEvents();
+    void processMessageWithMessagePortsSoon(CompletionHandler<void()>&&);
     void createdMessagePort(MessagePort&);
     void destroyedMessagePort(MessagePort&);
 
@@ -178,7 +176,7 @@ public:
 
     virtual CSSFontSelector* cssFontSelector() { return nullptr; }
     virtual CSSValuePool& cssValuePool();
-    virtual std::unique_ptr<FontLoadRequest> fontLoadRequest(String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, LoadedFromOpaqueSource);
+    virtual std::unique_ptr<FontLoadRequest> fontLoadRequest(const String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, LoadedFromOpaqueSource);
     virtual void beginLoadingFontSoon(FontLoadRequest&) { }
 
     WEBCORE_EXPORT static void setCrossOriginMode(CrossOriginMode);
@@ -263,6 +261,11 @@ public:
     int timerNestingLevel() const { return m_timerNestingLevel; }
     void setTimerNestingLevel(int timerNestingLevel) { m_timerNestingLevel = timerNestingLevel; }
 
+    RejectedPromiseTracker* rejectedPromiseTracker()
+    {
+        return m_rejectedPromiseTracker.get();
+    }
+
     RejectedPromiseTracker* ensureRejectedPromiseTracker()
     {
         if (m_rejectedPromiseTracker)
@@ -318,6 +321,9 @@ public:
     WEBCORE_EXPORT NotificationCallbackIdentifier addNotificationCallback(CompletionHandler<void()>&&);
     WEBCORE_EXPORT CompletionHandler<void()> takeNotificationCallback(NotificationCallbackIdentifier);
 
+    void addDeferredPromise(Ref<DeferredPromise>&&);
+    RefPtr<DeferredPromise> takeDeferredPromise(DeferredPromise*);
+
 protected:
     class AddConsoleMessageTask : public Task {
     public:
@@ -339,6 +345,7 @@ protected:
     ReasonForSuspension reasonForSuspendingActiveDOMObjects() const { return m_reasonForSuspendingActiveDOMObjects; }
 
     bool hasPendingActivity() const;
+    WEBCORE_EXPORT void addToContextsMap();
     void removeFromContextsMap();
     void removeRejectedPromiseTracker();
     void regenerateIdentifier();
@@ -353,6 +360,8 @@ private:
 
     virtual void refScriptExecutionContext() = 0;
     virtual void derefScriptExecutionContext() = 0;
+
+    void dispatchMessagePortEvents();
 
     enum class ShouldContinue { No, Yes };
     void forEachActiveDOMObject(const Function<ShouldContinue(ActiveDOMObject&)>&) const;
@@ -385,6 +394,7 @@ private:
     bool m_inDispatchErrorEvent { false };
     mutable bool m_activeDOMObjectAdditionForbidden { false };
     bool m_willprocessMessageWithMessagePortsSoon { false };
+    Vector<CompletionHandler<void()>> m_processMessageWithMessagePortsSoonHandlers;
 
 #if ASSERT_ENABLED
     bool m_inScriptExecutionContextDestructor { false };
@@ -402,6 +412,7 @@ private:
     StorageBlockingPolicy m_storageBlockingPolicy { StorageBlockingPolicy::AllowAll };
 
     HashMap<NotificationCallbackIdentifier, CompletionHandler<void()>> m_notificationCallbacks;
+    HashSet<Ref<DeferredPromise>> m_deferredPromises;
 };
 
 WebCoreOpaqueRoot root(ScriptExecutionContext*);

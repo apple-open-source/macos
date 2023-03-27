@@ -468,7 +468,7 @@ SInt32 IOEthernetInterface::performCommand( IONetworkController * ctr,
 		case SIOCSIFDEVMTU:
 		case SIOCGIFDEVMTU:
         case SIOCSIFLLADDR:
-		case SIOCSIFCAP:
+        case SIOCSIFCAP:
             ret = (int) ctr->executeCommand(
                              this,            /* client */
                              (IONetworkController::Action)
@@ -478,8 +478,16 @@ SInt32 IOEthernetInterface::performCommand( IONetworkController * ctr,
                              (void *) cmd,    /* param1 */
                              arg0,            /* param2 */
                              arg1 );          /* param3 */
+            //
+            // AVB is Ethernet only, treating other offloads as Network level
+            // available.
+            //
+            if (cmd == SIOCSIFCAP) {
+                ret = super::performCommand(ctr, cmd, arg0, arg1);
+            }
             break;
 
+        case SIOCGIFCAP:
         default:
             // Unknown command, let our superclass deal with it.
             ret = super::performCommand(ctr, cmd, arg0, arg1);
@@ -911,10 +919,10 @@ int IOEthernetInterface::syncSIOCSIFCAP( IONetworkController * ctr,
 		}
 		else
 		{
-			result = 0;
+            result = 0;
 		}
 	}
-	
+
 	return result;
 }
 

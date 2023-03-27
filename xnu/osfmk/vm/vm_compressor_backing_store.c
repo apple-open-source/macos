@@ -458,6 +458,8 @@ vm_compressor_swap_init_swap_file_limit(void)
 #endif
 	printf("Maximum number of VM swap files: %d\n", vm_num_swap_files_config);
 }
+
+int vm_swap_enabled = 0;
 void
 vm_compressor_swap_init(void)
 {
@@ -514,6 +516,7 @@ vm_compressor_swap_init(void)
 	proc_set_thread_policy_with_tid(kernel_task, thread->thread_id,
 	    TASK_POLICY_INTERNAL, TASK_POLICY_PASSIVE_IO, TASK_POLICY_ENABLE);
 
+	vm_swap_enabled = 1;
 	printf("VM Swap Subsystem is ON\n");
 }
 

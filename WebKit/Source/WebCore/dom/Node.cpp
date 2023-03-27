@@ -65,6 +65,7 @@
 #include "RenderBlock.h"
 #include "RenderBox.h"
 #include "RenderTextControl.h"
+#include "RenderTreeUpdater.h"
 #include "RenderView.h"
 #include "SVGElement.h"
 #include "ScopedEventQueue.h"
@@ -101,6 +102,24 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(Node);
 
 using namespace HTMLNames;
 
+struct SameSizeAsNode : public EventTarget {
+#if ASSERT_ENABLED
+    bool deletionHasBegun;
+    bool inRemovedLastRefFunction;
+    bool adoptionIsRequired;
+#endif
+    uint32_t refCountAndParentBit;
+    uint32_t nodeFlags;
+    void* parentNode;
+    void* treeScope;
+    void* previous;
+    void* next;
+    uint8_t rendererWithStyleFlags[8];
+    uint8_t rareDataWithBitfields[8];
+};
+
+static_assert(sizeof(Node) == sizeof(SameSizeAsNode), "Node should stay small");
+
 #if DUMP_NODE_STATISTICS
 static WeakHashSet<Node, WeakPtrImplWithEventTargetData>& liveNodeSet()
 {
@@ -115,22 +134,26 @@ static const char* stringForRareDataUseType(NodeRareData::UseType useType)
         return "NodeList";
     case NodeRareData::UseType::MutationObserver:
         return "MutationObserver";
+    case NodeRareData::UseType::ManuallyAssignedSlot:
+        return "ManuallyAssignedSlot";
     case NodeRareData::UseType::TabIndex:
         return "TabIndex";
-    case NodeRareData::UseType::MinimumSize:
-        return "MinimumSize";
     case NodeRareData::UseType::ScrollingPosition:
         return "ScrollingPosition";
     case NodeRareData::UseType::ComputedStyle:
         return "ComputedStyle";
+    case NodeRareData::UseType::DisplayContentsStyle:
+         return "DisplayContentsStyle";
     case NodeRareData::UseType::Dataset:
         return "Dataset";
     case NodeRareData::UseType::ClassList:
         return "ClassList";
     case NodeRareData::UseType::ShadowRoot:
         return "ShadowRoot";
-    case NodeRareData::UseType::CustomElementQueue:
-        return "CustomElementQueue";
+    case NodeRareData::UseType::CustomElementReactionQueue:
+        return "CustomElementReactionQueue";
+    case NodeRareData::UseType::CustomElementDefaultARIA:
+        return "CustomElementDefaultARIA";
     case NodeRareData::UseType::AttributeMap:
         return "AttributeMap";
     case NodeRareData::UseType::InteractionObserver:
@@ -147,6 +170,8 @@ static const char* stringForRareDataUseType(NodeRareData::UseType useType)
         return "PartList";
     case NodeRareData::UseType::PartNames:
         return "PartNames";
+    case NodeRareData::UseType::Nonce:
+        return "Nonce";
     case NodeRareData::UseType::ExplicitlySetAttrElementsMap:
         return "ExplicitlySetAttrElementsMap";
     }
@@ -338,6 +363,19 @@ void Node::trackForDebugging()
 #endif
 }
 
+inline void NodeRareData::operator delete(NodeRareData* nodeRareData, std::destroying_delete_t)
+{
+    auto destroyAndFree = [&](auto& value) {
+        std::destroy_at(&value);
+        std::decay_t<decltype(value)>::freeAfterDestruction(&value);
+    };
+
+    if (nodeRareData->m_isElementRareData)
+        destroyAndFree(static_cast<ElementRareData&>(*nodeRareData));
+    else
+        destroyAndFree(*nodeRareData);
+}
+
 Node::Node(Document& document, ConstructionType type)
     : EventTarget(ConstructNode)
     , m_nodeFlags(type)
@@ -412,17 +450,9 @@ void Node::willBeDeletedFrom(Document& document)
 void Node::materializeRareData()
 {
     if (is<Element>(*this))
-        m_rareDataWithBitfields.setPointer(std::unique_ptr<NodeRareData, NodeRareDataDeleter>(new ElementRareData));
+        m_rareDataWithBitfields.setPointer(makeUnique<ElementRareData>());
     else
-        m_rareDataWithBitfields.setPointer(std::unique_ptr<NodeRareData, NodeRareDataDeleter>(new NodeRareData));
-}
-
-inline void Node::NodeRareDataDeleter::operator()(NodeRareData* rareData) const
-{
-    if (rareData->isElementRareData())
-        delete static_cast<ElementRareData*>(rareData);
-    else
-        delete static_cast<NodeRareData*>(rareData);
+        m_rareDataWithBitfields.setPointer(makeUnique<NodeRareData>());
 }
 
 void Node::clearRareData()
@@ -1215,6 +1245,23 @@ HTMLSlotElement* Node::assignedSlotForBindings() const
     if (shadowRoot && shadowRoot->mode() == ShadowRootMode::Open)
         return shadowRoot->findAssignedSlot(*this);
     return nullptr;
+}
+
+HTMLSlotElement* Node::manuallyAssignedSlot() const
+{
+    if (!hasRareData())
+        return nullptr;
+    return rareData()->manuallyAssignedSlot();
+}
+
+void Node::setManuallyAssignedSlot(HTMLSlotElement* slotElement)
+{
+    if (RefPtr element = dynamicDowncast<Element>(*this))
+        RenderTreeUpdater::tearDownRenderers(*element);
+    else if (RefPtr text = dynamicDowncast<Text>(*this))
+        RenderTreeUpdater::tearDownRenderer(*text);
+
+    ensureRareData().setManuallyAssignedSlot(slotElement);
 }
 
 ContainerNode* Node::parentInComposedTree() const
@@ -2021,7 +2068,7 @@ inline void Node::moveShadowTreeToNewDocument(ShadowRoot& shadowRoot, Document& 
         node.moveNodeToNewDocument(oldDocument, newDocument);
     }, [&oldDocument, &newDocument](ShadowRoot& innerShadowRoot) {
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&innerShadowRoot.document() == &oldDocument);
-        innerShadowRoot.moveShadowRootToNewDocument(newDocument);
+        innerShadowRoot.moveShadowRootToNewDocument(oldDocument, newDocument);
         moveShadowTreeToNewDocument(innerShadowRoot, oldDocument, newDocument);
     });
 }
@@ -2032,11 +2079,14 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
 
     Document& oldDocument = oldScope.documentScope();
     Document& newDocument = newScope.documentScope();
+    bool newScopeIsUAShadowTree = newScope.rootNode().hasBeenInUserAgentShadowTree();
     if (&oldDocument != &newDocument) {
         oldDocument.incrementReferencingNodeCount();
         traverseSubtreeToUpdateTreeScope(root, [&](Node& node) {
             ASSERT(!node.isTreeScope());
             RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.treeScope() == &oldScope);
+            if (newScopeIsUAShadowTree)
+                node.setNodeFlag(NodeFlag::HasBeenInUserAgentShadowTree);
             node.setTreeScope(newScope);
             node.moveNodeToNewDocument(oldDocument, newDocument);
         }, [&](ShadowRoot& shadowRoot) {
@@ -2050,6 +2100,8 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
         traverseSubtreeToUpdateTreeScope(root, [&](Node& node) {
             ASSERT(!node.isTreeScope());
             RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.treeScope() == &oldScope);
+            if (newScopeIsUAShadowTree)
+                node.setNodeFlag(NodeFlag::HasBeenInUserAgentShadowTree);
             node.setTreeScope(newScope);
             if (UNLIKELY(!node.hasRareData()))
                 return;
@@ -2169,6 +2221,8 @@ static inline bool tryAddEventListener(Node* targetNode, const AtomString& event
         targetNode->document().didAddWheelEventHandler(*targetNode);
     else if (eventNames.isTouchRelatedEventType(eventType, *targetNode))
         targetNode->document().didAddTouchEventHandler(*targetNode);
+    else if (eventNames.isMouseClickRelatedEventType(eventType))
+        targetNode->document().didAddOrRemoveMouseEventHandler(*targetNode);
 
 #if PLATFORM(IOS_FAMILY)
     if (targetNode == &targetNode->document() && eventType == eventNames.scrollEvent) {
@@ -2207,6 +2261,8 @@ static inline bool tryRemoveEventListener(Node* targetNode, const AtomString& ev
         targetNode->document().didRemoveWheelEventHandler(*targetNode);
     else if (eventNames.isTouchRelatedEventType(eventType, *targetNode))
         targetNode->document().didRemoveTouchEventHandler(*targetNode);
+    else if (eventNames.isMouseClickRelatedEventType(eventType))
+        targetNode->document().didAddOrRemoveMouseEventHandler(*targetNode);
 
 #if PLATFORM(IOS_FAMILY)
     if (targetNode == &targetNode->document() && eventType == eventNames.scrollEvent) {
@@ -2474,7 +2530,9 @@ bool Node::willRespondToMouseMoveEvents() const
         return false;
 #endif
     auto& eventNames = WebCore::eventNames();
-    return hasEventListeners(eventNames.mousemoveEvent) || hasEventListeners(eventNames.mouseoverEvent) || hasEventListeners(eventNames.mouseoutEvent);
+    return eventTypes().containsIf([&](const auto& type) {
+        return eventNames.isMouseMoveRelatedEventType(type);
+    });
 }
 
 bool Node::willRespondToTouchEvents() const
@@ -2513,19 +2571,11 @@ bool Node::willRespondToMouseClickEventsWithEditability(Editability editability)
 #endif
     if (editability != Editability::ReadOnly)
         return true;
-    auto& eventNames = WebCore::eventNames();
-    return hasEventListeners(eventNames.mouseupEvent)
-        || hasEventListeners(eventNames.mousedownEvent)
-        || hasEventListeners(eventNames.clickEvent)
-#if !PLATFORM(IOS_FAMILY)
-        || hasEventListeners(eventNames.DOMActivateEvent)
-#endif
-    ;
-}
 
-bool Node::willRespondToMouseWheelEvents() const
-{
-    return hasEventListeners(eventNames().mousewheelEvent);
+    auto& eventNames = WebCore::eventNames();
+    return eventTypes().containsIf([&](const auto& type) {
+        return eventNames.isMouseClickRelatedEventType(type);
+    });
 }
 
 // It's important not to inline removedLastRef, because we don't want to inline the code to
@@ -2556,7 +2606,7 @@ void Node::removedLastRef()
 
 void Node::incrementConnectedSubframeCount(unsigned amount)
 {
-    static_assert(RareDataBitFields { Page::maxNumberOfFrames, 0, 0 }.connectedSubframeCount == Page::maxNumberOfFrames, "connectedSubframeCount must fit Page::maxNumberOfFrames");
+    static_assert(RareDataBitFields { Page::maxNumberOfFrames, 0, 0, 0, 0 }.connectedSubframeCount == Page::maxNumberOfFrames, "connectedSubframeCount must fit Page::maxNumberOfFrames");
 
     ASSERT(isContainerNode());
     auto bitfields = rareDataBitfields();
@@ -2596,6 +2646,27 @@ void Node::updateAncestorConnectedSubframeCountForInsertion() const
         node->incrementConnectedSubframeCount(count);
 }
 
+TextDirection Node::effectiveTextDirection() const
+{
+    if (rareDataBitfields().usesEffectiveTextDirection)
+        return static_cast<TextDirection>(rareDataBitfields().effectiveTextDirection);
+    return document().documentElementTextDirection();
+}
+
+void Node::setEffectiveTextDirection(TextDirection direction)
+{
+    auto bitfields = rareDataBitfields();
+    bitfields.effectiveTextDirection = static_cast<uint16_t>(direction);
+    setRareDataBitfields(bitfields);
+}
+
+void Node::setUsesEffectiveTextDirection(bool value)
+{
+    auto bitfields = rareDataBitfields();
+    bitfields.usesEffectiveTextDirection = value;
+    setRareDataBitfields(bitfields);
+}
+
 bool Node::inRenderedDocument() const
 {
     return isConnected() && document().hasLivingRenderTree();
@@ -2612,6 +2683,11 @@ WebCoreOpaqueRoot Node::traverseToOpaqueRoot() const
         node = nextNode;
     }
     return WebCoreOpaqueRoot { const_cast<Node*>(node) };
+}
+
+void Node::notifyInspectorOfRendererChange()
+{
+    InspectorInstrumentation::didChangeRendererForDOMNode(*this);
 }
 
 template<> ContainerNode* parent<Tree>(const Node& node)

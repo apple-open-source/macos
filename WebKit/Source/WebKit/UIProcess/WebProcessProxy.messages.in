@@ -22,7 +22,7 @@
 
 messages -> WebProcessProxy LegacyReceiver {
     UpdateBackForwardItem(struct WebKit::BackForwardListItemState backForwardListItemState)
-    DidDestroyFrame(WebCore::FrameIdentifier frameID) 
+    DidDestroyFrame(WebCore::FrameIdentifier frameID, WebKit::WebPageProxyIdentifier pageID) 
 
     DidDestroyUserGestureToken(uint64_t userGestureTokenID) 
 
@@ -34,7 +34,7 @@ messages -> WebProcessProxy LegacyReceiver {
     GetNetworkProcessConnection() -> (struct WebKit::NetworkProcessConnectionInfo connectionInfo) Synchronous
 
 #if ENABLE(GPU_PROCESS)
-    CreateGPUProcessConnection(IPC::Attachment connectionIdentifier, struct WebKit::GPUProcessConnectionParameters parameters)
+    CreateGPUProcessConnection(IPC::Connection::Handle connectionHandle, struct WebKit::GPUProcessConnectionParameters parameters) AllowedWhenWaitingForSyncReply
 #endif
 
     SetIsHoldingLockedFiles(bool isHoldingLockedFiles)
@@ -47,7 +47,6 @@ messages -> WebProcessProxy LegacyReceiver {
     DidReceiveBackgroundResponsivenessPing()
 
     MemoryPressureStatusChanged(bool isUnderMemoryPressure)
-    DidExceedInactiveMemoryLimitWhileActive()
 
     DidCollectPrewarmInformation(WebCore::RegistrableDomain domain, struct WebCore::PrewarmInformation prewarmInformation)
 
@@ -89,4 +88,6 @@ messages -> WebProcessProxy LegacyReceiver {
 #endif
 
     GetNotifications(URL registrationURL, String tag) -> (Vector<WebCore::NotificationData> result)
+    SetAppBadge(std::optional<WebKit::WebPageProxyIdentifier> pageIdentifier, struct WebCore::SecurityOriginData origin, std::optional<uint64_t> badge)
+    SetClientBadge(WebKit::WebPageProxyIdentifier pageIdentifier, struct WebCore::SecurityOriginData origin, std::optional<uint64_t> badge)
 }

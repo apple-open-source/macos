@@ -32,7 +32,7 @@
 .\"     @(#)strtod.3	8.1 (Berkeley) 6/4/93
 .\" $FreeBSD: src/lib/libc/stdlib/strtod.3,v 1.22 2007/12/16 21:19:28 das Exp $
 .\"
-.Dd March 2, 2003
+.Dd July 2, 2021
 .Dt STRTOD 3
 .Os
 .Sh NAME
@@ -95,13 +95,17 @@ which the significand should be scaled.
 For hexadecimal constants, the scaling is instead done by powers
 of 2.
 .Pp
-Alternatively, if the portion of the string following the optional
+If the portion of the string following the optional
 plus or minus sign begins with
 .Dq INFINITY
 or
+.Dq INF ,
+ignoring case, it is interpreted as an infinity.
+.Pp
+If the portion of the string following the optional
+plus or minus sign begins with
 .Dq NAN ,
-ignoring case, it is interpreted as an infinity or a quiet \*(Na,
-respectively.
+ignoring case, it is interpreted as a quiet \*(Na.
 The syntax
 .Dq Xo Pf NAN( Ar "s" ) Xc ,
 where
@@ -138,7 +142,16 @@ The
 .Fn strtof ,
 and
 .Fn strtold
-functions return the converted value, if any.
+functions return the converted value, if any, rounded to the nearest
+representable value of the corresponding type according to the rounding
+mode currently in effect.
+See
+.Xr fegetround 3
+for more information on rounding modes.
+If flush-to-zero behavior is enabled in the current floating-point
+environment, the behavior is identical except that any subnormal
+values that would be returned will instead be returned as the
+correspondingly-signed zero.
 .Pp
 If
 .Fa endptr
@@ -153,20 +166,26 @@ If no conversion is performed, zero is returned and the value of
 is stored in the location referenced by
 .Fa endptr .
 .Pp
-If the correct value would cause overflow, plus or minus
+The input is converted by first rounding the value to the precision of
+the target type but allowing an unbounded exponent range.
+If the resulting exponent is too large for the target
+type, overflow is deemed to have occurred.
+Overflow is signalled by returning
 .Dv HUGE_VAL ,
 .Dv HUGE_VALF ,
 or
 .Dv HUGE_VALL
-is returned (according to the sign and type of the return value), and
+(according to the sign of the input and type of the return value), and storing
+.Er ERANGE
+in
+.Va errno .
+.Pp
+If the input string is not an explicit representation of zero and the
+correctly-rounded result is a subnormal or zero value, then
 .Er ERANGE
 is stored in
-.Va errno .
-If the correct value would cause underflow, zero is
-returned and
-.Er ERANGE
-is stored in
-.Va errno .
+.Va errno
+to indicate underflow has occurred.
 .Sh ERRORS
 .Bl -tag -width Er
 .It Bq Er ERANGE
@@ -187,9 +206,6 @@ The
 function
 conforms to
 .St -isoC-99 .
-.Sh AUTHORS
-The author of this software is
-.An David M. Gay .
 .Pp
 .Bd -literal
 Copyright (c) 1998 by Lucent Technologies

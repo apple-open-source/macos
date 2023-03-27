@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "February 12, 2022" "zsh 5\&.8\&.1"
+.TH "ZSHPARAM" "1" "May 14, 2022" "zsh 5\&.9"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -97,7 +97,7 @@ may be in any order\&.  Note that this syntax is strict: \fB[\fP and \fB]=\fP mu
 not be quoted, and \fIkey\fP may not consist of the unquoted string
 \fB]=\fP, but is otherwise treated as a simple string\&.  The enhanced forms
 of subscript expression that may be used when directly subscripting a
-variable name, described in the section Array Subscripts below, are not
+variable name, described in the section `Array Subscripts\&' below, are not
 available\&.
 .PP
 The syntaxes with and without the explicit key may be mixed\&.  An implicit
@@ -459,12 +459,25 @@ is compared to the pattern, and the first matching key found is the
 result\&.  On failure substitutes the length of the array plus one, as
 discussed under the description of `\fBr\fP\&', or the empty string for an
 associative array\&.
+.RS
+.PP
+Note: Although `\fBi\fP\&' may be applied to a scalar substitution to find
+the offset of a substring, the results are likely to be misleading when
+searching within substitutions that yield an empty string, or when
+searching for the empty substring\&.
+.RE
 .TP
 \fBI\fP
 Like `\fBi\fP\&', but gives the index of the last match, or all possible
 matching keys in an associative array\&.  On failure substitutes 0, or
 the empty string for an associative array\&.  This flag is best when
 testing for values or keys that do not exist\&.
+.RS
+.PP
+Note: If the option \fBKSH_ARRAYS\fP is in effect and no match is found, the
+result is indistinguishable from the case when the first element of the array
+matches\&.
+.RE
 .TP
 \fBk\fP
 If used in a subscript on an associative array, this flag causes the keys
@@ -690,6 +703,14 @@ In the parameter lists that follow, the mark `<S>\&' indicates that the
 parameter is special\&.  `<Z>\&' indicates that the parameter does not exist
 when the shell initializes in \fBsh\fP or \fBksh\fP emulation mode\&.
 .PP
+The parameters `\fB!\fP\&', `\fB#\fP', `\fB*\fP', `\fB\-\fP', `\fB?\fP', `\fB@\fP',
+`\fB$\fP\&', `\fBARGC\fP', `\fBHISTCMD\fP', `\fBLINENO\fP', `\fBPPID\fP',
+`\fBstatus\fP\&', `\fBTTYIDLE\fP', `\fBzsh_eval_context\fP',
+`\fBZSH_EVAL_CONTEXT\fP\&', and `\fBZSH_SUBSHELL\fP' are read\-only and thus
+cannot be restored by the user, so they are not output by
+`\fBtypeset \-p\fP\&'\&.  This also applies to many read\-only parameters loaded
+from modules\&.
+.PP
 The following parameters are automatically set by the shell:
 .PP
 .PD 0
@@ -710,10 +731,11 @@ the length of the parameter \fB\-\fP, q\&.v\&.
 Same as \fB#\fP\&.
 .TP
 \fB$\fP <S>
-The process ID of this shell\&.  Note that this indicates the original
-shell started by invoking \fBzsh\fP; all processes forked from the shells
-without executing a new program, such as subshells started by
-\fB(\fP\fI\&.\&.\&.\fP\fB)\fP, substitute the same value\&.
+The process ID of this shell, set when the shell initializes\&.  Processes
+forked from the shell without executing a new program, such as command
+substitutions and commands grouped with \fB(\fP\fI\&.\&.\&.\fP\fB)\fP,
+are subshells that duplicate the current shell, and thus substitute the
+same value for \fB$$\fP as their parent shell\&.
 .TP
 \fB\-\fP <S>
 Flags supplied to the shell on invocation or by the \fBset\fP
@@ -783,11 +805,16 @@ explicitly set locally\&.
 .RE
 .TP
 \fBERRNO\fP <S>
-The value of errno (see \fIerrno\fP(3))
+The value of \fBerrno\fP (see \fIerrno\fP(3))
 as set by the most recently failed system call\&.
 This value is system dependent and is intended for debugging
 purposes\&.  It is also useful with the \fBzsh/system\fP module which
 allows the number to be turned into a name or message\&.
+.RS
+.PP
+To use this parameter, it must first be assigned a value (typically
+0 (zero))\&.  It is initially unset for scripting compatibility\&.
+.RE
 .TP
 \fBFUNCNEST\fP <S>
 Integer\&.  If greater than or equal to zero, the maximum nesting depth of
@@ -854,9 +881,9 @@ command\&.
 The operating system, as determined at compile time\&.
 .TP
 \fBPPID\fP <S>
-The process ID of the parent of the shell\&.  As for \fB$$\fP, the
-value indicates the parent of the original shell and does not
-change in subshells\&.
+The process ID of the parent of the shell, set when the shell initializes\&.
+As with \fB$$\fP, the value does not change in subshells created as a
+duplicate of the current shell\&.
 .TP
 \fBPWD\fP
 The present working directory\&.  This is set when the shell initializes
@@ -882,8 +909,9 @@ since the assignment\&.
 .RS
 .PP
 Unlike other special parameters, the type of the \fBSECONDS\fP parameter can
-be changed using the \fBtypeset\fP command\&.  Only integer and one of the
-floating point types are allowed\&.  For example, `\fBtypeset \-F SECONDS\fP\&'
+be changed using the \fBtypeset\fP command\&.  The type may be changed only
+to one of the floating point types or back to integer\&.  For example,
+`\fBtypeset \-F SECONDS\fP\&'
 causes the value to be reported as a floating point number\&.  The
 value is available to microsecond accuracy, although the shell may
 show more or fewer digits depending on the use of \fBtypeset\fP\&.  See
@@ -1325,10 +1353,6 @@ most as many lines as given by the absolute value\&.
 If set to zero, the shell asks only if the top of the listing would scroll
 off the screen\&.
 .TP
-\fBLOGCHECK\fP
-The interval in seconds between checks for login/logout activity
-using the \fBwatch\fP parameter\&.
-.TP
 \fBMAIL\fP
 If this parameter is set and \fBmailpath\fP is not set,
 the shell looks for mail in the specified file\&.
@@ -1562,6 +1586,13 @@ if it is in the environment of the shell but not explicitly assigned to in
 the input line\&. This avoids running stty at every external command by
 accidentally exporting it\&. Also note that \fBSTTY\fP should not be used for
 window size specifications; these will not be local to the command\&.
+.RS
+.PP
+If the parameter is set and empty, all of the above applies except
+that \fBstty\fP is not run\&. This can be useful as a way to freeze the tty
+around a single command, blocking its changes to tty settings,
+similar to the \fBttyctl\fP builtin\&.
+.RE
 .TP
 \fBTERM\fP <S>
 The type of terminal in use\&.  This is used when looking up termcap
@@ -1691,130 +1722,6 @@ Note that the value should include a leading dot `\fB\&.\fP\&' if intended
 to be interpreted as a file extension\&.  The default is not to append
 any suffix, thus this parameter should be assigned only when needed
 and then unset again\&.
-.TP
-\fBwatch\fP <S> <Z> (\fBWATCH\fP <S>)
-An array (colon\-separated list) of login/logout events to report\&.
-.RS
-.PP
-If it contains the single word `\fBall\fP\&', then all login/logout events
-are reported\&.  If it contains the single word `\fBnotme\fP\&', then all
-events are reported as with `\fBall\fP\&' except \fB$USERNAME\fP\&.
-.PP
-An entry in this list may consist of a username,
-an `\fB@\fP\&' followed by a remote hostname,
-and a `\fB%\fP\&' followed by a line (tty)\&.  Any of these may
-be a pattern (be sure to quote this during the assignment to
-\fBwatch\fP so that it does not immediately perform file generation);
-the setting of the \fBEXTENDED_GLOB\fP option is respected\&.
-Any or all of these components may be present in an entry;
-if a login/logout event matches all of them,
-it is reported\&.
-.PP
-For example, with the \fBEXTENDED_GLOB\fP option set, the following:
-.PP
-.RS
-.nf
-\fBwatch=(\&'^(pws|barts)')\fP
-.fi
-.RE
-.PP
-causes reports for activity associated with any user other than \fBpws\fP
-or \fBbarts\fP\&.
-.RE
-.TP
-\fBWATCHFMT\fP
-The format of login/logout reports if the \fBwatch\fP parameter is set\&.
-Default is `\fB%n has %a %l from %m\fP\&'\&.
-Recognizes the following escape sequences:
-.RS
-.PP
-.PD 0
-.TP
-.PD
-\fB%n\fP
-The name of the user that logged in/out\&.
-.TP
-\fB%a\fP
-The observed action, i\&.e\&. "logged on" or "logged off"\&.
-.TP
-\fB%l\fP
-The line (tty) the user is logged in on\&.
-.TP
-\fB%M\fP
-The full hostname of the remote host\&.
-.TP
-\fB%m\fP
-The hostname up to the first `\fB\&.\fP\&'\&.  If only the
-IP address is available or the utmp field contains
-the name of an X\-windows display, the whole name is printed\&.
-.RS
-.PP
-\fINOTE:\fP
-The `\fB%m\fP\&' and `\fB%M\fP' escapes will work only if there is a host name
-field in the utmp on your machine\&.  Otherwise they are
-treated as ordinary strings\&.
-.RE
-.TP
-\fB%S\fP (\fB%s\fP)
-Start (stop) standout mode\&.
-.TP
-\fB%U\fP (\fB%u\fP)
-Start (stop) underline mode\&.
-.TP
-\fB%B\fP (\fB%b\fP)
-Start (stop) boldface mode\&.
-.TP
-.PD 0
-\fB%t\fP
-.TP
-.PD
-\fB%@\fP
-The time, in 12\-hour, am/pm format\&.
-.TP
-\fB%T\fP
-The time, in 24\-hour format\&.
-.TP
-\fB%w\fP
-The date in `\fIday\fP\fB\-\fP\fIdd\fP\&' format\&.
-.TP
-\fB%W\fP
-The date in `\fImm\fP\fB/\fP\fIdd\fP\fB/\fP\fIyy\fP\&' format\&.
-.TP
-\fB%D\fP
-The date in `\fIyy\fP\fB\-\fP\fImm\fP\fB\-\fP\fIdd\fP\&' format\&.
-.TP
-\fB%D{\fP\fIstring\fP\fB}\fP
-The date formatted as \fIstring\fP using the \fBstrftime\fP function, with
-zsh extensions as described by
-EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1)\&.
-.TP
-\fB%(\fP\fIx\fP\fB:\fP\fItrue\-text\fP\fB:\fP\fIfalse\-text\fP\fB)\fP
-Specifies a ternary expression\&.
-The character following the \fIx\fP is
-arbitrary; the same character is used to separate the text
-for the "true" result from that for the "false" result\&.
-Both the separator and the right parenthesis may be escaped
-with a backslash\&.
-Ternary expressions may be nested\&.
-.RS
-.PP
-The test character \fIx\fP may be any one of `\fBl\fP\&', `\fBn\fP', `\fBm\fP'
-or `\fBM\fP\&', which indicate a `true' result if the corresponding
-escape sequence would return a non\-empty value; or it may be `\fBa\fP\&',
-which indicates a `true\&' result if the watched user has logged in,
-or `false\&' if he has logged out\&.
-Other characters evaluate to neither true nor false; the entire
-expression is omitted in this case\&.
-.PP
-If the result is `true\&', then the \fItrue\-text\fP
-is formatted according to the rules above and printed,
-and the \fIfalse\-text\fP is skipped\&.
-If `false\&', the \fItrue\-text\fP is skipped and the \fIfalse\-text\fP
-is formatted and printed\&.
-Either or both of the branches may be empty, but
-both separators must be present in any case\&.
-.RE
-.RE
 .TP
 \fBWORDCHARS\fP <S>
 A list of non\-alphanumeric characters considered part of a word

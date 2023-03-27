@@ -77,7 +77,7 @@ int test(char *URL)
 {
   CURL *curl = NULL;
   CURLcode res = CURLE_FAILED_INIT;
-  /* http and proxy header list*/
+  /* http and proxy header list */
   struct curl_slist *hhl = NULL;
 
   if(curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
@@ -101,7 +101,7 @@ int test(char *URL)
 
   test_setopt(curl, CURLOPT_URL, URL);
   test_setopt(curl, CURLOPT_HTTPHEADER, hhl);
-  test_setopt(curl, CURLOPT_PUT, 1L);
+  test_setopt(curl, CURLOPT_UPLOAD, 1L);
   test_setopt(curl, CURLOPT_READFUNCTION, read_callback);
   test_setopt(curl, CURLOPT_TRAILERFUNCTION, trailers_callback);
   test_setopt(curl, CURLOPT_TRAILERDATA, NULL);

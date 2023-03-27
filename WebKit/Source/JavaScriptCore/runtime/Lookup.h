@@ -27,6 +27,7 @@
 #include "DOMJITSignature.h"
 #include "Identifier.h"
 #include "IdentifierInlines.h"
+#include "ImplementationVisibility.h"
 #include "Intrinsic.h"
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
@@ -197,6 +198,8 @@ struct HashTableValue {
             intptr_t argumentCount;
             DECLARE_TYPE()
         } nativeFunction;
+
+#undef HASH_TABLE_VALUE_ATTR
 
         // Only used for null testing (e.g. hasGetter) and termination (e.g. the "End" entry).
         struct {
@@ -488,12 +491,12 @@ inline void reifyStaticProperty(VM& vm, const ClassInfo* classInfo, const Proper
         if (value.attributes() & PropertyAttribute::DOMJITFunction) {
             thisObj.putDirectNativeFunction(
                 vm, thisObj.globalObject(), propertyName, value.functionLength(),
-                value.domJITFunction(), value.intrinsic(), value.signature(), attributesForStructure(value.attributes()));
+                value.domJITFunction(), ImplementationVisibility::Public, value.intrinsic(), value.signature(), attributesForStructure(value.attributes()));
             return;
         }
         thisObj.putDirectNativeFunction(
             vm, thisObj.globalObject(), propertyName, value.functionLength(),
-            value.function(), value.intrinsic(), attributesForStructure(value.attributes()));
+            value.function(), ImplementationVisibility::Public, value.intrinsic(), attributesForStructure(value.attributes()));
         return;
     }
 

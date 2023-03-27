@@ -29,7 +29,7 @@
 #include "config.h"
 #include "GraphicsContextGLFallback.h"
 
-#if ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && USE(ANGLE)
+#if ENABLE(WEBGL) && USE(TEXTURE_MAPPER)
 
 #include "ANGLEHeaders.h"
 #include "Logging.h"
@@ -112,6 +112,7 @@ bool GraphicsContextGLFallback::platformInitializeContext()
 
     EGLint configAttributes[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8,
@@ -276,4 +277,4 @@ void GraphicsContextGLFallback::prepareForDisplay()
 
 } // namespace WebCore
 
-#endif // ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && USE(ANGLE)
+#endif // ENABLE(WEBGL) && USE(TEXTURE_MAPPER)

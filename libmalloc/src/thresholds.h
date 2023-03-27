@@ -103,6 +103,7 @@
 #define MEDIUM_MADVISE_MIN ((3 * 1024 * 1024) / 2) // 1.5 megabytes
 #define MEDIUM_MADVISE_DRAM_SCALE_DIVISOR (128ull * 1024 * 1024 * 1024) // 128GB
 
+
 /*
  * When performing a realloc() that must fallback to creating a new allocation
  * and copying the previous contents to the new allocation, vm_copy is used if

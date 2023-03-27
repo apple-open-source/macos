@@ -67,6 +67,7 @@ template<typename> struct DefaultRefDerefTraits;
 
 template<typename> class CompactPtr;
 template<typename> class CompletionHandler;
+template<typename Key, typename, Key> class EnumeratedArray;
 template<typename> class FixedVector;
 template<typename> class Function;
 template<typename, typename = AnyThreadsAccessTraits> class LazyNeverDestroyed;
@@ -99,6 +100,7 @@ template<typename T, size_t inlineCapacity> struct DefaultHash<Vector<T, inlineC
 
 template<typename> struct RawValueTraits;
 template<typename> struct EnumTraits;
+template<typename> struct EnumTraitsForPersistence;
 template<typename E, E...> struct EnumValues;
 template<typename> struct HashTraits;
 
@@ -128,6 +130,7 @@ using WTF::AtomStringImpl;
 using WTF::BinarySemaphore;
 using WTF::CString;
 using WTF::CompletionHandler;
+using WTF::EnumeratedArray;
 using WTF::FixedVector;
 using WTF::Function;
 using WTF::FunctionDispatcher;

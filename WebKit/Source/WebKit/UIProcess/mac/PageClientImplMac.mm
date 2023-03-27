@@ -31,7 +31,6 @@
 #import "APIHitTestResult.h"
 #import "AppKitSPI.h"
 #import "DataReference.h"
-#import "DownloadProxy.h"
 #import "DrawingAreaProxy.h"
 #import "Logging.h"
 #import "NativeWebGestureEvent.h"
@@ -293,10 +292,6 @@ void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String& 
 {
 }
 
-void PageClientImpl::handleDownloadRequest(DownloadProxy&)
-{
-}
-
 void PageClientImpl::didChangeContentSize(const WebCore::IntSize& newSize)
 {
     m_impl->didChangeContentSize(newSize);
@@ -399,7 +394,7 @@ void PageClientImpl::executeUndoRedo(UndoOrRedo undoOrRedo)
     return (undoOrRedo == UndoOrRedo::Undo) ? [[m_view undoManager] undo] : [[m_view undoManager] redo];
 }
 
-void PageClientImpl::startDrag(const WebCore::DragItem& item, const ShareableBitmap::Handle& image)
+void PageClientImpl::startDrag(const WebCore::DragItem& item, const ShareableBitmapHandle& image)
 {
     m_impl->startDrag(item, image);
 }
@@ -445,6 +440,11 @@ void PageClientImpl::pinnedStateDidChange()
 {
     [m_webView didChangeValueForKey:@"_pinnedState"];
 }
+
+void PageClientImpl::drawPageBorderForPrinting(WebCore::FloatSize&& size)
+{
+    [m_webView drawPageBorderWithSize:size];
+}
     
 IntPoint PageClientImpl::screenToRootView(const IntPoint& point)
 {
@@ -484,7 +484,7 @@ void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool 
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void PageClientImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(TextRecognitionResult&&)>&& completion)
+void PageClientImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmapHandle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(TextRecognitionResult&&)>&& completion)
 {
     m_impl->requestTextRecognition(imageURL, imageData, sourceLanguageIdentifier, targetLanguageIdentifier, WTFMove(completion));
 }
@@ -594,7 +594,7 @@ void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& lay
 {
     ASSERT(!layerTreeContext.isEmpty());
 
-    CALayer *renderLayer = [CALayer _web_renderLayerWithContextID:layerTreeContext.contextID];
+    CALayer *renderLayer = [CALayer _web_renderLayerWithContextID:layerTreeContext.contextID shouldPreserveFlip:NO];
     m_impl->enterAcceleratedCompositingWithRootLayer(renderLayer);
 }
 
@@ -602,7 +602,7 @@ void PageClientImpl::didFirstLayerFlush(const LayerTreeContext& layerTreeContext
 {
     ASSERT(!layerTreeContext.isEmpty());
 
-    CALayer *renderLayer = [CALayer _web_renderLayerWithContextID:layerTreeContext.contextID];
+    CALayer *renderLayer = [CALayer _web_renderLayerWithContextID:layerTreeContext.contextID shouldPreserveFlip:NO];
     m_impl->setAcceleratedCompositingRootLayer(renderLayer);
 }
 
@@ -615,7 +615,7 @@ void PageClientImpl::updateAcceleratedCompositingMode(const LayerTreeContext& la
 {
     ASSERT(!layerTreeContext.isEmpty());
 
-    CALayer *renderLayer = [CALayer _web_renderLayerWithContextID:layerTreeContext.contextID];
+    CALayer *renderLayer = [CALayer _web_renderLayerWithContextID:layerTreeContext.contextID shouldPreserveFlip:NO];
     m_impl->setAcceleratedCompositingRootLayer(renderLayer);
 }
 
@@ -748,6 +748,19 @@ void PageClientImpl::showDictationAlternativeUI(const WebCore::FloatRect& boundi
 void PageClientImpl::setEditableElementIsFocused(bool editableElementIsFocused)
 {
     m_impl->setEditableElementIsFocused(editableElementIsFocused);
+}
+
+void PageClientImpl::setCaretDecorationVisibility(bool visibility)
+{
+    m_impl->setCaretDecorationVisibility(visibility);
+}
+
+void PageClientImpl::didCommitLayerTree(const RemoteLayerTreeTransaction& layerTreeTransaction)
+{
+}
+
+void PageClientImpl::layerTreeCommitComplete()
+{
 }
 
 #if ENABLE(FULLSCREEN_API)
@@ -993,6 +1006,11 @@ bool PageClientImpl::effectiveUserInterfaceLevelIsElevated() const
     return m_impl->effectiveUserInterfaceLevelIsElevated();
 }
 
+bool PageClientImpl::useFormSemanticContext() const
+{
+    return m_impl->useFormSemanticContext();
+}
+
 void PageClientImpl::takeFocus(WebCore::FocusDirection direction)
 {
     m_impl->takeFocus(direction);
@@ -1002,7 +1020,6 @@ void PageClientImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory paste
 {
     m_impl->requestDOMPasteAccess(pasteAccessCategory, elementRect, originIdentifier, WTFMove(completion));
 }
-
 
 void PageClientImpl::makeViewBlank(bool makeBlank)
 {
@@ -1039,7 +1056,7 @@ void PageClientImpl::handleClickForDataDetectionResult(const DataDetectorElement
 
 #endif
 
-void PageClientImpl::beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmap::Handle& bitmapHandle, FloatRect bounds)
+void PageClientImpl::beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmapHandle& bitmapHandle, FloatRect bounds)
 {
     m_impl->beginTextRecognitionForVideoInElementFullscreen(bitmapHandle, bounds);
 }

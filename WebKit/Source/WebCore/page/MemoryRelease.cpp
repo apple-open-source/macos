@@ -38,6 +38,7 @@
 #include "FontCache.h"
 #include "Frame.h"
 #include "GCController.h"
+#include "HRTFElevation.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNameCache.h"
 #include "InlineStyleSheetOwner.h"
@@ -70,19 +71,15 @@ static void releaseNoncriticalMemory(MaintainMemoryCache maintainMemoryCache)
 {
     RenderTheme::singleton().purgeCaches();
 
-    // FIXME: Clear these font caches in workers too?
-    FontCache::forCurrentThread().purgeInactiveFontData();
-    FontCascadeCache::forCurrentThread().clearWidthCaches();
+    FontCache::releaseNoncriticalMemoryInAllFontCaches();
 
     GlyphDisplayListCache::singleton().clear();
 
     for (auto* document : Document::allDocuments()) {
         document->clearSelectorQueryCache();
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
         if (auto* renderView = document->renderView())
             LayoutIntegration::LineLayout::releaseCaches(*renderView);
-#endif
     }
 
     if (maintainMemoryCache == MaintainMemoryCache::No)
@@ -106,6 +103,7 @@ static void releaseCriticalMemory(Synchronous synchronous, MaintainBackForwardCa
     }
 
     CSSValuePool::singleton().drain();
+    HRTFElevation::clearCache();
 
     Page::forEachPage([](auto& page) {
         page.cookieJar().clearCache();
@@ -117,7 +115,10 @@ static void releaseCriticalMemory(Synchronous synchronous, MaintainBackForwardCa
         document->cachedResourceLoader().garbageCollectDocumentResources();
     }
 
-    GCController::singleton().deleteAllCode(JSC::DeleteAllCodeIfNotCollecting);
+    if (synchronous == Synchronous::Yes)
+        GCController::singleton().deleteAllCode(JSC::PreventCollectionAndDeleteAllCode);
+    else
+        GCController::singleton().deleteAllCode(JSC::DeleteAllCodeIfNotCollecting);
 
 #if ENABLE(VIDEO)
     for (auto* mediaElement : HTMLMediaElement::allMediaElements()) {
@@ -201,6 +202,7 @@ void logMemoryStatistics(LogMemoryStatisticsReason reason)
     const char* description = logMemoryStatisticsReasonDescription(reason);
 
     RELEASE_LOG(MemoryPressure, "WebKit memory usage statistics at time of %" PUBLIC_LOG_STRING ":", description);
+    RELEASE_LOG(MemoryPressure, "Websam state: %" PUBLIC_LOG_STRING, MemoryPressureHandler::processStateDescription().characters());
     auto stats = PerformanceLogging::memoryUsageStatistics(ShouldIncludeExpensiveComputations::Yes);
     for (auto& [key, val] : stats)
         RELEASE_LOG(MemoryPressure, "%" PUBLIC_LOG_STRING ": %zu", key, val);

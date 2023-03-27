@@ -335,6 +335,8 @@ getjobtext(Eprog prog, Wordcode c)
     tlim = tptr + JOBTEXTSIZE - 1;
     tjob = 1;
     gettext2(&s);
+    if (tptr[-1] == Meta)
+	--tptr;
     *tptr = '\0';
     freeeprog(prog);		/* mark as unused */
     untokenize(jbuf);
@@ -600,7 +602,7 @@ gettext2(Estate state)
 		    n->u._funcdef.end = end;
 		    n->u._funcdef.nargs = nargs;
 		    state->strs += *state->pc;
-		    state->pc += 3;
+		    state->pc += 4;
 		}
 	    } else {
 		state->strs = s->u._funcdef.strs;

@@ -399,14 +399,16 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr, "%s\n%s\n%s\n",
-	    "usage: date [-jnRu] [-r seconds|file] [-v[+|-]val[ymwdHMS]]",
+	    "usage: date [-jnRu] [-I[date|hours|minutes|seconds]] [-f input_fmt]",
 	    "            "
-	    "[-I[date | hours | minutes | seconds]]",
+	    "[-r filename|seconds] [-v[+|-]val[y|m|w|d|H|M|S]]",
+#ifdef __APPLE__
 	    unix2003_std ?
 	    "            "
-	    "[-f fmt date | [[[mm]dd]HH]MM[[cc]yy][.ss]] [+format]" :
+	    "[[[[mm]dd]HH]MM[[cc]yy][.SS] | new_date] [+output_fmt]" :
+#endif
 	    "            "
-	    "[-f fmt date | [[[[[cc]yy]mm]dd]HH]MM[.ss]] [+format]"
+	    "[[[[[[cc]yy]mm]dd]HH]MM[.SS] | new_date] [+output_fmt]"
 	    );
 	exit(1);
 }

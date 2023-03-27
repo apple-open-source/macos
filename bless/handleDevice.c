@@ -96,7 +96,7 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
     if (IOObjectConformsTo(devMediaObj, APFS_VOLUME_OBJECT)) {
         // This is an APFS volume.  We need to mess with the preboot volume.
         ret = BlessPrebootVolume(context, actargs[kdevice].argument + strlen(_PATH_DEV), NULL, NULL, NULL,
-                                 actargs);
+                                 true, actargs);
     }
     IOObjectRelease(devMediaObj);
     if (ret) {

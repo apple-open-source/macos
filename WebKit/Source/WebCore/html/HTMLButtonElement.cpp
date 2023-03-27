@@ -156,7 +156,7 @@ void HTMLButtonElement::defaultEventHandler(Event& event)
     if (is<KeyboardEvent>(event)) {
         KeyboardEvent& keyboardEvent = downcast<KeyboardEvent>(event);
         if (keyboardEvent.type() == eventNames.keydownEvent && keyboardEvent.keyIdentifier() == "U+0020"_s) {
-            setActive(true, true);
+            setActive(true);
             // No setDefaultHandled() - IE dispatches a keypress in this case.
             return;
         }
@@ -192,7 +192,7 @@ bool HTMLButtonElement::isSuccessfulSubmitButton() const
 {
     // HTML spec says that buttons must have names to be considered successful.
     // However, other browsers do not impose this constraint.
-    return m_type == SUBMIT && !isDisabledFormControl();
+    return m_type == SUBMIT;
 }
 
 bool HTMLButtonElement::matchesDefaultPseudoClass() const

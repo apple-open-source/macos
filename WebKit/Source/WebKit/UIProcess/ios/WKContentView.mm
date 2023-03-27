@@ -30,13 +30,14 @@
 
 #import "APIPageConfiguration.h"
 #import "AccessibilityIOS.h"
+#import "Connection.h"
 #import "FullscreenClient.h"
 #import "GPUProcessProxy.h"
 #import "InputViewUpdateDeferrer.h"
 #import "Logging.h"
 #import "PageClientImplIOS.h"
 #import "PrintInfo.h"
-#import "RemoteLayerTreeDrawingAreaProxy.h"
+#import "RemoteLayerTreeDrawingAreaProxyIOS.h"
 #import "SmartMagnificationController.h"
 #import "UIKitSPI.h"
 #import "WKBrowsingContextControllerInternal.h"
@@ -151,7 +152,7 @@
 
     Lock _pendingBackgroundPrintFormattersLock;
     RetainPtr<NSMutableSet> _pendingBackgroundPrintFormatters;
-    uint64_t _pdfPrintCallbackID;
+    IPC::Connection::AsyncReplyID _pdfPrintCallbackID;
 
     Vector<RetainPtr<NSURL>> _temporaryURLsToDeleteWhenDeallocated;
 }
@@ -173,7 +174,6 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
     _page->initializeWebPage();
     _page->setIntrinsicDeviceScaleFactor(WebCore::screenScaleFactor([UIScreen mainScreen]));
     _page->setUseFixedLayout(true);
-    _page->setDelegatesScrolling(true);
     _page->setScreenIsBeingCaptured([[[self window] screen] isCaptured]);
 
     _page->windowScreenDidChange(_page->generateDisplayIDFromPageID(), std::nullopt);
@@ -619,12 +619,11 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
     [self _accessibilityRegisterUIProcessTokens];
 }
 
-static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid, mach_port_t sendPort, NSUUID *uuid)
+static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid, NSUUID *uuid)
 {
     // The accessibility bundle needs to know the uuid, pid and mach_port that this object will refer to.
     objc_setAssociatedObject(element, (void*)[@"ax-uuid" hash], uuid, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(element, (void*)[@"ax-pid" hash], @(pid), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(element, (void*)[@"ax-machport" hash], @(sendPort), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 
@@ -654,8 +653,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
     // Store information about the WebProcess that can later be retrieved by the iOS Accessibility runtime.
     if (_page->process().state() == WebKit::WebProcessProxy::State::Running) {
         [self _updateRemoteAccessibilityRegistration:YES];
-        IPC::Connection* connection = _page->process().connection();
-        storeAccessibilityRemoteConnectionInformation(self, _page->process().processIdentifier(), connection->identifier().port, uuid);
+        storeAccessibilityRemoteConnectionInformation(self, _page->process().processIdentifier(), uuid);
 
         IPC::DataReference elementToken = IPC::DataReference(reinterpret_cast<const uint8_t*>([remoteElementToken bytes]), [remoteElementToken length]);
         _page->registerUIProcessAccessibilityTokens(elementToken, elementToken);
@@ -669,7 +667,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 
 - (void)_resetPrintingState
 {
-    _pdfPrintCallbackID = 0;
+    _pdfPrintCallbackID = { };
 
     Locker locker { _pendingBackgroundPrintFormattersLock };
     for (_WKWebViewPrintFormatter *printFormatter in _pendingBackgroundPrintFormatters.get())
@@ -681,7 +679,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 
 - (std::unique_ptr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy:(WebKit::WebProcessProxy&)process
 {
-    return makeUnique<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page, process);
+    return makeUnique<WebKit::RemoteLayerTreeDrawingAreaProxyIOS>(*_page, process);
 }
 
 - (void)_processDidExit
@@ -771,7 +769,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
     // Updating the selection requires a full editor state. If the editor state is missing post layout
     // data then it means there is a layout pending and we're going to be called again after the layout
     // so we delay the selection update.
-    if (!_page->editorState().isMissingPostLayoutData)
+    if (_page->editorState().hasPostLayoutAndVisualData())
         [self _updateChangedSelection];
 }
 
@@ -969,7 +967,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
         // Begin generating the PDF in expectation of a (eventual) request for the drawn data.
         auto callbackID = retainedSelf->_page->drawToPDFiOS(frameID, printInfo, pageCount, [isPrintingOnBackgroundThread, printFormatter, retainedSelf](RefPtr<WebCore::SharedBuffer>&& pdfData) mutable {
             if (!isPrintingOnBackgroundThread)
-                retainedSelf->_pdfPrintCallbackID = 0;
+                retainedSelf->_pdfPrintCallbackID = { };
             else {
                 Locker locker { retainedSelf->_pendingBackgroundPrintFormattersLock };
                 [retainedSelf->_pendingBackgroundPrintFormatters removeObject:printFormatter.get()];
@@ -994,8 +992,8 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 - (void)_waitForDrawToPDFCallbackForPrintFormatterIfNeeded:(_WKWebViewPrintFormatter *)printFormatter
 {
     if (isMainRunLoop()) {
-        if (auto callbackID = std::exchange(_pdfPrintCallbackID, 0))
-            _page->process().connection()->waitForAsyncCallbackAndDispatchImmediately<Messages::WebPage::DrawToPDFiOS>(callbackID, Seconds::infinity());
+        if (auto callbackID = std::exchange(_pdfPrintCallbackID, { }))
+            _page->process().connection()->waitForAsyncReplyAndDispatchImmediately<Messages::WebPage::DrawToPDFiOS>(callbackID, Seconds::infinity());
         return;
     }
 

@@ -477,7 +477,7 @@
 		BED5DA040AA78E2C000AD756 /* ntfs_page.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_page.h; sourceTree = "<group>"; };
 		F936272423DF34C3009CF89B /* livefiles_ntfs.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = livefiles_ntfs.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		F99B8756246B8878006E31FE /* ntfs_xpl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_xpl.h; sourceTree = "<group>"; };
-		F99B8757246B8878006E31FE /* ntfs_xpl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_xpl.c; sourceTree = "<group>"; };
+		F99B8757246B8878006E31FE /* ntfs_xpl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_xpl.c; sourceTree = "<group>"; usesTabs = 1; };
 		F99B875A246B8950006E31FE /* ntfs_attr_list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_attr_list.c; path = kext/ntfs_attr_list.c; sourceTree = "<group>"; };
 		F99B875C246B897E006E31FE /* ntfs_runlist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_runlist.h; path = kext/ntfs_runlist.h; sourceTree = "<group>"; };
 		F99B875D246B897E006E31FE /* ntfs_collate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_collate.c; path = kext/ntfs_collate.c; sourceTree = "<group>"; };

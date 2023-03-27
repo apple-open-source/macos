@@ -22,12 +22,12 @@ list(APPEND WebCore_SOURCES
 
     page/scrolling/nicosia/ScrollingCoordinatorNicosia.cpp
     page/scrolling/nicosia/ScrollingStateNodeNicosia.cpp
-    page/scrolling/nicosia/ScrollingTreeFixedNode.cpp
+    page/scrolling/nicosia/ScrollingTreeFixedNodeNicosia.cpp
     page/scrolling/nicosia/ScrollingTreeFrameScrollingNodeNicosia.cpp
     page/scrolling/nicosia/ScrollingTreeNicosia.cpp
-    page/scrolling/nicosia/ScrollingTreeOverflowScrollProxyNode.cpp
+    page/scrolling/nicosia/ScrollingTreeOverflowScrollProxyNodeNicosia.cpp
     page/scrolling/nicosia/ScrollingTreeOverflowScrollingNodeNicosia.cpp
-    page/scrolling/nicosia/ScrollingTreePositionedNode.cpp
+    page/scrolling/nicosia/ScrollingTreePositionedNodeNicosia.cpp
     page/scrolling/nicosia/ScrollingTreeScrollingNodeDelegateNicosia.cpp
     page/scrolling/nicosia/ScrollingTreeStickyNodeNicosia.cpp
 
@@ -70,6 +70,7 @@ list(APPEND WebCore_SOURCES
 
 list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsBase.css
+    ${WEBCORE_DIR}/css/mediaControls.css
 )
 
 set(WebCore_USER_AGENT_SCRIPTS
@@ -80,6 +81,21 @@ set(WebCore_USER_AGENT_SCRIPTS
 list(APPEND WebCore_LIBRARIES
     WPE::libwpe
 )
+
+if (ENABLE_GAMEPAD)
+    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/platform/gamepad/libwpe"
+    )
+
+    list(APPEND WebCore_SOURCES
+        platform/gamepad/libwpe/GamepadLibWPE.cpp
+        platform/gamepad/libwpe/GamepadProviderLibWPE.cpp
+    )
+
+    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+        platform/gamepad/libwpe/GamepadProviderLibWPE.h
+    )
+endif ()
 
 # Find the extras needed to copy for EGL besides the libraries
 set(EGL_EXTRAS)
@@ -106,17 +122,23 @@ if (EGL_EXTRAS)
     list(APPEND WebCore_INTERFACE_DEPENDENCIES EGLExtras_Copy)
 endif ()
 
-PLAYSTATION_COPY_MODULES(WebCore
-    TARGETS
-        CURL
-        Cairo
-        EGL
-        Fontconfig
-        Freetype
-        HarfBuzz
-        JPEG
-        OpenSSL
-        PNG
-        WebKitRequirements
-        WebP
+set(WebCore_MODULES
+    CURL
+    Cairo
+    EGL
+    Fontconfig
+    Freetype
+    HarfBuzz
+    ICU
+    JPEG
+    OpenSSL
+    PNG
+    WebKitRequirements
+    WebP
 )
+
+if (USE_WPE_BACKEND_PLAYSTATION)
+    list(APPEND WebCore_MODULES WPE)
+endif ()
+
+PLAYSTATION_COPY_MODULES(WebCore TARGETS ${WebCore_MODULES})

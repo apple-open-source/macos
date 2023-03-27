@@ -82,7 +82,7 @@ static bool shouldDirtyAllStyle(const Vector<StyleSheetContents*>& sheets)
     return false;
 }
 
-Invalidator::Invalidator(const Vector<StyleSheetContents*>& sheets, const MediaQueryEvaluator& mediaQueryEvaluator)
+Invalidator::Invalidator(const Vector<StyleSheetContents*>& sheets, const MQ::MediaQueryEvaluator& mediaQueryEvaluator)
     : m_ownedRuleSet(RuleSet::create())
     , m_ruleSets({ m_ownedRuleSet })
     , m_dirtiesAllStyle(shouldDirtyAllStyle(sheets))
@@ -441,22 +441,10 @@ void Invalidator::invalidateHostAndSlottedStyleIfNeeded(ShadowRoot& shadowRoot)
     auto& host = *shadowRoot.host();
     auto* resolver = shadowRoot.styleScope().resolverIfExists();
 
-    auto shouldInvalidateHost = [&] {
-        if (!resolver)
-            return true;
-        return !resolver->ruleSets().authorStyle().hostPseudoClassRules().isEmpty();
-    }();
-
-    if (shouldInvalidateHost)
+    if (!resolver || resolver->ruleSets().hasMatchingUserOrAuthorStyle([] (auto& style) { return !style.hostPseudoClassRules().isEmpty(); }))
         host.invalidateStyleInternal();
 
-    auto shouldInvalidateHostChildren = [&] {
-        if (!resolver)
-            return true;
-        return !resolver->ruleSets().authorStyle().slottedPseudoElementRules().isEmpty();
-    }();
-
-    if (shouldInvalidateHostChildren) {
+    if (!resolver || resolver->ruleSets().hasMatchingUserOrAuthorStyle([] (auto& style) { return !style.slottedPseudoElementRules().isEmpty(); })) {
         for (auto& shadowChild : childrenOfType<Element>(host))
             shadowChild.invalidateStyleInternal();
     }

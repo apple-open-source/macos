@@ -165,8 +165,7 @@ struct net_port_entry {
 	struct net_port_info            npe_npi;
 };
 
-static ZONE_DEFINE(net_port_entry_zone, "net_port_entry",
-    sizeof(struct net_port_entry), ZC_NONE);
+static KALLOC_TYPE_DEFINE(net_port_entry_zone, struct net_port_entry, NET_KT_DEFAULT);
 
 static SLIST_HEAD(net_port_entry_list, net_port_entry) net_port_entry_list =
     SLIST_HEAD_INITIALIZER(&net_port_entry_list);

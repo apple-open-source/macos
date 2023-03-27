@@ -27,7 +27,7 @@
 #pragma once
 
 #include "APIObject.h"
-#include "Attachment.h"
+#include "Connection.h"
 #include "DebuggableInfoData.h"
 #include "MessageReceiver.h"
 #include "WebInspectorUtilities.h"
@@ -57,6 +57,8 @@ OBJC_CLASS WKWebInspectorUIProxyObjCAdapter;
 OBJC_CLASS WKInspectorViewController;
 #elif PLATFORM(WIN)
 #include "WebView.h"
+#elif PLATFORM(GTK)
+#include <wtf/glib/GWeakPtr.h>
 #endif
 
 namespace WebCore {
@@ -131,7 +133,7 @@ public:
 
 #if PLATFORM(MAC)
     enum class InspectionTargetType { Local, Remote };
-    static RetainPtr<NSWindow> createFrontendWindow(NSRect savedWindowFrame, InspectionTargetType);
+    static RetainPtr<NSWindow> createFrontendWindow(NSRect savedWindowFrame, InspectionTargetType, WebPageProxy* inspectedPage = nullptr);
     static void showSavePanel(NSWindow *, NSURL *, Vector<WebCore::InspectorFrontendClient::SaveData>&&, bool forceSaveAs, CompletionHandler<void(NSURL *)>&&);
 
     void didBecomeActive();
@@ -140,7 +142,6 @@ public:
     void inspectedViewFrameDidChange(CGFloat = 0);
     void windowFrameDidChange();
     void windowFullScreenDidChange();
-    NSWindow *inspectorWindow() const { return m_inspectorWindow.get(); }
 
     void closeFrontendPage();
     void closeFrontendAfterInactivityTimerFired();
@@ -153,7 +154,7 @@ public:
 #endif
 
 #if PLATFORM(GTK)
-    GtkWidget* inspectorView() const { return m_inspectorView; };
+    GtkWidget* inspectorView() const { return m_inspectorView.get(); };
     void setClient(std::unique_ptr<WebInspectorUIProxyClient>&&);
 #endif
 
@@ -249,7 +250,7 @@ private:
 
     // Called by WebInspectorUIProxy messages
     void openLocalInspectorFrontend(bool canAttach, bool underTest);
-    void setFrontendConnection(IPC::Attachment);
+    void setFrontendConnection(IPC::Connection::Handle&&);
 
     void sendMessageToBackend(const String&);
     void frontendLoaded();
@@ -260,9 +261,14 @@ private:
     void setForcedAppearance(WebCore::InspectorFrontendClient::Appearance);
     void inspectedURLChanged(const String&);
     void showCertificate(const WebCore::CertificateInfo&);
+    void setInspectorPageDeveloperExtrasEnabled(bool);
     void elementSelectionChanged(bool);
     void timelineRecordingChanged(bool);
+
     void setDeveloperPreferenceOverride(WebCore::InspectorClient::DeveloperPreference, std::optional<bool>);
+#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+    void setEmulatedConditions(std::optional<int64_t>&& bytesPerSecondLimit);
+#endif
 
     void save(Vector<WebCore::InspectorFrontendClient::SaveData>&&, bool forceSaveAs);
     void load(const String& path, CompletionHandler<void(const String&)>&&);
@@ -320,15 +326,15 @@ private:
     RetainPtr<NSWindow> m_inspectorWindow;
     RetainPtr<WKWebInspectorUIProxyObjCAdapter> m_objCAdapter;
     HashMap<String, RetainPtr<NSURL>> m_suggestedToActualURLMap;
-    RunLoop::Timer<WebInspectorUIProxy> m_closeFrontendAfterInactivityTimer;
+    RunLoop::Timer m_closeFrontendAfterInactivityTimer;
     String m_urlString;
     WebCore::FloatRect m_sheetRect;
     WebCore::InspectorFrontendClient::Appearance m_frontendAppearance { WebCore::InspectorFrontendClient::Appearance::System };
     bool m_isObservingContentLayoutRect { false };
 #elif PLATFORM(GTK)
     std::unique_ptr<WebInspectorUIProxyClient> m_client;
-    GtkWidget* m_inspectorView { nullptr };
-    GtkWidget* m_inspectorWindow { nullptr };
+    GWeakPtr<GtkWidget> m_inspectorView;
+    GWeakPtr<GtkWidget> m_inspectorWindow;
     GtkWidget* m_headerBar { nullptr };
     String m_inspectedURLString;
 #elif PLATFORM(WIN)

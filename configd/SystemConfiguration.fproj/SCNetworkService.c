@@ -859,9 +859,10 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 	}
 
 	// do not allow creation of a network service if the interface is a
-	// member of a bond or bridge
-	if (__SCNetworkInterfaceIsMember(prefs, interface)) {
-		_SCErrorSet(kSCStatusKeyExists);
+	// member of a bond, or of a bridge that doesn't allow configured
+	// members
+	if (__SCNetworkInterfaceIsBusyMember(prefs, interface, TRUE)) {
+		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}
 
@@ -1531,14 +1532,17 @@ SCNetworkServiceSetEnabled(SCNetworkServiceRef service, Boolean enabled)
 	}
 
 	// make sure that we do not enable a network service if the
-	// associated interface is a member of a bond or bridge.
+	// associated interface is a member of a bond, or of a bridge that
+	// doesn't allow configured members
 	if (enabled) {
 		SCNetworkInterfaceRef	interface;
 
 		interface = SCNetworkServiceGetInterface(service);
 		if ((interface != NULL) &&
-		    __SCNetworkInterfaceIsMember(servicePrivate->prefs, interface)) {
-			_SCErrorSet(kSCStatusKeyExists);
+		    __SCNetworkInterfaceIsBusyMember(servicePrivate->prefs,
+						     interface,
+						     TRUE)) {
+			_SCErrorSet(kSCStatusFailed);
 			return FALSE;
 		}
 	}

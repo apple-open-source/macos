@@ -69,7 +69,7 @@ extern int setefilegacypath(BLContextPtr context, const char * path, int bootNex
                             const char *legacyHint, const char *optionalData);
 
 int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bootEFISourceLocation,
-					   CFDataRef labelData, CFDataRef labelData2, struct clarg actargs[klast]);
+					   CFDataRef labelData, CFDataRef labelData2, bool supportLegacy, struct clarg actargs[klast]);
 int GetVolumeUUIDs(BLContextPtr context, const char *volBSD, CFStringRef *volUUID, CFStringRef *groupUUID);
 int GetMountForSnapshot(BLContextPtr context, const char *snapshotName, const char *bsd, char *mountPoint, int mountPointLen);
 int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale);

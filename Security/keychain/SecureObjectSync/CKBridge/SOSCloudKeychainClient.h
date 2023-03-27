@@ -55,6 +55,7 @@ enum
     kSOSConnectionNotOpen,
     kSOSNoServerReply,
     kSOSMessageInvalid,
+    kSOSMessageNotSupported,
 };
 
 typedef CFArrayRef (^CloudItemsChangedBlock)(CFDictionaryRef values);

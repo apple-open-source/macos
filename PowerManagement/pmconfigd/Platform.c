@@ -179,7 +179,7 @@ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen)
  * userPrefForTcpka - Returns user preference for TCPKA
  * Returns false if user has opted out.
  */
-static bool userPrefForTcpka()
+static bool userPrefForTcpka(void)
 {
     IOReturn rc;
     int64_t pref = 1;

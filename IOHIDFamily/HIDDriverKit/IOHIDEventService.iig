@@ -59,7 +59,7 @@ public:
      * @return
      * true on success.
      */
-    virtual bool init() override;
+    virtual bool init() override __attribute__((availability(driverkit, introduced=21.0)));
 
     /*!
      * @function free
@@ -67,7 +67,7 @@ public:
      * @abstract
      * frees the object.
      */
-    virtual void free() override;
+    virtual void free() override __attribute__((availability(driverkit, introduced=21.0)));
 
     /*!
      * @function Start
@@ -87,7 +87,7 @@ public:
      * @return
      * returns kIOReturnSuccess on success.
      */
-    virtual kern_return_t Start(IOService * provider) override;
+    virtual kern_return_t Start(IOService * provider) override __attribute__((availability(driverkit, introduced=21.0)));
 
     /*!
      * @function Stop
@@ -107,7 +107,7 @@ public:
      * @return
      * returns kIOReturnSuccess on success.
      */
-    virtual kern_return_t Stop(IOService * provider) override;
+    virtual kern_return_t Stop(IOService * provider) override __attribute__((availability(driverkit, introduced=21.0)));
 
     /*!
      * @function DispatchKeyboardEvent
@@ -143,7 +143,7 @@ public:
                                                 uint32_t usage,
                                                 uint32_t value,
                                                 IOOptionBits options,
-                                                bool repeat = true) LOCALONLY;
+                                                bool repeat = true) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
 
     /*!
      * @function DispatchRelativePointerEvent
@@ -175,7 +175,7 @@ public:
                                                        IOFixed dy,
                                                        uint32_t buttonState,
                                                        IOOptionBits options,
-                                                       bool accelerate = true) LOCALONLY;
+                                                       bool accelerate = true) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
     
     /*!
      * @function DispatchAbsolutePointerEvent
@@ -207,7 +207,7 @@ public:
                                                        IOFixed y,
                                                        uint32_t buttonState,
                                                        IOOptionBits options,
-                                                       bool accelerate = true) LOCALONLY;
+                                                       bool accelerate = true) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
     
     /*!
      * @function DispatchRelativeScrollWheelEvent
@@ -239,7 +239,7 @@ public:
                                                            IOFixed dy,
                                                            IOFixed dz,
                                                            IOOptionBits options,
-                                                           bool accelerate = true) LOCALONLY;
+                                                           bool accelerate = true) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
     
     /*!
      * @function dispatchDigitizerStylusEvent
@@ -256,7 +256,7 @@ public:
      */
     virtual kern_return_t dispatchDigitizerStylusEvent(
                                         uint64_t timeStamp,
-                                        IOHIDDigitizerStylusData *stylusData) LOCALONLY;
+                                        IOHIDDigitizerStylusData *stylusData) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
     
     /*!
      * @function dispatchDigitizerTouchEvent
@@ -277,7 +277,7 @@ public:
     virtual kern_return_t dispatchDigitizerTouchEvent(
                                             uint64_t timeStamp,
                                             IOHIDDigitizerTouchData *touchData,
-                                            uint32_t touchDataCount) LOCALONLY;
+                                            uint32_t touchDataCount) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
 
 protected:
 
@@ -302,7 +302,7 @@ protected:
      * @param on
      * Turn on or off the LED.
      */
-    virtual void SetLED(uint32_t usage, bool on) LOCAL;
+    virtual void SetLED(uint32_t usage, bool on) LOCAL __attribute__((availability(driverkit, introduced=19.0)));
 
     /*!
      * @function SetLEDState
@@ -325,7 +325,7 @@ protected:
      * @param on
      * Turn on or off the LED.
      */
-    virtual kern_return_t SetLEDState(uint32_t usagePage, uint32_t usage, bool on) LOCAL;
+    virtual kern_return_t SetLEDState(uint32_t usagePage, uint32_t usage, bool on) LOCAL __attribute__((availability(driverkit, introduced=21.0)));
     
     /*!
      * @function dispatchEvent
@@ -336,7 +336,7 @@ protected:
      * @param event
      * The IOHIDEvent to dispatch.
      */
-    virtual void dispatchEvent(IOHIDEvent *event) LOCALONLY;
+    virtual void dispatchEvent(IOHIDEvent *event) LOCALONLY __attribute__((availability(driverkit, introduced=19.0)));
 
     /*!
      * @function handleCopyMatchingEvent
@@ -356,7 +356,7 @@ protected:
      * @return
      * Returns kIOReturnSuccess on success.
      */
-    virtual kern_return_t handleCopyMatchingEvent(OSDictionary * matching, IOHIDEvent **event) LOCAL;
+    virtual kern_return_t handleCopyMatchingEvent(OSDictionary * matching, IOHIDEvent **event) LOCAL __attribute__((availability(driverkit, introduced=21.0)));
 
     /*!
      * @function SetProperties
@@ -378,7 +378,7 @@ protected:
      * @return
      * Returns kIOReturnSuccess on success.
      */
-    virtual kern_return_t SetProperties(OSDictionary *properties) override;
+    virtual kern_return_t SetProperties(OSDictionary *properties) override __attribute__((availability(driverkit, introduced=21.0)));
 };
 
 class EXTENDS (IOHIDEventService) IOHIDEventServicePrivate

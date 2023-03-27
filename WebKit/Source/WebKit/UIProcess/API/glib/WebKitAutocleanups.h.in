@@ -41,12 +41,19 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitFormSubmissionRequest, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitGeolocationPermissionRequest, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitHitTestResult, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitInputMethodContext, g_object_unref)
+#if !ENABLE(2022_GLIB_API)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitInstallMissingMediaPluginsPermissionRequest, g_object_unref)
+#endif
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitNavigationPolicyDecision, g_object_unref)
+#if ENABLE(2022_GLIB_API)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitNetworkSession, g_object_unref)
+#endif
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitNotification, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitNotificationPermissionRequest, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitPermissionRequest, g_object_unref)
+#if !ENABLE(2022_GLIB_API)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitPlugin, g_object_unref)
+#endif
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitPolicyDecision, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitResponsePolicyDecision, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitSecurityManager, g_object_unref)
@@ -71,7 +78,9 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitColorChooserRequest, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitMediaKeySystemPermissionRequest, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitOptionMenu, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitPointerLockPermissionRequest, g_object_unref)
+#if !ENABLE(2022_GLIB_API)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitPrintCustomWidget, g_object_unref)
+#endif
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitPrintOperation, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitWebInspector, g_object_unref)
 #endif
@@ -82,7 +91,9 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitITPFirstParty, webkit_itp_first_party_unref
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitITPThirdParty, webkit_itp_third_party_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitJavascriptResult, webkit_javascript_result_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitMemoryPressureSettings, webkit_memory_pressure_settings_free)
+#if !ENABLE(2022_GLIB_API)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitMimeInfo, webkit_mime_info_unref)
+#endif
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitNavigationAction, webkit_navigation_action_free)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitNetworkProxySettings, webkit_network_proxy_settings_free)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitSecurityOrigin, webkit_security_origin_unref)
@@ -91,6 +102,7 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitUserStyleSheet, webkit_user_style_sheet_unr
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitUserContentFilter, webkit_user_content_filter_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitWebsiteData, webkit_website_data_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitWebViewSessionState, webkit_web_view_session_state_unref)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitPermissionStateQuery, webkit_permission_state_query_unref)
 
 #endif /* __GI_SCANNER__ */
 #endif /* G_DEFINE_AUTOPTR_CLEANUP_FUNC */

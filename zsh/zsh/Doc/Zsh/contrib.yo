@@ -347,7 +347,7 @@ as the var(hook) argument.
 var(widgetname) is the name of a ZLE widget.  If no options are given this
 is added to the array of widgets to be invoked in the given hook context.
 Widgets are invoked in the order they were added, with
-example(tt(zle )var(widgetname)tt( -Nw -- "$@"))
+example(tt(zle )var(widgetname)tt( -Nw -f "nolast" -- "$@"))
 
 vindex(WIDGET, in hooks)
 Note that this means that the `tt(WIDGET)' special parameter tracks the
@@ -465,7 +465,7 @@ allows you to edit the list of directories, one per line.  The
 list can be edited to any extent you like; no sanity checking is
 performed.  Completion is available.  No quoting is necessary (except for
 newlines, where I have in any case no sympathy); directories are in
-unabbreviated from and contain an absolute path, i.e. they start with tt(/).
+unabbreviated form and contain an absolute path, i.e. they start with tt(/).
 Usually the first entry should be left as the current directory.
 )
 item(tt(-p ')var(pattern)tt('))(
@@ -598,7 +598,7 @@ changes to descendant directories; earlier directories on the
 list are not pruned.  For example, changing from ~pws/yet/another
 to ~pws/some/other/dir does not cause ~pws to be pruned.
 )
-item(tt(pattern:var(pattern)))(
+item(tt(pattern:)var(pattern))(
 Gives a zsh pattern for directories that should not be
 added to the recent list (if not already there).  This element
 can be repeated to add different patterns.  For example,
@@ -660,7 +660,7 @@ sect(Abbreviated dynamic references to directories)
 
 The dynamic directory naming system is described in the subsection
 em(Dynamic named directories) of
-ifzman(the section em(Filename Expansion) in zmanref(expn))\
+ifzman(the section em(Filename Expansion) in zmanref(zshexpn))\
 ifnzman(noderef(Filename Expansion)).  In this, a reference to
 tt(~[)var(...)tt(]) is expanded by a function found by the hooks
 mechanism.
@@ -708,7 +708,7 @@ that the wrapper function gets.  This configuration is described below.
 
 Then arrange for the wrapper to be run as a zsh_directory_name hook:
 
-example(autoload -Uz add-zsh-hook zsh_diretory_name_generic zdn_mywrapper
+example(autoload -Uz add-zsh-hook zsh_directory_name_generic zdn_mywrapper
 add-zsh-hook -U zsh_directory_name zdn_mywrapper)
 
 subsect(Configuration)
@@ -1159,7 +1159,7 @@ This is used by the Perforce backend (tt(p4)) to decide if it should
 contact the Perforce server to find out if a directory is managed
 by Perforce.  This is the only reliable way of doing this, but runs
 the risk of a delay if the server name cannot be found.  If the
-server (more specifically, the tt(host)tt(:)tt(port) pair describing the
+server (more specifically, the var(host)tt(:)var(port) pair describing the
 server) cannot be contacted, its name is put into the associative array
 tt(vcs_info_p4_dead_servers) and is not contacted again during the session
 until it is removed by hand.  If you do not set this style, the tt(p4)
@@ -1177,7 +1177,7 @@ If there are two different ways of gathering
 information, you can select the simpler one by setting this style to true;
 the default is to use the not-that-simple code, which is potentially a lot
 slower but might be more accurate in all possible cases. This style is
-used by the tt(bzr) and tt(hg) backends. In the case of tt(hg) it will invoke
+used by the tt(bzr), tt(hg), and tt(git) backends. In the case of tt(hg) it will invoke
 the external hexdump program to parse the binary dirstate cache file; this
 method will not return the local revision number.
 )
@@ -1236,7 +1236,7 @@ item(tt(get-unapplied))(
 This boolean style controls whether a backend should attempt to gather a list
 of unapplied patches (for example with Mercurial Queue patches).
 
-Used by the tt(quilt) and tt(hg) backends.
+Used by the tt(quilt), tt(hg), and tt(git) backends.
 )
 enditem()
 
@@ -1318,7 +1318,7 @@ tt(%Q) expando.
 item(tt(%Q))(
 Quilt series information.
 When quilt is used (either in `addon' mode or as a `standalone' backend),
-this expando is set to quilt series' tt(patch-format) string.
+this expando is set to the quilt series' tt(patch-format) string.
 The tt(set-patch-format) hook and tt(nopatch-format) style are honoured.
 
 See ifzman(tt(Quilt Support))ifnzman(noderef(vcs_info Quilt Support)) below for details.
@@ -1328,7 +1328,8 @@ enditem()
 In tt(branchformat) these replacements are done:
 
 startsitem()
-sitem(tt(%b))(The branch name.)
+sitem(tt(%b))(The branch name. For tt(hg), the branch name can include a
+topic name.)
 sitem(tt(%r))(The current revision number or the tt(hgrevformat) style for
 tt(hg).)
 endsitem()
@@ -1403,7 +1404,7 @@ a directory that holds quilt's patches needs to be found. That directory is
 configurable via the `tt(QUILT_PATCHES)' environment variable. If that
 variable exists its value is used, otherwise the value `tt(patches)' is
 assumed. The value from tt($QUILT_PATCHES) can be overwritten using the
-`tt(quilt-patches)' style. (Note: you can use tt(vcs_info) to keep the value
+`tt(quilt-patch-dir)' style. (Note: you can use tt(vcs_info) to keep the value
 of tt($QUILT_PATCHES) correct all the time via the tt(post-quilt) hook).
 
 When the directory in question is found, quilt is assumed to be active. To
@@ -1509,7 +1510,7 @@ below for details.
 )
 findex(vcs_info_lastmsg)
 item(tt(vcs_info_lastmsg))(
-Outputs the last tt(${vcs_info_msg_*_}) value.
+Outputs the current values of tt(${vcs_info_msg_*_}).
 Takes into account the value of the tt(use-prompt-escapes) style in
 tt(':vcs_info:formats:command:-all-'). It also only prints tt(max-exports)
 values.
@@ -1651,9 +1652,16 @@ Called in the tt(git) (with tt(stgit) or during rebase or merge), and tt(hg)
 is generated; the tt(use-quilt) zstyle must be true for tt(quilt) (the tt(mq)
 and tt(stgit) backends are active by default).
 
-This hook gets the names of all applied patches which tt(vcs_info) collected
-so far in the opposite order, which means that the first argument is the
+The arguments to this hook describe applied patches 
+in the opposite order, which means that the first argument is the
 top-most patch and so forth.
+
+When the patches' log messages can be extracted, those are embedded
+within each argument after a space, so each argument is of the form
+`var(patch-name) var(first line of the log message)', where var(patch-name)
+contains no whitespace. The tt(mq) backend passes arguments of
+the form `var(patch name)', with possible embedded spaces, but without
+extracting the patch's log message.
 
 When setting tt(ret) to non-zero, the string in
 tt(${hook_com[applied-string]}) will be
@@ -1661,6 +1669,11 @@ available as tt(%p) in the tt(patch-format) and tt(nopatch-format) styles.
 This hook is, in concert with tt(set-patch-format), responsible for
 tt(%)-escaping that value for use in the prompt.
 (See ifzman(the bf(Oddities) section)ifnzman(noderef(vcs_info Oddities)).)
+
+COMMENT(This paragraph is repeated above/below)\
+The tt(quilt) backend passes to this hook the inputs
+tt(${hook_com[quilt-patches-dir]}) and, if it has been
+determined, tt(${hook_com[quilt-pc-dir]}).
 )
 item(tt(gen-unapplied-string))(
 Called in the tt(git) (with tt(stgit) or during rebase), and tt(hg) (with
@@ -1668,8 +1681,10 @@ tt(mq)) backend and in tt(quilt) support when the tt(unapplied-string) is
 generated; the tt(get-unapplied) style must be true.
 
 This hook gets the names of all unapplied patches which tt(vcs_info)
-collected so far in order, which means that the first argument is
+in order, which means that the first argument is
 the patch next-in-line to be applied and so forth.
+
+The format of each argument is as for tt(gen-applied-string), above.
 
 When setting tt(ret) to non-zero, the string in
 tt(${hook_com[unapplied-string]}) will be available as tt(%u) in the
@@ -1677,6 +1692,11 @@ tt(patch-format) and tt(nopatch-format) styles.
 This hook is, in concert with tt(set-patch-format), responsible for
 tt(%)-escaping that value for use in the prompt.
 (See ifzman(the bf(Oddities) section)ifnzman(noderef(vcs_info Oddities)).)
+
+COMMENT(This paragraph is repeated above/below)\
+The tt(quilt) backend passes to this hook the inputs
+tt(${hook_com[quilt-patches-dir]}) and, if it has been
+determined, tt(${hook_com[quilt-pc-dir]}).
 )
 item(tt(gen-mqguards-string))(
 Called in the tt(hg) backend when tt(guards-string) is generated; the
@@ -1759,6 +1779,11 @@ This hook is, in concert with the tt(gen-applied-string) or
 tt(gen-unapplied-string) hooks if they are defined, responsible for
 tt(%)-escaping the final tt(patch-format) value for use in the prompt.
 (See ifzman(the bf(Oddities) section)ifnzman(noderef(vcs_info Oddities)).)
+
+COMMENT(This paragraph is repeated above/below)\
+The tt(quilt) backend passes to this hook the inputs
+tt(${hook_com[quilt-patches-dir]}) and, if it has been
+determined, tt(${hook_com[quilt-pc-dir]}).
 )
 item(tt(set-message))(
 Called each time before a `tt(vcs_info_msg_)var(N)tt(_)' message is set.
@@ -1826,16 +1851,28 @@ If you do use tt(use-simple), please report if it does `the-right-thing[tm]'.
 
 Display the revision number in yellow for tt(bzr) and tt(svn):
 example(zstyle ':vcs_info:(svn|bzr):*' \ 
+       branchformat '%b%%F{yellow}:%r')
+
+The doubled percent sign is explained in
+ifzman(the bf(Oddities) section)ifnzman(noderef(vcs_info Oddities)).
+
+Alternatively, one can use the raw colour codes directly:
+
+example(zstyle ':vcs_info:(svn|bzr):*' \ 
        branchformat '%b%{'${fg[yellow]}'%}:%r')
 
-If you want colors, make sure you enclose the color codes in tt(%{)var(...)tt(%})
+Normally when a variable is interpolated into a format string, the variable
+needs to be tt(%)-escaped. In this example we skipped that because we assume
+the value of tt(${fg[yellow]}) doesn't contain any tt(%) signs.
+
+Make sure you enclose the color codes in tt(%{)var(...)tt(%})
 if you want to use the string provided by tt(vcs_info) in prompts.
 
 Here is how to print the VCS information as a command (not in a prompt):
-example(alias vcsi='vcs_info command; vcs_info_lastmsg')
+example(vcsi+LPAR()+RPAR() { vcs_info interactive; vcs_info_lastmsg })
 
 This way, you can even define different formats for output via
-tt(vcs_info_lastmsg) in the 'tt(:vcs_info:*:command:*)' namespace.
+tt(vcs_info_lastmsg) in the 'tt(:vcs_info:*:interactive:*)' namespace.
 
 Now as promised, some code that uses hooks:
 say, you'd like to replace the string `svn' by `subversion' in
@@ -1919,7 +1956,7 @@ subsect(Installation)
 
 You should make sure all the functions from the tt(Functions/Prompts)
 directory of the source distribution are available; they all begin with
-the string `tt(prompt_)' except for the special function`tt(promptinit)'.
+the string `tt(prompt_)' except for the special function `tt(promptinit)'.
 You also need the `tt(colors)' and `tt(add-zsh-hook)' functions from
 tt(Functions/Misc).
 All these functions may already be installed on your system; if not,
@@ -2019,27 +2056,30 @@ setopts (tt(promptbang), etc.) are turned on, all other prompt-related
 options are turned off.  The tt(prompt_opts) array preserves setopts even
 beyond the scope of tt(localoptions), should your function need that.
 )
-item(Modify precmd and preexec)(
-Use of tt(add-zsh-hook) is recommended.  The tt(precmd) and tt(preexec)
-hooks are automatically adjusted if the prompt theme changes or is
-disabled.
+item(Modify hooks)(
+Use of tt(add-zsh-hook) and tt(add-zle-hook-widget) is recommended (see
+the bf(Manipulating Hook Functions) section above).
+All hooks that follow the naming pattern tt(prompt_)var(theme)tt(_)var(hook)
+are automatically removed when the prompt theme changes or is disabled.
 )
 item(Declare cleanup)(
 If your function makes any other changes that should be undone when the
 theme is disabled, your setup function may call
+
 example(prompt_cleanup var(command))
+
 where var(command) should be suitably quoted.  If your theme is ever
 disabled or replaced by another, var(command) is executed with tt(eval).
 You may declare more than one such cleanup hook.
 )
 item(Define preview)(
-Define or autoload a function tt(prompt_var(name)_preview) to display
+Define or autoload a function tt(prompt_)var(name)tt(_preview) to display
 a simulated version of your prompt.  A simple default previewer is
 defined by tt(promptinit) for themes that do not define their own.
 This preview function is called by `tt(prompt -p)'.
 )
 item(Provide help)(
-Define or autoload a function tt(prompt_var(name)_help) to display
+Define or autoload a function tt(prompt_)var(name)tt(_help) to display
 documentation or help text for your theme.
 This help function is called by `tt(prompt -h)'.
 )
@@ -2316,8 +2356,8 @@ directly.
 )
 tindex(bracketed-paste-magic)
 item(tt(bracketed-paste-magic))(
-The tt(bracketed-paste) widget (see ifzman(subsection Miscellaneous in
-zmanref(zshzle))ifnzman(noderef(Miscellaneous) in noderef(Zle Widgets)))
+The tt(bracketed-paste) widget (see ifzman(the subsection `Miscellaneous' in
+zmanref(zshzle))ifnzman(noderef(Miscellaneous) in noderef(Standard Widgets)))
 inserts pasted text literally into the editor buffer rather than interpret
 it as keystrokes.  This disables some common usages where the self-insert
 widget is replaced in order to accomplish some extra processing.  An
@@ -2471,6 +2511,12 @@ item(tt(edit-command-line))(
 Edit the command line using your visual editor, as in tt(ksh).
 
 example(bindkey -M vicmd v edit-command-line)
+
+The editor to be used can also be specified using the tt(editor) style in
+the context of the widget. It is specified as an array of command and
+arguments:
+
+example(zstyle :zle:edit-command-line editor gvim -f)
 )
 tindex(expand-absolute-path)
 item(tt(expand-absolute-path))(
@@ -3159,7 +3205,7 @@ investigate the command word found.  The default is tt(whence -c).
 tindex(zcalc-auto-insert)
 item(tt(zcalc-auto-insert))(
 This function is useful together with the tt(zcalc) function described in
-ifzman(the section Mathematical Functions)\
+ifzman(the section `Mathematical Functions')\
 ifnzman(noderef(Mathematical Functions)).
 It should be bound to a key representing a binary operator such
 as `tt(PLUS())', `tt(-)', `tt(*)' or `tt(/)'.  When running in zcalc,
@@ -3559,7 +3605,8 @@ Calling tt(zsh-mime-setup) with the option
 tt(-v) causes verbose output to be shown during the setup operation.
 
 The system respects the tt(mailcap) flags tt(needsterminal) and
-tt(copiousoutput), see manref(mailcap)(4).
+tt(copiousoutput); see manref(mailcap)(4) or manref(mailcap)(5)
+(the man page's name varies across platforms).
 
 The functions use the following styles, which are defined with the
 tt(zstyle) builtin command (\
@@ -3632,7 +3679,7 @@ types even if they are executable.  As this example shows, the complete
 file name is matched against the pattern, regardless of how the file
 was passed to the handler.  The file is resolved to a full path using
 the tt(:P) modifier described in
-ifzman(the subsection Modifiers in zmanref(zshexpn))\
+ifzman(the subsection `Modifiers' in zmanref(zshexpn))\
 ifnzman(noderef(Modifiers));
 this means that symbolic links are resolved where possible, so that
 links into other file systems behave in the correct fashion.
@@ -4264,6 +4311,12 @@ Same as tt(zed -f).  This function does not appear in the zsh
 distribution, but can be created by linking tt(zed) to the name tt(fned)
 in some directory in your tt(fpath).
 )
+findex(histed)
+item(tt(histed) [ [ var(name) ] var(size) ])(
+Same as tt(zed -h).  This function does not appear in the zsh
+distribution, but can be created by linking tt(zed) to the name tt(histed)
+in some directory in your tt(fpath).
+)
 findex(is-at-least)
 item(tt(is-at-least) var(needed) [ var(present) ])(
 Perform a greater-than-or-equal-to comparison of two strings having the
@@ -4297,7 +4350,7 @@ See also the tt(pager), tt(prompt) and tt(rprompt) styles below.
 findex(regexp-replace)
 item(tt(regexp-replace) var(var) var(regexp) var(replace))(
 Use regular expressions to perform a global search and replace operation
-on a variable.  POSIX extended regular expressions are used,
+on a variable.  POSIX extended regular expressions (ERE) are used,
 unless the option tt(RE_MATCH_PCRE) has been set, in which case
 Perl-compatible regular expressions are used
 (this requires the shell to be linked against the tt(pcre)
@@ -4315,6 +4368,9 @@ and arithmetic expressions which will be replaced:  in particular, a
 reference to tt($MATCH) will be replaced by the text matched by the pattern.
 
 The return status is 0 if at least one match was performed, else 1.
+
+Note that if using POSIX EREs, the tt(^) or word boundary operators
+(where available) may not work properly.
 )
 findex(run-help)
 item(tt(run-help) var(cmd))(
@@ -4355,6 +4411,7 @@ directory.  These must be autoloaded, or placed as executable scripts in
 your search path, in order to be found and used by tt(run-help).
 
 startitem()
+findex(run-help-btrfs)
 findex(run-help-git)
 findex(run-help-ip)
 findex(run-help-openssl)
@@ -4362,14 +4419,16 @@ findex(run-help-p4)
 findex(run-help-sudo)
 findex(run-help-svk)
 findex(run-help-svn)
-xitem(run-help-git)
-xitem(run-help-ip)
-xitem(run-help-openssl)
-xitem(run-help-p4)
-xitem(run-help-sudo)
-xitem(run-help-svk)
+xitem(tt(run-help-btrfs))
+xitem(tt(run-help-git))
+xitem(tt(run-help-ip))
+xitem(tt(run-help-openssl))
+xitem(tt(run-help-p4))
+xitem(tt(run-help-sudo))
+xitem(tt(run-help-svk))
 item(tt(run-help-svn))(
 Assistant functions for the
+tt(btrfs),
 tt(git),
 tt(ip),
 tt(openssl),
@@ -4464,12 +4523,13 @@ counts the number of arguments passed to each execution of var(command),
 em(including) any var(arg) list.  Also, any time tt(-i) or tt(-I) is used,
 each var(input) is processed separately as if by `tt(-L) tt(1)'.
 
-For details of the other tt(zargs) options, see zmanref(xargs) (but note
+For details of the other tt(zargs) options, see the manref(xargs)(1) man page (but note
 the difference in function between tt(zargs) and tt(xargs)) or run
 tt(zargs) with the tt(-)tt(-help) option.
 )
 findex(zed)
 xitem(tt(zed) [ tt(-f) [ tt(-x) var(num) ] ] var(name))
+xitem(tt(zed) [ tt(-h) [ var(name) ] var(size) ])
 item(tt(zed -b))(
 This function uses the ZLE editor to edit a file or function.
 
@@ -4484,7 +4544,14 @@ the given number of spaces; `tt(-x 2)' is consistent with the layout
 of functions distributed with the shell.
 
 Without tt(-f), var(name) is the path name of the file to edit, which need
-not exist; it is created on write, if necessary.
+not exist; it is created on write, if necessary.  With tt(-h), the file is
+presumed to contain history events.
+
+When no file name is provided for tt(-h) the current shell history is edited
+in place.  The history is renumbered when zed exits successfully.
+
+When editing history, multi-line events must have a trailing backslash on
+every line before the last.
 
 While editing, the function sets the main keymap to tt(zed) and the
 vi command keymap to tt(zed-vicmd).  These will be copied from the existing
@@ -4500,16 +4567,20 @@ suitable for putting into a startup file.  Note that, if rerun,
 this will overwrite the existing tt(zed) and tt(zed-vicmd) keymaps.
 
 Completion is available, and styles may be set with the context prefix
-`tt(:completion:zed)'.
+`tt(:completion:zed:)'.
 
-A zle widget tt(zed-set-file-name) is available.  This can be called by
-name from within zed using `tt(\ex zed-set-file-name)' (note, however, that
-because of zed's rebindings you will have to type tt(^j) at the end instead
-of the return key), or can be bound to a key in either of the tt(zed) or
-tt(zed-vicmd) keymaps after `tt(zed -b)' has been run.  When the widget is
-called, it prompts for a new name for the file being edited.  When zed
-exits the file will be written under that name and the original file will
-be left alone.  The widget has no effect with `tt(zed -f)'.
+findex(zed-set-file-name)
+A zle widget tt(zed-set-file-name) is available.  This can be called
+by name from within zed using `tt(\ex zed-set-file-name)' or can be
+bound to a key in either of the tt(zed) or tt(zed-vicmd) keymaps after
+`tt(zed -b)' has been run.  When the widget is called, it prompts for
+a new name for the file being edited.  When zed exits the file will be
+written under that name and the original file will be left alone.  The
+widget has no effect when invoked from `tt(zed -f)'.  The completion
+context is changed to `tt(:completion:zed-set-file-name:)'.  When editing
+the current history with `tt(zed -h)', the history is first updated and
+then the file is written, but the global setting of tt(HISTFILE) is not
+altered.
 
 While tt(zed-set-file-name) is running, zed uses the keymap
 tt(zed-normal-keymap), which is linked from the main keymap in effect
@@ -4551,7 +4622,7 @@ the same result, the destination was an existing regular file and tt(-f)
 was not given) causes the entire function to abort without doing
 anything.
 
-In addition to pattern replacement, the variable tt($f) can be referrred
+In addition to pattern replacement, the variable tt($f) can be referred
 to in the second (replacement) argument.  This makes it possible to
 use variable substitution to alter the argument; see examples below.
 

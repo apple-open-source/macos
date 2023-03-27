@@ -202,6 +202,10 @@ CFArrayRef SecCertificateCopyIPAddresses(SecCertificateRef certificate);
  certificate if any. */
 CFArrayRef SecCertificateCopyRFC822Names(SecCertificateRef certificate);
 
+/* Return an array of CFStringRefs representing the URIs in the SAN of the
+ certificate if any. */
+CFArrayRef SecCertificateCopyURIs(SecCertificateRef certificate);
+
 /* Return an array of CFStringRefs representing the common names in the
  certificates subject if any. */
 CFArrayRef SecCertificateCopyCommonNames(SecCertificateRef certificate);

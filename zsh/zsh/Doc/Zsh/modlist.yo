@@ -87,6 +87,9 @@ Interface to the termcap database.
 item(tt(zsh/terminfo))(
 Interface to the terminfo database.
 )
+item(tt(zsh/watch))(
+Reporting of login and logout events.
+)
 item(tt(zsh/zftp))(
 A builtin FTP client.
 )
@@ -195,10 +198,13 @@ includefile(Zsh/mod_tcp.yo)
 texinode(The zsh/termcap Module)(The zsh/terminfo Module)(The zsh/net/tcp Module)(Zsh Modules)
 sect(The zsh/termcap Module)
 includefile(Zsh/mod_termcap.yo)
-texinode(The zsh/terminfo Module)(The zsh/zftp Module)(The zsh/termcap Module)(Zsh Modules)
+texinode(The zsh/terminfo Module)(The zsh/watch Module)(The zsh/termcap Module)(Zsh Modules)
 sect(The zsh/terminfo Module)
 includefile(Zsh/mod_terminfo.yo)
-texinode(The zsh/zftp Module)(The zsh/zle Module)(The zsh/terminfo Module)(Zsh Modules)
+texinode(The zsh/watch Module)(The zsh/zftp Module)(The zsh/terminfo Module)(Zsh Modules)
+sect(The zsh/watch Module)
+includefile(Zsh/mod_watch.yo)
+texinode(The zsh/zftp Module)(The zsh/zle Module)(The zsh/watch Module)(Zsh Modules)
 sect(The zsh/zftp Module)
 includefile(Zsh/mod_zftp.yo)
 texinode(The zsh/zle Module)(The zsh/zleparameter Module)(The zsh/zftp Module)(Zsh Modules)

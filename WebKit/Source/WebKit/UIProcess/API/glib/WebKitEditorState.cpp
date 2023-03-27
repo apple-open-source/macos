@@ -59,7 +59,7 @@ struct _WebKitEditorStatePrivate {
     unsigned isRedoAvailable : 1;
 };
 
-WEBKIT_DEFINE_TYPE(WebKitEditorState, webkit_editor_state, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitEditorState, webkit_editor_state, G_TYPE_OBJECT)
 
 static void webkitEditorStateGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -90,8 +90,8 @@ static void webkit_editor_state_class_init(WebKitEditorStateClass* editorStateCl
     sObjProperties[PROP_TYPING_ATTRIBUTES] =
         g_param_spec_uint(
             "typing-attributes",
-            _("Typing Attributes"),
-            _("Flags with the typing attributes"),
+            nullptr,
+            nullptr,
             0, G_MAXUINT, 0,
             WEBKIT_PARAM_READABLE);
 
@@ -118,11 +118,11 @@ WebKitEditorState* webkitEditorStateCreate(WebPageProxy& page)
 
 void webkitEditorStateChanged(WebKitEditorState* editorState, const EditorState& newState)
 {
-    if (newState.isMissingPostLayoutData)
+    if (!newState.hasPostLayoutData())
         return;
 
     unsigned typingAttributes = WEBKIT_EDITOR_TYPING_ATTRIBUTE_NONE;
-    const auto& postLayoutData = newState.postLayoutData();
+    const auto& postLayoutData = *newState.postLayoutData;
     if (postLayoutData.typingAttributes & AttributeBold)
         typingAttributes |= WEBKIT_EDITOR_TYPING_ATTRIBUTE_BOLD;
     if (postLayoutData.typingAttributes & AttributeItalics)
@@ -147,6 +147,7 @@ void webkitEditorStateChanged(WebKitEditorState* editorState, const EditorState&
  * @editor_state: a #WebKitEditorState
  *
  * Gets the typing attributes at the current cursor position.
+ *
  * If there is a selection, this returns the typing attributes
  * of the selected text. Note that in case of a selection,
  * typing attributes are considered active only when they are

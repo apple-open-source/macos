@@ -28,6 +28,8 @@
 
 #import "SFAnalytics.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class SFAnalyticsSQLiteStore;
 
 @interface SFAnalytics (Internal)
@@ -38,13 +40,15 @@
 - (void)drainLogQueue;
 
 - (void)setDataProperty:(NSData* _Nullable)data forKey:(NSString*)key;
-- (NSData*)dataPropertyForKey:(NSString*)key;
+- (NSData* _Nullable)dataPropertyForKey:(NSString*)key;
 
 
-@property (nonatomic) SFAnalyticsSQLiteStore* database;
+@property (nonatomic, nullable) SFAnalyticsSQLiteStore* database;
 @property (nonatomic) dispatch_queue_t queue;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif // objc2
 #endif /* SFAnalytics_Internal_h */

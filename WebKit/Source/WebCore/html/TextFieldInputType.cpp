@@ -36,7 +36,6 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DOMFormData.h"
-#include "DeprecatedGlobalSettings.h"
 #include "Editor.h"
 #include "ElementInlines.h"
 #include "ElementRareData.h"
@@ -356,6 +355,7 @@ void TextFieldInputType::createShadowSubtree()
 
     m_innerText = TextControlInnerTextElement::create(document, element()->isInnerTextElementEditable());
 
+    ScriptDisallowedScope::EventAllowedScope eventAllowedScope { *element()->userAgentShadowRoot() };
     if (!createsContainer) {
         element()->userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, *m_innerText);
         updatePlaceholderText();
@@ -372,12 +372,12 @@ void TextFieldInputType::createShadowSubtree()
 
     if (shouldHaveCapsLockIndicator) {
         m_capsLockIndicator = HTMLDivElement::create(document);
+        m_container->appendChild(ContainerNode::ChildChange::Source::Parser, *m_capsLockIndicator);
+
         m_capsLockIndicator->setPseudo(ShadowPseudoIds::webkitCapsLockIndicator());
 
         bool shouldDrawCapsLockIndicator = this->shouldDrawCapsLockIndicator();
         m_capsLockIndicator->setInlineStyleProperty(CSSPropertyDisplay, shouldDrawCapsLockIndicator ? CSSValueBlock : CSSValueNone, true);
-
-        m_container->appendChild(ContainerNode::ChildChange::Source::Parser, *m_capsLockIndicator);
     }
 
     updateAutoFillButton();
@@ -405,11 +405,6 @@ RefPtr<TextControlInnerTextElement> TextFieldInputType::innerTextElement() const
 HTMLElement* TextFieldInputType::innerSpinButtonElement() const
 {
     return m_innerSpinButton.get();
-}
-
-HTMLElement* TextFieldInputType::capsLockIndicatorElement() const
-{
-    return m_capsLockIndicator.get();
 }
 
 HTMLElement* TextFieldInputType::autoFillButtonElement() const
@@ -648,7 +643,7 @@ void TextFieldInputType::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent& 
 bool TextFieldInputType::shouldRespectListAttribute()
 {
 #if ENABLE(DATALIST_ELEMENT)
-    return DeprecatedGlobalSettings::dataListElementEnabled();
+    return element() && element()->document().settings().dataListElementEnabled();
 #else
     return InputType::themeSupportsDataListUI(this);
 #endif
@@ -855,7 +850,7 @@ void TextFieldInputType::createContainer(PreserveSelectionRange preserveSelectio
             if (selection.start().deprecatedNode() != element->userAgentShadowRoot())
                 return;
 
-            auto [selectionStart, selectionEnd, selectionDirection] = selectionState;
+            auto& [selectionStart, selectionEnd, selectionDirection] = selectionState;
             element->setSelectionRange(selectionStart, selectionEnd, selectionDirection);
         });
     }
@@ -870,11 +865,12 @@ void TextFieldInputType::createAutoFillButton(AutoFillButtonType autoFillButtonT
 
     ASSERT(element());
     m_autoFillButton = AutoFillButtonElement::create(element()->document(), *this);
+    m_container->appendChild(*m_autoFillButton);
+
     m_autoFillButton->setPseudo(autoFillButtonTypeToAutoFillButtonPseudoClassName(autoFillButtonType));
     m_autoFillButton->setAttributeWithoutSynchronization(roleAttr, HTMLNames::buttonTag->localName());
     m_autoFillButton->setAttributeWithoutSynchronization(aria_labelAttr, AtomString { autoFillButtonTypeToAccessibilityLabel(autoFillButtonType) });
     m_autoFillButton->setTextContent(autoFillButtonTypeToAutoFillButtonText(autoFillButtonType));
-    m_container->appendChild(*m_autoFillButton);
 }
 
 void TextFieldInputType::updateAutoFillButton()

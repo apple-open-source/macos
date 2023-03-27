@@ -133,7 +133,7 @@ struct D3DVarying final
                unsigned int componentCountIn,
                unsigned int outputSlotIn);
 
-    D3DVarying(const D3DVarying &) = default;
+    D3DVarying(const D3DVarying &)            = default;
     D3DVarying &operator=(const D3DVarying &) = default;
 
     std::string semanticName;
@@ -169,6 +169,8 @@ class ProgramD3DMetadata final : angle::NonCopyable
     bool usesMultipleFragmentOuts() const;
     bool usesCustomOutVars() const;
     const ShaderD3D *getFragmentShader() const;
+    uint8_t getClipDistanceArraySize() const;
+    uint8_t getCullDistanceArraySize() const;
 
   private:
     const int mRendererMajorShaderModel;
@@ -235,7 +237,8 @@ class ProgramD3D : public ProgramImpl
     angle::Result getPixelExecutableForCachedOutputLayout(d3d::Context *context,
                                                           ShaderExecutableD3D **outExectuable,
                                                           gl::InfoLog *infoLog);
-    angle::Result getComputeExecutableForImage2DBindLayout(d3d::Context *context,
+    angle::Result getComputeExecutableForImage2DBindLayout(const gl::Context *glContext,
+                                                           d3d::Context *context,
                                                            ShaderExecutableD3D **outExecutable,
                                                            gl::InfoLog *infoLog);
     std::unique_ptr<LinkEvent> link(const gl::Context *context,
@@ -322,7 +325,7 @@ class ProgramD3D : public ProgramImpl
         return mAttribLocationToD3DSemantic;
     }
 
-    void updateCachedInputLayout(Serial associatedSerial, const gl::State &state);
+    void updateCachedInputLayout(UniqueSerial associatedSerial, const gl::State &state);
     void updateCachedOutputLayout(const gl::Context *context, const gl::Framebuffer *framebuffer);
     void updateCachedComputeImage2DBindLayout(const gl::Context *context);
 
@@ -463,7 +466,7 @@ class ProgramD3D : public ProgramImpl
 
     void initializeUniformStorage(const gl::ShaderBitSet &availableShaderStages);
 
-    void defineUniformsAndAssignRegisters();
+    void defineUniformsAndAssignRegisters(const gl::Context *context);
     void defineUniformBase(const gl::Shader *shader,
                            const sh::ShaderVariable &uniform,
                            D3DUniformMap *uniformMap);
@@ -519,20 +522,20 @@ class ProgramD3D : public ProgramImpl
     D3DUniform *getD3DUniformFromLocation(GLint location);
     const D3DUniform *getD3DUniformFromLocation(GLint location) const;
 
-    void initAttribLocationsToD3DSemantic();
+    void initAttribLocationsToD3DSemantic(const gl::Context *context);
 
     void reset();
     void initializeUniformBlocks();
-    void initializeShaderStorageBlocks();
+    void initializeShaderStorageBlocks(const gl::Context *context);
 
-    void updateCachedInputLayoutFromShader();
+    void updateCachedInputLayoutFromShader(const gl::Context *context);
     void updateCachedOutputLayoutFromShader();
     void updateCachedImage2DBindLayoutFromShader(gl::ShaderType shaderType);
     void updateCachedVertexExecutableIndex();
     void updateCachedPixelExecutableIndex();
     void updateCachedComputeExecutableIndex();
 
-    void linkResources(const gl::ProgramLinkedResources &resources);
+    void linkResources(const gl::Context *context, const gl::ProgramLinkedResources &resources);
 
     RendererD3D *mRenderer;
     DynamicHLSL *mDynamicHLSL;
@@ -605,7 +608,7 @@ class ProgramD3D : public ProgramImpl
     static unsigned int issueSerial();
     static unsigned int mCurrentSerial;
 
-    Serial mCurrentVertexArrayStateSerial;
+    UniqueSerial mCurrentVertexArrayStateSerial;
 };
 }  // namespace rx
 

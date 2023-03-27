@@ -495,6 +495,9 @@ static UInt32 getIfnetHardwareAssistValue(
     if (driverFeatures & kIONetworkFeatureSWTimeStamp)
         hwassist |= IFNET_SW_TIMESTAMP;
 
+    if (driverFeatures & kIONetworkFeatureLRO)
+        hwassist |= IFNET_LRO;
+
     return hwassist;
 }
 
@@ -1360,6 +1363,8 @@ SInt32 IONetworkInterface::performCommand(IONetworkController * ctr,
         case SIOCSIFMTU:
         case SIOCSIFMEDIA:
         case SIOCSIFLLADDR:
+        case SIOCGIFCAP:
+        case SIOCSIFCAP:
             ret = (int) ctr->executeCommand(
                              this,            /* client */
                              (IONetworkController::Action)
@@ -1391,7 +1396,11 @@ int IONetworkInterface::performGatedCommand(void * target,
     IONetworkInterface *  self = (IONetworkInterface *)  target;
     IONetworkController * ctr  = (IONetworkController *) arg1_ctr;
     struct ifreq *        ifr  = (struct ifreq *) arg4_1;
+    UInt32                hwCtrAssists;
+    UInt32                hwCtrAssistsUpdate;
+    UInt32                hwCtrAssistsUpdateMask;
     SInt32                ret  = EOPNOTSUPP;
+    IOReturn              status;
 
     // Refuse to issue I/O to the controller if it is in a power state
     // that renders it "unusable".
@@ -1419,6 +1428,28 @@ int IONetworkInterface::performGatedCommand(void * target,
             ret = ctr->errnoFromReturn(
                   ctr->setHardwareAddress( ifr->ifr_addr.sa_data,
                                            ifr->ifr_addr.sa_len ) );
+            break;
+
+        case SIOCGIFCAP:
+            DLOG("SIOCGIFCAP: %p", self);
+            hwCtrAssists = getIfnetHardwareAssistValue(ctr);
+            ifr->ifr_reqcap = (int)(self->_hwAssists & hwCtrAssists);
+            DLOG("SIOCGIFCAP: %p hwCtrAssists = 0x%08x _hwAssists=0x%08x", self, hwCtrAssists, self->_hwAssists);
+            break;
+
+        case SIOCSIFCAP:
+            DLOG("SIOCSIFCAP: %p", self);
+            hwCtrAssists = getIfnetHardwareAssistValue(ctr);
+            hwCtrAssistsUpdate = ifr->ifr_reqcap & self->_hwAssists;
+            hwCtrAssistsUpdateMask = ifr->ifr_reqcap ^ self->_hwAssists;
+            DLOG("SIOCGIFCAP: %p hwCtrAssistsUpdate = 0x%08x hwCtrAssistsUpdateMask = 0x%08x", self, hwCtrAssistsUpdate, hwCtrAssistsUpdateMask);
+            status = ctr->setHardwareAssists( hwCtrAssistsUpdate, hwCtrAssistsUpdateMask );
+            if (status == kIOReturnSuccess) {
+                self->_hwAssists = hwCtrAssistsUpdate;
+                ret = ifnet_set_offload(self->_backingIfnet, self->_hwAssists);
+                DLOG("SIOCSIFCAP: %p hwCtrAssists = 0x%08x _hwAssists=0x%08x", self, hwCtrAssists, self->_hwAssists);
+            }
+            ret = 0;
             break;
     }
 
@@ -2204,8 +2235,8 @@ IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
         goto fail;
     }
 
-	error = ifnet_set_offload(_backingIfnet,
-            getIfnetHardwareAssistValue(_driver));		
+    _hwAssists = getIfnetHardwareAssistValue(_driver);
+	error = ifnet_set_offload(_backingIfnet, _hwAssists);
     if (error)
         LOG("%s: ifnet_set_offload error %d\n", getName(), error);
 

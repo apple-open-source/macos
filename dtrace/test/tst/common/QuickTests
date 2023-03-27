@@ -27,8 +27,8 @@ fbtprovider/tst.tailcall.d
 ## io/tst.fds.d									/* RADAR 4906214: Awaits translator for fileinfo_t */
 ## misc/tst.include.ksh							/* RADAR 4768973: "dtrace -C" is confused by, e.g. #include <stdio.h> */
 lockstat/tst.adaptiveprobes.d
-lockstat/tst.lockprof.spin.ksh
-lockstat/tst.lockprof.ticket.ksh
+# lockstat/tst.lockprof.spin.ksh                /* RADAR 101629673: dtrace_quick_tests failed: panic in lockprof test due to lockstat overhead */
+# lockstat/tst.lockprof.ticket.ksh              /* RADAR 101629673: dtrace_quick_tests failed: panic in lockprof test due to lockstat overhead */
 lockstat/tst.rwprobes.d
 lockstat/tst.spinprobes.d
 lockstat/tst.ticketprobes.d

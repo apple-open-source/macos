@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008, 2010, 2011, 2014, 2016, 2017, 2020, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -485,7 +485,7 @@ _show_entity(CFDictionaryRef entity, CFStringRef prefix)
 
 
 static void
-_net_close()
+_net_close(void)
 {
 	if (net_interface != NULL) {
 		CFRelease(net_interface);
@@ -538,7 +538,7 @@ _net_close()
 
 __private_extern__
 void
-do_net_init()
+do_net_init(void)
 {
 	int	one	= 1;
 	int	zero	= 0;

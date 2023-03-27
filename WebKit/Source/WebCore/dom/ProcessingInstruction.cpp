@@ -31,8 +31,8 @@
 #include "DocumentInlines.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "MediaList.h"
 #include "MediaQueryParser.h"
+#include "MediaQueryParserContext.h"
 #include "StyleScope.h"
 #include "StyleSheetContents.h"
 #include "XMLDocumentParser.h"
@@ -120,7 +120,7 @@ void ProcessingInstruction::checkStyleSheet()
             // to kick off import/include loads that can hang off some parent sheet.
             if (m_isXSL) {
                 URL finalURL({ }, m_localHref);
-                m_sheet = XSLStyleSheet::createEmbedded(this, finalURL);
+                m_sheet = XSLStyleSheet::createEmbedded(*this, finalURL);
                 m_loading = false;
                 document().scheduleToApplyXSLTransforms();
             }
@@ -213,7 +213,7 @@ void ProcessingInstruction::setCSSStyleSheet(const String& href, const URL& base
     auto cssSheet = CSSStyleSheet::create(StyleSheetContents::create(href, parserContext), *this);
     cssSheet.get().setDisabled(m_alternate);
     cssSheet.get().setTitle(m_title);
-    cssSheet.get().setMediaQueries(MediaQuerySet::create(m_media, MediaQueryParserContext(document())));
+    cssSheet.get().setMediaQueries(MQ::MediaQueryParser::parse(m_media, MediaQueryParserContext(document())));
 
     m_sheet = WTFMove(cssSheet);
 
@@ -228,7 +228,7 @@ void ProcessingInstruction::setCSSStyleSheet(const String& href, const URL& base
 void ProcessingInstruction::setXSLStyleSheet(const String& href, const URL& baseURL, const String& sheet)
 {
     ASSERT(m_isXSL);
-    m_sheet = XSLStyleSheet::create(this, href, baseURL);
+    m_sheet = XSLStyleSheet::create(*this, href, baseURL);
     Ref<Document> protect(document());
     parseStyleSheet(sheet);
 }

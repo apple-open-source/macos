@@ -303,7 +303,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
 
-        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -319,7 +319,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         // Peer 2 attempts to join via preapproval
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer2contextID = "peer2"
-        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter!.allPeers(), essential: false)
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
@@ -336,8 +336,8 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         // Now, Peer1 should preapprove Peer2
         let peer2Preapproval = TPHashBuilder.hash(with: .SHA256, of: peer2SOSMockPeer.publicSigningKey.encodeSubjectPublicKeyInfo())
 
-        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
-        self.mockSOSAdapter.sendTrustedPeerSetChangedUpdate()
+        self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter!.sendTrustedPeerSetChangedUpdate()
 
         // Peer1 should upload TLKs for Peer2
         self.assertAllCKKSViewsUpload(tlkShares: 1)
@@ -650,7 +650,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
     }
 
     func testHandlePeerMissingOnHealthCheckNoJoinAttempt() throws {
-        self.mockSOSAdapter.sosEnabled = false
+        self.mockSOSAdapter!.sosEnabled = false
 
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
@@ -688,7 +688,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
     }
 
     func testHandlePeerMissingOnTrustUpdateNoJoinAttempt() throws {
-        self.mockSOSAdapter.sosEnabled = false
+        self.mockSOSAdapter!.sosEnabled = false
         self.startCKAccountStatusMock()
         try self.cuttlefishContext.setCDPEnabled()
         self.cuttlefishContext.startOctagonStateMachine()

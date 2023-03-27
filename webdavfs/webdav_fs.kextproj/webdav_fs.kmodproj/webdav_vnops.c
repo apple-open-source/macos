@@ -1532,8 +1532,11 @@ static int webdav_fsync(struct vnop_fsync_args *ap)
 	 * For a webdav vnode, we do not cache any file data in the VM unless
 	 * the file is mmap()ed. So if the file was never mapped, there is
 	 * no need to call ubc_msync(). 
+	 * Skip ubc_msync() if we are coming from close in pageout during reclaim
+	 * to avoid self-deadlock as the pageout is called as result of ubc_msync()
+	 * in vclean().
 	 */
-	if ( pt->pt_status & WEBDAV_WASMAPPED )
+	if ( pt->pt_status & WEBDAV_WASMAPPED && !(pt->pt_status & WEBDAV_PAGEOUT_CLOSE_IN_RECLAIM) )
 	{
 		/* This is where we need to tell UBC to flush out all of
 		 * the dirty pages for this vnode. If we do that then our write
@@ -4325,7 +4328,11 @@ exit_no_unmap:
 		close_ap.a_vp = ap->a_vp;
 		close_ap.a_fflag = FWRITE;
 		close_ap.a_context = ap->a_context;
+		if (vnode_isrecycled(ap->a_vp)) {
+			pt->pt_status |= WEBDAV_PAGEOUT_CLOSE_IN_RECLAIM;
+		}
 		webdav_vnop_close(&close_ap);
+		pt->pt_status &= ~WEBDAV_PAGEOUT_CLOSE_IN_RECLAIM;
 	}
 	
 	if ( (ap->a_flags & UPL_NOCOMMIT) == 0 )

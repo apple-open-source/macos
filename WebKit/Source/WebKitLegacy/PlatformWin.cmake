@@ -1,18 +1,8 @@
 if (${WTF_PLATFORM_WIN_CAIRO})
     add_definitions(-DUSE_CAIRO=1 -DUSE_CURL=1 -DWEBKIT_EXPORTS=1)
-    list(APPEND WebKitLegacy_PRIVATE_INCLUDE_DIRECTORIES
-        "${WEBKIT_LIBRARIES_DIR}/include"
-    )
     list(APPEND WebKitLegacy_SOURCES_Classes
         win/WebDownloadCURL.cpp
         win/WebURLAuthenticationChallengeSenderCURL.cpp
-    )
-    list(APPEND WebKitLegacy_PRIVATE_LIBRARIES
-        $<TARGET_OBJECTS:WebCore>
-        MediaFoundation
-        OpenSSL::SSL
-        mfuuid.lib
-        strmiids.lib
     )
 else ()
     list(APPEND WebKitLegacy_SOURCES_Classes
@@ -20,23 +10,23 @@ else ()
         win/WebURLAuthenticationChallengeSenderCFNet.cpp
     )
     list(APPEND WebKitLegacy_PRIVATE_LIBRARIES
-        CFNetwork${DEBUG_SUFFIX}
-        CoreGraphics${DEBUG_SUFFIX}
-        CoreText${DEBUG_SUFFIX}
-        QuartzCore${DEBUG_SUFFIX}
-        libdispatch${DEBUG_SUFFIX}
-        libxml2${DEBUG_SUFFIX}
-        libxslt${DEBUG_SUFFIX}
-        zdll${DEBUG_SUFFIX}
-        SQLite3${DEBUG_SUFFIX}
+        Apple::CFNetwork
+        Apple::CoreGraphics
+        Apple::CoreText
+        Apple::QuartzCore
+        Apple::libdispatch
+        LibXml2::LibXml2
+        LibXslt::LibXslt
+        SQLite::SQLite3
+        ZLIB::ZLIB
     )
 endif ()
 
 add_custom_command(
     OUTPUT ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebKitVersion.h
     MAIN_DEPENDENCY ${WEBKITLEGACY_DIR}/scripts/generate-webkitversion.pl
-    DEPENDS ${WEBKITLEGACY_DIR}/mac/Configurations/Version.xcconfig
-    COMMAND ${PERL_EXECUTABLE} ${WEBKITLEGACY_DIR}/scripts/generate-webkitversion.pl --config ${WEBKITLEGACY_DIR}/mac/Configurations/Version.xcconfig --outputDir ${WebKitLegacy_DERIVED_SOURCES_DIR}
+    DEPENDS ${WEBKITLEGACY_DIR}/../../Configurations/Version.xcconfig
+    COMMAND ${PERL_EXECUTABLE} ${WEBKITLEGACY_DIR}/scripts/generate-webkitversion.pl --config ${WEBKITLEGACY_DIR}/../../Configurations/Version.xcconfig --outputDir ${WebKitLegacy_DERIVED_SOURCES_DIR}
     VERBATIM)
 list(APPEND WebKitLegacy_SOURCES ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebKitVersion.h)
 
@@ -229,7 +219,7 @@ if (USE_CF)
     )
 
     list(APPEND WebKitLegacy_LIBRARIES
-        ${COREFOUNDATION_LIBRARY}
+        Apple::CoreFoundation
     )
 endif ()
 
@@ -240,10 +230,7 @@ set(WebKitLegacy_WEB_PREFERENCES_TEMPLATES
 )
 
 set(WebKitLegacy_WEB_PREFERENCES
-    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferences.yaml
-    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesDebug.yaml
-    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesExperimental.yaml
-    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesInternal.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/UnifiedWebPreferences.yaml
 )
 
 set_source_files_properties(${WebKitLegacy_WEB_PREFERENCES} PROPERTIES GENERATED TRUE)
@@ -251,8 +238,10 @@ set_source_files_properties(${WebKitLegacy_WEB_PREFERENCES} PROPERTIES GENERATED
 add_custom_command(
     OUTPUT ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebPreferencesDefinitions.h ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebViewPreferencesChangedGenerated.cpp
     DEPENDS ${WebKitLegacy_WEB_PREFERENCES_TEMPLATES} ${WebKitLegacy_WEB_PREFERENCES} WTF_CopyPreferences
-    COMMAND ${RUBY_EXECUTABLE} ${WTF_SCRIPTS_DIR}/GeneratePreferences.rb --frontend WebKitLegacy --base ${WTF_SCRIPTS_DIR}/Preferences/WebPreferences.yaml --debug ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesDebug.yaml --experimental ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesExperimental.yaml --internal ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesInternal.yaml --outputDir "${WebKitLegacy_DERIVED_SOURCES_DIR}" --template ${WEBKITLEGACY_DIR}/win/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb --template ${WEBKITLEGACY_DIR}/win/Scripts/PreferencesTemplates/WebViewPreferencesChangedGenerated.cpp.erb
-    VERBATIM)
+    COMMAND ${RUBY_EXECUTABLE} ${WTF_SCRIPTS_DIR}/GeneratePreferences.rb --frontend WebKitLegacy --outputDir "${WebKitLegacy_DERIVED_SOURCES_DIR}" --template "$<JOIN:${WebKitLegacy_WEB_PREFERENCES_TEMPLATES},;--template;>" ${WebKitLegacy_WEB_PREFERENCES}
+    COMMAND_EXPAND_LISTS
+    VERBATIM
+)
 
 list(APPEND WebKitLegacy_SOURCES
     ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebPreferencesDefinitions.h
@@ -424,6 +413,7 @@ add_library(WebKitLegacyGUID STATIC
 )
 set_target_properties(WebKitLegacyGUID PROPERTIES OUTPUT_NAME WebKitGUID${DEBUG_SUFFIX})
 
+list(APPEND WebKitLegacy_LIBRARIES WebKitLegacyGUID)
 list(APPEND WebKitLegacy_PRIVATE_LIBRARIES
     Comctl32
     Comsupp
@@ -478,21 +468,6 @@ set(WebKitLegacy_PUBLIC_FRAMEWORK_HEADERS
     win/WebKitCOMAPI.h
 )
 
-WEBKIT_MAKE_FORWARDING_HEADERS(WebKitLegacyGUID
-    TARGET_NAME WebKitLegacyFrameworkHeaders
-    DESTINATION ${WebKitLegacy_FRAMEWORK_HEADERS_DIR}/WebKitLegacy
-    FILES ${WebKitLegacy_PUBLIC_FRAMEWORK_HEADERS}
-    FLATTENED
-)
-if (NOT INTERNAL_BUILD)
-    add_dependencies(WebKitLegacyFrameworkHeaders WebCore_CopyPrivateHeaders)
-endif ()
-
 set(WebKitLegacy_OUTPUT_NAME
     WebKit${DEBUG_SUFFIX}
-)
-
-list(APPEND WebKitLegacy_PRIVATE_DEFINITIONS
-    STATICALLY_LINKED_WITH_PAL
-    STATICALLY_LINKED_WITH_WebCore
 )

@@ -316,9 +316,8 @@ exit:
     NSFileHandle *fileHandle = NULL;
     NSURL *file = [NSURL URLWithString:[NSString stringWithCString:filename encoding:NSUTF8StringEncoding] relativeToURL:tmpCertsDir];
     int fd;
-    off_t off;
     fd = open([file fileSystemRepresentation], O_RDWR | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0  || (off = lseek(fd, 0, SEEK_SET)) < 0) {
+    if (fd < 0  || lseek(fd, 0, SEEK_SET) < 0) {
         fail("unable to open file for archive");
     }
     if (fd >= 0) {

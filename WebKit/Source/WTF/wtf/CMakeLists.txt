@@ -1,9 +1,11 @@
 set(WTF_PUBLIC_HEADERS
     ASCIICType.h
+    AccessibleAddress.h
     AggregateLogger.h
     Algorithms.h
     AnsiColors.h
     ApproximateTime.h
+    ArgumentCoder.h
     Assertions.h
     Atomics.h
     AutodrainedPool.h
@@ -33,6 +35,7 @@ set(WTF_PUBLIC_HEADERS
     CheckedPtr.h
     CheckedRef.h
     ClockType.h
+    CodePtr.h
     CommaPrinter.h
     CompactPointerTuple.h
     CompactPtr.h
@@ -73,10 +76,12 @@ set(WTF_PUBLIC_HEADERS
     ExportMacros.h
     FailureAction.h
     FastBitVector.h
+    FastFloat.h
     FastMalloc.h
     FastTLS.h
     FilePrintStream.h
     FileSystem.h
+    FixedBitVector.h
     FixedVector.h
     FixedWidthDouble.h
     FlipBytes.h
@@ -158,7 +163,6 @@ set(WTF_PUBLIC_HEADERS
     MessageQueue.h
     MetaAllocator.h
     MetaAllocatorHandle.h
-    MetaAllocatorPtr.h
     MonotonicTime.h
     NakedPtr.h
     NakedRef.h
@@ -215,8 +219,6 @@ set(WTF_PUBLIC_HEADERS
     PtrTag.h
     RAMSize.h
     RandomDevice.h
-    RandomNumber.h
-    RandomNumberSeed.h
     Range.h
     RangeSet.h
     RawHex.h
@@ -293,6 +295,8 @@ set(WTF_PUBLIC_HEADERS
     ThreadMessage.h
     ThreadSafetyAnalysis.h
     ThreadSafeRefCounted.h
+    ThreadSafeWeakHashSet.h
+    ThreadSafeWeakPtr.h
     ThreadSanitizerSupport.h
     ThreadSpecific.h
     Threading.h
@@ -316,7 +320,7 @@ set(WTF_PUBLIC_HEADERS
     UnionFind.h
     UniqueArray.h
     UniqueRef.h
-    UnsafePointer.h
+    UniqueRefVector.h
     VMTags.h
     ValueCheck.h
     Vector.h
@@ -328,8 +332,10 @@ set(WTF_PUBLIC_HEADERS
     WeakHashCountedSet.h
     WeakHashMap.h
     WeakHashSet.h
+    WeakListHashSet.h
     WeakPtr.h
     WeakRandom.h
+    WeakRandomNumber.h
     WindowsExtras.h
     WordLock.h
     WorkQueue.h
@@ -347,7 +353,16 @@ set(WTF_PUBLIC_HEADERS
     dtoa/strtod.h
     dtoa/utils.h
 
-    persistence/PersistentCoder.h
+    fast_float/ascii_number.h
+    fast_float/bigint.h
+    fast_float/decimal_to_binary.h
+    fast_float/digit_comparison.h
+    fast_float/fast_float.h
+    fast_float/fast_table.h
+    fast_float/float_common.h
+    fast_float/parse_number.h
+    fast_float/simple_decimal_conversion.h
+
     persistence/PersistentCoders.h
     persistence/PersistentDecoder.h
     persistence/PersistentEncoder.h
@@ -381,6 +396,7 @@ set(WTF_PUBLIC_HEADERS
     text/StringImpl.h
     text/StringOperators.h
     text/StringParsingBuffer.h
+    text/StringSearch.h
     text/StringToIntegerConversion.h
     text/StringView.h
     text/SymbolImpl.h
@@ -417,6 +433,7 @@ set(WTF_SOURCES
     BitVector.cpp
     CPUTime.cpp
     ClockType.cpp
+    CodePtr.cpp
     CompilationThread.cpp
     ConcurrentBuffer.cpp
     ConcurrentPtrHashSet.cpp
@@ -430,6 +447,7 @@ set(WTF_SOURCES
     DateMath.cpp
     DebugHeap.cpp
     FastBitVector.cpp
+    FastFloat.cpp
     FastMalloc.cpp
     FilePrintStream.cpp
     FileSystem.cpp
@@ -467,7 +485,6 @@ set(WTF_SOURCES
     ProcessPrivilege.cpp
     RAMSize.cpp
     RandomDevice.cpp
-    RandomNumber.cpp
     ReadWriteLock.cpp
     RefCounted.cpp
     RefCountedLeakCounter.cpp
@@ -499,6 +516,7 @@ set(WTF_SOURCES
     WTFAssertions.cpp
     WTFConfig.cpp
     WallTime.cpp
+    WeakRandomNumber.cpp
     WordLock.cpp
     WorkQueue.cpp
     WorkerPool.cpp
@@ -529,6 +547,7 @@ set(WTF_SOURCES
     text/StringBuffer.cpp
     text/StringBuilder.cpp
     text/StringBuilderJSON.cpp
+    text/StringCommon.cpp
     text/StringImpl.cpp
     text/StringView.cpp
     text/SymbolImpl.cpp
@@ -557,6 +576,7 @@ set(WTF_PRIVATE_INCLUDE_DIRECTORIES
     "${WTF_DIR}"
     "${WTF_DIR}/wtf"
     "${WTF_DIR}/wtf/dtoa"
+    "${WTF_DIR}/wtf/fast_float"
     "${WTF_DIR}/wtf/persistence"
     "${WTF_DIR}/wtf/text"
     "${WTF_DIR}/wtf/text/icu"
@@ -598,7 +618,6 @@ WEBKIT_COPY_FILES(WTF_CopyHeaders
 )
 
 WEBKIT_FRAMEWORK(WTF)
-WEBKIT_FRAMEWORK_TARGET(WTF)
 
 if (MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
@@ -630,11 +649,7 @@ file(COPY
 
 set(WTF_PREFERENCES
     ../Scripts/GeneratePreferences.rb
-
-    ../Scripts/Preferences/WebPreferences.yaml
-    ../Scripts/Preferences/WebPreferencesDebug.yaml
-    ../Scripts/Preferences/WebPreferencesExperimental.yaml
-    ../Scripts/Preferences/WebPreferencesInternal.yaml
+    ../Scripts/Preferences/UnifiedWebPreferences.yaml
 )
 
 WEBKIT_COPY_FILES(WTF_CopyPreferences

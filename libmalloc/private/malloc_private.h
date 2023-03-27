@@ -123,13 +123,6 @@ typedef void *(*crash_reporter_memory_reader_t)(task_t task, vm_address_t addres
 
 /****** Probabilistic Guard Malloc ******/
 
-/**
- * Never sample any allocations made by the current thread.
- *
- * DEPRECATED!  Use malloc_set_thread_options() instead.  Will be removed soon.
- */
-void pgm_disable_for_current_thread(void);
-
 typedef struct {
 	// diagnose_page_fault
 	const char *error_type;

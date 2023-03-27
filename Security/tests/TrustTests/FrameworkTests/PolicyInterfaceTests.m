@@ -49,6 +49,7 @@
     SecPolicyRef policy = SecPolicyCreateWithProperties(kSecPolicyAppleSSL, properties);
     isnt(policy, NULL, "SecPolicyCreateWithProperties");
     CFReleaseSafe(properties);
+    CFReleaseSafe(policy);
 }
 
 - (void)testCopyProperties
@@ -63,6 +64,7 @@
     is(CFDictionaryGetValueIfPresent(properties, kSecPolicyOid, (const void **)&value) &&
         CFEqual(value, kSecPolicyAppleSSL) , true, "has SSL policy");
     CFReleaseSafe(properties);
+    CFReleaseSafe(policy);
 }
 
 - (void)testSetSHA256Pins
@@ -91,6 +93,8 @@
     XCTAssertEqualObjects((__bridge NSArray *)CFDictionaryGetValue(options, kSecPolicyCheckLeafSPKISHA256), pins);
     XCTAssertEqual(CFDictionaryGetValue(options, kSecPolicyCheckCAspkiSHA256), NULL);
 #pragma clang diagnostic pop
+    
+    CFReleaseSafe(policy);
 }
 
 @end

@@ -167,6 +167,7 @@ bool SOSAccountHandleParametersChange(SOSAccount*  account, CFDataRef updates, C
 //
 SecKeyRef SOSAccountCopyDevicePrivateKey(SOSAccount* account, CFErrorRef *error);
 SecKeyRef SOSAccountCopyDevicePublicKey(SOSAccount* account, CFErrorRef *error);
+CFStringRef SOSAccountGetCurrentDSID(SOSAccount* account);
 
 //
 // MARK: Requests for syncing later

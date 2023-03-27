@@ -13,10 +13,11 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -153,10 +154,11 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -969,10 +971,11 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -1096,10 +1099,11 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
@@ -1215,10 +1219,11 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
         bottlerContext.startOctagonStateMachine()
-        let ckacctinfo = CKAccountInfo()
-        ckacctinfo.accountStatus = .available
-        ckacctinfo.hasValidCredentials = true
-        ckacctinfo.accountPartition = .production
+        let fakeAccount = FakeCKAccountInfo()
+        fakeAccount.accountStatus = .available
+        fakeAccount.hasValidCredentials = true
+        fakeAccount.accountPartition = .production
+        let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
         XCTAssertNoThrow(try bottlerContext.setCDPEnabled())

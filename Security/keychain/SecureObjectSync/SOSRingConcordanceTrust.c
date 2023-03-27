@@ -96,6 +96,7 @@ SOSConcordanceStatus GetSignersStatus(CFSetRef peers, SOSRingRef signersRing, SO
 
         status = CombineStatus(status, peerStatus);
     });
+    CFReleaseNull(ringPeerInfos);
 
     return status;
 }

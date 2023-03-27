@@ -120,7 +120,7 @@ public:
     void processIsStartingToCaptureAudio(GPUConnectionToWebProcess&);
 #endif
 
-    void requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier, WebCore::MediaPlayerIdentifier, CompletionHandler<void(const ShareableBitmap::Handle&)>&&);
+    void requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier, WebCore::MediaPlayerIdentifier, CompletionHandler<void(const ShareableBitmapHandle&)>&&);
 
 private:
     void lowMemoryHandler(Critical, Synchronous);
@@ -141,7 +141,7 @@ private:
     // Message Handlers
     void initializeGPUProcess(GPUProcessCreationParameters&&);
     void updateGPUProcessPreferences(GPUProcessPreferences&&);
-    void createGPUConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, IPC::Attachment&&, GPUProcessConnectionParameters&&, CompletionHandler<void()>&&);
+    void createGPUConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&, CompletionHandler<void()>&&);
     void addSession(PAL::SessionID, GPUProcessSessionParameters&&);
     void removeSession(PAL::SessionID);
     
@@ -160,7 +160,6 @@ private:
     void resetMockMediaDevices();
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
     void triggerMockMicrophoneConfigurationChange();
-    bool setCaptureAttributionString(const String&);
 #endif
 #if HAVE(SC_CONTENT_SHARING_SESSION)
     void showWindowPicker(CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&&);

@@ -183,6 +183,26 @@ __private_extern__ Boolean ___CFArrayContainsValue( CFArrayRef array, const void
     return CFArrayContainsValue( array, CFRangeMake( 0, CFArrayGetCount( array ) ), value );
 }
 
+__private_extern__ Boolean ___CFArrayContainsString( CFArrayRef array, const void * value )
+{
+    bool contains = FALSE;
+    CFIndex count = CFArrayGetCount( array );
+    
+    for ( int i = 0; i < count; i++ )
+    {
+        CFStringRef string = CFArrayGetValueAtIndex( array, i );
+        
+        if ( ( CFGetTypeID( string ) == CFStringGetTypeID() ) &&
+            ( (CFStringCompare( string, value, kCFCompareCaseInsensitive ) == 0) ) )
+        {
+            contains = TRUE;
+            break;
+        }
+    }
+    return contains;
+}
+
+
 __private_extern__ void ___CFArrayRemoveValue( CFMutableArrayRef array, const void * value )
 {
     CFIndex index;

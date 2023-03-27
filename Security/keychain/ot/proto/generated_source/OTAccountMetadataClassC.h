@@ -5,8 +5,6 @@
 #import <Foundation/Foundation.h>
 #import <ProtocolBuffer/PBCodable.h>
 
-@class OTAccountMetadataClassCAccountSettings;
-
 /**
  * The state of accounts on the system is complicated. Here's how we handle them:
  *  If there is no account, we will be in NO_ACCOUNT and have no altDSID
@@ -140,7 +138,6 @@ __attribute__((visibility("hidden")))
     OTAccountMetadataClassC_AccountState _icloudAccountState;
     NSString *_peerID;
     NSData *_secureElementIdentity;
-    OTAccountMetadataClassCAccountSettings *_settings;
     NSData *_syncingPolicy;
     NSMutableArray<NSData *> *_tlkSharesForVouchedIdentitys;
     OTAccountMetadataClassC_TrustState _trustState;
@@ -239,9 +236,6 @@ __attribute__((visibility("hidden")))
 @property (nonatomic) BOOL hasWarnedTooManyPeers;
 /** True if we've warned the user about having too many peers */
 @property (nonatomic) BOOL warnedTooManyPeers;
-
-@property (nonatomic, readonly) BOOL hasSettings;
-@property (nonatomic, retain) OTAccountMetadataClassCAccountSettings *settings;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

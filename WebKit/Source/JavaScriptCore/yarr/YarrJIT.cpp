@@ -738,13 +738,13 @@ class YarrGenerator final : public YarrJITInfo {
         MacroAssembler::JumpList finishExiting;
         if (!m_abortExecution.empty()) {
             m_abortExecution.link(&m_jit);
-            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(-2)), m_regs.returnRegister);
+            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::JITCodeFailure)), m_regs.returnRegister);
             finishExiting.append(m_jit.jump());
         }
 
         if (!m_hitMatchLimit.empty()) {
             m_hitMatchLimit.link(&m_jit);
-            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(-1)), m_regs.returnRegister);
+            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::ErrorNoMatch)), m_regs.returnRegister);
         }
 
         finishExiting.link(&m_jit);
@@ -2468,6 +2468,11 @@ class YarrGenerator final : public YarrJITInfo {
                     // PRIOR alteranative, and we will only check input availability if we
                     // need to progress it forwards.
                     op.m_reentry = m_jit.label();
+                    if (m_compileMode == JITCompileMode::IncludeSubpatterns
+                        && priorAlternative->needToCleanupCaptures()) {
+                            for (unsigned subpattern = priorAlternative->firstCleanupSubpatternId(); subpattern <= priorAlternative->m_lastSubpatternId; subpattern++)
+                                clearSubpatternStart(subpattern);
+                    }
                     if (alternative->m_minimumSize > priorAlternative->m_minimumSize) {
                         m_jit.add32(MacroAssembler::Imm32(alternative->m_minimumSize - priorAlternative->m_minimumSize), m_regs.index);
                         op.m_jumps.append(jumpIfNoAvailableInput());
@@ -2847,8 +2852,13 @@ class YarrGenerator final : public YarrJITInfo {
                 loadFromFrame(parenthesesFrameLocation + BackTrackInfoParentheticalAssertion::beginIndex(), m_regs.index);
 
                 // If inverted, a successful match of the assertion must be treated
-                // as a failure, so jump to backtracking.
+                // as a failure, clear any nested captures and jump to backtracking.
                 if (term->invert()) {
+                    if (m_compileMode == JITCompileMode::IncludeSubpatterns
+                        && term->containsAnyCaptures()) {
+                        for (unsigned subpattern = term->parentheses.subpatternId; subpattern <= term->parentheses.lastSubpatternId; subpattern++)
+                            clearSubpatternStart(subpattern);
+                    }
                     op.m_jumps.append(m_jit.jump());
                     op.m_reentry = m_jit.label();
                 }
@@ -3482,10 +3492,6 @@ class YarrGenerator final : public YarrJITInfo {
                 break;
             }
             case YarrOpCode::ParentheticalAssertionEnd: {
-                // FIXME: We should really be clearing any nested subpattern
-                // matches on bailing out from after the pattern. Firefox has
-                // this bug too (presumably because they use YARR!)
-
                 // Never backtrack into an assertion; later failures bail to before the begin.
                 m_backtrackingState.takeBacktracksToJumpList(op.m_jumps, &m_jit);
                 break;
@@ -4106,7 +4112,7 @@ public:
         : m_jit(jit)
         , m_vm(vm)
         , m_codeBlock(codeBlock)
-        , m_boyerMooreData(static_cast<YarrBoyerMoyerData*>(codeBlock))
+        , m_boyerMooreData(static_cast<YarrBoyerMooreData*>(codeBlock))
         , m_regs(regs)
         , m_pattern(pattern)
         , m_patternString(patternString)
@@ -4121,7 +4127,7 @@ public:
     {
     }
 
-    YarrGenerator(CCallHelpers& jit, const VM* vm, YarrBoyerMoyerData* yarrBMData, const YarrJITRegs& regs, YarrPattern& pattern, StringView patternString, CharSize charSize, JITCompileMode compileMode)
+    YarrGenerator(CCallHelpers& jit, const VM* vm, YarrBoyerMooreData* yarrBMData, const YarrJITRegs& regs, YarrPattern& pattern, StringView patternString, CharSize charSize, JITCompileMode compileMode)
         : m_jit(jit)
         , m_vm(vm)
         , m_codeBlock(nullptr)
@@ -4180,6 +4186,11 @@ public:
             ) {
                 codeBlock.setFallBackWithFailureReason(JITFailureReason::BackReference);
                 return;
+        }
+
+        if (m_pattern.m_containsLookbehinds) {
+            codeBlock.setFallBackWithFailureReason(JITFailureReason::Lookbehind);
+            return;
         }
 
         // We need to compile before generating code since we set flags based on compilation that
@@ -4353,7 +4364,7 @@ public:
     }
 
 #if ENABLE(YARR_JIT_REGEXP_TEST_INLINE)
-    void compileInline(YarrBoyerMoyerData& boyerMooreData)
+    void compileInline(YarrBoyerMooreData& boyerMooreData)
     {
         RELEASE_ASSERT(!m_pattern.m_containsBackreferences);
 
@@ -4369,16 +4380,20 @@ public:
         RELEASE_ASSERT(!m_containsNestedSubpatterns);
 #endif
 
-        ASSERT(!m_failureReason);
-
-        if (m_usesT2)
-            ASSERT(m_regs.regT2 != MacroAssembler::InvalidGPRReg);
-
         if (UNLIKELY(Options::dumpDisassembly() || Options::dumpRegExpDisassembly()))
             m_disassembler = makeUnique<YarrDisassembler>(this);
 
         if (m_disassembler)
             m_disassembler->setStartOfCode(m_jit.label());
+
+        if (m_failureReason) {
+            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::JITCodeFailure)), m_regs.returnRegister);
+            m_jit.move(MacroAssembler::TrustedImm32(0), m_regs.returnRegister2);
+            return;
+        }
+
+        if (m_usesT2)
+            ASSERT(m_regs.regT2 != MacroAssembler::InvalidGPRReg);
 
         MacroAssembler::Jump hasInput = checkInput();
         generateFailReturn();
@@ -4387,7 +4402,17 @@ public:
         unsigned callFrameSizeInBytes = alignCallFrameSizeInBytes(m_pattern.m_body->m_callFrameSize);
         if (callFrameSizeInBytes) {
             // Create space on stack for matching context data.
-            m_jit.addPtr(MacroAssembler::TrustedImm32(-callFrameSizeInBytes), MacroAssembler::stackPointerRegister, MacroAssembler::stackPointerRegister);
+            // Note that this stack check cannot clobber m_regs.regT1 as it is needed for the slow path we call if we fail the stack check.
+            m_jit.addPtr(MacroAssembler::TrustedImm32(-callFrameSizeInBytes), MacroAssembler::stackPointerRegister, m_regs.regT0);
+            MacroAssembler::Jump stackOk = m_jit.branchPtr(MacroAssembler::BelowOrEqual, MacroAssembler::AbsoluteAddress(const_cast<VM*>(m_vm)->addressOfSoftStackLimit()), m_regs.regT0);
+
+            // Exceeded stack limit, punt to the interpreter.
+            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::JITCodeFailure)), m_regs.returnRegister);
+            m_jit.move(MacroAssembler::TrustedImm32(0), m_regs.returnRegister2);
+            m_inlinedFailedMatch.append(m_jit.jump());
+
+            stackOk.link(&m_jit);
+            m_jit.move(m_regs.regT0, MacroAssembler::stackPointerRegister);
         }
 
 #ifdef JIT_UNICODE_EXPRESSIONS
@@ -4656,7 +4681,7 @@ private:
     CCallHelpers& m_jit;
     const VM* const m_vm;
     YarrCodeBlock* const m_codeBlock;
-    YarrBoyerMoyerData* const m_boyerMooreData;
+    YarrBoyerMooreData* const m_boyerMooreData;
     const YarrJITRegs& m_regs;
 
     StackCheck* m_compilationThreadStackChecker { nullptr };
@@ -4715,6 +4740,9 @@ static void dumpCompileFailure(JITFailureReason failure)
     case JITFailureReason::ForwardReference:
         dataLog("Can't JIT a pattern containing forward references\n");
         break;
+    case JITFailureReason::Lookbehind:
+        dataLog("Can't JIT a pattern containing lookbehinds\n");
+        break;
     case JITFailureReason::VariableCountedParenthesisWithNonZeroMinimum:
         dataLog("Can't JIT a pattern containing a variable counted parenthesis with a non-zero minimum\n");
         break;
@@ -4759,10 +4787,16 @@ void jitCompile(YarrPattern& pattern, StringView patternString, CharSize charSiz
 #error "No support for inlined JIT'ing of RegExp.test for this CPU / OS combination."
 #endif
 
-void jitCompileInlinedTest(StackCheck* m_compilationThreadStackChecker, StringView patternString, OptionSet<Yarr::Flags> flags, CharSize charSize, const VM* vm, YarrBoyerMoyerData& boyerMooreData, CCallHelpers& jit, YarrJITRegisters& jitRegisters)
+void jitCompileInlinedTest(StackCheck* m_compilationThreadStackChecker, StringView patternString, OptionSet<Yarr::Flags> flags, CharSize charSize, const VM* vm, YarrBoyerMooreData& boyerMooreData, CCallHelpers& jit, YarrJITRegisters& jitRegisters)
 {
     Yarr::ErrorCode errorCode;
     Yarr::YarrPattern pattern(patternString, flags, errorCode);
+
+    if (errorCode != Yarr::ErrorCode::NoError) {
+        // This path cannot clobber jitRegisters.regT1 as it is needed for the slow path we'll end up in.
+        jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::JITCodeFailure)), jitRegisters.returnRegister);
+        return;
+    }
 
     jitRegisters.validate();
 

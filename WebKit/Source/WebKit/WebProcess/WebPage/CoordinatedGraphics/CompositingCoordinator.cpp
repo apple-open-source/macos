@@ -37,6 +37,7 @@
 #include <WebCore/InspectorController.h>
 #include <WebCore/NicosiaBackingStoreTextureMapperImpl.h>
 #include <WebCore/NicosiaContentLayerTextureMapperImpl.h>
+#include <WebCore/NicosiaImageBackingStore.h>
 #include <WebCore/NicosiaImageBackingTextureMapperImpl.h>
 #include <WebCore/NicosiaPaintingEngine.h>
 #include <WebCore/Page.h>
@@ -57,7 +58,6 @@ CompositingCoordinator::CompositingCoordinator(WebPage& page, CompositingCoordin
 {
     m_nicosia.scene = Nicosia::Scene::create();
     m_nicosia.sceneIntegration = Nicosia::SceneIntegration::create(*m_nicosia.scene, *this);
-    m_state.nicosia.scene = m_nicosia.scene;
 
     m_rootLayer = GraphicsLayer::create(this, *this);
 #ifndef NDEBUG
@@ -137,7 +137,7 @@ bool CompositingCoordinator::flushPendingLayerChanges(OptionSet<FinalizeRenderin
     coordinatedLayer.syncPendingStateChangesIncludingSubLayers();
 
     if (m_shouldSyncFrame) {
-        m_state.nicosia.scene->accessState(
+        m_nicosia.scene->accessState(
             [this](Nicosia::Scene::State& state)
             {
                 bool platformLayerUpdated = false;
@@ -169,11 +169,17 @@ bool CompositingCoordinator::flushPendingLayerChanges(OptionSet<FinalizeRenderin
                 state.rootLayer = m_nicosia.state.rootLayer;
             });
 
-        m_client.commitSceneState(m_state);
+        m_client.commitSceneState(m_nicosia.scene);
         m_shouldSyncFrame = false;
     }
 
     m_page.didUpdateRendering();
+
+    // Eject any backing stores whose only reference is held in the HashMap cache.
+    m_imageBackingStores.removeIf(
+        [](auto& it) {
+            return it.value->hasOneRef();
+        });
 
     return true;
 }
@@ -306,6 +312,17 @@ void CompositingCoordinator::purgeBackingStores()
 Nicosia::PaintingEngine& CompositingCoordinator::paintingEngine()
 {
     return *m_paintingEngine;
+}
+
+RefPtr<Nicosia::ImageBackingStore> CompositingCoordinator::imageBackingStore(uint64_t nativeImageID, Function<RefPtr<Nicosia::Buffer>()> createBuffer)
+{
+    auto addResult = m_imageBackingStores.ensure(nativeImageID,
+        [&] {
+            auto store = adoptRef(*new Nicosia::ImageBackingStore);
+            store->backingStoreState().buffer = createBuffer();
+            return store;
+        });
+    return addResult.iterator->value.copyRef();
 }
 
 void CompositingCoordinator::requestUpdate()

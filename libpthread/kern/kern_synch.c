@@ -252,6 +252,8 @@ static int _wait_result_to_errno(wait_result_t result);
 
 static int ksyn_wait(ksyn_wait_queue_t, kwq_queue_type_t, uint32_t, int, uint64_t, uint16_t, thread_continue_t, block_hint_t);
 static kern_return_t ksyn_signal(ksyn_wait_queue_t, kwq_queue_type_t, ksyn_waitq_element_t, uint32_t);
+static kern_return_t
+ksyn_signal_thread(ksyn_wait_queue_t kwq, kwq_queue_type_t kqi, ksyn_waitq_element_t kwe, uint32_t updateval);
 static void ksyn_freeallkwe(ksyn_queue_t kq);
 
 static kern_return_t ksyn_mtxsignal(ksyn_wait_queue_t, ksyn_waitq_element_t kwe, uint32_t, thread_t *);
@@ -913,7 +915,7 @@ ksyn_prepost(ksyn_wait_queue_t kwq, ksyn_waitq_element_t kwe, uint32_t state,
 }
 
 static void
-ksyn_cvsignal(ksyn_wait_queue_t ckwq, thread_t th, uint32_t uptoseq,
+_ksyn_cvsignal_any(ksyn_wait_queue_t ckwq, uint32_t uptoseq,
 		uint32_t signalseq, uint32_t *updatebits, int *broadcast,
 		ksyn_waitq_element_t *nkwep)
 {
@@ -921,25 +923,9 @@ ksyn_cvsignal(ksyn_wait_queue_t ckwq, thread_t th, uint32_t uptoseq,
 	ksyn_waitq_element_t nkwe = NULL;
 	ksyn_queue_t kq = &ckwq->kw_ksynqueues[KSYN_QUEUE_WRITE];
 
-	uptoseq &= PTHRW_COUNT_MASK;
-
-	// Find the specified thread to wake.
-	if (th != THREAD_NULL) {
-		uthread_t uth = pthread_kern->get_bsdthread_info(th);
-		kwe = pthread_kern->uthread_get_uukwe(uth);
-		if (kwe->kwe_kwqqueue != ckwq ||
-		    is_seqhigher(kwe->kwe_lockseq, uptoseq)) {
-			// Unless it's no longer waiting on this CV...
-			kwe = NULL;
-			// ...in which case we post a broadcast instead.
-			*broadcast = 1;
-			return;
-		}
-	}
-
 	// If no thread was specified, find any thread to wake (with the right
 	// sequence number).
-	while (th == THREAD_NULL) {
+	while (true) {
 		if (kwe == NULL) {
 			kwe = ksyn_queue_find_signalseq(ckwq, kq, uptoseq, signalseq);
 		}
@@ -999,6 +985,67 @@ ksyn_cvsignal(ksyn_wait_queue_t ckwq, thread_t th, uint32_t uptoseq,
 	}
 
 	*nkwep = nkwe;
+}
+
+static void
+_ksyn_cvsignal_thread(ksyn_wait_queue_t ckwq, thread_t th, uint32_t uptoseq,
+		uint32_t signalseq, uint32_t *updatebits, int *broadcast)
+{
+	uthread_t uth = pthread_kern->get_bsdthread_info(th);
+	ksyn_waitq_element_t kwe = pthread_kern->uthread_get_uukwe(uth);
+
+	kern_return_t ret = ksyn_signal_thread(ckwq, KSYN_QUEUE_WRITE, kwe, PTH_RWL_MTX_WAIT);
+
+	if (ret != KERN_SUCCESS) {
+		// Treat this as if we aren't waiting on the ckwq
+		*broadcast = 1;
+		return;
+	}
+
+	// At this point we know that the kwe is no longer on the ckwq queue
+	// (It was removed in ksyn_signal_thread)
+
+	if (kwe->kwe_state != KWE_THREAD_INWAIT) {
+		panic("kwe is not in a valid state: %d", kwe->kwe_state);
+	}
+
+	if (is_seqhigher(kwe->kwe_lockseq, uptoseq)) {
+		// No longer waiting on the CV, broadcast instead
+		*broadcast = 1;
+		return;
+	}
+
+	if (is_seqlower(kwe->kwe_lockseq, signalseq)) {
+		/*
+		 * A valid thread in our range, but lower than our signal.
+		 * Matching it may leave our match with nobody to wake it if/when
+		 * it arrives (the signal originally meant for this thread might
+		 * not successfully wake it).
+		 *
+		 * Convert to broadcast - may cause some spurious wakeups
+		 * (allowed by spec), but avoids starvation (better choice).
+		 */
+		*broadcast = 1;
+		return;
+	}
+
+	*updatebits += PTHRW_INC;
+}
+
+
+static void
+ksyn_cvsignal(ksyn_wait_queue_t ckwq, thread_t th, uint32_t uptoseq,
+		uint32_t signalseq, uint32_t *updatebits, int *broadcast,
+		ksyn_waitq_element_t *nkwep)
+{
+	uptoseq &= PTHRW_COUNT_MASK;
+
+	// Find the specified thread to wake.
+	if (th != THREAD_NULL) {
+		_ksyn_cvsignal_thread(ckwq, th, uptoseq, signalseq, updatebits, broadcast);
+	} else {
+		_ksyn_cvsignal_any(ckwq, uptoseq, signalseq, updatebits, broadcast, nkwep);
+	}
 }
 
 static int
@@ -1251,9 +1298,13 @@ psynch_cvcontinue(void *parameter, wait_result_t result)
 	ksyn_wait_queue_t ckwq = parameter;
 	ksyn_waitq_element_t kwe = pthread_kern->uthread_get_uukwe(uth);
 
+	// cvsignal will modify the kwe after waking up the thread.
+	// to ensure the kwe remains valid until cvsignal is done with
+	// it we must acquire the ckwq lock here
+	ksyn_wqlock(ckwq);
+
 	int error = _wait_result_to_errno(result);
 	if (error != 0) {
-		ksyn_wqlock(ckwq);
 		/* just in case it got woken up as we were granting */
 		int retval = kwe->kwe_psynchretval;
 		pthread_kern->uthread_set_returnval(uth, retval);
@@ -1297,6 +1348,8 @@ psynch_cvcontinue(void *parameter, wait_result_t result)
 		if ((kwe->kwe_psynchretval & PTH_RWS_CV_MBIT) != 0) {
 			val = PTHRW_INC | PTH_RWS_CV_CBIT;
 		}
+
+		ksyn_wqunlock(ckwq);
 		PTHREAD_TRACE(psynch_cvar_kwait | DBG_FUNC_END, ckwq->kw_addr,
 				val, 0, 4);
 		pthread_kern->uthread_set_returnval(uth, val);
@@ -1943,6 +1996,35 @@ ksyn_wait(ksyn_wait_queue_t kwq, kwq_queue_type_t kqi, uint32_t lockseq,
 	// NOT REACHED
 	panic("ksyn_wait continuation returned");
 	__builtin_unreachable();
+}
+
+static kern_return_t
+ksyn_signal_thread(ksyn_wait_queue_t kwq, kwq_queue_type_t kqi,
+		ksyn_waitq_element_t kwe, uint32_t updateval)
+{
+	kern_return_t ret;
+	struct turnstile **tstore = NULL;
+
+	if (_kwq_use_turnstile(kwq)) {
+		tstore = &kwq->kw_turnstile;
+	}
+
+	ret = pthread_kern->psynch_wait_wakeup(kwq, kwe, tstore);
+
+	if (ret != KERN_SUCCESS && ret != KERN_NOT_WAITING) {
+		panic("ksyn_signal: panic waking up thread %x\n", ret);
+	}
+
+	if (ret == KERN_SUCCESS) {
+		if (kwe->kwe_state != KWE_THREAD_INWAIT) {
+			panic("ksyn_signal: panic signaling non-waiting element");
+		}
+
+		ksyn_queue_remove_item(kwq, &kwq->kw_ksynqueues[kqi], kwe);
+		kwe->kwe_psynchretval = updateval;
+	}
+
+	return ret;
 }
 
 kern_return_t

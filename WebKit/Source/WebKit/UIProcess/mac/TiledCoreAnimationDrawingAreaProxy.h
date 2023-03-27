@@ -31,13 +31,14 @@
 
 namespace WebKit {
 
-class TiledCoreAnimationDrawingAreaProxy : public DrawingAreaProxy {
+class TiledCoreAnimationDrawingAreaProxy final : public DrawingAreaProxy {
 public:
-    TiledCoreAnimationDrawingAreaProxy(WebPageProxy&, WebProcessProxy&);
+    TiledCoreAnimationDrawingAreaProxy(WebPageProxy&);
     virtual ~TiledCoreAnimationDrawingAreaProxy();
 
 private:
     // DrawingAreaProxy
+    void attachToProvisionalFrameProcess(WebProcessProxy&) final { ASSERT_NOT_REACHED(); }
     void deviceScaleFactorDidChange() override;
     void sizeDidChange() override;
     void colorSpaceDidChange() override;
@@ -51,13 +52,15 @@ private:
     void adjustTransientZoom(double scale, WebCore::FloatPoint origin) override;
     void commitTransientZoom(double scale, WebCore::FloatPoint origin) override;
 
-    void waitForDidUpdateActivityState(ActivityStateChangeID) override;
+    void waitForDidUpdateActivityState(ActivityStateChangeID, WebProcessProxy&) override;
     void dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&&) override;
     void dispatchPresentationCallbacksAfterFlushingLayers(const Vector<CallbackID>&) final;
 
     void willSendUpdateGeometry() override;
 
     WTF::MachSendRight createFence() override;
+
+    bool shouldSendWheelEventsToEventDispatcher() const override { return true; }
 
     // Message handlers.
     void didUpdateGeometry() override;

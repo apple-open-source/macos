@@ -14,6 +14,24 @@
 #import "SECSFAActionTapToRadar.h"
 #import "SECSFAActionDropEvent.h"
 
+#import "NSError+UsefulConstructors.h"
+
+static NSString *kSFAErrorDomain = @"com.apple.SFAErrorDomain";
+typedef NS_ENUM(NSInteger, kSFAErrorCode) {
+    kSFAErrorsRulesMissing = 1,
+    kSFAErrorTypeMissing,
+    kSFAErrorRulesInvalidType,
+    kSFAErrorMatchMissing,
+    kSFAErrorSecondInvalid,
+    kSFAErrorActionInvalidType,
+    kSFAErrorActionInvalid,
+    kSFAErrorRadarInvalidType,
+    kSFAErrorTTRAttributeInvalidType,
+    kSFAErrorABCAttributeInvalidType,
+    kSFAErrorUnknownAction,
+    kSFAErrorFailedToEncodeMatchStructure,
+};
+
 @implementation SFAnalytics (SFACollection)
 
 + (NSData *)encodeSFACollection:(NSData *)json error:(NSError **)error
@@ -29,34 +47,58 @@
     }
     NSArray *rules = sfaCollection[@"rules"];
     if (![rules isKindOfClass:[NSArray class]]) {
+        if (error) {
+            NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorsRulesMissing description:@"rules key missing"];
+            *error = e;
+        }
         return nil;
     }
     for (NSDictionary *item in rules) {
         if (![item isKindOfClass:[NSDictionary class]]) {
+            NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorRulesInvalidType description:@"rules type invalid"];
+            if (error) {
+                *error = e;
+            }
             return nil;
         }
 
         NSString *eventType = item[@"eventType"];
         if (![eventType isKindOfClass:[NSString class]]) {
+            if (error) {
+                NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorTypeMissing description:@"eventType missing"];
+                *error = e;
+            }
             return nil;
         }
         NSDictionary *match = item[@"match"];
         if (![match isKindOfClass:[NSDictionary class]]) {
+            NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorMatchMissing description:@"match missing"];
+            if (error) {
+                *error = e;
+            }
             return nil;
         }
         NSNumber *repeatAfterSeconds = item[@"repeatAfterSeconds"];
         if (repeatAfterSeconds != nil && ![repeatAfterSeconds isKindOfClass:[NSNumber class]]) {
+            if (error) {
+                NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorSecondInvalid description:@"repeatAfterSeconds missing"];
+                *error = e;
+            }
             return nil;
         }
 
+        NSError *matchError = nil;
         SECSFARule *rule = [[SECSFARule alloc] init];
         rule.eventType = eventType;
         rule.repeatAfterSeconds = [repeatAfterSeconds intValue];
         rule.match = [NSPropertyListSerialization dataWithPropertyList:match
                                                                 format:NSPropertyListBinaryFormat_v1_0
                                                                options:0
-                                                                 error:error];
+                                                                 error:&matchError];
         if (rule.match == nil) {
+            if (error) {
+                *error = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorFailedToEncodeMatchStructure description:@"plist encode failed" underlying:matchError];
+            }
             return nil;
         }
 
@@ -64,11 +106,19 @@
 
         NSDictionary *action = item[@"action"];
         if (![action isKindOfClass:[NSDictionary class]]) {
+            if (error) {
+                NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorActionInvalidType description:@"action invalid type"];
+                *error = e;
+            }
             return nil;
         }
 
         NSString *radarNumber = action[@"radarNumber"];
         if (radarNumber != nil && ![radarNumber isKindOfClass:[NSString class]]) {
+            if (error) {
+                NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorRadarInvalidType description:@"radarNumber invalid"];
+                *error = e;
+            }
             return nil;
         }
         rule.action.radarnumber = radarNumber;
@@ -76,7 +126,7 @@
 
         if ([actionType isEqual:@"ttr"]) {
             SECSFAActionTapToRadar *ttr = [[SECSFAActionTapToRadar alloc] init];
-            if (radarNumber == nil) {
+            if (ttr == nil) {
                 return nil;
             }
 
@@ -92,6 +142,10 @@
                 ![componentVersion isKindOfClass:[NSString class]] ||
                 ![radarDescription isKindOfClass:[NSString class]])
             {
+                if (error) {
+                    NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorTTRAttributeInvalidType description:@"attribute invalid type"];
+                    *error = e;
+                }
                 return nil;
             }
 
@@ -117,6 +171,10 @@
                 ![type isKindOfClass:[NSString class]] ||
                 (subtype != nil && ![subtype isKindOfClass:[NSString class]]))
             {
+                if (error) {
+                    NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorABCAttributeInvalidType description:@"abc invalid type"];
+                    *error = e;
+                }
                 return nil;
             }
 
@@ -131,6 +189,11 @@
             drop.excludeCount = [action[@"count"] boolValue];
             rule.action.drop = drop;
         } else {
+            if (error) {
+                NSString *str = [NSString stringWithFormat:@"action unknown: %@", actionType];
+                NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorUnknownAction description:str];
+                *error = e;
+            }
             return nil;
         }
 

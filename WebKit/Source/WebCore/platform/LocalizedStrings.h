@@ -158,8 +158,27 @@ namespace WebCore {
     String contextMenuItemTagMediaPlay();
     String contextMenuItemTagMediaPause();
     String contextMenuItemTagMediaMute();
+    String contextMenuItemTagPlayAllAnimations();
+    String contextMenuItemTagPauseAllAnimations();
     WEBCORE_EXPORT String contextMenuItemTagInspectElement();
-#endif // ENABLE(CONTEXT_MENUS)
+#if HAVE(TRANSLATION_UI_SERVICES)
+    String contextMenuItemTagTranslate(const String& selectedString);
+#endif
+#if ENABLE(PDFJS)
+    String contextMenuItemPDFAutoSize();
+    String contextMenuItemPDFZoomIn();
+    String contextMenuItemPDFZoomOut();
+    String contextMenuItemPDFActualSize();
+    String contextMenuItemPDFSinglePage();
+    String contextMenuItemPDFSinglePageContinuous();
+    String contextMenuItemPDFTwoPages();
+    String contextMenuItemPDFTwoPagesContinuous();
+    String contextMenuItemPDFNextPage();
+    String contextMenuItemPDFPreviousPage();
+#endif
+#endif // ENABLE(CONTEXT_MENU)
+
+    WEBCORE_EXPORT String pdfDocumentTypeDescription();
 
 #if !PLATFORM(IOS_FAMILY)
     String searchMenuNoRecentSearchesText();
@@ -253,13 +272,12 @@ namespace WebCore {
     String unknownFileSizeText();
 
 #if PLATFORM(WIN)
-    String uploadFileText();
-    String allFilesText();
+    WEBCORE_EXPORT String uploadFileText();
+    WEBCORE_EXPORT String allFilesText();
 #endif
 
 #if PLATFORM(COCOA)
     WEBCORE_EXPORT String builtInPDFPluginName();
-    WEBCORE_EXPORT String pdfDocumentTypeDescription();
     WEBCORE_EXPORT String postScriptDocumentTypeDescription();
     String keygenMenuItem2048();
     WEBCORE_EXPORT String keygenKeychainItemName(const String& host);
@@ -333,6 +351,7 @@ namespace WebCore {
     String audioTrackKindCommentaryDisplayName();
     String addAudioTrackKindCommentarySuffix(const String&);
 #endif // USE(CF)
+    String contextMenuItemTagShowMediaStats();
 #endif // ENABLE(VIDEO)
 
     String snapshottedPlugInLabelTitle();
@@ -379,10 +398,6 @@ namespace WebCore {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     WEBCORE_EXPORT String contextMenuItemTagCopySubject();
     WEBCORE_EXPORT String contextMenuItemTitleRemoveBackground();
-#endif
-
-#if HAVE(TRANSLATION_UI_SERVICES)
-    String contextMenuItemTagTranslate(const String& selectedString);
 #endif
 
 #if USE(CF) && !PLATFORM(WIN)
@@ -438,13 +453,15 @@ namespace WebCore {
 #endif
 
 #if USE(CF) && !PLATFORM(WIN)
-    String formatLocalizedString(CFStringRef format, ...) CF_FORMAT_FUNCTION(1, 2);
+    WEBCORE_EXPORT String formatLocalizedString(CFStringRef format, ...) CF_FORMAT_FUNCTION(1, 2);
 #else
-    String formatLocalizedString(const char* format, ...) WTF_ATTRIBUTE_PRINTF(1, 2);
+    WEBCORE_EXPORT String formatLocalizedString(const char* format, ...) WTF_ATTRIBUTE_PRINTF(1, 2);
 #endif
 
 #ifdef __OBJC__
 #define WEB_UI_NSSTRING(string, description) WebCore::localizedNSString(string)
+#define WEB_UI_NSSTRING_KEY(string, key, description) WebCore::localizedNSString(key)
+
     inline NS_FORMAT_ARGUMENT(1) NSString *localizedNSString(NSString *key)
     {
         return bridge_cast(copyLocalizedString(bridge_cast(key)).autorelease());

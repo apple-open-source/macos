@@ -730,7 +730,7 @@ const CFStringRef kDAPreferenceAutoMountDisableKey                = CFSTR( "DAAu
 const CFStringRef kDAPreferenceEnableUserFSMountExternalKey       = CFSTR( "DAEnableUserFSMountExternal" );
 const CFStringRef kDAPreferenceEnableUserFSMountInternalKey       = CFSTR( "DAEnableUserFSMountInternal" );
 const CFStringRef kDAPreferenceEnableUserFSMountRemovableKey      = CFSTR( "DAEnableUserFSMountRemovable" );
-const CFStringRef kDAPreferenceFileSystemDisableUserFSKey         = CFSTR( "DAFileSystemDisableUserFS" );
+const CFStringRef kDAPreferenceMountMethodkey                     = CFSTR( "DAMountMethod" );
 const CFStringRef kDAPreferenceDisableEjectNotificationKey        = CFSTR( "DADisableEjectNotification" );
 const CFStringRef kDAPreferenceDisableUnreadableNotificationKey   = CFSTR( "DADisableUnreadableNotification" );
 const CFStringRef kDAPreferenceDisableUnrepairableNotificationKey = CFSTR( "DADisableUnrepairableNotification" );
@@ -908,13 +908,13 @@ void DAPreferenceListRefresh( void )
                 }
             }
             
-            value = SCPreferencesGetValue( preferences, kDAPreferenceFileSystemDisableUserFSKey );
+            value = SCPreferencesGetValue( preferences, kDAPreferenceMountMethodkey );
 
             if ( value )
             {
-                if ( CFGetTypeID( value ) == CFArrayGetTypeID( ) )
+                if ( CFGetTypeID( value ) == CFStringGetTypeID( ) )
                 {
-                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceFileSystemDisableUserFSKey, value );
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountMethodkey, value );
                 }
             }
             

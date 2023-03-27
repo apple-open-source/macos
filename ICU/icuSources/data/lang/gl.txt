@@ -79,6 +79,7 @@ gl{
         chk{"chuuk"}
         chm{"mari"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chr{"cherokee"}
         chy{"cheyenne"}
         ckb{"kurdo central"}

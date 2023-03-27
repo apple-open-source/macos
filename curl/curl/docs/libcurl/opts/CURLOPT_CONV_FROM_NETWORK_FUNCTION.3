@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_CONV_FROM_NETWORK_FUNCTION 3 "September 20, 2022" "libcurl 7.86.0" "curl_easy_setopt options"
+.TH CURLOPT_CONV_FROM_NETWORK_FUNCTION 3 "November 14, 2022" "libcurl 7.87.0" "curl_easy_setopt options"
 
 .SH NAME
 CURLOPT_CONV_FROM_NETWORK_FUNCTION \- convert data from network to host encoding
@@ -97,7 +97,7 @@ curl_easy_setopt(curl, CURLOPT_CONV_FROM_NETWORK_FUNCTION,
                  my_conv_from_ascii_to_ebcdic);
 .fi
 .SH AVAILABILITY
-Not available since 7.82.0
+Not available and deprecated since 7.82.0.
 
 Available only if \fBCURL_DOES_CONVERSIONS\fP was defined when libcurl was
 built.

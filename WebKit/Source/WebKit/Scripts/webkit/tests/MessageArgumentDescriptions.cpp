@@ -27,7 +27,92 @@
 
 #if ENABLE(IPC_TESTING_API) || !LOG_DISABLED
 
+#include "AudioMediaStreamTrackRendererInternalUnitIdentifier.h"
+#include "ContentWorldShared.h"
+#include "DataTaskIdentifier.h"
+#include "GeolocationIdentifier.h"
+#include "GraphicsContextGLIdentifier.h"
+#include "IPCConnectionTesterIdentifier.h"
+#include "IPCStreamTesterIdentifier.h"
+#include "IdentifierTypes.h"
 #include "JSIPCBinding.h"
+#include "LegacyCustomProtocolID.h"
+#include "LibWebRTCResolverIdentifier.h"
+#include "MDNSRegisterIdentifier.h"
+#include "MarkSurfacesAsVolatileRequestIdentifier.h"
+#include "MediaRecorderIdentifier.h"
+#include "NetworkResourceLoadIdentifier.h"
+#include "PDFPluginIdentifier.h"
+#include "PlaybackSessionContextIdentifier.h"
+#include "QuotaIncreaseRequestIdentifier.h"
+#include "RemoteAudioDestinationIdentifier.h"
+#include "RemoteAudioHardwareListenerIdentifier.h"
+#include "RemoteAudioSessionIdentifier.h"
+#if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
+#include "RemoteCDMIdentifier.h"
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
+#include "RemoteCDMInstanceIdentifier.h"
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
+#include "RemoteCDMInstanceSessionIdentifier.h"
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
+#include "RemoteLegacyCDMIdentifier.h"
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
+#include "RemoteLegacyCDMSessionIdentifier.h"
+#endif
+#include "RemoteMediaResourceIdentifier.h"
+#include "RemoteRemoteCommandListenerIdentifier.h"
+#include "RemoteSerializedImageBufferIdentifier.h"
+#include "RemoteVideoFrameIdentifier.h"
+#include "RenderingBackendIdentifier.h"
+#include "RenderingUpdateID.h"
+#include "SampleBufferDisplayLayerIdentifier.h"
+#include "StorageAreaIdentifier.h"
+#include "StorageAreaImplIdentifier.h"
+#include "StorageAreaMapIdentifier.h"
+#include "StorageNamespaceIdentifier.h"
+#include "TrackPrivateRemoteIdentifier.h"
+#include "TransactionID.h"
+#include "UserContentControllerIdentifier.h"
+#include "VideoDecoderIdentifier.h"
+#include "VideoEncoderIdentifier.h"
+#include "WebExtensionContextIdentifier.h"
+#include "WebExtensionControllerIdentifier.h"
+#include "WebGPUIdentifier.h"
+#include "WebPageProxyIdentifier.h"
+#include "WebURLSchemeHandlerIdentifier.h"
+#include <WebCore/BroadcastChannelIdentifier.h>
+#include <WebCore/DOMCacheIdentifier.h>
+#include <WebCore/DictationContext.h>
+#include <WebCore/DisplayList.h>
+#include <WebCore/ElementIdentifier.h>
+#include <WebCore/FetchIdentifier.h>
+#include <WebCore/FileSystemHandleIdentifier.h>
+#include <WebCore/FileSystemSyncAccessHandleIdentifier.h>
+#include <WebCore/ImageDecoderIdentifier.h>
+#include <WebCore/LibWebRTCSocketIdentifier.h>
+#include <WebCore/MediaKeySystemRequestIdentifier.h>
+#include <WebCore/MediaPlayerIdentifier.h>
+#include <WebCore/MediaSessionIdentifier.h>
+#include <WebCore/PageIdentifier.h>
+#include <WebCore/PlaybackTargetClientContextIdentifier.h>
+#include <WebCore/ProcessIdentifier.h>
+#include <WebCore/PushSubscriptionIdentifier.h>
+#include <WebCore/RealtimeMediaSourceIdentifier.h>
+#include <WebCore/RenderingResourceIdentifier.h>
+#include <WebCore/ResourceLoaderIdentifier.h>
+#include <WebCore/ServiceWorkerIdentifier.h>
+#include <WebCore/ServiceWorkerTypes.h>
+#include <WebCore/SharedWorkerIdentifier.h>
+#include <WebCore/SleepDisablerIdentifier.h>
+#include <WebCore/SpeechRecognitionConnectionClientIdentifier.h>
+#include <WebCore/TextCheckingRequestIdentifier.h>
+#include <WebCore/TextManipulationToken.h>
+#include <WebCore/UserMediaRequestIdentifier.h>
+#include <WebCore/WebSocketIdentifier.h>
 #include "TestWithSuperclassMessages.h" // NOLINT
 #if (ENABLE(WEBKIT2) && (NESTED_MASTER_CONDITION || MASTER_OR && MASTER_AND))
 #include "TestWithLegacyReceiverMessages.h" // NOLINT
@@ -204,8 +289,10 @@ std::optional<JSC::JSValue> jsValueForArguments(JSC::JSGlobalObject* globalObjec
         return jsValueForDecodedMessage<MessageName::TestWithImageData_ReceiveImageData>(globalObject, decoder);
     case MessageName::TestWithStream_SendString:
         return jsValueForDecodedMessage<MessageName::TestWithStream_SendString>(globalObject, decoder);
-    case MessageName::TestWithStream_SendStringSynchronized:
-        return jsValueForDecodedMessage<MessageName::TestWithStream_SendStringSynchronized>(globalObject, decoder);
+    case MessageName::TestWithStream_SendStringAsync:
+        return jsValueForDecodedMessage<MessageName::TestWithStream_SendStringAsync>(globalObject, decoder);
+    case MessageName::TestWithStream_SendStringSync:
+        return jsValueForDecodedMessage<MessageName::TestWithStream_SendStringSync>(globalObject, decoder);
 #if PLATFORM(COCOA)
     case MessageName::TestWithStream_SendMachSendRight:
         return jsValueForDecodedMessage<MessageName::TestWithStream_SendMachSendRight>(globalObject, decoder);
@@ -283,8 +370,10 @@ std::optional<JSC::JSValue> jsValueForReplyArguments(JSC::JSGlobalObject* global
         return jsValueForDecodedMessageReply<MessageName::TestWithSemaphore_ReceiveSemaphore>(globalObject, decoder);
     case MessageName::TestWithImageData_ReceiveImageData:
         return jsValueForDecodedMessageReply<MessageName::TestWithImageData_ReceiveImageData>(globalObject, decoder);
-    case MessageName::TestWithStream_SendStringSynchronized:
-        return jsValueForDecodedMessageReply<MessageName::TestWithStream_SendStringSynchronized>(globalObject, decoder);
+    case MessageName::TestWithStream_SendStringAsync:
+        return jsValueForDecodedMessageReply<MessageName::TestWithStream_SendStringAsync>(globalObject, decoder);
+    case MessageName::TestWithStream_SendStringSync:
+        return jsValueForDecodedMessageReply<MessageName::TestWithStream_SendStringSync>(globalObject, decoder);
 #if PLATFORM(COCOA)
     case MessageName::TestWithStream_ReceiveMachSendRight:
         return jsValueForDecodedMessageReply<MessageName::TestWithStream_ReceiveMachSendRight>(globalObject, decoder);
@@ -299,6 +388,192 @@ std::optional<JSC::JSValue> jsValueForReplyArguments(JSC::JSGlobalObject* global
         break;
     }
     return std::nullopt;
+}
+
+Vector<ASCIILiteral> serializedIdentifiers()
+{
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::BroadcastChannelIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::DOMCacheIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::DictationContext));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::DisplayList::ItemBufferIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ElementIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::FetchIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::FileSystemHandleIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::FileSystemSyncAccessHandleIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ImageDecoderIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::LibWebRTCSocketIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaKeySystemRequestIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaPlayerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaSessionIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::PageIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::PlaybackTargetClientContextIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::PushSubscriptionIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ProcessIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::RealtimeMediaSourceIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::RenderingResourceIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ResourceLoaderIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::SWServerConnectionIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ServiceWorkerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ServiceWorkerJobIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ServiceWorkerRegistrationIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::SharedWorkerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::SleepDisablerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::SpeechRecognitionConnectionClientIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::TextCheckingRequestIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::TextManipulationTokenIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::UserMediaRequestIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::WebSocketIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::AuthenticationChallengeIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::ContentWorldIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::DataTaskIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::FormSubmitListenerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::GeolocationIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::GraphicsContextGLIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::IPCConnectionTesterIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::IPCStreamTesterIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::LegacyCustomProtocolID));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::LibWebRTCResolverIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::MDNSRegisterIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::MarkSurfacesAsVolatileRequestIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::MediaRecorderIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::NetworkResourceLoadIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::PDFPluginIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::PageGroupIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::PlaybackSessionContextIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::QuotaIncreaseRequestIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteAudioDestinationIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteAudioHardwareListenerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteAudioSessionIdentifier));
+#if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteCDMIdentifier));
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteCDMInstanceIdentifier));
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteCDMInstanceSessionIdentifier));
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteLegacyCDMIdentifier));
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteLegacyCDMSessionIdentifier));
+#endif
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteMediaResourceIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteSerializedImageBufferIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteVideoFrameIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteRemoteCommandListenerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RenderingBackendIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RenderingUpdateID));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::SampleBufferDisplayLayerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::StorageAreaIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::StorageAreaImplIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::StorageAreaMapIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::StorageNamespaceIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::TapIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::TrackPrivateRemoteIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::TransactionID));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::UserContentControllerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::VideoDecoderIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::VideoEncoderIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::WebExtensionContextIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::WebExtensionControllerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::WebGPUIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::WebPageProxyIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::WebURLSchemeHandlerIdentifier));
+    return {
+        "WebCore::BroadcastChannelIdentifier"_s,
+        "WebCore::DOMCacheIdentifier"_s,
+        "WebCore::DictationContext"_s,
+        "WebCore::DisplayList::ItemBufferIdentifier"_s,
+        "WebCore::ElementIdentifier"_s,
+        "WebCore::FetchIdentifier"_s,
+        "WebCore::FileSystemHandleIdentifier"_s,
+        "WebCore::FileSystemSyncAccessHandleIdentifier"_s,
+        "WebCore::ImageDecoderIdentifier"_s,
+        "WebCore::LibWebRTCSocketIdentifier"_s,
+        "WebCore::MediaKeySystemRequestIdentifier"_s,
+        "WebCore::MediaPlayerIdentifier"_s,
+        "WebCore::MediaSessionIdentifier"_s,
+        "WebCore::PageIdentifier"_s,
+        "WebCore::PlaybackTargetClientContextIdentifier"_s,
+        "WebCore::PushSubscriptionIdentifier"_s,
+        "WebCore::ProcessIdentifier"_s,
+        "WebCore::RealtimeMediaSourceIdentifier"_s,
+        "WebCore::RenderingResourceIdentifier"_s,
+        "WebCore::ResourceLoaderIdentifier"_s,
+        "WebCore::SWServerConnectionIdentifier"_s,
+        "WebCore::ServiceWorkerIdentifier"_s,
+        "WebCore::ServiceWorkerJobIdentifier"_s,
+        "WebCore::ServiceWorkerRegistrationIdentifier"_s,
+        "WebCore::SharedWorkerIdentifier"_s,
+        "WebCore::SleepDisablerIdentifier"_s,
+        "WebCore::SpeechRecognitionConnectionClientIdentifier"_s,
+        "WebCore::TextCheckingRequestIdentifier"_s,
+        "WebCore::TextManipulationTokenIdentifier"_s,
+        "WebCore::UserMediaRequestIdentifier"_s,
+        "WebCore::WebSocketIdentifier"_s,
+        "WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier"_s,
+        "WebKit::AuthenticationChallengeIdentifier"_s,
+        "WebKit::ContentWorldIdentifier"_s,
+        "WebKit::DataTaskIdentifier"_s,
+        "WebKit::FormSubmitListenerIdentifier"_s,
+        "WebKit::GeolocationIdentifier"_s,
+        "WebKit::GraphicsContextGLIdentifier"_s,
+        "WebKit::IPCConnectionTesterIdentifier"_s,
+        "WebKit::IPCStreamTesterIdentifier"_s,
+        "WebKit::LegacyCustomProtocolID"_s,
+        "WebKit::LibWebRTCResolverIdentifier"_s,
+        "WebKit::MDNSRegisterIdentifier"_s,
+        "WebKit::MarkSurfacesAsVolatileRequestIdentifier"_s,
+        "WebKit::MediaRecorderIdentifier"_s,
+        "WebKit::NetworkResourceLoadIdentifier"_s,
+        "WebKit::PDFPluginIdentifier"_s,
+        "WebKit::PageGroupIdentifier"_s,
+        "WebKit::PlaybackSessionContextIdentifier"_s,
+        "WebKit::QuotaIncreaseRequestIdentifier"_s,
+        "WebKit::RemoteAudioDestinationIdentifier"_s,
+        "WebKit::RemoteAudioHardwareListenerIdentifier"_s,
+        "WebKit::RemoteAudioSessionIdentifier"_s,
+#if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
+        "WebKit::RemoteCDMIdentifier"_s,
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
+        "WebKit::RemoteCDMInstanceIdentifier"_s,
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
+        "WebKit::RemoteCDMInstanceSessionIdentifier"_s,
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
+        "WebKit::RemoteLegacyCDMIdentifier"_s,
+#endif
+#if ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
+        "WebKit::RemoteLegacyCDMSessionIdentifier"_s,
+#endif
+        "WebKit::RemoteMediaResourceIdentifier"_s,
+        "WebKit::RemoteSerializedImageBufferIdentifier"_s,
+        "WebKit::RemoteVideoFrameIdentifier"_s,
+        "WebKit::RemoteRemoteCommandListenerIdentifier"_s,
+        "WebKit::RenderingBackendIdentifier"_s,
+        "WebKit::RenderingUpdateID"_s,
+        "WebKit::SampleBufferDisplayLayerIdentifier"_s,
+        "WebKit::StorageAreaIdentifier"_s,
+        "WebKit::StorageAreaImplIdentifier"_s,
+        "WebKit::StorageAreaMapIdentifier"_s,
+        "WebKit::StorageNamespaceIdentifier"_s,
+        "WebKit::TapIdentifier"_s,
+        "WebKit::TrackPrivateRemoteIdentifier"_s,
+        "WebKit::TransactionID"_s,
+        "WebKit::UserContentControllerIdentifier"_s,
+        "WebKit::VideoDecoderIdentifier"_s,
+        "WebKit::VideoEncoderIdentifier"_s,
+        "WebKit::WebExtensionContextIdentifier"_s,
+        "WebKit::WebExtensionControllerIdentifier"_s,
+        "WebKit::WebGPUIdentifier"_s,
+        "WebKit::WebPageProxyIdentifier"_s,
+        "WebKit::WebURLSchemeHandlerIdentifier"_s,
+    };
 }
 
 #endif // ENABLE(IPC_TESTING_API)
@@ -579,7 +854,11 @@ std::optional<Vector<ArgumentDescription>> messageArgumentDescriptions(MessageNa
         return Vector<ArgumentDescription> {
             { "url", "String", nullptr, false },
         };
-    case MessageName::TestWithStream_SendStringSynchronized:
+    case MessageName::TestWithStream_SendStringAsync:
+        return Vector<ArgumentDescription> {
+            { "url", "String", nullptr, false },
+        };
+    case MessageName::TestWithStream_SendStringSync:
         return Vector<ArgumentDescription> {
             { "url", "String", nullptr, false },
         };
@@ -701,7 +980,11 @@ std::optional<Vector<ArgumentDescription>> messageReplyArgumentDescriptions(Mess
         return Vector<ArgumentDescription> {
             { "r0", "RefPtr<WebCore::ImageData>", nullptr, false },
         };
-    case MessageName::TestWithStream_SendStringSynchronized:
+    case MessageName::TestWithStream_SendStringAsync:
+        return Vector<ArgumentDescription> {
+            { "returnValue", "int64_t", nullptr, false },
+        };
+    case MessageName::TestWithStream_SendStringSync:
         return Vector<ArgumentDescription> {
             { "returnValue", "int64_t", nullptr, false },
         };

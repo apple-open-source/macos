@@ -38,6 +38,8 @@
 #include <Security/SecItemPriv.h>
 #include "OSX/sec/Security/SecItemShim.h"
 
+#include "featureflags/featureflags.h"
+
 @interface CloudKitKeychainAESSIVEncryptionTests : CloudKitMockXCTest
 @end
 
@@ -46,7 +48,6 @@
 + (void)setUp {
     // We don't really want to spin up the whole machinery for the encryption tests
     SecCKKSDisable();
-
     [super setUp];
 }
 
@@ -227,12 +228,18 @@
     CKKSWrappedAESSIVKey* wrappedKey = [key wrapAESKey: keyToWrap error:&error];
     XCTAssertNil(error, "no error wrapping key");
     XCTAssertNotNil(wrappedKey, "wrapped key was returned");
+    if (wrappedKey == nil) {
+        return;
+    }
 
     XCTAssert(0 != memcmp(keyToWrap->key, (wrappedKey->key)+(CKKSWrappedKeySize - CKKSKeySize), CKKSKeySize), "wrapped key is different from original key");
 
     CKKSAESSIVKey* unwrappedKey = [key unwrapAESKey: wrappedKey error:&error];
     XCTAssertNil(error, "no error unwrapping key");
     XCTAssertNotNil(unwrappedKey, "unwrapped key was returned");
+    if (unwrappedKey == nil) {
+        return;
+    }
 
     XCTAssert(0 == memcmp(keyToWrap->key, unwrappedKey->key, CKKSKeySize), "unwrapped key matches original key");
     XCTAssertEqualObjects(keyToWrap, unwrappedKey, "unwrapped key matches original key");
@@ -248,6 +255,9 @@
     CKKSWrappedAESSIVKey* wrappedKey = [key wrapAESKey: keyToWrap error:&error];
     XCTAssertNil(error, "no error wrapping key");
     XCTAssertNotNil(wrappedKey, "wrapped key was returned");
+    if (wrappedKey == nil) {
+        return;
+    }
 
     XCTAssert(0 != memcmp(keyToWrap->key, (wrappedKey->key)+(CKKSWrappedKeySize - CKKSKeySize), CKKSKeySize), "wrapped key is different from original key");
     wrappedKey->key[0] ^= 0x1;

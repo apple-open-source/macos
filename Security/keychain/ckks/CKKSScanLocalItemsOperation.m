@@ -282,6 +282,7 @@
 
                 if(!q || cferror) {
                     ckkserror("ckksscan", viewState.zoneID, "couldn't create query: %@", cferror);
+                    CFReleaseNull(cferror);
                     return false;
                 }
 
@@ -296,9 +297,9 @@
                     SecDbItemRef new_item = SecDbItemCopyWithUpdates(uuidlessItem, (__bridge CFDictionaryRef)updates, &cferror);
 
                     if(!new_item) {
+                        ckksnotice("ckksscan", viewState.zoneID, "Unable to copy item with new UUID: %@", cferror);
                         SecTranslateError(&itemError, cferror);
                         self.error = itemError;
-                        ckksnotice("ckksscan", viewState.zoneID, "Unable to copy item with new UUID: %@", cferror);
                         return;
                     }
 
@@ -329,6 +330,7 @@
                 self.error = itemError;
                 return CKKSDatabaseTransactionRollback;
             }
+            CFReleaseNull(cferror);
         }
 
         return CKKSDatabaseTransactionCommit;

@@ -575,11 +575,13 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 	}
 
 	// make sure that we do not add an orphaned network service if its
-	// associated interface is a member of a bond or bridge.
+	// associated interface is a member of a bond, or of a bridge that
+	// doesn't allow configured members
 	interface = SCNetworkServiceGetInterface(service);
 	if ((interface != NULL) &&
-	    __SCNetworkInterfaceIsMember(servicePrivate->prefs, interface)) {
-		_SCErrorSet(kSCStatusKeyExists);
+	    __SCNetworkInterfaceIsBusyMember(servicePrivate->prefs, interface,
+					     TRUE)) {
+		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
 
@@ -808,13 +810,14 @@ SCNetworkSetCopyAvailableInterfaces(SCNetworkSetRef set)
 	}
 
 	if (prefs != NULL) {
-		CFArrayRef	bridges	= NULL;
+        CFArrayRef	bridges	= NULL;
+#if	!TARGET_OS_IPHONE
+        CFArrayRef	bonds	= NULL;
+#endif	/* !TARGET_OS_IPHONE */
 
 		excluded = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 
 #if	!TARGET_OS_IPHONE
-		CFArrayRef	bonds	= NULL;
-
 		bonds = SCBondInterfaceCopyAll(prefs);
 		if (bonds != NULL) {
 			__SCBondInterfaceListCollectMembers(bonds, excluded);
@@ -824,7 +827,8 @@ SCNetworkSetCopyAvailableInterfaces(SCNetworkSetRef set)
 
 		bridges = SCBridgeInterfaceCopyAll(prefs);
 		if (bridges != NULL) {
-			__SCBridgeInterfaceListCollectMembers(bridges, excluded);
+			__SCBridgeInterfaceListCollectMembers(bridges, excluded,
+							      FALSE);
 			CFRelease(bridges);
 		}
 
@@ -1806,7 +1810,8 @@ copyExcludedInterfaces(SCPreferencesRef prefs)
 	// exclude Bridge [member] interfaces
 	interfaces = SCBridgeInterfaceCopyAll(prefs);
 	if (interfaces != NULL) {
-		__SCBridgeInterfaceListCollectMembers(interfaces, excluded);
+		__SCBridgeInterfaceListCollectMembers(interfaces, excluded,
+						      FALSE);
 		CFRelease(interfaces);
 	}
 

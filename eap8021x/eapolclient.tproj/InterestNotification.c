@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -119,6 +119,18 @@ InterestNotificationStart(InterestNotificationRef interest_p,
     if (obj == MACH_PORT_NULL) {
 	EAPLOG_FL(LOG_NOTICE, "IOIteratorNext no object\n");
 	goto done;
+    }
+    /*
+     * Find the node two levels up
+     */
+    for (int i = 0; i < 2; i++) {
+	kr = IORegistryEntryGetParentEntry(obj, kIOServicePlane, &obj);
+	if (kr != kIOReturnSuccess) {
+	    EAPLOG_FL(LOG_NOTICE,
+		      "IORegistryEntryGetParentEntry(%d) failed, kr = 0x%x",
+		      i, kr);
+	    goto done;
+	}
     }
     kr = IOServiceAddInterestNotification(notify,
 					  obj,

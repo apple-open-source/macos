@@ -15,6 +15,7 @@ list(APPEND WTF_PUBLIC_HEADERS
     cf/CFURLExtras.h
     cf/SpanCF.h
     cf/TypeCastsCF.h
+    cf/VectorCF.h
 
     cocoa/CrashReporter.h
     cocoa/Entitlements.h
@@ -81,6 +82,8 @@ list(APPEND WTF_SOURCES
     cocoa/SystemTracingCocoa.cpp
     cocoa/URLCocoa.mm
     cocoa/WorkQueueCocoa.cpp
+
+    darwin/LibraryPathDiagnostics.mm
 
     mac/FileSystemMac.mm
     mac/SchedulePairMac.mm

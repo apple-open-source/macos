@@ -240,6 +240,22 @@ MACRO_END
 
 #define port_rcv_turnstile_address(port)   (&(port)->ip_waitq.waitq_ts)
 
+extern void __ipc_right_delta_overflow_panic(
+	ipc_port_t          port,
+	natural_t          *field,
+	int                 delta) __abortlike;
+
+#define ip_right_delta(port, field, delta)  ({ \
+    ipc_port_t __port = (port);                                  \
+    if (os_add_overflow(__port->field, delta, &__port->field)) { \
+	__ipc_right_delta_overflow_panic(__port, &__port->field, delta);  \
+    }                                                            \
+})
+
+#define ip_srights_inc(port)  ip_right_delta(port, ip_srights, 1)
+#define ip_srights_dec(port)  ip_right_delta(port, ip_srights, -1)
+#define ip_sorights_inc(port) ip_right_delta(port, ip_sorights, 1)
+#define ip_sorights_dec(port) ip_right_delta(port, ip_sorights, -1)
 
 /*
  * SYNC IPC state flags for special reply port/ rcv right.

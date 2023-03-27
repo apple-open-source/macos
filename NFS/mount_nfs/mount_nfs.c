@@ -145,6 +145,7 @@ struct nfs_conf_client config =
 #define ALTF_ETYPE              0x00200000
 #define ALTF_FH                 0x00400000
 #define ALTF_NETID              0x00800000
+#define ALTF_READLINK_NOCACHE   0x01000000
 
 /* switches */
 #define ALTF_ATTRCACHE          0x00000001
@@ -210,6 +211,7 @@ struct mntopt mopts[] = {
 	{ "timeo", 0, ALTF_TIMEO, 1 },
 	{ "vers", 0, ALTF_VERS, 1 },
 	{ "wsize", 0, ALTF_WSIZE, 1 },
+	{ "readlink_nocache", 0, ALTF_READLINK_NOCACHE, 1 },
 	/**/
 	{ "nfsv2", 0, ALTF_VERS2, 1 }, /* deprecated, use vers=# */
 	{ "nfsv3", 0, ALTF_VERS3, 1 }, /* deprecated, use vers=# */
@@ -303,14 +305,6 @@ int             nfsparsevers(const char *, uint32_t *, uint32_t *);
 char *          fh2hexstr(fhandle_t *);
 enum clnt_stat  ping_rpc_statd(struct sockaddr *);
 void            nfs_err(int, const char *, ...) __attribute__((format(printf, 2, 3)));
-
-/*
- * Max rwsize supported by kernel/kext is 2MB for Intel and 8MB for Apple Silicon (8 * 64 * PAGE_SIZE) but
- * TCP socket buffer limits us to ~3.5MB (3727872 bytes).
- * We are currently limiting is to 2MB for reasons of consistency.
- * See Radar #73264615 for more info.
- */
-#define MAX_IO_SIZE (1024 * 1024 * 2)
 
 uint32_t
 strtouint32(const char *str, char **eptr, int base)
@@ -445,7 +439,7 @@ mount_nfs_imp(int argc, char *argv[])
 			break;
 		case 'I':
 			num = strtouint32(optarg, &p, 10);
-			if (*p || num == 0 || num > MAX_IO_SIZE) {
+			if (*p || num == 0 || num > NFS_MAXDATA) {
 				warnx("illegal -I value -- %s", optarg);
 			} else {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_READDIR_SIZE);
@@ -689,11 +683,7 @@ mount_nfs_imp(int argc, char *argv[])
 		if (verbose > 2) {
 			printf("Calling mount(\"nfs\", %8.8x, %p)\n", options.mntflags, xdrbuf);
 		}
-#if TARGET_OS_IOS
-		if (options.mntflags & MNT_SYNCHRONOUS) {
-			options.mntflags &= ~MNT_SYNCHRONOUS;
-		}
-#endif
+
 		if (mount("nfs", mntonname, options.mntflags, xdrbuf)) {
 			error = errno;
 			/* Give up or keep trying... depending on the error. */
@@ -896,7 +886,7 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 
 	*xdrbufp = NULL;
 
-	for (i = 0; i < NFS_MFLAG_BITMAP_LEN; i++) {
+	for (i = 0; i < NFS_MATTR_BITMAP_LEN; i++) {
 		mattrs[i] = options.mattrs[i];
 	}
 
@@ -1113,8 +1103,13 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCAL_NFS_PORT)) {
 		xb_add_string(error, &xb, options.local_nfs_port, strlen(options.local_nfs_port));
 	}
+
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCAL_MOUNT_PORT)) {
 		xb_add_string(error, &xb, options.local_mount_port, strlen(options.local_mount_port));
+	}
+
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READLINK_NOCACHE)) {
+		xb_add_32(error, &xb, options.readlink_nocache);
 	}
 
 	xb_build_done(error, &xb);
@@ -1662,7 +1657,7 @@ handle_mntopts(char *opts)
 				num *= 1024;
 				p++;
 			}
-			if ((num <= 0 || num > MAX_IO_SIZE) || *p) {
+			if ((num <= 0 || num > NFS_MAXDATA) || *p) {
 				warnx("illegal rsize value -- %s", p2);
 			} else {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_READ_SIZE);
@@ -1739,7 +1734,7 @@ handle_mntopts(char *opts)
 				num *= 1024;
 				p++;
 			}
-			if ((num <= 0 || num > MAX_IO_SIZE) || *p) {
+			if ((num <= 0 || num > NFS_MAXDATA) || *p) {
 				warnx("illegal wsize value -- %s", p2);
 			} else {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_WRITE_SIZE);
@@ -1810,6 +1805,17 @@ handle_mntopts(char *opts)
 				}
 			} else {
 				nfs_err(1, "cound not set root file handle: %s", strerror(1));
+			}
+		}
+	}
+	if (altflags & ALTF_READLINK_NOCACHE) {
+		if ((p2 = getmntoptstr(mop, "readlink_nocache"))) {
+			num = getmntoptnum(mop, "readlink_nocache");
+			if (num < 0) {
+				warnx("illegal readlink_nocache value -- %s", p2);
+			} else {
+				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_READLINK_NOCACHE);
+				options.readlink_nocache = (int)num;
 			}
 		}
 	}
@@ -3104,6 +3110,9 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 	}
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_SVCPRINCIPAL)) {
 		printf(",sprincipal=%s", options.sprinc);
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READLINK_NOCACHE) || (verbose > 1)) {
+		printf(",readlink_nocache=%d", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READLINK_NOCACHE) ? options.readlink_nocache : 0);
 	}
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOOPAQUE_AUTH) || (verbose > 1)) {
 		printf(",%sopaque_auth", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOOPAQUE_AUTH) ? "no" : "");

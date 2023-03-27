@@ -26,6 +26,7 @@
 #include "IOHIDKeys.h"
 #include "IOHIDParameter.h"
 #include <IOKit/IOLib.h>
+#include <IOKit/hid/IOHIDPrivateKeys.h>
 
 #define super IOHIDDevice
 
@@ -73,7 +74,7 @@ bool IOHIDUserDevice::initWithProperties(OSDictionary * properties)
     _properties->retain();
     
     
-    OSBoolean *nonVirtualUserDeviceCreateEntitlement = (OSBoolean*)getProperty("Privileged");
+    OSBoolean *nonVirtualUserDeviceCreateEntitlement = (OSBoolean*)getProperty(kIOHIDDevicePrivilegedKey);
 
     // check if user has entitlements to create a non-virtual user device
     // case user -> Valid Property , Valid Entitlements (OK -> user property value)
@@ -81,12 +82,12 @@ bool IOHIDUserDevice::initWithProperties(OSDictionary * properties)
     // case user -> Non Valid Property , Non Valid Entitlements (True)
     
     if (!nonVirtualUserDeviceCreateEntitlement || (nonVirtualUserDeviceCreateEntitlement == kOSBooleanFalse)) {
-        setProperty("HIDVirtualDevice", kOSBooleanTrue);
+        setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
     }
     
     // still need to set , if you have entitlements but didn't set
-    if (getProperty("HIDVirtualDevice") == NULL) {
-        setProperty("HIDVirtualDevice", kOSBooleanTrue);
+    if (getProperty(kIOHIDVirtualHIDevice) == NULL) {
+        setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
     }
 
     setProperty("HIDDefaultBehavior", kOSBooleanTrue);

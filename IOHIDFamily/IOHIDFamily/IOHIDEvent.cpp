@@ -139,7 +139,7 @@ AbsoluteTime IOHIDEvent::getTimeStamp()
     return _options & kIOHIDEventOptionContinuousTime ? continuoustime_to_absolutetime(_timeStamp) : _timeStamp;
 #else
     // TODO: The build is failing for IOHIDFamily_test, the conversion API is not available in user space.
-    // TODO: Is building for user space just for the TestIOHIDEventSerialization unit test? If so, leave this. If not, fix this to be correct.
+    // TODO: Is building for user space just for the TestHIDIOHIDEventSerialization unit test? If so, leave this. If not, fix this to be correct.
     return _timeStamp;
 #endif
 }

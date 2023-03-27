@@ -45,6 +45,7 @@
 
 #include <dispatch/dispatch.h>
 
+#include "featureflags/featureflags.h"
 #include "keychain/ckks/CKKS.h"
 
 int test_strict_bats = 1;
@@ -131,6 +132,7 @@ tests_end(void)
 {
 #ifdef NO_SERVER
 	setup("tests_end");
+
 
 	/* Restore previous cwd and remove scratch dir. */
     ok_unix(fchdir(current_dir), "fchdir");

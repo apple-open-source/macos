@@ -136,9 +136,9 @@ RefPtr<GPUProcessConnection> GPUProcessConnection::create(IPC::Connection& paren
 }
 
 GPUProcessConnection::GPUProcessConnection(IPC::Connection::Identifier&& connectionIdentifier)
-    : m_connection(IPC::Connection::createServerConnection(connectionIdentifier, *this))
+    : m_connection(IPC::Connection::createServerConnection(connectionIdentifier))
 {
-    m_connection->open();
+    m_connection->open(*this);
 
     addLanguageChangeObserver(this, languagesChanged);
 
@@ -259,11 +259,6 @@ bool GPUProcessConnection::dispatchMessage(IPC::Connection& connection, IPC::Dec
     if (messageReceiverMap().dispatchMessage(connection, decoder))
         return true;
 
-#if ENABLE(WEBGL)
-    if (decoder.messageReceiverName() == Messages::RemoteGraphicsContextGLProxy::messageReceiverName())
-        return RemoteGraphicsContextGLProxy::handleMessageToRemovedDestination(connection, decoder);
-#endif
-
 #if USE(AUDIO_SESSION)
     if (decoder.messageReceiverName() == Messages::RemoteAudioSession::messageReceiverName()) {
         RELEASE_LOG_ERROR(Media, "The RemoteAudioSession object has beed destroyed");
@@ -308,8 +303,10 @@ void GPUProcessConnection::didInitialize(std::optional<GPUProcessConnectionInfo>
         return;
     }
     m_hasInitialized = true;
-#if ENABLE(VP9)
-    m_hasVP9HardwareDecoder = info->hasVP9HardwareDecoder;
+
+#if ENABLE(VP9) && USE(LIBWEBRTC) && PLATFORM(COCOA)
+    WebProcess::singleton().libWebRTCCodecs().setVP9VTBSupport(info->hasVP9HardwareDecoder);
+    WebProcess::singleton().libWebRTCCodecs().setHasVP9ExtensionSupport(info->hasVP9ExtensionSupport);
 #endif
 }
 
@@ -381,14 +378,6 @@ void GPUProcessConnection::enableVP9Decoders(bool enableVP8Decoder, bool enableV
     m_enableVP9SWDecoder = enableVP9SWDecoder;
     connection().send(Messages::GPUConnectionToWebProcess::EnableVP9Decoders(enableVP8Decoder, enableVP9Decoder, enableVP9SWDecoder), { });
 }
-
-bool GPUProcessConnection::hasVP9HardwareDecoder()
-{
-    if (!waitForDidInitialize())
-        return false;
-    return m_hasVP9HardwareDecoder;
-}
-
 #endif
 
 void GPUProcessConnection::updateMediaConfiguration()
@@ -400,7 +389,9 @@ void GPUProcessConnection::updateMediaConfiguration()
         settingsChanged = true;
 
 #if ENABLE(VP9)
-    if (m_mediaOverridesForTesting.vp9HardwareDecoderDisabled != VP9TestingOverrides::singleton().hardwareDecoderDisabled() || m_mediaOverridesForTesting.vp9ScreenSizeAndScale != VP9TestingOverrides::singleton().vp9ScreenSizeAndScale())
+    if (m_mediaOverridesForTesting.vp9HardwareDecoderDisabled != VP9TestingOverrides::singleton().hardwareDecoderDisabled()
+        || m_mediaOverridesForTesting.vp9DecoderDisabled != VP9TestingOverrides::singleton().vp9DecoderDisabled()
+        || m_mediaOverridesForTesting.vp9ScreenSizeAndScale != VP9TestingOverrides::singleton().vp9ScreenSizeAndScale())
         settingsChanged = true;
 #endif
 
@@ -413,6 +404,7 @@ void GPUProcessConnection::updateMediaConfiguration()
 
 #if ENABLE(VP9)
         .vp9HardwareDecoderDisabled = VP9TestingOverrides::singleton().hardwareDecoderDisabled(),
+        .vp9DecoderDisabled = VP9TestingOverrides::singleton().vp9DecoderDisabled(),
         .vp9ScreenSizeAndScale = VP9TestingOverrides::singleton().vp9ScreenSizeAndScale(),
 #endif
     };

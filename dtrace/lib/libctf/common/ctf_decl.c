@@ -89,7 +89,7 @@ ctf_decl_push(ctf_decl_t *cd, ctf_file_t *fp, ctf_id_t type)
 	uint32_t kind, n = 1;
 	int is_qual = 0;
 
-	const ctf_type_t *tp;
+	const void *tp;
 	ctf_arinfo_t ar;
 
 	if ((tp = ctf_lookup_by_id(&fp, type)) == NULL) {
@@ -97,7 +97,7 @@ ctf_decl_push(ctf_decl_t *cd, ctf_file_t *fp, ctf_id_t type)
 		return;
 	}
 
-	switch (kind = LCTF_INFO_KIND(fp, tp->ctt_info)) {
+	switch (kind = LCTF_INFO_KIND(fp, get_type_ctt_info(fp, tp))) {
 	case CTF_K_ARRAY:
 		(void) ctf_array_info(fp, type, &ar);
 		ctf_decl_push(cd, fp, ar.ctr_contents);
@@ -106,31 +106,31 @@ ctf_decl_push(ctf_decl_t *cd, ctf_file_t *fp, ctf_id_t type)
 		break;
 
 	case CTF_K_TYPEDEF:
-		if (ctf_strptr(fp, tp->ctt_name)[0] == '\0') {
-			ctf_decl_push(cd, fp, tp->ctt_type);
+		if (ctf_strptr(fp, get_type_ctt_name(fp, tp))[0] == '\0') {
+			ctf_decl_push(cd, fp, get_type_ctt_type(fp, tp));
 			return;
 		}
 		prec = CTF_PREC_BASE;
 		break;
 
 	case CTF_K_FUNCTION:
-		ctf_decl_push(cd, fp, tp->ctt_type);
+		ctf_decl_push(cd, fp, get_type_ctt_type(fp, tp));
 		prec = CTF_PREC_FUNCTION;
 		break;
 
 	case CTF_K_PTRAUTH:
-		ctf_decl_push(cd, fp, tp->ctt_type);
+		ctf_decl_push(cd, fp, get_type_ctt_type(fp, tp));
 		prec = cd->cd_qualp;
 		break;
 	case CTF_K_POINTER:
-		ctf_decl_push(cd, fp, tp->ctt_type);
+		ctf_decl_push(cd, fp, get_type_ctt_type(fp, tp));
 		prec = CTF_PREC_POINTER;
 		break;
 
 	case CTF_K_VOLATILE:
 	case CTF_K_CONST:
 	case CTF_K_RESTRICT:
-		ctf_decl_push(cd, fp, tp->ctt_type);
+		ctf_decl_push(cd, fp, get_type_ctt_type(fp, tp));
 		prec = cd->cd_qualp;
 		is_qual++;
 		break;

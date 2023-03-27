@@ -67,11 +67,11 @@ is_maphash_valid(void)
     static void
 validate_maphash(void)
 {
-    if (!maphash_valid)
-    {
-	CLEAR_FIELD(maphash);
-	maphash_valid = TRUE;
-    }
+    if (maphash_valid)
+	return;
+
+    CLEAR_FIELD(maphash);
+    maphash_valid = TRUE;
 }
 
 /*
@@ -326,7 +326,7 @@ list_mappings(
 		case MOKS_OFF: name = _("Off"); break;
 		case MOKS_ENABLED: name = _("On"); break;
 		case MOKS_DISABLED: name = _("Disabled"); break;
-		case MOKS_AFTER_T_KE: name = _("Cleared"); break;
+		case MOKS_AFTER_T_TE: name = _("Cleared"); break;
 	    }
 
 	    char buf[200];
@@ -344,7 +344,7 @@ list_mappings(
 		case KKPS_OFF: name = _("Off"); break;
 		case KKPS_ENABLED: name = _("On"); break;
 		case KKPS_DISABLED: name = _("Disabled"); break;
-		case KKPS_AFTER_T_KE: name = _("Cleared"); break;
+		case KKPS_AFTER_T_TE: name = _("Cleared"); break;
 	    }
 
 	    char buf[200];
@@ -581,8 +581,8 @@ do_map(
     // needs to be freed later (*keys_buf and *arg_buf).
     // replace_termcodes() also removes CTRL-Vs and sometimes backslashes.
     // If something like <C-H> is simplified to 0x08 then mark it as simplified
-    // and also add a n entry with a modifier, which will work when
-    // modifyOtherKeys is working.
+    // and also add an entry with a modifier, which will work when using a key
+    // protocol.
     if (haskey)
     {
 	char_u	*new_keys;
@@ -1843,32 +1843,33 @@ vim_strsave_escape_csi(char_u *p)
     // illegal utf-8 byte:
     // 0xc0 -> 0xc3 0x80 -> 0xc3 K_SPECIAL KS_SPECIAL KE_FILLER
     res = alloc(STRLEN(p) * 4 + 1);
-    if (res != NULL)
+    if (res == NULL)
+	return NULL;
+
+    d = res;
+    for (s = p; *s != NUL; )
     {
-	d = res;
-	for (s = p; *s != NUL; )
-	{
-	    if ((s[0] == K_SPECIAL
+	if ((s[0] == K_SPECIAL
 #ifdef FEAT_GUI
 		    || (gui.in_use && s[0] == CSI)
 #endif
-		) && s[1] != NUL && s[2] != NUL)
-	    {
-		// Copy special key unmodified.
-		*d++ = *s++;
-		*d++ = *s++;
-		*d++ = *s++;
-	    }
-	    else
-	    {
-		// Add character, possibly multi-byte to destination, escaping
-		// CSI and K_SPECIAL. Be careful, it can be an illegal byte!
-		d = add_char2buf(PTR2CHAR(s), d);
-		s += MB_CPTR2LEN(s);
-	    }
+	    ) && s[1] != NUL && s[2] != NUL)
+	{
+	    // Copy special key unmodified.
+	    *d++ = *s++;
+	    *d++ = *s++;
+	    *d++ = *s++;
 	}
-	*d = NUL;
+	else
+	{
+	    // Add character, possibly multi-byte to destination, escaping
+	    // CSI and K_SPECIAL. Be careful, it can be an illegal byte!
+	    d = add_char2buf(PTR2CHAR(s), d);
+	    s += MB_CPTR2LEN(s);
+	}
     }
+    *d = NUL;
+
     return res;
 }
 
@@ -2982,7 +2983,7 @@ langmap_set_entry(int from, int to)
 	    b = i;
     }
 
-    if (ga_grow(&langmap_mapga, 1) != OK)
+    if (ga_grow(&langmap_mapga, 1) == FAIL)
 	return;  // out of memory
 
     // insert new entry at position "a"

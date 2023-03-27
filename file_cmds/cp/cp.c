@@ -522,8 +522,11 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 					rval = 1;
 #ifdef __APPLE__
 				/* setfile will fail if writeattr is denied */
-				if (copyfile(curr->fts_path, to.p_path, NULL, COPYFILE_ACL)<0)
+				if (copyfile(curr->fts_path, to.p_path, NULL,
+				    COPYFILE_ACL) < 0) {
 					warn("%s: unable to copy ACL to %s", curr->fts_path, to.p_path);
+					rval = 1;
+				}
 #else  /* !__APPLE__ */
 				if (preserve_dir_acls(curr->fts_statp,
 				    curr->fts_accpath, to.p_path) != 0)
@@ -639,8 +642,12 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 			curr->fts_number = pflag || dne;
 #ifdef __APPLE__
 			if (!Xflag) {
-				if (copyfile(curr->fts_path, to.p_path, NULL, COPYFILE_XATTR) < 0)
+				if (copyfile(curr->fts_path, to.p_path, NULL,
+				    COPYFILE_XATTR) < 0) {
 					warn("%s: unable to copy extended attributes to %s", curr->fts_path, to.p_path);
+					badcp = rval = 1;
+				}
+
 				/* ACL and mtime set in postorder traversal */
 			}
 #endif /* __APPLE__ */

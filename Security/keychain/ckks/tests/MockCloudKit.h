@@ -164,6 +164,12 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @interface FakeCKKSNotifier : NSObject <CKKSNotifier>
 @end
 
+@interface FakeCKAccountInfo : NSObject
+@property (nonatomic, assign) CKAccountStatus accountStatus;
+@property (nonatomic, assign) CKAccountPartitionType accountPartition;
+@property (nonatomic, assign) BOOL hasValidCredentials;
+@end
+
 NS_ASSUME_NONNULL_END
 
 #endif /* OCTAGON */

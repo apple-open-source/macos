@@ -228,7 +228,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::getSupportedTypes(HashSet<String, ASC
 
 MediaPlayer::SupportsType MediaPlayerPrivateMediaStreamAVFObjC::supportsType(const MediaEngineSupportParameters& parameters)
 {
-    return parameters.isMediaStream ? MediaPlayer::SupportsType::IsSupported : MediaPlayer::SupportsType::IsNotSupported;
+    return (parameters.isMediaStream && !parameters.requiresRemotePlayback) ? MediaPlayer::SupportsType::IsSupported : MediaPlayer::SupportsType::IsNotSupported;
 }
 
 #pragma mark -
@@ -400,13 +400,8 @@ void MediaPlayerPrivateMediaStreamAVFObjC::ensureLayers()
 
     auto size = m_player->presentationSize();
     m_sampleBufferDisplayLayer->initialize(hideRootLayer(), size, [weakThis = WeakPtr { *this }, size](auto didSucceed) {
-        if (weakThis) {
-#if !RELEASE_LOG_DISABLED
-            if (weakThis->m_sampleBufferDisplayLayer)
-                weakThis->m_sampleBufferDisplayLayer->setLogIdentifier(makeString(hex(reinterpret_cast<uintptr_t>(weakThis->logIdentifier()))));
-#endif
+        if (weakThis)
             weakThis->layersAreInitialized(size, didSucceed);
-        }
     });
 }
 
@@ -421,6 +416,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::layersAreInitialized(IntSize size, bo
 
     scheduleRenderingModeChanged();
 
+    m_sampleBufferDisplayLayer->setLogIdentifier(makeString(hex(reinterpret_cast<uintptr_t>(logIdentifier()))));
     m_sampleBufferDisplayLayer->updateBoundsAndPosition(m_sampleBufferDisplayLayer->rootLayer().bounds, m_videoRotation);
     m_sampleBufferDisplayLayer->updateDisplayMode(m_displayMode < PausedImage, hideRootLayer());
     m_shouldUpdateDisplayLayer = true;
@@ -491,10 +487,7 @@ MediaStreamTrackPrivate* MediaPlayerPrivateMediaStreamAVFObjC::activeVideoTrack(
 
 bool MediaPlayerPrivateMediaStreamAVFObjC::didPassCORSAccessCheck() const
 {
-    // We are only doing a check on the active video track since the sole consumer of this API is canvas.
-    // FIXME: We should change the name of didPassCORSAccessCheck if it is expected to stay like this.
-    const auto* track = activeVideoTrack();
-    return !track || !track->isIsolated();
+    return true;
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::cancelLoad()

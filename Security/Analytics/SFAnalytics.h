@@ -86,6 +86,7 @@ typedef SFAnalyticsMetricsHookActions(^SFAnalyticsMetricsHook)(NSString* eventNa
 + (void)addOSVersionToEvent:(NSMutableDictionary*)event;
 // Help for the subclass to pick a prefered location
 + (NSString *)defaultAnalyticsDatabasePath:(NSString *)basename;
++ (void)removeLegacyDefaultAnalyticsDatabasePath:(NSString *)basename usingDispatchToken:(dispatch_once_t *)onceToken;
 
 + (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename uuid:(NSUUID * __nullable)userUuid;
 + (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename; // uses current user UUID for path

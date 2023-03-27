@@ -349,11 +349,7 @@ void WebInspectorFrontendClient::showCertificate(const CertificateInfo& certific
     if (!window)
         window = [NSApp keyWindow];
 
-#if HAVE(SEC_TRUST_SERIALIZATION)
-    [certificatePanel beginSheetForWindow:window modalDelegate:nil didEndSelector:NULL contextInfo:nullptr trust:certificateInfo.trust() showGroup:YES];
-#else
-    [certificatePanel beginSheetForWindow:window modalDelegate:nil didEndSelector:NULL contextInfo:nullptr certificates:(NSArray *)certificateInfo.certificateChain() showGroup:YES];
-#endif
+    [certificatePanel beginSheetForWindow:window modalDelegate:nil didEndSelector:NULL contextInfo:nullptr trust:certificateInfo.trust().get() showGroup:YES];
 
     // This must be called after the trust panel has been displayed, because the certificateView doesn't exist beforehand.
     SFCertificateView *certificateView = [certificatePanel certificateView];
@@ -562,10 +558,9 @@ void WebInspectorFrontendClient::save(Vector<InspectorFrontendClient::SaveData>&
     [window setMinFullScreenContentSize:NSMakeSize(minimumFullScreenWidth, minimumWindowHeight)];
     [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorFullScreenAllowsTiling)];
 
-    // FIXME: <rdar://94829409> Replace Stage Manager auxiliary window workaround.
-    [window setToolbar:[NSToolbar new]];
-    [[window toolbar] setVisible:NO];
-    [window setToolbarStyle:NSWindowToolbarStylePreference];
+#if HAVE(STAGE_MANAGER_NS_WINDOW_COLLECTION_BEHAVIORS)
+    [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorAuxiliary)];
+#endif
     
     [window setTitlebarAppearsTransparent:YES];
 

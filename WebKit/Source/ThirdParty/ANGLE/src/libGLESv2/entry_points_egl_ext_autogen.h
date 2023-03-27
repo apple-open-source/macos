@@ -74,6 +74,9 @@ ANGLE_EXPORT EGLBoolean EGLAPIENTRY EGL_QueryDisplayAttribANGLE(EGLDisplay dpy,
                                                                 EGLint attribute,
                                                                 EGLAttrib *value);
 
+// EGL_ANGLE_metal_shared_event_sync
+ANGLE_EXPORT void *EGLAPIENTRY EGL_CopyMetalSharedEventANGLE(EGLDisplay dpy, EGLSyncKHR sync);
+
 // EGL_ANGLE_power_preference
 ANGLE_EXPORT void EGLAPIENTRY EGL_ReleaseHighPowerGPUANGLE(EGLDisplay dpy, EGLContext ctx);
 ANGLE_EXPORT void EGLAPIENTRY EGL_ReacquireHighPowerGPUANGLE(EGLDisplay dpy, EGLContext ctx);
@@ -135,6 +138,9 @@ ANGLE_EXPORT EGLBoolean EGLAPIENTRY EGL_ExportVkImageANGLE(EGLDisplay dpy,
                                                            EGLImage image,
                                                            void *vk_image,
                                                            void *vk_image_create_info);
+
+// EGL_ANGLE_wait_until_work_scheduled
+ANGLE_EXPORT void EGLAPIENTRY EGL_WaitUntilWorkScheduledANGLE(EGLDisplay dpy);
 
 // EGL_CHROMIUM_sync_control
 ANGLE_EXPORT EGLBoolean EGLAPIENTRY EGL_GetSyncValuesCHROMIUM(EGLDisplay dpy,

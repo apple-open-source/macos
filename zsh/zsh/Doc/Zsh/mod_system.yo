@@ -62,6 +62,9 @@ suppress updating of the file atime
 item(tt(nofollow))(
 fail if var(file) is a symbolic link
 )
+item(tt(nonblock))(
+the file is opened in nonblocking mode
+)
 item(tt(sync))(
 request that writes wait until data has been physically written
 )
@@ -166,7 +169,7 @@ to the command, or 2 for an error on the write; no error message is
 printed in the last case, but the parameter tt(ERRNO) will reflect
 the error that occurred.
 )
-xitem(tt(zsystem flock) [ tt(-t) var(timeout) ] [ tt(-f) var(var) ] [tt(-er)] var(file))
+xitem(tt(zsystem flock) [ tt(-t) var(timeout) ] [ tt(-i) var(interval) ] [ tt(-f) var(var) ] [tt(-er)] var(file))
 item(tt(zsystem flock -u) var(fd_expr))(
 The builtin tt(zsystem)'s subcommand tt(flock) performs advisory file
 locking (via the manref(fcntl)(2) system call) over the entire contents
@@ -196,9 +199,16 @@ a safety check that the file descriptor is in use for file locking.
 
 By default the shell waits indefinitely for the lock to succeed.
 The option tt(-t) var(timeout) specifies a timeout for the lock in
-seconds; currently this must be an integer.  The shell will attempt
-to lock the file once a second during this period.  If the attempt
-times out, status 2 is returned.
+seconds; fractional seconds are allowed.  During this period, the
+shell will attempt to lock the file every var(interval) seconds
+if the tt(-i) var(interval) option is given, otherwise once a second.
+(This var(interval) is shortened before the last attempt if needed,
+so that the shell waits only until the var(timeout) and not longer.)
+If the attempt times out, status 2 is returned.
+
+(Note: var(timeout) is limited to 2^30-1 seconds (about 34 years), and
+var(interval) to 0.999 * LONG_MAX microseconds (only about 35 minutes
+on 32-bit systems).)
 
 If the option tt(-e) is given, the file descriptor for the lock is
 preserved when the shell uses tt(exec) to start a new process;
@@ -256,9 +266,9 @@ tt($$), which returns the process ID of the main shell process.
 )
 item(tt(ppid))(
 vindex(ppid, sysparams)
-Returns the process ID of the parent of the current process, even in
-subshells.  Compare tt($PPID), which returns the process ID of the parent
-of the main shell process.
+Returns the current process ID of the parent of the current process, even
+in subshells.  Compare tt($PPID), which returns the process ID of the
+initial parent of the main shell process.
 )
 item(tt(procsubstpid))(
 Returns the process ID of the last process started for process

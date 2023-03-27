@@ -192,6 +192,21 @@ short_body()
 $(atf_get_srcdir)/d_input2 >/dev/null ; cat merge.out"
 }
 
+#ifdef __APPLE__
+atf_test_case mb
+mb_head()
+{
+	atf_set "descr" "rdar://problem/100627590 - handling of multibyte sequences"
+}
+mb_body()
+{
+
+	atf_check -s exit:1 -o file:$(atf_get_srcdir)/d_mb.out \
+	    env LC_ALL=en_US.UTF-8 \
+	    sdiff $(atf_get_srcdir)/d_mb_1.in $(atf_get_srcdir)/d_mb_2.in
+}
+#endif
+
 atf_init_test_cases()
 {
 	atf_add_test_case flags
@@ -204,4 +219,7 @@ atf_init_test_cases()
 	atf_add_test_case dot
 	atf_add_test_case stdin
 	atf_add_test_case short
+#ifdef __APPLE__
+	atf_add_test_case mb
+#endif
 }

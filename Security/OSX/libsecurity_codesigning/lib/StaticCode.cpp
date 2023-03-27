@@ -173,7 +173,7 @@ SecStaticCode::SecStaticCode(DiskRep *rep, uint32_t flags)
 			mNetworkEnabledByDefault = false;
 		}
 	}
-	secinfo("staticCode", "SecStaticCode network default: %s", mNetworkEnabledByDefault ? "YES" : "NO");
+	secinfo("staticCode", "SecStaticCode network default: %{BOOL}d", mNetworkEnabledByDefault);
 #endif
 }
 
@@ -1169,7 +1169,7 @@ bool SecStaticCode::validationCannotUseNetwork()
 		// If network is disabled by default, block it if the flags don't explicitly enable it.
 		blockNetwork = !validationEnablesNetwork;
 	}
-	secinfo("staticCode", "SecStaticCode network allowed: %s", blockNetwork ? "NO" : "YES");
+	secinfo("staticCode", "SecStaticCode network blocked: %{BOOL}d", blockNetwork);
 	return blockNetwork;
 }
 

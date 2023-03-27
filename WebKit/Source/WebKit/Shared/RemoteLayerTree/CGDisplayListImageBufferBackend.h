@@ -34,18 +34,21 @@
 
 namespace WebKit {
 
+using UseCGDisplayListImageCache = WebCore::ImageBufferCreationContext::UseCGDisplayListImageCache;
+
 class CGDisplayListImageBufferBackend final : public WebCore::ImageBufferCGBackend, public ImageBufferBackendHandleSharing {
     WTF_MAKE_ISO_ALLOCATED(CGDisplayListImageBufferBackend);
     WTF_MAKE_NONCOPYABLE(CGDisplayListImageBufferBackend);
 public:
     static size_t calculateMemoryCost(const Parameters&);
 
-    static std::unique_ptr<CGDisplayListImageBufferBackend> create(const Parameters&);
-    static std::unique_ptr<CGDisplayListImageBufferBackend> create(const Parameters&, const WebCore::ImageBuffer::CreationContext&);
+    static std::unique_ptr<CGDisplayListImageBufferBackend> create(const Parameters&, const WebCore::ImageBufferCreationContext&);
 
     WebCore::GraphicsContext& context() const final;
     WebCore::IntSize backendSize() const final;
     ImageBufferBackendHandle createBackendHandle(SharedMemory::Protection = SharedMemory::Protection::ReadWrite) const final;
+
+    void clearContents() final;
 
     // NOTE: These all ASSERT_NOT_REACHED().
     RefPtr<WebCore::NativeImage> copyNativeImage(WebCore::BackingStoreCopy = WebCore::CopyBackingStore) const final;
@@ -53,14 +56,15 @@ public:
     void putPixelBuffer(const WebCore::PixelBuffer&, const WebCore::IntRect& srcRect, const WebCore::IntPoint& destPoint, WebCore::AlphaPremultiplication destFormat) final;
 
 protected:
-    CGDisplayListImageBufferBackend(const Parameters&, std::unique_ptr<WebCore::GraphicsContext>&&);
+    CGDisplayListImageBufferBackend(const Parameters&, const WebCore::ImageBufferCreationContext&);
 
     unsigned bytesPerRow() const final;
 
     // ImageBufferBackendSharing
     ImageBufferBackendSharing* toBackendSharing() final { return this; }
 
-    std::unique_ptr<WebCore::GraphicsContext> m_context;
+    mutable std::unique_ptr<WebCore::GraphicsContext> m_context;
+    RetainPtr<id> m_resourceCache;
 };
 
 }

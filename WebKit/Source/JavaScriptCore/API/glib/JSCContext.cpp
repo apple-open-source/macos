@@ -185,8 +185,7 @@ static void jsc_context_class_init(JSCContextClass* klass)
         PROP_VIRTUAL_MACHINE,
         g_param_spec_object(
             "virtual-machine",
-            "JSCVirtualMachine",
-            "JSC Virtual Machine",
+            nullptr, nullptr,
             JSC_TYPE_VIRTUAL_MACHINE,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 }
@@ -979,11 +978,11 @@ JSCCheckSyntaxResult jsc_context_check_syntax(JSCContext* context, const char* c
     JSC::ParserError error;
     switch (mode) {
     case JSC_CHECK_SYNTAX_MODE_SCRIPT:
-        success = !!JSC::parse<JSC::ProgramNode>(vm, source, JSC::Identifier(), JSC::JSParserBuiltinMode::NotBuiltin,
+        success = !!JSC::parse<JSC::ProgramNode>(vm, source, JSC::Identifier(), JSC::ImplementationVisibility::Public, JSC::JSParserBuiltinMode::NotBuiltin,
             JSC::JSParserStrictMode::NotStrict, JSC::JSParserScriptMode::Classic, JSC::SourceParseMode::ProgramMode, JSC::SuperBinding::NotNeeded, error);
         break;
     case JSC_CHECK_SYNTAX_MODE_MODULE:
-        success = !!JSC::parse<JSC::ModuleProgramNode>(vm, source, JSC::Identifier(), JSC::JSParserBuiltinMode::NotBuiltin,
+        success = !!JSC::parse<JSC::ModuleProgramNode>(vm, source, JSC::Identifier(), JSC::ImplementationVisibility::Public, JSC::JSParserBuiltinMode::NotBuiltin,
             JSC::JSParserStrictMode::Strict, JSC::JSParserScriptMode::Module, JSC::SourceParseMode::ModuleAnalyzeMode, JSC::SuperBinding::NotNeeded, error);
         break;
     }

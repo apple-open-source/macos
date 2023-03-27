@@ -186,6 +186,7 @@ extension TLKShare {
 }
 
 class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
+
     // FakeCuttlefishServer will handle all callers (TODO: split apart)
     func configuredFor(user: TPSpecificUser) -> Bool {
         return true
@@ -226,6 +227,9 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 }
             }
 
+            if self.recoverySigningPubKey != nil && self.recoveryEncryptionPubKey != nil {
+                model.setRecoveryKeys(TPRecoveryKeyPair(signingKeyData: self.recoverySigningPubKey!, encryptionKeyData: self.recoveryEncryptionPubKey!))
+            }
             return model
         }
     }
@@ -269,6 +273,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
     var fetchViableBottlesListener: ((FetchViableBottlesRequest) -> NSError?)?
     var resetListener: ((ResetRequest) -> NSError?)?
     var setRecoveryKeyListener: ((SetRecoveryKeyRequest) -> NSError?)?
+    var removeRecoveryKeyListener: ((RemoveRecoveryKeyRequest) -> NSError?)?
 
     // Any policies in here will be returned by FetchPolicy before any inbuilt policies
     var policyOverlay: [TPPolicyDocument] = []
@@ -718,6 +723,18 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeers)))
                 return
             }
+
+            if self.state.recoverySigningPubKey != nil && self.state.recoveryEncryptionPubKey != nil {
+                if let recoverySigningPubKey = self.state.recoverySigningPubKey {
+                    if !model.isRecoveryKeyExcluded(recoverySigningPubKey) {
+                        // if the RK hasn't been explicitly excluded, ensure the resulting model has one trusted peer left
+                        guard model.allTrustedPeersWithCurrentRecoveryKey().isEmpty == false else {
+                            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeersWithRecoveryKey)))
+                            return
+                        }
+                    }
+                }
+            }
         } catch {
             print("FakeCuttlefish: updateTrust failed to make model: ", String(describing: error))
         }
@@ -1059,7 +1076,40 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
     func fetchSosiCloudIdentity(_ request: FetchSOSiCloudIdentityRequest, completion: @escaping (Result<FetchSOSiCloudIdentityResponse, Error>) -> Void) {
         completion(.success(FetchSOSiCloudIdentityResponse()))
     }
+
     func resetAccountCdpcontents(_ request: ResetAccountCDPContentsRequest, completion: @escaping (Result<ResetAccountCDPContentsResponse, Error>) -> Void) {
         completion(.success(ResetAccountCDPContentsResponse()))
+    }
+
+    func removeRecoveryKey(_ request: RemoveRecoveryKeyRequest, completion: @escaping (Result<RemoveRecoveryKeyResponse, Error>) -> Void) {
+
+        print("FakeCuttlefish: removeRecoveryKey called")
+
+        if let removeRecoveryKeyListener = self.removeRecoveryKeyListener {
+            let possibleError = removeRecoveryKeyListener(request)
+            guard possibleError == nil else {
+                completion(.failure(possibleError!))
+                return
+            }
+        }
+
+        guard let snapshot = self.snapshotsByChangeToken[request.changeToken] else {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired)))
+            return
+        }
+        self.state.recoverySigningPubKey = nil
+        self.state.recoveryEncryptionPubKey = nil
+        self.state.peersByID[request.peerID]?.stableInfoAndSig = request.stableInfoAndSig
+        self.state.peersByID[request.peerID]?.dynamicInfoAndSig = request.dynamicInfoAndSig
+
+        self.makeSnapshot()
+        completion(.success(RemoveRecoveryKeyResponse.with {
+            $0.changes = self.changesSince(snapshot: snapshot)
+        }))
+        self.pushNotify("removeRecoveryKey")
+    }
+
+    func performAtoprvactions(_ request: PerformATOPRVActionsRequest, completion: @escaping (Result<PerformATOPRVActionsResponse, Error>) -> Void) {
+        completion(.success(PerformATOPRVActionsResponse()))
     }
 }

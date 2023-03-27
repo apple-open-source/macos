@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -149,6 +149,7 @@ typedef struct {
     EAPSIMAKAPersistentStateRef		persist;
     bool				reauth_success;
     EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info;
+    CFDictionaryRef 			action_info;
     bool 				oob_pseudonym_used;
     uint16_t *				version_list;
     int					version_list_count;
@@ -652,6 +653,8 @@ EAPSIMContextFree(EAPSIMContextRef context)
     SIMStaticInitFromProperties(&context->sim_static, NULL);
     EAPSIMAKAPersistentStateRelease(context->persist);
     EAPSIMContextSetLastIdentity(context, NULL);
+    EAPSIMAKAClearEncryptedIdentityInfo(context->encrypted_identity_info);
+    my_CFRelease(&context->action_info);
     EAPSIMContextClear(context);
     free(context);
     return;
@@ -1772,7 +1775,8 @@ eapsim_notification(EAPSIMContextRef context,
 	context->state = kEAPSIMClientStateSuccess;
     }
     else {
-	const char *	str;
+	const char 		*str;
+	CFDictionaryRef 	action_info = NULL;
 
 	context->state = kEAPSIMClientStateFailure;
 	*client_status = kEAPClientStatusPluginSpecificError;
@@ -1786,7 +1790,12 @@ eapsim_notification(EAPSIMContextRef context,
 	else {
 	    EAPLOG(LOG_NOTICE, "eapsim: Notification: %s", str);
 	}
-	if (*error == kEAPClientStatusIdentityDecryptionError &&
+	action_info = EAPSIMAKAActionInfoForNotificationCode(context->plugin->properties,
+							  notification_code);
+	if (action_info != NULL) {
+	    context->action_info = CFDictionaryCreateCopy(NULL, action_info);
+	    EAPLOG(LOG_NOTICE, "eapsim: Notification Action Info: %@", action_info);
+	} else if (*error == kEAPClientStatusIdentityDecryptionError &&
 	    context->encrypted_identity_info != NULL &&
 	    context->encrypted_identity_info->encrypted_identity != NULL) {
 	    /* notify CT that it may need to refresh the encryption key */
@@ -1963,7 +1972,21 @@ eapsim_msk_copy_bytes(EAPClientPluginDataRef plugin,
 STATIC CFDictionaryRef
 eapsim_publish_props(EAPClientPluginDataRef plugin)
 {
-    return (NULL);
+    CFStringRef			key = kEAPClientEAPAKASIMNotificationActionInfo;
+    CFDictionaryRef 		dict = NULL;
+    EAPSIMContextRef 		context = (EAPSIMContextRef)plugin->private;
+
+    if (context->action_info == NULL) {
+	goto done;
+    }
+    dict = CFDictionaryCreate(NULL,
+			      (const void * *)&key,
+			      (const void * *)&context->action_info,
+			      1,
+			      &kCFTypeDictionaryKeyCallBacks,
+			      &kCFTypeDictionaryValueCallBacks);
+done:
+    return dict;
 }
 
 STATIC CFStringRef

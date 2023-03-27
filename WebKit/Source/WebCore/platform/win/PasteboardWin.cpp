@@ -383,7 +383,7 @@ void Pasteboard::read(PasteboardFileReader& reader, std::optional<size_t>)
         WCHAR filename[MAX_PATH];
         UINT fileCount = DragQueryFileW(hdrop, 0xFFFFFFFF, 0, 0);
         for (UINT i = 0; i < fileCount; i++) {
-            if (!DragQueryFileW(hdrop, i, filename, WTF_ARRAY_LENGTH(filename)))
+            if (!DragQueryFileW(hdrop, i, filename, std::size(filename)))
                 continue;
             reader.readFilename(filename);
         }
@@ -605,7 +605,7 @@ static String fileSystemPathFromURLOrTitle(const String& urlString, const String
 
     if (!title.isEmpty()) {
         size_t len = std::min<size_t>(title.length(), fsPathMaxLengthExcludingExtension);
-        StringView(title).left(len).getCharactersWithUpconvert(fsPathBuffer);
+        StringView(title).left(len).getCharacters(fsPathBuffer);
         fsPathBuffer[len] = 0;
         pathRemoveBadFSCharacters(wcharFrom(fsPathBuffer), len);
     }
@@ -620,10 +620,10 @@ static String fileSystemPathFromURLOrTitle(const String& urlString, const String
         auto lastComponent = url.lastPathComponent();
         if (url.isLocalFile() || (!isLink && !lastComponent.isEmpty())) {
             len = std::min<DWORD>(fsPathMaxLengthExcludingExtension, lastComponent.length());
-            lastComponent.left(len).getCharactersWithUpconvert(fsPathBuffer);
+            lastComponent.left(len).getCharacters(fsPathBuffer);
         } else {
             len = std::min<DWORD>(fsPathMaxLengthExcludingExtension, urlString.length());
-            StringView(urlString).left(len).getCharactersWithUpconvert(fsPathBuffer);
+            StringView(urlString).left(len).getCharacters(fsPathBuffer);
         }
         fsPathBuffer[len] = 0;
         pathRemoveBadFSCharacters(wcharFrom(fsPathBuffer), len);
@@ -720,8 +720,8 @@ void Pasteboard::writeURLToDataObject(const URL& kurl, const String& titleStr)
     fgd->fgd[0].dwFlags = FD_FILESIZE;
     fgd->fgd[0].nFileSizeLow = content.length();
 
-    unsigned maxSize = std::min<unsigned>(fsPath.length(), WTF_ARRAY_LENGTH(fgd->fgd[0].cFileName));
-    StringView(fsPath).left(maxSize).getCharactersWithUpconvert(ucharFrom(fgd->fgd[0].cFileName));
+    unsigned maxSize = std::min<unsigned>(fsPath.length(), std::size(fgd->fgd[0].cFileName));
+    StringView(fsPath).left(maxSize).getCharacters(ucharFrom(fgd->fgd[0].cFileName));
     GlobalUnlock(urlFileDescriptor);
 
     char* fileContents = static_cast<char*>(GlobalLock(urlFileContent));
@@ -958,8 +958,8 @@ static HGLOBAL createGlobalImageFileDescriptor(const String& url, const String& 
         return 0;
     }
 
-    int maxSize = std::min<int>(fsPath.length(), WTF_ARRAY_LENGTH(fgd->fgd[0].cFileName));
-    StringView(fsPath).left(maxSize).getCharactersWithUpconvert(ucharFrom(fgd->fgd[0].cFileName));
+    int maxSize = std::min<int>(fsPath.length(), std::size(fgd->fgd[0].cFileName));
+    StringView(fsPath).left(maxSize).getCharacters(ucharFrom(fgd->fgd[0].cFileName));
     GlobalUnlock(memObj);
 
     return memObj;
@@ -1005,7 +1005,7 @@ static HGLOBAL createGlobalHDropContent(const URL& url, String& fileName, Fragme
     } else {
         WCHAR tempPath[MAX_PATH];
         WCHAR extension[MAX_PATH];
-        if (!::GetTempPath(WTF_ARRAY_LENGTH(tempPath), tempPath))
+        if (!::GetTempPath(std::size(tempPath), tempPath))
             return 0;
         if (!::PathAppend(tempPath, fileName.wideCharacters().data()))
             return 0;

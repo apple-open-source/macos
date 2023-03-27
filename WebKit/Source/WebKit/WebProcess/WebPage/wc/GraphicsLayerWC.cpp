@@ -27,6 +27,8 @@
 #include "config.h"
 #include "GraphicsLayerWC.h"
 
+#if USE(GRAPHICS_LAYER_WC)
+
 #include "WCPlatformLayerGCGL.h"
 #include "WCTileGrid.h"
 #include <WebCore/TransformState.h>
@@ -151,13 +153,6 @@ GraphicsLayerWC::~GraphicsLayerWC()
     willBeDestroyed();
     if (m_observer)
         m_observer->graphicsLayerRemoved(*this);
-}
-
-GraphicsLayer::PlatformLayerID GraphicsLayerWC::generateLayerID()
-{
-    // 0 and max can't be used for hash keys
-    static GraphicsLayer::PlatformLayerID id = 1;
-    return id++;
 }
 
 GraphicsLayer::PlatformLayerID GraphicsLayerWC::primaryLayerID() const
@@ -447,7 +442,7 @@ static bool filtersCanBeComposited(const FilterOperations& filters)
     if (!filters.size())
         return false;
     for (const auto& filterOperation : filters.operations()) {
-        if (filterOperation->type() == FilterOperation::REFERENCE)
+        if (filterOperation->type() == FilterOperation::Type::Reference)
             return false;
     }
     return true;
@@ -506,7 +501,7 @@ void GraphicsLayerWC::flushCompositingState(const FloatRect& passedVisibleRect)
     // passedVisibleRect doesn't contain the scrollbar area. Inflate it.
     FloatRect visibleRect = passedVisibleRect;
     visibleRect.inflate(20.f);
-    TransformState state(TransformState::UnapplyInverseTransformDirection, FloatQuad(visibleRect));
+    TransformState state(client().useCSS3DTransformInteroperability(), TransformState::UnapplyInverseTransformDirection, FloatQuad(visibleRect));
     state.setSecondaryQuad(FloatQuad { visibleRect });
     recursiveCommitChanges(state);
 }
@@ -718,3 +713,5 @@ void GraphicsLayerWC::recursiveCommitChanges(const TransformState& state)
 }
 
 } // namespace WebKit
+
+#endif // USE(GRAPHICS_LAYER_WC)

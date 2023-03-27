@@ -29,8 +29,6 @@
 #include "ArgumentCodersCF.h"
 
 #include "ArgumentCoders.h"
-#include "DaemonDecoder.h"
-#include "DaemonEncoder.h"
 #include "DataReference.h"
 #include "Decoder.h"
 #include "Encoder.h"
@@ -75,9 +73,7 @@ enum class CFType : uint8_t {
 #if HAVE(SEC_ACCESS_CONTROL)
     SecAccessControl,
 #endif
-#if HAVE(SEC_TRUST_SERIALIZATION)
     SecTrust,
-#endif
     CGColorSpace,
     CGColor,
     Nullptr,
@@ -128,10 +124,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (typeID == SecAccessControlGetTypeID())
         return CFType::SecAccessControl;
 #endif
-#if HAVE(SEC_TRUST_SERIALIZATION)
     if (typeID == SecTrustGetTypeID())
         return CFType::SecTrust;
-#endif
 
     // If you're hitting this, it probably means that you've put an NS type inside a CF container.
     // Try round-tripping the container through an NS type instead.
@@ -195,11 +189,9 @@ void ArgumentCoder<CFTypeRef>::encode(Encoder& encoder, CFTypeRef typeRef)
         encoder << static_cast<SecAccessControlRef>(const_cast<void*>(typeRef));
         return;
 #endif
-#if HAVE(SEC_TRUST_SERIALIZATION)
     case CFType::SecTrust:
         encoder << static_cast<SecTrustRef>(const_cast<void*>(typeRef));
         return;
-#endif
     case CFType::Nullptr:
         return;
     case CFType::Unknown:
@@ -324,7 +316,6 @@ std::optional<RetainPtr<CFTypeRef>> ArgumentCoder<RetainPtr<CFTypeRef>>::decode(
         return WTFMove(*accessControl);
     }
 #endif
-#if HAVE(SEC_TRUST_SERIALIZATION)
     case CFType::SecTrust: {
         std::optional<RetainPtr<SecTrustRef>> trust;
         decoder >> trust;
@@ -332,7 +323,6 @@ std::optional<RetainPtr<CFTypeRef>> ArgumentCoder<RetainPtr<CFTypeRef>>::decode(
             return std::nullopt;
         return WTFMove(*trust);
     }
-#endif
     case CFType::Nullptr:
         return tokenNullptrTypeRef();
     case CFType::Unknown:
@@ -487,7 +477,6 @@ std::optional<RetainPtr<CFDataRef>> ArgumentCoder<RetainPtr<CFDataRef>>::decode(
 }
 
 template std::optional<RetainPtr<CFDataRef>> ArgumentCoder<RetainPtr<CFDataRef>>::decode<Decoder>(Decoder&);
-template std::optional<RetainPtr<CFDataRef>> ArgumentCoder<RetainPtr<CFDataRef>>::decode<WebKit::Daemon::Decoder>(WebKit::Daemon::Decoder&);
 
 template<typename Encoder>
 void ArgumentCoder<CFDateRef>::encode(Encoder& encoder, CFDateRef date)
@@ -913,7 +902,6 @@ std::optional<RetainPtr<SecAccessControlRef>> ArgumentCoder<RetainPtr<SecAccessC
 }
 #endif
 
-#if HAVE(SEC_TRUST_SERIALIZATION)
 template<typename Encoder>
 void ArgumentCoder<SecTrustRef>::encode(Encoder& encoder, SecTrustRef trust)
 {
@@ -927,7 +915,6 @@ void ArgumentCoder<SecTrustRef>::encode(Encoder& encoder, SecTrustRef trust)
 }
 
 template void ArgumentCoder<SecTrustRef>::encode<Encoder>(Encoder&, SecTrustRef);
-template void ArgumentCoder<SecTrustRef>::encode<WebKit::Daemon::Encoder>(WebKit::Daemon::Encoder&, SecTrustRef);
 template void ArgumentCoder<SecTrustRef>::encode<StreamConnectionEncoder>(StreamConnectionEncoder&, SecTrustRef);
 
 template<typename Decoder>
@@ -954,8 +941,6 @@ std::optional<RetainPtr<SecTrustRef>> ArgumentCoder<RetainPtr<SecTrustRef>>::dec
 }
 
 template std::optional<RetainPtr<SecTrustRef>> ArgumentCoder<RetainPtr<SecTrustRef>>::decode<Decoder>(Decoder&);
-template std::optional<RetainPtr<SecTrustRef>> ArgumentCoder<RetainPtr<SecTrustRef>>::decode<WebKit::Daemon::Decoder>(WebKit::Daemon::Decoder&);
-#endif
 
 } // namespace IPC
 
@@ -981,9 +966,7 @@ template<> struct EnumTraits<IPC::CFType> {
 #if HAVE(SEC_ACCESS_CONTROL)
         IPC::CFType::SecAccessControl,
 #endif
-#if HAVE(SEC_TRUST_SERIALIZATION)
         IPC::CFType::SecTrust,
-#endif
         IPC::CFType::CGColorSpace,
         IPC::CFType::CGColor,
         IPC::CFType::Nullptr,

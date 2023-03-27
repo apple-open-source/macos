@@ -16,7 +16,7 @@ typedef enum {
     kParametersKey,
     kInitialSyncKey,
     kRetirementKey,
-    kAccountChangedKey,
+    kDSIDKey,
     kDebugInfoKey,
     kRingKey,
     kLastCircleKey,

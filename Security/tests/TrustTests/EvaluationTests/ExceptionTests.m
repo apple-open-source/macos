@@ -332,6 +332,10 @@ static NSDate *date = nil;
     XCTAssert(SecTrustSetExceptions(eval.trust, (__bridge CFDataRef)exceptions));
     XCTAssertFalse([eval evaluate:nil]);
     XCTAssertEqual(eval.trustResult, kSecTrustResultFatalTrustFailure);
+    
+    CFReleaseSafe((__bridge CFTypeRef)root);
+    CFReleaseSafe((__bridge CFTypeRef)revokedLeaf);
+
 }
 
 @end

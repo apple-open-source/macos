@@ -420,9 +420,6 @@ Expected<void, MediaPlaybackDenialReason> MediaElementSession::playbackStateChan
     if (topDocument.mediaState() & MediaProducerMediaState::HasUserInteractedWithMediaElement && topDocument.quirks().needsPerDocumentAutoplayBehavior())
         return { };
 
-    if (topDocument.hasHadUserInteraction() && document.quirks().shouldAutoplayForArbitraryUserGesture())
-        return { };
-
     if (m_restrictions & RequireUserGestureForVideoRateChange && m_element.isVideo() && !document.processingUserGestureForMedia()) {
         ALWAYS_LOG(LOGIDENTIFIER, "Returning FALSE because a user gesture is required for video rate change restriction");
         return makeUnexpected(MediaPlaybackDenialReason::UserGestureRequired);
@@ -682,22 +679,22 @@ bool MediaElementSession::wantsToObserveViewportVisibilityForAutoplay() const
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 void MediaElementSession::showPlaybackTargetPicker()
 {
-    INFO_LOG(LOGIDENTIFIER);
+    ALWAYS_LOG(LOGIDENTIFIER);
 
     auto& document = m_element.document();
     if (m_restrictions & RequireUserGestureToShowPlaybackTargetPicker && !document.processingUserGestureForMedia()) {
-        INFO_LOG(LOGIDENTIFIER, "returning early because of permissions");
+        ALWAYS_LOG(LOGIDENTIFIER, "returning early because of permissions");
         return;
     }
 
     if (!document.page()) {
-        INFO_LOG(LOGIDENTIFIER, "returning early because page is NULL");
+        ALWAYS_LOG(LOGIDENTIFIER, "returning early because page is NULL");
         return;
     }
 
 #if !PLATFORM(IOS_FAMILY)
     if (m_element.readyState() < HTMLMediaElementEnums::HAVE_METADATA) {
-        INFO_LOG(LOGIDENTIFIER, "returning early because element is not playable");
+        ALWAYS_LOG(LOGIDENTIFIER, "returning early because element is not playable");
         return;
     }
 #endif
@@ -1121,10 +1118,56 @@ bool MediaElementSession::allowsPlaybackControlsForAutoplayingAudio() const
 }
 
 #if ENABLE(MEDIA_SESSION)
+#if ENABLE(MEDIA_STREAM)
+static bool isDocumentPlayingSeveralMediaStreams(Document& document)
+{
+    // We restrict to capturing document for now, until we have a good way to state to the UIProcess application that audio rendering is muted from here.
+    return document.activeMediaElementsWithMediaStreamCount() > 1 && MediaProducer::isCapturing(document.mediaState());
+}
+
+static bool processRemoteControlCommandIfPlayingMediaStreams(Document& document, PlatformMediaSession::RemoteControlCommandType commandType)
+{
+    auto* page = document.page();
+    if (!page)
+        return false;
+
+    if (!isDocumentPlayingSeveralMediaStreams(document))
+        return false;
+
+    WebCore::MediaProducerMutedStateFlags mutedState;
+    mutedState.add(WebCore::MediaProducerMutedState::AudioIsMuted);
+    mutedState.add(WebCore::MediaProducer::AudioAndVideoCaptureIsMuted);
+    mutedState.add(WebCore::MediaProducerMutedState::ScreenCaptureIsMuted);
+
+    switch (commandType) {
+    case PlatformMediaSession::PlayCommand:
+        page->setMuted({ });
+        return true;
+    case PlatformMediaSession::StopCommand:
+    case PlatformMediaSession::PauseCommand:
+        page->setMuted(mutedState);
+        return true;
+    case PlatformMediaSession::TogglePlayPauseCommand:
+        if (page->mutedState().containsAny(mutedState))
+            page->setMuted({ });
+        else
+            page->setMuted(mutedState);
+        return true;
+    default:
+        break;
+    }
+    return false;
+}
+#endif
+
 void MediaElementSession::didReceiveRemoteControlCommand(RemoteControlCommandType commandType, const RemoteCommandArgument& argument)
 {
     auto* session = mediaSession();
     if (!session || !session->hasActiveActionHandlers()) {
+#if ENABLE(MEDIA_STREAM)
+        if (processRemoteControlCommandIfPlayingMediaStreams(m_element.document(), commandType))
+            return;
+#endif
         PlatformMediaSession::didReceiveRemoteControlCommand(commandType, argument);
         return;
     }
@@ -1192,6 +1235,11 @@ std::optional<NowPlayingInfo> MediaElementSession::nowPlayingInfo() const
     auto* page = m_element.document().page();
     bool allowsNowPlayingControlsVisibility = page && !page->isVisibleAndActive();
     bool isPlaying = state() == PlatformMediaSession::Playing;
+#if ENABLE(MEDIA_SESSION) && ENABLE(MEDIA_STREAM)
+    if (isPlaying && isDocumentPlayingSeveralMediaStreams(m_element.document()) && page)
+        isPlaying = !page->mutedState().contains(MediaProducerMutedState::AudioIsMuted);
+#endif
+
     bool supportsSeeking = m_element.supportsSeeking();
     double rate = 1.0;
     double duration = supportsSeeking ? m_element.duration() : MediaPlayer::invalidTime();
@@ -1278,7 +1326,6 @@ void MediaElementSession::updateMediaUsageIfChanged()
         document.isMediaDocument() && !document.ownerElement(),
         pageExplicitlyAllowsElementToAutoplayInline(m_element),
         requiresFullscreenForVideoPlayback() && !fullscreenPermitted(),
-        document.topDocument().hasHadUserInteraction() && document.quirks().shouldAutoplayForArbitraryUserGesture(),
         isVideo && hasBehaviorRestriction(RequireUserGestureForVideoRateChange) && !processingUserGesture,
         isAudio && hasBehaviorRestriction(RequireUserGestureForAudioRateChange) && !processingUserGesture && !m_element.muted() && m_element.volume(),
         isVideo && hasBehaviorRestriction(RequireUserGestureForVideoDueToLowPowerMode) && !processingUserGesture,
@@ -1315,7 +1362,7 @@ String convertEnumerationToString(const MediaPlaybackDenialReason enumerationVal
     static_assert(static_cast<size_t>(MediaPlaybackDenialReason::FullscreenRequired) == 1, "MediaPlaybackDenialReason::FullscreenRequired is not 1 as expected");
     static_assert(static_cast<size_t>(MediaPlaybackDenialReason::PageConsentRequired) == 2, "MediaPlaybackDenialReason::PageConsentRequired is not 2 as expected");
     static_assert(static_cast<size_t>(MediaPlaybackDenialReason::InvalidState) == 3, "MediaPlaybackDenialReason::InvalidState is not 3 as expected");
-    ASSERT(static_cast<size_t>(enumerationValue) < WTF_ARRAY_LENGTH(values));
+    ASSERT(static_cast<size_t>(enumerationValue) < std::size(values));
     return values[static_cast<size_t>(enumerationValue)];
 }
 

@@ -77,6 +77,21 @@ OSDefineMetaClassAndStructors(IOPCIMessagedInterruptController, IOInterruptContr
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+static uint32_t msiModeToInterruptType(const uint8_t msiMode)
+{
+    uint32_t interruptType = (kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged);
+
+    // Some drivers use the kIOInterruptTypePCIMessaged bit to determine if
+    // interrupts are available or to choose between MSI and legacy interrupts.
+    // For backwards compatibilty, do not clear the kIOInterruptTypePCIMessaged
+    // bit if a device supports MSI-X.
+    if (kMSIX & msiMode)
+        interruptType |= kIOInterruptTypePCIMessagedX;
+    return interruptType;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 IOReturn IOPCIMessagedInterruptController::registerInterrupt(IOService *nub, int source,
 						  void *target,
 						  IOInterruptHandler handler,
@@ -160,9 +175,13 @@ IOReturn IOPCIMessagedInterruptController::getInterruptType(IOService *nub, int 
 {
 	if (interruptType == 0) return (kIOReturnBadArgument);
 
-	API_ENTRY();
+    IOPCIDevice * device = OSDynamicCast(IOPCIDevice, nub);
+    if (!device) {
+        IOLog("getInterruptType: failed to cast nub to IOPCIDevice\n");
+        return (kIOReturnBadArgument);
+    }
 
-	*interruptType = getVectorType(vectorNumber, vector);
+    *interruptType = msiModeToInterruptType(device->reserved->msiMode);
 
 	return (kIOReturnSuccess);
 }
@@ -479,6 +498,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 
     if (kIOReturnSuccess == ret)
     {
+        uint32_t interruptFlags = (kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged);
         if (device)
         {
             IOPCISetMSIInterrupt(firstVector + _vectorBase, numVectors, &message[0]);
@@ -491,8 +511,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
         {
 			for (vector = firstVector; vector < (firstVector + numVectors); vector++)
 			{
-				addDeviceInterruptProperties(entry, vector,
-						kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged, NULL);
+				addDeviceInterruptProperties(entry, vector, interruptFlags, NULL);
 			}
 		}
 		else
@@ -502,6 +521,9 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 
 			shadow = configShadow(device);
 			saved  = &shadow->configSave;
+
+            interruptFlags = msiModeToInterruptType(device->reserved->msiMode);
+
 			if ((kMSIX & device->reserved->msiMode)
 			  && (numVectors < msiPhysVectors))
 			{
@@ -522,8 +544,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 				for (vector = 0; vector < msiPhysVectors; vector++)
 				{
 					SInt32 deviceIndex;
-					addDeviceInterruptProperties(entry, firstVector,
-							kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged, &deviceIndex);
+					addDeviceInterruptProperties(entry, firstVector, interruptFlags, &deviceIndex);
 					if (!vector) ivector->source = deviceIndex;
 				}
 			}
@@ -532,8 +553,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 				device->reserved->msiVectors = &vectors[firstVector];
 				for (vector = firstVector; vector < (firstVector + numVectors); vector++)
 				{
-					addDeviceInterruptProperties(entry, vector,
-							kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged, NULL);
+					addDeviceInterruptProperties(entry, vector, interruptFlags, NULL);
 				}
 			}
 
@@ -850,7 +870,12 @@ void IOPCIMessagedInterruptController::initVector(IOInterruptVectorNumber vector
 int IOPCIMessagedInterruptController::getVectorType(IOInterruptVectorNumber vectorNumber,
                                        				IOInterruptVector * vector)
 {
-    return (kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged);
+    IOPCIDevice * device = OSDynamicCast(IOPCIDevice, vector->nub);
+    if (!device) {
+        panic("getVectorType: failed to cast vector %d's nub to IOPCIDevice\n", vectorNumber);
+    }
+
+    return msiModeToInterruptType(device->reserved->msiMode);
 }
 
 void IOPCIMessagedInterruptController::disableVectorHard(IOInterruptVectorNumber vectorNumber,

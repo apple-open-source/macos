@@ -1,26 +1,30 @@
 {
-  "scripts/cl.xml":
-    "f923201d4ea3e1130763b19fa7faa7a2",
-  "scripts/egl.xml":
-    "013c552e6c523abdcf268268ea47e9fe",
   "scripts/egl_angle_ext.xml":
-    "e90fb2b574f3b42700ec1d6e18817869",
+    "9fbe802e21374f4c0bff6f7a68bb928c",
   "scripts/gen_proc_table.py":
-    "8336449da7e36f45dd6d70c44add2ebf",
-  "scripts/gl.xml":
-    "e8f8d52f5a5b8bd5bdd4557fdc58d5dd",
+    "073351265b085943f816498cecaa281c",
   "scripts/gl_angle_ext.xml":
-    "37eebedc1153cd9d208efa469a10a7b2",
+    "e42890bf014f4d4b7ebc07112bbb9764",
   "scripts/registry_xml.py":
-    "0bc67e23f4e3a97dfba08f857d3db76d",
-  "scripts/wgl.xml":
-    "c36001431919e1c435f1215a85f7e1db",
-  "src/libGL/proc_table_wgl_autogen.cpp":
-    "2174a66447df2d577184fbe4b96c77e9",
+    "f1452c7d099b275f007f39c157dd3ec6",
   "src/libGLESv2/proc_table_cl_autogen.cpp":
     "ed003b0f041aaaa35b67d3fe07e61f91",
   "src/libGLESv2/proc_table_egl_autogen.cpp":
-    "eca316595ac3c286f134d4388be232eb",
+    "a7d87714aeb5e3ff081cd3245657f099",
+  "src/libGLESv2/proc_table_glx_autogen.cpp":
+    "09eecc1790e99fa1b1b2760071138c9e",
+  "src/libGLESv2/proc_table_wgl_autogen.cpp":
+    "fca6b5710429e226d87c0fd20a3b544e",
   "src/libOpenCL/libOpenCL_autogen.map":
-    "bc5f5cf48227149ed321258a16eff1d7"
+    "bc5f5cf48227149ed321258a16eff1d7",
+  "third_party/EGL-Registry/src/api/egl.xml":
+    "2056d54ea07156f1988ca1366bdee21a",
+  "third_party/OpenCL-Docs/src/xml/cl.xml":
+    "6d0bf09e20a8f8c3ae440d79eda08bf9",
+  "third_party/OpenGL-Registry/src/xml/gl.xml":
+    "49f0afe5cac23951c74420e457b0cb23",
+  "third_party/OpenGL-Registry/src/xml/glx.xml":
+    "94f3eee4b076801d117804eb466714b7",
+  "third_party/OpenGL-Registry/src/xml/wgl.xml":
+    "eae784bf4d1b983a42af5671b140b7c4"
 }

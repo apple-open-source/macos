@@ -6,6 +6,9 @@
 
 #import "keychain/ot/ObjCImprovements.h"
 
+#import "keychain/ot/proto/generated_source/OTAccountSettings.h"
+#import "keychain/ot/proto/generated_source/OTWalrus.h"
+#import "keychain/ot/proto/generated_source/OTWebAccess.h"
 
 @interface OTCuttlefishAccountStateHolder ()
 @property dispatch_queue_t queue;
@@ -215,8 +218,6 @@
         return metadata;
     } error:error];
 }
-
-
 
 - (BOOL)_onqueuePersistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC* metadata))makeChanges
                                 error:(NSError**)error

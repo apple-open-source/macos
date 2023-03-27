@@ -281,6 +281,11 @@ O           [0-7]
 "sample" { return ES3_reserved_ES3_extension_ES3_2_keyword(context, TExtension::OES_shader_multisample_interpolation, SAMPLE); }
 "precise" { return ES3_1_reserved_ES3_1_extension_ES3_2_keyword(context, TExtension::EXT_gpu_shader5, PRECISE); }
 
+    /* ANGLE_shader_pixel_local_storage */
+"pixelLocalANGLE" { return ES3_extension(context, TExtension::ANGLE_shader_pixel_local_storage, PIXELLOCALANGLE); }
+"ipixelLocalANGLE" { return ES3_extension(context, TExtension::ANGLE_shader_pixel_local_storage, IPIXELLOCALANGLE); }
+"upixelLocalANGLE" { return ES3_extension(context, TExtension::ANGLE_shader_pixel_local_storage, UPIXELLOCALANGLE); }
+
     /* Reserved keywords for GLSL ES 3.00 that are not reserved for GLSL ES 1.00 */
 "resource"          |
 "subroutine"        |

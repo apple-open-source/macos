@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "46D1D6AD-CAC7-4494-ACF1-3B3CDCA5AAFA",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:NFS.xcodeproj",
+        "identifier" : "C47CD3D828A0077C000C5AEE",
+        "name" : "nfsrvTests"
+      }
+    }
+  ],
+  "version" : 1
+}

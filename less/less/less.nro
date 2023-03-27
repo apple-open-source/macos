@@ -1947,9 +1947,10 @@ The type of terminal on which
 is being run.
 .IP VISUAL
 The name of the editor (used for the v command).
-.
-.SH "SEE ALSO"
-.BR lesskey (1)
+.\" rdar://100829510 - lesskey(1) is not installed on macOS.
+.\" .
+.\" .SH "SEE ALSO"
+.\" .BR lesskey (1)
 .
 .SH COPYRIGHT
 Copyright (C) 1984-2021  Mark Nudelman

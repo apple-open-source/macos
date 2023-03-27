@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -168,11 +168,11 @@ myReachabilityCallback(SCNetworkReachabilityRef target, SCNetworkReachabilityFla
 
 - (BOOL)unitTest
 {
+	BOOL allUnitTestsPassed = YES;
+
 	if(![self setup]) {
 		return NO;
 	}
-
-	BOOL allUnitTestsPassed = YES;
 
 	allUnitTestsPassed &= [self unitTestBasicReachabilityCheck];
 	allUnitTestsPassed &= [self unitTestReachabilityWithPolicy];

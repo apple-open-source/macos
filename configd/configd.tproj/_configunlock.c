@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2011, 2015, 2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,7 +42,7 @@
 
 
 static void
-_notifyWatchers()
+_notifyWatchers(void)
 {
 	CFIndex			keyCnt;
 	const void *		keys_q[N_QUICK];
@@ -127,7 +127,7 @@ _notifyWatchers()
 
 
 static void
-_processDeferredRemovals()
+_processDeferredRemovals(void)
 {
 	CFIndex			keyCnt;
 	const void *		keys_q[N_QUICK];

@@ -138,7 +138,7 @@ WI.CanvasDetailsSidebarPanel = class CanvasDetailsSidebarPanel extends WI.Detail
         const selectable = false;
         let backtraceTreeOutline = new WI.TreeOutline(selectable);
         backtraceTreeOutline.disclosureButtons = false;
-        this._backtraceTreeController = new WI.CallFrameTreeController(backtraceTreeOutline);
+        this._backtraceTreeController = new WI.StackTraceTreeController(backtraceTreeOutline);
 
         let backtraceRow = new WI.DetailsSectionRow;
         backtraceRow.element.appendChild(backtraceTreeOutline.element);
@@ -330,9 +330,9 @@ WI.CanvasDetailsSidebarPanel = class CanvasDetailsSidebarPanel extends WI.Detail
 
     _refreshBacktraceSection()
     {
-        let callFrames = this._canvas.backtrace;
-        this._backtraceTreeController.callFrames = callFrames;
-        this._backtraceSection.element.hidden = !callFrames.length;
+        let stackTrace = this._canvas.stackTrace;
+        this._backtraceTreeController.stackTrace = stackTrace;
+        this._backtraceSection.element.hidden = !stackTrace?.callFrames.length;
     }
 
     _formatMemoryRow()

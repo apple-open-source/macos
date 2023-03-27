@@ -2553,6 +2553,7 @@ mountnfs(
 		nmp->nm_etype = nfs_default_etypes;
 		nmp->nm_auth = RPCAUTH_SYS;
 		nmp->nm_iodlink.tqe_next = NFSNOLIST;
+		nmp->nm_readlink_nocache = nfs_readlink_nocache;
 		nmp->nm_deadtimeout = 0;
 		nmp->nm_curdeadtimeout = 0;
 		NFS_BITMAP_SET(nmp->nm_flags, NFS_MFLAG_RDIRPLUS); /* enable RDIRPLUS by default. It will be reverted later in case NFSv2 is used */
@@ -2575,14 +2576,14 @@ mountnfs(
 	xb_get_32(error, &xb, val); /* version */
 	xb_get_32(error, &xb, argslength); /* args length */
 	xb_get_32(error, &xb, val); /* XDR args version */
-	if (val != NFS_XDRARGS_VERSION_0 || argslength < ((4 + NFS_MATTR_BITMAP_LEN + 1) * XDRWORD)) {
+	if (val != NFS_XDRARGS_VERSION_0 || argslength < (6 * XDRWORD)) { /* version, args length, XDR args version, bitmap size, bitmap of single element, attrs length */
 		error = EINVAL;
 	}
 	len = NFS_MATTR_BITMAP_LEN;
 	xb_get_bitmap(error, &xb, mattrs, len); /* mount attribute bitmap */
 	attrslength = 0;
 	xb_get_32(error, &xb, attrslength); /* attrs length */
-	if (!error && (attrslength > (argslength - ((4 + NFS_MATTR_BITMAP_LEN + 1) * XDRWORD)))) {
+	if (!error && (attrslength > (argslength - ((5 + len) * XDRWORD)))) {
 		error = EINVAL;
 	}
 	nfsmerr_if(error);
@@ -3106,6 +3107,12 @@ mountnfs(
 		}
 		nfsmerr_if(error);
 	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READLINK_NOCACHE)) {
+		xb_get_32(error, &xb, val);
+		if (!error && (val > 0)) {
+			nmp->nm_readlink_nocache = val;
+		}
+	}
 
 	/*
 	 * Sanity check/finalize settings.
@@ -3387,7 +3394,7 @@ nfs_mirror_mount_domount(vnode_t dvp, vnode_t vp, __nfs4_unused vfs_context_t ct
 #endif
 	struct nfsmount *nmp = NFSTONMP(np);
 	char fstype[MFSTYPENAMELEN], *mntfromname = NULL, *path = NULL, *relpath, *p, *cp;
-	int error = 0, pathbuflen = MAXPATHLEN, i, mntflags = 0, referral, skipcopy = 0;
+	int error = 0, pathbuflen = MAXPATHLEN, i, mntflags = 0, referral, skipcopy = 0, vfsflags;
 	size_t nlen, rlen, mlen, mlen2, count;
 	struct xdrbuf xb, xbnew;
 	uint32_t mattrs[NFS_MATTR_BITMAP_LEN];
@@ -3768,6 +3775,10 @@ nfs_mirror_mount_domount(vnode_t dvp, vnode_t vp, __nfs4_unused vfs_context_t ct
 	}
 	/* New mount always gets same owner as this mount */
 	xb_add_32(error, &xbnew, vfs_statfs(vnode_mount(vp))->f_owner);
+
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READLINK_NOCACHE)) {
+		xb_add_32(error, &xbnew, nmp->nm_readlink_nocache);
+	}
 	xb_build_done(error, &xbnew);
 
 	/* update opaque counts */
@@ -3784,7 +3795,7 @@ nfs_mirror_mount_domount(vnode_t dvp, vnode_t vp, __nfs4_unused vfs_context_t ct
 	nfsmerr_if(error);
 
 	/*
-	 * For kernel_mount() call, use the existing mount flags (instead of the
+	 * For vfs_mount_at_path() call, use the existing mount flags (instead of the
 	 * original flags) because flags like MNT_NOSUID and MNT_NODEV may have
 	 * been silently enforced. Also, in terms of MACF, the _kernel_ is
 	 * performing the mount (and enforcing all of the mount options), so we
@@ -3793,9 +3804,18 @@ nfs_mirror_mount_domount(vnode_t dvp, vnode_t vp, __nfs4_unused vfs_context_t ct
 	mntflags = vfs_flags(vnode_mount(vp)) & MNT_VISFLAGMASK;
 	mntflags |= (MNT_AUTOMOUNTED | MNT_DONTBROWSE);
 
+	/*
+	 * Use the kernel context for vfs_mount_at_path() call if filesystem was mounted
+	 * by automounter and the owner is root. else, use the current context.
+	 * For more info see radars #97146969 and #102277968.
+	 */
+	vfsflags = VFS_MOUNT_FLAG_PERMIT_UNMOUNT | VFS_MOUNT_FLAG_NOAUTH;
+	if (!ISSET(vfs_flags(nmp->nm_mountp), MNT_AUTOMOUNTED) || vfs_statfs(vnode_mount(vp))->f_owner != 0) {
+		vfsflags |= VFS_MOUNT_FLAG_CURRENT_CONTEXT;
+	}
+
 	/* do the mount */
-	error = vfs_mount_at_path(fstype, path, dvp, vp, xb_buffer_base(&xbnew), argslength,
-	    mntflags, VFS_MOUNT_FLAG_PERMIT_UNMOUNT | VFS_MOUNT_FLAG_NOAUTH | VFS_MOUNT_FLAG_CURRENT_CONTEXT);
+	error = vfs_mount_at_path(fstype, path, dvp, vp, xb_buffer_base(&xbnew), argslength, mntflags, vfsflags);
 
 nfsmerr:
 	if (error) {
@@ -5451,6 +5471,7 @@ nfs_mountinfo_assemble(struct nfsmount *nmp, struct xdrbuf *xb)
 	if ((nmp->nm_vers < NFS_VER4) && nmp->nm_mount_localport) {
 		NFS_BITMAP_SET(mattrs, NFS_MATTR_LOCAL_MOUNT_PORT);
 	}
+	NFS_BITMAP_SET(mattrs, NFS_MATTR_READLINK_NOCACHE);
 
 	/* set up current mount flags bitmap */
 	/* first set the flags that we will be setting - either on OR off */
@@ -5696,6 +5717,9 @@ nfs_mountinfo_assemble(struct nfsmount *nmp, struct xdrbuf *xb)
 	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCAL_MOUNT_PORT)) {
 		xb_add_string(error, &xbinfo, nmp->nm_mount_localport, strlen(nmp->nm_mount_localport));
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READLINK_NOCACHE)) {
+		xb_add_32(error, &xbinfo, nmp->nm_readlink_nocache);
 	}
 	curargs_end_offset = xb_offset(&xbinfo);
 

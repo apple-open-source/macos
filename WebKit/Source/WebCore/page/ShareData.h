@@ -36,7 +36,7 @@ struct ShareData {
     String title;
     String text;
     String url;
-    Vector<RefPtr<File>> files;
+    Vector<RefPtr<File>> files { };
 };
 
 struct RawFile {

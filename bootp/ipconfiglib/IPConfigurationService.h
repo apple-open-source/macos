@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,6 +95,14 @@ extern const CFStringRef	kIPConfigurationServiceOptionEnableDAD; /* boolean */
  * - applies to IPv6 Automatic service only
  */
 extern const CFStringRef	kIPConfigurationServiceOptionEnableCLAT46; /* boolean */
+
+/*
+ * kIPConfigurationServiceOptionClearState (CFBooleanRef, default TRUE)
+ * - indicate whether to clear the state on the interface when the service is
+ *   started
+ * - only applies to IPv6 services
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionClearState; /* boolean */
 
 /*
  * Function: IPConfigurationServiceCreate

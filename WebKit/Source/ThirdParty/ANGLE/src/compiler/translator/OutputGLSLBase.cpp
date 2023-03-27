@@ -83,7 +83,7 @@ Stream &operator<<(Stream &out, CommaSeparatedListItemPrefixGenerator &gen)
 
 TOutputGLSLBase::TOutputGLSLBase(TCompiler *compiler,
                                  TInfoSinkBase &objSink,
-                                 ShCompileOptions compileOptions)
+                                 const ShCompileOptions &compileOptions)
     : TIntermTraverser(true, true, true, &compiler->getSymbolTable()),
       mObjSink(objSink),
       mDeclaringVariable(false),
@@ -93,6 +93,12 @@ TOutputGLSLBase::TOutputGLSLBase(TCompiler *compiler,
       mShaderVersion(compiler->getShaderVersion()),
       mOutput(compiler->getOutputType()),
       mHighPrecisionSupported(compiler->isHighPrecisionSupported()),
+      // If pixel local storage introduces new fragment outputs, we are now required to specify a
+      // location for _all_ fragment outputs, including previously valid outputs that had an
+      // implicit location of zero.
+      mAlwaysSpecifyFragOutLocation(compiler->hasPixelLocalStorageUniforms() &&
+                                    compileOptions.pls.type ==
+                                        ShPixelLocalStorageType::FramebufferFetch),
       mCompileOptions(compileOptions)
 {}
 
@@ -170,21 +176,21 @@ std::string TOutputGLSLBase::getCommonLayoutQualifiers(TIntermSymbol *variable)
     const TType &type                       = variable->getType();
     const TLayoutQualifier &layoutQualifier = type.getLayoutQualifier();
 
-    if (type.getQualifier() == EvqFragmentOut || type.getQualifier() == EvqVertexIn ||
-        IsVarying(type.getQualifier()))
+    if (type.getQualifier() == EvqFragmentOut || type.getQualifier() == EvqFragmentInOut)
     {
-        if (type.getQualifier() == EvqFragmentOut && layoutQualifier.index >= 0)
+        if (layoutQualifier.index >= 0)
         {
             out << listItemPrefix << "index = " << layoutQualifier.index;
         }
-    }
-
-    if (type.getQualifier() == EvqFragmentOut)
-    {
-        if (layoutQualifier.yuv == true)
+        if (layoutQualifier.yuv)
         {
             out << listItemPrefix << "yuv";
         }
+    }
+
+    if (type.getQualifier() == EvqFragmentInOut && layoutQualifier.noncoherent)
+    {
+        out << listItemPrefix << "noncoherent";
     }
 
     if (IsImage(type.getBasicType()))
@@ -244,7 +250,7 @@ void TOutputGLSLBase::writeLayoutQualifier(TIntermSymbol *variable)
 {
     const TType &type = variable->getType();
 
-    if (!NeedsToWriteLayoutQualifier(type))
+    if (!needsToWriteLayoutQualifier(type))
     {
         return;
     }
@@ -261,12 +267,13 @@ void TOutputGLSLBase::writeLayoutQualifier(TIntermSymbol *variable)
 
     CommaSeparatedListItemPrefixGenerator listItemPrefix;
 
-    if (type.getQualifier() == EvqFragmentOut || type.getQualifier() == EvqVertexIn ||
+    if (IsFragmentOutput(type.getQualifier()) || type.getQualifier() == EvqVertexIn ||
         IsVarying(type.getQualifier()))
     {
-        if (layoutQualifier.location >= 0)
+        if (layoutQualifier.location >= 0 ||
+            (mAlwaysSpecifyFragOutLocation && IsFragmentOutput(type.getQualifier())))
         {
-            out << listItemPrefix << "location = " << layoutQualifier.location;
+            out << listItemPrefix << "location = " << std::max(layoutQualifier.location, 0);
         }
     }
 
@@ -289,7 +296,9 @@ void TOutputGLSLBase::writeLayoutQualifier(TIntermSymbol *variable)
 
 void TOutputGLSLBase::writeFieldLayoutQualifier(const TField *field)
 {
-    if (!field->type()->isMatrix() && !field->type()->isStructureContainingMatrices())
+    TLayoutQualifier layoutQualifier = field->type()->getLayoutQualifier();
+    if (!field->type()->isMatrix() && !field->type()->isStructureContainingMatrices() &&
+        layoutQualifier.imageInternalFormat == EiifUnspecified)
     {
         return;
     }
@@ -297,21 +306,30 @@ void TOutputGLSLBase::writeFieldLayoutQualifier(const TField *field)
     TInfoSinkBase &out = objSink();
 
     out << "layout(";
-    switch (field->type()->getLayoutQualifier().matrixPacking)
+    CommaSeparatedListItemPrefixGenerator listItemPrefix;
+    if (field->type()->isMatrix() || field->type()->isStructureContainingMatrices())
     {
-        case EmpUnspecified:
-        case EmpColumnMajor:
-            // Default matrix packing is column major.
-            out << "column_major";
-            break;
+        switch (layoutQualifier.matrixPacking)
+        {
+            case EmpUnspecified:
+            case EmpColumnMajor:
+                // Default matrix packing is column major.
+                out << listItemPrefix << "column_major";
+                break;
 
-        case EmpRowMajor:
-            out << "row_major";
-            break;
+            case EmpRowMajor:
+                out << listItemPrefix << "row_major";
+                break;
 
-        default:
-            UNREACHABLE();
-            break;
+            default:
+                UNREACHABLE();
+                break;
+        }
+    }
+    // EXT_shader_pixel_local_storage.
+    if (layoutQualifier.imageInternalFormat != EiifUnspecified)
+    {
+        out << listItemPrefix << getImageInternalFormatString(layoutQualifier.imageInternalFormat);
     }
     out << ") ";
 }
@@ -330,7 +348,7 @@ void TOutputGLSLBase::writeQualifier(TQualifier qualifier, const TType &type, co
 const char *TOutputGLSLBase::mapQualifierToString(TQualifier qualifier)
 {
     if (sh::IsGLSL410OrOlder(mOutput) && mShaderVersion >= 300 &&
-        (mCompileOptions & SH_REMOVE_INVARIANT_AND_CENTROID_FOR_ESSL3) != 0)
+        mCompileOptions.removeInvariantAndCentroidForESSL3)
     {
         switch (qualifier)
         {
@@ -361,17 +379,23 @@ const char *TOutputGLSLBase::mapQualifierToString(TQualifier qualifier)
         }
     }
 
-    // Handle qualifiers that produce different output based on shader type.
     switch (qualifier)
     {
+        // gl_ClipDistance / gl_CullDistance require different qualifiers based on shader type.
         case EvqClipDistance:
         case EvqCullDistance:
-            return mShaderType == GL_FRAGMENT_SHADER ? "in" : "out";
-        default:
-            break;
-    }
+            return (sh::IsGLSL130OrNewer(mOutput) || mShaderVersion > 100)
+                       ? (mShaderType == GL_FRAGMENT_SHADER ? "in" : "out")
+                       : "varying";
 
-    return sh::getQualifierString(qualifier);
+        // gl_LastFragColor / gl_LastFragData have no qualifiers.
+        case EvqLastFragData:
+        case EvqLastFragColor:
+            return nullptr;
+
+        default:
+            return sh::getQualifierString(qualifier);
+    }
 }
 
 namespace
@@ -1295,9 +1319,9 @@ void TOutputGLSLBase::declareInterfaceBlock(const TType &type)
     out << "}";
 }
 
-void WritePragma(TInfoSinkBase &out, ShCompileOptions compileOptions, const TPragma &pragma)
+void WritePragma(TInfoSinkBase &out, const ShCompileOptions &compileOptions, const TPragma &pragma)
 {
-    if ((compileOptions & SH_FLATTEN_PRAGMA_STDGL_INVARIANT_ALL) == 0)
+    if (!compileOptions.flattenPragmaSTDGLInvariantAll)
     {
         if (pragma.stdgl.invariantAll)
             out << "#pragma STDGL invariant(all)\n";
@@ -1391,23 +1415,45 @@ void WriteTessEvaluationShaderLayoutQualifiers(TInfoSinkBase &out,
 // type and storage qualifier of the variable to verify that layout qualifiers have to be outputted.
 // TODO (mradev): Fix layout qualifier spilling in ScalarizeVecAndMatConstructorArgs and remove
 // NeedsToWriteLayoutQualifier.
-bool NeedsToWriteLayoutQualifier(const TType &type)
+bool TOutputGLSLBase::needsToWriteLayoutQualifier(const TType &type)
 {
-    if (type.getBasicType() == EbtInterfaceBlock)
-    {
-        return true;
-    }
-
     const TLayoutQualifier &layoutQualifier = type.getLayoutQualifier();
 
-    if ((type.getQualifier() == EvqFragmentOut || type.getQualifier() == EvqVertexIn ||
-         IsVarying(type.getQualifier())) &&
-        layoutQualifier.location >= 0)
+    if (type.getBasicType() == EbtInterfaceBlock)
     {
+        if (type.getQualifier() == EvqPixelLocalEXT)
+        {
+            // We only use per-member EXT_shader_pixel_local_storage formats, so the PLS interface
+            // block will never have a layout qualifier.
+            ASSERT(layoutQualifier.imageInternalFormat == EiifUnspecified);
+            return false;
+        }
         return true;
     }
 
-    if (type.getQualifier() == EvqFragmentOut && layoutQualifier.yuv == true)
+    if (IsFragmentOutput(type.getQualifier()) || type.getQualifier() == EvqVertexIn ||
+        IsVarying(type.getQualifier()))
+    {
+        if (layoutQualifier.location >= 0 ||
+            (mAlwaysSpecifyFragOutLocation && IsFragmentOutput(type.getQualifier())))
+        {
+            return true;
+        }
+    }
+
+    if (type.getQualifier() == EvqFragmentOut || type.getQualifier() == EvqFragmentInOut)
+    {
+        if (layoutQualifier.index >= 0)
+        {
+            return true;
+        }
+        if (layoutQualifier.yuv)
+        {
+            return true;
+        }
+    }
+
+    if (type.getQualifier() == EvqFragmentInOut && layoutQualifier.noncoherent)
     {
         return true;
     }
@@ -1453,12 +1499,12 @@ void EmitMultiviewGLSL(const TCompiler &compiler,
         return;
 
     const bool isVertexShader = (compiler.getShaderType() == GL_VERTEX_SHADER);
-    if ((compileOptions & SH_INITIALIZE_BUILTINS_FOR_INSTANCED_MULTIVIEW) != 0)
+    if (compileOptions.initializeBuiltinsForInstancedMultiview)
     {
         // Emit ARB_shader_viewport_layer_array/NV_viewport_array2 in a vertex shader if the
         // SH_SELECT_VIEW_IN_NV_GLSL_VERTEX_SHADER option is set and the
         // OVR_multiview(2) extension is requested.
-        if (isVertexShader && (compileOptions & SH_SELECT_VIEW_IN_NV_GLSL_VERTEX_SHADER) != 0)
+        if (isVertexShader && compileOptions.selectViewInNvGLSLVertexShader)
         {
             sink << "#if defined(GL_ARB_shader_viewport_layer_array)\n"
                  << "#extension GL_ARB_shader_viewport_layer_array : require\n"

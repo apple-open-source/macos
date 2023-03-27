@@ -52,9 +52,16 @@ struct _WebKitContextMenuPrivate {
     GList* items;
     WebKitContextMenuItem* parentItem;
     GRefPtr<GVariant> userData;
+#if PLATFORM(GTK)
+#if USE(GTK4)
+    GRefPtr<GdkEvent> event;
+#else
+    GUniquePtr<GdkEvent> event;
+#endif
+#endif
 };
 
-WEBKIT_DEFINE_TYPE(WebKitContextMenu, webkit_context_menu, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitContextMenu, webkit_context_menu, G_TYPE_OBJECT)
 
 static void webkitContextMenuDispose(GObject* object)
 {
@@ -94,6 +101,17 @@ WebKitContextMenu* webkitContextMenuCreate(const Vector<WebContextMenuItemData>&
     return menu;
 }
 
+#if PLATFORM(GTK)
+#if USE(GTK4)
+void webkitContextMenuSetEvent(WebKitContextMenu* menu, GRefPtr<GdkEvent>&& event)
+#else
+void webkitContextMenuSetEvent(WebKitContextMenu* menu, GUniquePtr<GdkEvent>&& event)
+#endif
+{
+    menu->priv->event = WTFMove(event);
+}
+#endif
+
 void webkitContextMenuSetParentItem(WebKitContextMenu* menu, WebKitContextMenuItem* item)
 {
     menu->priv->parentItem = item;
@@ -106,6 +124,8 @@ WebKitContextMenuItem* webkitContextMenuGetParentItem(WebKitContextMenu* menu)
 
 /**
  * webkit_context_menu_new:
+ *
+ * Creates a new #WebKitContextMenu object.
  *
  * Creates a new #WebKitContextMenu object to be used as a submenu of an existing
  * #WebKitContextMenu. The context menu of a #WebKitWebView is created by the view
@@ -125,6 +145,8 @@ WebKitContextMenu* webkit_context_menu_new()
 /**
  * webkit_context_menu_new_with_items:
  * @items: (element-type WebKitContextMenuItem): a #GList of #WebKitContextMenuItem
+ *
+ * Creates a new #WebKitContextMenu object with the given items.
  *
  * Creates a new #WebKitContextMenu object to be used as a submenu of an existing
  * #WebKitContextMenu with the given initial items.
@@ -172,6 +194,7 @@ void webkit_context_menu_append(WebKitContextMenu* menu, WebKitContextMenuItem* 
  * @position: the position to insert the item
  *
  * Inserts @item into the @menu at the given position.
+ *
  * If @position is negative, or is larger than the number of items
  * in the #WebKitContextMenu, the item is added on to the end of
  * the @menu. The first position is 0.
@@ -192,6 +215,7 @@ void webkit_context_menu_insert(WebKitContextMenu* menu, WebKitContextMenuItem* 
  * @position: the new position to move the item
  *
  * Moves @item to the given position in the @menu.
+ *
  * If @position is negative, or is larger than the number of items
  * in the #WebKitContextMenu, the item is added on to the end of
  * the @menu.
@@ -297,6 +321,7 @@ WebKitContextMenuItem* webkit_context_menu_get_item_at_position(WebKitContextMen
  * @item: the #WebKitContextMenuItem to remove
  *
  * Removes @item from the @menu.
+ *
  * See also webkit_context_menu_remove_all() to remove all items.
  */
 void webkit_context_menu_remove(WebKitContextMenu* menu, WebKitContextMenuItem* item)
@@ -331,6 +356,7 @@ void webkit_context_menu_remove_all(WebKitContextMenu* menu)
  * @user_data: a #GVariant
  *
  * Sets user data to @menu.
+ *
  * This function can be used from a Web Process extension to set user data
  * that can be retrieved from the UI Process using webkit_context_menu_get_user_data().
  * If the @user_data #GVariant is floating, it is consumed.
@@ -350,6 +376,7 @@ void webkit_context_menu_set_user_data(WebKitContextMenu* menu, GVariant* userDa
  * @menu: a #WebKitContextMenu
  *
  * Gets the user data of @menu.
+ *
  * This function can be used from the UI Process to get user data previously set
  * from the Web Process with webkit_context_menu_set_user_data().
  *
@@ -363,3 +390,37 @@ GVariant* webkit_context_menu_get_user_data(WebKitContextMenu* menu)
 
     return menu->priv->userData.get();
 }
+
+#if PLATFORM(GTK)
+/**
+ * webkit_context_menu_get_event:
+ * @menu: a #WebKitContextMenu
+ *
+ * Gets the #GdkEvent that triggered the context menu. This function only returns a valid
+ * #GdkEvent when called for a #WebKitContextMenu passed to #WebKitWebView::context-menu
+ * signal; in all other cases, %NULL is returned.
+ *
+ * The returned #GdkEvent is expected to be one of the following types:
+ * <itemizedlist>
+ * <listitem><para>
+ * a #GdkEventButton of type %GDK_BUTTON_PRESS when the context menu was triggered with mouse.
+ * </para></listitem>
+ * <listitem><para>
+ * a #GdkEventKey of type %GDK_KEY_PRESS if the keyboard was used to show the menu.
+ * </para></listitem>
+ * <listitem><para>
+ * a generic #GdkEvent of type %GDK_NOTHING when the #GtkWidget::popup-menu signal was used to show the context menu.
+ * </para></listitem>
+ * </itemizedlist>
+ *
+ * Returns: (transfer none): the menu event or %NULL.
+ *
+ * Since: 2.40
+ */
+GdkEvent* webkit_context_menu_get_event(WebKitContextMenu* menu)
+{
+    g_return_val_if_fail(WEBKIT_IS_CONTEXT_MENU(menu), nullptr);
+
+    return menu->priv->event.get();
+}
+#endif

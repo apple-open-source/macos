@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2018, 2020, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -53,13 +53,13 @@
 
 #if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 static void
-test_SCDynamicStore()
+test_SCDynamicStore(void)
 {
-	NSLog(@"\n\n*** SCDynamicStore ***\n\n");
 	CFDictionaryRef		dict;
 	CFStringRef		intf;
 	CFStringRef		key;
 	SCDynamicStoreRef	store;
+	NSLog(@"\n\n*** SCDynamicStore ***\n\n");
 
 	store = SCDynamicStoreCreate(NULL, MY_APP_NAME, NULL, NULL);
 	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
@@ -75,12 +75,12 @@ test_SCDynamicStore()
 
 #if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 static void
-test_SCNetworkConfiguration()
+test_SCNetworkConfiguration(void)
 {
-	NSLog(@"\n\n*** SCNetworkConfiguration ***\n\n");
 	CFIndex			count;
 	CFIndex			idx;
 	CFArrayRef		interfaces;
+	NSLog(@"\n\n*** SCNetworkConfiguration ***\n\n");
 	
 	interfaces = SCNetworkInterfaceCopyAll();
 	count = CFArrayGetCount(interfaces);
@@ -99,11 +99,11 @@ test_SCNetworkConfiguration()
 #endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
 static void
-test_SCNetworkReachability()
+test_SCNetworkReachability(void)
 {
-	NSLog(@"\n\n*** SCNetworkReachability ***\n\n");
 	SCNetworkReachabilityFlags	flags;
 	SCNetworkReachabilityRef	target;
+	NSLog(@"\n\n*** SCNetworkReachability ***\n\n");
 
 	target = SCNetworkReachabilityCreateWithName(NULL, TARGET_HOST);
 	(void)SCNetworkReachabilityGetFlags(target, &flags);
@@ -114,14 +114,14 @@ test_SCNetworkReachability()
 
 #if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 static void
-test_SCPreferences()
+test_SCPreferences(void)
 {
-	NSLog(@"\n\n*** SCPreferences ***\n\n");
 	CFIndex			count;
 	CFIndex			idx;
 	CFStringRef		model = NULL;
 	SCPreferencesRef	prefs;
 	CFArrayRef		services;
+	NSLog(@"\n\n*** SCPreferences ***\n\n");
 	
 	prefs = SCPreferencesCreate(NULL, MY_APP_NAME, NULL);
 	model = SCPreferencesGetValue(prefs, CFSTR("Model"));
@@ -147,7 +147,7 @@ test_SCPreferences()
 #endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
 static void
-SCTest()
+SCTest(void)
 {
 
 #if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)

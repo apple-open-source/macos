@@ -8254,6 +8254,16 @@
 		8C08F2B123BF9F3900BFB6FE /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = SDKROOT; };
 		8C08F2B523BFD55600BFB6FE /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Network.framework; sourceTree = DEVELOPER_DIR; };
 		8C0BF15524081BD800D5840F /* gsscred.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = gsscred.entitlements; path = lib/heimcred/gsscred.entitlements; sourceTree = "<group>"; };
+		8C19AEC329284653009C15D8 /* check-gss.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "check-gss.in"; sourceTree = "<group>"; };
+		8C19AEC429284653009C15D8 /* ntlm-user-file.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "ntlm-user-file.txt"; sourceTree = "<group>"; };
+		8C19AEC529284653009C15D8 /* check-ntlm.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "check-ntlm.in"; sourceTree = "<group>"; };
+		8C19AEC629284653009C15D8 /* check-context.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "check-context.in"; sourceTree = "<group>"; };
+		8C19AEC729284653009C15D8 /* check-basic.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "check-basic.in"; sourceTree = "<group>"; };
+		8C19AEC829284653009C15D8 /* check-spnego.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "check-spnego.in"; sourceTree = "<group>"; };
+		8C19AECA29284653009C15D8 /* check-gssmask.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "check-gssmask.in"; sourceTree = "<group>"; };
+		8C19AECC29284653009C15D8 /* krb5.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = krb5.conf.in; sourceTree = "<group>"; };
+		8C19AECF29284653009C15D8 /* krb5.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = krb5.conf.in; path = tests/gss/krb5.conf.in; sourceTree = "<group>"; };
+		8C19AED229284654009C15D8 /* ntlm-user-file.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "ntlm-user-file.txt"; path = "tests/gss/ntlm-user-file.txt"; sourceTree = "<group>"; };
 		8C254D1822D3CD8C006D789D /* MobileKeyBag.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileKeyBag.framework; path = System/Library/PrivateFrameworks/MobileKeyBag.framework; sourceTree = SDKROOT; };
 		8C25953B2486B322002C7B9C /* com.apple.GSSCred.sb */ = {isa = PBXFileReference; lastKnownFileType = text; name = com.apple.GSSCred.sb; path = packages/mac/com.apple.GSSCred.sb; sourceTree = "<group>"; };
 		8C2A198624D0E589009A1791 /* GSSCredLoadTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GSSCredLoadTests.m; path = lib/heimcred/GSSCredLoadTests.m; sourceTree = "<group>"; };
@@ -11553,6 +11563,22 @@
 			name = plugins;
 			sourceTree = "<group>";
 		};
+		8C19AEC229284653009C15D8 /* gss */ = {
+			isa = PBXGroup;
+			children = (
+				8C19AEC329284653009C15D8 /* check-gss.in */,
+				8C19AEC429284653009C15D8 /* ntlm-user-file.txt */,
+				8C19AEC529284653009C15D8 /* check-ntlm.in */,
+				8C19AEC629284653009C15D8 /* check-context.in */,
+				8C19AEC729284653009C15D8 /* check-basic.in */,
+				8C19AEC829284653009C15D8 /* check-spnego.in */,
+				8C19AECA29284653009C15D8 /* check-gssmask.in */,
+				8C19AECC29284653009C15D8 /* krb5.conf.in */,
+			);
+			name = gss;
+			path = tests/gss;
+			sourceTree = "<group>";
+		};
 		8C3D071123AD7B3900FC23C0 /* lists */ = {
 			isa = PBXGroup;
 			children = (
@@ -11650,6 +11676,9 @@
 		EB20B783114DDD5800EDEDBF /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				8C19AEC229284653009C15D8 /* gss */,
+				8C19AECF29284653009C15D8 /* krb5.conf.in */,
+				8C19AED229284654009C15D8 /* ntlm-user-file.txt */,
 				EBC5CE4A11871798001EC98F /* apple */,
 				EB91F28E136E09600039E5DB /* bin */,
 				EBBDF47F114E73A1008932B8 /* db */,

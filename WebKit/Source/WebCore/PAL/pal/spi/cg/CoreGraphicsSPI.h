@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,7 @@
 #include <CoreGraphics/CoreGraphics.h>
 
 #if HAVE(IOSURFACE)
-#include <pal/spi/cocoa/IOSurfaceSPI.h>
+#include <wtf/spi/cocoa/IOSurfaceSPI.h>
 #endif
 
 #if PLATFORM(MAC)
@@ -190,9 +190,29 @@ struct CGShadowStyle {
 };
 typedef struct CGShadowStyle CGShadowStyle;
 
+#if HAVE(CGSTYLE_COLORMATRIX_BLUR)
+struct CGGaussianBlurStyle {
+    unsigned version;
+    CGFloat radius;
+};
+typedef struct CGGaussianBlurStyle CGGaussianBlurStyle;
+
+struct CGColorMatrixStyle {
+    unsigned version;
+    CGFloat matrix[20];
+};
+typedef struct CGColorMatrixStyle CGColorMatrixStyle;
+#endif
+
 typedef CF_ENUM (int32_t, CGStyleType)
 {
+    kCGStyleUnknown = 0,
     kCGStyleShadow = 1,
+    kCGStyleFocusRing = 2,
+#if HAVE(CGSTYLE_COLORMATRIX_BLUR)
+    kCGStyleGaussianBlur = 3,
+    kCGStyleColorMatrix = 4,
+#endif
 };
 
 #if PLATFORM(MAC)
@@ -270,6 +290,7 @@ void CGFontSetShouldUseMulticache(bool);
 
 void CGImageSetCachingFlags(CGImageRef, CGImageCachingFlags);
 CGImageCachingFlags CGImageGetCachingFlags(CGImageRef);
+void CGImageSetProperty(CGImageRef, CFStringRef, CFTypeRef);
 
 CGDataProviderRef CGPDFDocumentGetDataProvider(CGPDFDocumentRef);
 
@@ -344,6 +365,14 @@ CGGradientRef CGGradientCreateWithColorsAndOptions(CGColorSpaceRef, CFArrayRef, 
 
 #if HAVE(CORE_GRAPHICS_PREMULTIPLIED_INTERPOLATION_GRADIENT)
 extern const CFStringRef kCGGradientInterpolatesPremultiplied;
+#endif
+
+#if HAVE(CGSTYLE_CREATE_SHADOW2)
+CGStyleRef CGStyleCreateShadow2(CGSize offset, CGFloat radius, CGColorRef);
+#endif
+#if HAVE(CGSTYLE_COLORMATRIX_BLUR)
+CGStyleRef CGStyleCreateGaussianBlur(const CGGaussianBlurStyle*);
+CGStyleRef CGStyleCreateColorMatrix(const CGColorMatrixStyle*);
 #endif
 
 #endif // PLATFORM(COCOA)

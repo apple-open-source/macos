@@ -30,9 +30,10 @@
 #include "NetworkCacheCoders.h"
 #include "NetworkCacheIOChannel.h"
 #include <WebCore/SecurityOrigin.h>
-#include <WebCore/StorageQuotaManager.h>
 #include <wtf/RunLoop.h>
 #include <wtf/UUID.h>
+#include <wtf/persistence/PersistentDecoder.h>
+#include <wtf/persistence/PersistentEncoder.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
@@ -284,7 +285,7 @@ Cache* Caches::find(const String& name)
     return (position != notFound) ? &m_caches[position] : nullptr;
 }
 
-Cache* Caches::find(uint64_t identifier)
+Cache* Caches::find(WebCore::DOMCacheIdentifier identifier)
 {
     auto position = m_caches.findIf([&](const auto& item) { return item.identifier() == identifier; });
     if (position != notFound)
@@ -323,7 +324,7 @@ void Caches::open(const String& name, CacheIdentifierCallback&& callback)
 
     makeDirty();
 
-    uint64_t cacheIdentifier = m_engine->nextCacheIdentifier();
+    auto cacheIdentifier = WebCore::DOMCacheIdentifier::generate();
     m_caches.append(Cache { *this, cacheIdentifier, Cache::State::Open, String { name }, createVersion4UUIDString() });
 
     writeCachesToDisk([callback = WTFMove(callback), cacheIdentifier](std::optional<Error>&& error) mutable {
@@ -331,7 +332,7 @@ void Caches::open(const String& name, CacheIdentifierCallback&& callback)
     });
 }
 
-void Caches::remove(uint64_t identifier, CacheIdentifierCallback&& callback)
+void Caches::remove(WebCore::DOMCacheIdentifier identifier, RemoveCacheIdentifierCallback&& callback)
 {
     ASSERT(m_isInitialized);
     ASSERT(m_engine);
@@ -351,7 +352,7 @@ void Caches::remove(uint64_t identifier, CacheIdentifierCallback&& callback)
 
     if (position == notFound) {
         ASSERT(m_removedCaches.findIf([&](const auto& item) { return item.identifier() == identifier; }) != notFound);
-        callback(CacheIdentifierOperationResult { 0, false });
+        callback(false);
         return;
     }
 
@@ -360,8 +361,8 @@ void Caches::remove(uint64_t identifier, CacheIdentifierCallback&& callback)
     m_removedCaches.append(WTFMove(m_caches[position]));
     m_caches.remove(position);
 
-    writeCachesToDisk([callback = WTFMove(callback), identifier](std::optional<Error>&& error) mutable {
-        callback(CacheIdentifierOperationResult { identifier, !!error });
+    writeCachesToDisk([callback = WTFMove(callback)](std::optional<Error>&&) mutable {
+        callback(true);
     });
 }
 
@@ -471,7 +472,7 @@ void Caches::readCachesFromDisk(WTF::Function<void(Expected<Vector<Cache>, Error
             return;
         }
         callback(WTF::map(WTFMove(result.value()), [this] (auto&& pair) {
-            return Cache { *this, m_engine->nextCacheIdentifier(), Cache::State::Uninitialized, WTFMove(pair.first), WTFMove(pair.second) };
+            return Cache { *this, WebCore::DOMCacheIdentifier::generate(), Cache::State::Uninitialized, WTFMove(pair.first), WTFMove(pair.second) };
         }));
     });
 }

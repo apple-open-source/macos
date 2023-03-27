@@ -40,7 +40,7 @@ namespace WebKit {
 
 class DrawingAreaProxyCoordinatedGraphics final : public DrawingAreaProxy {
 public:
-    DrawingAreaProxyCoordinatedGraphics(WebPageProxy&, WebProcessProxy&);
+    DrawingAreaProxyCoordinatedGraphics(WebPageProxy&);
     virtual ~DrawingAreaProxyCoordinatedGraphics();
 
 #if !PLATFORM(WPE)
@@ -70,6 +70,8 @@ private:
     void updateAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) override;
     void targetRefreshRateDidChange(unsigned) override;
 
+    bool shouldSendWheelEventsToEventDispatcher() const override { return true; }
+
 #if !PLATFORM(WPE)
     void incorporateUpdate(const UpdateInfo&);
 #endif
@@ -90,6 +92,7 @@ private:
 #endif
 
     void dispatchAfterEnsuringDrawing(WTF::Function<void(CallbackBase::Error)>&&) override;
+    void attachToProvisionalFrameProcess(WebProcessProxy&) final { ASSERT_NOT_REACHED(); }
 
     class DrawingMonitor {
         WTF_MAKE_NONCOPYABLE(DrawingMonitor); WTF_MAKE_FAST_ALLOCATED;
@@ -107,7 +110,7 @@ private:
 
         MonotonicTime m_startTime;
         WTF::Function<void(CallbackBase::Error)> m_callback;
-        RunLoop::Timer<DrawingMonitor> m_timer;
+        RunLoop::Timer m_timer;
 #if PLATFORM(GTK)
         WebPageProxy& m_webPage;
 #endif
@@ -135,7 +138,7 @@ private:
 #if !PLATFORM(WPE)
     bool m_isBackingStoreDiscardable { true };
     std::unique_ptr<BackingStore> m_backingStore;
-    RunLoop::Timer<DrawingAreaProxyCoordinatedGraphics> m_discardBackingStoreTimer;
+    RunLoop::Timer m_discardBackingStoreTimer;
 #endif
     std::unique_ptr<DrawingMonitor> m_drawingMonitor;
 };

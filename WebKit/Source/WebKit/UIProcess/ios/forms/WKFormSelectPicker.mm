@@ -473,9 +473,6 @@ static const float GroupOptionTextColorAlpha = 0.5;
 
 #pragma mark - Form Control Refresh
 
-// FIXME: Remove once <rdar://problem/76430376> is in an SDK.
-#define UIMenuOptionsPrivateRemoveLineLimitForChildren (1 << 6)
-
 @implementation WKSelectPicker {
     __weak WKContentView *_view;
     CGPoint _interactionPoint;
@@ -579,7 +576,7 @@ static const float GroupOptionTextColorAlpha = 0.5;
                 currentIndex++;
             }
 
-            UIMenu *groupMenu = [UIMenu menuWithTitle:groupText image:nil identifier:nil options:(UIMenuOptionsDisplayInline | UIMenuOptionsPrivateRemoveLineLimitForChildren) children:groupedItems];
+            UIMenu *groupMenu = [UIMenu menuWithTitle:groupText image:nil identifier:nil options:(UIMenuOptionsDisplayInline | (UIMenuOptions)UIMenuOptionsPrivateRemoveLineLimitForChildren) children:groupedItems];
             [items addObject:groupMenu];
             continue;
         }
@@ -590,12 +587,7 @@ static const float GroupOptionTextColorAlpha = 0.5;
         currentIndex++;
     }
 
-    UIMenuOptions options = UIMenuOptionsPrivateRemoveLineLimitForChildren;
-#if HAVE(UIMENUOPTIONS_SINGLE_SELECTION)
-    options |= UIMenuOptionsSingleSelection;
-#endif
-
-    return [UIMenu menuWithTitle:@"" image:nil identifier:nil options:options children:items];
+    return [UIMenu menuWithTitle:@"" image:nil identifier:nil options:(UIMenuOptionsSingleSelection | (UIMenuOptions)UIMenuOptionsPrivateRemoveLineLimitForChildren) children:items];
 }
 
 - (UIAction *)actionForOptionItem:(const OptionItem&)option withIndex:(NSInteger)optionIndex
@@ -723,7 +715,7 @@ static const float GroupOptionTextColorAlpha = 0.5;
 #if USE(UICONTEXTMENU)
     UIAction *optionAction = [self actionForOptionIndex:rowIndex];
     if (optionAction) {
-        [optionAction _performActionWithSender:nil];
+        [optionAction performWithSender:nil target:nil];
         [_view accessoryDone];
     }
 #endif

@@ -72,13 +72,13 @@ static bool getWebLocData(IDataObject* dataObject, String& url, String* title)
     if (!hdrop)
         return false;
 
-    if (!DragQueryFileW(hdrop, 0, filename, WTF_ARRAY_LENGTH(filename)))
+    if (!DragQueryFileW(hdrop, 0, filename, std::size(filename)))
         goto exit;
 
     if (_wcsicmp(PathFindExtensionW(filename), L".url"))
         goto exit;    
     
-    if (!GetPrivateProfileStringW(L"InternetShortcut", L"url", 0, urlBuffer, WTF_ARRAY_LENGTH(urlBuffer), filename))
+    if (!GetPrivateProfileStringW(L"InternetShortcut", L"url", 0, urlBuffer, std::size(urlBuffer), filename))
         goto exit;
     
     if (title) {
@@ -108,7 +108,7 @@ static bool getWebLocData(const DragDataMap* dataObject, String& url, String* ti
     if (_wcsicmp(PathFindExtensionW(filename), L".url"))
         return false;    
 
-    if (!GetPrivateProfileStringW(L"InternetShortcut", L"url", 0, urlBuffer, WTF_ARRAY_LENGTH(urlBuffer), filename))
+    if (!GetPrivateProfileStringW(L"InternetShortcut", L"url", 0, urlBuffer, std::size(urlBuffer), filename))
         return false;
 
     if (title) {
@@ -167,7 +167,7 @@ HGLOBAL createGlobalData(const String& str)
     if (!vm)
         return 0;
     UChar* buffer = static_cast<UChar*>(GlobalLock(vm));
-    StringView(str).getCharactersWithUpconvert(buffer);
+    StringView(str).getCharacters(buffer);
     buffer[str.length()] = 0;
     GlobalUnlock(vm);
     return vm;
@@ -417,7 +417,7 @@ void setFileDescriptorData(IDataObject* dataObject, int size, const String& pass
     fgd->fgd[0].dwFlags = FD_FILESIZE;
     fgd->fgd[0].nFileSizeLow = size;
 
-    int maxSize = std::min<int>(pathname.length(), WTF_ARRAY_LENGTH(fgd->fgd[0].cFileName));
+    int maxSize = std::min<int>(pathname.length(), std::size(fgd->fgd[0].cFileName));
     CopyMemory(fgd->fgd[0].cFileName, pathname.charactersWithNullTermination().data(), maxSize * sizeof(UChar));
     GlobalUnlock(medium.hGlobal);
 
@@ -624,7 +624,7 @@ Ref<DocumentFragment> fragmentFromCFHTML(Document* doc, const String& cfhtml)
     }
 
     String markup = extractMarkupFromCFHTML(cfhtml);
-    return createFragmentFromMarkup(*doc, markup, srcURL, DisallowScriptingAndPluginContent);
+    return createFragmentFromMarkup(*doc, markup, srcURL, { });
 }
 
 RefPtr<DocumentFragment> fragmentFromHTML(Document* doc, IDataObject* data)
@@ -639,7 +639,7 @@ RefPtr<DocumentFragment> fragmentFromHTML(Document* doc, IDataObject* data)
     String html = getTextHTML(data);
     String srcURL;
     if (!html.isEmpty())
-        return createFragmentFromMarkup(*doc, html, srcURL, DisallowScriptingAndPluginContent);
+        return createFragmentFromMarkup(*doc, html, srcURL, { });
 
     return nullptr;
 }
@@ -655,7 +655,7 @@ RefPtr<DocumentFragment> fragmentFromHTML(Document* document, const DragDataMap*
 
     String srcURL;
     if (getDataMapItem(data, texthtmlFormat(), stringData))
-        return createFragmentFromMarkup(*document, stringData, srcURL, DisallowScriptingAndPluginContent);
+        return createFragmentFromMarkup(*document, stringData, srcURL, { });
 
     return nullptr;
 }
@@ -695,7 +695,7 @@ template<typename T> void getStringData(IDataObject* data, FORMATETC* format, Ve
     ReleaseStgMedium(&store);
 }
 
-void getUtf8Data(IDataObject* data, FORMATETC* format, Vector<String>& dataStrings)
+void getUTF8Data(IDataObject* data, FORMATETC* format, Vector<String>& dataStrings)
 {
     STGMEDIUM store;
     if (FAILED(data->GetData(format, &store)))
@@ -718,7 +718,7 @@ void getHDropData(IDataObject* data, FORMATETC* format, Vector<String>& dataStri
     WCHAR filename[MAX_PATH];
     UINT fileCount = DragQueryFileW(hdrop, 0xFFFFFFFF, 0, 0);
     for (UINT i = 0; i < fileCount; i++) {
-        if (!DragQueryFileW(hdrop, i, filename, WTF_ARRAY_LENGTH(filename)))
+        if (!DragQueryFileW(hdrop, i, filename, std::size(filename)))
             continue;
         dataStrings.append(filename);
     }
@@ -741,7 +741,7 @@ void setUCharData(IDataObject* data, FORMATETC* format, const Vector<String>& da
     ::GlobalFree(medium.hGlobal);
 }
 
-void setUtf8Data(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
+void setUTF8Data(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
 {
     STGMEDIUM medium { };
     medium.tymed = TYMED_HGLOBAL;
@@ -783,14 +783,14 @@ static const ClipboardFormatMap& getClipboardMap()
 {
     static ClipboardFormatMap formatMap;
     if (formatMap.isEmpty()) {
-        formatMap.add(htmlFormat()->cfFormat, new ClipboardDataItem(htmlFormat(), getUtf8Data, setUtf8Data));
+        formatMap.add(htmlFormat()->cfFormat, new ClipboardDataItem(htmlFormat(), getUTF8Data, setUTF8Data));
         formatMap.add(texthtmlFormat()->cfFormat, new ClipboardDataItem(texthtmlFormat(), getStringData<UChar>, setUCharData));
-        formatMap.add(plainTextFormat()->cfFormat,  new ClipboardDataItem(plainTextFormat(), getStringData<char>, setUtf8Data));
+        formatMap.add(plainTextFormat()->cfFormat,  new ClipboardDataItem(plainTextFormat(), getStringData<char>, setUTF8Data));
         formatMap.add(plainTextWFormat()->cfFormat,  new ClipboardDataItem(plainTextWFormat(), getStringData<UChar>, setUCharData));
         formatMap.add(cfHDropFormat()->cfFormat,  new ClipboardDataItem(cfHDropFormat(), getHDropData, setHDropData));
-        formatMap.add(filenameFormat()->cfFormat,  new ClipboardDataItem(filenameFormat(), getStringData<char>, setUtf8Data));
+        formatMap.add(filenameFormat()->cfFormat,  new ClipboardDataItem(filenameFormat(), getStringData<char>, setUTF8Data));
         formatMap.add(filenameWFormat()->cfFormat,  new ClipboardDataItem(filenameWFormat(), getStringData<UChar>, setUCharData));
-        formatMap.add(urlFormat()->cfFormat,  new ClipboardDataItem(urlFormat(), getStringData<char>, setUtf8Data));
+        formatMap.add(urlFormat()->cfFormat,  new ClipboardDataItem(urlFormat(), getStringData<char>, setUTF8Data));
         formatMap.add(urlWFormat()->cfFormat,  new ClipboardDataItem(urlWFormat(), getStringData<UChar>, setUCharData));
     }
     return formatMap;

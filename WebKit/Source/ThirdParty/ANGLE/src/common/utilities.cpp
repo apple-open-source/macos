@@ -1083,6 +1083,24 @@ unsigned int ElementTypeSize(GLenum elementType)
     }
 }
 
+bool IsMipmapFiltered(GLenum minFilterMode)
+{
+    switch (minFilterMode)
+    {
+        case GL_NEAREST:
+        case GL_LINEAR:
+            return false;
+        case GL_NEAREST_MIPMAP_NEAREST:
+        case GL_LINEAR_MIPMAP_NEAREST:
+        case GL_NEAREST_MIPMAP_LINEAR:
+        case GL_LINEAR_MIPMAP_LINEAR:
+            return true;
+        default:
+            UNREACHABLE();
+            return false;
+    }
+}
+
 PipelineType GetPipelineType(ShaderType type)
 {
     switch (type)
@@ -1375,34 +1393,103 @@ EGLClientBuffer GLObjectHandleToEGLClientBuffer(GLuint handle)
 
 }  // namespace gl_egl
 
-#if !defined(ANGLE_ENABLE_WINDOWS_UWP)
-std::string getTempPath()
+namespace angle
 {
-#    ifdef ANGLE_PLATFORM_WINDOWS
-    char path[MAX_PATH];
-    DWORD pathLen = GetTempPathA(sizeof(path) / sizeof(path[0]), path);
-    if (pathLen == 0)
+bool IsDrawEntryPoint(EntryPoint entryPoint)
+{
+    switch (entryPoint)
     {
-        UNREACHABLE();
-        return std::string();
+        case EntryPoint::GLDrawArrays:
+        case EntryPoint::GLDrawArraysIndirect:
+        case EntryPoint::GLDrawArraysInstanced:
+        case EntryPoint::GLDrawArraysInstancedANGLE:
+        case EntryPoint::GLDrawArraysInstancedBaseInstance:
+        case EntryPoint::GLDrawArraysInstancedBaseInstanceANGLE:
+        case EntryPoint::GLDrawArraysInstancedEXT:
+        case EntryPoint::GLDrawElements:
+        case EntryPoint::GLDrawElementsBaseVertex:
+        case EntryPoint::GLDrawElementsBaseVertexEXT:
+        case EntryPoint::GLDrawElementsBaseVertexOES:
+        case EntryPoint::GLDrawElementsIndirect:
+        case EntryPoint::GLDrawElementsInstanced:
+        case EntryPoint::GLDrawElementsInstancedANGLE:
+        case EntryPoint::GLDrawElementsInstancedBaseInstance:
+        case EntryPoint::GLDrawElementsInstancedBaseVertex:
+        case EntryPoint::GLDrawElementsInstancedBaseVertexBaseInstance:
+        case EntryPoint::GLDrawElementsInstancedBaseVertexBaseInstanceANGLE:
+        case EntryPoint::GLDrawElementsInstancedBaseVertexEXT:
+        case EntryPoint::GLDrawElementsInstancedBaseVertexOES:
+        case EntryPoint::GLDrawElementsInstancedEXT:
+        case EntryPoint::GLDrawPixels:
+        case EntryPoint::GLDrawRangeElements:
+        case EntryPoint::GLDrawRangeElementsBaseVertex:
+        case EntryPoint::GLDrawRangeElementsBaseVertexEXT:
+        case EntryPoint::GLDrawRangeElementsBaseVertexOES:
+        case EntryPoint::GLDrawTexfOES:
+        case EntryPoint::GLDrawTexfvOES:
+        case EntryPoint::GLDrawTexiOES:
+        case EntryPoint::GLDrawTexivOES:
+        case EntryPoint::GLDrawTexsOES:
+        case EntryPoint::GLDrawTexsvOES:
+        case EntryPoint::GLDrawTexxOES:
+        case EntryPoint::GLDrawTexxvOES:
+        case EntryPoint::GLDrawTransformFeedback:
+        case EntryPoint::GLDrawTransformFeedbackInstanced:
+        case EntryPoint::GLDrawTransformFeedbackStream:
+        case EntryPoint::GLDrawTransformFeedbackStreamInstanced:
+            return true;
+        default:
+            return false;
     }
-
-    UINT unique = GetTempFileNameA(path, "sh", 0, path);
-    if (unique == 0)
-    {
-        UNREACHABLE();
-        return std::string();
-    }
-
-    return path;
-#    else
-    UNIMPLEMENTED();
-    return "";
-#    endif
 }
+
+bool IsDispatchEntryPoint(EntryPoint entryPoint)
+{
+    switch (entryPoint)
+    {
+        case EntryPoint::GLDispatchCompute:
+        case EntryPoint::GLDispatchComputeIndirect:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool IsClearEntryPoint(EntryPoint entryPoint)
+{
+    switch (entryPoint)
+    {
+        case EntryPoint::GLClear:
+        case EntryPoint::GLClearBufferfi:
+        case EntryPoint::GLClearBufferfv:
+        case EntryPoint::GLClearBufferiv:
+        case EntryPoint::GLClearBufferuiv:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool IsQueryEntryPoint(EntryPoint entryPoint)
+{
+    switch (entryPoint)
+    {
+        case EntryPoint::GLBeginQuery:
+        case EntryPoint::GLBeginQueryEXT:
+        case EntryPoint::GLBeginQueryIndexed:
+        case EntryPoint::GLEndQuery:
+        case EntryPoint::GLEndQueryEXT:
+        case EntryPoint::GLEndQueryIndexed:
+            return true;
+        default:
+            return false;
+    }
+}
+}  // namespace angle
 
 void writeFile(const char *path, const void *content, size_t size)
 {
+#if !defined(ANGLE_ENABLE_WINDOWS_UWP)
     FILE *file = fopen(path, "w");
     if (!file)
     {
@@ -1412,8 +1499,11 @@ void writeFile(const char *path, const void *content, size_t size)
 
     fwrite(content, sizeof(char), size, file);
     fclose(file);
-}
+#else
+    UNREACHABLE();
+    return;
 #endif  // !ANGLE_ENABLE_WINDOWS_UWP
+}
 
 #if defined(ANGLE_PLATFORM_WINDOWS)
 

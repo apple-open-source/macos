@@ -77,6 +77,7 @@
 
 static FTSENT	*fts_alloc(FTS *, char *, ssize_t);
 static FTSENT	*fts_build(FTS *, int);
+static void	 fts_free(FTSENT *);
 static void	 fts_lfree(FTSENT *);
 static void	 fts_load(FTS *, FTSENT *);
 static size_t	 fts_maxarglen(char * const *);
@@ -218,12 +219,12 @@ __fts_open(char * const *argv, FTS *sp)
 		SET(FTS_NOCHDIR);
 
 	if (nitems == 0)
-		free(parent);
+		fts_free(parent);
 
 	return (sp);
 
 mem3:	fts_lfree(root);
-	free(parent);
+	fts_free(parent);
 mem2:	free(sp->fts_path);
 mem1:	free(sp);
 	return (NULL);
@@ -312,9 +313,9 @@ fts_close(FTS *sp)
 		for (p = sp->fts_cur; p->fts_level >= FTS_ROOTLEVEL;) {
 			freep = p;
 			p = p->fts_link ? p->fts_link : p->fts_parent;
-			free(freep);
+			fts_free(freep);
 		}
-		free(p);
+		fts_free(p);
 	}
 
 	/* Stash the original directory fd if needed. */
@@ -412,8 +413,10 @@ fts_read(FTS *sp)
 		/* If skipped or crossed mount point, do post-order visit. */
 		if (instr == FTS_SKIP ||
 		    (ISSET(FTS_XDEV) && p->fts_dev != sp->fts_dev)) {
-			if (p->fts_flags & FTS_SYMFOLLOW)
+			if (p->fts_flags & FTS_SYMFOLLOW) {
 				(void)close(p->fts_symfd);
+				p->fts_symfd = -1;
+			}
 			if (sp->fts_child) {
 				fts_lfree(sp->fts_child);
 				sp->fts_child = NULL;
@@ -462,7 +465,7 @@ fts_read(FTS *sp)
 	/* Move to the next node on this level. */
 next:	tmp = p;
 	if ((p = p->fts_link)) {
-		free(tmp);
+		fts_free(tmp);
 
 		/*
 		 * If reached the top, return to the original directory (or
@@ -508,14 +511,14 @@ name:		t = sp->fts_path + NAPPEND(p->fts_parent);
 
 	/* Move up to the parent node. */
 	p = tmp->fts_parent;
-	free(tmp);
+	fts_free(tmp);
 
 	if (p->fts_level == FTS_ROOTPARENTLEVEL) {
 		/*
 		 * Done; free everything up and set errno to 0 so the user
 		 * can distinguish between error and EOF.
 		 */
-		free(p);
+		fts_free(p);
 		errno = 0;
 		return (sp->fts_cur = NULL);
 	}
@@ -538,12 +541,14 @@ name:		t = sp->fts_path + NAPPEND(p->fts_parent);
 		if (FCHDIR(sp, p->fts_symfd)) {
 			saved_errno = errno;
 			(void)close(p->fts_symfd);
+			p->fts_symfd = -1;
 			errno = saved_errno;
 			SET(FTS_STOP);
 			sp->fts_cur = p;
 			return (NULL);
 		}
 		(void)close(p->fts_symfd);
+		p->fts_symfd = -1;
 	} else if (!(p->fts_flags & FTS_DONTCHDIR) &&
 	    fts_safe_changedir(sp, p, -1, "..")) {
 		SET(FTS_STOP);
@@ -1114,7 +1119,7 @@ fts_build(FTS *sp, int type)
 				 * structures already allocated.
 				 */
 mem1:				saved_errno = errno;
-				free(p);
+				fts_free(p);
 				fts_lfree(head);
 				close_directory(&dirp);
 				cur->fts_info = FTS_ERR;
@@ -1138,7 +1143,7 @@ mem1:				saved_errno = errno;
 			 * the current structure and the structures already
 			 * allocated, then error out with ENAMETOOLONG.
 			 */
-			free(p);
+			fts_free(p);
 			fts_lfree(head);
 			close_directory(&dirp);
 			cur->fts_info = FTS_ERR;
@@ -1448,6 +1453,7 @@ fts_alloc(FTS *sp, char *name, ssize_t namelen)
 	if ((p = calloc(1, len)) == NULL)
 		return (NULL);
 
+	p->fts_symfd = -1;
 	p->fts_path = sp->fts_path;
 	p->fts_namelen = namelen;
 	p->fts_instr = FTS_NOINSTR;
@@ -1459,6 +1465,18 @@ fts_alloc(FTS *sp, char *name, ssize_t namelen)
 }
 
 static void
+fts_free(FTSENT *p)
+{
+
+	if (p->fts_symfd >= 0) {
+		int saved_errno = errno;
+		(void)close(p->fts_symfd);
+		errno = saved_errno;
+	}
+	free(p);
+}
+
+static void
 fts_lfree(FTSENT *head)
 {
 	FTSENT *p;
@@ -1466,7 +1484,7 @@ fts_lfree(FTSENT *head)
 	/* Free a linked list of structures. */
 	while ((p = head)) {
 		head = head->fts_link;
-		free(p);
+		fts_free(p);
 	}
 }
 
@@ -1608,7 +1626,7 @@ fts_safe_changedir(FTS *sp, FTSENT *p, int fd, char *path)
 			// If FTS_CHDIRFD is set, use the stashed fd to follow ".."
 			(void)close(newfd);
 			newfd = p->fts_symfd;
-			p->fts_symfd = 0;
+			p->fts_symfd = -1;
 			p->fts_flags &= ~FTS_CHDIRFD;
 		}
 	}

@@ -143,7 +143,7 @@ static CFStringRef kRegistrationFileName = CFSTR("com.apple.security.cloudkeycha
 
 -(id _Nullable) init {
     
-    if(!OctagonPlatformSupportsSOS()) {
+    if(!OctagonIsSOSFeatureEnabled()) {
         secdebug("circleOps", "SOS is currently not supported or enabled");
         return nil;
     }

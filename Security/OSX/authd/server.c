@@ -1,5 +1,6 @@
 /* Copyright (c) 2012-2013 Apple Inc. All Rights Reserved. */
 
+#include <SecCFWrappers.h>
 #include "server.h"
 #include "session.h"
 #include "process.h"
@@ -17,7 +18,10 @@
 #include "AuthorizationTags.h"
 #include "PreloginUserDb.h"
 #include "Authorization.h"
+#include "od.h"
 
+#include <errno.h>
+#include <libproc.h>
 #include <bsm/audit_kevents.h>
 #include <bsm/libbsm.h>
 #include <Security/Authorization.h>
@@ -44,6 +48,8 @@ static CFMutableDictionaryRef gAuthTokenMap = NULL;
 static authdb_t gDatabase = NULL;
 
 static bool gXPCTransaction = false;
+
+void checkForDbReset(void);
 
 static dispatch_queue_t
 get_server_dispatch_queue(void)
@@ -148,10 +154,8 @@ static void _setupAuditSessionMonitor(void)
                 os_log_error(AUTHD_LOG, "server: au_sdev_read_aia failed: %d", errno);
                 continue;
             }
-            os_log_debug(AUTHD_LOG, "server: au_sdev_handle_t event=%i, session=%i", event, aia.ai_asid);
             if (event == AUE_SESSION_END) {
                 dispatch_async(get_server_dispatch_queue(), ^{
-                    os_log_debug(AUTHD_LOG, "server: session %i destroyed", aia.ai_asid);
                     CFDictionaryRemoveValue(gSessionMap, &aia.ai_asid);
                 });
             }
@@ -207,8 +211,27 @@ OSStatus server_init(void)
     _setupAuditSessionMonitor();
     _setupSignalHandlers();
     
+    if (!isInFVUnlockOrRecovery()) {
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            checkForDbReset();
+        });
+    }
 done:
     return status;
+}
+
+void checkForDbReset(void)
+{
+    Boolean resetDb = prelogin_reset_db_wanted();
+    if (resetDb) {
+        os_log(AUTHD_LOG, "server: Database reset requested");
+        authdb_connection_t dbconn = authdb_connection_acquire(gDatabase);
+        OSStatus status = authdb_reset(dbconn);
+        authdb_connection_release(&dbconn);
+        if (status != noErr) {
+            os_log_error(AUTHD_LOG, "server: Database reset failed: %d", (int)status);
+        }
+    }
 }
 
 static void _server_parse_audit_token(audit_token_t * token, audit_info_s * info)
@@ -377,13 +400,7 @@ _process_find_copy_auth_token_from_xpc(process_t proc, xpc_object_t message, aut
     
     auth_token_t auth = process_find_copy_auth_token(proc, blob);
     require_action(auth != NULL, done, status = errAuthorizationInvalidRef);
-
-#if DEBUG
-    os_log_debug(AUTHD_LOG, "server: authtoken lookup %#x%x %p", blob->data[1],blob->data[0], auth);
-#else
-    os_log_debug(AUTHD_LOG, "server: authtoken lookup");
-#endif
-    
+   
     *auth_out = auth;
     
 done:
@@ -650,7 +667,6 @@ authorization_copy_info(connection_t conn, xpc_object_t message, xpc_object_t re
 	local_items = auth_items_create();
 	auth_items_content_copy(local_items, items); // we do not want decrypt content of the authorizationref memory which is where pointers point to
 	auth_items_decrypt(local_items, auth_token_get_encryption_key(auth));
-	os_log_debug(AUTHD_LOG, "server: decrypted authorization context data");
 
 #if DEBUG
     os_log_debug(AUTHD_LOG, "server: Dumping requested AuthRef items: %{public}@", items);
@@ -807,121 +823,6 @@ done:
     return index;
 }
 
-static bool _update_rule_mechanism(authdb_connection_t dbconn, const char * rule_name, CFStringRef mechanism_name, CFStringRef insert_after_name, bool remove)
-{
-    bool updated = false;
-    rule_t rule = NULL;
-    rule_t update_rule = NULL;
-    CFMutableDictionaryRef cfdict = NULL;
-    CFStringRef update_name = NULL;
-
-    require(mechanism_name, done);
-
-    rule = rule_create_with_string(rule_name, dbconn);
-    require(rule_get_id(rule) != 0, done); // rule doesn't exist in the database
-
-    cfdict = rule_copy_to_cfobject(rule, dbconn);
-    require(cfdict != NULL, done);
-
-    CFMutableArrayRef mechanisms = NULL;
-    bool res = CFDictionaryGetValueIfPresent(cfdict, CFSTR(kAuthorizationRuleParameterMechanisms), (void*)&mechanisms);
-    require(res == true, done);
-
-    CFIndex index = -1;
-
-    if (remove) {
-        index = _get_mechanism_index(mechanisms, mechanism_name);
-    } else {
-        if (insert_after_name) {
-            if ((index = _get_mechanism_index(mechanisms, insert_after_name)) != -1) {
-                index++;
-            } else {
-                index = 0; // if we couldn't find the index add it to the begining
-            }
-        } else {
-            index = 0;
-        }
-    }
-
-    if (index != -1) {
-        if(remove) {
-            CFArrayRemoveValueAtIndex(mechanisms, index);
-        } else {
-            if (index < CFArrayGetCount(mechanisms)) {
-                require_action(CFStringCompare(CFArrayGetValueAtIndex(mechanisms, index), mechanism_name, kCFCompareCaseInsensitive) != kCFCompareEqualTo, done, updated = true);
-            }
-            CFArrayInsertValueAtIndex(mechanisms, index, mechanism_name);
-        }
-        
-        CFDictionarySetValue(cfdict, CFSTR(kAuthorizationRuleParameterMechanisms), mechanisms);
-
-        // and write it back
-        update_name = CFStringCreateWithCString(kCFAllocatorDefault, rule_name, kCFStringEncodingUTF8);
-        require(update_name, done);
-        update_rule = rule_create_with_plist(rule_get_type(rule), update_name, cfdict, dbconn);
-        require(update_rule, done);
-        
-        require(rule_sql_commit(update_rule, dbconn, CFAbsoluteTimeGetCurrent(), NULL), done);
-    }
-
-    updated = true;
-
-done:
-    CFReleaseSafe(rule);
-    CFReleaseSafe(update_rule);
-    CFReleaseSafe(cfdict);
-    CFReleaseSafe(update_name);
-    return updated;
-}
-
-/// IN:  AUTH_XPC_BLOB, AUTH_XPC_INT64
-// OUT:
-OSStatus
-authorization_enable_smartcard(connection_t conn, xpc_object_t message, xpc_object_t reply AUTH_UNUSED)
-{
-    const CFStringRef SMARTCARD_LINE = CFSTR("builtin:smartcard-sniffer,privileged");
-    const CFStringRef BUILTIN_LINE = CFSTR("builtin:policy-banner");
-    const char* SYSTEM_LOGIN_CONSOLE = "system.login.console";
-    const char* AUTHENTICATE = "authenticate";
-
-    __block OSStatus status = errAuthorizationSuccess;
-    bool enable_smartcard = false;
-    authdb_connection_t dbconn = NULL;
-    auth_token_t auth = NULL;
-    auth_rights_t checkRight = NULL;
-
-    process_t proc = connection_get_process(conn);
-
-    status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
-    require_noerr(status, done);
-
-    checkRight = auth_rights_create();
-    auth_rights_add(checkRight, "config.modify.smartcard");
-    status = server_authorize(conn, auth, kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights, checkRight, NULL, NULL);
-    require_noerr(status, done);
-
-    enable_smartcard = xpc_dictionary_get_bool(message, AUTH_XPC_DATA);
-
-    dbconn = authdb_connection_acquire(server_get_database());
-
-    if (!_update_rule_mechanism(dbconn, SYSTEM_LOGIN_CONSOLE, SMARTCARD_LINE, BUILTIN_LINE, enable_smartcard ? false : true)) {
-        status = errAuthorizationInternal;
-        os_log_error(AUTHD_LOG, "server: smartcard: enable(%i) failed to update %{public}s", enable_smartcard, SYSTEM_LOGIN_CONSOLE);
-    }
-    if (!_update_rule_mechanism(dbconn, AUTHENTICATE, SMARTCARD_LINE, NULL, enable_smartcard ? false : true)) {
-        status = errAuthorizationInternal;
-        os_log_error(AUTHD_LOG, "server: smartcard: enable(%i) failed to update %{public}s", enable_smartcard, AUTHENTICATE);
-    }
-
-    authdb_checkpoint(dbconn);
-
-done:
-    authdb_connection_release(&dbconn);
-    CFReleaseSafe(checkRight);
-    CFReleaseSafe(auth);
-    return status;
-}
-
 static int64_t _process_get_identifier_count(process_t proc, authdb_connection_t conn)
 {
     __block int64_t result = 0;
@@ -971,7 +872,8 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
     RuleType rule_type = RT_RIGHT;
     const char * rule_name = NULL;
     bool auth_rule = false;
-
+    CFMutableDictionaryRef payload = NULL;
+    
     process_t proc = connection_get_process(conn);
 
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
@@ -1049,6 +951,39 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
         dbconn = authdb_connection_acquire(server_get_database());
     }
     
+    {
+        payload = CFDictionaryCreateMutable(kCFAllocatorDefault, 5, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFStringRef cfRightName = CFStringCreateWithCString(kCFAllocatorDefault, rule_name, kCFStringEncodingUTF8);
+        if (cfRightName) {
+            CFDictionarySetValue(payload, CFSTR("rightName"), cfRightName);
+            CFRelease(cfRightName);
+        }
+        
+        char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
+        int ret = proc_pidpath(process_get_pid(proc), pathbuf, sizeof(pathbuf));
+        if (ret > 0) {
+            CFStringRef cfPath = CFStringCreateWithCString(kCFAllocatorDefault, pathbuf, kCFStringEncodingUTF8);
+            if (cfPath) {
+                CFDictionarySetValue(payload, CFSTR("caller"), cfPath);
+                CFRelease(cfPath);
+            }
+        }
+        CFDictionarySetValue(payload, CFSTR("processSigned"), process_firstparty_signed(proc) ? kCFBooleanTrue : kCFBooleanFalse);
+        CFStringRef reason = NULL;
+        bool processHasUiAccess = session_get_attributes(process_get_session(proc)) & AU_SESSION_FLAG_HAS_GRAPHIC_ACCESS;
+        if (processHasUiAccess) {
+            reason = CFSTR("TCC");
+        } else {
+            uid_t uid = agent_get_active_session_uid();
+            if (uid == (uid_t)-1) {
+                reason = CFSTR("N/A");
+            } else {
+                reason = CFSTR("SA");
+            }
+        }
+        CFDictionarySetValue(payload, CFSTR("checkType"), reason != NULL ? reason : CFSTR("NONE"));
+    }
+    
     if (rule_sql_commit(rule, dbconn, engine ? engine_get_time(engine) : CFAbsoluteTimeGetCurrent(), proc)) {
         os_log_debug(AUTHD_LOG, "server: Successfully updated rule %{public}s", rule_get_name(rule));
         authdb_checkpoint(dbconn);
@@ -1057,7 +992,18 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
         os_log_error(AUTHD_LOG, "server: Failed to update rule %{public}s", rule_get_name(rule));
         status = errAuthorizationDenied;
     }
+    if (payload) {
+        CFNumberRef temp = CFNumberCreate(NULL, kCFNumberSInt32Type, &status);
+        if (temp) {
+            CFDictionarySetValue(payload, CFSTR("rightSetResult"), temp);
+            CFRelease(temp);
+        }
+    }
 
+    if (payload) {
+        analyticsSendEventLazy(CFSTR("com.apple.authd.tcc"), payload);
+    }
+    
 done:
     authdb_connection_release(&dbconn);
     CFReleaseSafe(existingRule);
@@ -1066,6 +1012,7 @@ done:
     CFReleaseSafe(auth);
     CFReleaseSafe(rule);
     CFReleaseSafe(engine);
+    CFReleaseSafe(payload);
     return status;
 }
 
@@ -1113,7 +1060,7 @@ done:
     CFReleaseSafe(auth);
     CFReleaseSafe(rule);
     CFReleaseSafe(engine);
-    os_log_debug(AUTHD_LOG, "server: AuthorizationRightRemove %d", (int)status);
+    os_log_debug(AUTHD_LOG, "server: AuthorizationRightRemove (PID %d): result %d", connection_get_pid(conn), (int)status);
     return status;
 }
 

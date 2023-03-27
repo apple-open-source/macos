@@ -60,6 +60,7 @@
 #include <netsmb/smb_trantcp.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_gss.h>
+#include <netsmb/smb_dev_2.h>
 #include <smbfs/smbfs.h>
 #include <netsmb/smb_packets_2.h>
 #include <smbclient/ntstatus.h>
@@ -348,7 +349,7 @@ smb_iod_dead(struct smbiod *iod)
  * should block until the reconnect process is completed. This routine is always excuted
  * from the main thread.
  */
-static void smb_iod_start_reconnect(struct smbiod *iod)
+void smb_iod_start_reconnect(struct smbiod *iod)
 {
 	struct smb_share *share, *tshare;
 	struct smb_rq *rqp, *trqp;

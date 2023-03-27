@@ -6,6 +6,7 @@
 
 #include "test_utils/angle_test_configs.h"
 
+#include "common/debug.h"
 #include "common/platform.h"
 #include "common/string_utils.h"
 #include "util/util_gl.h"
@@ -38,24 +39,37 @@ bool HasFeatureOverride(const std::vector<Feature> &overrides, Feature feature)
 }
 }  // namespace
 
-PlatformParameters::PlatformParameters() : PlatformParameters(2, 0, GLESDriverType::AngleEGL) {}
+PlatformParameters::PlatformParameters()
+    : PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, GLESDriverType::AngleEGL)
+{}
 
-PlatformParameters::PlatformParameters(EGLint majorVersion,
+PlatformParameters::PlatformParameters(EGLenum clientType,
+                                       EGLint majorVersion,
                                        EGLint minorVersion,
+                                       EGLint profileMask,
                                        const EGLPlatformParameters &eglPlatformParameters)
     : driver(GLESDriverType::AngleEGL),
       noFixture(false),
       eglParameters(eglPlatformParameters),
+      clientType(clientType),
       majorVersion(majorVersion),
-      minorVersion(minorVersion)
+      minorVersion(minorVersion),
+      profileMask(profileMask)
 {
     initDefaultParameters();
 }
 
-PlatformParameters::PlatformParameters(EGLint majorVersion,
+PlatformParameters::PlatformParameters(EGLenum clientType,
+                                       EGLint majorVersion,
                                        EGLint minorVersion,
+                                       EGLint profileMask,
                                        GLESDriverType driver)
-    : driver(driver), noFixture(false), majorVersion(majorVersion), minorVersion(minorVersion)
+    : driver(driver),
+      noFixture(false),
+      clientType(clientType),
+      majorVersion(majorVersion),
+      minorVersion(minorVersion),
+      profileMask(profileMask)
 {
     initDefaultParameters();
 }
@@ -75,6 +89,11 @@ bool PlatformParameters::isSwiftshader() const
     return eglParameters.deviceType == EGL_PLATFORM_ANGLE_DEVICE_TYPE_SWIFTSHADER_ANGLE;
 }
 
+bool PlatformParameters::isMetal() const
+{
+    return eglParameters.renderer == EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE;
+}
+
 bool PlatformParameters::isVulkan() const
 {
     return eglParameters.renderer == EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE;
@@ -85,18 +104,23 @@ bool PlatformParameters::isANGLE() const
     return driver == GLESDriverType::AngleEGL;
 }
 
+bool PlatformParameters::isDesktopOpenGLFrontend() const
+{
+    return clientType == EGL_OPENGL_API;
+}
+
 void PlatformParameters::initDefaultParameters()
 {
     // Default debug layers to enabled in tests.
     eglParameters.debugLayersEnabled = EGL_TRUE;
 }
 
-bool PlatformParameters::isEnabled(Feature feature) const
+bool PlatformParameters::isEnableRequested(Feature feature) const
 {
     return HasFeatureOverride(eglParameters.enabledFeatureOverrides, feature);
 }
 
-bool PlatformParameters::isDisabled(Feature feature) const
+bool PlatformParameters::isDisableRequested(Feature feature) const
 {
     return HasFeatureOverride(eglParameters.disabledFeatureOverrides, feature);
 }
@@ -143,10 +167,47 @@ const char *GetRendererName(EGLint renderer)
 
 std::ostream &operator<<(std::ostream &stream, const PlatformParameters &pp)
 {
-    stream << "ES" << pp.majorVersion << "_";
+    switch (pp.clientType)
+    {
+        case EGL_OPENGL_ES_API:
+            stream << "ES";
+            break;
+
+        case EGL_OPENGL_API:
+            stream << "GL";
+            break;
+
+        case EGL_OPENVG_API:
+            stream << "VG";
+            break;
+
+        default:
+            UNREACHABLE();
+            stream << "Error";
+            break;
+    }
+
+    stream << pp.majorVersion << "_";
     if (pp.minorVersion != 0)
     {
         stream << pp.minorVersion << "_";
+    }
+
+    if (pp.clientType == EGL_OPENGL_API)
+    {
+        if ((pp.profileMask & EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT) != 0)
+        {
+            stream << "Core_";
+        }
+        if ((pp.profileMask & EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT) != 0)
+        {
+            stream << "Compatibility_";
+        }
+    }
+    else
+    {
+        // Profile mask is only valid for desktop OpenGL contexts.
+        ASSERT(pp.profileMask == 0);
     }
 
     switch (pp.driver)
@@ -154,11 +215,18 @@ std::ostream &operator<<(std::ostream &stream, const PlatformParameters &pp)
         case GLESDriverType::AngleEGL:
             stream << GetRendererName(pp.eglParameters.renderer);
             break;
+        case GLESDriverType::AngleVulkanSecondariesEGL:
+            ASSERT(pp.eglParameters.renderer == EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE);
+            stream << "ANGLE_Vulkan_Secondaries";
+            break;
         case GLESDriverType::SystemWGL:
             stream << "WGL";
             break;
         case GLESDriverType::SystemEGL:
             stream << "EGL";
+            break;
+        case GLESDriverType::ZinkEGL:
+            stream << "Zink";
             break;
         default:
             stream << "Error";
@@ -473,336 +541,408 @@ EGLPlatformParameters METAL()
 // ANGLE tests platforms
 PlatformParameters ES1_D3D9()
 {
-    return PlatformParameters(1, 0, egl_platform::D3D9());
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, egl_platform::D3D9());
 }
 
 PlatformParameters ES2_D3D9()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D9());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D9());
 }
 
 PlatformParameters ES1_D3D11()
 {
-    return PlatformParameters(1, 0, egl_platform::D3D11());
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, egl_platform::D3D11());
 }
 
 PlatformParameters ES2_D3D11()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11());
 }
 
 PlatformParameters ES2_D3D11_PRESENT_PATH_FAST()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_PRESENT_PATH_FAST());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_PRESENT_PATH_FAST());
 }
 
 PlatformParameters ES2_D3D11_FL11_0()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL11_0());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_FL11_0());
 }
 
 PlatformParameters ES2_D3D11_FL10_1()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL10_1());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_FL10_1());
 }
 
 PlatformParameters ES2_D3D11_FL10_0()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL10_0());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_FL10_0());
 }
 
 PlatformParameters ES2_D3D11_WARP()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_WARP());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_WARP());
 }
 
 PlatformParameters ES2_D3D11_FL11_0_WARP()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL11_0_WARP());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_FL11_0_WARP());
 }
 
 PlatformParameters ES2_D3D11_FL10_1_WARP()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL10_1_WARP());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_FL10_1_WARP());
 }
 
 PlatformParameters ES2_D3D11_FL10_0_WARP()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL10_0_WARP());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_FL10_0_WARP());
 }
 
 PlatformParameters ES2_D3D11_REFERENCE()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_REFERENCE());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_REFERENCE());
 }
 
 PlatformParameters ES2_D3D11_FL11_0_REFERENCE()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL11_0_REFERENCE());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_FL11_0_REFERENCE());
 }
 
 PlatformParameters ES2_D3D11_FL10_1_REFERENCE()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL10_1_REFERENCE());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_FL10_1_REFERENCE());
 }
 
 PlatformParameters ES2_D3D11_FL10_0_REFERENCE()
 {
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL10_0_REFERENCE());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::D3D11_FL10_0_REFERENCE());
 }
 
 PlatformParameters ES3_D3D11()
 {
-    return PlatformParameters(3, 0, egl_platform::D3D11());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::D3D11());
 }
 
 PlatformParameters ES3_D3D11_FL11_1()
 {
-    return PlatformParameters(3, 0, egl_platform::D3D11_FL11_1());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::D3D11_FL11_1());
 }
 
 PlatformParameters ES3_D3D11_FL11_0()
 {
-    return PlatformParameters(3, 0, egl_platform::D3D11_FL11_0());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::D3D11_FL11_0());
 }
 
 PlatformParameters ES3_D3D11_FL10_1()
 {
-    return PlatformParameters(3, 0, egl_platform::D3D11_FL10_1());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::D3D11_FL10_1());
 }
 
 PlatformParameters ES31_D3D11()
 {
-    return PlatformParameters(3, 1, egl_platform::D3D11());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::D3D11());
 }
 
 PlatformParameters ES31_D3D11_FL11_1()
 {
-    return PlatformParameters(3, 1, egl_platform::D3D11_FL11_1());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::D3D11_FL11_1());
 }
 
 PlatformParameters ES31_D3D11_FL11_0()
 {
-    return PlatformParameters(3, 1, egl_platform::D3D11_FL11_0());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::D3D11_FL11_0());
 }
 
 PlatformParameters ES3_D3D11_WARP()
 {
-    return PlatformParameters(3, 0, egl_platform::D3D11_WARP());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::D3D11_WARP());
 }
 
 PlatformParameters ES3_D3D11_FL11_1_WARP()
 {
-    return PlatformParameters(3, 0, egl_platform::D3D11_FL11_1_WARP());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::D3D11_FL11_1_WARP());
 }
 
 PlatformParameters ES3_D3D11_FL11_0_WARP()
 {
-    return PlatformParameters(3, 0, egl_platform::D3D11_FL11_0_WARP());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::D3D11_FL11_0_WARP());
 }
 
 PlatformParameters ES3_D3D11_FL10_1_WARP()
 {
-    return PlatformParameters(3, 0, egl_platform::D3D11_FL10_1_WARP());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::D3D11_FL10_1_WARP());
 }
 
 PlatformParameters ES1_OPENGLES()
 {
-    return PlatformParameters(1, 0, egl_platform::OPENGLES());
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, egl_platform::OPENGLES());
 }
 
 PlatformParameters ES2_OPENGLES()
 {
-    return PlatformParameters(2, 0, egl_platform::OPENGLES());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::OPENGLES());
 }
 
 PlatformParameters ES2_OPENGLES(EGLint major, EGLint minor)
 {
-    return PlatformParameters(2, 0, egl_platform::OPENGLES(major, minor));
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::OPENGLES(major, minor));
 }
 
 PlatformParameters ES3_OPENGLES()
 {
-    return PlatformParameters(3, 0, egl_platform::OPENGLES());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::OPENGLES());
 }
 
 PlatformParameters ES3_OPENGLES(EGLint major, EGLint minor)
 {
-    return PlatformParameters(3, 0, egl_platform::OPENGLES(major, minor));
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::OPENGLES(major, minor));
 }
 
 PlatformParameters ES31_OPENGLES()
 {
-    return PlatformParameters(3, 1, egl_platform::OPENGLES());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::OPENGLES());
 }
 
 PlatformParameters ES31_OPENGLES(EGLint major, EGLint minor)
 {
-    return PlatformParameters(3, 1, egl_platform::OPENGLES(major, minor));
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::OPENGLES(major, minor));
 }
 
 PlatformParameters ES1_OPENGL()
 {
-    return PlatformParameters(1, 0, egl_platform::OPENGL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, egl_platform::OPENGL());
 }
 
 PlatformParameters ES2_OPENGL()
 {
-    return PlatformParameters(2, 0, egl_platform::OPENGL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::OPENGL());
 }
 
 PlatformParameters ES2_OPENGL(EGLint major, EGLint minor)
 {
-    return PlatformParameters(2, 0, egl_platform::OPENGL(major, minor));
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::OPENGL(major, minor));
 }
 
 PlatformParameters ES3_OPENGL()
 {
-    return PlatformParameters(3, 0, egl_platform::OPENGL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::OPENGL());
 }
 
 PlatformParameters ES3_OPENGL(EGLint major, EGLint minor)
 {
-    return PlatformParameters(3, 0, egl_platform::OPENGL(major, minor));
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::OPENGL(major, minor));
 }
 
 PlatformParameters ES31_OPENGL()
 {
-    return PlatformParameters(3, 1, egl_platform::OPENGL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::OPENGL());
 }
 
 PlatformParameters ES31_OPENGL(EGLint major, EGLint minor)
 {
-    return PlatformParameters(3, 1, egl_platform::OPENGL(major, minor));
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::OPENGL(major, minor));
 }
 
 PlatformParameters ES1_NULL()
 {
-    return PlatformParameters(1, 0, EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE));
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0,
+                              EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE));
 }
 
 PlatformParameters ES2_NULL()
 {
-    return PlatformParameters(2, 0, EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE));
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0,
+                              EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE));
 }
 
 PlatformParameters ES3_NULL()
 {
-    return PlatformParameters(3, 0, EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE));
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0,
+                              EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE));
 }
 
 PlatformParameters ES31_NULL()
 {
-    return PlatformParameters(3, 1, EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE));
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0,
+                              EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE));
 }
 
 PlatformParameters ES1_VULKAN()
 {
-    return PlatformParameters(1, 0, egl_platform::VULKAN());
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, egl_platform::VULKAN());
 }
 
 PlatformParameters ES1_VULKAN_NULL()
 {
-    return PlatformParameters(1, 0, egl_platform::VULKAN_NULL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, egl_platform::VULKAN_NULL());
 }
 
 PlatformParameters ES1_VULKAN_SWIFTSHADER()
 {
-    return PlatformParameters(1, 0, egl_platform::VULKAN_SWIFTSHADER());
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, egl_platform::VULKAN_SWIFTSHADER());
 }
 
 PlatformParameters ES2_VULKAN()
 {
-    return PlatformParameters(2, 0, egl_platform::VULKAN());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::VULKAN());
 }
 
 PlatformParameters ES2_VULKAN_NULL()
 {
-    return PlatformParameters(2, 0, egl_platform::VULKAN_NULL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::VULKAN_NULL());
 }
 
 PlatformParameters ES2_VULKAN_SWIFTSHADER()
 {
-    return PlatformParameters(2, 0, egl_platform::VULKAN_SWIFTSHADER());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::VULKAN_SWIFTSHADER());
 }
 
 PlatformParameters ES3_VULKAN()
 {
-    return PlatformParameters(3, 0, egl_platform::VULKAN());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::VULKAN());
 }
 
 PlatformParameters ES3_VULKAN_NULL()
 {
-    return PlatformParameters(3, 0, egl_platform::VULKAN_NULL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::VULKAN_NULL());
 }
 
 PlatformParameters ES3_VULKAN_SWIFTSHADER()
 {
-    return PlatformParameters(3, 0, egl_platform::VULKAN_SWIFTSHADER());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::VULKAN_SWIFTSHADER());
 }
 
 PlatformParameters ES31_VULKAN()
 {
-    return PlatformParameters(3, 1, egl_platform::VULKAN());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::VULKAN());
 }
 
 PlatformParameters ES31_VULKAN_NULL()
 {
-    return PlatformParameters(3, 1, egl_platform::VULKAN_NULL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::VULKAN_NULL());
 }
 
 PlatformParameters ES31_VULKAN_SWIFTSHADER()
 {
-    return PlatformParameters(3, 1, egl_platform::VULKAN_SWIFTSHADER());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, egl_platform::VULKAN_SWIFTSHADER());
 }
 
 PlatformParameters ES32_VULKAN()
 {
-    return PlatformParameters(3, 2, egl_platform::VULKAN());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 2, 0, egl_platform::VULKAN());
 }
 
 PlatformParameters ES32_VULKAN_NULL()
 {
-    return PlatformParameters(3, 2, egl_platform::VULKAN_NULL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 2, 0, egl_platform::VULKAN_NULL());
 }
 
 PlatformParameters ES32_VULKAN_SWIFTSHADER()
 {
-    return PlatformParameters(3, 2, egl_platform::VULKAN_SWIFTSHADER());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 2, 0, egl_platform::VULKAN_SWIFTSHADER());
+}
+
+PlatformParameters GL32_CORE_VULKAN()
+{
+    return PlatformParameters(EGL_OPENGL_API, 3, 2, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+                              egl_platform::VULKAN());
+}
+
+PlatformParameters GL32_CORE_VULKAN_SWIFTSHADER()
+{
+    return PlatformParameters(EGL_OPENGL_API, 3, 2, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+                              egl_platform::VULKAN_SWIFTSHADER());
 }
 
 PlatformParameters ES1_METAL()
 {
-    return PlatformParameters(1, 0, egl_platform::METAL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, egl_platform::METAL());
 }
 
 PlatformParameters ES2_METAL()
 {
-    return PlatformParameters(2, 0, egl_platform::METAL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, egl_platform::METAL());
 }
 
 PlatformParameters ES3_METAL()
 {
-    return PlatformParameters(3, 0, egl_platform::METAL());
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, egl_platform::METAL());
 }
 
 PlatformParameters ES2_WGL()
 {
-    return PlatformParameters(2, 0, GLESDriverType::SystemWGL);
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, GLESDriverType::SystemWGL);
 }
 
 PlatformParameters ES3_WGL()
 {
-    return PlatformParameters(3, 0, GLESDriverType::SystemWGL);
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, GLESDriverType::SystemWGL);
+}
+
+PlatformParameters ES1_EGL()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, GLESDriverType::SystemEGL);
 }
 
 PlatformParameters ES2_EGL()
 {
-    return PlatformParameters(2, 0, GLESDriverType::SystemEGL);
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, GLESDriverType::SystemEGL);
 }
 
 PlatformParameters ES3_EGL()
 {
-    return PlatformParameters(3, 0, GLESDriverType::SystemEGL);
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, GLESDriverType::SystemEGL);
 }
+
+PlatformParameters ES1_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES1_VULKAN());
+}
+
+PlatformParameters ES2_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES2_VULKAN());
+}
+
+PlatformParameters ES3_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES3_VULKAN());
+}
+
+PlatformParameters ES31_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES31_VULKAN());
+}
+
+PlatformParameters ES32_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES32_VULKAN());
+}
+
+PlatformParameters ES1_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, GLESDriverType::ZinkEGL);
+}
+
+PlatformParameters ES2_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, GLESDriverType::ZinkEGL);
+}
+
+PlatformParameters ES3_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, GLESDriverType::ZinkEGL);
+}
+
+PlatformParameters ES31_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, GLESDriverType::ZinkEGL);
+}
+
+PlatformParameters ES32_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 2, 0, GLESDriverType::ZinkEGL);
+}
+
 }  // namespace angle

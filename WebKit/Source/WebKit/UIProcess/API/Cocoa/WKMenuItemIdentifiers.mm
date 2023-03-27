@@ -50,6 +50,7 @@ NSString * const _WKMenuItemIdentifierReload = @"WKMenuItemIdentifierReload";
 NSString * const _WKMenuItemIdentifierRevealImage = @"WKMenuItemIdentifierRevealImage";
 NSString * const _WKMenuItemIdentifierSearchWeb = @"WKMenuItemIdentifierSearchWeb";
 NSString * const _WKMenuItemIdentifierShowHideMediaControls = @"WKMenuItemIdentifierShowHideMediaControls";
+NSString * const _WKMenuItemIdentifierShowHideMediaStats = @"WKMenuItemIdentifierShowHideMediaStats";
 NSString * const _WKMenuItemIdentifierToggleEnhancedFullScreen = @"WKMenuItemIdentifierToggleEnhancedFullScreen";
 NSString * const _WKMenuItemIdentifierToggleFullScreen = @"WKMenuItemIdentifierToggleFullScreen";
 
@@ -64,3 +65,5 @@ NSString * const _WKMenuItemIdentifierShowSpellingPanel = @"WKMenuItemIdentifier
 NSString * const _WKMenuItemIdentifierCheckSpelling = @"WKMenuItemIdentifierCheckSpelling";
 NSString * const _WKMenuItemIdentifierCheckSpellingWhileTyping = @"WKMenuItemIdentifierCheckSpellingWhileTyping";
 NSString * const _WKMenuItemIdentifierCheckGrammarWithSpelling = @"WKMenuItemIdentifierCheckGrammarWithSpelling";
+NSString * const _WKMenuItemIdentifierPlayAllAnimations = @"WKMenuItemIdentifierPlayAllAnimations";
+NSString * const _WKMenuItemIdentifierPauseAllAnimations = @"WKMenuItemIdentifierPauseAllAnimations";

@@ -30,8 +30,9 @@ html {
 #endif
 }
 
-/* children of the <head> element all have display:none */
-head, link, meta, script, style, title {
+/* children of the <head> element all have display:none as below */
+area, base, basefont, datalist, head, link, meta, noembed, noframes,
+param, rp, script, style, template, title {
     display: none;
 }
 
@@ -56,6 +57,7 @@ address, article, aside, div, footer, header, hgroup, main, nav, section {
 
 marquee {
     display: inline-block;
+    text-align: initial;
 }
 
 blockquote {
@@ -98,12 +100,26 @@ center {
 
 hr {
     display: block;
+    overflow: hidden;
+    unicode-bidi: isolate;
     margin-block-start: 0.5em;
     margin-block-end: 0.5em;
     margin-inline-start: auto;
     margin-inline-end: auto;
     border-style: inset;
     border-width: 1px;
+}
+
+abbr[title], acronym[title] {
+    text-decoration: dotted underline;
+}
+
+/* ::backdrop */
+
+::backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
 }
 
 /* media elements */
@@ -123,6 +139,10 @@ video {
 audio {
     width: 200px;
     height: 25px;
+}
+
+audio:not([controls]) {
+    display: none !important;
 }
 
 /* heading elements */
@@ -358,7 +378,6 @@ label {
 }
 
 legend {
-    display: block;
     padding-inline-start: 2px;
     padding-inline-end: 2px;
     border: none;
@@ -373,15 +392,15 @@ fieldset {
     padding-inline-end: 0.75em;
     padding-block-end: 0.625em;
     border: 2px groove ThreeDFace;
-    min-width: min-content;
+    min-inline-size: min-content;
 }
 
 button {
     appearance: auto;
 }
 
-/* Form controls don't go vertical. */
-input, textarea, select, button, meter, progress {
+/* Every time a new control is supported in vertical writing mode, it should be removed from here and added in the horizontalFormControls.css rule */
+select, button, meter, progress, input:is([type="button"], [type="submit"], [type="reset"], [type="file"]) {
     writing-mode: horizontal-tb !important;
 }
 
@@ -762,7 +781,10 @@ textarea {
 ::placeholder {
     -webkit-text-security: none;
     color: darkGray;
+    direction: inherit !important;
     pointer-events: none !important;
+    text-orientation: inherit !important;
+    writing-mode: inherit !important;
 }
 
 input::placeholder {
@@ -953,10 +975,6 @@ select:disabled {
 
 #endif
 
-area, param {
-    display: none;
-}
-
 input[type="checkbox"] {
 #if !(defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY)
     box-sizing: border-box;
@@ -1024,7 +1042,8 @@ input[type="color"]::-webkit-color-swatch-wrapper {
     border-radius: inherit;
     padding: 2px;
 #else
-    padding: 4px 2px 5px;
+    padding-inline: 2px;
+    padding-block: 4px 5px;
 #endif
     box-sizing: border-box;
     width: 100%;
@@ -1320,10 +1339,6 @@ ruby > rp {
 
 /* other elements */
 
-noframes {
-    display: none;
-}
-
 frameset, frame {
     display: block;
 }
@@ -1349,10 +1364,6 @@ summary::-webkit-details-marker {
     width: 0.66em;
     height: 0.66em;
     margin-right: 0.4em;
-}
-
-template {
-    display: none;
 }
 
 bdi, output {

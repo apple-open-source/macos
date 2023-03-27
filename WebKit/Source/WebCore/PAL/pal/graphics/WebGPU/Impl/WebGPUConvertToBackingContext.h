@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -67,7 +67,8 @@ class GPU;
 enum class IndexFormat : uint8_t;
 enum class LoadOp : uint8_t;
 class PipelineLayout;
-enum class PowerPreference : uint8_t;
+enum class PowerPreference : bool;
+class PresentationContext;
 enum class PrimitiveTopology : uint8_t;
 class QuerySet;
 enum class QueryType : uint8_t;
@@ -158,6 +159,7 @@ public:
     virtual WGPURenderPipeline convertToBacking(const RenderPipeline&) = 0;
     virtual WGPUSampler convertToBacking(const Sampler&) = 0;
     virtual WGPUShaderModule convertToBacking(const ShaderModule&) = 0;
+    virtual WGPUSurface convertToBacking(const PresentationContext&) = 0;
     virtual WGPUTexture convertToBacking(const Texture&) = 0;
     virtual WGPUTextureView convertToBacking(const TextureView&) = 0;
 };

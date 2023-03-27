@@ -46,8 +46,18 @@ int main(int argc, const char *argv[])
     }
 
     NSString* analyticsdir = [[(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(nil) URLByAppendingPathComponent:@"Analytics/"] path];
-    if (analyticsdir) {
-        const char* sandbox_parameters[] = {"ANALYTICSDIR", analyticsdir.UTF8String, NULL};
+    NSString* protectedanalyticsdir = [[(__bridge_transfer NSURL*)SecCopyURLForFileInProtectedDirectory(nil) URLByAppendingPathComponent:@"sfanalytics/"] path];
+    if (analyticsdir || protectedanalyticsdir) {
+        const char* sandbox_parameters[5] = {NULL, NULL, NULL, NULL, NULL};
+        unsigned int p_index = 0;
+        if (analyticsdir) {
+            sandbox_parameters[p_index++] = "ANALYTICSDIR";
+            sandbox_parameters[p_index++] = analyticsdir.UTF8String;
+        }
+        if (protectedanalyticsdir) {
+            sandbox_parameters[p_index++] = "PROTECTEDANALYTICSDIR";
+            sandbox_parameters[p_index++] = protectedanalyticsdir.UTF8String;
+        }
         char* sandbox_error = NULL;
         if (0 != sandbox_init_with_parameters("com.apple.security.KeychainStasher", SANDBOX_NAMED, sandbox_parameters, &sandbox_error)) {
             secerror("unable to enter sandbox with parameter: %s", sandbox_error);

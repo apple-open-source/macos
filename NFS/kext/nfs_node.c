@@ -683,10 +683,11 @@ restart:
 				if (busied) {
 					nfs_open_file_clear_busy(nofp);
 				}
+				if (inuse) {
+					nfs_mount_state_in_use_end(nmp, 0);
+					inuse = 0;
+				}
 				if (!nfs4_reopen(nofp, NULL)) {
-					if (inuse) {
-						nfs_mount_state_in_use_end(nmp, 0);
-					}
 					goto restart;
 				}
 			}

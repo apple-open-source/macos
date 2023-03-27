@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if USE(GRAPHICS_LAYER_WC)
+
 #include "ImageBufferBackendHandle.h"
 #include "ImageBufferBackendHandleSharing.h"
 #include <WebCore/ImageBuffer.h>
@@ -65,7 +67,7 @@ public:
             ImageBufferBackendHandle handle;
             if (!decoder.decode(handle))
                 return false;
-            result.m_bitmap = ShareableBitmap::create(std::get<ShareableBitmap::Handle>(handle));
+            result.m_bitmap = ShareableBitmap::create(std::get<ShareableBitmapHandle>(handle));
         }
         return true;
     }
@@ -76,3 +78,5 @@ private:
 };
 
 } // namespace WebKit
+
+#endif // USE(GRAPHICS_LAYER_WC)

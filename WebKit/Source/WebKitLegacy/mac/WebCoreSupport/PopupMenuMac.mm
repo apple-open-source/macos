@@ -180,7 +180,9 @@ void PopupMenuMac::show(const IntRect& r, FrameView* v, int selectedIndex)
     }
     // Save the current event that triggered the popup, so we can clean up our event
     // state after the NSMenu goes away.
-    Ref<Frame> frame(v->frame());
+    RefPtr frame { dynamicDowncast<LocalFrame>(v->frame()) };
+    if (!frame)
+        return;
     RetainPtr<NSEvent> event = frame->eventHandler().currentNSEvent();
     
     Ref<PopupMenuMac> protector(*this);
@@ -208,11 +210,9 @@ void PopupMenuMac::show(const IntRect& r, FrameView* v, int selectedIndex)
     case PopupMenuStyle::PopupMenuSizeMini:
         controlSize = NSControlSizeMini;
         break;
-#if HAVE(LARGE_CONTROL_SIZE)
     case PopupMenuStyle::PopupMenuSizeLarge:
         controlSize = NSControlSizeLarge;
         break;
-#endif
     }
 
     PAL::popUpMenu(menu, location, roundf(NSWidth(r)), dummyView.get(), selectedIndex, toNSFont(font), controlSize, !m_client->menuStyle().hasDefaultAppearance());

@@ -295,6 +295,12 @@ bool IOSApplication::isWebProcess()
     return isInWebProcess();
 }
 
+bool IOSApplication::isBackboneApp()
+{
+    static bool isBackboneApp = applicationBundleIsEqualTo("com.backbonelabs.backboneapp"_s);
+    return isBackboneApp;
+}
+
 bool IOSApplication::isIBooksStorytime()
 {
     static bool isIBooksStorytime = applicationBundleIsEqualTo("com.apple.TVBooks"_s);
@@ -449,6 +455,12 @@ bool IOSApplication::isWechat()
 {
     static bool isWechat = applicationBundleIsEqualTo("com.tencent.xin"_s);
     return isWechat;
+}
+
+bool IOSApplication::isUNIQLOApp()
+{
+    static bool isUNIQLO = applicationBundleIdentifier().startsWith("com.uniqlo"_s);
+    return isUNIQLO;
 }
 
 bool IOSApplication::isLutron()

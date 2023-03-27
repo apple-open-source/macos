@@ -393,7 +393,7 @@
     //stop event processing until we load it up with work
     suspend_event_work_queue();
 
-    uint testInterations = 200;
+    uint testInterations = 60;
 
     XCTestExpectation *expectation = [[XCTestExpectation alloc] initWithDescription:@"There should be one notification for each cred (in this test)"];
     expectation.expectedFulfillmentCount = testInterations;
@@ -435,7 +435,7 @@
     
     //stop event processing until we load it up with work
     suspend_event_work_queue();
-    uint testInterations = 200;
+    uint testInterations = 60;
     
     for (uint i = 0; i < testInterations; i++) {
 	//create an empty cache
@@ -525,7 +525,7 @@
     
     //stop event processing until we load it up with work
     suspend_event_work_queue();
-    uint testInterations = 200;
+    uint testInterations = 60;
 
     for (uint i = 0; i < testInterations; i++) {
 	//create an empty cache

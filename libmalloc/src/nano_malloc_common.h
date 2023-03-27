@@ -38,7 +38,11 @@ MALLOC_NOEXPORT
 extern unsigned int nano_common_max_magazines;
 
 MALLOC_NOEXPORT
-extern boolean_t nano_common_max_magazines_is_ncpu;
+extern bool nano_common_max_magazines_is_ncpu;
+
+// Index of last region to be allocated
+MALLOC_NOEXPORT
+extern unsigned int nano_max_region;
 
 MALLOC_NOEXPORT
 void
@@ -58,8 +62,16 @@ nano_common_allocate_based_pages(size_t size, unsigned char align,
 		unsigned debug_flags, int vm_page_label, void *base_addr);
 
 MALLOC_NOEXPORT
-boolean_t
+bool
 nano_common_allocate_vm_space(mach_vm_address_t base, mach_vm_size_t size);
+
+MALLOC_NOEXPORT
+bool
+nano_common_reserve_vm_space(mach_vm_address_t base, mach_vm_size_t size);
+
+MALLOC_NOEXPORT
+bool
+nano_common_unprotect_vm_space(mach_vm_address_t base, mach_vm_size_t size);
 
 MALLOC_NOEXPORT
 void

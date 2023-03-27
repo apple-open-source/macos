@@ -105,6 +105,7 @@
 #include <comauth.h>    /* Externals for Auth. Services sub-component   */
 #include <cncall.h>     /* NCA connection call service */
 #include <cnassoc.h>
+#include <os/overflow.h>  /* Overflow arithmetic */
 
 #include <dce/rpcexc.h>
 
@@ -4860,15 +4861,28 @@ INTERNAL rpc_cn_local_id_t rpc__cn_assoc_grp_create
     unsigned16          old_count;
     unsigned16          new_count;
     unsigned32          i;
+    size_t              nBytes;
 
     RPC_CN_DBG_RTN_PRINTF(rpc__cn_assoc_grp_create);
     CODING_ERROR (st);
 
     /*
-     * Compute the size of the new table.
+     * Compute the size of the new table, checking for
+     * overflow/wrap.
      */
     old_count = rpc_g_cn_assoc_grp_tbl.grp_count;
-    new_count = old_count + RPC_C_ASSOC_GRP_ALLOC_SIZE;
+    if(os_add_overflow(old_count, RPC_C_ASSOC_GRP_ALLOC_SIZE, &new_count)) {
+        *st = rpc_s_cannot_alloc_assoc;
+        RPC_CN_LOCAL_ID_CLEAR (grp_id);
+        return (grp_id);
+    }
+    
+    if (os_mul_overflow(new_count, sizeof(rpc_cn_assoc_grp_t), &nBytes)) {
+        *st = rpc_s_cannot_alloc_assoc;
+        RPC_CN_LOCAL_ID_CLEAR (grp_id);
+        
+        return (grp_id);
+    }
 
     /*
      * First allocate a new association group table larger than the
@@ -4876,7 +4890,7 @@ INTERNAL rpc_cn_local_id_t rpc__cn_assoc_grp_create
      */
     RPC_MEM_ALLOC (new_assoc_grp,
                    rpc_cn_assoc_grp_p_t,
-                   sizeof(rpc_cn_assoc_grp_t) * new_count,
+                   nBytes,
                    RPC_C_MEM_CN_ASSOC_GRP_BLK,
                    RPC_C_MEM_WAITOK);
     if (new_assoc_grp == NULL) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,6 +44,7 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/SoftLinking.h>
 #include <wtf/URL.h>
+#include <wtf/cf/VectorCF.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringConcatenateNumbers.h>
@@ -273,7 +274,7 @@ bool CaptionUserPreferencesMediaAF::userPrefersCaptions() const
     bool captionSetting = CaptionUserPreferences::userPrefersCaptions();
     if (captionSetting || testingMode() || !MediaAccessibilityLibrary())
         return captionSetting;
-    
+
     RetainPtr<CFArrayRef> captioningMediaCharacteristics = adoptCF(MACaptionAppearanceCopyPreferredCaptioningMediaCharacteristics(kMACaptionAppearanceDomainUser));
     return captioningMediaCharacteristics && CFArrayGetCount(captioningMediaCharacteristics.get());
 }
@@ -286,6 +287,16 @@ bool CaptionUserPreferencesMediaAF::userPrefersSubtitles() const
     
     RetainPtr<CFArrayRef> captioningMediaCharacteristics = adoptCF(MACaptionAppearanceCopyPreferredCaptioningMediaCharacteristics(kMACaptionAppearanceDomainUser));
     return !(captioningMediaCharacteristics && CFArrayGetCount(captioningMediaCharacteristics.get()));
+}
+
+bool CaptionUserPreferencesMediaAF::userPrefersTextDescriptions() const
+{
+    bool prefersTextDescriptions = CaptionUserPreferences::userPrefersTextDescriptions();
+    if (prefersTextDescriptions || testingMode() || !MediaAccessibilityLibrary())
+        return prefersTextDescriptions;
+
+    auto preferDescriptiveVideo = adoptCF(MAAudibleMediaPrefCopyPreferDescriptiveVideo());
+    return preferDescriptiveVideo && CFBooleanGetValue(preferDescriptiveVideo.get());
 }
 
 void CaptionUserPreferencesMediaAF::updateTimerFired()
@@ -363,7 +374,7 @@ String CaptionUserPreferencesMediaAF::captionsWindowCSS() const
     if (!opacity)
         return windowStyle;
 
-    return makeString(windowStyle, getPropertyNameString(CSSPropertyPadding), ": .4em !important;");
+    return makeString(windowStyle, nameLiteral(CSSPropertyPadding), ": .4em !important;");
 }
 
 String CaptionUserPreferencesMediaAF::captionsBackgroundCSS() const
@@ -411,11 +422,11 @@ String CaptionUserPreferencesMediaAF::captionsTextColorCSS() const
     return colorPropertyCSS(CSSPropertyColor, textColor, important);
 }
 
-static void appendCSS(StringBuilder& builder, CSSPropertyID id, const String& value, bool important)
+template<typename... Types> void appendCSS(StringBuilder& builder, CSSPropertyID id, bool important, const Types&... values)
 {
-    builder.append(getPropertyNameString(id), ':', value, important ? " !important;" : ";");
+    builder.append(nameLiteral(id), ':', values..., important ? " !important;" : ";");
 }
-    
+
 String CaptionUserPreferencesMediaAF::windowRoundedCornerRadiusCSS() const
 {
     MACaptionAppearanceBehavior behavior;
@@ -424,7 +435,7 @@ String CaptionUserPreferencesMediaAF::windowRoundedCornerRadiusCSS() const
         return emptyString();
 
     StringBuilder builder;
-    appendCSS(builder, CSSPropertyBorderRadius, makeString(radius, "px"), behavior == kMACaptionAppearanceBehaviorUseValue);
+    appendCSS(builder, CSSPropertyBorderRadius, behavior == kMACaptionAppearanceBehaviorUseValue, radius, "px");
     return builder.toString();
 }
 
@@ -432,7 +443,7 @@ String CaptionUserPreferencesMediaAF::colorPropertyCSS(CSSPropertyID id, const C
 {
     StringBuilder builder;
     // FIXME: Seems like this should be using serializationForCSS instead?
-    appendCSS(builder, id, serializationForHTML(color), important);
+    appendCSS(builder, id, important, serializationForHTML(color));
     return builder.toString();
 }
 
@@ -458,10 +469,6 @@ bool CaptionUserPreferencesMediaAF::captionStrokeWidthForFont(float fontSize, co
 
 String CaptionUserPreferencesMediaAF::captionsTextEdgeCSS() const
 {
-    static NeverDestroyed<const String> edgeStyleRaised(MAKE_STATIC_STRING_IMPL(" -.1em -.1em .16em "));
-    static NeverDestroyed<const String> edgeStyleDepressed(MAKE_STATIC_STRING_IMPL(" .1em .1em .16em "));
-    static NeverDestroyed<const String> edgeStyleDropShadow(MAKE_STATIC_STRING_IMPL(" 0 .1em .16em "));
-
     MACaptionAppearanceBehavior behavior;
     MACaptionAppearanceTextEdgeStyle textEdgeStyle = MACaptionAppearanceGetTextEdgeStyle(kMACaptionAppearanceDomainUser, &behavior);
     
@@ -471,17 +478,17 @@ String CaptionUserPreferencesMediaAF::captionsTextEdgeCSS() const
     StringBuilder builder;
     bool important = behavior == kMACaptionAppearanceBehaviorUseValue;
     if (textEdgeStyle == kMACaptionAppearanceTextEdgeStyleRaised)
-        appendCSS(builder, CSSPropertyTextShadow, makeString(edgeStyleRaised.get(), " black"), important);
+        appendCSS(builder, CSSPropertyTextShadow, important, "-.1em -.1em .16em black");
     else if (textEdgeStyle == kMACaptionAppearanceTextEdgeStyleDepressed)
-        appendCSS(builder, CSSPropertyTextShadow, makeString(edgeStyleDepressed.get(), " black"), important);
+        appendCSS(builder, CSSPropertyTextShadow, important, ".1em .1em .16em black");
     else if (textEdgeStyle == kMACaptionAppearanceTextEdgeStyleDropShadow)
-        appendCSS(builder, CSSPropertyTextShadow, makeString(edgeStyleDropShadow.get(), " black"), important);
+        appendCSS(builder, CSSPropertyTextShadow, important, "0 .1em .16em black");
 
     if (textEdgeStyle == kMACaptionAppearanceTextEdgeStyleDropShadow || textEdgeStyle == kMACaptionAppearanceTextEdgeStyleUniform) {
-        appendCSS(builder, CSSPropertyStrokeColor, "black"_s, important);
-        appendCSS(builder, CSSPropertyPaintOrder, getValueName(CSSValueStroke), important);
-        appendCSS(builder, CSSPropertyStrokeLinejoin, getValueName(CSSValueRound), important);
-        appendCSS(builder, CSSPropertyStrokeLinecap, getValueName(CSSValueRound), important);
+        appendCSS(builder, CSSPropertyStrokeColor, important, "black");
+        appendCSS(builder, CSSPropertyPaintOrder, important, nameLiteral(CSSValueStroke));
+        appendCSS(builder, CSSPropertyStrokeLinejoin, important, nameLiteral(CSSValueRound));
+        appendCSS(builder, CSSPropertyStrokeLinecap, important, nameLiteral(CSSValueRound));
     }
     
     return builder.toString();
@@ -582,14 +589,7 @@ Vector<String> CaptionUserPreferencesMediaAF::preferredLanguages() const
 Vector<String> CaptionUserPreferencesMediaAF::platformPreferredLanguages()
 {
     auto captionLanguages = adoptCF(MACaptionAppearanceCopySelectedLanguages(kMACaptionAppearanceDomainUser));
-    CFIndex captionLanguagesCount = captionLanguages ? CFArrayGetCount(captionLanguages.get()) : 0;
-
-    Vector<String> preferredLanguages;
-    preferredLanguages.reserveInitialCapacity(captionLanguagesCount);
-    for (CFIndex i = 0; i < captionLanguagesCount; i++)
-        preferredLanguages.uncheckedAppend(static_cast<CFStringRef>(CFArrayGetValueAtIndex(captionLanguages.get(), i)));
-
-    return preferredLanguages;
+    return captionLanguages ? makeVector<String>(captionLanguages.get()) : Vector<String> { };
 }
 
 void CaptionUserPreferencesMediaAF::setCachedPreferredLanguages(const Vector<String>& preferredLanguages)
@@ -616,12 +616,7 @@ Vector<String> CaptionUserPreferencesMediaAF::preferredAudioCharacteristics() co
     if (!characteristicCount)
         return CaptionUserPreferences::preferredAudioCharacteristics();
 
-    Vector<String> userPreferredAudioCharacteristics;
-    userPreferredAudioCharacteristics.reserveInitialCapacity(characteristicCount);
-    for (CFIndex i = 0; i < characteristicCount; i++)
-        userPreferredAudioCharacteristics.uncheckedAppend(static_cast<CFStringRef>(CFArrayGetValueAtIndex(characteristics.get(), i)));
-
-    return userPreferredAudioCharacteristics;
+    return makeVector<String>(characteristics.get());
 }
 #endif // HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 

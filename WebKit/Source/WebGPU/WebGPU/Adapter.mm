@@ -134,9 +134,8 @@ void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHa
     };
 
     auto label = fromAPI(descriptor.label);
-    instance().scheduleWork([strongThis = Ref { *this }, label = WTFMove(label), capabilities = WTFMove(capabilities), callback = WTFMove(callback)]() mutable {
-        callback(WGPURequestDeviceStatus_Success, Device::create(strongThis->m_device, WTFMove(label), WTFMove(capabilities), strongThis), { });
-    });
+    // FIXME: this should be asynchronous
+    callback(WGPURequestDeviceStatus_Success, Device::create(this->m_device, WTFMove(label), WTFMove(capabilities), *this), { });
 }
 
 void Adapter::requestInvalidDevice(CompletionHandler<void(Ref<Device>&&)>&& callback)
@@ -184,14 +183,14 @@ void wgpuAdapterRequestDevice(WGPUAdapter adapter, const WGPUDeviceDescriptor* d
 
 void wgpuAdapterRequestDeviceWithBlock(WGPUAdapter adapter, WGPUDeviceDescriptor const * descriptor, WGPURequestDeviceBlockCallback callback)
 {
-    WebGPU::fromAPI(adapter).requestDevice(*descriptor, [callback = WTFMove(callback)](WGPURequestDeviceStatus status, Ref<WebGPU::Device>&& device, String&& message) {
+    WebGPU::fromAPI(adapter).requestDevice(*descriptor, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPURequestDeviceStatus status, Ref<WebGPU::Device>&& device, String&& message) {
         callback(status, WebGPU::releaseToAPI(WTFMove(device)), message.utf8().data());
     });
 }
 
 void wgpuAdapterRequestInvalidDeviceWithBlock(WGPUAdapter adapter, WGPURequestInvalidDeviceBlockCallback callback)
 {
-    WebGPU::fromAPI(adapter).requestInvalidDevice([callback = WTFMove(callback)](Ref<WebGPU::Device>&& device) {
+    WebGPU::fromAPI(adapter).requestInvalidDevice([callback = WebGPU::fromAPI(WTFMove(callback))](Ref<WebGPU::Device>&& device) {
         callback(WebGPU::releaseToAPI(WTFMove(device)));
     });
 }

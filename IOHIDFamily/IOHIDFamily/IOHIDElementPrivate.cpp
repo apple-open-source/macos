@@ -1074,7 +1074,8 @@ bool IOHIDElementPrivate::processReport(
                                     UInt32                      reportBits,
                                     const AbsoluteTime *        timestamp,
                                     IOHIDElementPrivate **      next,
-                                    IOOptionBits                options)
+                                    IOOptionBits                options,
+                                    IOReturn *                  error)
 {
     IOHIDEventQueue *   queue;
     bool				changed = false;
@@ -1104,6 +1105,11 @@ bool IOHIDElementPrivate::processReport(
         if (!_variableSize && _reportSize && (reportBits < _reportSize))
         {
             *next = 0;
+            //set error to true for ioreporter
+            if(error)
+            {
+                *error = kIOReturnError;
+            }
             return false;
         }
         

@@ -1240,56 +1240,47 @@ CFStringRef SOSPeerInfoCopyDeviceID(SOSPeerInfoRef peer){
     return CFSTR("not implemented");
 }
 
+/* This assumes there will be no other devices supported by SOS */
 SOSPeerInfoDeviceClass SOSPeerInfoGetClass(SOSPeerInfoRef pi) {
-    static CFDictionaryRef devID2Class = NULL;
-    static dispatch_once_t onceToken = 0;
     
     if(SOSPeerInfoIsCloudIdentity(pi)) {
         return SOSPeerInfo_iCloud;
     }
     
-    dispatch_once(&onceToken, ^{
-        CFNumberRef cfSOSPeerInfo_macOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_macOS);
-        CFNumberRef cfSOSPeerInfo_iOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_iOS);
-        CFNumberRef cfSOSPeerInfo_iCloud = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_iCloud);
-        CFNumberRef cfSOSPeerInfo_watchOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_watchOS);
-        CFNumberRef cfSOSPeerInfo_tvOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_tvOS);
-
-        devID2Class =     CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-                                                       CFSTR("Mac Pro"), cfSOSPeerInfo_macOS,
-                                                       CFSTR("MacBook"), cfSOSPeerInfo_macOS,
-                                                       CFSTR("MacBook Pro"), cfSOSPeerInfo_macOS,
-                                                       CFSTR("MacBook Air"), cfSOSPeerInfo_macOS,
-                                                       CFSTR("iCloud"), cfSOSPeerInfo_iCloud,
-                                                       CFSTR("iMac"), cfSOSPeerInfo_macOS,
-                                                       CFSTR("iPad"), cfSOSPeerInfo_iOS,
-                                                       CFSTR("iPhone"), cfSOSPeerInfo_iOS,
-                                                       CFSTR("iPod touch"), cfSOSPeerInfo_iOS,
-                                                       CFSTR("Watch"), cfSOSPeerInfo_watchOS,
-                                                       CFSTR("AppleTV"), cfSOSPeerInfo_tvOS,
-                                                       NULL);
-        CFReleaseNull(cfSOSPeerInfo_macOS);
-        CFReleaseNull(cfSOSPeerInfo_iOS);
-        CFReleaseNull(cfSOSPeerInfo_iCloud);
-        CFReleaseNull(cfSOSPeerInfo_watchOS);
-        CFReleaseNull(cfSOSPeerInfo_tvOS);
-    });
-    SOSPeerInfoDeviceClass retval = SOSPeerInfo_unknown;
-    
-    // SOSPeerInfo_undetermined
+    // This returns the device type string - like "Mac Pro".
     CFStringRef dt = SOSPeerInfoGetPeerDeviceType(pi);
-    if(dt) {
-        CFNumberRef classNum = CFDictionaryGetValue(devID2Class, dt);
-        if(classNum) {
-            CFIndex tmp;
-            if(CFNumberGetValue(classNum, kCFNumberCFIndexType, &tmp)) {
-                retval = (SOSPeerInfoDeviceClass) tmp;
-            } else {
-                retval = SOSPeerInfo_undetermined;
-            }
-        } else {
-            retval = SOSPeerInfo_undetermined;
-        }
+    
+    if(!dt) {
+        return SOSPeerInfo_unknown;
     }
-    return retval;
+    
+    if(CFStringHasPrefix(dt, CFSTR("Mac"))) {
+        return SOSPeerInfo_macOS;
+    }
+    
+    if(CFStringHasPrefix(dt, CFSTR("iMac"))) {
+        return SOSPeerInfo_macOS;
+    }
+
+    if(CFStringHasPrefix(dt, CFSTR("iPhone"))) {
+        return SOSPeerInfo_iOS;
+    }
+    
+    if(CFStringHasPrefix(dt, CFSTR("iPad"))) {
+        return SOSPeerInfo_iOS;
+    }
+    
+    if(CFStringHasPrefix(dt, CFSTR("iPod"))) {
+        return SOSPeerInfo_iOS;
+    }
+    
+    if(CFStringHasPrefix(dt, CFSTR("Watch"))) {
+        return SOSPeerInfo_watchOS;
+    }
+    
+    if(CFStringHasPrefix(dt, CFSTR("AppleTV"))) {
+        return SOSPeerInfo_tvOS;
+    }
+
+    return SOSPeerInfo_undetermined;
 }

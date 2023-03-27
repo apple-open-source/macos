@@ -29,13 +29,12 @@ function initializeDecompressionStream(format)
 
     const errorMessage = "DecompressionStream requires a single argument with the value 'deflate', 'deflate-raw', or 'gzip'.";
 
-    // Error Checking
-    if (arguments.length < 1 || typeof arguments[0] !== "string")
+    if (arguments.length < 1)
         @throwTypeError(errorMessage);
 
     const algorithms = ['gzip', 'deflate', 'deflate-raw'];
-
-    const findAlgorithm = (element) => element === arguments[0].toLowerCase();
+    const lowercaseFormat = @toString(arguments[0]).toLowerCase();
+    const findAlgorithm = (element) => element === lowercaseFormat;
 
     // Pass the index to our new DecompressionStreamDecoder, so we do not need to reparse the string.
     // We need to ensure that the Formats.h and this file stay in sync.
@@ -49,28 +48,36 @@ function initializeDecompressionStream(format)
         return @Promise.@resolve();
     };
     const transformAlgorithm = (chunk) => {
-        const decoder = @getByIdDirectPrivate(this, "DecompressionStreamDecoder");
-        let buffer;
+        if (!@isObject(chunk) || (!(chunk instanceof @ArrayBuffer) && !(chunk.buffer instanceof @ArrayBuffer)))
+            return @Promise.@reject(@makeTypeError("Invalid type should be ArrayBuffer"));
+
         try {
-            buffer = decoder.@decode(chunk);
+            const decoder = @getByIdDirectPrivate(this, "DecompressionStreamDecoder");
+            const buffer = decoder.@decode(chunk);
+
+            if (buffer) {
+                const transformStream = @getByIdDirectPrivate(this, "DecompressionStreamTransform");
+                const controller = @getByIdDirectPrivate(transformStream, "controller");
+                @transformStreamDefaultControllerEnqueue(controller, buffer);
+            }
         } catch (e) {
-            return @Promise.@reject(e);
-        }
-        if (buffer) {
-            const transformStream = @getByIdDirectPrivate(this, "DecompressionStreamTransform");
-            const controller = @getByIdDirectPrivate(transformStream, "controller");
-            @transformStreamDefaultControllerEnqueue(controller, buffer);
+            return @Promise.@reject(@makeTypeError(e.message));
         }
 
         return @Promise.@resolve();
     };
-    const flushAlgorithm = () => {
-        const decoder = @getByIdDirectPrivate(this, "DecompressionStreamDecoder");
-        const buffer = decoder.@flush();
-        if (buffer) {
-            const transformStream = @getByIdDirectPrivate(this, "DecompressionStreamTransform");
-            const controller = @getByIdDirectPrivate(transformStream, "controller");
-            @transformStreamDefaultControllerEnqueue(controller, buffer);
+    const flushAlgorithm = () => {        
+        try {
+            const decoder = @getByIdDirectPrivate(this, "DecompressionStreamDecoder");
+            const buffer = decoder.@flush();
+
+            if (buffer) {
+                const transformStream = @getByIdDirectPrivate(this, "DecompressionStreamTransform");
+                const controller = @getByIdDirectPrivate(transformStream, "controller");
+                @transformStreamDefaultControllerEnqueue(controller, buffer);
+            }
+        } catch (e) {
+            return @Promise.@reject(@makeTypeError(e.message));
         }
 
         return @Promise.@resolve();

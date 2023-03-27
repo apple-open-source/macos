@@ -68,17 +68,20 @@ std::unique_ptr<IOSurface> IOSurface::create(IOSurfacePool* pool, IntSize size, 
     return surface;
 }
 
-std::unique_ptr<IOSurface> IOSurface::createFromSendRight(const MachSendRight&& sendRight, const DestinationColorSpace& colorSpace)
+std::unique_ptr<IOSurface> IOSurface::createFromSendRight(const MachSendRight&& sendRight)
 {
     ASSERT(ProcessCapabilities::canUseAcceleratedBuffers());
 
     auto surface = adoptCF(IOSurfaceLookupFromMachPort(sendRight.sendRight()));
-    return IOSurface::createFromSurface(surface.get(), colorSpace);
+    return IOSurface::createFromSurface(surface.get(), { });
 }
 
-std::unique_ptr<IOSurface> IOSurface::createFromSurface(IOSurfaceRef surface, const DestinationColorSpace& colorSpace)
+std::unique_ptr<IOSurface> IOSurface::createFromSurface(IOSurfaceRef surface, std::optional<DestinationColorSpace>&& colorSpace)
 {
-    return std::unique_ptr<IOSurface>(new IOSurface(surface, colorSpace));
+    if (!surface)
+        return nullptr;
+
+    return std::unique_ptr<IOSurface>(new IOSurface(surface, WTFMove(colorSpace)));
 }
 
 std::unique_ptr<IOSurface> IOSurface::createFromImage(IOSurfacePool* pool, CGImageRef image)
@@ -177,7 +180,8 @@ static NSDictionary *optionsFor32BitSurface(IntSize size, unsigned pixelFormat)
 }
 
 IOSurface::IOSurface(IntSize size, const DestinationColorSpace& colorSpace, Format format, bool& success)
-    : m_colorSpace(colorSpace)
+    : m_format(format)
+    , m_colorSpace(colorSpace)
     , m_size(size)
 {
     ASSERT(!success);
@@ -186,6 +190,7 @@ IOSurface::IOSurface(IntSize size, const DestinationColorSpace& colorSpace, Form
     NSDictionary *options;
 
     switch (format) {
+    case Format::BGRX:
     case Format::BGRA:
         options = optionsFor32BitSurface(size, 'BGRA');
         break;
@@ -203,46 +208,73 @@ IOSurface::IOSurface(IntSize size, const DestinationColorSpace& colorSpace, Form
     }
     m_surface = adoptCF(IOSurfaceCreate((CFDictionaryRef)options));
     success = !!m_surface;
-    if (success)
+    if (success) {
+        setColorSpaceProperty();
         m_totalBytes = IOSurfaceGetAllocSize(m_surface.get());
-    else
+    } else
         RELEASE_LOG_ERROR(Layers, "IOSurface creation failed for size: (%d %d) and format: (%d)", size.width(), size.height(), format);
 }
 
-IOSurface::IOSurface(IOSurfaceRef surface, const DestinationColorSpace& colorSpace)
-    : m_colorSpace(colorSpace)
+static std::optional<IOSurface::Format> formatFromSurface(IOSurfaceRef surface)
+{
+    unsigned pixelFormat = IOSurfaceGetPixelFormat(surface);
+    if (pixelFormat == 'BGRA')
+        return IOSurface::Format::BGRA;
+
+#if HAVE(IOSURFACE_RGB10)
+    if (pixelFormat == 'w30r')
+        return IOSurface::Format::RGB10;
+
+    if (pixelFormat == 'b3a8')
+        return IOSurface::Format::RGB10A8;
+#endif
+
+    if (pixelFormat == '422f')
+        return IOSurface::Format::YUV422;
+
+    return { };
+}
+
+IOSurface::IOSurface(IOSurfaceRef surface, std::optional<DestinationColorSpace>&& colorSpace)
+    : m_format(formatFromSurface(surface))
+    , m_colorSpace(WTFMove(colorSpace))
     , m_surface(surface)
 {
     m_size = IntSize(IOSurfaceGetWidth(surface), IOSurfaceGetHeight(surface));
     m_totalBytes = IOSurfaceGetAllocSize(surface);
+
+    if (m_colorSpace)
+        setColorSpaceProperty();
 }
 
 IOSurface::~IOSurface() = default;
 
-static constexpr IntSize maxSurfaceDimensionCA()
+static constexpr IntSize fallbackMaxSurfaceDimension()
 {
     // Match limits imposed by Core Animation. FIXME: should have API for this <rdar://problem/25454148>
-#if PLATFORM(IOS_FAMILY)
-    constexpr int maxSurfaceDimension = 8 * 1024;
-#else
-    // IOSurface::maximumSize() can return { INT_MAX, INT_MAX } when hardware acceleration is unavailable.
+#if PLATFORM(WATCHOS)
+    constexpr int maxSurfaceDimension = 4 * 1024;
+#elif PLATFORM(MAC)
     constexpr int maxSurfaceDimension = 32 * 1024;
+#else
+    constexpr int maxSurfaceDimension = 8 * 1024;
 #endif
     return { maxSurfaceDimension, maxSurfaceDimension };
 }
 
 static IntSize computeMaximumSurfaceSize()
 {
-#if PLATFORM(IOS)
-    return maxSurfaceDimensionCA();
-#else
-    IntSize maxSize(clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceWidth)), clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceHeight)));
+    auto maxSize = IntSize { clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceWidth)), clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceHeight)) };
 
-    // Protect against maxSize being { 0, 0 }.
-    constexpr int maxSurfaceDimensionLowerBound = 1024;
-
-    return maxSize.constrainedBetween({ maxSurfaceDimensionLowerBound, maxSurfaceDimensionLowerBound }, maxSurfaceDimensionCA() );
+#if PLATFORM(IOS_FAMILY)
+    // On iOS, there's an additional 8K clamp in CA (rdar://101936907).
+    maxSize.clampToMaximumSize(fallbackMaxSurfaceDimension());
 #endif
+
+    if (maxSize.isZero())
+        maxSize = fallbackMaxSurfaceDimension();
+
+    return maxSize;
 }
 
 static WTF::Atomic<IntSize>& surfaceMaximumSize()
@@ -320,8 +352,13 @@ IOSurface::BitmapConfiguration IOSurface::bitmapConfiguration() const
     auto bitmapInfo = static_cast<CGBitmapInfo>(kCGImageAlphaPremultipliedFirst) | static_cast<CGBitmapInfo>(kCGBitmapByteOrder32Host);
 
     size_t bitsPerComponent = 8;
-    
-    switch (format()) {
+
+    ASSERT(m_format);
+
+    switch (m_format.value_or(Format::BGRA)) {
+    case Format::BGRX:
+        bitmapInfo = static_cast<CGBitmapInfo>(kCGImageAlphaNoneSkipFirst) | static_cast<CGBitmapInfo>(kCGBitmapByteOrder32Host);
+        break;
     case Format::BGRA:
         break;
 #if HAVE(IOSURFACE_RGB10)
@@ -347,10 +384,11 @@ RetainPtr<CGContextRef> IOSurface::createCompatibleBitmap(unsigned width, unsign
     auto bitsPerPixel = configuration.bitsPerComponent * 4;
     auto bytesPerRow = width * bitsPerPixel;
 
-    return adoptCF(CGBitmapContextCreate(NULL, width, height, configuration.bitsPerComponent, bytesPerRow, m_colorSpace.platformColorSpace(), configuration.bitmapInfo));
+    ensureColorSpace();
+    return adoptCF(CGBitmapContextCreate(NULL, width, height, configuration.bitsPerComponent, bytesPerRow, m_colorSpace->platformColorSpace(), configuration.bitmapInfo));
 }
 
-CGContextRef IOSurface::ensurePlatformContext(const HostWindow* hostWindow)
+CGContextRef IOSurface::ensurePlatformContext(PlatformDisplayID displayID)
 {
     if (m_cgContext)
         return m_cgContext.get();
@@ -358,18 +396,19 @@ CGContextRef IOSurface::ensurePlatformContext(const HostWindow* hostWindow)
     auto configuration = bitmapConfiguration();
     auto bitsPerPixel = configuration.bitsPerComponent * 4;
 
-    m_cgContext = adoptCF(CGIOSurfaceContextCreate(m_surface.get(), m_size.width(), m_size.height(), configuration.bitsPerComponent, bitsPerPixel, m_colorSpace.platformColorSpace(), configuration.bitmapInfo));
+    ensureColorSpace();
+    m_cgContext = adoptCF(CGIOSurfaceContextCreate(m_surface.get(), m_size.width(), m_size.height(), configuration.bitsPerComponent, bitsPerPixel, m_colorSpace->platformColorSpace(), configuration.bitmapInfo));
 
 #if PLATFORM(MAC)
     if (auto displayMask = primaryOpenGLDisplayMask()) {
-        if (hostWindow && hostWindow->displayID())
-            displayMask = displayMaskForDisplay(hostWindow->displayID());
+        if (displayID)
+            displayMask = displayMaskForDisplay(displayID);
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         CGIOSurfaceContextSetDisplayMask(m_cgContext.get(), displayMask);
 ALLOW_DEPRECATED_DECLARATIONS_END
     }
 #else
-    UNUSED_PARAM(hostWindow);
+    UNUSED_PARAM(displayID);
 #endif
 #if HAVE(CG_CONTEXT_SET_OWNER_IDENTITY)
     if (m_resourceOwner && CGContextSetOwnerIdentity)
@@ -422,25 +461,10 @@ SetNonVolatileResult IOSurface::setVolatile(bool isVolatile)
     return SetNonVolatileResult::Valid;
 }
 
-IOSurface::Format IOSurface::format() const
+DestinationColorSpace IOSurface::colorSpace()
 {
-    unsigned pixelFormat = IOSurfaceGetPixelFormat(m_surface.get());
-    if (pixelFormat == 'BGRA')
-        return Format::BGRA;
-
-#if HAVE(IOSURFACE_RGB10)
-    if (pixelFormat == 'w30r')
-        return Format::RGB10;
-
-    if (pixelFormat == 'b3a8')
-        return Format::RGB10A8;
-#endif
-
-    if (pixelFormat == '422f')
-        return Format::YUV422;
-
-    ASSERT_NOT_REACHED();
-    return Format::BGRA;
+    ensureColorSpace();
+    return *m_colorSpace;
 }
 
 IOSurfaceID IOSurface::surfaceID() const
@@ -497,7 +521,7 @@ void IOSurface::convertToFormat(IOSurfacePool* pool, std::unique_ptr<IOSurface>&
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopDefaultMode);
     }
 
-    if (inSurface->format() == format) {
+    if (inSurface->hasFormat(format)) {
         callback(WTFMove(inSurface));
         return;
     }
@@ -554,10 +578,32 @@ void IOSurface::setOwnershipIdentity(IOSurfaceRef surface, const ProcessIdentity
 #endif
 }
 
-void IOSurface::migrateColorSpaceToProperties()
+void IOSurface::setColorSpaceProperty()
 {
-    auto colorSpaceProperties = adoptCF(CGColorSpaceCopyPropertyList(m_colorSpace.platformColorSpace()));
+    ASSERT(m_colorSpace);
+    auto colorSpaceProperties = adoptCF(CGColorSpaceCopyPropertyList(m_colorSpace->platformColorSpace()));
     IOSurfaceSetValue(m_surface.get(), kIOSurfaceColorSpace, colorSpaceProperties.get());
+}
+
+void IOSurface::ensureColorSpace()
+{
+    if (m_colorSpace)
+        return;
+
+    m_colorSpace = surfaceColorSpace().value_or(DestinationColorSpace::SRGB());
+}
+
+std::optional<DestinationColorSpace> IOSurface::surfaceColorSpace() const
+{
+    auto propertyList = adoptCF(IOSurfaceCopyValue(m_surface.get(), kIOSurfaceColorSpace));
+    if (!propertyList)
+        return { };
+    
+    auto colorSpaceCF = adoptCF(CGColorSpaceCreateWithPropertyList(propertyList.get()));
+    if (!colorSpaceCF)
+        return { };
+    
+    return DestinationColorSpace { colorSpaceCF };
 }
 
 IOSurface::Format IOSurface::formatForPixelFormat(PixelFormat format)
@@ -566,6 +612,8 @@ IOSurface::Format IOSurface::formatForPixelFormat(PixelFormat format)
     case PixelFormat::RGBA8:
         RELEASE_ASSERT_NOT_REACHED();
         return IOSurface::Format::BGRA;
+    case PixelFormat::BGRX8:
+        return IOSurface::Format::BGRX;
     case PixelFormat::BGRA8:
         return IOSurface::Format::BGRA;
 #if HAVE(IOSURFACE_RGB10)
@@ -588,6 +636,9 @@ IOSurface::Format IOSurface::formatForPixelFormat(PixelFormat format)
 TextStream& operator<<(TextStream& ts, IOSurface::Format format)
 {
     switch (format) {
+    case IOSurface::Format::BGRX:
+        ts << "BGRX";
+        break;
     case IOSurface::Format::BGRA:
         ts << "BGRA";
         break;
@@ -621,7 +672,7 @@ static TextStream& operator<<(TextStream& ts, SetNonVolatileResult state)
 
 TextStream& operator<<(TextStream& ts, const IOSurface& surface)
 {
-    return ts << "IOSurface " << surface.surfaceID() << " size " << surface.size() << " format " << surface.format() << " state " << surface.state();
+    return ts << "IOSurface " << surface.surfaceID() << " size " << surface.size() << " format " << surface.m_format << " state " << surface.state();
 }
 
 } // namespace WebCore

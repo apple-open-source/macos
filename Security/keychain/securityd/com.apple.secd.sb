@@ -10,7 +10,8 @@
 (allow file-read* file-write*
     (subpath "/private/var/db/mds")
     (regex #"^/private/var/folders/[^/]+/[^/]+/T(/|$)")
-    (regex (string-append "^" (regex-quote (param "_HOME")) #"/Library/Keychains(/|$)")))
+    (regex (string-append "^" (regex-quote (param "_HOME")) #"/Library/Keychains(/|$)"))
+    (regex #"^/private/var/protected/sfanalytics(/|$)"))
 
 (allow file-read*
     (literal (string-append (param "_HOME") "/Library/Preferences/com.apple.imessage.bag.plist"))
@@ -65,6 +66,9 @@
         (global-name "com.apple.powerlog.plxpclogger.xpc")
         (global-name "com.apple.SecureBackupDaemon")
         (global-name "com.apple.SecureBackupDaemon.concurrent")
+        (global-name "com.apple.keychainsharingmessagingd")
+        (global-name "com.apple.AuthenticationServices.CredentialSharingGroups")
+        (global-name "com.apple.mobile.usermanagerd.xpc")
 )
 
 ;; Used to send logs for MoiC.
@@ -78,14 +82,3 @@
 
 (allow network-outbound)
 (allow system-socket)
-
-;; to be deleted once SecTrustEvaluate and SecTrustCopyKey can avoid touching legacy cert and keychain stack
-(allow file-read* file-write*
-    (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds/mdsDirectory\.db$")
-    (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds/mdsObject\.db$")
-    (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds/mds\.lock$"))
-(allow mach-lookup
-    (global-name "com.apple.SecurityServer"))
-
-(allow system-fsctl (fsctl-command afpfsByteRangeLock2FSCTL))
-

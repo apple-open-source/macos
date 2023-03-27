@@ -37,6 +37,11 @@ function xor(a, b)
     return b || false;
 }
 
+function nullish(value)
+{
+    return value === null || value === undefined;
+}
+
 Object.defineProperty(Object, "shallowCopy",
 {
     value(object)
@@ -187,6 +192,31 @@ Object.defineProperty(Set.prototype, "find",
                 return item;
         }
         return undefined;
+    },
+});
+
+Object.defineProperty(Set.prototype, "filter",
+{
+    value(callback, thisArg)
+    {
+        let filtered = new Set;
+        for (let item of this) {
+            if (callback.call(thisArg, item, item, this))
+                filtered.add(item);
+        }
+        return filtered;
+    },
+});
+
+Object.defineProperty(Set.prototype, "some",
+{
+    value(predicate, thisArg)
+    {
+        for (let item of this) {
+            if (predicate.call(thisArg, item, item, this))
+                return true;
+        }
+        return false;
     },
 });
 
@@ -711,6 +741,14 @@ Object.defineProperty(Array, "diffArrays",
     }
 });
 
+Object.defineProperty(Array.prototype, "firstValue",
+{
+    get()
+    {
+        return this[0];
+    }
+});
+
 Object.defineProperty(Array.prototype, "lastValue",
 {
     get()
@@ -759,7 +797,8 @@ Object.defineProperty(Array.prototype, "toggleIncludes",
     value(value, force)
     {
         let exists = this.includes(value);
-        if (exists === !!force)
+
+        if (force !== undefined && exists === !!force)
             return;
 
         if (exists)

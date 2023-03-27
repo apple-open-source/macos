@@ -106,13 +106,13 @@ static void PSKeychainSyncIsUsingICDP(void)
     BOOL isICDPEnabled = NO;
     if (dsid) {
         isICDPEnabled = [CDPAccount isICDPEnabledForDSID:dsid];
-        NSLog(@"iCDP: PSKeychainSyncIsUsingICDP returning %@", isICDPEnabled ? @"TRUE" : @"FALSE");
+        NSLog(@"iCDP: PSKeychainSyncIsUsingICDP returning %{bool}d", isICDPEnabled);
     } else {
         NSLog(@"iCDP: no primary account");
     }
     
     _isAccountICDP = isICDPEnabled;
-    secnotice("cjr", "account is icdp: %d", _isAccountICDP);
+    secnotice("cjr", "account is icdp: %{bool}d", _isAccountICDP);
 }
 
 static void keybagDidLock(void)
@@ -526,7 +526,7 @@ static void reminderChoice(CFUserNotificationRef userNotification, CFOptionFlags
         if (responseFlags == kCFUserNotificationAlternateResponse) {
 			// Use security code
             BOOL ok = [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:[NSURL URLWithString:castleKeychainUrl] withOptions:nil];
-			secnotice("cjr", "%s iCSC: opening %@ ok=%d", __FUNCTION__, castleKeychainUrl, ok);
+			secnotice("cjr", "%s iCSC: opening %@ ok=%{BOOL}d", __FUNCTION__, castleKeychainUrl, ok);
         }
     }
 
@@ -616,8 +616,8 @@ static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags 
 		doOnceInMain(^{
 			NSURL    		  *url		= [NSURL URLWithString: _isAccountICDP ? rejoinICDPUrl : castleKeychainUrl];
 			BOOL 			  ok		= [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:url withOptions:nil];
-            secnotice("cjr","kickOutChoice account is iCDP: %d", _isAccountICDP);
-            secnotice("cjr", "ok=%d opening %@", ok, url);
+            secnotice("cjr","kickOutChoice account is iCDP: %{bool}d", _isAccountICDP);
+            secnotice("cjr", "ok=%{bool}d opening %@", ok, url);
 		});
 	}
     //alternate response: later -> call CD
@@ -943,7 +943,7 @@ static bool processEvents(void)
 			debugState = @"processEvents D1";
 			notify_register_dispatch(kSOSCCCircleChangedNotification, &notifyToken, dispatch_get_main_queue(), ^(int token) {
 				if (postedAlert != currentAlert) {
-					secnotice("cjr", "-- CC after original alert gone (currentAlertIsForApplicants %d, pA %p, cA %p -- %@)",
+					secnotice("cjr", "-- CC after original alert gone (currentAlertIsForApplicants %{bool}d, pA %p, cA %p -- %@)",
                               currentAlertIsForApplicants, postedAlert, currentAlert, currentAlert);
                     notify_cancel(token);
                 } else {
@@ -968,7 +968,7 @@ static bool processEvents(void)
 				}
 			});
 			debugState = @"processEvents D2";
-			secnotice("cjr", "NOTE: currentAlertIsForApplicants %d, token %d", currentAlertIsForApplicants, notifyToken);
+			secnotice("cjr", "NOTE: currentAlertIsForApplicants %{bool}d, token %d", currentAlertIsForApplicants, notifyToken);
 			CFRunLoopRun();
 			return true;
 		}
@@ -1084,6 +1084,12 @@ static bool processEvents(void)
 
 
 int main (int argc, const char * argv[]) {
+
+    IF_SOS_DISABLED {
+        secnotice("nosos", "CJR triggered even though SOS is turned off for this platform");
+        return 0;
+    }
+
     os_transaction_t txion = os_transaction_create("com.apple.security.circle-join-requested");
 
 	@autoreleasepool {

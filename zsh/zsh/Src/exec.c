@@ -84,7 +84,7 @@ int nohistsave;
 /* error flag: bits from enum errflag_bits */
 
 /**/
-mod_export int errflag;
+mod_export volatile int errflag;
 
 /*
  * State of trap return value.  Value is from enum trap_state.
@@ -122,7 +122,7 @@ int subsh;
 /* != 0 if we have a return pending */
 
 /**/
-mod_export int retflag;
+mod_export volatile int retflag;
 
 /**/
 long lastval2;
@@ -547,10 +547,29 @@ zexecve(char *pth, char **argv, char **newenvp)
 			}
 		    }
 		} else if (eno == ENOEXEC) {
-		    for (t0 = 0; t0 != ct; t0++)
-			if (!execvebuf[t0])
-			    break;
-		    if (t0 == ct) {
+                    /* Perform binary safety check on classic shell    *
+                     * scripts (shebang wasn't introduced until UNIX   *
+                     * Seventh Edition). POSIX says we shall allow     *
+                     * execution of scripts with concatenated binary   *
+                     * and suggests checking a line exists before the  *
+                     * first NUL character with a lowercase letter or  *
+                     * expansion. This is consistent with FreeBSD sh.  */
+                    int isbinary, hasletter;
+                    if (!(ptr2 = memchr(execvebuf, '\0', ct))) {
+                        isbinary = 0;
+                    } else {
+                        isbinary = 1;
+                        hasletter = 0;
+                        for (ptr = execvebuf; ptr < ptr2; ptr++) {
+                            if (islower(STOUC(*ptr)) || *ptr == '$' || *ptr == '`')
+                                hasletter = 1;
+                            if (hasletter && *ptr == '\n') {
+                                isbinary = 0;
+                                break;
+                            }
+                        }
+                    }
+		    if (!isbinary) {
 			argv[-1] = "sh";
 			winch_unblock();
 			execve("/bin/sh", argv - 1, newenvp);
@@ -665,8 +684,10 @@ execute(LinkList args, int flags, int defpath)
 
     /* If the parameter STTY is set in the command's environment, *
      * we first run the stty command with the value of this       *
-     * parameter as it arguments.                                 */
-    if ((s = STTYval) && isatty(0) && (GETPGRP() == getpid())) {
+     * parameter as it arguments. If the parameter is empty, we   *
+     * do nothing, but this causes the terminal settings to be    *
+     * restored later which can be useful.                        */
+    if ((s = STTYval) && *s && isatty(0) && (GETPGRP() == getpid())) {
 	char *t = tricat("stty", " ", s);
 
 	STTYval = 0;	/* this prevents infinite recursion */
@@ -1014,7 +1035,8 @@ entersubsh(int flags, struct entersubsh_ret *retp)
 
     if (!(flags & ESUB_KEEPTRAP))
 	for (sig = 0; sig < SIGCOUNT; sig++)
-	    if (!(sigtrapped[sig] & ZSIG_FUNC))
+	    if (!(sigtrapped[sig] & ZSIG_FUNC) &&
+		!(isset(POSIXTRAPS) && (sigtrapped[sig] & ZSIG_IGNORED)))
 		unsettrap(sig);
     monitor = isset(MONITOR);
     job_control_ok = monitor && (flags & ESUB_JOB_CONTROL) && isset(POSIXJOBS);
@@ -1036,7 +1058,8 @@ entersubsh(int flags, struct entersubsh_ret *retp)
     } else if (thisjob != -1 && (flags & ESUB_PGRP)) {
 	if (jobtab[list_pipe_job].gleader && (list_pipe || list_pipe_child)) {
 	    if (setpgrp(0L, jobtab[list_pipe_job].gleader) == -1 ||
-		killpg(jobtab[list_pipe_job].gleader, 0) == -1) {
+		(killpg(jobtab[list_pipe_job].gleader, 0) == -1  &&
+		 errno == ESRCH)) {
 		jobtab[list_pipe_job].gleader =
 		    jobtab[thisjob].gleader = (list_pipe_child ? mypgrp : getpid());
 		setpgrp(0L, jobtab[list_pipe_job].gleader);
@@ -1248,7 +1271,9 @@ execsimple(Estate state)
     } else {
 	int q = queue_signal_level();
 	dont_queue_signals();
-	if (code == WC_FUNCDEF)
+	if (errflag)
+	    lv = errflag;
+	else if (code == WC_FUNCDEF)
 	    lv = execfuncdef(state, NULL);
 	else
 	    lv = (execfuncs[code - WC_CURSH])(state, 0);
@@ -1664,6 +1689,7 @@ execpline(Estate state, wordcode slcode, int how, int last1)
     execpline2(state, code, how, opipe[0], ipipe[1], last1);
     pline_level--;
     if (how & Z_ASYNC) {
+	clearoldjobtab();
 	lastwj = newjob;
 
         if (thisjob == list_pipe_job)
@@ -2142,14 +2168,15 @@ clobber_open(struct redir *f)
 {
     struct stat buf;
     int fd, oerrno;
+    char *ufname = unmeta(f->name);
 
     /* If clobbering, just open. */
     if (isset(CLOBBER) || IS_CLOBBER_REDIR(f->type))
-	return open(unmeta(f->name),
+	return open(ufname,
 		O_WRONLY | O_CREAT | O_TRUNC | O_NOCTTY, 0666);
 
     /* If not clobbering, attempt to create file exclusively. */
-    if ((fd = open(unmeta(f->name),
+    if ((fd = open(ufname,
 		   O_WRONLY | O_CREAT | O_EXCL | O_NOCTTY, 0666)) >= 0)
 	return fd;
 
@@ -2157,11 +2184,27 @@ clobber_open(struct redir *f)
      * Try opening, and if it's a regular file then close it again    *
      * because we weren't supposed to open it.                        */
     oerrno = errno;
-    if ((fd = open(unmeta(f->name), O_WRONLY | O_NOCTTY)) != -1) {
-	if(!fstat(fd, &buf) && !S_ISREG(buf.st_mode))
-	    return fd;
+    if ((fd = open(ufname, O_WRONLY | O_NOCTTY)) != -1) {
+	if(!fstat(fd, &buf)) {
+	    if (!S_ISREG(buf.st_mode))
+		return fd;
+	    /*
+	     * If CLOBBER_EMPTY is in effect and the file is empty,
+	     * we are allowed to re-use it.
+	     *
+	     * Note: there is an intrinsic race here because another
+	     * process can write to this file at any time.  The only fix
+	     * would be file locking, which we wish to avoid in basic
+	     * file operations at this level.  This would not be
+	     * fixed. just additionally complicated, by re-opening the
+	     * file and truncating.
+	     */
+	    if (isset(CLOBBEREMPTY) && buf.st_size == 0)
+		return fd;
+	}
 	close(fd);
     }
+
     errno = oerrno;
     return -1;
 }
@@ -2771,8 +2814,7 @@ execcmd_fork(Estate state, int how, int type, Wordcode varspc,
     /* Check if we should run background jobs at a lower priority. */
     if ((how & Z_ASYNC) && isset(BGNICE)) {
 	errno = 0;
-	nice(5);
-	if (errno)
+	if (nice(5) == -1 && errno)
 	    zwarn("nice(5) failed: %e", errno);
     }
 #endif /* HAVE_NICE */
@@ -2865,11 +2907,13 @@ execcmd_exec(Estate state, Execcmd_params eparams,
 	    pushnode(args, dupstring("fg"));
     }
 
-    if ((how & Z_ASYNC) || output) {
+    if ((how & Z_ASYNC) || output ||
+	(last1 == 2 && input && EMULATION(EMULATE_SH))) {
 	/*
-	 * If running in the background, or not the last command in a
-	 * pipeline, we don't need any of the rest of this function to
-	 * affect the state in the main shell, so fork immediately.
+	 * If running in the background, not the last command in a
+	 * pipeline, or the last command in a multi-stage pipeline
+	 * in sh mode, we don't need any of the rest of this function
+	 * to affect the state in the main shell, so fork immediately.
 	 *
 	 * In other cases we may need to process the command line
 	 * a bit further before we make the decision.
@@ -3383,7 +3427,7 @@ execcmd_exec(Estate state, Execcmd_params eparams,
 		int rmall;
 
 		s[l - 2] = 0;
-		rmall = checkrmall(s);
+		rmall = checkrmall(l == 2 ? "/" : s);
 		s[l - 2] = t;
 
 		if (!rmall) {
@@ -3854,6 +3898,10 @@ execcmd_exec(Estate state, Execcmd_params eparams,
 	    for (i = 0; i < 10; i++)
 		if (save[i] != -2)
 		    zclose(save[i]);
+	    /*
+	     * We're done with this job, no need to wait for it.
+	     */
+	    jobtab[thisjob].stat |= STAT_DONE;
 	    goto done;
 	}
 	if (isset(XTRACE)) {
@@ -3913,7 +3961,7 @@ execcmd_exec(Estate state, Execcmd_params eparams,
 	    if (type == WC_AUTOFN) {
 		/*
 		 * We pre-loaded this to get any redirs.
-		 * So we execuate a simplified function here.
+		 * So we execute a simplified function here.
 		 */
 		lastval =  execautofn_basic(state, do_exec);
 	    } else
@@ -3968,8 +4016,8 @@ execcmd_exec(Estate state, Execcmd_params eparams,
 
 	    if (is_shfunc) {
 		/* It's a shell function */
-		pipecleanfilelist(filelist, 0);
 		execshfunc((Shfunc) hn, args);
+		pipecleanfilelist(filelist, 0);
 	    } else {
 		/* It's a builtin */
 		LinkList assigns = (LinkList)0;
@@ -4581,7 +4629,7 @@ getoutput(char *cmd, int qt)
     char *s;
 
     int onc = nocomments;
-    nocomments = (interact && unset(INTERACTIVECOMMENTS));
+    nocomments = (interact && !sourcelevel && unset(INTERACTIVECOMMENTS));
     prog = parse_string(cmd, 0);
     nocomments = onc;
 
@@ -4793,8 +4841,10 @@ getoutputfile(char *cmd, char **eptr)
 	singsub(&s);
 	if (errflag)
 	    s = NULL;
-	else
+	else {
 	    untokenize(s);
+	    s = dyncat(s, "\n");
+	}
     }
 
     if (!s)             /* Unclear why we need to do this before open() */
@@ -4833,13 +4883,9 @@ getoutputfile(char *cmd, char **eptr)
 	child_unblock();
 	return nam;
     } else if (pid) {
-	int os;
-
 	close(fd);
-	os = jobtab[thisjob].stat;
 	waitforpid(pid, 0);
 	cmdoutval = 0;
-	jobtab[thisjob].stat = os;
 	return nam;
     }
 
@@ -5146,9 +5192,25 @@ exectime(Estate state, UNUSED(int do_exec))
     return lastval;
 }
 
-/* Define a shell function */
-
+/* The string displayed in lieu of the name of an anonymous function (in PS4,
+ * zprof output, etc)
+ */
 static const char *const ANONYMOUS_FUNCTION_NAME = "(anon)";
+
+/* 
+ * Take a function name argument and return true iff it is equal to the string
+ * used for the names of anonymous functions, "(anon)".
+ *
+ * Note that it's possible to define a named function literally called "(anon)"
+ * (though I doubt anyone would ever do that).
+ */
+/**/
+int is_anonymous_function_name(const char *name)
+{
+    return !strcmp(name, ANONYMOUS_FUNCTION_NAME);
+}
+
+/* Define a shell function */
 
 /**/
 static int
@@ -5156,23 +5218,25 @@ execfuncdef(Estate state, Eprog redir_prog)
 {
     Shfunc shf;
     char *s = NULL;
-    int signum, nprg, sbeg, nstrs, npats, len, plen, i, htok = 0, ret = 0;
+    int signum, nprg, sbeg, nstrs, npats, do_tracing, len, plen, i, htok = 0, ret = 0;
     int anon_func = 0;
     Wordcode beg = state->pc, end;
     Eprog prog;
     Patprog *pp;
     LinkList names;
+    int tracing_flags;
 
     end = beg + WC_FUNCDEF_SKIP(state->pc[-1]);
     names = ecgetlist(state, *state->pc++, EC_DUPTOK, &htok);
-    nprg = end - beg;
     sbeg = *state->pc++;
     nstrs = *state->pc++;
     npats = *state->pc++;
+    do_tracing = *state->pc++;
 
     nprg = (end - state->pc);
     plen = nprg * sizeof(wordcode);
     len = plen + (npats * sizeof(Patprog)) + nstrs;
+    tracing_flags = do_tracing ? PM_TAGGED_LOCAL : 0;
 
     if (htok && names) {
 	execsubst(names);
@@ -5222,7 +5286,7 @@ execfuncdef(Estate state, Eprog redir_prog)
 
 	shf = (Shfunc) zalloc(sizeof(*shf));
 	shf->funcdef = prog;
-	shf->node.flags = 0;
+	shf->node.flags = tracing_flags;
 	/* No dircache here, not a directory */
 	shf->filename = ztrdup(scriptfilename);
 	shf->lineno =
@@ -5316,6 +5380,12 @@ execfuncdef(Estate state, Eprog redir_prog)
 		 * an alternative name
 		 */
 		removetrapnode(signum);
+	    }
+	    /* Is this function traced and redefining itself? */
+	    if (funcstack && funcstack->tp == FS_FUNC &&
+		    !strcmp(s, funcstack->name)) {
+		Shfunc old = ((Shfunc)shfunctab->getnode(shfunctab, s));
+		shf->node.flags |= old->node.flags & (PM_TAGGED|PM_TAGGED_LOCAL);
 	    }
 	    shfunctab->addnode(shfunctab, ztrdup(s), shf);
 	}
@@ -6132,7 +6202,7 @@ stripkshdef(Eprog prog, char *name)
 	int sbeg = pc[2], nstrs = pc[3], nprg, npats = pc[4], plen, len, i;
 	Patprog *pp;
 
-	pc += 5;
+	pc += 6;
 
 	nprg = end - pc;
 	plen = nprg * sizeof(wordcode);

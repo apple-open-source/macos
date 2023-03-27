@@ -581,15 +581,15 @@ bool ValidatePushGroupMarkerEXT(const Context *context,
 bool ValidateEGLImageObject(const Context *context,
                             angle::EntryPoint entryPoint,
                             TextureType type,
-                            GLeglImageOES image);
+                            egl::ImageID image);
 bool ValidateEGLImageTargetTexture2DOES(const Context *context,
                                         angle::EntryPoint entryPoint,
                                         TextureType type,
-                                        GLeglImageOES image);
+                                        egl::ImageID image);
 bool ValidateEGLImageTargetRenderbufferStorageOES(const Context *context,
                                                   angle::EntryPoint entryPoint,
                                                   GLenum target,
-                                                  GLeglImageOES image);
+                                                  egl::ImageID image);
 
 bool ValidateProgramBinaryBase(const Context *context,
                                angle::EntryPoint entryPoint,
@@ -953,6 +953,7 @@ const char *ValidateProgramPipelineDrawStates(const State &state,
                                               ProgramPipeline *programPipeline);
 const char *ValidateProgramPipelineAttachedPrograms(ProgramPipeline *programPipeline);
 const char *ValidateDrawStates(const Context *context);
+const char *ValidateProgramPipeline(const Context *context);
 
 void RecordDrawAttribsError(const Context *context, angle::EntryPoint entryPoint);
 
@@ -1084,7 +1085,7 @@ ANGLE_INLINE bool ValidateDrawElementsBase(const Context *context,
         }
 
         ASSERT(type == DrawElementsType::InvalidEnum);
-        context->validationError(entryPoint, GL_INVALID_ENUM, err::kEnumNotSupported);
+        context->validationErrorF(entryPoint, GL_INVALID_ENUM, err::kEnumInvalid);
         return false;
     }
 
@@ -1262,6 +1263,10 @@ ANGLE_INLINE bool ValidateVertexAttribIndex(const Context *context,
 
     return true;
 }
+
+bool ValidateLogicOpCommon(const Context *context,
+                           angle::EntryPoint entryPoint,
+                           LogicalOperation opcodePacked);
 }  // namespace gl
 
 #endif  // LIBANGLE_VALIDATION_ES_H_

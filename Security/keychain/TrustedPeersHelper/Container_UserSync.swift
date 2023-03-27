@@ -37,6 +37,8 @@ extension StableChanges {
                              policyVersion: nil,
                              policySecrets: nil,
                              setSyncUserControllableViews: viewStatus,
-                             secureElementIdentity: nil)
+                             secureElementIdentity: nil,
+                             walrusSetting: nil,
+                             webAccess: nil)
     }
 }

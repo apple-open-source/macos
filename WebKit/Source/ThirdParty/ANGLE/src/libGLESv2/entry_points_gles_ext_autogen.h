@@ -90,6 +90,8 @@ GL_MultiDrawElementsInstancedBaseVertexBaseInstanceANGLE(GLenum mode,
                                                          const GLuint *baseInstances,
                                                          GLsizei drawcount);
 
+// GL_ANGLE_clip_cull_distance
+
 // GL_ANGLE_copy_texture_3d
 ANGLE_EXPORT void GL_APIENTRY GL_CopyTexture3DANGLE(GLuint sourceId,
                                                     GLint sourceLevel,
@@ -173,6 +175,9 @@ ANGLE_EXPORT void GL_APIENTRY GL_DrawElementsInstancedANGLE(GLenum mode,
                                                             GLsizei primcount);
 ANGLE_EXPORT void GL_APIENTRY GL_VertexAttribDivisorANGLE(GLuint index, GLuint divisor);
 
+// GL_ANGLE_logic_op
+ANGLE_EXPORT void GL_APIENTRY GL_LogicOpANGLE(GLenum opcode);
+
 // GL_ANGLE_memory_object_flags
 ANGLE_EXPORT void GL_APIENTRY GL_TexStorageMemFlags2DANGLE(GLenum target,
                                                            GLsizei levels,
@@ -254,7 +259,7 @@ ANGLE_EXPORT void GL_APIENTRY GL_MultiDrawElementsInstancedANGLE(GLenum mode,
 // GL_ANGLE_program_binary
 
 // GL_ANGLE_provoking_vertex
-ANGLE_EXPORT void GL_APIENTRY GL_ProvokingVertexANGLE(GLenum mode);
+ANGLE_EXPORT void GL_APIENTRY GL_ProvokingVertexANGLE(GLenum provokeMode);
 
 // GL_ANGLE_request_extension
 ANGLE_EXPORT void GL_APIENTRY GL_RequestExtensionANGLE(const GLchar *name);
@@ -638,6 +643,29 @@ ANGLE_EXPORT void GL_APIENTRY GL_ImportSemaphoreZirconHandleANGLE(GLuint semapho
                                                                   GLenum handleType,
                                                                   GLuint handle);
 
+// GL_ANGLE_shader_pixel_local_storage
+ANGLE_EXPORT void GL_APIENTRY GL_FramebufferMemorylessPixelLocalStorageANGLE(GLint plane,
+                                                                             GLenum internalformat);
+ANGLE_EXPORT void GL_APIENTRY GL_FramebufferTexturePixelLocalStorageANGLE(GLint plane,
+                                                                          GLuint backingtexture,
+                                                                          GLint level,
+                                                                          GLint layer);
+ANGLE_EXPORT void GL_APIENTRY GL_FramebufferPixelLocalClearValuefvANGLE(GLint plane,
+                                                                        const GLfloat *value);
+ANGLE_EXPORT void GL_APIENTRY GL_FramebufferPixelLocalClearValueivANGLE(GLint plane,
+                                                                        const GLint *value);
+ANGLE_EXPORT void GL_APIENTRY GL_FramebufferPixelLocalClearValueuivANGLE(GLint plane,
+                                                                         const GLuint *value);
+ANGLE_EXPORT void GL_APIENTRY GL_BeginPixelLocalStorageANGLE(GLsizei n, const GLenum *loadops);
+ANGLE_EXPORT void GL_APIENTRY GL_EndPixelLocalStorageANGLE(GLsizei n, const GLenum *storeops);
+ANGLE_EXPORT void GL_APIENTRY GL_PixelLocalStorageBarrierANGLE();
+ANGLE_EXPORT void GL_APIENTRY GL_GetFramebufferPixelLocalStorageParameterfvANGLE(GLint plane,
+                                                                                 GLenum pname,
+                                                                                 GLfloat *params);
+ANGLE_EXPORT void GL_APIENTRY GL_GetFramebufferPixelLocalStorageParameterivANGLE(GLint plane,
+                                                                                 GLenum pname,
+                                                                                 GLint *params);
+
 // GL_ANGLE_texture_compression_dxt3
 
 // GL_ANGLE_texture_compression_dxt5
@@ -667,7 +695,7 @@ ANGLE_EXPORT void GL_APIENTRY GL_SampleMaskiANGLE(GLuint maskNumber, GLbitfield 
 
 // GL_ANGLE_translated_shader_source
 ANGLE_EXPORT void GL_APIENTRY GL_GetTranslatedShaderSourceANGLE(GLuint shader,
-                                                                GLsizei bufsize,
+                                                                GLsizei bufSize,
                                                                 GLsizei *length,
                                                                 GLchar *source);
 
@@ -682,6 +710,8 @@ ANGLE_EXPORT void GL_APIENTRY GL_ReleaseTexturesANGLE(GLuint numTextures,
 // GL_APPLE_clip_distance
 
 // GL_ARB_sync
+
+// GL_ARM_shader_framebuffer_fetch
 
 // GL_CHROMIUM_bind_uniform_location
 ANGLE_EXPORT void GL_APIENTRY GL_BindUniformLocationCHROMIUM(GLuint program,
@@ -878,7 +908,7 @@ ANGLE_EXPORT void GL_APIENTRY GL_MultiDrawElementsBaseVertexEXT(GLenum mode,
                                                                 const GLsizei *count,
                                                                 GLenum type,
                                                                 const void *const *indices,
-                                                                GLsizei primcount,
+                                                                GLsizei drawcount,
                                                                 const GLint *basevertex);
 
 // GL_EXT_external_buffer
@@ -1003,7 +1033,14 @@ ANGLE_EXPORT void GL_APIENTRY GL_RenderbufferStorageMultisampleEXT(GLenum target
                                                                    GLsizei width,
                                                                    GLsizei height);
 
+// GL_EXT_multisampled_render_to_texture2
+
 // GL_EXT_occlusion_query_boolean
+
+// GL_EXT_polygon_offset_clamp
+ANGLE_EXPORT void GL_APIENTRY GL_PolygonOffsetClampEXT(GLfloat factor,
+                                                       GLfloat units,
+                                                       GLfloat clamp);
 
 // GL_EXT_primitive_bounding_box
 ANGLE_EXPORT void GL_APIENTRY GL_PrimitiveBoundingBoxEXT(GLfloat minX,
@@ -1432,6 +1469,8 @@ ANGLE_EXPORT void GL_APIENTRY GL_EGLImageTargetTexture2DOES(GLenum target, GLegl
 // GL_OES_EGL_image_external_essl3
 
 // GL_OES_compressed_ETC1_RGB8_texture
+
+// GL_OES_compressed_paletted_texture
 
 // GL_OES_copy_image
 ANGLE_EXPORT void GL_APIENTRY GL_CopyImageSubDataOES(GLuint srcName,

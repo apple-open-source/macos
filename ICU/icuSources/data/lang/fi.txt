@@ -46,6 +46,7 @@ fi{
         ang{"muinaisenglanti"}
         anp{"angika"}
         apw{"apassi, läntinen"}
+        apw_Latn{"apassi, läntinen"}
         ar{"arabia"}
         ar_001{"yleisarabia"}
         arc{"valtakunnanaramea"}
@@ -122,9 +123,12 @@ fi{
         chm{"mari"}
         chn{"chinook-jargon"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"cheyenne"}
+        cic{"chickasaw"}
+        cic_Latn{"chickasaw"}
         ckb{"kurdi – soranî"}
         co{"korsika"}
         cop{"kopti"}

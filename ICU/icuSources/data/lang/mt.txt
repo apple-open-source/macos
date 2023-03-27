@@ -78,6 +78,7 @@ mt{
         chm{"Mari"}
         chn{"Chinook Jargon"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chp{"Ċipewjan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}

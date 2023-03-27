@@ -13,7 +13,8 @@
 
 namespace rx
 {
-
+// Note: To avoid any race conditions between threads, this class has no private data; all
+// events are stored in ContextVk.
 class DebugAnnotatorVk : public angle::LoggingAnnotator
 {
   public:
@@ -26,15 +27,7 @@ class DebugAnnotatorVk : public angle::LoggingAnnotator
     void endEvent(gl::Context *context,
                   const char *eventName,
                   angle::EntryPoint entryPoint) override;
-    bool getStatus() override;
-
-  private:
-    bool isDrawEntryPoint(angle::EntryPoint entryPoint) const;
-    bool isDispatchEntryPoint(angle::EntryPoint entryPoint) const;
-    bool isClearOrQueryEntryPoint(angle::EntryPoint entryPoint) const;
-
-    // Note: To avoid any race conditions between threads, this class has no private data; all
-    // events are stored in ContextVk.
+    bool getStatus(const gl::Context *context) override;
 };
 
 }  // namespace rx

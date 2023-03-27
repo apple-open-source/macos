@@ -7,6 +7,19 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		2BBCA223278E5D9600224D15 /* Libsystem_exclavekit */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2BBCA22A278E5D9600224D15 /* Build configuration list for PBXAggregateTarget "Libsystem_exclavekit" */;
+			buildPhases = (
+			);
+			dependencies = (
+				2BBCA224278E5D9600224D15 /* PBXTargetDependency */,
+				2BBCA226278E5D9600224D15 /* PBXTargetDependency */,
+				2BBCA228278E5D9600224D15 /* PBXTargetDependency */,
+			);
+			name = Libsystem_exclavekit;
+			productName = Libsystem_driverkit;
+		};
 		923662F4212762D7001FB3E7 /* Sanitizer Support */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 923662F6212762D7001FB3E7 /* Build configuration list for PBXAggregateTarget "Sanitizer Support" */;
@@ -204,6 +217,8 @@
 
 /* Begin PBXFileReference section */
 		2B9D8B53240239BD00E7F338 /* i386.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = i386.c; sourceTree = "<group>"; };
+		2BBCA221278E5D2C00224D15 /* requiredlibs_exclavekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = requiredlibs_exclavekit; sourceTree = "<group>"; };
+		2BBCA222278E5D2C00224D15 /* optionallibs_exclavekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = optionallibs_exclavekit; sourceTree = "<group>"; };
 		8C0BF1291F58E51D00706493 /* enable_asan_mode */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = enable_asan_mode; sourceTree = "<group>"; };
 		8C7F4804264C24F1007076D8 /* Libsystem.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Libsystem.plist; sourceTree = "<group>"; };
 		923662FC212B442C001FB3E7 /* create_asan_override_file.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = create_asan_override_file.sh; sourceTree = "<group>"; };
@@ -265,6 +280,8 @@
 				BA5511BA136C9D780012B9B5 /* requiredlibs */,
 				E43B88B42245778F00215272 /* optionallibs_driverkit */,
 				E43B88B32245778F00215272 /* requiredlibs_driverkit */,
+				2BBCA222278E5D2C00224D15 /* optionallibs_exclavekit */,
+				2BBCA221278E5D2C00224D15 /* requiredlibs_exclavekit */,
 				8C0BF1291F58E51D00706493 /* enable_asan_mode */,
 				8C7F4803264C24A3007076D8 /* featureflags */,
 				C64EE1D6136F644700676C52 /* xcodescripts */,
@@ -359,6 +376,7 @@
 			targets = (
 				E47E9831221DFE23006E312E /* Libsystem */,
 				E47E982E221DFDFC006E312E /* Libsystem_driverkit */,
+				2BBCA223278E5D9600224D15 /* Libsystem_exclavekit */,
 				BA5511C3136C9E2E0012B9B5 /* System */,
 				BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */,
 				BA5511D6136D22ED0012B9B5 /* Generate Symlinks */,
@@ -564,6 +582,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2BBCA22A278E5D9600224D15 /* Build configuration list for PBXAggregateTarget "Libsystem_exclavekit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2BBCA22B278E5D9600224D15 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		923662F6212762D7001FB3E7 /* Build configuration list for PBXAggregateTarget "Sanitizer Support" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

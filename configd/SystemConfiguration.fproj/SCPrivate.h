@@ -806,7 +806,7 @@ _SC_CFEqual(CFTypeRef val1, CFTypeRef val2)
 }
 
 static __inline__ Boolean
-_SC_isAppleInternal()
+_SC_isAppleInternal(void)
 {
 	static Boolean		isInternal;
 	static dispatch_once_t	once;

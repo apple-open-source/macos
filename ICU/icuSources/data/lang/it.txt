@@ -122,9 +122,12 @@ it{
         chm{"mari"}
         chn{"gergo chinook"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"cheyenne"}
+        cic{"chickasaw"}
+        cic_Latn{"chickasaw"}
         ckb{"curdo sorani"}
         co{"corso"}
         cop{"copto"}

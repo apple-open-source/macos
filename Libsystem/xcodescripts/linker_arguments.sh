@@ -24,7 +24,7 @@ for arch in ${ARCHS}; do
 	OUTPUTCONFIG="${OUTPUTDIR}/config.${arch}.${variant}.h"
 	TEMPDIR="${OUTPUTDIR}/linker_arguments_tmp"
 
-	SDK_INSTALL_VARIANT="${DRIVERKIT:+_driverkit}"
+	SDK_INSTALL_VARIANT="${DRIVERKIT:+_driverkit}${EXCLAVEKIT:+_exclavekit}"
 
 	# Unwinding i386 dependencies.
 	# there are no more "real" uses of i386 Libsystem, only dependency

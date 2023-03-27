@@ -3,5 +3,5 @@
 #if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
 IOReturn initializeGeneralPreferences(void);
 #else
-static inline IOReturn initializeGeneralPreferences() { return kIOReturnSuccess; }
+static inline IOReturn initializeGeneralPreferences(void) { return kIOReturnSuccess; }
 #endif

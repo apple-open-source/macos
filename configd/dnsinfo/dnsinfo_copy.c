@@ -47,7 +47,7 @@
 
 
 const char *
-dns_configuration_notify_key()
+dns_configuration_notify_key(void)
 {
 	const char	*key;
 
@@ -66,7 +66,7 @@ static libSC_info_client_t	*dnsinfo_client		= NULL;
 
 
 static dispatch_queue_t
-__dns_configuration_queue()
+__dns_configuration_queue(void)
 {
 	static dispatch_once_t  once;
 	static dispatch_queue_t q;
@@ -80,7 +80,7 @@ __dns_configuration_queue()
 
 
 dns_config_t *
-dns_configuration_copy()
+dns_configuration_copy(void)
 {
 	dns_config_t		*dns_config	= NULL;
 	_dns_config_buf_t	*dns_config_buf	= NULL;

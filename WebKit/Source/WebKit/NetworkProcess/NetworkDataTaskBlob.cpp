@@ -42,10 +42,9 @@
 #include "WebErrors.h"
 #include <WebCore/AsyncFileStream.h>
 #include <WebCore/BlobRegistryImpl.h>
-#include <WebCore/CrossOriginEmbedderPolicy.h>
-#include <WebCore/CrossOriginOpenerPolicy.h>
 #include <WebCore/HTTPParsers.h>
 #include <WebCore/ParsedContentRange.h>
+#include <WebCore/PolicyContainer.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SharedBuffer.h>
@@ -90,8 +89,6 @@ NetworkDataTaskBlob::~NetworkDataTaskBlob()
         fileReference->revokeFileAccess();
 
     clearStream();
-    if (m_session)
-        m_session->unregisterNetworkDataTask(*this);
 }
 
 void NetworkDataTaskBlob::clearStream()
@@ -266,9 +263,9 @@ void NetworkDataTaskBlob::dispatchDidReceiveResponse(Error errorCode)
         response.setHTTPStatusText(isRangeRequest ? httpPartialContentText : httpOKText);
 
         response.setHTTPHeaderField(HTTPHeaderName::ContentType, m_blobData->contentType());
+        response.setTextEncodingName(extractCharsetFromMediaType(m_blobData->contentType()).toAtomString());
         response.setHTTPHeaderField(HTTPHeaderName::ContentLength, String::number(m_totalRemainingSize));
-        addCrossOriginOpenerPolicyHeaders(response, m_blobData->policyContainer().crossOriginOpenerPolicy);
-        addCrossOriginEmbedderPolicyHeaders(response, m_blobData->policyContainer().crossOriginEmbedderPolicy);
+        addPolicyContainerHeaders(response, m_blobData->policyContainer());
 
         if (isRangeRequest) {
             auto rangeEnd = m_rangeEnd;
@@ -347,14 +344,14 @@ void NetworkDataTaskBlob::read()
 
 void NetworkDataTaskBlob::readData(const BlobDataItem& item)
 {
-    ASSERT(item.data().data());
+    ASSERT(item.data());
 
     long long bytesToRead = item.length() - m_currentItemReadSize;
     ASSERT(bytesToRead >= 0);
     if (bytesToRead > m_totalRemainingSize)
         bytesToRead = m_totalRemainingSize;
 
-    auto* data = item.data().data()->data() + item.offset() + m_currentItemReadSize;
+    auto* data = item.data()->data() + item.offset() + m_currentItemReadSize;
     m_currentItemReadSize = 0;
 
     consumeData(data, static_cast<int>(bytesToRead));
@@ -467,7 +464,7 @@ void NetworkDataTaskBlob::download()
 
     LOG(NetworkSession, "%p - NetworkDataTaskBlob::download to %s", this, m_pendingDownloadLocation.utf8().data());
 
-    m_downloadFile = FileSystem::openFile(m_pendingDownloadLocation, FileSystem::FileOpenMode::Write);
+    m_downloadFile = FileSystem::openFile(m_pendingDownloadLocation, FileSystem::FileOpenMode::Truncate);
     if (m_downloadFile == FileSystem::invalidPlatformFileHandle) {
         didFailDownload(cancelledError(m_firstRequest));
         return;

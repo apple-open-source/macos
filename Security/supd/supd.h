@@ -88,7 +88,6 @@
 + (NSString*)databasePathForLocal;
 + (NSString*)databasePathForTrust;
 + (NSString*)databasePathForNetworking;
-+ (NSString*)databasePathForSignIn;
 + (NSString*)databasePathForCloudServices;
 + (NSString*)databasePathForTransparency;
 

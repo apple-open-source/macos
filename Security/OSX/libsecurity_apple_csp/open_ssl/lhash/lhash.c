@@ -129,7 +129,7 @@ static void expand(LHASH *lh);
 static void contract(LHASH *lh);
 static LHASH_NODE **getrn(LHASH *lh, void *data, unsigned long *rhash);
 
-LHASH *lh_new(unsigned long (*h)(), int (*c)())
+LHASH *lh_new(LHASH_HASH_FN_TYPE h, LHASH_COMP_FN_TYPE c)
 	{
 	LHASH *ret;
 	int i;
@@ -140,8 +140,8 @@ LHASH *lh_new(unsigned long (*h)(), int (*c)())
 		goto err1;
 	for (i=0; i<MIN_NODES; i++)
 		ret->b[i]=NULL;
-	ret->comp=((c == NULL)?(int (*)())strcmp:c);
-	ret->hash=((h == NULL)?(unsigned long (*)())lh_strhash:h);
+	ret->comp = ((c == NULL) ? (LHASH_COMP_FN_TYPE)strcmp : c);
+	ret->hash = ((h == NULL) ? (LHASH_HASH_FN_TYPE)lh_strhash : h);
 	ret->num_nodes=MIN_NODES/2;
 	ret->num_alloc_nodes=MIN_NODES;
 	ret->p=0;
@@ -285,31 +285,48 @@ void *lh_retrieve(LHASH *lh, void *data)
 	return(ret);
 	}
 
-void lh_doall(LHASH *lh, void (*func)())
-	{
-	lh_doall_arg(lh,func,NULL);
-	}
+static void doall_util_fn(LHASH *lh, int use_arg, LHASH_DOALL_FN_TYPE func,
+                          LHASH_DOALL_ARG_FN_TYPE func_arg, void *arg)
+{
+    int i;
+    LHASH_NODE *a, *n;
 
-void lh_doall_arg(LHASH *lh, void (*func)(), void *arg)
-	{
-	int i;
-	LHASH_NODE *a,*n;
+    if (lh == NULL)
+        return;
 
-	/* reverse the order so we search from 'top to bottom'
-	 * We were having memory leaks otherwise */
-	for (i=lh->num_nodes-1; i>=0; i--)
-		{
-		a=lh->b[i];
-		while (a != NULL)
-			{
-			/* 28/05/91 - eay - n added so items can be deleted
-			 * via lh_doall */
-			n=a->next;
-			func(a->data,arg);
-			a=n;
-			}
-		}
-	}
+    /*
+     * reverse the order so we search from 'top to bottom' We were having
+     * memory leaks otherwise
+     */
+    for (i = lh->num_nodes - 1; i >= 0; i--) {
+        a = lh->b[i];
+        while (a != NULL) {
+            /*
+             * 28/05/91 - eay - n added so items can be deleted via lh_doall
+             */
+            /*
+             * 22/05/08 - ben - eh? since a is not passed, this should not be
+             * needed
+             */
+            n = a->next;
+            if (use_arg)
+                func_arg(a->data, arg);
+            else
+                func(a->data);
+            a = n;
+        }
+    }
+}
+
+void lh_doall(LHASH *lh, LHASH_DOALL_FN_TYPE func)
+{
+    doall_util_fn(lh, 0, func, (LHASH_DOALL_ARG_FN_TYPE)0, NULL);
+}
+
+void lh_doall_arg(LHASH *lh, LHASH_DOALL_ARG_FN_TYPE func, void *arg)
+{
+    doall_util_fn(lh, 1, (LHASH_DOALL_FN_TYPE)0, func, arg);
+}
 
 static void expand(LHASH *lh)
 	{
@@ -410,7 +427,7 @@ static LHASH_NODE **getrn(LHASH *lh, void *data, unsigned long *rhash)
 	{
 	LHASH_NODE **ret,*n1;
 	unsigned long hash,nn;
-	int (*cf)();
+	LHASH_COMP_FN_TYPE cf;
 
 	hash=(*(lh->hash))(data);
 	lh->num_hash_calls++;

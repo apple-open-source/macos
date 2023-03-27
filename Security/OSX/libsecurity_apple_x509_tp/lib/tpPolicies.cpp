@@ -2801,9 +2801,9 @@ CSSM_RETURN tp_policyVerify(
 			}
 			actUsage = thisCertInfo->keyUsage.extnData->keyUsage;
 			if(!(actUsage & expUsage)) {
-				tpPolicyError("tp_policyVerify: bad keyUsage (leaf %s; "
+				tpPolicyError("tp_policyVerify: bad keyUsage (leaf %{bool}d; "
 					"usage 0x%x)",
-					(certDex == 0) ? "TRUE" : "FALSE", actUsage);
+					(certDex == 0), actUsage);
 				if(thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE)) {
 					policyFail = CSSM_TRUE;
 				}
@@ -2935,9 +2935,9 @@ CSSM_RETURN tp_policyVerify(
 				expUsage = actUsage | CE_KU_KeyCertSign;
 			}
 			if(!(actUsage == expUsage)) {
-				tpPolicyError("tp_policyVerify: bad keyUsage for PIV-Auth policy (leaf %s; "
+				tpPolicyError("tp_policyVerify: bad keyUsage for PIV-Auth policy (leaf %{bool}d; "
 					"usage 0x%x)",
-					(certDex == 0) ? "TRUE" : "FALSE", actUsage);
+					(certDex == 0), actUsage);
 				if(thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE)) {
 					policyFail = CSSM_TRUE;
 				}

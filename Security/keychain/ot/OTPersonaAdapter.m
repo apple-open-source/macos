@@ -102,7 +102,7 @@
     if(error != nil) {
         secnotice("ckks-persona", "Unable to adopt persona %@: %@", personaUniqueString, error);
     } else {
-        secnotice("ckks-persona", "Adopted persona for id '%@'", personaUniqueString);
+        secinfo("ckks-persona", "Adopted persona for id '%@'", personaUniqueString);
     }
 #endif
 }

@@ -9,6 +9,7 @@
 #include "keychain/SecureObjectSync/SOSTransportMessage.h"
 #include "keychain/SecureObjectSync/SOSRing.h"
 #include <keychain/SecureObjectSync/SOSDictionaryUpdate.h>
+#include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 
 
 #include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
@@ -279,6 +280,11 @@ CF_RETURNS_RETAINED
 CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDictionaryRef updates, CFErrorRef *error){
     __block SOSAccount* account = txn.account;
     
+    IF_SOS_DISABLED {
+        secnotice("nosos", "got message for sos and the system is off");
+        return NULL;
+    }
+
     CFMutableArrayRef handledKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFStringRef dsid = NULL;
     
@@ -296,24 +302,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
             }
         });
         
-        CFArrayForEach(transportsToUse, ^(const void *value) {
-            CKKeyParameter* tempTransport = (__bridge CKKeyParameter*) value;
-            
-            CFStringRef accountDSID = (CFStringRef)SOSAccountGetValue(account, kSOSDSIDKey, error);
-            
-            if(accountDSID == NULL){
-                secnotice("dsid", "Setting account to new because a new DSID is in KVS");
-                [tempTransport SOSTransportKeyParameterHandleNewAccount:tempTransport acct:account];
-                SOSAccountSetValue(account, kSOSDSIDKey, dsid, error);
-            } else if(accountDSID != NULL && CFStringCompare(accountDSID, dsid, 0) != 0 ) {
-                secnotice("dsid", "Setting account to new because a new DSID is in KVS");
-                [tempTransport SOSTransportKeyParameterHandleNewAccount:tempTransport acct:account];
-                SOSAccountSetValue(account, kSOSDSIDKey, dsid, error);
-            } else {
-                secdebug("dsid", "DSIDs are the same!");
-            }
-        });
-        
+        SOSAccountAssertDSID(account, dsid);
         CFReleaseNull(transportsToUse);
     
         CFArrayAppendValue(handledKeys, kSOSKVSAccountChangedKey);
@@ -332,7 +321,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
     
     __block CFDataRef newParameters = NULL;
     __block bool initial_sync = false;
-    __block bool new_account = false;
+    __block CFStringRef kvs_account_dsid = NULL;
     bool sosIsEnabled = [account sosIsEnabled];
     
     CFDictionaryForEach(updates, ^(const void *key, const void *value) {
@@ -374,8 +363,13 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
                 }
                 break;
             }
-            case kAccountChangedKey:
-                new_account = true;
+            case kDSIDKey:
+                kvs_account_dsid = NULL;
+                if (isData(value)) {
+                    kvs_account_dsid = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, (CFDataRef) value, kCFStringEncodingUTF8);
+                } else if (isString(value)) {
+                    kvs_account_dsid = CFRetain(value);
+                }
                 break;
             case kRingKey:
                 if(isString(ring_name)) {
@@ -421,6 +415,11 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
         CFArrayAppendValue(handledKeys, kSOSKVSKeyParametersKey);
     }
     CFReleaseNull(newParameters);
+    
+    if(kvs_account_dsid) {
+        SOSAccountAssertDSID(txn.account, kvs_account_dsid);
+        CFReleaseNull(kvs_account_dsid);
+    }
     
     if(initial_sync){
         CFArrayAppendValue(handledKeys, kSOSKVSInitialSyncKey);

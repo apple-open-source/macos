@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -1698,12 +1698,13 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1DEB914A08733D8E0010E9CD /* Build configuration list for PBXNativeTarget "libstdc++.dylib" */;
 			buildPhases = (
+				87D2C81628AE838D00640A08 /* Copy C++ ABI library headers */,
 				D2AAC0610554660B00DB518D /* Sources */,
 				D289988505E68E00004EDB86 /* Frameworks */,
 				F91B442311471C0E0052EBA1 /* add symlink */,
 				F91B4152114712E80052EBA1 /* OpenSourceLicenses */,
 				F91B43C1114713B20052EBA1 /* OpenSourceVersions */,
-				87A789B526EA65B80063E0CC /* ShellScript */,
+				87A789B526EA65B80063E0CC /* Defeat empty roots verifier */,
 			);
 			buildRules = (
 				F9AA45971295B93E00CB8390 /* PBXBuildRule */,
@@ -1742,7 +1743,7 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		87A789B526EA65B80063E0CC /* ShellScript */ = {
+		87A789B526EA65B80063E0CC /* Defeat empty roots verifier */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1751,6 +1752,7 @@
 			);
 			inputPaths = (
 			);
+			name = "Defeat empty roots verifier";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -1758,6 +1760,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Defeat the empty roots B&I verifier\nmkdir -p ${DSTROOT}/AppleInternal\n";
+		};
+		87D2C81628AE838D00640A08 /* Copy C++ ABI library headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 12;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy C++ ABI library headers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# We copy the C++ ABI's headers to a temporary directory because we need to include them, but we don't want to\n# add all of <SDK>/usr/include/c++/v1 (aka the libc++ headers) to our search paths. So we copy just the headers\n# we need to a local directory and we can add that local directory to our search paths.\n#\n# Note that we only do it if the path in the SDK exists in order to support installhdrs being executed against\n# a SDK that does not contain the libc++abi headers yet.\n\nmkdir -p ${OBJROOT}/abi-headers\nif [[ -e ${SDKROOT}/usr/include/c++/v1/cxxabi.h ]]; then\n    cp ${SDKROOT}/usr/include/c++/v1/cxxabi.h ${OBJROOT}/abi-headers\n    cp ${SDKROOT}/usr/include/c++/v1/__cxxabi_config.h ${OBJROOT}/abi-headers\nfi\n";
 		};
 		F91B442311471C0E0052EBA1 /* add symlink */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1878,6 +1899,7 @@
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/include/c++/4.2.1",
 					"$(SRCROOT)/include/c++/4.2.1/backward",
+					"$(OBJROOT)/abi-headers",
 				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH_ACTUAL = /usr/lib;
@@ -1926,6 +1948,7 @@
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/include/c++/4.2.1",
 					"$(SRCROOT)/include/c++/4.2.1/backward",
+					"$(OBJROOT)/abi-headers",
 				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH_ACTUAL = /usr/lib;

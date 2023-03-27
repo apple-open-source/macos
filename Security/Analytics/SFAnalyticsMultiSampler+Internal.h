@@ -28,11 +28,15 @@
 
 #import "SFAnalyticsMultiSampler.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 typedef NSDictionary<NSString*, NSNumber*>* MultiSamplerDictionary;
 
 @interface SFAnalyticsMultiSampler(Internal)
 - (instancetype)initWithName:(NSString*)name interval:(NSTimeInterval)interval block:(MultiSamplerDictionary (^)(void))block clientClass:(Class)clientClass;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif // objc2
 

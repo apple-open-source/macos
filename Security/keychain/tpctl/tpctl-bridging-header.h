@@ -17,3 +17,6 @@
 #pragma clang diagnostic pop
 
 #import <AppleAccount/ACAccount+AppleAccount.h>
+#import "keychain/ot/proto/generated_source/OTAccountSettings.h"
+#import "keychain/ot/proto/generated_source/OTWalrus.h"
+#import "keychain/ot/proto/generated_source/OTWebAccess.h"

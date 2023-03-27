@@ -64,7 +64,7 @@ OSMetaClassDefineReservedUsed( IONetworkController,  3); // setInputPacketPollin
 OSMetaClassDefineReservedUsed( IONetworkController,  4); // pollInputPackets
 OSMetaClassDefineReservedUsed( IONetworkController,  5); // networkInterfaceNotification
 OSMetaClassDefineReservedUsed( IONetworkController,  6); // allocatePacketNoWait
-OSMetaClassDefineReservedUnused( IONetworkController,  7);
+OSMetaClassDefineReservedUsed( IONetworkController,  7); // setHardwareAssists
 OSMetaClassDefineReservedUnused( IONetworkController,  8);
 OSMetaClassDefineReservedUnused( IONetworkController,  9);
 OSMetaClassDefineReservedUnused( IONetworkController, 10);
@@ -2430,4 +2430,16 @@ void IONetworkController::removeAuxiliaryDataFromPacket(
     mbuf_t      packet )
 {
     mbuf_del_drvaux(packet);
+}
+
+IOReturn IONetworkController::setHardwareAssists( UInt32 hardwareAssists, UInt32 hardwareAssistMask )
+{
+    IOReturn status;
+
+    DLOG("==> %p(0x%08x, 0x%08x)", this, hardwareAssists, hardwareAssistMask);
+
+    status = kIOReturnUnsupported;
+
+    DLOG("<== %p(0x%08x, 0x%08x) = 0x%08x", this, hardwareAssists, hardwareAssistMask, status);
+    return status;
 }

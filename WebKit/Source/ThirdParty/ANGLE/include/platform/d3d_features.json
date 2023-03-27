@@ -177,6 +177,21 @@
             "description": [
                 "Allow ES3 on 10.0 devices"
             ]
+        },
+        {
+            "name": "disable_rasterizer_order_views",
+            "category": "Workarounds",
+            "description": [
+                "Disable ROVs for testing"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "enable_timestamp_queries",
+            "category": "Workarounds",
+            "description": [
+                "Enable timestamp on GL_EXT_disjoint_timer_query extension"
+            ]
         }
     ]
 }

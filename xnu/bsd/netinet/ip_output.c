@@ -2835,8 +2835,6 @@ imo_addref(struct ip_moptions *imo, int locked)
 void
 imo_remref(struct ip_moptions *imo)
 {
-	int i;
-
 	IMO_LOCK(imo);
 	if (imo->imo_refcnt == 0) {
 		panic("%s: imo %p negative refcnt", __func__, imo);
@@ -2851,24 +2849,8 @@ imo_remref(struct ip_moptions *imo)
 		return;
 	}
 
-	for (i = 0; i < imo->imo_num_memberships; ++i) {
-		struct in_mfilter *imf;
+	IMO_PURGE_LOCKED(imo);
 
-		imf = imo->imo_mfilters ? &imo->imo_mfilters[i] : NULL;
-		if (imf != NULL) {
-			imf_leave(imf);
-		}
-
-		(void) in_leavegroup(imo->imo_membership[i], imf);
-
-		if (imf != NULL) {
-			imf_purge(imf);
-		}
-
-		INM_REMREF(imo->imo_membership[i]);
-		imo->imo_membership[i] = NULL;
-	}
-	imo->imo_num_memberships = 0;
 	IMO_UNLOCK(imo);
 
 	kfree_type(struct in_multi *, imo->imo_max_memberships, imo->imo_membership);

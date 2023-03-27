@@ -30,6 +30,7 @@
 
 #include "CryptoKeyRaw.h"
 #include "JSDOMConvertBufferSource.h"
+#include "JSDOMPromiseDeferred.h"
 #include "JSRTCEncodedAudioFrame.h"
 #include "JSRTCEncodedVideoFrame.h"
 #include "JSWritableStreamSink.h"
@@ -204,12 +205,13 @@ static void transformFrame(Span<const uint8_t> data, JSDOMGlobalObject& globalOb
 template<typename Frame>
 void transformFrame(Frame& frame, JSDOMGlobalObject& globalObject, RTCRtpSFrameTransformer& transformer, SimpleReadableStreamSource& source, ScriptExecutionContextIdentifier identifier, const WeakPtr<RTCRtpSFrameTransform, WeakPtrImplWithEventTargetData>& weakTransform)
 {
-    auto chunk = frame.rtcFrame().data();
+    auto rtcFrame = frame.rtcFrame();
+    auto chunk = rtcFrame->data();
     auto result = processFrame(chunk, transformer, identifier, weakTransform);
     Span<const uint8_t> transformedChunk;
     if (result)
         transformedChunk = { result->data(), result->size() };
-    frame.rtcFrame().setData(transformedChunk);
+    rtcFrame->setData(transformedChunk);
     source.enqueue(toJS(&globalObject, &globalObject, frame));
 }
 

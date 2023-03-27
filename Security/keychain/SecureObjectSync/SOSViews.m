@@ -228,7 +228,7 @@ static CFMutableSetRef sosAllViews = NULL;
 void SOSViewsSetTestViewsSet(CFSetRef testViewNames) {
     CFReleaseNull(sTestViewSet);
     if(testViewNames) {
-        CFRetainAssign(sTestViewSet, testViewNames);
+        sTestViewSet = CFRetain(testViewNames);
     }
 
     CFReleaseNull(sosAllViews);

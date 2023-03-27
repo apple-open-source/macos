@@ -58,13 +58,13 @@ Ref<WebsitePolicies> WebsitePolicies::copy() const
     policies->setAllowContentChangeObserverQuirk(m_allowContentChangeObserverQuirk);
     policies->setWebsiteDataStore(m_websiteDataStore.get());
     policies->setUserContentController(m_userContentController.get());
+    policies->setNetworkConnectionIntegrityPolicy(m_networkConnectionIntegrityPolicy);
     policies->setIdempotentModeAutosizingOnlyHonorsPercentages(m_idempotentModeAutosizingOnlyHonorsPercentages);
-    policies->setLegacyCustomHeaderFields(Vector<WebCore::HTTPHeaderField> { m_legacyCustomHeaderFields });
     policies->setCustomHeaderFields(Vector<WebCore::CustomHeaderFields> { m_customHeaderFields });
     policies->setAllowSiteSpecificQuirksToOverrideContentMode(m_allowSiteSpecificQuirksToOverrideContentMode);
     policies->setApplicationNameForDesktopUserAgent(m_applicationNameForDesktopUserAgent);
     policies->setAllowsContentJavaScript(m_allowsContentJavaScript);
-    policies->setCaptivePortalModeEnabled(m_captivePortalModeEnabled);
+    policies->setLockdownModeEnabled(m_lockdownModeEnabled);
     policies->setMouseEventPolicy(m_mouseEventPolicy);
     policies->setModalContainerObservationPolicy(m_modalContainerObservationPolicy);
     policies->setColorSchemePreference(m_colorSchemePreference);
@@ -86,12 +86,9 @@ void WebsitePolicies::setUserContentController(RefPtr<WebKit::WebUserContentCont
 
 WebKit::WebsitePoliciesData WebsitePolicies::data()
 {
-    bool hasLegacyCustomHeaderFields = legacyCustomHeaderFields().size();
     Vector<WebCore::CustomHeaderFields> customHeaderFields;
-    customHeaderFields.reserveInitialCapacity(this->customHeaderFields().size() + hasLegacyCustomHeaderFields);
+    customHeaderFields.reserveInitialCapacity(this->customHeaderFields().size());
     customHeaderFields.appendVector(this->customHeaderFields());
-    if (hasLegacyCustomHeaderFields)
-        customHeaderFields.uncheckedAppend({ legacyCustomHeaderFields(), { }});
 
     return {
         contentBlockersEnabled(),
@@ -115,14 +112,15 @@ WebKit::WebsitePoliciesData WebsitePolicies::data()
         m_mouseEventPolicy,
         m_modalContainerObservationPolicy,
         m_colorSchemePreference,
+        m_networkConnectionIntegrityPolicy,
         m_idempotentModeAutosizingOnlyHonorsPercentages,
         m_allowPrivacyProxy
     };
 }
 
-bool WebsitePolicies::captivePortalModeEnabled() const
+bool WebsitePolicies::lockdownModeEnabled() const
 {
-    return m_captivePortalModeEnabled ? *m_captivePortalModeEnabled : WebKit::captivePortalModeEnabledBySystem();
+    return m_lockdownModeEnabled ? *m_lockdownModeEnabled : WebKit::lockdownModeEnabledBySystem();
 }
 
 }

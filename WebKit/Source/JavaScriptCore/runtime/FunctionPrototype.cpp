@@ -23,6 +23,7 @@
 
 #include "BuiltinNames.h"
 #include "ClonedArguments.h"
+#include "ExecutableBaseInlines.h"
 #include "FunctionExecutable.h"
 #include "IntegrityInlines.h"
 #include "JSBoundFunction.h"
@@ -60,7 +61,7 @@ void FunctionPrototype::finishCreation(VM& vm, const String& name)
 
 void FunctionPrototype::addFunctionProperties(VM& vm, JSGlobalObject* globalObject, JSFunction** callFunction, JSFunction** applyFunction, JSFunction** hasInstanceSymbolFunction)
 {
-    JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().toStringPublicName(), functionProtoFuncToString, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, FunctionToStringIntrinsic);
+    JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().toStringPublicName(), functionProtoFuncToString, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Public, FunctionToStringIntrinsic);
 
     *applyFunction = putDirectBuiltinFunctionWithoutTransition(vm, globalObject, vm.propertyNames->builtinNames().applyPublicName(), functionPrototypeApplyCodeGenerator(vm), static_cast<unsigned>(PropertyAttribute::DontEnum));
     *callFunction = putDirectBuiltinFunctionWithoutTransition(vm, globalObject, vm.propertyNames->builtinNames().callPublicName(), functionPrototypeCallCodeGenerator(vm), static_cast<unsigned>(PropertyAttribute::DontEnum));
@@ -108,6 +109,8 @@ static ALWAYS_INLINE bool isAllowedReceiverFunctionForCallerAndArguments(JSFunct
         return false;
 
     FunctionExecutable* executable = function->jsExecutable();
+    if (executable->implementationVisibility() != ImplementationVisibility::Public)
+        return false;
     return !executable->isInStrictContext() && executable->parseMode() == SourceParseMode::NormalFunctionMode && !executable->isClassConstructorFunction();
 }
 
@@ -145,7 +148,7 @@ static JSValue retrieveArguments(VM& vm, CallFrame* callFrame, JSFunction* funct
 {
     RetrieveArgumentsFunctor functor(vm, functionObj);
     if (callFrame)
-        callFrame->iterate(vm, functor);
+        StackVisitor::visit(callFrame, vm, functor);
     return functor.result();
 }
 
@@ -181,9 +184,6 @@ public:
 
         JSCell* callee = visitor->callee().asCell();
 
-        if (callee && (callee->inherits<JSBoundFunction>() || callee->inherits<JSRemoteFunction>() || callee->type() == ProxyObjectType))
-            return IterationStatus::Continue;
-
         if (!m_hasFoundFrame && callee != m_targetCallee)
             return IterationStatus::Continue;
 
@@ -193,8 +193,16 @@ public:
             return IterationStatus::Continue;
         }
 
-        if (callee)
+        if (callee) {
+            if (callee->inherits<JSBoundFunction>() || callee->inherits<JSRemoteFunction>() || callee->type() == ProxyObjectType)
+                return IterationStatus::Continue;
+            if (callee->inherits<JSFunction>()) {
+                if (jsCast<JSFunction*>(callee)->executable()->implementationVisibility() != ImplementationVisibility::Public)
+                    return IterationStatus::Continue;
+            }
+
             m_result = callee;
+        }
         return IterationStatus::Done;
     }
 
@@ -209,7 +217,7 @@ static JSValue retrieveCallerFunction(VM& vm, CallFrame* callFrame, JSFunction* 
 {
     RetrieveCallerFunctionFunctor functor(functionObj);
     if (callFrame)
-        callFrame->iterate(vm, functor);
+        StackVisitor::visit(callFrame, vm, functor);
     return functor.result();
 }
 

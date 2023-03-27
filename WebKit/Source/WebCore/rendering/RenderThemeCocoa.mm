@@ -27,6 +27,9 @@
 #import "RenderThemeCocoa.h"
 
 #import "ApplePayLogoSystemImage.h"
+#import "AttachmentLayout.h"
+#import "DrawGlyphsRecorder.h"
+#import "FloatRoundedRect.h"
 #import "FontCacheCoreText.h"
 #import "GraphicsContextCG.h"
 #import "HTMLInputElement.h"
@@ -34,6 +37,7 @@
 #import "RenderText.h"
 #import "UserAgentScripts.h"
 #import "UserAgentStyleSheets.h"
+#import <CoreGraphics/CoreGraphics.h>
 #import <algorithm>
 #import <pal/spi/cf/CoreTextSPI.h>
 #import <wtf/Language.h>
@@ -62,6 +66,11 @@
 
 namespace WebCore {
 
+constexpr int kThumbnailBorderStrokeWidth = 1;
+constexpr int kThumbnailBorderCornerRadius = 1;
+constexpr int kVisibleBackgroundImageWidth = 1;
+constexpr int kMultipleThumbnailShrinkSize = 2;
+
 RenderThemeCocoa& RenderThemeCocoa::singleton()
 {
     return static_cast<RenderThemeCocoa&>(RenderTheme::singleton());
@@ -81,6 +90,45 @@ void RenderThemeCocoa::purgeCaches()
 bool RenderThemeCocoa::shouldHaveCapsLockIndicator(const HTMLInputElement& element) const
 {
     return element.isPasswordField();
+}
+
+Color RenderThemeCocoa::pictureFrameColor(const RenderObject& buttonRenderer)
+{
+    return systemColor(CSSValueAppleSystemControlBackground, buttonRenderer.styleColorOptions());
+}
+
+void RenderThemeCocoa::paintFileUploadIconDecorations(const RenderObject&, const RenderObject& buttonRenderer, const PaintInfo& paintInfo, const IntRect& rect, Icon* icon, FileUploadDecorations fileUploadDecorations)
+{
+    GraphicsContextStateSaver stateSaver(paintInfo.context());
+
+    IntSize cornerSize(kThumbnailBorderCornerRadius, kThumbnailBorderCornerRadius);
+
+    auto pictureFrameColor = this->pictureFrameColor(buttonRenderer);
+
+    auto thumbnailPictureFrameRect = rect;
+    auto thumbnailRect = rect;
+    thumbnailRect.contract(2 * kThumbnailBorderStrokeWidth, 2 * kThumbnailBorderStrokeWidth);
+    thumbnailRect.move(kThumbnailBorderStrokeWidth, kThumbnailBorderStrokeWidth);
+
+    if (fileUploadDecorations == MultipleFiles) {
+        // Smaller thumbnails for multiple selection appearance.
+        thumbnailPictureFrameRect.contract(kMultipleThumbnailShrinkSize, kMultipleThumbnailShrinkSize);
+        thumbnailRect.contract(kMultipleThumbnailShrinkSize, kMultipleThumbnailShrinkSize);
+
+        // Background picture frame and simple background icon with a gradient matching the button.
+        auto backgroundImageColor = buttonRenderer.style().visitedDependentColor(CSSPropertyBackgroundColor);
+        paintInfo.context().fillRoundedRect(FloatRoundedRect(thumbnailPictureFrameRect, cornerSize, cornerSize, cornerSize, cornerSize), pictureFrameColor);
+        paintInfo.context().fillRect(thumbnailRect, backgroundImageColor);
+
+        // Move the rects for the Foreground picture frame and icon.
+        auto inset = kVisibleBackgroundImageWidth + kThumbnailBorderStrokeWidth;
+        thumbnailPictureFrameRect.move(inset, inset);
+        thumbnailRect.move(inset, inset);
+    }
+
+    // Foreground picture frame and icon.
+    paintInfo.context().fillRoundedRect(FloatRoundedRect(thumbnailPictureFrameRect, cornerSize, cornerSize, cornerSize, cornerSize), pictureFrameColor);
+    icon->paint(paintInfo.context(), thumbnailRect);
 }
 
 #if ENABLE(APPLE_PAY)
@@ -189,11 +237,29 @@ static inline FontSelectionValue cssWeightOfSystemFont(CTFontRef font)
     CFNumberGetValue(resultRef.get(), kCFNumberFloatType, &result);
     // These numbers were experimentally gathered from weights of the system font.
     static constexpr float weightThresholds[] = { -0.6, -0.365, -0.115, 0.130, 0.235, 0.350, 0.5, 0.7 };
-    for (unsigned i = 0; i < WTF_ARRAY_LENGTH(weightThresholds); ++i) {
+    for (unsigned i = 0; i < std::size(weightThresholds); ++i) {
         if (result < weightThresholds[i])
             return FontSelectionValue((static_cast<int>(i) + 1) * 100);
     }
     return FontSelectionValue(900);
 }
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+
+int RenderThemeCocoa::attachmentBaseline(const RenderAttachment& attachment) const
+{
+    AttachmentLayout layout(attachment, AttachmentLayoutStyle::NonSelected);
+    return layout.baseline;
+}
+
+void RenderThemeCocoa::paintAttachmentText(GraphicsContext& context, AttachmentLayout* layout)
+{
+    DrawGlyphsRecorder recorder(context, 1, DrawGlyphsRecorder::DeriveFontFromContext::Yes);
+
+    for (const auto& line : layout->lines)
+        recorder.drawNativeText(line.font.get(), CTFontGetSize(line.font.get()), line.line.get(), line.rect);
+}
+
+#endif
 
 }

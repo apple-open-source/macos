@@ -48,7 +48,7 @@
 int max_magazines;
 
 // Control whether medium is enabled at all when creating new magazine zones
-bool magazine_medium_enabled = true;
+bool magazine_medium_enabled = DEFAULT_MEDIUM_ALLOCATOR_ENABLED;
 
 // Control the DRAM limit at which medium kicks in.
 uint64_t magazine_medium_active_threshold = MEDIUM_ACTIVATION_THRESHOLD;

@@ -20,7 +20,13 @@ class TDiagnostics;
 
 bool ValidateClipCullDistance(TIntermBlock *root,
                               TDiagnostics *diagnostics,
-                              const unsigned int maxCombinedClipAndCullDistances);
+                              const unsigned int maxCullDistances,
+                              const unsigned int maxCombinedClipAndCullDistances,
+                              uint8_t *clipDistanceSizeOut,
+                              uint8_t *cullDistanceSizeOut,
+                              bool *clipDistanceRedeclaredOut,
+                              bool *cullDistanceRedeclaredOut,
+                              bool *clipDistanceUsedOut);
 
 }  // namespace sh
 

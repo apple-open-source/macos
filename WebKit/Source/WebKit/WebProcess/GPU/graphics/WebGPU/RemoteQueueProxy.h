@@ -47,7 +47,7 @@ public:
     virtual ~RemoteQueueProxy();
 
     RemoteDeviceProxy& parent() { return m_parent; }
-    RemoteGPUProxy& root() { return m_parent->root(); }
+    RemoteGPUProxy& root() { return m_parent.root(); }
 
 private:
     friend class DowncastConvertToBackingContext;
@@ -68,9 +68,9 @@ private:
         return root().streamClientConnection().send(WTFMove(message), backing(), defaultSendTimeout);
     }
     template<typename T>
-    WARN_UNUSED_RETURN IPC::Connection::SendSyncResult sendSync(T&& message, typename T::Reply&& reply)
+    WARN_UNUSED_RETURN IPC::Connection::SendSyncResult<T> sendSync(T&& message)
     {
-        return root().streamClientConnection().sendSync(WTFMove(message), WTFMove(reply), backing(), defaultSendTimeout);
+        return root().streamClientConnection().sendSync(WTFMove(message), backing(), defaultSendTimeout);
     }
 
     void submit(Vector<std::reference_wrapper<PAL::WebGPU::CommandBuffer>>&&) final;
@@ -103,7 +103,7 @@ private:
 
     WebGPUIdentifier m_backing;
     Ref<ConvertToBackingContext> m_convertToBackingContext;
-    Ref<RemoteDeviceProxy> m_parent;
+    RemoteDeviceProxy& m_parent;
 };
 
 } // namespace WebKit::WebGPU

@@ -343,6 +343,8 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
 
         // FIXME: Resource search should work with Local Overrides if enabled.
 
+        // FIXME: Resource search should work with Console Snippets.
+
         // FIXME: Resource search should work in JSContext inspection.
         // <https://webkit.org/b/131252> Web Inspector: JSContext inspection Resource search does not work
     }
@@ -462,7 +464,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
         if (!this._changedBanner) {
             this._changedBanner = document.createElement("div");
             this._changedBanner.classList.add("banner");
-            this._changedBanner.append(WI.UIString("The page's content has changed"), document.createElement("br"));
+            this._changedBanner.append(WI.UIString("The page\u2019s content has changed"), document.createElement("br"));
 
             let performSearchLink = this._changedBanner.appendChild(document.createElement("a"));
             performSearchLink.textContent = WI.UIString("Search Again");

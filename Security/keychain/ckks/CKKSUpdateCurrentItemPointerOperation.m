@@ -42,6 +42,7 @@
 
 @interface CKKSUpdateCurrentItemPointerOperation ()
 @property (nullable) CKModifyRecordsOperation* modifyRecordsOperation;
+@property (nullable) CKFetchRecordsOperation* fetchRecordsOperation;
 @property (nullable) CKOperationGroup* ckoperationGroup;
 
 @property CKKSOperationDependencies* deps;
@@ -357,6 +358,10 @@
                 return CKKSDatabaseTransactionCommit;
             }];
 
+            if(!error) {
+                [self _fetchAndUpdateMirrorEntry:ckme];
+            }
+
             self.error = error;
             [self.operationQueue addOperation:modifyComplete];
         };
@@ -366,6 +371,67 @@
 
         return CKKSDatabaseTransactionCommit;
     }];
+}
+
+- (void)_fetchAndUpdateMirrorEntry:(CKKSMirrorEntry*)ckme
+{
+    WEAKIFY(self);
+
+    // Start a CKFetchRecordsOperation to get the new etag for the now-current item.
+    NSBlockOperation* fetchComplete = [[NSBlockOperation alloc] init];
+    fetchComplete.name = @"updateCurrentItemPointer-fetchRecordsComplete";
+    [self dependOnBeforeGroupFinished: fetchComplete];
+
+    self.fetchRecordsOperation = [[self.deps.cloudKitClassDependencies.fetchRecordsOperationClass alloc] initWithRecordIDs:@[ckme.item.storedCKRecord.recordID]];
+
+    // We're likely rolling a PCS identity, or creating a new one. User cares.
+    self.fetchRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
+    self.fetchRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+    self.fetchRecordsOperation.configuration.isCloudKitSupportOperation = YES;
+
+#if TARGET_OS_TV
+    // This operation might be needed during CKKS/Manatee bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
+    self.fetchRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+#endif
+
+    self.fetchRecordsOperation.group = self.ckoperationGroup;
+
+    self.fetchRecordsOperation.fetchRecordsCompletionBlock = ^(NSDictionary<CKRecordID *,CKRecord *> * _Nullable recordsByRecordID, NSError * _Nullable ckerror) {
+        STRONGIFY(self);
+        id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
+
+        if(ckerror) {
+            ckkserror("ckkscurrent", self.viewState.zoneID, "fetch returned an error: %@", ckerror);
+            [self.operationQueue addOperation:fetchComplete];
+            return;
+        }
+
+        [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+            for(CKRecordID* recordID in recordsByRecordID) {
+                CKRecord* record = recordsByRecordID[recordID];
+                NSError* localerror = nil;
+
+                if([ckme matchesCKRecord:record checkServerFields:false]) {
+                    [ckme setFromCKRecord:record];
+
+                    bool mirrorsaved = [ckme saveToDatabase:&localerror];
+                    if(!mirrorsaved || localerror) {
+                        ckkserror("ckkscurrent", self.viewState.zoneID, "couldn't save updated CKRecord to database: %@ %@", record, localerror);
+                    } else {
+                        ckksinfo("ckkscurrent", self.viewState.zoneID, "CKKSMirrorEntry updated: %@", ckme);
+                    }
+                } else {
+                    ckkserror("ckkscurrent", self.viewState.zoneID, "fetched non-matching record %@", record);
+                }
+            }
+            return CKKSDatabaseTransactionCommit;
+        }];
+
+        [self.operationQueue addOperation:fetchComplete];
+    };
+
+    [self dependOnBeforeGroupFinished: self.fetchRecordsOperation];
+    [self.deps.ckdatabase addOperation:self.fetchRecordsOperation];
 }
 
 - (SecDbItemRef _Nullable)_onqueueFindSecDbItem:(NSData*)persistentRef accessGroup:(NSString*)accessGroup error:(NSError**)error {
@@ -461,6 +527,7 @@
                                              code:errSecParam
                                       description:@"couldn't run query"
                                        underlying:(NSError*)CFBridgingRelease(cferror)];
+            cferror = NULL;
             if(*error) {
                 *error = localerror;
             }

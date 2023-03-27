@@ -26,9 +26,11 @@
 #import "config.h"
 #import "RemoteLayerTreeContext.h"
 
+#import "DrawingArea.h"
 #import "GenericCallback.h"
 #import "GraphicsLayerCARemote.h"
 #import "PlatformCALayerRemote.h"
+#import "RemoteLayerTreeDrawingArea.h"
 #import "RemoteLayerTreeTransaction.h"
 #import "RemoteLayerWithRemoteRenderingBackingStoreCollection.h"
 #import "WebPage.h"
@@ -79,6 +81,21 @@ float RemoteLayerTreeContext::deviceScaleFactor() const
 LayerHostingMode RemoteLayerTreeContext::layerHostingMode() const
 {
     return m_webPage.layerHostingMode();
+}
+
+DrawingAreaIdentifier RemoteLayerTreeContext::drawingAreaIdentifier() const
+{
+    if (!m_webPage.drawingArea())
+        return DrawingAreaIdentifier();
+    return m_webPage.drawingArea()->identifier();
+}
+
+std::optional<WebCore::DestinationColorSpace> RemoteLayerTreeContext::displayColorSpace() const
+{
+    if (auto* drawingArea = m_webPage.drawingArea())
+        return drawingArea->displayColorSpace();
+    
+    return { };
 }
 
 #if PLATFORM(IOS_FAMILY)

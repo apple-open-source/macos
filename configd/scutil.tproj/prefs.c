@@ -51,7 +51,7 @@
 
 __private_extern__
 AuthorizationRef
-_prefs_AuthorizationCreate()
+_prefs_AuthorizationCreate(void)
 {
 	AuthorizationRef	authorization	= NULL;
 
@@ -189,7 +189,7 @@ _prefs_open(CFStringRef name, const char *path)
 
 __private_extern__
 void
-_prefs_save()
+_prefs_save(void)
 {
 	if (!SCPreferencesCommitChanges(prefs)) {
 		switch (SCError()) {
@@ -247,7 +247,7 @@ _prefs_save()
 
 __private_extern__
 void
-_prefs_close()
+_prefs_close(void)
 {
 	if (prefsPath != NULL) {
 		free(prefsPath);
@@ -644,7 +644,7 @@ do_setPref(char *pref, int argc, char * const argv[])
 
 __private_extern__
 void
-do_prefs_init()
+do_prefs_init(void)
 {
 	return;
 }

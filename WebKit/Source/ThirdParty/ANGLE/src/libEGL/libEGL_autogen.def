@@ -91,6 +91,9 @@ EXPORTS
     eglQueryDisplayAttribANGLE
     eglQueryStringiANGLE
 
+    ; EGL_ANGLE_metal_shared_event_sync
+    eglCopyMetalSharedEventANGLE
+
     ; EGL_ANGLE_power_preference
     eglForceGPUSwitchANGLE
     eglHandleGPUSwitchANGLE
@@ -121,6 +124,9 @@ EXPORTS
 
     ; EGL_ANGLE_vulkan_image
     eglExportVkImageANGLE
+
+    ; EGL_ANGLE_wait_until_work_scheduled
+    eglWaitUntilWorkScheduledANGLE
 
     ; EGL_CHROMIUM_sync_control
     eglGetSyncValuesCHROMIUM

@@ -45,14 +45,15 @@ namespace CodeSigning {
 //
 class SecCodeSigner::Signer : public DiskRep::SigningContext {
 public:
-	Signer(SecCodeSigner &s, SecStaticCode *c) : state(s), code(c), requirements(NULL)
+	Signer(SecCodeSigner &s, SecStaticCode *c) : state(s), code(c), requirements(NULL),
+		useRemoteSigning(false), rsHandler(NULL), rsCertChain(NULL)
 	{ strict = signingFlags() & kSecCSSignStrictPreflight; }
 	~Signer() { ::free((Requirements *)requirements); }
 
 	void sign(SecCSFlags flags);
 	void remove(SecCSFlags flags);
 	void edit(SecCSFlags flags);
-	
+
 	SecCodeSigner &state;
 	SecStaticCode * const code;
 	
@@ -62,7 +63,10 @@ public:
 	std::string path() const { return cfStringRelease(rep->copyCanonicalPath()); }
 	SecIdentityRef signingIdentity() const { return state.mSigner; }
 	std::string signingIdentifier() const { return identifier; }
-	
+	CFArrayRef signingCertificateChain() const { return rsCertChain; }
+
+	void setupRemoteSigning(CFArrayRef certChain, SecCodeRemoteSignHandler handler);
+
 protected:
 	void prepare(SecCSFlags flags);				// set up signing parameters
 	void signMachO(Universal *fat, const Requirement::Context &context); // sign a Mach-O binary
@@ -122,6 +126,11 @@ private:
 	static void cookEntitlements(CFDataRef entitlements, bool generateDER,
 								 uint64_t *execSegFlags, CFDataRef *entitlementsDER);
 
+	CFDataRef signCodeDirectoryWithIdentity(const CodeDirectory *cd,
+											CFDictionaryRef hashDict, CFArrayRef hashList);
+	CFDataRef signCodeDirectoryRemote(const CodeDirectory *cd,
+									  CFDictionaryRef hashDict, CFArrayRef hashList);
+
 protected:
 	void buildResources(std::string root, std::string relBase, CFDictionaryRef rules);
 	CFMutableDictionaryRef signNested(const std::string &path, const std::string &relpath);
@@ -147,7 +156,12 @@ private:
 	CFAbsoluteTime signingTime;		// signing time for CMS signature (0 => now)
 	bool emitSigningTime;			// emit signing time as a signed CMS attribute
 	bool strict;					// strict validation
-	
+
+	// Remote signing data.
+	bool useRemoteSigning;
+	SecCodeRemoteSignHandler rsHandler;
+	CFRef<CFArrayRef> rsCertChain;
+
 	// Signature Editing
 	Architecture editMainArch;		// main architecture for editing
 	RawComponentMaps editComponents; // components for signature

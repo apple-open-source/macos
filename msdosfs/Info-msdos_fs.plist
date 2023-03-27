@@ -291,6 +291,7 @@
 	<key>FSImplementation</key>
 	<array>
 		<string>kext</string>
+		<string>userfs</string>
 	</array>
 </dict>
 </plist>

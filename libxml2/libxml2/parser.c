@@ -1747,25 +1747,25 @@ xmlCtxtGrowAttrs(xmlParserCtxtPtr ctxt, int nr) {
     int *attallocs;
     int maxatts;
 
-    if (ctxt->atts == NULL) {
-	maxatts = 55; /* allow for 10 attrs by default */
-	atts = (const xmlChar **)
-	       xmlMalloc(maxatts * sizeof(xmlChar *));
-	if (atts == NULL) goto mem_error;
-	ctxt->atts = atts;
-	attallocs = (int *) xmlMalloc((maxatts / 5) * sizeof(int));
-	if (attallocs == NULL) goto mem_error;
-	ctxt->attallocs = attallocs;
-	ctxt->maxatts = maxatts;
-    } else if (nr + 5 > ctxt->maxatts) {
-	maxatts = (nr + 5) * 2;
-	atts = (const xmlChar **) xmlRealloc((void *) ctxt->atts,
+    if (nr + 5 > ctxt->maxatts) {
+	maxatts = ctxt->maxatts == 0 ? 55 : (nr + 5) * 2;
+	atts = (const xmlChar **) xmlMalloc(
 				     maxatts * sizeof(const xmlChar *));
 	if (atts == NULL) goto mem_error;
+        /* Workaround <rdar://105882275> due to broken custom xmlRealloc() in Canon printer drivers. */
+        if (ctxt->attallocs == NULL)
+	    attallocs = (int *) xmlMalloc((maxatts / 5) * sizeof(int));
+        else
+	    attallocs = (int *) xmlRealloc((void *) ctxt->attallocs,
+	                                 (maxatts / 5) * sizeof(int));
+	if (attallocs == NULL) {
+            xmlFree(atts);
+            goto mem_error;
+        }
+        if (ctxt->maxatts > 0)
+            memcpy(atts, ctxt->atts, ctxt->maxatts * sizeof(const xmlChar *));
+        xmlFree(ctxt->atts);
 	ctxt->atts = atts;
-	attallocs = (int *) xmlRealloc((void *) ctxt->attallocs,
-	                             (maxatts / 5) * sizeof(int));
-	if (attallocs == NULL) goto mem_error;
 	ctxt->attallocs = attallocs;
 	ctxt->maxatts = maxatts;
     }
@@ -1790,16 +1790,17 @@ inputPush(xmlParserCtxtPtr ctxt, xmlParserInputPtr value)
     if ((ctxt == NULL) || (value == NULL))
         return(-1);
     if (ctxt->inputNr >= ctxt->inputMax) {
-        ctxt->inputMax *= 2;
-        ctxt->inputTab =
-            (xmlParserInputPtr *) xmlRealloc(ctxt->inputTab,
-                                             ctxt->inputMax *
-                                             sizeof(ctxt->inputTab[0]));
-        if (ctxt->inputTab == NULL) {
+        size_t newSize = ctxt->inputMax * 2;
+        xmlParserInputPtr *tmp;
+
+        tmp = (xmlParserInputPtr *) xmlRealloc(ctxt->inputTab,
+                                               newSize * sizeof(*tmp));
+        if (tmp == NULL) {
             xmlErrMemory(ctxt, NULL);
-	    ctxt->inputMax /= 2;
             return (-1);
         }
+        ctxt->inputTab = tmp;
+        ctxt->inputMax = newSize;
     }
     ctxt->inputTab[ctxt->inputNr] = value;
     ctxt->input = value;
@@ -4541,7 +4542,8 @@ get_more:
 	    if (*in == ']') {
 		if ((in[1] == ']') && (in[2] == '>')) {
 		    xmlFatalErr(ctxt, XML_ERR_MISPLACED_CDATA_END, NULL);
-		    ctxt->input->cur = in + 1;
+		    if (ctxt->instate != XML_PARSER_EOF)
+			ctxt->input->cur = in + 1;
 		    return;
 		}
 		in++;
@@ -5026,8 +5028,7 @@ get_more:
         if (len > maxLength) {
             xmlFatalErrMsgStr(ctxt, XML_ERR_COMMENT_NOT_FINISHED,
                          "Comment too big found", NULL);
-            if (buf != NULL)
-                xmlFree(buf);
+            xmlFree (buf);
             return;
         }
 	ctxt->input->cur = in;
@@ -5048,8 +5049,7 @@ get_more:
 	SHRINK;
 	GROW;
         if (ctxt->instate == XML_PARSER_EOF) {
-            if (buf != NULL)
-                xmlFree(buf);
+            xmlFree(buf);
             return;
         }
 	in = ctxt->input->cur;
@@ -5083,10 +5083,8 @@ get_more:
 		} else
 		    xmlFatalErrMsgStr(ctxt, XML_ERR_HYPHEN_IN_COMMENT,
 		                      "Double hyphen within comment\n", NULL);
-		/* Check if xmlStopParser() was called in xmlStructuredErrorFunc(). */
                 if (ctxt->instate == XML_PARSER_EOF) {
-		    if (buf != NULL)
-                        xmlFree(buf);
+                    xmlFree(buf);
                     return;
                 }
 		in++;

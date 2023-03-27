@@ -110,6 +110,7 @@ to{
         chm{"lea fakamalī"}
         chn{"lea fakasinuki-takote"}
         cho{"lea fakasokitau"}
+        cho_Latn{"lea fakasokitau"}
         chp{"lea fakasipeuiani"}
         chr{"lea fakaselokī"}
         chy{"lea fakaseiene"}

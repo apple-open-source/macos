@@ -240,8 +240,9 @@ static ParameterError str2double(double *val, const char *str, double max)
 }
 
 /*
- * Parse the string and write the double in the given address. Return PARAM_OK
- * on success, otherwise a parameter error enum. ONLY ACCEPTS POSITIVE NUMBERS!
+ * Parse the string as seconds with decimals, and write the number of
+ * milliseconds that corresponds in the given address. Return PARAM_OK on
+ * success, otherwise a parameter error enum. ONLY ACCEPTS POSITIVE NUMBERS!
  *
  * The 'max' argument is the maximum value allowed, as the numbers are often
  * multiplied when later used.
@@ -251,16 +252,16 @@ static ParameterError str2double(double *val, const char *str, double max)
  * data.
  */
 
-ParameterError str2udouble(double *valp, const char *str, double max)
+ParameterError secs2ms(long *valp, const char *str)
 {
   double value;
-  ParameterError result = str2double(&value, str, max);
+  ParameterError result = str2double(&value, str, (double)LONG_MAX/1000);
   if(result != PARAM_OK)
     return result;
   if(value < 0)
     return PARAM_NEGATIVE_NUMERIC;
 
-  *valp = value;
+  *valp = (long)(value*1000);
   return PARAM_OK;
 }
 
@@ -432,6 +433,7 @@ ParameterError proto2num(struct OperationConfig *config,
     result = curlx_dyn_addf(&obuf, "%s,", protoset[proto]);
   free((char *) protoset);
   curlx_dyn_setlen(&obuf, curlx_dyn_len(&obuf) - 1);
+  free(*ostr);
   *ostr = curlx_dyn_ptr(&obuf);
 
   return *ostr ? PARAM_OK : PARAM_NO_MEM;
@@ -472,7 +474,7 @@ ParameterError str2offset(curl_off_t *val, const char *str)
 
 #if(SIZEOF_CURL_OFF_T > SIZEOF_LONG)
   {
-    CURLofft offt = curlx_strtoofft(str, &endptr, 0, val);
+    CURLofft offt = curlx_strtoofft(str, &endptr, 10, val);
     if(CURL_OFFT_FLOW == offt)
       return PARAM_NUMBER_TOO_LARGE;
     else if(CURL_OFFT_INVAL == offt)

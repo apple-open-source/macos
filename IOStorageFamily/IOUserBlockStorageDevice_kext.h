@@ -88,6 +88,7 @@ private:
 	IORequest * _Atomic *fOutstandingRequests;
 
 	struct DeviceParams fDeviceParams;
+    bool fIsEjectable;
 
 	OSString *fVendorName;
 	OSString *fProductName;
@@ -97,6 +98,22 @@ private:
 	IOPerfControlClient * fPerfControlClient;
 	bool fPoolInitialized;
 
+    /*
+     fSkipStartDev: This flag's purpose is to help us distingues which path are we in and whether should we skip startDev.
+     There are two flows that could be  - Software driver and an actual HW device (NVMe driver for instance).
+
+     Software driver flow:
+        The user is calling Start_Impl (user space) which in it's turn will call startDev (kernel space) and do its magic. in this case we shouldn't ignore StartDev. StartDev is allocating and initializing IOUserBLockStorageDevice members based on deviceParams which in this case is populated. Thus, the flag will stay false and we shouldn't ignore StartDev.
+
+     HW device:
+        When attaching an HW device, it triggers the init->attach->start regular procedure. However, not like in the SW case, the start method (kernel space) is calling to the derived class Start_Impl method (user space - using rpc) which only at the end populates the relevant properties for us to use in StartDev for further initialization.
+            Due to this mechanism, we have to firstly ignore StartDev, and only after the derived class Start_Impl method ends, we will call StartDev to do its magic.
+
+     Because of those different flows and use cases of IOUserBlockStorageDevice class, we are using a flag for indication of which path are we in currently, and act accordingly to that.
+     */
+    bool fSkipStartDev;
+    bool fStartDevStarted;
+    bool fHWPath;
 };
 
 #endif /* _IOUSERBLOCKSTORAGEDEVICE_KEXT_H */

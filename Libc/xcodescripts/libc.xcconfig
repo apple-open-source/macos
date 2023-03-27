@@ -113,13 +113,6 @@ Platform_INCLUDED_SOURCE_FILE_NAMES_gen = $(ARCH_FAMILY)/gen/*.c $(ARCH_FAMILY)/
 // FreeBSD target
 FreeBSD_CFLAGS = -include $(SRCROOT)/fbsdcompat/_fbsd_compat_.h
 FreeBSD_SEARCH_PATHS = $(SRCROOT)/fbsdcompat $(SRCROOT)/gdtoa $(SRCROOT)/gdtoa/FreeBSD
-FreeBSD_EXCLUDED_SOURCE_GDTOA = gdtoa/FreeBSD/machdep* gdtoa-strtopx.c
-// Include the correct parts of gdtoa per-arch
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_$(ARCH_FAMILY))
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_x86_64 = gdtoa-strtopx.c machdep_ldisx.c
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_i386 = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_x86_64)
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_arm = machdep_ldisd.c
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_arm64 = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_arm)
 
 // NetBSD target
 NetBSD_CFLAGS = -include $(SRCROOT)/nbsdcompat/_nbsd_compat_.h

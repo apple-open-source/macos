@@ -322,13 +322,8 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     // Refresh isInCircle since we could have changed our mind
     isInCircle = [self.account isInCircle:NULL];
 
-    uint finalCirclePeerCount = 0;
-    if(isInCircle) {
-        finalCirclePeerCount = SOSCircleCountPeers(self.account.trust.trustedCircle);
-    }
-
-    if(sosIsEnabled && isInCircle && (finalCirclePeerCount < self.initialCirclePeerCount)) {
-        (void) SOSAccountCleanupAllKVSKeys(_account, NULL);
+    if(sosIsEnabled && isInCircle && doCircleChanged) { // was only being triggered if the circle was smaller - this is more agressive
+        (void) SOSAccountCleanupAllKVSKeysIfScheduled(_account, NULL);
     }
 
     mpi = self.account.peerInfo;

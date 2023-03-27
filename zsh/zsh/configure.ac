@@ -28,7 +28,7 @@ dnl
 AC_INIT
 AC_CONFIG_SRCDIR([Src/zsh.h])
 AC_PREREQ([2.69])
-AC_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS([config.h])
 
 dnl What version of zsh are we building ?
 . ${srcdir}/Config/version.mk
@@ -444,9 +444,10 @@ dnl Do you want to look for capability support?
 AC_ARG_ENABLE(cap,
 AS_HELP_STRING([--enable-cap],[enable the search for POSIX capabilities (may require additional headers to be added by hand)]))
 
+# Default off for licensing reasons
 AC_ARG_ENABLE(gdbm,
-AS_HELP_STRING([--disable-gdbm],[turn off search for gdbm library]),
-[gdbm="$enableval"], [gdbm=yes])
+AS_HELP_STRING([--enable-gdbm],[enable the search for the GDBM library (see the zsh/db/gdbm module)]),
+[gdbm="$enableval"], [gdbm=no])
 
 dnl ------------------
 dnl CHECK THE COMPILER
@@ -656,8 +657,6 @@ dnl ------------------
 dnl CHECK HEADER FILES
 dnl ------------------
 AC_HEADER_DIRENT
-AC_HEADER_STDC
-AC_HEADER_TIME
 AC_HEADER_STAT
 AC_HEADER_SYS_WAIT
 
@@ -1136,8 +1135,7 @@ dnl Check for sigset_t.  Currently I'm looking in
 dnl <sys/types.h> and <signal.h>.  Others might need
 dnl to be added.
 AC_CACHE_CHECK(for sigset_t, zsh_cv_type_sigset_t,
-[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#define _POSIX_C_SOURCE 200809L
-#include <sys/types.h>
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 #include <signal.h>]], [[sigset_t tempsigset;]])],[zsh_cv_type_sigset_t=yes],[zsh_cv_type_sigset_t=no])])
 AH_TEMPLATE([sigset_t],
 [Define to `unsigned int' if <sys/types.h> or <signal.h> doesn't define])
@@ -1939,83 +1937,16 @@ zsh_LIMIT_PRESENT(RLIMIT_SIGPENDING)
 zsh_LIMIT_PRESENT(RLIMIT_MSGQUEUE)
 zsh_LIMIT_PRESENT(RLIMIT_NICE)
 zsh_LIMIT_PRESENT(RLIMIT_RTPRIO)
+zsh_LIMIT_PRESENT(RLIMIT_RTTIME)
 zsh_LIMIT_PRESENT(RLIMIT_POSIXLOCKS)
 zsh_LIMIT_PRESENT(RLIMIT_NPTS)
 zsh_LIMIT_PRESENT(RLIMIT_SWAP)
 zsh_LIMIT_PRESENT(RLIMIT_KQUEUES)
 zsh_LIMIT_PRESENT(RLIMIT_UMTXP)
 
-AH_TEMPLATE([RLIMIT_VMEM_IS_RSS],
-[Define to 1 if RLIMIT_VMEM and RLIMIT_RSS both exist and are equal.])
-AC_CACHE_CHECK(if RLIMIT_VMEM and RLIMIT_RSS are the same,
-zsh_cv_rlimit_vmem_is_rss,
-[AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#include <sys/types.h>
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-#include <sys/resource.h>
-int main()
-{
-int ret = 1;
-#if defined(HAVE_RLIMIT_VMEM) && defined(HAVE_RLIMIT_RSS)
-if (RLIMIT_RSS == RLIMIT_VMEM) ret = 0;
-#endif
-return ret;
-}]])],[zsh_cv_rlimit_vmem_is_rss=yes],[zsh_cv_rlimit_vmem_is_rss=no],[zsh_cv_rlimit_vmem_is_rss=no])])
-
-if test x$zsh_cv_rlimit_vmem_is_rss = xyes; then
-  AC_DEFINE(RLIMIT_VMEM_IS_RSS)
-fi
-
-
-AH_TEMPLATE([RLIMIT_VMEM_IS_AS],
-[Define to 1 if RLIMIT_VMEM and RLIMIT_AS both exist and are equal.])
-AC_CACHE_CHECK(if RLIMIT_VMEM and RLIMIT_AS are the same,
-zsh_cv_rlimit_vmem_is_as,
-[AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#include <sys/types.h>
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-#include <sys/resource.h>
-int main()
-{
-int ret = 1;
-#if defined(HAVE_RLIMIT_VMEM) && defined(HAVE_RLIMIT_AS)
-if (RLIMIT_AS == RLIMIT_VMEM) ret = 0;
-#endif
-return ret;
-}]])],[zsh_cv_rlimit_vmem_is_as=yes],[zsh_cv_rlimit_vmem_is_as=no],[zsh_cv_rlimit_vmem_is_as=no])])
-
-if test x$zsh_cv_rlimit_vmem_is_as = xyes; then
-  AC_DEFINE(RLIMIT_VMEM_IS_AS)
-fi
-
-
-AH_TEMPLATE([RLIMIT_RSS_IS_AS],
-[Define to 1 if RLIMIT_RSS and RLIMIT_AS both exist and are equal.])
-AC_CACHE_CHECK(if RLIMIT_RSS and RLIMIT_AS are the same,
-zsh_cv_rlimit_rss_is_as,
-[AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#include <sys/types.h>
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-#include <sys/resource.h>
-int main()
-{
-int ret = 1;
-#if defined(HAVE_RLIMIT_RSS) && defined(HAVE_RLIMIT_AS)
-if (RLIMIT_AS == RLIMIT_RSS) ret = 0;
-#endif
-return ret;
-}]])],[zsh_cv_rlimit_rss_is_as=yes],[zsh_cv_rlimit_rss_is_as=no],[zsh_cv_rlimit_rss_is_as=no])])
-
-if test x$zsh_cv_rlimit_rss_is_as = xyes; then
-  AC_DEFINE(RLIMIT_RSS_IS_AS)
-fi
-
+zsh_LIMITS_EQUAL(VMEM, vmem, RSS, rss)
+zsh_LIMITS_EQUAL(VMEM, vmem, AS, as)
+zsh_LIMITS_EQUAL(RSS, rss, AS, as)
 
 dnl --------------------------------------------
 dnl Check for members of struct rusage
@@ -2133,44 +2064,18 @@ AH_TEMPLATE([HAVE_SETPROCTITLE],
 AC_CHECK_FUNC(setproctitle,AC_DEFINE(HAVE_SETPROCTITLE),
 AC_SEARCH_LIBS(setproctitle,util,AC_DEFINE(HAVE_SETPROCTITLE)))
 
-dnl -------------
-dnl CHECK FOR NIS
-dnl -------------
-AH_TEMPLATE([HAVE_NIS],
-[Define to 1 if you have NIS.])
-AC_CACHE_CHECK(for NIS, zsh_cv_sys_nis,
-[test -f /usr/bin/ypcat && /usr/bin/ypcat passwd.byname > /dev/null 2>&1 && \
-zsh_cv_sys_nis=yes || zsh_cv_sys_nis=no])
-if test x$zsh_cv_sys_nis = xyes; then
-  AC_DEFINE(HAVE_NIS)
-dnl RPC is removed from glibc-2.26 and replaced by libtirpc
-  AC_CHECK_HEADER(rpc/rpc.h, [],
-  [test -f /usr/include/tirpc/rpc/rpc.h && \
-   CPPFLAGS="$CPPFLAGS -I/usr/include/tirpc"])
-dnl Some systems (Solaris 2.x, Linux Redhat 5.x) require
-dnl libnsl (Network Services Library) to find yp_all
-  AC_SEARCH_LIBS(yp_all, nsl)
-fi
-
-dnl -----------------
-dnl CHECK FOR NISPLUS
-dnl -----------------
-AH_TEMPLATE([HAVE_NIS_PLUS],
-[Define to 1 if you have NISPLUS.])
-AC_CACHE_CHECK(for NIS+, zsh_cv_sys_nis_plus,
-[test x$ac_cv_func_nis_list = xyes && test -f /usr/bin/nisls && \
- /usr/bin/nisls > /dev/null 2>&1 && \
-zsh_cv_sys_nis_plus=yes || zsh_cv_sys_nis_plus=no])
-if test x$zsh_cv_sys_nis_plus = xyes; then
-  AC_DEFINE(HAVE_NIS_PLUS)
-fi
+dnl CHECK FOR prctl() FOR jobs -Z / ARGV0 when checking with ps -e
+AH_TEMPLATE([HAVE_PRCTL],
+[Define to 1 if the system supports `prctl' to change process name])
+AC_CHECK_FUNC(prctl,AC_DEFINE(HAVE_PRCTL),
+AC_SEARCH_LIBS(prctl,c,AC_DEFINE(HAVE_PRCTL)))
 
 dnl ----------------------------------------
 dnl CHECK FOR LOCATION OF {U,W}TMP{,X} FILES
 dnl ----------------------------------------
 zsh_PATH_UTMP(utmp)
 zsh_PATH_UTMP(wtmp)
-zsh_PATH_UTMP(utmpx)
+zsh_PATH_UTMP(utmpx,utx.active)
 zsh_PATH_UTMP(wtmpx)
 
 dnl -------------------
@@ -2302,6 +2207,65 @@ AH_TEMPLATE([HAVE_FIFOS],
 [Define to 1 if system has working FIFOs.])
 if test x$zsh_cv_sys_fifo = xyes; then
   AC_DEFINE(HAVE_FIFOS)
+fi
+
+dnl -----------
+dnl check that lseek() correctly reports seekability.
+dnl -----------
+AC_CACHE_CHECK(if lseek() correctly reports seekability,
+zsh_cv_sys_lseek,
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <stdio.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+int main() {
+    int pipefd[2], fd;
+    off_t ret;
+    char* tmpfile = "seekfiletest.tmp";
+    if ((fd = open(tmpfile, O_CREAT, S_IRUSR)) < 0) {
+	fprintf(stderr, "creating file failed\n");
+	return 1;
+    }
+    ret = lseek(fd, 0, SEEK_CUR);
+    close(fd);
+    unlink(tmpfile);
+    if (ret == (off_t)-1) {
+	fprintf(stderr, "lseek on regular file failed\n");
+	return 1;
+    }
+    if (pipe(pipefd) < 0) {
+	fprintf(stderr, "creating pipe failed\n");
+	return 1;
+    }
+    write(pipefd[1], "abcdefgh", 8);
+    ret = lseek(pipefd[0], 0, SEEK_CUR);
+    close(pipefd[0]);
+    close(pipefd[1]);
+    if (ret != (off_t)-1) {
+	fprintf(stderr, "lseek on pipe succeeded\n");
+	return 1;
+    }
+    if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+	fprintf(stderr, "creating UNIX domain socket failed\n");
+	return 1;
+    }
+    ret = lseek(fd, 0, SEEK_CUR);
+    close(fd);
+    if (ret != (off_t)-1) {
+	fprintf(stderr, "lseek on UNIX domain socket succeeded\n");
+	return 1;
+    }
+    return 0;
+}
+]])],[zsh_cv_sys_lseek=yes],[zsh_cv_sys_lseek=no],[zsh_cv_sys_lseek=yes])
+])
+AH_TEMPLATE([USE_LSEEK],
+[Define to 1 if lseek() can be used for SHIN.])
+if test x$zsh_cv_sys_lseek = xyes; then
+  AC_DEFINE(USE_LSEEK)
 fi
 
 dnl -----------
@@ -2526,7 +2490,7 @@ if test x$ac_cv_have_dev_ptmx = xyes -o x$ac_cv_func_posix_openpt = xyes && \
    test x$ac_cv_func_ptsname = xyes; then
    AC_CACHE_CHECK([if /dev/ptmx is usable],
    ac_cv_use_dev_ptmx,
-   [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#ifdef __linux
+   [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#if defined(__linux) || defined(__CYGWIN__)
 #define _GNU_SOURCE 1
 #endif
 #include <stdlib.h>
@@ -2562,6 +2526,7 @@ wmemcpy wmemmove wmemset; do
       AC_MSG_NOTICE([all functions found, multibyte support enabled])
       zsh_cv_c_unicode_support=yes
     else
+      # Warns at the end of configure
       AC_MSG_NOTICE([missing functions, multibyte support disabled])
       zsh_cv_c_unicode_support=no
     fi
@@ -3267,6 +3232,22 @@ AC_CONFIG_COMMANDS([stamp-h], [echo >stamp-h])
 
 AC_OUTPUT
 
+dnl Copy pre-built man pages and help files, for tarball out-of-tree builds.
+for manpage in `cd ${srcdir} && echo Doc/*.1`; do
+  if test x"$manpage" != x"Doc/*.1" && ! test -e "${manpage}"; then
+    cp ${srcdir}/${manpage} ./Doc/
+  fi
+done
+if ! test -e Doc/help.txt; then
+  cp ${srcdir}/Doc/help.txt ./Doc/
+fi
+mkdir -p ./Doc/help
+for helpfile in `cd ${srcdir} && echo Doc/help/*`; do
+  if test x"$helpfile" != x"Doc/help/*" && ! test -e "${helpfile}"; then
+    cp ${srcdir}/${helpfile} ./Doc/help/
+  fi
+done
+
 eval "zshbin1=${bindir}"
 eval "zshbin2=${zshbin1}"
 eval "zshman1=${mandir}"
@@ -3310,13 +3291,18 @@ fi
 echo "See config.modules for installed modules and functions.
 "
 
-case x$LIBS in
-  *-lgdbm*)
-  echo "WARNING: zsh will be linked against libgdbm.
-This means the binary is covered by the GNU General Public License.
-This does not affect the source code.
-Run configure with --disable-gdbm if required."
-  ;;
-esac
+if test x$zsh_cv_c_unicode_support != xyes; then
+  if test "x$zfuncs_absent" = x; then
+    # The user opted out.
+    AC_MSG_WARN([You have chosen to build without multibyte support.])
+    AC_MSG_WARN([This configuration may not be suitable for production use. It is known to cause errors in 'make test'. We strongly recommend to re-run configure with --enable-multibyte.])
+  else
+    # Some requisite functions are missing.
+    AC_MSG_WARN([Multibyte support cannot be enabled: some standard library functions are missing: $zfuncs_absent])
+    AC_MSG_WARN([This configuration may not be suitable for production use. It is known to cause errors in 'make test'. If your system provides those functions, we recommend to re-run configure appropriately.])
+    # If your system doesn't have those functions, consider patching the
+    # test suite and sending the patch to zsh-workers@ for inclusion.
+  fi
+fi
 
 exit 0

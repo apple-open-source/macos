@@ -135,8 +135,6 @@ void shimKextcacheArgsToKMUtilAndRun(KextcacheArgs *toolArgs)
             // this is the darwinup invocation: `kextcache -Du /`
             addArgument(@"--update-all");
             addArgument(@"--update-preboot");
-        } else {
-            addArgument(@"--check-rebuild");
         }
     }
     // If we're being asked to update the personality cache, then politely decline.

@@ -58,7 +58,7 @@
 
 __private_extern__
 dns_create_config_t
-_dns_configuration_create()
+_dns_configuration_create(void)
 {
 	_dns_config_buf_t	*config;
 
@@ -235,7 +235,7 @@ _dns_configuration_free(dns_create_config_t *_config)
 
 __private_extern__
 dns_create_resolver_t
-_dns_resolver_create()
+_dns_resolver_create(void)
 {
 	_dns_resolver_buf_t	*buf;
 

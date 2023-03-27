@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WebFullScreenController_h
-#define WebFullScreenController_h
+#pragma once
 
 #if ENABLE(FULLSCREEN_API)
 
@@ -36,17 +35,17 @@ class FullScreenControllerClient;
 
 class FullScreenController {
 public:
-    FullScreenController(FullScreenControllerClient*);
-    ~FullScreenController();
+    WEBCORE_EXPORT FullScreenController(FullScreenControllerClient*);
+    WEBCORE_EXPORT ~FullScreenController();
 
 public:
-    void enterFullScreen();
-    void exitFullScreen();
-    void repaintCompleted();
+    WEBCORE_EXPORT void enterFullScreen();
+    WEBCORE_EXPORT void exitFullScreen();
+    WEBCORE_EXPORT void repaintCompleted();
     
-    bool isFullScreen() const;
+    WEBCORE_EXPORT bool isFullScreen() const;
 
-    void close();
+    WEBCORE_EXPORT void close();
 
 protected:
     void enterFullScreenRepaintCompleted();
@@ -57,8 +56,6 @@ protected:
     std::unique_ptr<FullScreenController::Private> m_private;
 };
 
-}
+} // namespace WebCore
 
-#endif
-
-#endif
+#endif // ENABLE(FULLSCREEN_API)

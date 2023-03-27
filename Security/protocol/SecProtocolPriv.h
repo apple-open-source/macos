@@ -188,6 +188,23 @@ void
 sec_protocol_options_set_quic_early_data_context(sec_protocol_options_t options, const uint8_t *context, size_t context_len);
 
 /*!
+ * @function sec_protocol_options_set_nw_protocol_joining_context
+ *
+ * @abstract
+ *      Set the context used for security options comparison when compare mode is joining or joining_proxy.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param context
+ *      A pointer used to identify the joining context.
+ */
+#define SEC_PROTOCOL_HAS_SET_NW_PROTOCOL_JOINING_CONTEXT 1
+SPI_AVAILABLE(macos(13.3), ios(16.4), watchos(9.4), tvos(16.4))
+void
+sec_protocol_options_set_nw_protocol_joining_context(sec_protocol_options_t options, const void * _Nullable context);
+
+/*!
  * @function sec_protocol_options_set_tls_sni_disabled
  *
  * @abstract
@@ -684,16 +701,16 @@ sec_protocol_options_set_tls_ticket_request_count(sec_protocol_options_t options
  * @function sec_protocol_options_set_tls_grease_enabled
  *
  * @abstract
- *      Enable TLS GREASE support. See https://tools.ietf.org/html/draft-ietf-tls-grease-02.
- *
- *      DO NOT DEPEND ON THIS SPI. IT IS FOR EXPERIMENTAL PURPOSES AND SUBJECT TO REMOVAL WITHOUT ADVANCE NOTICE.
- *      BUILD BREAKAGE ISSUES WILL BE SENT TO THE CALLING PROJECT.
+ *      Enable TLS GREASE support.
  *
  * @param options
  *      A `sec_protocol_options_t` instance.
  *
  * @param tls_grease_enabled
- *      Flag to enable TLS GREASE.
+ *      Flag to enable TLS GREASE. Enabled by default for TLS 1.3 and disabled for earlier versions.
+ *
+ * @discussion https://www.rfc-editor.org/rfc/rfc8701.pdf
+ *
  */
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 void
@@ -1531,6 +1548,7 @@ struct sec_protocol_options_content {
     sec_protocol_output_handler_access_block_t output_handler_access_block;
 
     uint8_t * _Nullable quic_early_data_context;
+    const void * _Nullable nw_protocol_joining_context;
     size_t quic_early_data_context_len;
 
     // Boolean flags

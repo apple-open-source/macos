@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -91,6 +91,33 @@
  */
 #define kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled \
 	CFSTR("EAPSIMAKAEncryptedIdentityEnabled")
+
+/*
+ * kEAPSIMAKANotificationActions
+ * - An array that contains dictionaries that define an action
+ *   for the given EAP-AKA/EAP-SIM notification code.
+ *
+ *   Each dictionary contains "Code", "Name", "Description" and "Action" keys.
+ *   - Key "Code" represents a EAP-AKA/EAP-SIM Notification Code.
+ *   - Key "Name" represents name of the notification code
+ *   - Key "Description" represents description of the notification code.
+ *   - Key "Action" represents action to be taken for the notification code.
+ *
+ */
+#define kEAPSIMAKANotificationActions \
+	CFSTR("EAPSIMAKANotificationActions") /* array of dictionaries */
+
+#define kEAPSIMAKANotificationActionInfoCode \
+	CFSTR("Code") 		/* integer */
+
+#define kEAPSIMAKANotificationActionInfoName \
+	CFSTR("Name") 		/* string */
+
+#define kEAPSIMAKANotificationActionInfoDescription \
+	CFSTR("Description") 	/* string */
+
+#define kEAPSIMAKANotificationActionInfoAction \
+	CFSTR("Action") 	/* string */
 
 /*
  * kEAPClientPropTLSTrustExceptionsDomain 
@@ -246,6 +273,8 @@
 	CFSTR("TLSNegotiatedCipher")	/* integer (UInt32) */
 
 #define kEAPClientPropEAPFASTPACWasProvisioned	CFSTR("EAPFASTPACWasProvisioned") /* boolean */
+
+#define kEAPClientEAPAKASIMNotificationActionInfo CFSTR("EAPAKASIMNotificationActionInfo") /* dictionary */
 
 /* 
  * Deprecated/unused properties

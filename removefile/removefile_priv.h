@@ -35,6 +35,7 @@ struct _removefile_state {
 	int error_num;  // clear on proceed
 	removefile_callback_t status_callback;
 	void * status_context;
+	uint8_t runtime_flags;
 
 	// globals for srm
 	int urand_file;

@@ -21,20 +21,25 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>rdar://problem/3960539</string>
-		<string>rdar://problem/4723997</string>
-		<string>rdar://problem/5014269</string>
+		<string>rdar://problem/6139288</string>
 		<string>rdar://problem/6514625</string>
-		<string>rdar://problem/8371582</string>
-		<string>rdar://problem/8677255</string>
-		<string>rdar://problem/9791139</string>
-		<string>rdar://problem/10141425</string>
-		<string>rdar://problem/10646045</string>
-		<string>rdar://problem/10646344</string>
-		<string>rdar://problem/10734584</string>
-		<string>rdar://problem/10734593</string>
-		<string>rdar://problem/10772343</string>
-		<string>rdar://problem/12751928</string>
-		<string>rdar://problem/12938958</string>
+		<string>rdar://problem/27417540</string>
+		<string>rdar://problem/27625481</string>
+		<string>rdar://problem/28826389</string>
+		<string>rdar://problem/29588172</string>
+		<string>rdar://problem/29880346</string>
+		<string>rdar://problem/29913518</string>
+		<string>rdar://problem/30428434</string>
+		<string>rdar://problem/31067828</string>
+		<string>rdar://problem/31085453</string>
+		<string>rdar://problem/31661619</string>
+		<string>rdar://problem/31668583</string>
+		<string>rdar://problem/31780841</string>
+		<string>rdar://problem/31799991</string>
+		<string>rdar://problem/32694214</string>
+		<string>rdar://problem/32880643</string>
+		<string>rdar://problem/39849910</string>
+		<string>rdar://problem/93538266</string>
 	</array>
 </dict>
 </plist>

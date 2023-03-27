@@ -108,15 +108,7 @@
 
 - (SecTrustRef)serverTrust
 {
-#if HAVE(SEC_TRUST_SERIALIZATION)
-    auto certificateInfo = _page->pageLoadState().certificateInfo();
-    if (!certificateInfo)
-        return nil;
-
-    return certificateInfo->certificateInfo().trust();
-#else
-    return nil;
-#endif
+    return _page->pageLoadState().certificateInfo().trust().get();
 }
 
 @end

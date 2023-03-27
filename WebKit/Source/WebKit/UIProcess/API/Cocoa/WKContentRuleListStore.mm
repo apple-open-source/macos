@@ -30,7 +30,6 @@
 #import "APIContentRuleListStore.h"
 #import "NetworkCacheFileSystem.h"
 #import "WKErrorInternal.h"
-#import "_WKUserContentFilterPrivate.h"
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/CompletionHandler.h>
@@ -174,9 +173,14 @@ static WKErrorCode toWKErrorCode(const std::error_code& error)
     auto handler = adoptNS([completionHandler copy]);
     _contentRuleListStore->getContentRuleListSource(identifier, [handler](String source) {
         auto rawHandler = (void (^)(NSString *))handler.get();
-        if (source.isNull())
+        if (source.isNull()) {
+            // This should not be necessary since there are no nullability annotations
+            // in this file or any other unified source combined herein.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
             rawHandler(nil);
-        else
+#pragma clang diagnostic pop
+        } else
             rawHandler(source);
     });
 #endif
@@ -198,20 +202,6 @@ static WKErrorCode toWKErrorCode(const std::error_code& error)
 #else
     return nil;
 #endif
-}
-
-- (void)compileContentExtensionForIdentifier:(NSString *)identifier encodedContentExtension:(NSString *)encodedContentExtension completionHandler:(void (^)(_WKUserContentFilter *, NSError *))completionHandler
-{
-    [self compileContentRuleListForIdentifier:identifier encodedContentRuleList:encodedContentExtension completionHandler:[completionHandler = makeBlockPtr(completionHandler)] (WKContentRuleList *contentRuleList, NSError *error) {
-        completionHandler(contentRuleList ? adoptNS([[_WKUserContentFilter alloc] _initWithWKContentRuleList:contentRuleList]).get() : nil, error);
-    }];
-}
-
-- (void)lookupContentExtensionForIdentifier:(NSString *)identifier completionHandler:(void (^)(_WKUserContentFilter *, NSError *))completionHandler
-{
-    [self lookUpContentRuleListForIdentifier:identifier completionHandler:[completionHandler = makeBlockPtr(completionHandler)] (WKContentRuleList *contentRuleList, NSError *error) {
-        completionHandler(contentRuleList ? adoptNS([[_WKUserContentFilter alloc] _initWithWKContentRuleList:contentRuleList]).get() : nil, error);
-    }];
 }
 
 - (void)removeContentExtensionForIdentifier:(NSString *)identifier completionHandler:(void (^)(NSError *))completionHandler

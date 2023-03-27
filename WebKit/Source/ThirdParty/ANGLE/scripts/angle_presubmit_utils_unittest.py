@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2020 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,11 +6,13 @@
 angle_presubmit_utils_unittest.py: Top-level unittest script for ANGLE presubmit checks.
 """
 
-import imp
+import importlib.machinery
 import os
+import pathlib
+import sys
+import tempfile
 import unittest
 from angle_presubmit_utils import *
-
 
 def SetCWDToAngleFolder():
     angle_folder = "angle"
@@ -21,7 +23,8 @@ def SetCWDToAngleFolder():
 
 SetCWDToAngleFolder()
 
-PRESUBMIT = imp.load_source('PRESUBMIT', 'PRESUBMIT.py')
+loader = importlib.machinery.SourceFileLoader('PRESUBMIT', 'PRESUBMIT.py')
+PRESUBMIT = loader.load_module()
 
 
 class CommitMessageFormattingCheckTest(unittest.TestCase):
@@ -313,6 +316,131 @@ bbbbbbbbbbbbbbbbbbbb
 
 Change-Id: I443c36aaa8956c20da1abddf7aea613659e2cd5b"""
         errors = self.run_check_commit_message_formatting(commit_msg)
+        self.assertEqual(len(errors), 0)
+
+
+class GClientFileExistenceCheck(unittest.TestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(GClientFileExistenceCheck, self).__init__(*args, **kwargs)
+        self.output_api = OutputAPI_mock()
+
+    def run_gclient_presubmit(self, cwd, search_limit):
+        input_api = InputAPI_mock('')
+        input_api.cwd = cwd
+        return PRESUBMIT._CheckGClientExists(input_api, self.output_api,
+                                             pathlib.Path(search_limit))
+
+    def test_gclient_in_cwd(self):
+        with tempfile.TemporaryDirectory() as cwd:
+            pathlib.Path(cwd).joinpath('.gclient').touch()
+            errors = self.run_gclient_presubmit(cwd, cwd)
+            self.assertEqual(len(errors), 0)
+
+    def test_missing_gclient(self):
+        with tempfile.TemporaryDirectory() as cwd:
+            errors = self.run_gclient_presubmit(cwd, cwd)
+            self.assertEqual(len(errors), 1)
+            self.assertEqual(errors[0], self.output_api.PresubmitError('Missing .gclient file.'))
+
+    def test_gclient_in_parent(self):
+        with tempfile.TemporaryDirectory() as cwd:
+            cwd = pathlib.Path(cwd)
+            cwd.joinpath('.gclient').touch()
+            inner = cwd.joinpath('inner')
+            inner.mkdir()
+            errors = self.run_gclient_presubmit(str(inner), str(cwd))
+            self.assertEqual(len(errors), 0)
+
+
+class CheckShaderVersionInShaderLangHeaderTest(unittest.TestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(CheckShaderVersionInShaderLangHeaderTest, self).__init__(*args, **kwargs)
+        self.output_api = OutputAPI_mock()
+
+    def run_shader_version_check_presubmit(self, commit_msg, diffs):
+        affected_files = [AffectedFile_mock(diff) for diff in diffs]
+        input_api = InputAPI_mock(commit_msg, affected_files)
+        return PRESUBMIT._CheckShaderVersionInShaderLangHeader(input_api, self.output_api)
+
+    def test_headers_not_changed(self):
+        errors = self.run_shader_version_check_presubmit('', [])
+        self.assertEqual(len(errors), 0)
+
+    def test_shader_lang_changed_with_version_change(self):
+        shader_lang_diff = """-#define ANGLE_SH_VERSION 100
++#define ANGLE_SH_VERSION 101
+"""
+
+        errors = self.run_shader_version_check_presubmit('', [shader_lang_diff])
+        self.assertEqual(len(errors), 0)
+
+    def test_both_changed_with_version_change(self):
+        shader_lang_diff = """-#define ANGLE_SH_VERSION 100
++#define ANGLE_SH_VERSION 101
+"""
+        shader_vars_diff = """-any change"""
+
+        errors = self.run_shader_version_check_presubmit('', [shader_lang_diff, shader_vars_diff])
+        self.assertEqual(len(errors), 0)
+
+    def test_shader_lang_changed_with_no_version_change(self):
+        shader_lang_diff = """+some change"""
+
+        errors = self.run_shader_version_check_presubmit('', [shader_lang_diff])
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(
+            errors[0],
+            self.output_api.PresubmitError(
+                'ANGLE_SH_VERSION should be incremented when ShaderLang.h or ShaderVars.h change.')
+        )
+
+    def test_shader_lang_changed_with_no_version_change(self):
+        shader_lang_diff = """+some change
+ #define ANGLE_SH_VERSION 100
+-other changes"""
+
+        errors = self.run_shader_version_check_presubmit('', [shader_lang_diff])
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(
+            errors[0],
+            self.output_api.PresubmitError(
+                'ANGLE_SH_VERSION should be incremented when ShaderLang.h or ShaderVars.h change.')
+        )
+
+    def test_shader_lang_changed_with_version_cosmetic_change(self):
+        shader_lang_diff = """-#define ANGLE_SH_VERSION 100
++#define ANGLE_SH_VERSION 100 // cosmetic change
+"""
+
+        errors = self.run_shader_version_check_presubmit('', [shader_lang_diff])
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(
+            errors[0],
+            self.output_api.PresubmitError(
+                'ANGLE_SH_VERSION should be incremented when ShaderLang.h or ShaderVars.h change.')
+        )
+
+    def test_shader_lang_changed_with_version_decrement(self):
+        shader_lang_diff = """-#define ANGLE_SH_VERSION 100
++#define ANGLE_SH_VERSION 99
+"""
+
+        errors = self.run_shader_version_check_presubmit('', [shader_lang_diff])
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(
+            errors[0],
+            self.output_api.PresubmitError(
+                'ANGLE_SH_VERSION should be incremented when ShaderLang.h or ShaderVars.h change.')
+        )
+
+    def test_shader_lang_changed_in_revert(self):
+        shader_lang_diff = """-#define ANGLE_SH_VERSION 100
++#define ANGLE_SH_VERSION 99
+"""
+
+        errors = self.run_shader_version_check_presubmit('Revert some change', [shader_lang_diff])
         self.assertEqual(len(errors), 0)
 
 

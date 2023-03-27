@@ -185,7 +185,7 @@ static inline RetainPtr<ASCWebAuthenticationExtensionsClientInputs> toASCExtensi
 static inline void setGlobalFrameIDForContext(RetainPtr<ASCCredentialRequestContext> requestContext, std::optional<WebCore::GlobalFrameIdentifier> globalFrameID)
 {
     if (globalFrameID && [requestContext respondsToSelector:@selector(setGlobalFrameID:)]) {
-        auto asGlobalFrameID = adoptNS([allocASGlobalFrameIdentifierInstance() initWithPageID:[NSNumber numberWithUnsignedLong:globalFrameID->pageID.toUInt64()] frameID:[NSNumber numberWithUnsignedLong:globalFrameID->frameID.toUInt64()]]);
+        auto asGlobalFrameID = adoptNS([allocASGlobalFrameIdentifierInstance() initWithPageID:[NSNumber numberWithUnsignedLong:globalFrameID->pageID.toUInt64()] frameID:[NSNumber numberWithUnsignedLong:globalFrameID->frameID.object().toUInt64()]]);
         requestContext.get().globalFrameID = asGlobalFrameID.get();
     }
 }
@@ -462,10 +462,8 @@ static inline void continueAfterRequest(RetainPtr<id <ASCCredentialProtocol>> cr
     AuthenticatorAttachment attachment;
     if ([rawAttachment isEqualToString:@"platform"])
         attachment = AuthenticatorAttachment::Platform;
-    else {
-        ASSERT([rawAttachment isEqualToString:@"cross-platform"]);
+    else
         attachment = AuthenticatorAttachment::CrossPlatform;
-    }
 
     handler(response, attachment, exceptionData);
 }
@@ -525,19 +523,32 @@ void WebAuthenticatorCoordinatorProxy::performRequest(RetainPtr<ASCCredentialReq
     }).get()];
 }
 
-void WebAuthenticatorCoordinatorProxy::isConditionalMediationAvailable(QueryCompletionHandler&& handler)
+static inline bool canCurrentProcessAccessPasskeysForRelyingParty(const WebCore::SecurityOriginData& data)
 {
-    handler([getASCWebKitSPISupportClass() shouldUseAlternateCredentialStore]);
+    if ([getASCWebKitSPISupportClass() respondsToSelector:@selector(canCurrentProcessAccessPasskeysForRelyingParty:)])
+        return [getASCWebKitSPISupportClass() canCurrentProcessAccessPasskeysForRelyingParty:data.securityOrigin()->domain()];
+    return false;
+}
+
+void WebAuthenticatorCoordinatorProxy::isConditionalMediationAvailable(const WebCore::SecurityOriginData& data, QueryCompletionHandler&& handler)
+{
+    if (canCurrentProcessAccessPasskeysForRelyingParty(data)) {
+        handler([getASCWebKitSPISupportClass() shouldUseAlternateCredentialStore]);
+        return;
+    }
+    handler(false);
 }
 
 void WebAuthenticatorCoordinatorProxy::isUserVerifyingPlatformAuthenticatorAvailable(const SecurityOriginData& data, QueryCompletionHandler&& handler)
 {
-    if ([getASCWebKitSPISupportClass() shouldUseAlternateCredentialStore]) {
-        handler(![getASCWebKitSPISupportClass() respondsToSelector:@selector(arePasskeysDisallowedForRelyingParty:)] || ![getASCWebKitSPISupportClass() arePasskeysDisallowedForRelyingParty:data.securityOrigin()->domain()]);
-        return;
+    if (canCurrentProcessAccessPasskeysForRelyingParty(data)) {
+        if ([getASCWebKitSPISupportClass() shouldUseAlternateCredentialStore]) {
+            handler(![getASCWebKitSPISupportClass() respondsToSelector:@selector(arePasskeysDisallowedForRelyingParty:)] || ![getASCWebKitSPISupportClass() arePasskeysDisallowedForRelyingParty:data.securityOrigin()->domain()]);
+            return;
+        }
+        handler(LocalService::isAvailable());
     }
-
-    handler(LocalService::isAvailable());
+    handler(false);
 }
 
 void WebAuthenticatorCoordinatorProxy::cancel()

@@ -172,17 +172,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         }
     }
 
-    if ((actargs[kcreatesnapshot].present) || (actargs[klastsealedsnapshot].present)) {
-        if ((role != APFS_VOL_ROLE_SYSTEM)) {
-            blesscontextprintf(context, kBLLogLevelError, "Can't use last-sealed-snapshot or create-snapshot on non system volume\n");
-            return 2;
-        }
-        if (false == isARV) {
-            blesscontextprintf(context, kBLLogLevelError, "Can't use last-sealed-snapshot or create-snapshot on non ARV volume\n");
-            return 2;
-        }
-    }
-
     /* If user gave options that require boot.efi creation, do it now. */
     if(actargs[kbootefi].present) {
         if(!actargs[kbootefi].hasArg) {
@@ -546,50 +535,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 					}
 					
                 }
-                
-                
-				
-                if (actargs[ksnapshot].present) {
-                    CFStringRef bsd;
-                    char c_bsd[64] = _PATH_DEV;
-                    uuid_string_t vol_uuid;
-                    struct statfs *mnts;
-                    int livefs, i, mntsize = 0;
-
-                    bsd = BLGetAPFSBlessedVolumeBSDName(context, actargs[kmount].argument, actargs[kfolder].argument, vol_uuid);
-                    if (!bsd) {
-                        blesscontextprintf(context, kBLLogLevelError, "Couldn't find a valid volume UUID in the boot path: %s\n",
-                                           actargs[kfolder].argument);
-                        return 3;
-                    }
-
-                    CFStringGetCString(bsd, c_bsd + strlen(_PATH_DEV),
-                                        sizeof c_bsd - strlen(_PATH_DEV),
-                                        kCFStringEncodingUTF8);
-
-                    mntsize = getmntinfo(&mnts, MNT_NOWAIT);
-                    for (i = 0; i < mntsize; i++) {
-                        if (strcmp(mnts[i].f_mntfromname, c_bsd) == 0) break;
-                    }
-
-                    if (i < mntsize) {
-                        livefs = (!strlen(actargs[ksnapshot].argument));
-                        ret = BLSetAPFSSnapshotBlessData(context, mnts[i].f_mntonname, actargs[ksnapshot].argument);
-                        if (ret) {
-                            blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for APFS snapshot %s: %s\n",
-                                               livefs ? "live file system" : actargs[ksnapshot].argument, strerror(errno));
-                            return 4;
-                        } else {
-                            blesscontextprintf(context, kBLLogLevelVerbose,  "blessed snapshot = %s\n",
-                                                livefs ? "live file system" : actargs[ksnapshot].argument);
-                        }
-                    } else {
-                        blesscontextprintf(context, kBLLogLevelError, "Cant set blessed snapshot for unmounted blessed APFS volume: %s.\n", c_bsd);
-                        return 5;
-                    }
-
-                    CFRelease(bsd);
-                }
             }
 
 
@@ -600,7 +545,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
                 bootEFISource = bootEFISource + strlen(actargs[kmount].argument);
             }
             ret = BlessPrebootVolume(context, sb.f_mntfromname + 5, bootEFISource, labeldata, labeldata2,
-                                     actargs);
+                                     true, actargs);
             if (ret) {
                 blesscontextprintf(context, kBLLogLevelError,  "Couldn't bless the APFS preboot volume for volume mounted at %s: %s\n",
                                    actargs[kmount].argument, strerror(errno));

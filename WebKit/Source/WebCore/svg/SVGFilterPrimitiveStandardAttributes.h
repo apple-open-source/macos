@@ -54,6 +54,7 @@ public:
     OptionSet<FilterEffectGeometry::Flags> effectGeometryFlags() const;
 
     virtual Vector<AtomString> filterEffectInputsNames() const { return { }; }
+    virtual bool isIdentity() const { return false; }
     virtual IntOutsets outsets(const FloatRect&, SVGUnitTypes::SVGUnitType) const { return { }; }
     RefPtr<FilterEffect> filterEffect(const FilterEffectVector&, const GraphicsContext& destinationContext);
 
@@ -63,7 +64,7 @@ public:
     static void invalidateFilterPrimitiveParent(SVGElement*);
 
 protected:
-    SVGFilterPrimitiveStandardAttributes(const QualifiedName&, Document&);
+    SVGFilterPrimitiveStandardAttributes(const QualifiedName&, Document&, UniqueRef<SVGPropertyRegistry>&&);
 
     void parseAttribute(const QualifiedName&, const AtomString&) override;
     void svgAttributeChanged(const QualifiedName&) override;

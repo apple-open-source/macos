@@ -51,15 +51,3 @@ int terminate_with_reason(int pid, uint32_t reasonNamespace, uint64_t reasonCode
 #define OS_REASON_WEBKIT 31
 
 #endif
-
-namespace WebKit {
-
-enum class ReasonCode : uint64_t {
-    WatchdogTimerFired,
-    Invalidation,
-    ConnectionKilled,
-};
-
-void terminateWithReason(xpc_connection_t, ReasonCode, const char* reason);
-
-}

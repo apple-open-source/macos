@@ -20,22 +20,10 @@
 #include "config.h"
 #include "WebKitWebPage.h"
 
-#include "APIArray.h"
-#include "APIDictionary.h"
-#include "APIError.h"
-#include "APINumber.h"
 #include "APIString.h"
-#include "APIURLRequest.h"
-#include "APIURLResponse.h"
-#include "ImageOptions.h"
 #include "InjectedBundle.h"
 #include "WebContextMenuItem.h"
-#include "WebImage.h"
-#include "WebKitConsoleMessagePrivate.h"
 #include "WebKitContextMenuPrivate.h"
-#include "WebKitDOMDocumentPrivate.h"
-#include "WebKitDOMElementPrivate.h"
-#include "WebKitDOMNodePrivate.h"
 #include "WebKitFramePrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitScriptWorldPrivate.h"
@@ -43,11 +31,13 @@
 #include "WebKitURIResponsePrivate.h"
 #include "WebKitUserMessagePrivate.h"
 #include "WebKitWebEditorPrivate.h"
+#include "WebKitWebFormManagerPrivate.h"
 #include "WebKitWebHitTestResultPrivate.h"
 #include "WebKitWebPagePrivate.h"
 #include "WebKitWebProcessEnumTypes.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
+#include <WebCore/ContextMenuContext.h>
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/Frame.h>
@@ -56,9 +46,17 @@
 #include <WebCore/FrameView.h>
 #include <WebCore/HTMLFormElement.h>
 #include <glib/gi18n-lib.h>
+#include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
+
+#if !ENABLE(2022_GLIB_API)
+#include "WebKitConsoleMessagePrivate.h"
+#include "WebKitDOMDocumentPrivate.h"
+#include "WebKitDOMElementPrivate.h"
+#include "WebKitDOMNodePrivate.h"
+#endif
 
 using namespace WebKit;
 using namespace WebCore;
@@ -73,8 +71,10 @@ enum {
     DOCUMENT_LOADED,
     SEND_REQUEST,
     CONTEXT_MENU,
+#if !ENABLE(2022_GLIB_API)
     CONSOLE_MESSAGE_SENT,
     FORM_CONTROLS_ASSOCIATED,
+#endif
     FORM_CONTROLS_ASSOCIATED_FOR_FRAME,
     WILL_SUBMIT_FORM,
     USER_MESSAGE_RECEIVED,
@@ -96,6 +96,7 @@ struct _WebKitWebPagePrivate {
     CString uri;
 
     GRefPtr<WebKitWebEditor> webEditor;
+    HashMap<WebKitScriptWorld*, GRefPtr<WebKitWebFormManager>> formManagerMap;
 };
 
 static guint signals[LAST_SIGNAL] = { 0, };
@@ -157,12 +158,6 @@ static void webkitWebPageSetURI(WebKitWebPage* webPage, const CString& uri)
 
     webPage->priv->uri = uri;
     g_object_notify_by_pspec(G_OBJECT(webPage), sObjProperties[PROP_URI]);
-}
-
-static void webkitWebPageDidSendConsoleMessage(WebKitWebPage* webPage, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
-{
-    WebKitConsoleMessage consoleMessage(source, level, message, lineNumber, sourceID);
-    g_signal_emit(webPage, signals[CONSOLE_MESSAGE_SENT], 0, &consoleMessage);
 }
 
 class PageLoaderClient final : public API::InjectedBundle::PageLoaderClient {
@@ -240,6 +235,13 @@ private:
     WebKitWebPage* m_webPage;
 };
 
+#if !ENABLE(2022_GLIB_API)
+static void webkitWebPageDidSendConsoleMessage(WebKitWebPage* webPage, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
+{
+    WebKitConsoleMessage consoleMessage(source, level, message, lineNumber, sourceID);
+    g_signal_emit(webPage, signals[CONSOLE_MESSAGE_SENT], 0, &consoleMessage);
+}
+#endif
 
 class PageResourceLoadClient final : public API::InjectedBundle::ResourceLoadClient {
 public:
@@ -249,16 +251,6 @@ public:
     }
 
 private:
-    void didInitiateLoadForResource(WebPage& page, WebFrame& frame, WebCore::ResourceLoaderIdentifier identifier, const ResourceRequest& request, bool) override
-    {
-        API::Dictionary::MapType message;
-        message.set(String::fromUTF8("Page"), &page);
-        message.set(String::fromUTF8("Frame"), &frame);
-        message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier.toUInt64()));
-        message.set(String::fromUTF8("Request"), API::URLRequest::create(request));
-        WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidInitiateLoadForResource"), API::Dictionary::create(WTFMove(message)).ptr());
-    }
-
     void willSendRequestForFrame(WebPage& page, WebFrame&, WebCore::ResourceLoaderIdentifier identifier, ResourceRequest& resourceRequest, const ResourceResponse& redirectResourceResponse) override
     {
         GRefPtr<WebKitURIRequest> request = adoptGRef(webkitURIRequestCreateForResourceRequest(resourceRequest));
@@ -272,24 +264,11 @@ private:
         }
 
         webkitURIRequestGetResourceRequest(request.get(), resourceRequest);
-
-        API::Dictionary::MapType message;
-        message.set(String::fromUTF8("Page"), &page);
-        message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier.toUInt64()));
-        message.set(String::fromUTF8("Request"), API::URLRequest::create(resourceRequest));
-        if (!redirectResourceResponse.isNull())
-            message.set(String::fromUTF8("RedirectResponse"), API::URLResponse::create(redirectResourceResponse));
-        WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidSendRequestForResource"), API::Dictionary::create(WTFMove(message)).ptr());
     }
 
+#if !ENABLE(2022_GLIB_API)
     void didReceiveResponseForResource(WebPage& page, WebFrame&, WebCore::ResourceLoaderIdentifier identifier, const ResourceResponse& response) override
     {
-        API::Dictionary::MapType message;
-        message.set(String::fromUTF8("Page"), &page);
-        message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier.toUInt64()));
-        message.set(String::fromUTF8("Response"), API::URLResponse::create(response));
-        WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidReceiveResponseForResource"), API::Dictionary::create(WTFMove(message)).ptr());
-
         // Post on the console as well to be consistent with the inspector.
         if (response.httpStatusCode() >= 400) {
             String errorMessage = makeString("Failed to load resource: the server responded with a status of ", response.httpStatusCode(), " (", response.httpStatusText(), ')');
@@ -297,31 +276,8 @@ private:
         }
     }
 
-    void didReceiveContentLengthForResource(WebPage& page, WebFrame&, WebCore::ResourceLoaderIdentifier identifier, uint64_t contentLength) override
-    {
-        API::Dictionary::MapType message;
-        message.set(String::fromUTF8("Page"), &page);
-        message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier.toUInt64()));
-        message.set(String::fromUTF8("ContentLength"), API::UInt64::create(contentLength));
-        WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidReceiveContentLengthForResource"), API::Dictionary::create(WTFMove(message)).ptr());
-    }
-
-    void didFinishLoadForResource(WebPage& page, WebFrame&, WebCore::ResourceLoaderIdentifier identifier) override
-    {
-        API::Dictionary::MapType message;
-        message.set(String::fromUTF8("Page"), &page);
-        message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier.toUInt64()));
-        WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidFinishLoadForResource"), API::Dictionary::create(WTFMove(message)).ptr());
-    }
-
     void didFailLoadForResource(WebPage& page, WebFrame&, WebCore::ResourceLoaderIdentifier identifier, const ResourceError& error) override
     {
-        API::Dictionary::MapType message;
-        message.set(String::fromUTF8("Page"), &page);
-        message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier.toUInt64()));
-        message.set(String::fromUTF8("Error"), API::Error::create(error));
-        WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidFailLoadForResource"), API::Dictionary::create(WTFMove(message)).ptr());
-
         // Post on the console as well to be consistent with the inspector.
         if (!error.isCancellation()) {
             auto errorDescription = error.localizedDescription();
@@ -329,9 +285,28 @@ private:
             webkitWebPageDidSendConsoleMessage(m_webPage, MessageSource::Network, MessageLevel::Error, errorMessage, 0, error.failingURL().string());
         }
     }
+#endif
 
     WebKitWebPage* m_webPage;
 };
+
+#if !ENABLE(2022_GLIB_API)
+class PageUIClient final : public API::InjectedBundle::PageUIClient {
+public:
+    explicit PageUIClient(WebKitWebPage* webPage)
+        : m_webPage(webPage)
+    {
+    }
+
+private:
+    void willAddMessageToConsole(WebPage*, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, unsigned /*columnNumber*/, const String& sourceID) override
+    {
+        webkitWebPageDidSendConsoleMessage(m_webPage, source, level, message, lineNumber, sourceID);
+    }
+
+    WebKitWebPage* m_webPage;
+};
+#endif
 
 class PageContextMenuClient final : public API::InjectedBundle::PageContextMenuClient {
 public:
@@ -341,8 +316,11 @@ public:
     }
 
 private:
-    bool getCustomMenuFromDefaultItems(WebPage&, const WebCore::HitTestResult& hitTestResult, const Vector<WebCore::ContextMenuItem>& defaultMenu, Vector<WebContextMenuItemData>& newMenu, RefPtr<API::Object>& userData) override
+    bool getCustomMenuFromDefaultItems(WebPage&, const WebCore::HitTestResult& hitTestResult, const Vector<WebCore::ContextMenuItem>& defaultMenu, Vector<WebContextMenuItemData>& newMenu, const WebCore::ContextMenuContext& context, RefPtr<API::Object>& userData) override
     {
+        if (context.type() != ContextMenuContext::Type::ContextMenu)
+            return false;
+
         GRefPtr<WebKitContextMenu> contextMenu = adoptGRef(webkitContextMenuCreate(kitItems(defaultMenu)));
         GRefPtr<WebKitWebHitTestResult> webHitTestResult = adoptGRef(webkitWebHitTestResultCreate(hitTestResult));
         gboolean returnValue;
@@ -362,22 +340,6 @@ private:
     WebKitWebPage* m_webPage;
 };
 
-class PageUIClient final : public API::InjectedBundle::PageUIClient {
-public:
-    explicit PageUIClient(WebKitWebPage* webPage)
-        : m_webPage(webPage)
-    {
-    }
-
-private:
-    void willAddMessageToConsole(WebPage*, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, unsigned /*columnNumber*/, const String& sourceID) override
-    {
-        webkitWebPageDidSendConsoleMessage(m_webPage, source, level, message, lineNumber, sourceID);
-    }
-
-    WebKitWebPage* m_webPage;
-};
-
 class PageFormClient final : public API::InjectedBundle::FormClient {
 public:
     explicit PageFormClient(WebKitWebPage* webPage)
@@ -387,27 +349,61 @@ public:
 
     void willSubmitForm(WebPage*, HTMLFormElement* formElement, WebFrame* frame, WebFrame* sourceFrame, const Vector<std::pair<String, String>>& values, RefPtr<API::Object>&) override
     {
+        if (!formElement)
+            return;
+
+        if (!m_webPage->priv->formManagerMap.isEmpty()) {
+            auto* wkFrame = webkitFrameGetOrCreate(sourceFrame);
+            auto* wkTargetFrame = webkitFrameGetOrCreate(frame);
+            for (const auto& it : m_webPage->priv->formManagerMap)
+                webkitWebFormManagerWillSubmitForm(it.value.get(), webkitFrameGetJSCValueForElementInWorld(wkFrame, *formElement, it.key), wkFrame, wkTargetFrame);
+            return;
+        }
+#if !ENABLE(2022_GLIB_API)
         fireFormSubmissionEvent(WEBKIT_FORM_SUBMISSION_WILL_COMPLETE, formElement, frame, sourceFrame, values);
+#endif
     }
 
     void willSendSubmitEvent(WebPage*, HTMLFormElement* formElement, WebFrame* frame, WebFrame* sourceFrame, const Vector<std::pair<String, String>>& values) override
     {
+        if (!formElement)
+            return;
+
+        if (!m_webPage->priv->formManagerMap.isEmpty()) {
+            auto* wkFrame = webkitFrameGetOrCreate(sourceFrame);
+            auto* wkTargetFrame = webkitFrameGetOrCreate(frame);
+            for (const auto& it : m_webPage->priv->formManagerMap)
+                webkitWebFormManagerWillSendSubmitEvent(it.value.get(), webkitFrameGetJSCValueForElementInWorld(wkFrame, *formElement, it.key), wkFrame, wkTargetFrame);
+            return;
+        }
+#if !ENABLE(2022_GLIB_API)
         fireFormSubmissionEvent(WEBKIT_FORM_SUBMISSION_WILL_SEND_DOM_EVENT, formElement, frame, sourceFrame, values);
+#endif
     }
 
     void didAssociateFormControls(WebPage*, const Vector<RefPtr<Element>>& elements, WebFrame* frame) override
     {
+        auto* wkFrame = webkitFrameGetOrCreate(frame);
+        if (!m_webPage->priv->formManagerMap.isEmpty()) {
+            for (const auto& it : m_webPage->priv->formManagerMap)
+                webkitWebFormManagerDidAssociateFormControls(it.value.get(), wkFrame, webkitFrameGetJSCValuesForElementsInWorld(wkFrame, elements, it.key));
+            return;
+        }
+
+#if !ENABLE(2022_GLIB_API)
         GRefPtr<GPtrArray> formElements = adoptGRef(g_ptr_array_sized_new(elements.size()));
         for (size_t i = 0; i < elements.size(); ++i)
             g_ptr_array_add(formElements.get(), WebKit::kit(elements[i].get()));
 
         g_signal_emit(m_webPage, signals[FORM_CONTROLS_ASSOCIATED], 0, formElements.get());
-        g_signal_emit(m_webPage, signals[FORM_CONTROLS_ASSOCIATED_FOR_FRAME], 0, formElements.get(), webkitFrameGetOrCreate(frame));
+        g_signal_emit(m_webPage, signals[FORM_CONTROLS_ASSOCIATED_FOR_FRAME], 0, formElements.get(), wkFrame);
+#endif
     }
 
     bool shouldNotifyOnFormChanges(WebPage*) override { return true; }
 
 private:
+#if !ENABLE(2022_GLIB_API)
     void fireFormSubmissionEvent(WebKitFormSubmissionStep step, HTMLFormElement* formElement, WebFrame* frame, WebFrame* sourceFrame, const Vector<std::pair<String, String>>& values)
     {
         WebKitFrame* webkitTargetFrame = webkitFrameGetOrCreate(frame);
@@ -420,11 +416,29 @@ private:
             g_ptr_array_add(textFieldValues.get(), g_strdup(pair.second.utf8().data()));
         }
 
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         g_signal_emit(m_webPage, signals[WILL_SUBMIT_FORM], 0, WEBKIT_DOM_ELEMENT(WebKit::kit(static_cast<Node*>(formElement))), step, webkitSourceFrame, webkitTargetFrame, textFieldNames.get(), textFieldValues.get());
+        ALLOW_DEPRECATED_DECLARATIONS_END
     }
+#endif
 
     WebKitWebPage* m_webPage;
 };
+
+static void worldDestroyed(WebKitWebPage* webPage, WebKitScriptWorld* world)
+{
+    webPage->priv->formManagerMap.remove(world);
+}
+
+static void webkitWebPageDispose(GObject* object)
+{
+    auto* priv = WEBKIT_WEB_PAGE(object)->priv;
+    for (auto* world : priv->formManagerMap.keys())
+        g_object_weak_unref(G_OBJECT(world), reinterpret_cast<GWeakNotify>(worldDestroyed), object);
+    priv->formManagerMap.clear();
+
+    G_OBJECT_CLASS(webkit_web_page_parent_class)->dispose(object);
+}
 
 static void webkitWebPageGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -442,7 +456,7 @@ static void webkitWebPageGetProperty(GObject* object, guint propId, GValue* valu
 static void webkit_web_page_class_init(WebKitWebPageClass* klass)
 {
     GObjectClass* gObjectClass = G_OBJECT_CLASS(klass);
-
+    gObjectClass->dispose = webkitWebPageDispose;
     gObjectClass->get_property = webkitWebPageGetProperty;
 
     /**
@@ -453,8 +467,7 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
     sObjProperties[PROP_URI] =
         g_param_spec_string(
             "uri",
-            _("URI"),
-            _("The current active URI of the web page"),
+            nullptr, nullptr,
             0,
             WEBKIT_PARAM_READABLE);
 
@@ -467,8 +480,7 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
      * This signal is emitted when the DOM document of a #WebKitWebPage has been
      * loaded.
      *
-     * You can wait for this signal to get the DOM document with
-     * webkit_web_page_get_dom_document().
+     * You can wait for this signal to get the DOM document
      */
     signals[DOCUMENT_LOADED] = g_signal_new(
         "document-loaded",
@@ -524,7 +536,7 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
      * build its own context menu or pass user data to the UI Process.
      * This signal is useful when the information available in the UI Process
      * is not enough to build or customize the context menu, for example, to
-     * add menu entries depending on the #WebKitDOMNode at the coordinates of the
+     * add menu entries depending on the node at the coordinates of the
      * @hit_test_result. Otherwise, it's recommended to use #WebKitWebView::context-menu
      * signal instead.
      *
@@ -543,6 +555,8 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
         WEBKIT_TYPE_CONTEXT_MENU,
         WEBKIT_TYPE_WEB_HIT_TEST_RESULT);
 
+#if !ENABLE(2022_GLIB_API)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     /**
      * WebKitWebPage::console-message-sent:
      * @web_page: the #WebKitWebPage on which the signal is emitted
@@ -554,6 +568,8 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
      * The @console_message contains information of the message.
      *
      * Since: 2.12
+     *
+     * Deprecated: 2.40
      */
     signals[CONSOLE_MESSAGE_SENT] = g_signal_new(
         "console-message-sent",
@@ -563,7 +579,11 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
         g_cclosure_marshal_VOID__BOXED,
         G_TYPE_NONE, 1,
         WEBKIT_TYPE_CONSOLE_MESSAGE | G_SIGNAL_TYPE_STATIC_SCOPE);
+ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
 
+#if !ENABLE(2022_GLIB_API)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     /**
      * WebKitWebPage::form-controls-associated:
      * @web_page: the #WebKitWebPage on which the signal is emitted
@@ -611,6 +631,8 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
      * keep them alive after the signal handler returns.
      *
      * Since: 2.26
+     *
+     * Deprecated: 2.40: Use #WebKitWebFormManager::form-controls-associated instead.
      */
     signals[FORM_CONTROLS_ASSOCIATED_FOR_FRAME] = g_signal_new(
         "form-controls-associated-for-frame",
@@ -666,6 +688,8 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
      * emitted.
      *
      * Since: 2.20
+     *
+     * Deprecated: 2.40: Use #WebKitWebFormManager::will-send-submit-event and #WebKitWebFormManager::will-submit-form instead.
      */
     signals[WILL_SUBMIT_FORM] = g_signal_new(
         "will-submit-form",
@@ -680,6 +704,8 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
         WEBKIT_TYPE_FRAME,
         G_TYPE_PTR_ARRAY,
         G_TYPE_PTR_ARRAY);
+ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
 
     /**
      * WebKitWebPage::user-message-received:
@@ -723,55 +749,12 @@ WebKitWebPage* webkitWebPageCreate(WebPage* webPage)
     webPage->setInjectedBundleResourceLoadClient(makeUnique<PageResourceLoadClient>(page));
     webPage->setInjectedBundlePageLoaderClient(makeUnique<PageLoaderClient>(page));
     webPage->setInjectedBundleContextMenuClient(makeUnique<PageContextMenuClient>(page));
-    webPage->setInjectedBundleUIClient(makeUnique<PageUIClient>(page));
     webPage->setInjectedBundleFormClient(makeUnique<PageFormClient>(page));
+#if !ENABLE(2022_GLIB_API)
+    webPage->setInjectedBundleUIClient(makeUnique<PageUIClient>(page));
+#endif
 
     return page;
-}
-
-void webkitWebPageDidReceiveMessage(WebKitWebPage* page, const String& messageName, API::Dictionary& message)
-{
-#if PLATFORM(GTK)
-    if (messageName == "GetSnapshot"_s) {
-        SnapshotOptions snapshotOptions = static_cast<SnapshotOptions>(static_cast<API::UInt64*>(message.get("SnapshotOptions"_s))->value());
-        uint64_t callbackID = static_cast<API::UInt64*>(message.get("CallbackID"_s))->value();
-        SnapshotRegion region = static_cast<SnapshotRegion>(static_cast<API::UInt64*>(message.get("SnapshotRegion"_s))->value());
-        bool transparentBackground = static_cast<API::Boolean*>(message.get("TransparentBackground"_s))->value();
-
-        RefPtr<WebImage> snapshotImage;
-        WebPage* webPage = page->priv->webPage;
-        if (WebCore::FrameView* frameView = webPage->mainFrameView()) {
-            WebCore::IntRect snapshotRect;
-            switch (region) {
-            case SnapshotRegionVisible:
-                snapshotRect = frameView->visibleContentRect();
-                break;
-            case SnapshotRegionFullDocument:
-                snapshotRect = WebCore::IntRect(WebCore::IntPoint(0, 0), frameView->contentsSize());
-                break;
-            default:
-                ASSERT_NOT_REACHED();
-            }
-            if (!snapshotRect.isEmpty()) {
-                Color savedBackgroundColor;
-                if (transparentBackground) {
-                    savedBackgroundColor = frameView->baseBackgroundColor();
-                    frameView->setBaseBackgroundColor(Color::transparentBlack);
-                }
-                snapshotImage = webPage->scaledSnapshotWithOptions(snapshotRect, 1, snapshotOptions | SnapshotOptionsShareable);
-                if (transparentBackground)
-                    frameView->setBaseBackgroundColor(savedBackgroundColor);
-            }
-        }
-
-        API::Dictionary::MapType messageReply;
-        messageReply.set("Page"_s, webPage);
-        messageReply.set("CallbackID"_s, API::UInt64::create(callbackID));
-        messageReply.set("Snapshot"_s, snapshotImage);
-        WebProcess::singleton().injectedBundle()->postMessage("WebPage.DidGetSnapshot"_s, API::Dictionary::create(WTFMove(messageReply)).ptr());
-    } else
-#endif
-        ASSERT_NOT_REACHED();
 }
 
 void webkitWebPageDidReceiveUserMessage(WebKitWebPage* webPage, UserMessage&& message, CompletionHandler<void(UserMessage&&)>&& completionHandler)
@@ -782,6 +765,7 @@ void webkitWebPageDidReceiveUserMessage(WebKitWebPage* webPage, UserMessage&& me
     g_signal_emit(webPage, signals[USER_MESSAGE_RECEIVED], 0, userMessage.get(), &returnValue);
 }
 
+#if !ENABLE(2022_GLIB_API)
 /**
  * webkit_web_page_get_dom_document:
  * @web_page: a #WebKitWebPage
@@ -790,6 +774,8 @@ void webkitWebPageDidReceiveUserMessage(WebKitWebPage* webPage, UserMessage&& me
  *
  * Returns: (transfer none): the #WebKitDOMDocument currently loaded, or %NULL
  *    if no document is currently loaded.
+ *
+ * Deprecated: 2.40. Use JavaScriptCore API instead.
  */
 WebKitDOMDocument* webkit_web_page_get_dom_document(WebKitWebPage* webPage)
 {
@@ -800,6 +786,7 @@ WebKitDOMDocument* webkit_web_page_get_dom_document(WebKitWebPage* webPage)
 
     return nullptr;
 }
+#endif
 
 /**
  * webkit_web_page_get_id:
@@ -935,4 +922,32 @@ WebKitUserMessage* webkit_web_page_send_message_to_view_finish(WebKitWebPage* we
     g_return_val_if_fail(g_task_is_valid(result, webPage), nullptr);
 
     return WEBKIT_USER_MESSAGE(g_task_propagate_pointer(G_TASK(result), error));
+}
+
+/**
+ * webkit_web_page_get_form_manager:
+ * @web_page: a #WebKitWebPage
+ * @world: (nullable): a #WebKitScriptWorld
+ *
+ * Get the #WebKitWebFormManager of @web_page in @world.
+ *
+ * Returns: (transfer none): a #WebKitWebFormManager
+ *
+ * Since: 2.40
+ */
+WebKitWebFormManager* webkit_web_page_get_form_manager(WebKitWebPage* webPage, WebKitScriptWorld* world)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_PAGE(webPage), nullptr);
+    g_return_val_if_fail(!world || WEBKIT_IS_SCRIPT_WORLD(world), nullptr);
+
+    if (!world)
+        world = webkit_script_world_get_default();
+
+    auto addResult = webPage->priv->formManagerMap.ensure(world, [] {
+        return adoptGRef(webkitWebFormManagerCreate());
+    });
+    if (addResult.isNewEntry)
+        g_object_weak_ref(G_OBJECT(world), reinterpret_cast<GWeakNotify>(worldDestroyed), webPage);
+
+    return addResult.iterator->value.get();
 }

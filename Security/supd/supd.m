@@ -503,10 +503,6 @@ static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
                                              orCreateWithStorePath:[self.class databasePathForPCS]
                                             requireDeviceAnalytics:NO
                                             requireiCloudAnalytics:YES]];
-        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"signins"
-                                             orCreateWithStorePath:[self.class databasePathForSignIn]
-                                            requireDeviceAnalytics:NO
-                                            requireiCloudAnalytics:YES]];
         [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"local"
                                              orCreateWithStorePath:[self.class databasePathForLocal]
                                             requireDeviceAnalytics:YES
@@ -1437,7 +1433,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
         }
         if (error) {
             secnotice("upload", "Unable to fetch splunk endpoint at URL for %@: %@ -- error: %@",
-                      self->_internalTopicName, requestEndpoint, error.description);
+                      self->_internalTopicName, requestEndpoint, error);
         }
         else if (!result) {
             secnotice("upload", "Malformed iTunes config payload for %@!", self->_internalTopicName);
@@ -1508,12 +1504,20 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 
 + (NSString*)databasePathForCKKS
 {
+#if TARGET_OS_OSX
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"ckks_analytics"];
+#else
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/ckks_analytics.db") path];
+#endif
 }
 
 + (NSString*)databasePathForSOS
 {
+#if TARGET_OS_OSX
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"sos_analytics"];
+#else
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/sos_analytics.db") path];
+#endif
 }
 
 + (NSString*)AppSupportPath
@@ -1542,15 +1546,19 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 
 + (NSString*)databasePathForLocal
 {
+#if TARGET_OS_OSX
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"localkeychain"];
+#else
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/localkeychain.db") path];
+#endif
 }
 
 + (NSString*)databasePathForTrust
 {
-#if TARGET_OS_IPHONE
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/trust_analytics.db")) path];
-#else
+#if TARGET_OS_OSX
     return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"trust_analytics"];
+#else
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/trust_analytics.db")) path];
 #endif
 }
 
@@ -1577,10 +1585,10 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 
 + (NSString*)databasePathForNetworking
 {
-#if TARGET_OS_IPHONE
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/networking_analytics.db")) path];
-#else
+#if TARGET_OS_OSX
     return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"networking_analytics"];
+#else
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/networking_analytics.db")) path];
 #endif
 }
 
@@ -1591,19 +1599,22 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 }
 #endif
 
-+ (NSString*)databasePathForSignIn
-{
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/signin_metrics.db")) path];
-}
-
 + (NSString*)databasePathForCloudServices
 {
+#if TARGET_OS_OSX
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"CloudServicesAnalytics"];
+#else
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/CloudServicesAnalytics.db")) path];
+#endif
 }
 
 + (NSString*)databasePathForTransparency
 {
+#if TARGET_OS_OSX
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"TransparencyAnalytics"];
+#else
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/TransparencyAnalytics.db") path];
+#endif
 }
 
 @end

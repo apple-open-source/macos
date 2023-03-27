@@ -24,11 +24,14 @@
 #include "ChildNodeList.h"
 #include "CommonAtomStrings.h"
 #include "HTMLCollection.h"
+#include "HTMLSlotElement.h"
 #include "MutationObserverRegistration.h"
 #include "QualifiedName.h"
 #include "TagCollection.h"
+#include <new>
 #include <wtf/HashSet.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -248,24 +251,29 @@ public:
     enum class UseType : uint32_t {
         NodeList = 1 << 0,
         MutationObserver = 1 << 1,
-        TabIndex = 1 << 2,
-        ScrollingPosition = 1 << 3,
-        ComputedStyle = 1 << 4,
-        Dataset = 1 << 5,
-        ClassList = 1 << 6,
-        ShadowRoot = 1 << 7,
-        CustomElementQueue = 1 << 8,
-        AttributeMap = 1 << 9,
-        InteractionObserver = 1 << 10,
-        ResizeObserver = 1 << 11,
-        Animations = 1 << 12,
-        PseudoElements = 1 << 13,
-        StyleMap = 1 << 14,
-        PartList = 1 << 15,
-        PartNames = 1 << 16,
-        Nonce = 1 << 17,
-        ComputedStyleMap = 1 << 18,
-        ExplicitlySetAttrElementsMap = 1 << 19,
+        ManuallyAssignedSlot = 1 << 2,
+        TabIndex = 1 << 3,
+        ScrollingPosition = 1 << 4,
+        ComputedStyle = 1 << 5,
+        Dataset = 1 << 6,
+        ClassList = 1 << 7,
+        ShadowRoot = 1 << 8,
+        CustomElementReactionQueue = 1 << 9,
+        CustomElementDefaultARIA = 1 << 10,
+        AttributeMap = 1 << 11,
+        InteractionObserver = 1 << 12,
+        ResizeObserver = 1 << 13,
+        Animations = 1 << 14,
+        PseudoElements = 1 << 15,
+        StyleMap = 1 << 16,
+        PartList = 1 << 17,
+        PartNames = 1 << 18,
+        Nonce = 1 << 19,
+        ComputedStyleMap = 1 << 20,
+        ExplicitlySetAttrElementsMap = 1 << 21,
+        EffectiveLang = 1 << 22,
+        FormAssociatedCustomElement = 1 << 23,
+        DisplayContentsStyle = 1 << 26,
     };
 #endif
 
@@ -295,6 +303,10 @@ public:
         return *m_mutationObserverData;
     }
 
+    // https://html.spec.whatwg.org/multipage/scripting.html#manually-assigned-nodes
+    HTMLSlotElement* manuallyAssignedSlot() { return m_manuallyAssignedSlot.get(); }
+    void setManuallyAssignedSlot(HTMLSlotElement* slot) { m_manuallyAssignedSlot = slot; }
+
 #if DUMP_NODE_STATISTICS
     OptionSet<UseType> useTypes() const
     {
@@ -303,9 +315,13 @@ public:
             result.add(UseType::NodeList);
         if (m_mutationObserverData)
             result.add(UseType::MutationObserver);
+        if (m_manuallyAssignedSlot)
+            result.add(UseType::ManuallyAssignedSlot);
         return result;
     }
 #endif
+
+    void operator delete(NodeRareData*, std::destroying_delete_t);
 
 protected:
     // Used by ElementRareData. Defined here for better packing in 64-bit.
@@ -317,6 +333,7 @@ private:
 
     std::unique_ptr<NodeListsNodeData> m_nodeLists;
     std::unique_ptr<NodeMutationObserverData> m_mutationObserverData;
+    WeakPtr<HTMLSlotElement, WeakPtrImplWithEventTargetData> m_manuallyAssignedSlot;
 };
 
 template<> struct NodeListTypeIdentifier<NameNodeList> {

@@ -46,6 +46,7 @@ pl{
         ang{"staroangielski"}
         anp{"angika"}
         apw{"apaczów zachodnich"}
+        apw_Latn{"apaczów zachodnich"}
         ar{"arabski"}
         ar_001{"współczesny arabski"}
         arc{"aramejski"}
@@ -122,9 +123,12 @@ pl{
         chm{"maryjski"}
         chn{"żargon czinucki"}
         cho{"czoktawski"}
+        cho_Latn{"czoktawski"}
         chp{"czipewiański"}
         chr{"czirokeski"}
         chy{"czejeński"}
+        cic{"czikasawski"}
+        cic_Latn{"czikasawski"}
         ckb{"kurdyjski sorani"}
         co{"korsykański"}
         cop{"koptyjski"}

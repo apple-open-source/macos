@@ -46,6 +46,7 @@ no{
         ang{"gammelengelsk"}
         anp{"angika"}
         apw{"apache, vestlig"}
+        apw_Latn{"apache, vestlig"}
         ar{"arabisk"}
         ar_001{"moderne standardarabisk"}
         arc{"arameisk"}
@@ -122,9 +123,12 @@ no{
         chm{"mari"}
         chn{"chinook"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewiansk"}
         chr{"cherokesisk"}
         chy{"cheyenne"}
+        cic{"chickasaw"}
+        cic_Latn{"chickasaw"}
         ckb{"kurdisk (sorani)"}
         co{"korsikansk"}
         cop{"koptisk"}

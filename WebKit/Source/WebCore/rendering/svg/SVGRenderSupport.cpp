@@ -31,13 +31,13 @@
 #include "LegacyRenderSVGRoot.h"
 #include "LegacyRenderSVGShape.h"
 #include "LegacyRenderSVGTransformableContainer.h"
+#include "LegacyRenderSVGViewportContainer.h"
 #include "NodeRenderStyle.h"
 #include "RenderChildIterator.h"
 #include "RenderElement.h"
 #include "RenderGeometryMap.h"
 #include "RenderIterator.h"
 #include "RenderLayer.h"
-#include "RenderSVGImage.h"
 #include "RenderSVGResourceClipper.h"
 #include "RenderSVGResourceFilter.h"
 #include "RenderSVGResourceMarker.h"
@@ -45,7 +45,6 @@
 #include "RenderSVGRoot.h"
 #include "RenderSVGShape.h"
 #include "RenderSVGText.h"
-#include "RenderSVGViewportContainer.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGGeometryElement.h"
 #include "SVGResources.h"
@@ -156,7 +155,7 @@ void SVGRenderSupport::computeContainerBoundingBoxes(const RenderElement& contai
     // the resources applied to the children (such as clips and filters). This allows filters applied to containers to correctly bound
     // the children, and also improves inlining of SVG content, as the stroke bound is used in that situation also.
     for (auto& current : childrenOfType<RenderObject>(container)) {
-        if (current.isSVGHiddenContainer())
+        if (current.isLegacySVGHiddenContainer())
             continue;
 
         // Don't include elements in the union that do not render.
@@ -207,17 +206,13 @@ static inline void invalidateResourcesOfChildren(RenderElement& renderer)
 static inline bool layoutSizeOfNearestViewportChanged(const RenderElement& renderer)
 {
     const RenderElement* start = &renderer;
-    while (start && !start->isSVGRootOrLegacySVGRoot() && !is<RenderSVGViewportContainer>(*start))
+    while (start && !is<LegacyRenderSVGRoot>(*start) && !is<LegacyRenderSVGViewportContainer>(*start))
         start = start->parent();
 
     ASSERT(start);
-    if (is<RenderSVGViewportContainer>(*start))
-        return downcast<RenderSVGViewportContainer>(*start).isLayoutSizeChanged();
+    if (is<LegacyRenderSVGViewportContainer>(*start))
+        return downcast<LegacyRenderSVGViewportContainer>(*start).isLayoutSizeChanged();
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
-    if (is<RenderSVGRoot>(*start))
-        return downcast<RenderSVGRoot>(*start).isLayoutSizeChanged();
-#endif
     return downcast<LegacyRenderSVGRoot>(*start).isLayoutSizeChanged();
 }
 
@@ -226,8 +221,8 @@ bool SVGRenderSupport::transformToRootChanged(RenderElement* ancestor)
     while (ancestor && !ancestor->isSVGRootOrLegacySVGRoot()) {
         if (is<LegacyRenderSVGTransformableContainer>(*ancestor))
             return downcast<LegacyRenderSVGTransformableContainer>(*ancestor).didTransformToRootUpdate();
-        if (is<RenderSVGViewportContainer>(*ancestor))
-            return downcast<RenderSVGViewportContainer>(*ancestor).didTransformToRootUpdate();
+        if (is<LegacyRenderSVGViewportContainer>(*ancestor))
+            return downcast<LegacyRenderSVGViewportContainer>(*ancestor).didTransformToRootUpdate();
         ancestor = ancestor->parent();
     }
 
@@ -310,7 +305,7 @@ bool SVGRenderSupport::isOverflowHidden(const RenderElement& renderer)
     // LegacyRenderSVGRoot should never query for overflow state - it should always clip itself to the initial viewport size.
     ASSERT(!renderer.isDocumentElementRenderer());
 
-    return renderer.style().overflowX() == Overflow::Hidden || renderer.style().overflowX() == Overflow::Scroll;
+    return isNonVisibleOverflow(renderer.style().overflowX());
 }
 
 void SVGRenderSupport::intersectRepaintRectWithResources(const RenderElement& renderer, FloatRect& repaintRect)
@@ -543,7 +538,7 @@ WeakHashSet<RenderElement>& SVGHitTestCycleDetectionScope::visitedElements()
 
 bool SVGHitTestCycleDetectionScope::isEmpty()
 {
-    return visitedElements().computesEmpty();
+    return visitedElements().isEmptyIgnoringNullReferences();
 }
 
 bool SVGHitTestCycleDetectionScope::isVisiting(const RenderElement& element)

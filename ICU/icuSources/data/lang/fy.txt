@@ -97,6 +97,7 @@ fy{
         chm{"Mari"}
         chn{"Chinook-jargon"}
         cho{"Choctaw"}
+        cho_Latn{"Choctaw"}
         chp{"Chipewyan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}

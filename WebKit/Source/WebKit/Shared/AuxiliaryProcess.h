@@ -159,7 +159,10 @@ protected:
 #if HAVE(AUDIO_COMPONENT_SERVER_REGISTRATIONS)
     void consumeAudioComponentRegistrations(const IPC::SharedBufferReference&);
 #endif
-    
+
+    // IPC::Connection::Client.
+    void didClose(IPC::Connection&) override;
+
 private:
     virtual bool shouldOverrideQuarantine() { return true; }
 
@@ -169,7 +172,6 @@ private:
 
     // IPC::Connection::Client.
     void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName) final;
-    void didClose(IPC::Connection&) override;
 
     void shutDown();
 
@@ -185,10 +187,6 @@ private:
     IPC::MessageReceiverMap m_messageReceiverMap;
 
     UserActivity m_processSuppressionDisabled;
-
-#if PLATFORM(COCOA)
-    OSObjectPtr<xpc_object_t> m_priorityBoostMessage;
-#endif
 };
 
 struct AuxiliaryProcessInitializationParameters {
@@ -200,7 +198,6 @@ struct AuxiliaryProcessInitializationParameters {
     HashMap<String, String> extraInitializationData;
     WebCore::AuxiliaryProcessType processType;
 #if PLATFORM(COCOA)
-    OSObjectPtr<xpc_object_t> priorityBoostMessage;
     SDKAlignedBehaviors clientSDKAlignedBehaviors;
 #endif
 };

@@ -24,7 +24,6 @@ srp_os_log_copy_formatted_string_ipv6_addr_segment(id value)
 {
 #define PREFIX_CLASS_MAX_LENGTH 6 // 6 is for xxx:<space> where X is ULA, GUA, LLA or nothing.
 	NSData *data;
-	const uint8_t * addr_data;
 	NSAttributedString * a_str;
 	char buf[INET6_ADDRSTRLEN + PREFIX_CLASS_MAX_LENGTH];
 	uint16_t words[8]; // Word buffer
@@ -56,7 +55,6 @@ srp_os_log_copy_formatted_string_ipv6_addr_segment(id value)
         num_words++;
     }
 
-	addr_data = data.bytes;
 	delimiter = "";
 	ptr = buf;
 	ptr_limit = buf + sizeof(buf);

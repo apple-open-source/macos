@@ -44,7 +44,7 @@
 #endif // OS(DARWIN)
 #endif // ENABLE(JIT_CAGE)
 
-#if OS(DARWIN)
+#if PLATFORM(COCOA)
 #include <wtf/spi/cocoa/MachVMSPI.h>
 #endif
 
@@ -117,16 +117,19 @@ void* OSAllocator::tryReserveUncommitted(size_t bytes, Usage usage, bool writabl
 {
 #if OS(LINUX)
     UNUSED_PARAM(usage);
-    UNUSED_PARAM(writable);
-    UNUSED_PARAM(executable);
     UNUSED_PARAM(jitCageEnabled);
     UNUSED_PARAM(includesGuardPages);
+    int protection = PROT_READ;
+    if (writable)
+        protection |= PROT_WRITE;
+    if (executable)
+        protection |= PROT_EXEC;
 
-    void* result = mmap(0, bytes, PROT_NONE, MAP_NORESERVE | MAP_PRIVATE | MAP_ANON, -1, 0);
+    void* result = mmap(0, bytes, protection, MAP_NORESERVE | MAP_PRIVATE | MAP_ANON, -1, 0);
     if (result == MAP_FAILED)
         result = nullptr;
     if (result)
-        madvise(result, bytes, MADV_DONTNEED);
+        while (madvise(result, bytes, MADV_DONTNEED) == -1 && errno == EAGAIN) { }
 #else
     void* result = tryReserveAndCommit(bytes, usage, writable, executable, jitCageEnabled, includesGuardPages);
 #if HAVE(MADV_FREE_REUSE)
@@ -195,7 +198,7 @@ void* OSAllocator::tryReserveUncommittedAligned(size_t bytes, size_t alignment, 
     if (result == MAP_FAILED)
         return nullptr;
     if (result)
-        madvise(result, bytes, MADV_DONTNEED);
+        while (madvise(result, bytes, MADV_DONTNEED) == -1 && errno == EAGAIN) { }
     return result;
 #else
 
@@ -230,14 +233,9 @@ void* OSAllocator::reserveAndCommit(size_t bytes, Usage usage, bool writable, bo
 void OSAllocator::commit(void* address, size_t bytes, bool writable, bool executable)
 {
 #if OS(LINUX)
-    int protection = PROT_READ;
-    if (writable)
-        protection |= PROT_WRITE;
-    if (executable)
-        protection |= PROT_EXEC;
-    if (mprotect(address, bytes, protection))
-        CRASH();
-    madvise(address, bytes, MADV_WILLNEED);
+    UNUSED_PARAM(writable);
+    UNUSED_PARAM(executable);
+    while (madvise(address, bytes, MADV_WILLNEED) == -1 && errno == EAGAIN) { }
 #elif HAVE(MADV_FREE_REUSE)
     UNUSED_PARAM(writable);
     UNUSED_PARAM(executable);
@@ -254,9 +252,7 @@ void OSAllocator::commit(void* address, size_t bytes, bool writable, bool execut
 void OSAllocator::decommit(void* address, size_t bytes)
 {
 #if OS(LINUX)
-    madvise(address, bytes, MADV_DONTNEED);
-    if (mprotect(address, bytes, PROT_NONE))
-        CRASH();
+    while (madvise(address, bytes, MADV_DONTNEED) == -1 && errno == EAGAIN) { }
 #elif HAVE(MADV_FREE_REUSE)
     while (madvise(address, bytes, MADV_FREE_REUSABLE) == -1 && errno == EAGAIN) { }
 #elif HAVE(MADV_FREE)
@@ -284,6 +280,21 @@ void OSAllocator::releaseDecommitted(void* address, size_t bytes)
     int result = munmap(address, bytes);
     if (result == -1)
         CRASH();
+}
+
+bool OSAllocator::protect(void* address, size_t bytes, bool readable, bool writable)
+{
+    int protection = 0;
+    if (readable) {
+        if (writable)
+            protection = PROT_READ | PROT_WRITE;
+        else
+            protection = PROT_READ;
+    } else {
+        ASSERT(!readable && !writable);
+        protection = PROT_NONE;
+    }
+    return !mprotect(address, bytes, protection);
 }
 
 } // namespace WTF

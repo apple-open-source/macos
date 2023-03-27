@@ -42,8 +42,19 @@
 #if HAVE(ARKIT_QUICK_LOOK_PREVIEW_ITEM)
 #import "ARKitSoftLink.h"
 #import <pal/spi/ios/SystemPreviewSPI.h>
+
 SOFT_LINK_PRIVATE_FRAMEWORK(AssetViewer);
 SOFT_LINK_CLASS(AssetViewer, ARQuickLookWebKitItem);
+
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+SOFT_LINK_CLASS(AssetViewer, ASVLaunchPreview);
+
+@interface ASVLaunchPreview (Staging_101981518)
++ (void)beginPreviewApplicationWithURLs:(NSArray *)urls is3DContent:(BOOL)is3DContent completion:(void (^)(NSError *))handler;
++ (void)beginPreviewApplicationWithURLs:(NSArray *)urls is3DContent:(BOOL)is3DContent websiteURL:(NSURL *)websiteURL completion:(void (^)(NSError *))handler;
++ (void)launchPreviewApplicationWithURLs:(NSArray *)urls completion:(void (^)(NSError *))handler;
+@end
+#endif
 
 static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParameterKey";
 
@@ -130,7 +141,7 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
             // If the download happened instantly, the call to finish might have come before this
             // loadHandler. In that case, call the completionHandler here.
             if (!strongSelf->_downloadedURL.isEmpty())
-                completionHandler((NSURL*)strongSelf->_downloadedURL, nil);
+                completionHandler((NSURL *)strongSelf->_downloadedURL, nil);
             else
                 [strongSelf setCompletionHandler:completionHandler];
         }
@@ -149,7 +160,7 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
     _downloadedURL = url;
 
     if (self.completionHandler)
-        self.completionHandler((NSURL*)url, nil);
+        self.completionHandler((NSURL *)url, nil);
 }
 
 - (void)failWithError:(NSError *)error
@@ -245,6 +256,10 @@ namespace WebKit {
 
 void SystemPreviewController::start(URL originatingPageURL, const String& mimeType, const WebCore::SystemPreviewInfo& systemPreviewInfo)
 {
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+    UNUSED_PARAM(mimeType);
+    UNUSED_PARAM(systemPreviewInfo);
+#else
     ASSERT(!m_qlPreviewController);
     if (m_qlPreviewController)
         return;
@@ -265,38 +280,80 @@ void SystemPreviewController::start(URL originatingPageURL, const String& mimeTy
     [m_qlPreviewController setDataSource:m_qlPreviewControllerDataSource.get()];
 
     [presentingViewController presentViewController:m_qlPreviewController.get() animated:YES completion:nullptr];
+#endif
+
+    m_originatingPageURL = originatingPageURL;
+
+    RELEASE_LOG(SystemPreview, "SystemPreview began on %lld", m_systemPreviewInfo.element.elementIdentifier.toUInt64());
+}
+
+void SystemPreviewController::setDestinationURL(URL url)
+{
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+    url.removeFragmentIdentifier();
+    NSURL *nsurl = (NSURL *)url;
+    NSURL *originatingPageURL = (NSURL *)m_originatingPageURL;
+    if ([getASVLaunchPreviewClass() respondsToSelector:@selector(beginPreviewApplicationWithURLs:is3DContent:websiteURL:completion:)])
+        [getASVLaunchPreviewClass() beginPreviewApplicationWithURLs:@[nsurl] is3DContent:YES websiteURL:originatingPageURL completion:^(NSError *error) { }];
+    else if ([getASVLaunchPreviewClass() respondsToSelector:@selector(beginPreviewApplicationWithURLs:is3DContent:completion:)])
+        [getASVLaunchPreviewClass() beginPreviewApplicationWithURLs:@[nsurl] is3DContent:YES completion:^(NSError *error) { }];
+
+#endif
+    m_destinationURL = WTFMove(url);
 }
 
 void SystemPreviewController::updateProgress(float progress)
 {
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+    UNUSED_PARAM(progress);
+#else
     if (m_qlPreviewControllerDataSource)
         [m_qlPreviewControllerDataSource setProgress:progress];
+#endif
 }
 
 void SystemPreviewController::finish(URL url)
 {
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+    ASSERT(equalIgnoringFragmentIdentifier(m_destinationURL, url));
+    url.removeFragmentIdentifier();
+    NSURL *nsurl = (NSURL *)url;
+    if ([getASVLaunchPreviewClass() respondsToSelector:@selector(launchPreviewApplicationWithURLs:completion:)])
+        [getASVLaunchPreviewClass() launchPreviewApplicationWithURLs:@[nsurl] completion:^(NSError *error) { }];
+#else
     if (m_qlPreviewControllerDataSource)
         [m_qlPreviewControllerDataSource finish:url];
+
+    RELEASE_LOG(SystemPreview, "SystemPreview load has finished on %lld", m_systemPreviewInfo.element.elementIdentifier.toUInt64());
+#endif
 }
 
 void SystemPreviewController::cancel()
 {
+#if !HAVE(UIKIT_WEBKIT_INTERNALS)
     if (m_qlPreviewController)
         [m_qlPreviewController.get() dismissViewControllerAnimated:YES completion:nullptr];
 
     m_qlPreviewControllerDelegate = nullptr;
     m_qlPreviewControllerDataSource = nullptr;
     m_qlPreviewController = nullptr;
+
+    RELEASE_LOG(SystemPreview, "SystemPreview ended/cancelled on %lld", m_systemPreviewInfo.element.elementIdentifier.toUInt64());
+#endif
 }
 
 void SystemPreviewController::fail(const WebCore::ResourceError& error)
 {
+#if !HAVE(UIKIT_WEBKIT_INTERNALS)
     if (m_qlPreviewControllerDataSource)
         [m_qlPreviewControllerDataSource failWithError:error.nsError()];
+#endif
 }
 
 void SystemPreviewController::triggerSystemPreviewAction()
 {
+    RELEASE_LOG(SystemPreview, "SystemPreview action was triggered on %lld", m_systemPreviewInfo.element.elementIdentifier.toUInt64());
+
     page().systemPreviewActionTriggered(m_systemPreviewInfo, "_apple_ar_quicklook_button_tapped"_s);
 }
 

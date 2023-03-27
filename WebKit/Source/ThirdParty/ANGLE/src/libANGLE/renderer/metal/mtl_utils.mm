@@ -32,7 +32,7 @@
 namespace rx
 {
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 bool IsFrameCaptureEnabled()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -48,11 +48,11 @@ bool IsFrameCaptureEnabled()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 std::string GetMetalCaptureFile()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
-    return "";
+    return {};
 #else
     auto var                   = std::getenv("ANGLE_METAL_FRAME_CAPTURE_FILE");
     const std::string filePath = var ? var : "";
@@ -61,7 +61,7 @@ std::string GetMetalCaptureFile()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 size_t MaxAllowedFrameCapture()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -74,7 +74,7 @@ size_t MaxAllowedFrameCapture()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 size_t MinAllowedFrameCapture()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -87,7 +87,7 @@ size_t MinAllowedFrameCapture()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 bool FrameCaptureDeviceScope()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -100,10 +100,10 @@ bool FrameCaptureDeviceScope()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 std::atomic<size_t> gFrameCaptured(0);
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 void StartFrameCapture(id<MTLDevice> metalDevice, id<MTLCommandQueue> metalCmdQueue)
 {
 #if ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -160,16 +160,16 @@ void StartFrameCapture(id<MTLDevice> metalDevice, id<MTLCommandQueue> metalCmdQu
     else
 #    endif  // __MAC_10_15
         if (ANGLE_APPLE_AVAILABLE_XCI(10.15, 13.0, 13))
-    {
-        auto captureDescriptor = mtl::adoptObjCObj([[MTLCaptureDescriptor alloc] init]);
-        captureDescriptor.get().captureObject = metalDevice;
-
-        NSError *error;
-        if (![captureManager startCaptureWithDescriptor:captureDescriptor.get() error:&error])
         {
-            NSLog(@"Failed to start capture, error %@", error);
+            auto captureDescriptor = mtl::adoptObjCObj([[MTLCaptureDescriptor alloc] init]);
+            captureDescriptor.get().captureObject = metalDevice;
+
+            NSError *error;
+            if (![captureManager startCaptureWithDescriptor:captureDescriptor.get() error:&error])
+            {
+                NSLog(@"Failed to start capture, error %@", error);
+            }
         }
-    }
 #endif  // ANGLE_METAL_FRAME_CAPTURE_ENABLED
 }
 
@@ -344,7 +344,7 @@ static angle::Result InitializeCompressedTextureContents(const gl::Context *cont
     return angle::Result::Continue;
 }
 
-}
+}  // namespace
 
 angle::Result InitializeTextureContents(const gl::Context *context,
                                         const TextureRef &texture,
@@ -785,7 +785,7 @@ static MTLLanguageVersion GetUserSetOrHighestMSLVersion(const MTLLanguageVersion
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
     const mtl::ContextDevice &metalDevice,
     const std::string &source,
-    NSDictionary<NSString *, NSObject *> *substitutionMacros,
+    const std::map<std::string, std::string> &substitutionMacros,
     bool enableFastMath,
     AutoObjCPtr<NSError *> *error)
 {
@@ -797,14 +797,14 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(const mtl::ContextDevice &metalD
                                                 const std::string &source,
                                                 AutoObjCPtr<NSError *> *error)
 {
-    return CreateShaderLibrary(metalDevice, source.c_str(), source.size(), @{}, true, error);
+    return CreateShaderLibrary(metalDevice, source.c_str(), source.size(), {}, true, error);
 }
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
     const mtl::ContextDevice &metalDevice,
     const char *source,
     size_t sourceLen,
-    NSDictionary<NSString *, NSObject *> *substitutionMacros,
+    const std::map<std::string, std::string> &substitutionMacros,
     bool enableFastMath,
     AutoObjCPtr<NSError *> *errorOut)
 {
@@ -826,9 +826,19 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
         options.fastMathEnabled = false;
 #endif
         options.fastMathEnabled &= enableFastMath;
-        options.languageVersion    = GetUserSetOrHighestMSLVersion(options.languageVersion);
-        options.preprocessorMacros = substitutionMacros;
-        auto library               = metalDevice.newLibraryWithSource(nsSource, options, &nsError);
+        options.languageVersion = GetUserSetOrHighestMSLVersion(options.languageVersion);
+
+        if (!substitutionMacros.empty())
+        {
+            auto macroDict = [NSMutableDictionary dictionary];
+            for (const auto &macro : substitutionMacros)
+            {
+                [macroDict setObject:@(macro.second.c_str()) forKey:@(macro.first.c_str())];
+            }
+            options.preprocessorMacros = macroDict;
+        }
+
+        auto library = metalDevice.newLibraryWithSource(nsSource, options, &nsError);
         if (angle::GetEnvironmentVar(kANGLEPrintMSLEnv)[0] == '1')
         {
             NSLog(@"%@\n", nsSource);
@@ -855,7 +865,7 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibraryFromBinary(id<MTLDevice> metalDev
 
         auto library = [metalDevice newLibraryWithData:shaderSourceData error:&nsError];
 
-        [shaderSourceData ANGLE_MTL_AUTORELEASE];
+        dispatch_release(shaderSourceData);
 
         *errorOut = std::move(nsError);
 
@@ -1338,6 +1348,24 @@ bool SupportsAppleGPUFamily(id<MTLDevice> device, uint8_t appleFamily)
 #endif      // TARGET_OS_IOS || TARGET_OS_TV
 }
 
+#if (defined(__MAC_13_0) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_13_0) || \
+    (defined(__IPHONE_16_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_16_0) || \
+    (defined(__TVOS_16_0) && __TV_OS_VERSION_MIN_REQUIRED >= __TVOS_16_0)
+#   define ANGLE_MTL_FEATURE_SET_DEPRECATED 1
+#   define ANGLE_MTL_GPU_FAMILY_MAC1_DEPRECATED 1
+#endif
+
+#if ANGLE_MTL_GPU_FAMILY_MAC1_DEPRECATED
+#   define ANGLE_MTL_GPU_FAMILY_MAC1 MTLGPUFamilyMac2
+#   define ANGLE_MTL_GPU_FAMILY_MAC2 MTLGPUFamilyMac2
+#elif TARGET_OS_MACCATALYST
+#   define ANGLE_MTL_GPU_FAMILY_MAC1 MTLGPUFamilyMacCatalyst1
+#   define ANGLE_MTL_GPU_FAMILY_MAC2 MTLGPUFamilyMacCatalyst2
+#else // !ANGLE_MTL_GPU_FAMILY_MAC1_DEPRECATED && !TARGET_OS_MACCATALYST
+#   define ANGLE_MTL_GPU_FAMILY_MAC1 MTLGPUFamilyMac1
+#   define ANGLE_MTL_GPU_FAMILY_MAC2 MTLGPUFamilyMac2
+#endif
+
 bool SupportsMacGPUFamily(id<MTLDevice> device, uint8_t macFamily)
 {
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
@@ -1350,16 +1378,20 @@ bool SupportsMacGPUFamily(id<MTLDevice> device, uint8_t macFamily)
         switch (macFamily)
         {
 #        if TARGET_OS_MACCATALYST
+            ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
             case 1:
-                family = MTLGPUFamilyMacCatalyst1;
+                family = ANGLE_MTL_GPU_FAMILY_MAC1;
                 break;
             case 2:
-                family = MTLGPUFamilyMacCatalyst2;
+                family = ANGLE_MTL_GPU_FAMILY_MAC2;
                 break;
+                ANGLE_APPLE_ALLOW_DEPRECATED_END
 #        else   // TARGET_OS_MACCATALYST
+            ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
             case 1:
                 family = MTLGPUFamilyMac1;
                 break;
+                ANGLE_APPLE_ALLOW_DEPRECATED_END
             case 2:
                 family = MTLGPUFamilyMac2;
                 break;
@@ -1374,10 +1406,12 @@ bool SupportsMacGPUFamily(id<MTLDevice> device, uint8_t macFamily)
 
     // If device doesn't support [MTLDevice supportsFamily:], then use
     // [MTLDevice supportsFeatureSet:].
-#    if TARGET_OS_MACCATALYST
+#    if TARGET_OS_MACCATALYST || ANGLE_MTL_FEATURE_SET_DEPRECATED
     UNREACHABLE();
     return false;
 #    else
+
+    ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
     MTLFeatureSet featureSet;
     switch (macFamily)
     {
@@ -1393,6 +1427,7 @@ bool SupportsMacGPUFamily(id<MTLDevice> device, uint8_t macFamily)
             return false;
     }
     return [device supportsFeatureSet:featureSet];
+    ANGLE_APPLE_ALLOW_DEPRECATED_END
 #    endif  // TARGET_OS_MACCATALYST
 #else       // #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 
@@ -1472,7 +1507,9 @@ NSUInteger ComputeTotalSizeUsedForMTLRenderPipelineDescriptor(
     const mtl::ContextDevice &device)
 {
     NSUInteger currentRenderTargetSize = 0;
-    bool isMsaa                        = descriptor.sampleCount > 1;
+    ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
+    bool isMsaa = descriptor.sampleCount > 1;
+    ANGLE_APPLE_ALLOW_DEPRECATED_END
     for (NSUInteger i = 0; i < GetMaxNumberOfRenderTargetsForDevice(device); i++)
     {
         MTLRenderPipelineColorAttachmentDescriptor *color = descriptor.colorAttachments[i];

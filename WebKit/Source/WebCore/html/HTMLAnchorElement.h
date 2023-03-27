@@ -90,7 +90,7 @@ private:
     bool isMouseFocusable() const override;
     bool isKeyboardFocusable(KeyboardEvent*) const override;
     void defaultEventHandler(Event&) final;
-    void setActive(bool active, bool pause, Style::InvalidationScope) final;
+    void setActive(bool active, Style::InvalidationScope) final;
     bool isURLAttribute(const Attribute&) const final;
     bool canStartSelection() const final;
     AtomString target() const override;
@@ -104,7 +104,7 @@ private:
 
     std::optional<URL> attributionDestinationURLForPCM() const;
     std::optional<RegistrableDomain> mainDocumentRegistrableDomainForPCM() const;
-    std::optional<PrivateClickMeasurement::EphemeralNonce> attributionSourceNonceForPCM() const;
+    std::optional<PCM::EphemeralNonce> attributionSourceNonceForPCM() const;
     std::optional<PrivateClickMeasurement> parsePrivateClickMeasurementForSKAdNetwork(const URL&) const;
     std::optional<PrivateClickMeasurement> parsePrivateClickMeasurement(const URL&) const;
 

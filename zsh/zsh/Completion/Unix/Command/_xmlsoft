@@ -45,7 +45,7 @@ case $service in
       '--encoding[the input document character encoding]:encoding:(${encoding[@]})' \
       '*--param[pass a parameter,value pair]:name::value (xpath expression)' \
       '*--stringparam[pass a parameter]:name::value' \
-      '--path[provide a set of paths for resources]:paths:_files -/' \
+      '--path[provide a set of paths for resources]:path:_dir_list' \
       '--nonet[refuse to fetch DTDs or entities over network]' \
       '--nowrite[refuse to write to any file or resource]' \
       '--nomkdir[refuse to create directories]' \
@@ -70,7 +70,7 @@ case $service in
       '--noent[substitute entity references by their value]' \
       '--noenc[ignore any encoding specified inside the document]' \
       "(--output -o)--noout[don't output the result tree]" \
-      '--path[provide a set of paths for resources]:paths:_files -/' \
+      '--path[provide a set of paths for resources]:path:_dir_list' \
       '--load-trace[print trace of all external entities loaded]' \
       '--nonet[refuse to fetch DTDs or entities over network]' \
       '--nocompact[do not generate compact text nodes]' \
@@ -80,6 +80,7 @@ case $service in
       '(--dtdvalid --relaxng --schema)--postvalid[do a posteriori validation, i.e after parsing]' \
       '(--postvalid --relaxng --schema --dtdvalidfpi)--dtdvalid[do a posteriori validation against a given DTD]:DTD:_webbrowser' \
       '(--postvalid --relaxng --schema --dtdvalid)--dtdvalidfpi[as --dtdvalid but specify DTD with public identifier]:DTD identifier' \
+      '--quiet[be quiet when successful]' \
       '--timing[print some timings]' \
       '(--noout --output -o)'{--output,-o}'[save to a given file]:output file:_files' \
       '--repeat[repeat 100 times, for timing or profiling]' \
@@ -98,7 +99,7 @@ case $service in
       '--format[reformat/reindent the input]' \
       '--encode[output in the given encoding]:encoding:(${encoding[@]})' \
       '--dropdtd[remove the DOCTYPE of the input docs]' \
-      "--pretty[pretty-print in a particular style]:style:((0\:don't\ pretty\ print 1\:reformat 2\:add\ whitespace))" \
+      "--pretty[pretty-print in a particular style]:style:((0\:don\'t\ pretty\ print 1\:reformat 2\:add\ whitespace))" \
       '--c14n[save in W3C canonical format]' \
       '--c14n11[save in W3C canonical format v1.1 (with comments)]' \
       '--exc-c14n[save in W3C exclusive canonical format]' \

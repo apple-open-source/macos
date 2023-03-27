@@ -231,7 +231,7 @@ private:
         }
 
         bool isEndOfPath() const { return m_type == endOfPath; }
-        bool isValidPathElementType() const { return m_type >= static_cast<UnderlyingType>(PathElement::Type::MoveToPoint) && m_type <= static_cast<UnderlyingType>(PathElement::Type::CloseSubpath); }
+        bool isValidPathElementType() const { return isValidEnum<PathElement::Type>(m_type); }
         bool isValid() const { return isValidPathElementType() || isEndOfPath(); }
 
         PathElement::Type type() const

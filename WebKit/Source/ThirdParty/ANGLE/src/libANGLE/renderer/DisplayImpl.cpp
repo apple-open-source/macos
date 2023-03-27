@@ -79,6 +79,11 @@ egl::Error DisplayImpl::forceGPUSwitch(EGLint gpuIDHigh, EGLint gpuIDLow)
     return egl::NoError();
 }
 
+egl::Error DisplayImpl::waitUntilWorkScheduled()
+{
+    return egl::NoError();
+}
+
 egl::Error DisplayImpl::validateClientBuffer(const egl::Config *configuration,
                                              EGLenum buftype,
                                              EGLClientBuffer clientBuffer,
@@ -126,6 +131,16 @@ bool DisplayImpl::isX11() const
     return false;
 }
 
+bool DisplayImpl::isWayland() const
+{
+    return false;
+}
+
+bool DisplayImpl::isGBM() const
+{
+    return false;
+}
+
 bool DisplayImpl::supportsDmaBufFormat(EGLint format) const
 {
     UNREACHABLE();
@@ -147,5 +162,4 @@ egl::Error DisplayImpl::queryDmaBufModifiers(EGLint format,
     UNREACHABLE();
     return egl::NoError();
 }
-
 }  // namespace rx

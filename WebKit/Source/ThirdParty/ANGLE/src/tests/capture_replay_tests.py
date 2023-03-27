@@ -36,6 +36,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 
@@ -60,6 +61,8 @@ TRACE_FOLDER = "traces"
 
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
+REPLAY_INITIALIZATION_FAILURE = -1
+REPLAY_SERIALIZATION_FAILURE = -2
 
 switch_case_without_return_template = """\
         case {case}:
@@ -129,9 +132,12 @@ class SubProcess():
 class ChildProcessesManager():
 
     @classmethod
-    def _GetGnAndNinjaAbsolutePaths(self):
-        path = os.path.join('third_party', 'depot_tools')
-        return os.path.join(path, winext('gn', 'bat')), os.path.join(path, winext('ninja', 'exe'))
+    def _GetGnAbsolutePaths(self):
+        return os.path.join('third_party', 'depot_tools', winext('gn', 'bat'))
+
+    @classmethod
+    def _GetNinjaAbsolutePaths(self):
+        return os.path.join('third_party', 'ninja', 'ninja')
 
     def __init__(self, args, logger, ninja_lock):
         # a dictionary of Subprocess, with pid as key
@@ -139,7 +145,8 @@ class ChildProcessesManager():
         # list of Python multiprocess.Process handles
         self.workers = []
 
-        self._gn_path, self._ninja_path = self._GetGnAndNinjaAbsolutePaths()
+        self._gn_path = self._GetGnAbsolutePaths()
+        self._ninja_path = self._GetNinjaAbsolutePaths()
         self._use_goma = AutodetectGoma()
         self._logger = logger
         self._ninja_lock = ninja_lock
@@ -293,8 +300,9 @@ class GroupedResult():
     Crashed = "Crashed"
     CompileFailed = "CompileFailed"
     Skipped = "Skipped"
+    FailedToTrace = "FailedToTrace"
 
-    ResultTypes = [Passed, Failed, TimedOut, Crashed, CompileFailed, Skipped]
+    ResultTypes = [Passed, Failed, TimedOut, Crashed, CompileFailed, Skipped, FailedToTrace]
 
     def __init__(self, resultcode, message, output, tests):
         self.resultcode = resultcode
@@ -367,6 +375,7 @@ class Test():
         self.context_id = 0
         self.test_index = -1  # index of test within a test batch
         self._label = self.full_test_name.replace(".", "_").replace("/", "_")
+        self.skipped_by_suite = False
 
     def __str__(self):
         return self.full_test_name + " Params: " + self.params
@@ -387,7 +396,8 @@ class Test():
         source_json_count = 0
         context_id = 0
         for f in test_files:
-            if "_001.cpp" in f:
+            # TODO: Consolidate. http://anglebug.com/7753
+            if "_001.cpp" in f or "_001.c" in f:
                 frame_files_count += 1
             elif f.endswith(".json"):
                 source_json_count += 1
@@ -396,7 +406,8 @@ class Test():
                 if TRACE_FILE_SUFFIX in f:
                     context = f.split(TRACE_FILE_SUFFIX)[1][:-2]
                     context_id = int(context)
-            elif f.endswith(".cpp"):
+            # TODO: Consolidate. http://anglebug.com/7753
+            elif f.endswith(".cpp") or f.endswith(".c"):
                 context_source_count += 1
         can_run_replay = frame_files_count >= 1 and context_header_count >= 1 \
             and context_source_count >= 1 and source_json_count == 1
@@ -428,12 +439,17 @@ class TestBatch():
         test_exe_path = os.path.join(args.out_dir, 'Capture', args.test_suite)
 
         extra_env = {
-            'ANGLE_CAPTURE_FRAME_END': '{}'.format(self.CAPTURE_FRAME_END),
             'ANGLE_CAPTURE_SERIALIZE_STATE': '1',
             'ANGLE_FEATURE_OVERRIDES_ENABLED': 'forceRobustResourceInit:forceInitShaderVariables',
             'ANGLE_CAPTURE_ENABLED': '1',
             'ANGLE_CAPTURE_OUT_DIR': self.trace_folder_path,
         }
+
+        if args.mec > 0:
+            extra_env['ANGLE_CAPTURE_FRAME_START'] = '{}'.format(args.mec)
+            extra_env['ANGLE_CAPTURE_FRAME_END'] = '{}'.format(args.mec + 1)
+        else:
+            extra_env['ANGLE_CAPTURE_FRAME_END'] = '{}'.format(self.CAPTURE_FRAME_END)
 
         if args.expose_nonconformant_features:
             extra_env[
@@ -446,35 +462,59 @@ class TestBatch():
         filt = ':'.join([test.full_test_name for test in self.tests])
 
         cmd = GetRunCommand(args, test_exe_path)
-        cmd += ['--gtest_filter=%s' % filt, '--angle-per-test-capture-label']
+        results_file = tempfile.mktemp()
+        cmd += [
+            '--gtest_filter=%s' % filt,
+            '--angle-per-test-capture-label',
+            '--results-file=' + results_file,
+        ]
         self.logger.info('%s %s' % (_FormatEnv(extra_env), ' '.join(cmd)))
 
         returncode, output = child_processes_manager.RunSubprocess(
             cmd, env, timeout=SUBPROCESS_TIMEOUT)
+
         if args.show_capture_stdout:
             self.logger.info("Capture stdout: %s" % output)
+
         if returncode == -1:
             self.results.append(GroupedResult(GroupedResult.Crashed, "", output, self.tests))
             return False
         elif returncode == -2:
             self.results.append(GroupedResult(GroupedResult.TimedOut, "", "", self.tests))
             return False
+
+        with open(results_file) as f:
+            test_results = json.load(f)
+        os.unlink(results_file)
+        for test in self.tests:
+            test_result = test_results['tests'][test.full_test_name]
+            if test_result['actual'] == 'SKIP':
+                test.skipped_by_suite = True
+
         return True
 
     def RemoveTestsThatDoNotProduceAppropriateTraceFiles(self):
         continued_tests = []
         skipped_tests = []
+        failed_to_trace_tests = []
         for test in self.tests:
             if not test.CanRunReplay(self.trace_folder_path):
-                skipped_tests.append(test)
+                if test.skipped_by_suite:
+                    skipped_tests.append(test)
+                else:
+                    failed_to_trace_tests.append(test)
             else:
                 continued_tests.append(test)
         if len(skipped_tests) > 0:
             self.results.append(
-                GroupedResult(
-                    GroupedResult.Skipped,
-                    "Skipping replay since capture didn't produce necessary trace files", "",
-                    skipped_tests))
+                GroupedResult(GroupedResult.Skipped, "Skipping replay since test skipped by suite",
+                              "", skipped_tests))
+        if len(failed_to_trace_tests) > 0:
+            self.results.append(
+                GroupedResult(GroupedResult.FailedToTrace,
+                              "Test not skipped but failed to produce trace files", "",
+                              failed_to_trace_tests))
+
         return continued_tests
 
     def BuildReplay(self, replay_build_dir, composite_file_id, tests, child_processes_manager):
@@ -501,21 +541,19 @@ class TestBatch():
             return False
         return True
 
-    def RunReplay(self, replay_build_dir, replay_exe_path, child_processes_manager, tests,
-                  expose_nonconformant_features):
-        extra_env = {
-            'ANGLE_CAPTURE_ENABLED': '0',
-            'ANGLE_FEATURE_OVERRIDES_ENABLED': 'enable_capture_limits',
-        }
-
-        if expose_nonconformant_features:
+    def RunReplay(self, args, replay_build_dir, replay_exe_path, child_processes_manager, tests):
+        extra_env = {}
+        if args.expose_nonconformant_features:
             extra_env[
-                'ANGLE_FEATURE_OVERRIDES_ENABLED'] += ':exposeNonConformantExtensionsAndVersions'
+                'ANGLE_FEATURE_OVERRIDES_ENABLED'] = 'exposeNonConformantExtensionsAndVersions'
 
         env = {**os.environ.copy(), **extra_env}
 
         run_cmd = GetRunCommand(self.args, replay_exe_path)
         self.logger.info('%s %s' % (_FormatEnv(extra_env), ' '.join(run_cmd)))
+
+        for test in tests:
+            self.UnlinkContextStateJsonFilesIfPresent(replay_build_dir, test.GetLabel())
 
         returncode, output = child_processes_manager.RunSubprocess(
             run_cmd, env, timeout=SUBPROCESS_TIMEOUT)
@@ -530,6 +568,9 @@ class TestBatch():
                 GroupedResult(GroupedResult.TimedOut, "Replay run timed out", output, tests))
             return
 
+        if args.show_replay_stdout:
+            self.logger.info("Replay stdout: %s" % output)
+
         output_lines = output.splitlines()
         passes = []
         fails = []
@@ -537,27 +578,51 @@ class TestBatch():
         for output_line in output_lines:
             words = output_line.split(" ")
             if len(words) == 3 and words[0] == RESULT_TAG:
-                if int(words[2]) == 0:
-                    passes.append(self.FindTestByLabel(words[1]))
-                else:
-                    fails.append(self.FindTestByLabel(words[1]))
-                    self.logger.info("Context comparison failed: {}".format(
-                        self.FindTestByLabel(words[1])))
+                test_name = self.FindTestByLabel(words[1])
+                result = int(words[2])
+                if result == 0:
+                    passes.append(test_name)
+                elif result == REPLAY_INITIALIZATION_FAILURE:
+                    fails.append(test_name)
+                    self.logger.info("Initialization failure: %s" % test_name)
+                elif result == REPLAY_SERIALIZATION_FAILURE:
+                    fails.append(test_name)
+                    self.logger.info("Context comparison failed: %s" % test_name)
                     self.PrintContextDiff(replay_build_dir, words[1])
-
+                else:
+                    fails.append(test_name)
+                    self.logger.error("Unknown test result code: %s -> %d" % (test_name, result))
                 count += 1
+
         if len(passes) > 0:
             self.results.append(GroupedResult(GroupedResult.Passed, "", output, passes))
         if len(fails) > 0:
             self.results.append(GroupedResult(GroupedResult.Failed, "", output, fails))
 
-    def PrintContextDiff(self, replay_build_dir, test_name):
+    def UnlinkContextStateJsonFilesIfPresent(self, replay_build_dir, test_name):
         frame = 1
         while True:
             capture_file = "{}/{}_ContextCaptured{}.json".format(replay_build_dir, test_name,
                                                                  frame)
             replay_file = "{}/{}_ContextReplayed{}.json".format(replay_build_dir, test_name, frame)
+            if os.path.exists(capture_file):
+                os.unlink(capture_file)
+            if os.path.exists(replay_file):
+                os.unlink(replay_file)
+
+            if frame > self.CAPTURE_FRAME_END:
+                break
+            frame = frame + 1
+
+    def PrintContextDiff(self, replay_build_dir, test_name):
+        frame = 1
+        found = False
+        while True:
+            capture_file = "{}/{}_ContextCaptured{}.json".format(replay_build_dir, test_name,
+                                                                 frame)
+            replay_file = "{}/{}_ContextReplayed{}.json".format(replay_build_dir, test_name, frame)
             if os.path.exists(capture_file) and os.path.exists(replay_file):
+                found = True
                 captured_context = open(capture_file, "r").readlines()
                 replayed_context = open(replay_file, "r").readlines()
                 for line in difflib.unified_diff(
@@ -568,6 +633,8 @@ class TestBatch():
                 if frame > self.CAPTURE_FRAME_END:
                     break
             frame = frame + 1
+        if not found:
+            self.logger.error("Could not find serialization diff files for %s" % test_name)
 
     def FindTestByLabel(self, label):
         for test in self.tests:
@@ -763,8 +830,8 @@ def RunTests(args, worker_id, job_queue, result_list, message_queue, logger, nin
                 result_list.append(test_batch.GetResults())
                 logger.info(str(test_batch.GetResults()))
                 continue
-            test_batch.RunReplay(replay_build_dir, replay_exec_path, child_processes_manager,
-                                 continued_tests, args.expose_nonconformant_features)
+            test_batch.RunReplay(args, replay_build_dir, replay_exec_path, child_processes_manager,
+                                 continued_tests)
             result_list.append(test_batch.GetResults())
             logger.info(str(test_batch.GetResults()))
         except KeyboardInterrupt:
@@ -1024,8 +1091,9 @@ def main(args):
         retval = EXIT_SUCCESS
 
         unexpected_test_results_count = 0
-        for count in unexpected_count.values():
-            unexpected_test_results_count += count
+        for result, count in unexpected_count.items():
+            if result != GroupedResult.Skipped:  # Suite skipping tests is ok
+                unexpected_test_results_count += count
 
         if unexpected_test_results_count > 0:
             retval = EXIT_FAILURE
@@ -1034,7 +1102,7 @@ def main(args):
                 unexpected_test_results_count))
             logger.info('')
             for result, count in unexpected_count.items():
-                if count > 0:
+                if count > 0 and result != GroupedResult.Skipped:
                     logger.info("Unexpected '{}' ({}):".format(result, count))
                     for test_result in unexpected_test_results[result]:
                         logger.info('     {}'.format(test_result))
@@ -1112,6 +1180,13 @@ if __name__ == '__main__':
         type=int,
         help='Maximum number of test processes. Default is %d.' % DEFAULT_MAX_JOBS)
     parser.add_argument(
+        '-M',
+        '--mec',
+        default=0,
+        type=int,
+        help='Enable mid execution capture starting at specified frame, (default: 0 = normal capture)'
+    )
+    parser.add_argument(
         '-a',
         '--also-run-skipped-for-capture-tests',
         action='store_true',
@@ -1130,6 +1205,8 @@ if __name__ == '__main__':
         help='Expose non-conformant features to advertise GLES 3.2')
     parser.add_argument(
         '--show-capture-stdout', action='store_true', help='Print test stdout during capture.')
+    parser.add_argument(
+        '--show-replay-stdout', action='store_true', help='Print test stdout during replay.')
     parser.add_argument('--debug', action='store_true', help='Debug builds (default is Release).')
     args = parser.parse_args()
     if args.debug and (args.out_dir == DEFAULT_OUT_DIR):

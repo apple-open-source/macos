@@ -2513,6 +2513,7 @@ PRIVATE void rpc__cn_call_ccb_create
     fragbuf_p = rpc__cn_fragbuf_alloc (false);
     fragbuf_p->fragbuf_dealloc = NULL;
     ccb->prot_header = fragbuf_p;
+    ccb->alloc_hint = 0;
     header_p = (rpc_cn_packet_p_t) RPC_CN_CREP_SEND_HDR (ccb);
 
     /*
@@ -2525,6 +2526,11 @@ PRIVATE void rpc__cn_call_ccb_create
     iov_p->buff_addr = (byte_p_t) fragbuf_p;
     iov_p->buff_len = fragbuf_p->max_data_size;
     iov_p->data_addr = (byte_p_t) fragbuf_p->data_p;
+
+    /*
+     * Initialize the number of iov elements to zero.
+     */
+    RPC_CN_CREP_IOVLEN(ccb) = 0;
 
     /*
      * Init the common call rep mutex.

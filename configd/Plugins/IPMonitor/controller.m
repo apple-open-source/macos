@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -445,6 +445,7 @@ typedef struct resolverList {
 			NSData		*	data;
 			NSUInteger		found;
 			id			mapped_agent;
+			NSUInteger		domainInstance;
 
 			found = [new_domain_list indexOfObject:(__bridge id _Nonnull)(match_domain)];
 			if (found == NSNotFound) {
@@ -456,15 +457,18 @@ typedef struct resolverList {
 			 *	agents for domains which we did not know before.
 			 */
 
-			NSUInteger domainInstance = [duplicate_domain_list countForObject:(__bridge id _Nonnull)(match_domain)];
+			domainInstance = [duplicate_domain_list countForObject:(__bridge id _Nonnull)(match_domain)];
 			if (domainInstance > 0) {
+				NSString *ns_domain_name_copy;
+				BOOL ok;
+
 				/* domainInstance will be > 0, only if we have conflicting domains */
 				domainInstance++;
-				NSString *ns_domain_name_copy = [NSString stringWithFormat:@"%@" multipleEntitySuffix "%lu", match_domain, (unsigned long)domainInstance];
+				ns_domain_name_copy = [NSString stringWithFormat:@"%@" multipleEntitySuffix "%lu", match_domain, (unsigned long)domainInstance];
 
 				data = [self dataForProxyDictionary:domain_proxy];
 
-				BOOL ok = [self spawnFloatingAgent:[ProxyAgent class]
+				ok = [self spawnFloatingAgent:[ProxyAgent class]
 							entity:ns_domain_name_copy
 							agentSubType:kAgentSubTypeSupplemental
 							addPolicyOfType:NEPolicyConditionTypeDomain
@@ -796,13 +800,14 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 - (void)processProxyChanges
 {
 	CFDictionaryRef			proxies;
+	BOOL destroyedAgent = NO;
 
 	proxies = SCDynamicStoreCopyProxiesWithOptions(NULL, NULL);
 	if (proxies == NULL) {
-		SC_log(LOG_INFO, "No proxy information");
+		NSMutableDictionary	*copy;
 
-		BOOL destroyedAgent = NO;
-		NSMutableDictionary *copy = [self.floatingProxyAgentList copy];
+		SC_log(LOG_INFO, "No proxy information");
+		copy = [self.floatingProxyAgentList copy];
 		for (NSString *entity in copy) {
 			id agent = [copy objectForKey:entity];
 			[self destroyFloatingAgent:agent];
@@ -940,6 +945,8 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 	}
 
 	if (resolver->n_search > 0) {
+		CFMutableArrayRef searchDomainArray;
+
 		if (resolverDict == nil) {
 			resolverDict = CFDictionaryCreateMutable(NULL,
 								 0,
@@ -947,7 +954,7 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 								 &kCFTypeDictionaryValueCallBacks);
 		}
 
-		CFMutableArrayRef searchDomainArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		searchDomainArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
 		/* Append search domains */
 		for (int i = 0; i < resolver->n_search; i++) {
@@ -960,6 +967,8 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 
 	/* Get the count of nameservers */
 	if (resolver->n_nameserver > 0) {
+		CFMutableArrayRef nameserverArray;
+
 		if (resolverDict == nil) {
 			resolverDict = CFDictionaryCreateMutable(NULL,
 								 0,
@@ -967,7 +976,7 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 								 &kCFTypeDictionaryValueCallBacks);
 		}
 
-		CFMutableArrayRef nameserverArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		nameserverArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
 		/* Get all the nameservers */
 		for (int i = 0; i < resolver->n_nameserver; i++) {
@@ -1178,6 +1187,7 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 			NSUInteger		found;
 			id			mapped_agent;
 			NSString	*	ns_domain_name;
+			NSUInteger		domainInstance;
 
 			ns_domain_name = @(resolver->domain);
 			found = [new_domain_list indexOfObject:ns_domain_name];
@@ -1190,15 +1200,18 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 			 *	agents for domains which we did not know before.
 			 */
 
-			 NSUInteger domainInstance = [duplicate_domain_list countForObject:ns_domain_name];
+			 domainInstance = [duplicate_domain_list countForObject:ns_domain_name];
 			 if (domainInstance > 0) {
+				 NSString *ns_domain_name_copy;
+				 BOOL ok;
+
 				 /* domainInstance will be > 0, only if we have conflicting domains */
 				 domainInstance++;
 				 data = [self dataForResolver:resolver];
 
-				 NSString *ns_domain_name_copy = [NSString stringWithFormat:@"%@" multipleEntitySuffix "%lu", ns_domain_name, (unsigned long)domainInstance];
+				 ns_domain_name_copy = [NSString stringWithFormat:@"%@" multipleEntitySuffix "%lu", ns_domain_name, (unsigned long)domainInstance];
 
-				 BOOL ok = [self spawnFloatingAgent:[DNSAgent class]
+				 ok = [self spawnFloatingAgent:[DNSAgent class]
 							entity:ns_domain_name_copy
 							agentSubType:kAgentSubTypeSupplemental
 							addPolicyOfType:NEPolicyConditionTypeDomain
@@ -1240,6 +1253,9 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 {
 	resolver_list_t *resolvers = [self copyResolverList:dns_config];
 	if (resolvers) {
+		NSMutableArray *old_multicast_resolver_list;
+		NSMutableArray *old_private_resolver_list;
+
 		/* Process Default resolvers */
 		NSMutableArray *old_default_resolver_list = [self getAgentList:self.floatingDNSAgentList
 								     agentType:kAgentTypeDNS
@@ -1286,7 +1302,7 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 
 		/* Process Multicast resolvers */
 
-		NSMutableArray *old_multicast_resolver_list = [self getAgentList:self.floatingDNSAgentList
+		old_multicast_resolver_list = [self getAgentList:self.floatingDNSAgentList
 								       agentType:kAgentTypeDNS
 								    agentSubType:kAgentSubTypeMulticast];
 
@@ -1330,7 +1346,7 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 
 		/* Process Private resolvers */
 
-		NSMutableArray *old_private_resolver_list = [self getAgentList:self.floatingDNSAgentList
+		old_private_resolver_list = [self getAgentList:self.floatingDNSAgentList
 								     agentType:kAgentTypeDNS
 								  agentSubType:kAgentSubTypePrivate];
 
@@ -1559,8 +1575,10 @@ remove_policy:
 
 	dns_config = dns_configuration_copy();
 	if (dns_config == NULL) {
+		NSMutableDictionary *copy = nil;
+
 		SC_log(LOG_INFO, "No DNS configuration");
-		NSMutableDictionary *copy = [self.floatingDNSAgentList copy];
+		copy = [self.floatingDNSAgentList copy];
 		for (NSString *entity in copy) {
 			id agent = [copy objectForKey:entity];
 
@@ -1590,13 +1608,16 @@ done:
 			       uuid:(uuid_t)requested_uuid
 			     length:(uint64_t *)length
 {
+	id agent = nil;
+	void *buffer = NULL;
+	NSData *data;
+	uint64_t len;
+
 	if (length == NULL) {
 		SC_log(LOG_NOTICE, "Invalid parameters for copying agent data");
 		return NULL;
 	}
 
-	id agent = nil;
-	void *buffer = NULL;
 	*length = 0;
 
 	for (NSString *key in controllerDict) {
@@ -1618,8 +1639,8 @@ done:
 		return NULL;
 	}
 
-	NSData *data = [agent getAgentData];
-	uint64_t len = [data length];
+	data = [agent getAgentData];
+	len = [data length];
 	if (len > 0) {
 		*length = len;
 		buffer = malloc((size_t)len);
@@ -1650,6 +1671,11 @@ done:
 	NSData * data = [agent getAgentData];
 
 	if ([data length] > CONFIG_AGENT_DATA_LIMIT) {
+		uuid_t c_uuid;
+		NSUUID *uuid = nil;
+		NSData *uuid_data = nil;
+		NSData *new_data = nil;
+
 		/*  We impose a limit on the config agent data as 1KB.
 		 *  If we have a data blob larger than this limit, do NOT publish it into the agent.
 		 *  Instead publish a key which will trigger fetching of the configuration directly
@@ -1657,13 +1683,12 @@ done:
 		 */
 		NSMutableDictionary *data_dict = [NSMutableDictionary dictionary];
 
-		NSUUID *uuid = [agent getAgentUUID];
-		uuid_t c_uuid;
+		uuid = [agent getAgentUUID];
 		[uuid getUUIDBytes:c_uuid];
-		NSData *uuid_data = [[NSData alloc] initWithBytes:c_uuid length:sizeof(c_uuid)];
+		uuid_data = [[NSData alloc] initWithBytes:c_uuid length:sizeof(c_uuid)];
 		[data_dict setValue:uuid_data forKey:@kConfigAgentOutOfBandDataUUID];
 
-		NSData *new_data = [NSPropertyListSerialization dataWithPropertyList:data_dict
+		new_data = [NSPropertyListSerialization dataWithPropertyList:data_dict
 									      format:NSPropertyListBinaryFormat_v1_0
 									     options:0
 									       error:nil];
@@ -2045,6 +2070,8 @@ done:
 {
 	id dummyAgent;
 	NSMutableDictionary * parameters;
+	BOOL useControlPolicySession = NO;
+	BOOL ok = NO;
 
 	parameters = [NSMutableDictionary dictionary];
 	[parameters setValue:entity forKey:@kEntityName];
@@ -2060,13 +2087,12 @@ done:
 		[dummyAgent updateAgentData:data];
 	}
 
-	BOOL useControlPolicySession = NO;
 	if (subtype == kAgentSubTypeGlobal) {
 		/* Policies for a Global scoped agents are at "control" level */
 		useControlPolicySession = YES;
 	}
 
-	BOOL ok = [self addPolicyToFloatingAgent:dummyAgent
+	ok = [self addPolicyToFloatingAgent:dummyAgent
 					domain:entity
 					agentUUIDToUse:[mapped_agent agentUUID]
 					policyType:policyType
@@ -2096,6 +2122,8 @@ done:
 	/* Before any data goes into the kernel, do a sanity check. */
 	NSData *sanityCheckData = [self dataLengthSanityCheck:agent];
 	NSData *tempAgentData = nil;
+	BOOL ok = NO;
+	NWNetworkAgentRegistration *regObject = nil;
 
 	if (sanityCheckData != nil) {
 		/*  Data length is more than the limit! for updateNetworkAgent, the data blob
@@ -2106,9 +2134,7 @@ done:
 		SC_log(LOG_NOTICE, "Data too large for %@ (%lu bytes)!", [agent getAgentName], (unsigned long)[tempAgentData length]);
 	}
 
-	BOOL ok = NO;
-
-	NWNetworkAgentRegistration *regObject = [agent valueForKey:@"registrationObject"];
+	regObject = [agent valueForKey:@"registrationObject"];
 	if (regObject != nil) {
 		SC_log(LOG_NOTICE, "Publishing data to agent %@ (%lu bytes)", [agent getAgentName], (unsigned long)[[agent getAgentData] length]);
 		ok = [regObject updateNetworkAgent:agent];

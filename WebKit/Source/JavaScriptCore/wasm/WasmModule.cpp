@@ -37,6 +37,7 @@ namespace JSC { namespace Wasm {
 Module::Module(LLIntPlan& plan)
     : m_moduleInformation(plan.takeModuleInformation())
     , m_llintCallees(LLIntCallees::createFromVector(plan.takeCallees()))
+    , m_wasmToJSCallee(WasmToJSCallee::create())
     , m_llintEntryThunks(plan.takeEntryThunks())
 {
 }
@@ -64,21 +65,21 @@ static Plan::CompletionTask makeValidationCallback(Module::AsyncValidationCallba
     });
 }
 
-Module::ValidationResult Module::validateSync(Context* context, Vector<uint8_t>&& source)
+Module::ValidationResult Module::validateSync(VM& vm, Vector<uint8_t>&& source)
 {
-    Ref<LLIntPlan> plan = adoptRef(*new LLIntPlan(context, WTFMove(source), CompilerMode::Validation, Plan::dontFinalize()));
+    Ref<LLIntPlan> plan = adoptRef(*new LLIntPlan(vm, WTFMove(source), CompilerMode::Validation, Plan::dontFinalize()));
     Wasm::ensureWorklist().enqueue(plan.get());
     plan->waitForCompletion();
     return makeValidationResult(plan.get());
 }
 
-void Module::validateAsync(Context* context, Vector<uint8_t>&& source, Module::AsyncValidationCallback&& callback)
+void Module::validateAsync(VM& vm, Vector<uint8_t>&& source, Module::AsyncValidationCallback&& callback)
 {
-    Ref<Plan> plan = adoptRef(*new LLIntPlan(context, WTFMove(source), CompilerMode::Validation, makeValidationCallback(WTFMove(callback))));
+    Ref<Plan> plan = adoptRef(*new LLIntPlan(vm, WTFMove(source), CompilerMode::Validation, makeValidationCallback(WTFMove(callback))));
     Wasm::ensureWorklist().enqueue(WTFMove(plan));
 }
 
-Ref<CalleeGroup> Module::getOrCreateCalleeGroup(Context* context, MemoryMode mode)
+Ref<CalleeGroup> Module::getOrCreateCalleeGroup(VM& vm, MemoryMode mode)
 {
     RefPtr<CalleeGroup> calleeGroup;
     Locker locker { m_lock };
@@ -92,23 +93,23 @@ Ref<CalleeGroup> Module::getOrCreateCalleeGroup(Context* context, MemoryMode mod
         RefPtr<LLIntCallees> llintCallees = nullptr;
         if (Options::useWasmLLInt())
             llintCallees = m_llintCallees.copyRef();
-        calleeGroup = CalleeGroup::create(context, mode, const_cast<ModuleInformation&>(moduleInformation()), WTFMove(llintCallees));
+        calleeGroup = CalleeGroup::create(vm, mode, const_cast<ModuleInformation&>(moduleInformation()), WTFMove(llintCallees));
         m_calleeGroups[static_cast<uint8_t>(mode)] = calleeGroup;
     }
     return calleeGroup.releaseNonNull();
 }
 
-Ref<CalleeGroup> Module::compileSync(Context* context, MemoryMode mode)
+Ref<CalleeGroup> Module::compileSync(VM& vm, MemoryMode mode)
 {
-    Ref<CalleeGroup> calleeGroup = getOrCreateCalleeGroup(context, mode);
+    Ref<CalleeGroup> calleeGroup = getOrCreateCalleeGroup(vm, mode);
     calleeGroup->waitUntilFinished();
     return calleeGroup;
 }
 
-void Module::compileAsync(Context* context, MemoryMode mode, CalleeGroup::AsyncCompilationCallback&& task)
+void Module::compileAsync(VM& vm, MemoryMode mode, CalleeGroup::AsyncCompilationCallback&& task)
 {
-    Ref<CalleeGroup> calleeGroup = getOrCreateCalleeGroup(context, mode);
-    calleeGroup->compileAsync(context, WTFMove(task));
+    Ref<CalleeGroup> calleeGroup = getOrCreateCalleeGroup(vm, mode);
+    calleeGroup->compileAsync(vm, WTFMove(task));
 }
 
 void Module::copyInitialCalleeGroupToAllMemoryModes(MemoryMode initialMode)
@@ -116,7 +117,7 @@ void Module::copyInitialCalleeGroupToAllMemoryModes(MemoryMode initialMode)
     Locker locker { m_lock };
     ASSERT(m_calleeGroups[static_cast<uint8_t>(initialMode)]);
     const CalleeGroup& initialBlock = *m_calleeGroups[static_cast<uint8_t>(initialMode)];
-    for (unsigned i = 0; i < Wasm::NumberOfMemoryModes; i++) {
+    for (unsigned i = 0; i < numberOfMemoryModes; i++) {
         if (i == static_cast<uint8_t>(initialMode))
             continue;
         // We should only try to copy the group here if it hasn't already been created.

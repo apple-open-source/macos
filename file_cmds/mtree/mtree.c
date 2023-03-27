@@ -266,6 +266,10 @@ main(int argc, char *argv[])
 		set_metric_path(dir);
 	}
 
+	if (keys & F_DATALESS) {
+		setiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES,
+			       IOPOL_SCOPE_PROCESS, IOPOL_MATERIALIZE_DATALESS_FILES_OFF);
+	}
 	if (cflag) {
 		cwalk();
 		exit(0);

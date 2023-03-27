@@ -442,6 +442,30 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
     return match;
 }
 
+static const char * restrictedKeys[] = {kIOUserClientClassKey, kIOClassKey, kIOProviderClassKey, kIOKitDebugKey, kIOServiceDEXTEntitlementsKey, kIOHIDDevicePrivilegedKey};
+
+bool IsIOHIDRestrictedIOKitProperty(const OSSymbol* key)
+{
+    for (unsigned index = 0; index < sizeof(restrictedKeys)/sizeof(restrictedKeys[0]); ++index) {
+        if (key->isEqualTo(restrictedKeys[index])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool IsIOHIDRestrictedIOKitPropertyDictionary(const OSDictionary* properties)
+{
+    for (unsigned index = 0; index < sizeof(restrictedKeys)/sizeof(restrictedKeys[0]); ++index) {
+        if (properties->getObject(restrictedKeys[index]) != NULL) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void IOHIDSystemActivityTickle(SInt32 nxEventType, IOService *sender)
 {
     HIDLogInfo("HID Activity Tickle (type:%d sender:%llx)", nxEventType, sender ? sender->getRegistryEntryID() : 0);

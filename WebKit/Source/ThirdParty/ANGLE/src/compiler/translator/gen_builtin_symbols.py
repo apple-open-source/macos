@@ -630,6 +630,9 @@ basic_types_enumeration = [
     'UImageCubeArray',
     'UImageRect',
     'UImageBuffer',
+    'PixelLocalANGLE',
+    'IPixelLocalANGLE',
+    'UPixelLocalANGLE',
     'SubpassInput',
     'ISubpassInput',
     'USubpassInput',
@@ -659,7 +662,7 @@ def get_basic_mangled_name(basic):
 
 essl_levels = [
     'ESSL3_2_BUILTINS', 'ESSL3_1_BUILTINS', 'ESSL3_BUILTINS', 'ESSL1_BUILTINS', 'COMMON_BUILTINS',
-    'ESSL_VULKAN_BUILTINS'
+    'ESSL_INTERNAL_BACKEND_BUILTINS'
 ]
 
 glsl_levels = [
@@ -681,8 +684,8 @@ def generate_suffix_from_level(level):
 def get_essl_shader_version_for_level(level):
     if level == None:
         return '-1'
-    elif level == 'ESSL_VULKAN_BUILTINS':
-        return 'kESSLVulkanOnly'
+    elif level == 'ESSL_INTERNAL_BACKEND_BUILTINS':
+        return 'kESSLInternalBackendBuiltIns'
     elif level == 'ESSL3_2_BUILTINS':
         return '320'
     elif level == 'ESSL3_1_BUILTINS':
@@ -1217,8 +1220,10 @@ class TType:
             type_obj['basic'] = glsl_header_type[0].upper() + glsl_header_type[1:]
             return type_obj
 
-        if glsl_header_type.startswith('gsampler') or glsl_header_type.startswith(
-                'gimage') or glsl_header_type.startswith('gsubpassInput'):
+        if glsl_header_type.startswith('gsampler') or \
+           glsl_header_type.startswith('gimage') or \
+           glsl_header_type.startswith('gpixelLocal') or \
+           glsl_header_type.startswith('gsubpassInput'):
             type_obj['basic'] = glsl_header_type[1].upper() + glsl_header_type[2:]
             type_obj['genType'] = 'sampler_or_image_or_subpass'
             return type_obj

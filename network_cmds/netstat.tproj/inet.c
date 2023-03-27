@@ -196,8 +196,8 @@ _serv_cache_getservbyport(int port, char *proto)
  */
 
 struct xgen_n {
-	u_int32_t	xgn_len;			/* length of this structure */
-	u_int32_t	xgn_kind;		/* number of PCBs at this time */
+	u_int32_t	xgn_len;	/* length of this structure */
+	u_int32_t	xgn_kind;	/* type of structure */
 };
 
 #define ALL_XGN_KIND_INP (XSO_SOCKET | XSO_RCVBUF | XSO_SNDBUF | XSO_STATS | XSO_INPCB)

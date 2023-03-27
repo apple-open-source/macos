@@ -41,6 +41,9 @@ will be treated just as `tt(-f)', but the string `tt(-f i)' is an error.
 This is because many systems which implement the `tt(#!)' mechanism for
 calling scripts do not strip trailing whitespace.
 
+It is possible for options to be set within a function scope.  See the
+description of the option tt(LOCAL_OPTIONS) below.
+
 texinode(Description of Options)(Option Aliases)(Specifying Options)(Options)
 sect(Description of Options)
 cindex(options, description)
@@ -474,6 +477,22 @@ item(tt(CASE_MATCH) <D>)(
 Make regular expressions using the tt(zsh/regex) module (including
 matches with tt(=~)) sensitive to case.
 )
+pindex(CASE_PATHS)
+pindex(NO_CASE_PATHS)
+pindex(CASEPATHS)
+pindex(NOCASEPATHS)
+cindex(case-sensitive globbing, option)
+item(tt(CASE_PATHS))(
+If tt(CASE_PATHS) is not set (the default), tt(CASE_GLOB) affects the
+interpretation of em(every) path component, whenever a special
+character appears in em(any) component.  When tt(CASE_PATHS) is set,
+file path components that do em(not) contain special filename
+generation characters are always sensitive to case, thus restricting
+tt(NO_CASE_GLOB) to components that contain globbing characters.
+
+Note that if the filesystem itself is not sensitive to case, then
+tt(CASE_PATHS) has no effect.
+)
 pindex(CSH_NULL_GLOB)
 pindex(NO_CSH_NULL_GLOB)
 pindex(CSHNULLGLOB)
@@ -586,7 +605,7 @@ Substitutions using the tt(:s) and tt(:&) history modifiers are performed
 with pattern matching instead of string matching.  This occurs wherever
 history modifiers are valid, including glob qualifiers and parameters.
 See
-ifzman(the section Modifiers in zmanref(zshexpn))\
+ifzman(the section `Modifiers' in zmanref(zshexpn))\
 ifnzman(noderef(Modifiers)).
 )
 pindex(IGNORE_BRACES)
@@ -1124,7 +1143,7 @@ pindex(GLOBALRCS)
 pindex(NOGLOBALRCS)
 cindex(startup files, global, inhibiting)
 cindex(files, global startup, inhibiting)
-item(tt(GLOBAL_RCS) (tt(-d)) <D>)(
+item(tt(GLOBAL_RCS) (tt(+d)) <D>)(
 If this option is unset, the startup files tt(zprofile()),
 tt(zshrc()), tt(zlogin()) and tt(zlogout()) will not be run.  It
 can be disabled and re-enabled at any time, including inside local startup
@@ -1167,6 +1186,22 @@ Otherwise `tt(>!)' or `tt(>|)' must be used to truncate a file.
 If the option is not set, and the option tt(APPEND_CREATE) is also
 not set, `tt(>>!)' or `tt(>>|)' must be used to create a file.
 If either option is set, `tt(>>)' may be used.
+)
+pindex(CLOBBER_EMPTY)
+pindex(NO_CLOBBER_EMPTY)
+pindex(CLOBBEREMPTY)
+pindex(NOCLOBBEREMPTY)
+cindex(clobbering, of empty files)
+cindex(file clobbering, of empty files)
+item(tt(CLOBBER_EMPTY))(
+This option is only used if the option tt(CLOBBER) is not set: note that
+it is set by default.
+
+If this option is set, then regular files of zero length may be
+ovewritten (`clobbered').  Note that it is possible another process
+has written to the file between this test and use of the file by
+the current process.  This option should therefore not be used in
+cases where files to be clobbered may be written to asynchronously.
 )
 pindex(CORRECT)
 pindex(NO_CORRECT)
@@ -1377,6 +1412,14 @@ item(tt(SHORT_LOOPS) <C> <Z>)(
 Allow the short forms of tt(for), tt(repeat), tt(select),
 tt(if), and tt(function) constructs.
 )
+pindex(SHORT_REPEAT)
+pindex(NO_SHORT_REPEAT)
+pindex(SHORTREPEAT)
+pindex(NOSHORTREPEAT)
+item(tt(SHORT_REPEAT))(
+Allow the short form tt(repeat) as tt(SHORT_LOOPS) but without enabling
+it for the other constructs.
+)
 pindex(SUN_KEYBOARD_HACK)
 pindex(NO_SUN_KEYBOARD_HACK)
 pindex(SUNKEYBOARDHACK)
@@ -1443,7 +1486,7 @@ The check is omitted if the commands run from the previous command line
 included a `tt(jobs)' command, since it is assumed the user is aware that
 there are background or suspended jobs.  A `tt(jobs)' command run from one
 of the hook functions defined in
-ifnzman(the section Special Functions in noderef(Functions))\
+ifnzman(the section `Special Functions' in noderef(Functions))\
 ifzman(the section SPECIAL FUNCTIONS in zmanref(zshmisc))
 is not counted for this purpose.
 )
@@ -1902,6 +1945,16 @@ If the option is set, they will only be shown when parameters are selected
 with the `tt(-m)' option.  The option `tt(-p)' is available whether or not
 the option is set.
 )
+pindex(TYPESET_TO_UNSET)
+pindex(NO_TYPESET_TO_UNSET)
+pindex(TYPESETTOUNSET)
+pindex(NOTYPESETTOUNSET)
+item(tt(TYPESET_TO_UNSET) <K> <S>)(
+When declaring a new parameter with any of the `tt(typeset)' family of
+related commands, the parameter remains unset unless and until a
+value is explicity assigned to it, either in the `tt(typeset)' command
+itself or as a later assignment statement.
+)
 pindex(VERBOSE)
 pindex(NO_VERBOSE)
 pindex(NOVERBOSE)
@@ -2199,7 +2252,8 @@ command found in the path.
 
 Furthermore, the tt(getopts) builtin behaves in a POSIX-compatible
 fashion in that the associated variable tt(OPTIND) is not made
-local to functions.
+local to functions, and its value is calculated differently to match
+other shells.
 
 Moreover, the warning and special exit code from
 tt([[ -o )var(non_existent_option)tt( ]]) are suppressed.
@@ -2279,10 +2333,15 @@ When this option is set, the usual zsh behaviour of executing
 traps for tt(EXIT) on exit from shell functions is suppressed.
 In that case, manipulating tt(EXIT) traps always alters the global
 trap for exiting the shell; the tt(LOCAL_TRAPS) option is
-ignored for the tt(EXIT) trap.  Furthermore, a tt(return) statement
-executed in a trap with no argument passes back from the function the
-value from the surrounding context, not from code executed within the
-trap.
+ignored for the tt(EXIT) trap.
+
+Also, a tt(return) statement executed in a trap with no argument passes
+back from the function the value from the surrounding context, not from
+code executed within the trap.
+
+Furthermore, if a trap is set to be ignored, this state persists when
+a subshell is entered.  Without the option, the trap would be reset to
+its default state at this point.
 )
 pindex(SH_FILE_EXPANSION)
 pindex(NO_SH_FILE_EXPANSION)

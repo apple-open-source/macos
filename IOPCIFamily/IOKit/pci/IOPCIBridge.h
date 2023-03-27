@@ -616,6 +616,9 @@ private:
     void attnButtonTimer(IOTimerEventSource * es);
     IOReturn attnButtonHandlerFinish(thread_call_t threadCall);
     void dllscEventTimer(IOTimerEventSource * es);
+
+public:
+	void handleAEREvent(bool synchronous);
 };
 __exported_pop
 

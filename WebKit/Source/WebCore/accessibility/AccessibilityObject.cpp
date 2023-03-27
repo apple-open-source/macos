@@ -36,6 +36,7 @@
 #include "AccessibilityTable.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "CustomElementDefaultARIA.h"
 #include "DOMTokenList.h"
 #include "DocumentInlines.h"
 #include "Editing.h"
@@ -560,10 +561,13 @@ static void appendAccessibilityObject(RefPtr<AXCoreObject> object, Accessibility
     // Find the next descendant of this attachment object so search can continue through frames.
     if (object->isAttachment()) {
         Widget* widget = object->widgetForAttachmentView();
-        if (!is<FrameView>(widget))
+        auto* frameView = dynamicDowncast<FrameView>(widget);
+        if (!frameView)
             return;
-        
-        Document* document = downcast<FrameView>(*widget).frame().document();
+        auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
+        if (!localFrame)
+            return;
+        auto* document = localFrame->document();
         if (!document || !document->hasLivingRenderTree())
             return;
         
@@ -574,7 +578,7 @@ static void appendAccessibilityObject(RefPtr<AXCoreObject> object, Accessibility
         results.append(object);
 }
 
-#ifndef NDEBUG
+#if ASSERT_ENABLED
 static bool isTableComponent(AXCoreObject& axObject)
 {
     return axObject.isTable() || axObject.isTableColumn() || axObject.isTableRow() || axObject.isTableCell();
@@ -1840,8 +1844,12 @@ Document* AccessibilityObject::document() const
     FrameView* frameView = documentFrameView();
     if (!frameView)
         return nullptr;
-    
-    return frameView->frame().document();
+
+    auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
+    if (!localFrame)
+        return nullptr;
+
+    return localFrame->document();
 }
     
 Page* AccessibilityObject::page() const
@@ -2188,7 +2196,7 @@ bool AccessibilityObject::isModalDescendant(Node* modalNode) const
     
     // ARIA 1.1 aria-modal, indicates whether an element is modal when displayed.
     // For the decendants of the modal object, they should also be considered as aria-modal=true.
-    return node->isDescendantOf(*modalNode);
+    return node->isDescendantOrShadowDescendantOf(*modalNode);
 }
 
 bool AccessibilityObject::isModalNode() const
@@ -2226,20 +2234,31 @@ bool AccessibilityObject::hasTagName(const QualifiedName& tagName) const
     Node* node = this->node();
     return is<Element>(node) && downcast<Element>(*node).hasTagName(tagName);
 }
-    
+
 bool AccessibilityObject::hasAttribute(const QualifiedName& attribute) const
 {
-    Node* node = this->node();
-    if (!is<Element>(node))
+    RefPtr element = this->element();
+    if (!element)
         return false;
-    
-    return downcast<Element>(*node).hasAttributeWithoutSynchronization(attribute);
+
+    if (element->hasAttributeWithoutSynchronization(attribute))
+        return true;
+
+    if (auto* defaultARIA = element->customElementDefaultARIAIfExists())
+        return defaultARIA->hasAttribute(attribute);
+
+    return false;
 }
     
 const AtomString& AccessibilityObject::getAttribute(const QualifiedName& attribute) const
 {
-    if (auto* element = this->element())
-        return element->attributeWithoutSynchronization(attribute);
+    if (RefPtr element = this->element()) {
+        auto& value = element->attributeWithoutSynchronization(attribute);
+        if (!value.isNull())
+            return value;
+        if (auto* defaultARIA = element->customElementDefaultARIAIfExists())
+            return defaultARIA->valueForAttribute(*element, attribute);
+    }
     return nullAtom();
 }
 
@@ -2425,6 +2444,7 @@ static void initializeRoleMap()
         { "main"_s, AccessibilityRole::LandmarkMain },
         { "marquee"_s, AccessibilityRole::ApplicationMarquee },
         { "math"_s, AccessibilityRole::DocumentMath },
+        { "mark"_s, AccessibilityRole::Mark },
         { "menu"_s, AccessibilityRole::Menu },
         { "menubar"_s, AccessibilityRole::MenuBar },
         { "menuitem"_s, AccessibilityRole::MenuItem },
@@ -2471,7 +2491,7 @@ static void initializeRoleMap()
 
     gAriaRoleMap = new ARIARoleMap;
     gAriaReverseRoleMap = new ARIAReverseRoleMap;
-    size_t roleLength = WTF_ARRAY_LENGTH(roles);
+    size_t roleLength = std::size(roles);
     for (size_t i = 0; i < roleLength; ++i) {
         gAriaRoleMap->set(roles[i].ariaRole, roles[i].webcoreRole);
         gAriaReverseRoleMap->set(static_cast<int>(roles[i].webcoreRole), roles[i].ariaRole);
@@ -2716,7 +2736,12 @@ bool AccessibilityObject::isInlineText() const
     return is<RenderInline>(renderer());
 }
 
-const String AccessibilityObject::keyShortcutsValue() const
+bool AccessibilityObject::supportsKeyShortcuts() const
+{
+    return hasAttribute(aria_keyshortcutsAttr);
+}
+
+String AccessibilityObject::keyShortcuts() const
 {
     return getAttribute(aria_keyshortcutsAttr);
 }
@@ -2895,8 +2920,14 @@ void AccessibilityObject::setFocused(bool focus)
         // Legacy WebKit1 case.
         if (frameView->platformWidget())
             page->chrome().client().makeFirstResponder((NSResponder *)frameView->platformWidget());
+#endif
+#if PLATFORM(MAC)
         else
             page->chrome().client().assistiveTechnologyMakeFirstResponder();
+        // WebChromeClient::assistiveTechnologyMakeFirstResponder (the WebKit2 codepath) is intentionally
+        // not called on iOS because stealing first-respondership causes issues such as:
+        //   1. VoiceOver Speak Screen focus erroneously jumping to the top of the page when encountering an embedded WKWebView
+        //   2. Third-party apps relying on WebKit to not steal first-respondership (https://bugs.webkit.org/show_bug.cgi?id=249976)
 #endif
     }
 }
@@ -2993,7 +3024,7 @@ bool AccessibilityObject::supportsPosInSet() const
 {
     return hasAttribute(aria_posinsetAttr);
 }
-    
+
 int AccessibilityObject::setSize() const
 {
     return getIntegralAttribute(aria_setsizeAttr);
@@ -3109,7 +3140,7 @@ bool AccessibilityObject::supportsRowCountChange() const
 
 AccessibilityButtonState AccessibilityObject::checkboxOrRadioValue() const
 {
-    // If this is a real checkbox or radio button, AccessibilityRenderObject will handle.
+    // If this is a real checkbox or radio button, AccessibilityNodeObject will handle.
     // If it's an ARIA checkbox, radio, or switch the aria-checked attribute should be used.
     // If it's a toggle button, the aria-pressed attribute is consulted.
 
@@ -3132,9 +3163,6 @@ AccessibilityButtonState AccessibilityObject::checkboxOrRadioValue() const
             return AccessibilityButtonState::Off;
         return AccessibilityButtonState::Mixed;
     }
-    
-    if (isIndeterminate())
-        return AccessibilityButtonState::Mixed;
     
     return AccessibilityButtonState::Off;
 }
@@ -3601,15 +3629,19 @@ bool AccessibilityObject::isDOMHidden() const
 
 bool AccessibilityObject::isShowingValidationMessage() const
 {
-    if (is<HTMLFormControlElement>(node()))
-        return downcast<HTMLFormControlElement>(*node()).isShowingValidationMessage();
+    if (RefPtr element = this->element()) {
+        if (auto* listedElement = element->asValidatedFormListedElement())
+            return listedElement->isShowingValidationMessage();
+    }
     return false;
 }
 
 String AccessibilityObject::validationMessage() const
 {
-    if (is<HTMLFormControlElement>(node()))
-        return downcast<HTMLFormControlElement>(*node()).validationMessage();
+    if (RefPtr element = this->element()) {
+        if (auto* listedElement = element->asValidatedFormListedElement())
+            return listedElement->validationMessage();
+    }
     return String();
 }
 
@@ -3688,9 +3720,32 @@ Vector<Element*> AccessibilityObject::elementsFromAttribute(const QualifiedName&
     if (!node || !node->isElementNode())
         return { };
 
+    auto& element = downcast<Element>(*node);
+    if (document()->settings().ariaReflectionForElementReferencesEnabled()) {
+        if (Element::isElementReflectionAttribute(attribute)) {
+            if (auto reflectedElement = element.getElementAttribute(attribute)) {
+                Vector<Element*> elements;
+                elements.append(reflectedElement);
+                return elements;
+            }
+        } else if (Element::isElementsArrayReflectionAttribute(attribute)) {
+            if (auto reflectedElements = element.getElementsArrayAttribute(attribute)) {
+                return WTF::map(reflectedElements.value(), [](RefPtr<Element> element) -> Element* {
+                    return element.get();
+                });
+            }
+        }
+    }
+
     auto& idsString = getAttribute(attribute);
-    if (idsString.isEmpty())
+    if (idsString.isEmpty()) {
+        if (auto* defaultARIA = element.customElementDefaultARIAIfExists()) {
+            return WTF::map(defaultARIA->elementsForAttribute(element, attribute), [](RefPtr<Element> element) -> Element* {
+                return element.get();
+            });
+        }
         return { };
+    }
 
     Vector<Element*> elements;
     auto& treeScope = node->treeScope();
@@ -3718,38 +3773,6 @@ void AccessibilityObject::setPreventKeyboardDOMEventDispatch(bool on)
     frame->settings().setPreventKeyboardDOMEventDispatch(on);
 }
 #endif
-
-AccessibilityObject* AccessibilityObject::focusableAncestor()
-{
-    return Accessibility::findAncestor<AccessibilityObject>(*this, true, [] (const AccessibilityObject& object) {
-        return object.canSetFocusAttribute();
-    });
-}
-
-AccessibilityObject* AccessibilityObject::editableAncestor()
-{
-    return Accessibility::findAncestor<AccessibilityObject>(*this, true, [] (const AccessibilityObject& object) {
-        return object.isTextControl();
-    });
-}
-
-AccessibilityObject* AccessibilityObject::highestEditableAncestor()
-{
-    AccessibilityObject* editableAncestor = this->editableAncestor();
-    AccessibilityObject* previousEditableAncestor = nullptr;
-    while (editableAncestor) {
-        if (editableAncestor == previousEditableAncestor) {
-            if (AccessibilityObject* parent = editableAncestor->parentObject()) {
-                editableAncestor = parent->editableAncestor();
-                continue;
-            }
-            break;
-        }
-        previousEditableAncestor = editableAncestor;
-        editableAncestor = editableAncestor->editableAncestor();
-    }
-    return previousEditableAncestor;
-}
 
 AccessibilityObject* AccessibilityObject::radioGroupAncestor() const
 {

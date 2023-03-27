@@ -25,6 +25,7 @@
 #pragma once
 
 #include "FloatRect.h"
+#include "FloatRoundedRect.h"
 #include "InlineIteratorInlineBox.h"
 #include "InlineIteratorTextBox.h"
 #include "RenderObject.h"
@@ -71,7 +72,8 @@ protected:
     TextDecorationPainter createDecorationPainter(const StyledMarkedText&, const FloatRect&);
     void paintBackgroundDecorations(TextDecorationPainter&, const StyledMarkedText&, const FloatRect&);
     void paintForegroundDecorations(TextDecorationPainter&, const StyledMarkedText&, const FloatRect&);
-    void paintCompositionUnderline(const CompositionUnderline&);
+    void paintCompositionUnderline(const CompositionUnderline&, const FloatRoundedRect::Radii&, bool hasLiveConversion);
+    void fillCompositionUnderline(float start, float width, const CompositionUnderline&, const FloatRoundedRect::Radii&, bool hasLiveConversion) const;
     void paintPlatformDocumentMarker(const MarkedText&);
 
     float textPosition();
@@ -118,11 +120,9 @@ public:
     static FloatRect calculateUnionOfAllDocumentMarkerBounds(const LegacyInlineTextBox&);
 };
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 class ModernTextBoxPainter : public TextBoxPainter<InlineIterator::BoxModernPath> {
 public:
     ModernTextBoxPainter(const LayoutIntegration::InlineContent&, const InlineDisplay::Box&, PaintInfo&, const LayoutPoint& paintOffset);
 };
-#endif
 
 }

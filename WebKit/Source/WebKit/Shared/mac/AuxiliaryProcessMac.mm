@@ -50,7 +50,6 @@
 #import <sysexits.h>
 #import <wtf/DataLog.h>
 #import <wtf/FileSystem.h>
-#import <wtf/RandomNumber.h>
 #import <wtf/SafeStrerror.h>
 #import <wtf/Scope.h>
 #import <wtf/SoftLinking.h>
@@ -209,7 +208,7 @@ static std::optional<Vector<char>> fileContents(const String& path, bool shouldL
         return std::nullopt;
 
     char chunk[4096];
-    constexpr size_t chunkSize = WTF_ARRAY_LENGTH(chunk);
+    constexpr size_t chunkSize = std::size(chunk);
     size_t contentSize = 0;
     Vector<char> contents;
     contents.reserveInitialCapacity(chunkSize);
@@ -393,7 +392,7 @@ static bool ensureSandboxCacheDirectory(const SandboxInfo& info)
 
 static bool writeSandboxDataToCacheFile(const SandboxInfo& info, const Vector<char>& cacheFile)
 {
-    FileHandle file { info.filePath, FileSystem::FileOpenMode::Write, FileSystem::FileLockMode::Exclusive };
+    FileHandle file { info.filePath, FileSystem::FileOpenMode::Truncate, FileSystem::FileLockMode::Exclusive };
     return file.write(cacheFile.data(), cacheFile.size()) == safeCast<int>(cacheFile.size());
 }
 
@@ -691,7 +690,11 @@ static void populateSandboxInitializationParameters(SandboxInitializationParamet
     }
     setenv("TMPDIR", temporaryDirectory, 1);
 
-    sandboxParameters.addPathParameter("WEBKIT2_FRAMEWORK_DIR", [[webKit2Bundle() bundlePath] stringByDeletingLastPathComponent]);
+    String bundlePath = webKit2Bundle().bundlePath;
+    if (!bundlePath.startsWith("/System/Library/Frameworks"_s))
+        bundlePath = webKit2Bundle().bundlePath.stringByDeletingLastPathComponent;
+
+    sandboxParameters.addPathParameter("WEBKIT2_FRAMEWORK_DIR", bundlePath);
     sandboxParameters.addConfDirectoryParameter("DARWIN_USER_TEMP_DIR", _CS_DARWIN_USER_TEMP_DIR);
     sandboxParameters.addConfDirectoryParameter("DARWIN_USER_CACHE_DIR", _CS_DARWIN_USER_CACHE_DIR);
 

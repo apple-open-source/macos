@@ -8,6 +8,7 @@
 #import <Foundation/Foundation.h>
 #import <OpenDirectory/OpenDirectory.h>
 #import <opendirectory/odcustomfunctions.h>
+#import <CoreAnalytics/CoreAnalytics.h>
 
 #import "od.h"
 #import "debugging.h"
@@ -37,4 +38,16 @@ bool odUserHasSecureToken(const char *username)
 
     NSNumber *num = result[kODHasSecureTokenResultKey];
     return  num.boolValue == YES;
+}
+
+void analyticsSendEventLazy(CFStringRef eventName, CFDictionaryRef payload)
+{
+#if DEBUG
+    os_log_debug(AUTHD_LOG, "analytics: { event: %@, payload: %@ }", eventName, payload);
+#else
+    AnalyticsSendEventLazy((__bridge const NSString * _Nonnull)(eventName), ^NSDictionary<NSString *,NSObject *> *{
+        os_log_debug(AUTHD_LOG, "analytics: { event: %@, payload: %@ }", eventName, payload);
+        return (__bridge NSDictionary<NSString *,NSObject *> *)(payload);
+    });
+#endif // DEBUG
 }

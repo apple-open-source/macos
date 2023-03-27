@@ -30,21 +30,21 @@ dict_alloc(void)
     dict_T *d;
 
     d = ALLOC_CLEAR_ONE(dict_T);
-    if (d != NULL)
-    {
-	// Add the dict to the list of dicts for garbage collection.
-	if (first_dict != NULL)
-	    first_dict->dv_used_prev = d;
-	d->dv_used_next = first_dict;
-	d->dv_used_prev = NULL;
-	first_dict = d;
+    if (d == NULL)
+	return NULL;
 
-	hash_init(&d->dv_hashtab);
-	d->dv_lock = 0;
-	d->dv_scope = 0;
-	d->dv_refcount = 0;
-	d->dv_copyID = 0;
-    }
+    // Add the dict to the list of dicts for garbage collection.
+    if (first_dict != NULL)
+	first_dict->dv_used_prev = d;
+    d->dv_used_next = first_dict;
+    d->dv_used_prev = NULL;
+    first_dict = d;
+
+    hash_init(&d->dv_hashtab);
+    d->dv_lock = 0;
+    d->dv_scope = 0;
+    d->dv_refcount = 0;
+    d->dv_copyID = 0;
     return d;
 }
 
@@ -228,13 +228,13 @@ dictitem_alloc(char_u *key)
     size_t len = STRLEN(key);
 
     di = alloc(offsetof(dictitem_T, di_key) + len + 1);
-    if (di != NULL)
-    {
-	mch_memmove(di->di_key, key, len + 1);
-	di->di_flags = DI_FLAGS_ALLOC;
-	di->di_tv.v_lock = 0;
-	di->di_tv.v_type = VAR_UNKNOWN;
-    }
+    if (di == NULL)
+	return NULL;
+
+    mch_memmove(di->di_key, key, len + 1);
+    di->di_flags = DI_FLAGS_ALLOC;
+    di->di_tv.v_lock = 0;
+    di->di_tv.v_type = VAR_UNKNOWN;
     return di;
 }
 
@@ -248,12 +248,12 @@ dictitem_copy(dictitem_T *org)
     size_t	len = STRLEN(org->di_key);
 
     di = alloc(offsetof(dictitem_T, di_key) + len + 1);
-    if (di != NULL)
-    {
-	mch_memmove(di->di_key, org->di_key, len + 1);
-	di->di_flags = DI_FLAGS_ALLOC;
-	copy_tv(&org->di_tv, &di->di_tv);
-    }
+    if (di == NULL)
+	return NULL;
+
+    mch_memmove(di->di_key, org->di_key, len + 1);
+    di->di_flags = DI_FLAGS_ALLOC;
+    copy_tv(&org->di_tv, &di->di_tv);
     return di;
 }
 
@@ -303,53 +303,53 @@ dict_copy(dict_T *orig, int deep, int top, int copyID)
 	return NULL;
 
     copy = dict_alloc();
-    if (copy != NULL)
+    if (copy == NULL)
+	return NULL;
+
+    if (copyID != 0)
     {
-	if (copyID != 0)
-	{
-	    orig->dv_copyID = copyID;
-	    orig->dv_copydict = copy;
-	}
-	if (orig->dv_type == NULL || top || deep)
-	    copy->dv_type = NULL;
-	else
-	    copy->dv_type = alloc_type(orig->dv_type);
+	orig->dv_copyID = copyID;
+	orig->dv_copydict = copy;
+    }
+    if (orig->dv_type == NULL || top || deep)
+	copy->dv_type = NULL;
+    else
+	copy->dv_type = alloc_type(orig->dv_type);
 
-	todo = (int)orig->dv_hashtab.ht_used;
-	for (hi = orig->dv_hashtab.ht_array; todo > 0 && !got_int; ++hi)
+    todo = (int)orig->dv_hashtab.ht_used;
+    for (hi = orig->dv_hashtab.ht_array; todo > 0 && !got_int; ++hi)
+    {
+	if (!HASHITEM_EMPTY(hi))
 	{
-	    if (!HASHITEM_EMPTY(hi))
+	    --todo;
+
+	    di = dictitem_alloc(hi->hi_key);
+	    if (di == NULL)
+		break;
+	    if (deep)
 	    {
-		--todo;
-
-		di = dictitem_alloc(hi->hi_key);
-		if (di == NULL)
-		    break;
-		if (deep)
+		if (item_copy(&HI2DI(hi)->di_tv, &di->di_tv,
+			    deep, FALSE, copyID) == FAIL)
 		{
-		    if (item_copy(&HI2DI(hi)->di_tv, &di->di_tv,
-						  deep, FALSE, copyID) == FAIL)
-		    {
-			vim_free(di);
-			break;
-		    }
-		}
-		else
-		    copy_tv(&HI2DI(hi)->di_tv, &di->di_tv);
-		if (dict_add(copy, di) == FAIL)
-		{
-		    dictitem_free(di);
+		    vim_free(di);
 		    break;
 		}
 	    }
+	    else
+		copy_tv(&HI2DI(hi)->di_tv, &di->di_tv);
+	    if (dict_add(copy, di) == FAIL)
+	    {
+		dictitem_free(di);
+		break;
+	    }
 	}
+    }
 
-	++copy->dv_refcount;
-	if (todo > 0)
-	{
-	    dict_unref(copy);
-	    copy = NULL;
-	}
+    ++copy->dv_refcount;
+    if (todo > 0)
+    {
+	dict_unref(copy);
+	copy = NULL;
     }
 
     return copy;
@@ -982,7 +982,7 @@ eval_dict(char_u **arg, typval_T *rettv, evalarg_T *evalarg, int literal)
 	    if (*skipwhite(*arg) == ':')
 		semsg(_(e_no_white_space_allowed_before_str_str), ":", *arg);
 	    else
-		semsg(_(e_missing_colon_in_dictionary), *arg);
+		semsg(_(e_missing_colon_in_dictionary_str), *arg);
 	    clear_tv(&tvkey);
 	    goto failret;
 	}
@@ -1020,7 +1020,7 @@ eval_dict(char_u **arg, typval_T *rettv, evalarg_T *evalarg, int literal)
 	    item = dict_find(d, key, -1);
 	    if (item != NULL)
 	    {
-		semsg(_(e_duplicate_key_in_dictionary), key);
+		semsg(_(e_duplicate_key_in_dictionary_str), key);
 		clear_tv(&tvkey);
 		clear_tv(&tv);
 		goto failret;
@@ -1060,7 +1060,7 @@ eval_dict(char_u **arg, typval_T *rettv, evalarg_T *evalarg, int literal)
 	    if (**arg == ',')
 		semsg(_(e_no_white_space_allowed_before_str_str), ",", *arg);
 	    else
-		semsg(_(e_missing_comma_in_dictionary), *arg);
+		semsg(_(e_missing_comma_in_dictionary_str), *arg);
 	    goto failret;
 	}
     }
@@ -1068,7 +1068,7 @@ eval_dict(char_u **arg, typval_T *rettv, evalarg_T *evalarg, int literal)
     if (**arg != '}')
     {
 	if (evalarg != NULL)
-	    semsg(_(e_missing_dict_end), *arg);
+	    semsg(_(e_missing_dict_end_str), *arg);
 failret:
 	if (d != NULL)
 	    dict_free(d);
@@ -1270,50 +1270,52 @@ dict_extend_func(
 	return;
     }
     d2 = argvars[1].vval.v_dict;
-    if ((is_new || !value_check_lock(d1->dv_lock, arg_errmsg, TRUE))
-	    && d2 != NULL)
+    if (d2 == NULL)
+	return;
+
+    if (!is_new && value_check_lock(d1->dv_lock, arg_errmsg, TRUE))
+	return;
+
+    if (is_new)
     {
-	if (is_new)
-	{
-	    d1 = dict_copy(d1, FALSE, TRUE, get_copyID());
-	    if (d1 == NULL)
-		return;
-	}
-
-	// Check the third argument.
-	if (argvars[2].v_type != VAR_UNKNOWN)
-	{
-	    static char *(av[]) = {"keep", "force", "error"};
-
-	    action = tv_get_string_chk(&argvars[2]);
-	    if (action == NULL)
-		return;
-	    for (i = 0; i < 3; ++i)
-		if (STRCMP(action, av[i]) == 0)
-		    break;
-	    if (i == 3)
-	    {
-		semsg(_(e_invalid_argument_str), action);
-		return;
-	    }
-	}
-	else
-	    action = (char_u *)"force";
-
-	if (type != NULL && check_typval_arg_type(type, &argvars[1],
-							 func_name, 2) == FAIL)
+	d1 = dict_copy(d1, FALSE, TRUE, get_copyID());
+	if (d1 == NULL)
 	    return;
-	dict_extend(d1, d2, action, func_name);
-
-	if (is_new)
-	{
-	    rettv->v_type = VAR_DICT;
-	    rettv->vval.v_dict = d1;
-	    rettv->v_lock = FALSE;
-	}
-	else
-	    copy_tv(&argvars[0], rettv);
     }
+
+    // Check the third argument.
+    if (argvars[2].v_type != VAR_UNKNOWN)
+    {
+	static char *(av[]) = {"keep", "force", "error"};
+
+	action = tv_get_string_chk(&argvars[2]);
+	if (action == NULL)
+	    return;
+	for (i = 0; i < 3; ++i)
+	    if (STRCMP(action, av[i]) == 0)
+		break;
+	if (i == 3)
+	{
+	    semsg(_(e_invalid_argument_str), action);
+	    return;
+	}
+    }
+    else
+	action = (char_u *)"force";
+
+    if (type != NULL && check_typval_arg_type(type, &argvars[1],
+		func_name, 2) == FAIL)
+	return;
+    dict_extend(d1, d2, action, func_name);
+
+    if (is_new)
+    {
+	rettv->v_type = VAR_DICT;
+	rettv->vval.v_dict = d1;
+	rettv->v_lock = FALSE;
+    }
+    else
+	copy_tv(&argvars[0], rettv);
 }
 
 /*
@@ -1454,7 +1456,7 @@ dict_remove(typval_T *argvars, typval_T *rettv, char_u *arg_errmsg)
     di = dict_find(d, key, -1);
     if (di == NULL)
     {
-	semsg(_(e_key_not_present_in_dictionary), key);
+	semsg(_(e_key_not_present_in_dictionary_str), key);
 	return;
     }
 

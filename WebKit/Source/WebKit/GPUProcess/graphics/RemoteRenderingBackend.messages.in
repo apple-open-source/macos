@@ -27,10 +27,10 @@ messages -> RemoteRenderingBackend NotRefCounted Stream {
     GetPixelBufferForImageBuffer(WebCore::RenderingResourceIdentifier imageBuffer, struct WebCore::PixelBufferFormat outputFormat, WebCore::IntRect srcRect) -> () Synchronous
     GetPixelBufferForImageBufferWithNewMemory(WebCore::RenderingResourceIdentifier imageBuffer, WebKit::SharedMemory::Handle handle, struct WebCore::PixelBufferFormat outputFormat, WebCore::IntRect srcRect) -> () Synchronous NotStreamEncodable
     DestroyGetPixelBufferSharedMemory()
-    PutPixelBufferForImageBuffer(WebCore::RenderingResourceIdentifier imageBuffer, IPC::PixelBufferReference pixelBuffer,  WebCore::IntRect srcRect, WebCore::IntPoint destPoint, enum:uint8_t WebCore::AlphaPremultiplication destFormat)
-    GetShareableBitmapForImageBuffer(WebCore::RenderingResourceIdentifier imageBuffer, enum:uint8_t WebCore::PreserveResolution preserveResolution) -> (WebKit::ShareableBitmap::Handle handle) Synchronous NotStreamEncodableReply
-    GetFilteredImageForImageBuffer(WebCore::RenderingResourceIdentifier imageBuffer, IPC::FilterReference filter) -> (WebKit::ShareableBitmap::Handle handle) Synchronous NotStreamEncodableReply
-    CacheNativeImage(WebKit::ShareableBitmap::Handle handle, WebCore::RenderingResourceIdentifier renderingResourceIdentifier) NotStreamEncodable
+    PutPixelBufferForImageBuffer(WebCore::RenderingResourceIdentifier imageBuffer, Ref<WebCore::PixelBuffer> pixelBuffer,  WebCore::IntRect srcRect, WebCore::IntPoint destPoint, enum:uint8_t WebCore::AlphaPremultiplication destFormat)
+    GetShareableBitmapForImageBuffer(WebCore::RenderingResourceIdentifier imageBuffer, enum:uint8_t WebCore::PreserveResolution preserveResolution) -> (WebKit::ShareableBitmapHandle handle) Synchronous NotStreamEncodableReply
+    GetFilteredImageForImageBuffer(WebCore::RenderingResourceIdentifier imageBuffer, IPC::FilterReference filter) -> (WebKit::ShareableBitmapHandle handle) Synchronous NotStreamEncodableReply
+    CacheNativeImage(WebKit::ShareableBitmapHandle handle, WebCore::RenderingResourceIdentifier renderingResourceIdentifier) NotStreamEncodable
     CacheFont(Ref<WebCore::Font> font) NotStreamEncodable
     CacheDecomposedGlyphs(Ref<WebCore::DecomposedGlyphs> decomposedGlyphs) NotStreamEncodable
     ReleaseAllResources()
@@ -40,6 +40,9 @@ messages -> RemoteRenderingBackend NotRefCounted Stream {
 
     MarkSurfacesVolatile(WebKit::MarkSurfacesAsVolatileRequestIdentifier requestIdentifier, Vector<WebCore::RenderingResourceIdentifier> renderingResourceIdentifiers)
     FinalizeRenderingUpdate(WebKit::RenderingUpdateID renderingUpdateID)
+
+    MoveToSerializedBuffer(WebCore::RenderingResourceIdentifier sourceImageBuffer, WebKit::RemoteSerializedImageBufferWriteReference destination)
+    MoveToImageBuffer(WebKit::RemoteSerializedImageBufferWriteReference source, WebCore::RenderingResourceIdentifier destinationImageBuffer)
 }
 
 #endif // ENABLE(GPU_PROCESS)

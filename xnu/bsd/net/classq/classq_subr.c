@@ -109,8 +109,7 @@ SYSCTL_UINT(_net_classq, OID_AUTO, flow_control_adv,
 uint16_t fq_codel_quantum = 0;
 #endif /* DEBUG || DEVELOPMENT */
 
-static struct zone *ifcq_zone;          /* zone for ifclassq */
-#define IFCQ_ZONE_NAME    "ifclassq"    /* zone name */
+static KALLOC_TYPE_DEFINE(ifcq_zone, struct ifclassq, NET_KT_DEFAULT);
 LCK_ATTR_DECLARE(ifcq_lock_attr, 0, 0);
 static LCK_GRP_DECLARE(ifcq_lock_group, "ifclassq locks");
 
@@ -140,8 +139,6 @@ classq_init(void)
 	PE_parse_boot_argn("ifclassq_ll_l4s_update_interval",
 	    &ifclassq_ll_l4s_update_interval, sizeof(ifclassq_ll_l4s_update_interval));
 #endif /* DEBUG || DEVELOPMENT */
-	ifcq_zone = zone_create(IFCQ_ZONE_NAME, sizeof(struct ifclassq),
-	    ZC_ZFREE_CLEARMEM);
 	fq_codel_init();
 }
 
@@ -925,13 +922,6 @@ ifclassq_calc_update_interval(uint64_t *update_interval, uint32_t flags)
 	}
 
 	*update_interval = interval;
-}
-
-void
-ifclassq_reap_caches(boolean_t purge)
-{
-	fq_codel_reap_caches(purge);
-	flowadv_reap_caches(purge);
 }
 
 struct ifclassq *

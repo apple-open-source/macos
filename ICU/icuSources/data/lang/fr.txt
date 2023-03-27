@@ -46,6 +46,7 @@ fr{
         ang{"ancien anglais"}
         anp{"angika"}
         apw{"apache occidental"}
+        apw_Latn{"apache occidental"}
         ar{"arabe"}
         ar_001{"arabe standard moderne"}
         arc{"araméen"}
@@ -123,9 +124,12 @@ fr{
         chm{"mari"}
         chn{"jargon chinook"}
         cho{"choctaw"}
+        cho_Latn{"choctaw"}
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"cheyenne"}
+        cic{"chicacha"}
+        cic_Latn{"chicacha"}
         ckb{"kurde sorani"}
         clc{"tsilhqot’in"}
         co{"corse"}

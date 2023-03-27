@@ -760,14 +760,15 @@ bool IOHIDElementContainer::processReport(IOHIDReportType reportType,
                                           UInt32 reportLength,
                                           AbsoluteTime timestamp,
                                           bool *shouldTickle,
-                                          IOOptionBits options)
+                                          IOOptionBits options,
+                                          IOReturn *error)
 {
     bool changed = false;
     IOHIDElementPrivate *element = NULL;
     
     // Get the first element in the report handler chain.
     element = GetHeadElement(GetReportHandlerSlot(reportID), reportType);
-
+    
     while (element) {
         if (shouldTickle) {
             *shouldTickle |= element->shouldTickleActivity();
@@ -778,7 +779,8 @@ bool IOHIDElementContainer::processReport(IOHIDReportType reportType,
                                           (UInt32)reportLength << 3,
                                           &timestamp,
                                           &element,
-                                          options);
+                                          options,
+                                          error);
     }
     
     return changed;

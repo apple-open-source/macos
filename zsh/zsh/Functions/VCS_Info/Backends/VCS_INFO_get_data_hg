@@ -5,7 +5,7 @@
 
 setopt localoptions extendedglob NO_shwordsplit
 
-local hgbase bmfile branchfile rebasefile dirstatefile mqseriesfile \
+local hgbase bmfile branchfile topicfile rebasefile dirstatefile mqseriesfile \
     curbmfile curbm \
     mqstatusfile mqguardsfile patchdir mergedir \
     r_csetid r_lrev r_branch i_bmhash i_bmname \
@@ -14,7 +14,7 @@ local hgbase bmfile branchfile rebasefile dirstatefile mqseriesfile \
 
 local -a hgid_args defrevformat defbranchformat \
     hgbmarks mqpatches mqguards mqunapplied hgmisc \
-    i_patchguards i_negguards i_posguards
+    i_patch i_patchguards i_negguards i_posguards
 
 local -A hook_com
 
@@ -27,6 +27,7 @@ mergedir="${hgbase}/.hg/merge/"
 bmfile="${hgbase}/.hg/bookmarks"
 curbmfile="${hgbase}/.hg/bookmarks.current"
 branchfile="${hgbase}/.hg/branch"
+topicfile="${hgbase}/.hg/topic"
 rebasefile="${hgbase}/.hg/rebasestate"
 dirstatefile="${hgbase}/.hg/dirstate"
 mqstatusfile="${patchdir}/status" # currently applied patches
@@ -48,26 +49,33 @@ if zstyle -t ":vcs_info:${vcs}:${usercontext}:${rrn}" get-revision ; then
         # Settling for a short (but unique!) hash because getting the full
         # 40-char hash in addition to all the other info we want isn't
         # available in a single hg invocation
-        hgid_args=( id -i -n -b )
+        hgid_args=( id -i -n )
 
         # Looking for changes is a tad bit slower since the dirstate cache must
         # first be refreshed before being read
         zstyle -t ":vcs_info:${vcs}:${usercontext}:${rrn}" \
             "check-for-changes" || hgid_args+=( -r. )
 
-        local HGPLAIN
         HGPLAIN=1 ${vcs_comm[cmd]} ${(z)hgid_args} 2> /dev/null \
-            | read -r r_csetid r_lrev r_branch
+            | read -r r_csetid r_lrev
     fi
 fi
 
 # If the user doesn't opt to invoke hg we can still get the current branch
-if [[ -z ${r_branch} && -r ${branchfile} ]] ; then
+if [[ -r ${branchfile} ]] ; then
     r_branch=$(< ${branchfile})
 fi
 
 # If we still don't know the branch it's safe to assume default
 [[ -n ${r_branch} ]] || r_branch="default"
+
+# Show topic if there is any (the UI for this experimental concept is not yet
+# final, but for a long time the convention has been to join the branch name
+# and the topic name by a colon)
+if [[ -f ${topicfile} && -r ${topicfile} && -s ${topicfile} ]] ; then
+    IFS= read -r REPLY < ${topicfile}
+    r_branch=${r_branch}:${REPLY}
+fi
 
 # The working dir has uncommitted-changes if the revision ends with a +
 if [[ $r_lrev[-1] == + ]] ; then
@@ -175,6 +183,9 @@ if zstyle -T ":vcs_info:${vcs}:${usercontext}:${rrn}" get-mq \
             # Skip commented lines
             [[ ${i_patch} == [[:space:]]#"#"* ]] && continue
 
+            # Skip applied patches
+            (( ${+mqpatches[(re)${i_patch}]} )) && continue
+
             # Separate negative and positive guards to more easily find the
             # intersection of active guards with patch guards
             i_patchguards=( ${(s: :)i_patchguards} )
@@ -208,12 +219,16 @@ if zstyle -T ":vcs_info:${vcs}:${usercontext}:${rrn}" get-mq \
     fi
 
     local -A extra_hook_com=( guards "${guards_string}"   guards-n ${#mqguards} )
-    local -a extra_zformats=( "g:${extra_hook_com[guards]}" "G:${#mqguards}" )
+
+    (( ${+functions[VCS_INFO_hg_extra_zformats]} )) || 
+    VCS_INFO_hg_extra_zformats() {
+        reply=( "g:${hook_com[guards]}" "G:${#mqguards}" )
+    }
 
     VCS_INFO_set-patch-format 'mqpatches' 'applied_string' \
                               'mqunapplied' 'unapplied_string' \
                               ":vcs_info:${vcs}:${usercontext}:${rrn}" hgmqstring \
-                              extra_hook_com extra_zformats
+                              extra_hook_com VCS_INFO_hg_extra_zformats ''
     hgmqstring=$REPLY
 fi
 

@@ -28,6 +28,8 @@
 
 #include <TargetConditionals.h>	// for TARGET_OS_*
 
+#if !TARGET_OS_EXCLAVEKIT
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -52,7 +54,7 @@
 #endif
 
 #ifndef HAVE_DUET_PREWARM
-#define HAVE_DUET_PREWARM (!TARGET_OS_DRIVERKIT && TARGET_OS_IOS)
+#define HAVE_DUET_PREWARM (!TARGET_OS_DRIVERKIT && (TARGET_OS_IOS || TARGET_OS_TV))
 #endif
 
 #if HAVE_DUET_PREWARM
@@ -704,3 +706,27 @@ void (*mach_init_routine)(void) = &mach_init_old;
 const char *__crashreporter_info__;
 asm (".desc __crashreporter_info__, 0x10");
 
+#else // TARGET_OS_EXCLAVEKIT
+
+extern __liblibc_plat_init(int argc, const char* argv[], const char *envp[], const char *apple[], const struct ProgramVars *vars);
+
+struct ProgramVars; // forward reference
+
+__attribute__((constructor))
+static void
+libSystem_initializer(int argc,
+                      const char* argv[],
+                      const char* envp[],
+                      const char* apple[],
+                      const struct ProgramVars* vars)
+{
+	// For now, the only dylib to initialize is liblibc_plat. We pass it
+	// all of our args, and dyld has passed us all the initial args.
+	// They aren't actually argv[] or apple[] arrays yet, e.g. they might
+	// be address of bootinfo structures, but for now that's really a
+	// matter between ExclavePlatform (the loader/launcher)
+	// and ExclavePlatform (liblibc_plat).
+	__liblibc_plat_init(argc, argv, envp, apple, vars);
+}
+
+#endif // TARGET_OS_EXCLAVEKIT

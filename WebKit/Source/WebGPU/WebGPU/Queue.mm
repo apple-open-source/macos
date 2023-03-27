@@ -128,11 +128,14 @@ void Queue::commitMTLCommandBuffer(id<MTLCommandBuffer> commandBuffer)
             ++(protectedThis->m_completedCommandBufferCount);
             for (auto& callback : protectedThis->m_onSubmittedWorkDoneCallbacks.take(protectedThis->m_completedCommandBufferCount))
                 callback(WGPUQueueWorkDoneStatus_Success);
-        }, CompletionHandlerCallThread::MainThread));
+        }, CompletionHandlerCallThread::AnyThread));
     }];
 
     [commandBuffer commit];
     ++m_submittedCommandBufferCount;
+
+    if ([MTLCaptureManager sharedCaptureManager].isCapturing)
+        [[MTLCaptureManager sharedCaptureManager] stopCapture];
 }
 
 void Queue::submit(Vector<std::reference_wrapper<const CommandBuffer>>&& commands)
@@ -477,7 +480,7 @@ void wgpuQueueOnSubmittedWorkDone(WGPUQueue queue, uint64_t signalValue, WGPUQue
 
 void wgpuQueueOnSubmittedWorkDoneWithBlock(WGPUQueue queue, uint64_t signalValue, WGPUQueueWorkDoneBlockCallback callback)
 {
-    WebGPU::fromAPI(queue).onSubmittedWorkDone(signalValue, [callback = WTFMove(callback)](WGPUQueueWorkDoneStatus status) {
+    WebGPU::fromAPI(queue).onSubmittedWorkDone(signalValue, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPUQueueWorkDoneStatus status) {
         callback(status);
     });
 }

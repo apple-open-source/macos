@@ -2730,7 +2730,7 @@ uint32_t IOHIDKeyboardFilter::getKeyboardID () {
     CFTypeRef value;
     uint32_t  keyboardID = kgestUSBUnknownANSIkd;
     value = IOHIDServiceCopyProperty (_service, CFSTR(kIOHIDAltHandlerIdKey));
-    if (value) {
+    if (value && (CFGetTypeID(value) == CFNumberGetTypeID())) {
         CFNumberGetValue((CFNumberRef)value, kCFNumberSInt32Type, &keyboardID);
         CFRelease(value);
     } else {
@@ -2738,13 +2738,13 @@ uint32_t IOHIDKeyboardFilter::getKeyboardID () {
         uint16_t vendorID  = 0xffff;
 
         value = IOHIDServiceCopyProperty (_service, CFSTR(kIOHIDProductIDKey));
-        if (value) {
+        if (value && (CFGetTypeID(value) == CFNumberGetTypeID())) {
             CFNumberGetValue((CFNumberRef)value, kCFNumberSInt16Type, &productID);
             CFRelease(value);
         }
 
         value = IOHIDServiceCopyProperty (_service, CFSTR(kIOHIDVendorIDKey));
-        if (value) {
+        if (value && (CFGetTypeID(value) == CFNumberGetTypeID())) {
             CFNumberGetValue((CFNumberRef)value, kCFNumberSInt16Type, &vendorID);
             CFRelease(value);
         }

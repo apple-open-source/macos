@@ -21,11 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- *  CCSymOffset.c
- *  CommonCrypto
- */
-
 #include <stdio.h>
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
@@ -34,39 +29,40 @@
 #include "capabilities.h"
 
 #if (CCSYMOFFSET == 0)
-entryPoint(CommonCryptoSymOffset,"CommonCrypto Symmetric Unaligned Testing")
+entryPoint(CommonCryptoSymOffset, "CommonCrypto Symmetric Unaligned Testing")
 #else
 
+#define BIG_BUFFER_NBYTES 4096
 
-
-#define ILIKEEMDISBIG 4096
-#define ALITTLEONTHESIDE 5
-
-
-static int kTestTestCount = ALITTLEONTHESIDE * 3;
-
-
-int CommonCryptoSymOffset(int __unused argc, char *const * __unused argv) {
+int CommonCryptoSymOffset(int __unused argc, char *const *__unused argv) {
     int accum = 0;
-    uint8_t iLikeBigBuffs[ILIKEEMDISBIG] = {0};
-    uint8_t andICannotLie[ILIKEEMDISBIG] = {0};
-    uint8_t iLikeEmRoundandBig[ILIKEEMDISBIG] = {0};
+    uint8_t big_buffer_1[BIG_BUFFER_NBYTES] = {0};
+    uint8_t big_buffer_2[BIG_BUFFER_NBYTES] = {0};
+    uint8_t big_buffer_3[BIG_BUFFER_NBYTES] = {0};
     int i;
     size_t moved;
     CCCryptorStatus retval;
     byteBuffer key = hexStringToBytes("010203040506070809000a0b0c0d0e0f");
-    
-    plan_tests(kTestTestCount);
 
-    for(i=0; i<ALITTLEONTHESIDE; i++) {
-        retval = CCCrypt(kCCEncrypt, kCCAlgorithmAES128, 0, key->bytes, key->len, NULL, iLikeBigBuffs+i, ILIKEEMDISBIG-16, andICannotLie+i, ILIKEEMDISBIG, &moved);
+    int num_iterations = 5;
+    plan_tests(num_iterations * 3);
+
+    for (i = 0; i < num_iterations; i++) {
+        retval = CCCrypt(kCCEncrypt, kCCAlgorithmAES128, 0, key->bytes, key->len,
+                         NULL, big_buffer_1 + i, BIG_BUFFER_NBYTES - 16,
+                         big_buffer_2 + i, BIG_BUFFER_NBYTES, &moved);
         ok(retval == 0, "Encrypt worked");
-        retval = CCCrypt(kCCDecrypt, kCCAlgorithmAES128, 0, key->bytes, key->len, NULL, andICannotLie+i, moved, iLikeEmRoundandBig+i, ILIKEEMDISBIG, &moved);
+    
+        retval = CCCrypt(kCCDecrypt, kCCAlgorithmAES128, 0, key->bytes, key->len,
+                         NULL, big_buffer_2 + i, moved, big_buffer_3 + i,
+                         BIG_BUFFER_NBYTES, &moved);
         ok(retval == 0, "Decrypt worked");
-        if(moved != (ILIKEEMDISBIG-16))
+    
+        if (moved != (BIG_BUFFER_NBYTES - 16))
             retval = 99;
-        else if(memcmp(iLikeBigBuffs+i, iLikeEmRoundandBig+i, moved))
+        else if (memcmp(big_buffer_1 + i, big_buffer_3 + i, moved))
             retval = 999;
+    
         ok(retval == 0, "Encrypt/Decrypt Cycle");
         accum += retval;
     }
@@ -74,4 +70,3 @@ int CommonCryptoSymOffset(int __unused argc, char *const * __unused argv) {
     return accum != 0;
 }
 #endif
-

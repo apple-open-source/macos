@@ -30,6 +30,7 @@
 #include "StyleScopeRuleSets.h"
 
 #include "CSSStyleSheet.h"
+#include "CascadeLevel.h"
 #include "ExtensionStyleSheets.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -88,6 +89,23 @@ RuleSet* ScopeRuleSets::userStyle() const
     return m_userStyle.get();
 }
 
+RuleSet* ScopeRuleSets::styleForCascadeLevel(CascadeLevel level)
+{
+    switch (level) {
+    case CascadeLevel::Author:
+        return m_authorStyle.get();
+
+    case CascadeLevel::User:
+        return userStyle();
+
+    case CascadeLevel::UserAgent:
+        return userAgentMediaQueryStyle();
+    }
+
+    ASSERT_NOT_REACHED();
+    return nullptr;
+}
+
 void ScopeRuleSets::initializeUserStyle()
 {
     auto& extensionStyleSheets = m_styleResolver.document().extensionStyleSheets();
@@ -118,7 +136,7 @@ void ScopeRuleSets::initializeUserStyle()
         m_userStyle = WTFMove(userStyle);
 }
 
-void ScopeRuleSets::collectRulesFromUserStyleSheets(const Vector<RefPtr<CSSStyleSheet>>& userSheets, RuleSet& userStyle, const MediaQueryEvaluator& mediaQueryEvaluator)
+void ScopeRuleSets::collectRulesFromUserStyleSheets(const Vector<RefPtr<CSSStyleSheet>>& userSheets, RuleSet& userStyle, const MQ::MediaQueryEvaluator& mediaQueryEvaluator)
 {
     RuleSetBuilder builder(userStyle, mediaQueryEvaluator, &m_styleResolver);
     for (auto& sheet : userSheets) {
@@ -175,7 +193,7 @@ bool ScopeRuleSets::hasContainerQueries() const
     return false;
 }
 
-std::optional<DynamicMediaQueryEvaluationChanges> ScopeRuleSets::evaluateDynamicMediaQueryRules(const MediaQueryEvaluator& evaluator)
+std::optional<DynamicMediaQueryEvaluationChanges> ScopeRuleSets::evaluateDynamicMediaQueryRules(const MQ::MediaQueryEvaluator& evaluator)
 {
     std::optional<DynamicMediaQueryEvaluationChanges> evaluationChanges;
 
@@ -197,7 +215,7 @@ std::optional<DynamicMediaQueryEvaluationChanges> ScopeRuleSets::evaluateDynamic
     return evaluationChanges;
 }
 
-void ScopeRuleSets::appendAuthorStyleSheets(const Vector<RefPtr<CSSStyleSheet>>& styleSheets, MediaQueryEvaluator* mediaQueryEvaluator, InspectorCSSOMWrappers& inspectorCSSOMWrappers)
+void ScopeRuleSets::appendAuthorStyleSheets(const Vector<RefPtr<CSSStyleSheet>>& styleSheets, MQ::MediaQueryEvaluator* mediaQueryEvaluator, InspectorCSSOMWrappers& inspectorCSSOMWrappers)
 {
     RuleSetBuilder builder(*m_authorStyle, *mediaQueryEvaluator, &m_styleResolver);
 
@@ -277,8 +295,10 @@ static Vector<InvalidationRuleSet>* ensureInvalidationRuleSets(const KeyType& ke
         auto invalidationRuleSets = makeUnique<Vector<InvalidationRuleSet>>();
         invalidationRuleSets->reserveInitialCapacity(invalidationRuleSetMap.size());
 
-        for (auto& invalidationRuleSet : invalidationRuleSetMap.values())
+        for (auto& invalidationRuleSet : invalidationRuleSetMap.values()) {
+            invalidationRuleSet.ruleSet->shrinkToFit();
             invalidationRuleSets->uncheckedAppend(WTFMove(invalidationRuleSet));
+        }
 
         return invalidationRuleSets;
     }).iterator->value.get();
@@ -326,6 +346,17 @@ bool ScopeRuleSets::hasComplexSelectorsForStyleAttribute() const
         m_cachedHasComplexSelectorsForStyleAttribute = compute();
 
     return *m_cachedHasComplexSelectorsForStyleAttribute;
+}
+
+bool ScopeRuleSets::hasMatchingUserOrAuthorStyle(const Function<bool(RuleSet&)>& predicate)
+{
+    if (m_authorStyle && predicate(*m_authorStyle))
+        return true;
+
+    if (auto* userStyle = this->userStyle(); userStyle && predicate(*userStyle))
+        return true;
+
+    return false;
 }
 
 } // namespace Style

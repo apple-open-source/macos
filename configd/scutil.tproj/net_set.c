@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005, 2009-2011, 2013-2015, 2017, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,7 +40,7 @@
 
 
 static CFArrayRef
-_copy_sets()
+_copy_sets(void)
 {
 	CFArrayRef		sets;
 	CFMutableArrayRef	sorted;

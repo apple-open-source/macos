@@ -28,7 +28,12 @@
 #if USE(LIBWEBRTC)
 
 #include "NetworkRTCProvider.h"
+
+ALLOW_COMMA_BEGIN
+
 #include <webrtc/rtc_base/async_packet_socket.h>
+
+ALLOW_COMMA_END
 
 namespace rtc {
 class AsyncPacketSocket;
@@ -56,7 +61,6 @@ private:
     void signalAddressReady(rtc::AsyncPacketSocket*, const rtc::SocketAddress&);
     void signalConnect(rtc::AsyncPacketSocket*);
     void signalClose(rtc::AsyncPacketSocket*, int);
-    void signalNewConnection(rtc::AsyncPacketSocket* socket, rtc::AsyncPacketSocket* newSocket);
 
     void signalAddressReady();
 

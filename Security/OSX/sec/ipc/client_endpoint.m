@@ -118,7 +118,7 @@
                                                                identifier:
                                                                viewHint:
                                                                fetchCloudValue:
-                                                               complete:) argumentIndex:1 ofReply:YES];
+                                                               complete:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(secItemDigest:
                                                                accessGroup:
                                                                complete:) argumentIndex:1 ofReply:YES];

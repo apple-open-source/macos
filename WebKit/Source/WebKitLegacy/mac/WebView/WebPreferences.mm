@@ -44,7 +44,6 @@
 #import <JavaScriptCore/InitializeThreading.h>
 #import <WebCore/ApplicationCacheStorage.h>
 #import <WebCore/AudioSession.h>
-#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/MediaPlayerEnums.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/RuntimeApplicationChecks.h>
@@ -52,6 +51,7 @@
 #import <WebCore/WebCoreJITOperations.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/text/TextEncodingRegistry.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/Compiler.h>
 #import <wtf/MainThread.h>
 #import <wtf/OptionSet.h>
@@ -847,7 +847,6 @@ public:
 }
 #endif // PLATFORM(IOS_FAMILY)
 
-#if !PLATFORM(IOS_FAMILY)
 - (BOOL)shouldPrintBackgrounds
 {
     return [self _boolValueForKey: WebKitShouldPrintBackgroundsPreferenceKey];
@@ -857,7 +856,6 @@ public:
 {
     [self _setBoolValue: flag forKey: WebKitShouldPrintBackgroundsPreferenceKey];
 }
-#endif
 
 - (BOOL)isJavaScriptEnabled
 {
@@ -1044,6 +1042,15 @@ public:
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     [self _setBoolValue:flag forKey:WebKitAllowsAirPlayForMediaPlaybackPreferenceKey];
 #endif
+}
+
+- (BOOL)isJavaEnabled
+{
+    return NO;
+}
+
+- (void)setJavaEnabled:(BOOL)flag
+{
 }
 
 @end
@@ -1796,16 +1803,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:enabled forKey:WebKitShowDebugBordersPreferenceKey];
 }
 
-- (BOOL)subpixelAntialiasedLayerTextEnabled
-{
-    return [self _boolValueForKey:WebKitSubpixelAntialiasedLayerTextEnabledPreferenceKey];
-}
-
-- (void)setSubpixelAntialiasedLayerTextEnabled:(BOOL)enabled
-{
-    [self _setBoolValue:enabled forKey:WebKitSubpixelAntialiasedLayerTextEnabledPreferenceKey];
-}
-
 - (BOOL)legacyLineLayoutVisualCoverageEnabled
 {
     return [self _boolValueForKey:WebKitLegacyLineLayoutVisualCoverageEnabledPreferenceKey];
@@ -1895,16 +1892,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setSpatialNavigationEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitSpatialNavigationEnabledPreferenceKey];
-}
-
-- (BOOL)paginateDuringLayoutEnabled
-{
-    return [self _boolValueForKey:WebKitPaginateDuringLayoutEnabledPreferenceKey];
-}
-
-- (void)setPaginateDuringLayoutEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitPaginateDuringLayoutEnabledPreferenceKey];
 }
 
 - (BOOL)hyperlinkAuditingEnabled
@@ -2819,16 +2806,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitMediaCapabilitiesEnabledPreferenceKey];
 }
 
-- (BOOL)cssLogicalEnabled
-{
-    return [self _boolValueForKey:WebKitCSSLogicalEnabledPreferenceKey];
-}
-
-- (void)setCSSLogicalEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitCSSLogicalEnabledPreferenceKey];
-}
-
 - (BOOL)lineHeightUnitsEnabled
 {
     return [self _boolValueForKey:WebKitLineHeightUnitsEnabledPreferenceKey];
@@ -2919,9 +2896,11 @@ static RetainPtr<NSString>& classIBCreatorID()
     CFHTTPCookieStorageSetCookieAcceptPolicy(cookieStorage.get(), policy);
 }
 
-+ (void)_clearNetworkLoaderSession
++ (void)_clearNetworkLoaderSession:(void (^)(void))completionHandler
 {
-    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies([] { });
+    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies([completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
 }
 
 - (void)_setBoolPreferenceForTestingWithValue:(BOOL)value forKey:(NSString *)key
@@ -3076,16 +3055,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setMaskWebGLStringsEnabled:(BOOL)enabled
 {
     [self _setBoolValue:enabled forKey:WebKitMaskWebGLStringsEnabledPreferenceKey];
-}
-
-- (BOOL)accessibilityObjectModelEnabled
-{
-    return [self _boolValueForKey:WebKitAccessibilityObjectModelEnabledPreferenceKey];
-}
-
-- (void)setAccessibilityObjectModelEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitAccessibilityObjectModelEnabledPreferenceKey];
 }
 
 - (BOOL)serverTimingEnabled
@@ -3270,7 +3239,7 @@ static RetainPtr<NSString>& classIBCreatorID()
 
 @end
 
-@implementation WebPreferences (WebPrivateObsolete)
+@implementation WebPreferences (WebPrivateDeprecated)
 
 // The preferences in this category are deprecated and have no effect. They should
 // be removed when it is considered safe to do so.
@@ -3424,12 +3393,12 @@ static RetainPtr<NSString>& classIBCreatorID()
 {
 }
 
-- (BOOL)isJavaEnabled
+- (BOOL)subpixelAntialiasedLayerTextEnabled
 {
     return NO;
 }
 
-- (void)setJavaEnabled:(BOOL)flag
+- (void)setSubpixelAntialiasedLayerTextEnabled:(BOOL)enabled
 {
 }
 

@@ -182,6 +182,12 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
             return nw_connection_privacy_stance_failed;
         case WebCore::PrivacyStance::Direct:
             return nw_connection_privacy_stance_direct;
+        case WebCore::PrivacyStance::FailedUnreachable:
+#if defined(NW_CONNECTION_HAS_PRIVACY_STANCE_FAILED_UNREACHABLE)
+            return nw_connection_privacy_stance_failed_unreachable;
+#else
+            return nw_connection_privacy_stance_unknown;
+#endif
         }
         ASSERT_NOT_REACHED();
         return nw_connection_privacy_stance_unknown;
@@ -257,7 +263,7 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 - (void)taskCompleted:(WebCoreNSURLSessionDataTask *)task;
 - (void)addDelegateOperation:(Function<void()>&&)operation;
 - (void)task:(WebCoreNSURLSessionDataTask *)task didReceiveCORSAccessCheckResult:(BOOL)result;
-- (void)task:(WebCoreNSURLSessionDataTask *)task didReceiveResponseFromOrigin:(Ref<WebCore::SecurityOrigin>&&)origin;
+- (void)task:(WebCoreNSURLSessionDataTask *)task addSecurityOrigin:(Ref<WebCore::SecurityOrigin>&&)origin;
 - (WebCore::RangeResponseGenerator&)rangeResponseGenerator;
 @end
 
@@ -352,7 +358,7 @@ NS_ASSUME_NONNULL_END
         _corsResults = WebCoreNSURLSessionCORSAccessCheckResults::Pass;
 }
 
-- (void)task:(WebCoreNSURLSessionDataTask *)task didReceiveResponseFromOrigin:(Ref<WebCore::SecurityOrigin>&&)origin
+- (void)task:(WebCoreNSURLSessionDataTask *)task addSecurityOrigin:(Ref<WebCore::SecurityOrigin>&&)origin
 {
     UNUSED_PARAM(task);
     _origins.add(WTFMove(origin));
@@ -409,7 +415,7 @@ NS_ASSUME_NONNULL_END
     return _corsResults == WebCoreNSURLSessionCORSAccessCheckResults::Pass;
 }
 
-- (BOOL)wouldTaintOrigin:(const WebCore::SecurityOrigin &)origin
+- (BOOL)isCrossOrigin:(const WebCore::SecurityOrigin &)origin
 {
     for (auto& responseOrigin : _origins) {
         if (!origin.isSameOriginDomain(*responseOrigin))
@@ -805,7 +811,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 
 - (WebCoreNSURLSession *)session
 {
-    return _session.get().get();
+    return _session.get().autorelease();
 }
 
 - (void)setSession:(WebCoreNSURLSession *)session
@@ -886,7 +892,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
     ASSERT_UNUSED(resource, !resource || resource == _resource);
     ASSERT(isMainThread());
     RetainPtr<WebCoreNSURLSession> strongSession { self.session };
-    [strongSession task:self didReceiveResponseFromOrigin:SecurityOrigin::create(response.url())];
+    [strongSession task:self addSecurityOrigin:SecurityOrigin::create(response.url())];
     [strongSession task:self didReceiveCORSAccessCheckResult:resource ? resource->didPassAccessControlCheck() : YES];
     self.countOfBytesExpectedToReceive = response.expectedContentLength();
     RetainPtr<NSURLResponse> strongResponse = response.nsURLResponse();
@@ -949,6 +955,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 {
     ASSERT_UNUSED(resource, !resource || resource == _resource);
     RetainPtr<WebCoreNSURLSession> strongSession { self.session };
+    [strongSession task:self addSecurityOrigin:SecurityOrigin::create(response.url())];
     [strongSession addDelegateOperation:[strongSelf = retainPtr(self), response = retainPtr(response.nsURLResponse()), request = request.isolatedCopy(), completionHandler = WTFMove(completionHandler)] () mutable {
         if (![response isKindOfClass:[NSHTTPURLResponse class]]) {
             ASSERT_NOT_REACHED();

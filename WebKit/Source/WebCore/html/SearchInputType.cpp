@@ -38,7 +38,9 @@
 #include "HTMLParserIdioms.h"
 #include "InputTypeNames.h"
 #include "KeyboardEvent.h"
+#include "NodeRenderStyle.h"
 #include "RenderSearchField.h"
+#include "ScriptDisallowedScope.h"
 #include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
 #include "TextControlInnerElements.h"
@@ -112,13 +114,14 @@ void SearchInputType::createShadowSubtree()
     TextFieldInputType::createShadowSubtree();
     RefPtr<HTMLElement> container = containerElement();
     RefPtr<HTMLElement> textWrapper = innerBlockElement();
+    ScriptDisallowedScope::EventAllowedScope eventAllowedScope { *container };
     ASSERT(container);
     ASSERT(textWrapper);
 
     ASSERT(element());
     m_resultsButton = SearchFieldResultsButtonElement::create(element()->document());
-    updateResultButtonPseudoType(*m_resultsButton, element()->maxResults());
     container->insertBefore(*m_resultsButton, textWrapper.get());
+    updateResultButtonPseudoType(*m_resultsButton, element()->maxResults());
 
     m_cancelButton = SearchFieldCancelButtonElement::create(element()->document());
     container->insertBefore(*m_cancelButton, textWrapper->nextSibling());
@@ -143,7 +146,7 @@ auto SearchInputType::handleKeydownEvent(KeyboardEvent& event) -> ShouldCallBase
     const String& key = event.keyIdentifier();
     if (key == "U+001B"_s) {
         Ref<HTMLInputElement> protectedInputElement(*element());
-        protectedInputElement->setValueForUser(emptyString());
+        protectedInputElement->setValue(emptyString(), DispatchChangeEvent);
         protectedInputElement->onSearch();
         event.setDefaultHandled();
         return ShouldCallBaseEventHandler::Yes;

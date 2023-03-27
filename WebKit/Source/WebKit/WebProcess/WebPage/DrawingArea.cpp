@@ -31,11 +31,15 @@
 #include "WebPageCreationParameters.h"
 #include "WebProcess.h"
 #include <WebCore/DisplayRefreshMonitor.h>
+#include <WebCore/FrameView.h>
+#include <WebCore/RenderView.h>
+#include <WebCore/ScrollView.h>
+#include <WebCore/TiledBacking.h>
 #include <WebCore/TransformationMatrix.h>
 
 // Subclasses
 #if PLATFORM(COCOA)
-#include "RemoteLayerTreeDrawingArea.h"
+#include "RemoteLayerTreeDrawingAreaMac.h"
 #include "TiledCoreAnimationDrawingArea.h"
 #elif USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
 #include "DrawingAreaCoordinatedGraphics.h"
@@ -56,7 +60,11 @@ std::unique_ptr<DrawingArea> DrawingArea::create(WebPage& webPage, const WebPage
         return makeUnique<TiledCoreAnimationDrawingArea>(webPage, parameters);
 #endif
     case DrawingAreaType::RemoteLayerTree:
+#if PLATFORM(MAC)
+        return makeUnique<RemoteLayerTreeDrawingAreaMac>(webPage, parameters);
+#else
         return makeUnique<RemoteLayerTreeDrawingArea>(webPage, parameters);
+#endif
 #elif USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
     case DrawingAreaType::CoordinatedGraphics:
         return makeUnique<DrawingAreaCoordinatedGraphics>(webPage, parameters);
@@ -83,6 +91,11 @@ DrawingArea::~DrawingArea()
     removeMessageReceiverIfNeeded();
 }
 
+DelegatedScrollingMode DrawingArea::delegatedScrollingMode() const
+{
+    return DelegatedScrollingMode::NotDelegated;
+}
+
 void DrawingArea::dispatchAfterEnsuringUpdatedScrollPosition(WTF::Function<void ()>&& function)
 {
     // Scroll position updates are synchronous by default so we can just call the function right away here.
@@ -107,6 +120,21 @@ RefPtr<WebCore::DisplayRefreshMonitor> DrawingArea::createDisplayRefreshMonitor(
     return nullptr;
 }
 
+void DrawingArea::willStartRenderingUpdateDisplay()
+{
+    m_webPage.willStartRenderingUpdateDisplay();
+}
+
+void DrawingArea::didCompleteRenderingUpdateDisplay()
+{
+    m_webPage.didCompleteRenderingUpdateDisplay();
+}
+
+void DrawingArea::didCompleteRenderingFrame()
+{
+    m_webPage.didCompleteRenderingFrame();
+}
+
 bool DrawingArea::supportsGPUProcessRendering(DrawingAreaType type)
 {
     switch (type) {
@@ -128,6 +156,126 @@ bool DrawingArea::supportsGPUProcessRendering(DrawingAreaType type)
     default:
         return false;
     }
+}
+
+WebCore::TiledBacking* DrawingArea::mainFrameTiledBacking() const
+{
+    auto* frameView = m_webPage.mainFrameView();
+    return frameView ? frameView->tiledBacking() : nullptr;
+}
+
+void DrawingArea::prepopulateRectForZoom(double scale, WebCore::FloatPoint origin)
+{
+    double currentPageScale = m_webPage.totalScaleFactor();
+    auto* frameView = m_webPage.mainFrameView();
+    FloatRect tileCoverageRect = frameView->visibleContentRectIncludingScrollbars();
+    tileCoverageRect.moveBy(-origin);
+    tileCoverageRect.scale(currentPageScale / scale);
+
+    if (auto* tiledBacking = mainFrameTiledBacking())
+        tiledBacking->prepopulateRect(tileCoverageRect);
+}
+
+void DrawingArea::scaleViewToFitDocumentIfNeeded()
+{
+    const int maximumDocumentWidthForScaling = 1440;
+    const float minimumViewScale = 0.1;
+
+    if (!m_shouldScaleViewToFitDocument)
+        return;
+
+    LOG(Resize, "DrawingArea %p scaleViewToFitDocumentIfNeeded", this);
+    m_webPage.layoutIfNeeded();
+
+    if (!m_webPage.mainFrameView() || !m_webPage.mainFrameView()->renderView())
+        return;
+
+    int viewWidth = m_webPage.size().width();
+    int documentWidth = m_webPage.mainFrameView()->renderView()->unscaledDocumentRect().width();
+
+    bool documentWidthChanged = m_lastDocumentSizeForScaleToFit.width() != documentWidth;
+    bool viewWidthChanged = m_lastViewSizeForScaleToFit.width() != viewWidth;
+
+    LOG(Resize, "  documentWidthChanged=%d, viewWidthChanged=%d", documentWidthChanged, viewWidthChanged);
+
+    if (!documentWidthChanged && !viewWidthChanged)
+        return;
+
+    // The view is now bigger than the document, so we'll re-evaluate whether we have to scale.
+    if (m_isScalingViewToFitDocument && viewWidth >= m_lastDocumentSizeForScaleToFit.width())
+        m_isScalingViewToFitDocument = false;
+
+    // Our current understanding of the document width is still up to date, and we're in scaling mode.
+    // Update the viewScale without doing an extra layout to re-determine the document width.
+    if (m_isScalingViewToFitDocument) {
+        if (!documentWidthChanged) {
+            m_lastViewSizeForScaleToFit = m_webPage.size();
+            float viewScale = (float)viewWidth / (float)m_lastDocumentSizeForScaleToFit.width();
+            if (viewScale < minimumViewScale) {
+                viewScale = minimumViewScale;
+                documentWidth = std::ceil(viewWidth / viewScale);
+            }
+            IntSize fixedLayoutSize(documentWidth, std::ceil((m_webPage.size().height() - m_webPage.corePage()->topContentInset()) / viewScale));
+            m_webPage.setFixedLayoutSize(fixedLayoutSize);
+            m_webPage.scaleView(viewScale);
+
+            LOG(Resize, "  using fixed layout at %dx%d. document width %d unchanged, scaled to %.4f to fit view width %d", fixedLayoutSize.width(), fixedLayoutSize.height(), documentWidth, viewScale, viewWidth);
+            return;
+        }
+    
+        IntSize fixedLayoutSize = m_webPage.fixedLayoutSize();
+        if (documentWidth > fixedLayoutSize.width()) {
+            LOG(Resize, "  page laid out wider than fixed layout width. Not attempting to re-scale");
+            return;
+        }
+    }
+
+    LOG(Resize, "  doing unconstrained layout");
+
+    // Lay out at the view size.
+    m_webPage.setUseFixedLayout(false);
+    m_webPage.layoutIfNeeded();
+
+    if (!m_webPage.mainFrameView() || !m_webPage.mainFrameView()->renderView())
+        return;
+
+    IntSize documentSize = m_webPage.mainFrameView()->renderView()->unscaledDocumentRect().size();
+    m_lastViewSizeForScaleToFit = m_webPage.size();
+    m_lastDocumentSizeForScaleToFit = documentSize;
+
+    documentWidth = documentSize.width();
+
+    float viewScale = 1;
+
+    LOG(Resize, "  unscaled document size %dx%d. need to scale down: %d", documentSize.width(), documentSize.height(), documentWidth && documentWidth < maximumDocumentWidthForScaling && viewWidth < documentWidth);
+
+    // Avoid scaling down documents that don't fit in a certain width, to allow
+    // sites that want horizontal scrollbars to continue to have them.
+    if (documentWidth && documentWidth < maximumDocumentWidthForScaling && viewWidth < documentWidth) {
+        // If the document doesn't fit in the view, scale it down but lay out at the view size.
+        m_isScalingViewToFitDocument = true;
+        m_webPage.setUseFixedLayout(true);
+        viewScale = (float)viewWidth / (float)documentWidth;
+        if (viewScale < minimumViewScale) {
+            viewScale = minimumViewScale;
+            documentWidth = std::ceil(viewWidth / viewScale);
+        }
+        IntSize fixedLayoutSize(documentWidth, std::ceil((m_webPage.size().height() - m_webPage.corePage()->topContentInset()) / viewScale));
+        m_webPage.setFixedLayoutSize(fixedLayoutSize);
+
+        LOG(Resize, "  using fixed layout at %dx%d. document width %d, scaled to %.4f to fit view width %d", fixedLayoutSize.width(), fixedLayoutSize.height(), documentWidth, viewScale, viewWidth);
+    }
+
+    m_webPage.scaleView(viewScale);
+}
+
+void DrawingArea::setShouldScaleViewToFitDocument(bool shouldScaleView)
+{
+    if (m_shouldScaleViewToFitDocument == shouldScaleView)
+        return;
+
+    m_shouldScaleViewToFitDocument = shouldScaleView;
+    triggerRenderingUpdate();
 }
 
 } // namespace WebKit

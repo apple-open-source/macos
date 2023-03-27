@@ -88,12 +88,15 @@ body[dir=rtl] .details-section > .header > .options {
 }
 
 .details-section .details-section > .header {
-    top: 21px;
     background-color: var(--background-color-content);
     font-weight: 500;
 
     /* Ensure these headers are displayed below the parent header but above scrollbars. */
     z-index: calc(var(--z-index-header) - 1);
+}
+
+.details-section:has(> .header > .title:not(:empty)) .details-section > .header {
+    top: 21px;
 }
 
 .details-section .details-section:not(.collapsed) > .header {
@@ -177,16 +180,16 @@ body[dir=rtl] .details-section > .header::before {
     border-bottom: 1px solid var(--border-color);
 }
 
+.details-section > .content > .group:has(.row.font-variation) {
+    display: unset; /* Unsets `display: table-row-group` because it affects sizing of child elements that are grid containers. */
+}
+
 .details-section > .content > .group:last-child {
     border-bottom: none;
 }
 
 .details-section > .content > .group:nth-child(even) {
     background-color: var(--background-color-intermediate);
-}
-
-.details-section > .content > .group:nth-child(even) > .row:matches(.simple:first-child > *, :not(.simple):first-child) {
-    border-top: 1px solid var(--border-color);
 }
 
 .details-section > .content > .group > .row.simple {
@@ -247,6 +250,31 @@ body[dir=rtl] .details-section > .header::before {
     width: 10px;
     height: 12px;
     margin-inline-start: 5px;
+}
+
+.details-section > .content > .group > .row:is(.simple, .font-variation):has(.warning) {
+    background-color: var(--warning-background-color-secondary);
+    position: relative;
+}
+
+.details-section > .content > .group > .row:is(.simple, .font-variation) > .warning {
+    position: absolute;
+    right: 0;
+    align-self: center;
+    display: inline-block;
+    width: calc(var(--warning-badge-arrow-depth) + var(--warning-icon-inline-padding) + var(--warning-icon-size) + var(--warning-icon-inline-padding) + 4px);
+    height: 18px;
+    margin-block-start: 0.5px;
+    background-image: url(/Images/Warning.svg);
+    background-color: var(--warning-background-color);
+    background-repeat: no-repeat;
+    background-size: var(--warning-icon-size);
+    background-position-y: center;
+    background-position-x: calc(var(--warning-badge-arrow-depth) + var(--warning-icon-inline-padding));
+    clip-path: polygon(0% 50%, var(--warning-badge-arrow-depth) 0%, 100% 0%, 100% 100%, var(--warning-badge-arrow-depth) 100%);
+    --warning-icon-size: 11px;
+    --warning-icon-inline-padding: 2px;
+    --warning-badge-arrow-depth: 6px;
 }
 
 .details-section > .content > .group > .row.simple.data > .value {

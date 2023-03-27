@@ -40,6 +40,7 @@
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
+#include <WebCore/FrameLoader.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/SerializedScriptValue.h>
 #include <WebCore/UserStyleSheet.h>
@@ -126,8 +127,23 @@ InjectedBundleScriptWorld* WebUserContentController::addContentWorld(const std::
 
 void WebUserContentController::addContentWorlds(const Vector<std::pair<ContentWorldIdentifier, String>>& worlds)
 {
-    for (auto& world : worlds)
-        addContentWorld(world);
+    for (auto& world : worlds) {
+        if (auto* contentWorld = addContentWorld(world)) {
+            Page::forEachPage([&] (auto& page) {
+                if (&page.userContentProvider() != this)
+                    return;
+
+                auto& mainFrame = page.mainFrame();
+                for (AbstractFrame* frame = &mainFrame; frame; frame = frame->tree().traverseNext()) {
+                    auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+                    if (!localFrame)
+                        continue;
+                    localFrame->loader().client().dispatchGlobalObjectAvailable(contentWorld->coreWorld());
+                }
+            });
+        }
+    }
+
 }
 
 void WebUserContentController::removeContentWorlds(const Vector<ContentWorldIdentifier>& worldIdentifiers)
@@ -421,8 +437,12 @@ void WebUserContentController::addUserScriptInternal(InjectedBundleScriptWorld& 
                 return;
             }
 
-            for (auto* frame = &mainFrame; frame; frame = frame->tree().traverseNext(&mainFrame))
-                frame->injectUserScriptImmediately(world.coreWorld(), userScript);
+            for (AbstractFrame* frame = &mainFrame; frame; frame = frame->tree().traverseNext(&mainFrame)) {
+                auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+                if (!localFrame)
+                    continue;
+                localFrame->injectUserScriptImmediately(world.coreWorld(), userScript);
+            }
         });
     }
 

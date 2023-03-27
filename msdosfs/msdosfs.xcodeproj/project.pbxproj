@@ -218,15 +218,81 @@
 		4D8BCB260A0278BC008334F3 /* Locking.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Locking.rtf; sourceTree = "<group>"; };
 		4D91A5620920294E0067C87B /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = en; path = msdos_util.tproj/en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = msdosfs_kdebug.h; sourceTree = "<group>"; };
+		4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		7228011F1F84DE840029992C /* FileRecord_M.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileRecord_M.h; sourceTree = "<group>"; };
+		722801201F84DE840029992C /* FileRecord_M.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = FileRecord_M.c; sourceTree = "<group>"; usesTabs = 0; };
+		72B494101F8BB63A00E5468E /* RawFile_Access_M.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawFile_Access_M.h; sourceTree = "<group>"; };
+		72B494111F8BB63A00E5468E /* RawFile_Access_M.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = RawFile_Access_M.c; sourceTree = "<group>"; };
+		7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		7D91DB9F010FC00502CA2964 /* msdos.util */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = msdos.util; sourceTree = BUILT_PRODUCTS_DIR; };
+		901090A21F94B33E00259D7C /* Conv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Conv.c; sourceTree = "<group>"; };
+		9022EC4A1FA5F75B00D1BCC4 /* Logger.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Logger.c; sourceTree = "<group>"; };
+		9022EC4B1FA5F75B00D1BCC4 /* Logger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Logger.h; sourceTree = "<group>"; };
+		905417B01F94A07C0033E46D /* Conv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Conv.h; sourceTree = "<group>"; };
+		90778B1B1FCD5EBF000D829F /* ZeroFill.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ZeroFill.h; sourceTree = "<group>"; };
+		90778B1C1FCD5EBF000D829F /* ZeroFill.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ZeroFill.c; sourceTree = "<group>"; };
+		9A772CC9286DBB1700978E45 /* msdos_performance_tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = msdos_performance_tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A772CCB286DBB1700978E45 /* msdos_performance_tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdos_performance_tests.m; sourceTree = "<group>"; };
+		9A772CD4286DBC5200978E45 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UVFSPluginTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A772CD6286DBC5D00978E45 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator16.0.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		9A8C82472872DEF00097298B /* msdos_tests_utilities.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdos_tests_utilities.h; sourceTree = "<group>"; };
+		9AC7DFF92869C94200A7A4BF /* msdos_tests.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdos_tests.h; sourceTree = "<group>"; };
+		9AC7DFFA2869C96000A7A4BF /* msdos_tests_utilities.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdos_tests_utilities.m; sourceTree = "<group>"; };
 		9D8D72301B448C08001AB190 /* mount_msdos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = mount_msdos.entitlements; sourceTree = "<group>"; };
 		9D8D72311B448C19001AB190 /* msdos_util.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = msdos_util.entitlements; sourceTree = "<group>"; };
 		9D8D72321B448C29001AB190 /* fsck_msdos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fsck_msdos.entitlements; sourceTree = "<group>"; };
 		9DB62B6A1B45A941007EB026 /* newfs_msdos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = newfs_msdos.entitlements; sourceTree = "<group>"; };
+		D124C373200E46F300BA6242 /* Randomizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Randomizer.swift; sourceTree = "<group>"; };
+		D12A83A01FFCC4CE00A02A42 /* LiveFilesTester */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LiveFilesTester; sourceTree = BUILT_PRODUCTS_DIR; };
 		D12A83A11FFCC4CE00A02A42 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		D14D43D72003B33E007BBAF3 /* Hexdump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hexdump.swift; sourceTree = "<group>"; };
+		D14F86E92015CE5700A703BE /* FSTree.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FSTree.swift; sourceTree = "<group>"; usesTabs = 0; };
+		D1898C941FFCC5A20004C0FB /* LiveFilesTester-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LiveFilesTester-Bridging-Header.h"; sourceTree = "<group>"; };
+		D1898C951FFCC5A30004C0FB /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		D1898C971FFCC5EB0004C0FB /* LiveFilesTester-Bridging-Header.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "LiveFilesTester-Bridging-Header.c"; sourceTree = "<group>"; };
+		D1898C9D1FFCC6660004C0FB /* Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests.swift; sourceTree = "<group>"; usesTabs = 0; };
+		D1898CA21FFCC6B70004C0FB /* Global.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Global.swift; sourceTree = "<group>"; };
+		D1898CA41FFCC6D00004C0FB /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
+		D1898CA81FFCC7080004C0FB /* TestResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResult.swift; sourceTree = "<group>"; };
+		D1898CAA1FFCC7260004C0FB /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
+		D1898CAC1FFCC73B0004C0FB /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		D194166E1FF8EC1A00F8C39C /* libswiftCore.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libswiftCore.dylib; path = System/Library/PrivateFrameworks/Swift/libswiftCore.dylib; sourceTree = SDKROOT; };
+		D1A226AC2010CFCF00496F6D /* Node.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Node.swift; sourceTree = "<group>"; };
+		D1AD93FA20036C1700FF5EF7 /* livefiles_tester */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = livefiles_tester; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1CB821C20FF6EFB00DC5F54 /* LiveFilesTester.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiveFilesTester.swift; sourceTree = "<group>"; };
+		D1CB821D20FF6EFB00DC5F54 /* ArgsParser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ArgsParser.swift; sourceTree = "<group>"; };
+		D1CB821E20FF6EFB00DC5F54 /* BaseTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BaseTest.swift; sourceTree = "<group>"; };
+		D1DE093D1FAF1E03006B288F /* LiveFiles_Tester */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LiveFiles_Tester; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1F123A3201F2B8A00552274 /* DMGTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMGTools.swift; sourceTree = "<group>"; };
+		D32A18FB27A9647C00574BF7 /* msdos_unit_tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = msdos_unit_tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D32A18FD27A9647C00574BF7 /* msdos_unit_tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdos_unit_tests.m; sourceTree = "<group>"; };
+		D32A190427A964D800574BF7 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		D32A190627A964E100574BF7 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UVFSPluginTesting.framework; path = AppleInternal/Library/Frameworks/UVFSPluginTesting.framework; sourceTree = SDKROOT; };
+		D3D393B628A39E5000F9CA59 /* msdos_testplan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = msdos_testplan.xctestplan; sourceTree = "<group>"; };
+		D71016862005F842006493C3 /* LiveFileTester.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = LiveFileTester.xcconfig; sourceTree = "<group>"; };
+		D719118120A43EAE00B14F66 /* LiveFilesTester.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = LiveFilesTester.entitlements; sourceTree = "<group>"; };
+		D7238A7C1F7D491500D5F313 /* FAT_Access_M.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = FAT_Access_M.c; sourceTree = "<group>"; };
+		D7238A7D1F7D491500D5F313 /* FAT_Access_M.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FAT_Access_M.h; sourceTree = "<group>"; };
+		D7238A801F7D49DB00D5F313 /* Common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Common.h; sourceTree = "<group>"; usesTabs = 0; };
+		D75D8D6D2021CA6C0078CC24 /* diagnostic.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = diagnostic.h; sourceTree = "<group>"; };
+		D75D8D6E2021CA6C0078CC24 /* diagnostic.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = diagnostic.c; sourceTree = "<group>"; };
+		D77EA67721F082E800719E7C /* utfconvdata.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utfconvdata.h; sourceTree = "<group>"; };
+		D77EE2321F69579900DB5C41 /* livefiles_msdos.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = livefiles_msdos.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		D77EE23C1F69581C00DB5C41 /* usbstorage_tester.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = usbstorage_tester.c; sourceTree = "<group>"; usesTabs = 0; };
+		D77EE23D1F69581C00DB5C41 /* usbstorage_tester.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = usbstorage_tester.h; sourceTree = "<group>"; };
+		D77EE2441F69585600DB5C41 /* livefiles_msdos_tester */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = livefiles_msdos_tester; sourceTree = BUILT_PRODUCTS_DIR; };
 		D77EE2521F6958F800DB5C41 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
-		F9399E3528F6722F00C7DA02 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.1.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
-		F9399E3728F6725A00C7DA02 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.1.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		D787B4721F829CB800AF1565 /* MR_SW_Lock.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = MR_SW_Lock.c; sourceTree = "<group>"; };
+		D787B4731F829CB800AF1565 /* MR_SW_Lock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MR_SW_Lock.h; sourceTree = "<group>"; };
+		D79F2C912211983E003F8E27 /* Naming_Hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Naming_Hash.c; sourceTree = "<group>"; };
+		D79F2C922211983E003F8E27 /* Naming_Hash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Naming_Hash.h; sourceTree = "<group>"; };
+		D7C983711F938071006C2ED3 /* DirOPS_Handler.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = DirOPS_Handler.c; sourceTree = "<group>"; usesTabs = 0; };
+		D7C983721F938071006C2ED3 /* DirOPS_Handler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DirOPS_Handler.h; sourceTree = "<group>"; };
+		D7C9837B1F9380C5006C2ED3 /* FileOPS_Handler.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = FileOPS_Handler.c; sourceTree = "<group>"; usesTabs = 0; };
+		D7C9837C1F9380C5006C2ED3 /* FileOPS_Handler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileOPS_Handler.h; sourceTree = "<group>"; };
+		D7C9837F1F9380DD006C2ED3 /* FSOPS_Handler.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = FSOPS_Handler.c; sourceTree = "<group>"; usesTabs = 0; };
+		D7C983801F9380DD006C2ED3 /* FSOPS_Handler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FSOPS_Handler.h; sourceTree = "<group>"; };
+		DB65E18E1FBD07030012DF97 /* livefiles_msdos_tester.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = livefiles_msdos_tester.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -388,16 +454,133 @@
 				4D3DCB7408E084D400C78A0B /* msdos.util */,
 				4D3DCC5008E0B73400C78A0B /* newfs_msdos */,
 				4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */,
+				D77EE2321F69579900DB5C41 /* livefiles_msdos.dylib */,
+				D77EE2441F69585600DB5C41 /* livefiles_msdos_tester */,
+				D1DE093D1FAF1E03006B288F /* LiveFiles_Tester */,
+				D12A83A01FFCC4CE00A02A42 /* LiveFilesTester */,
+				D1AD93FA20036C1700FF5EF7 /* livefiles_tester */,
+				D32A18FB27A9647C00574BF7 /* msdos_unit_tests.xctest */,
+				9A772CC9286DBB1700978E45 /* msdos_performance_tests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		9A772CCA286DBB1700978E45 /* msdos_performance_tests */ = {
+			isa = PBXGroup;
+			children = (
+				9A772CCB286DBB1700978E45 /* msdos_performance_tests.m */,
+			);
+			path = msdos_performance_tests;
+			sourceTree = "<group>";
+		};
+		D12A83A31FFCC4CE00A02A42 /* LiveFilesTester */ = {
+			isa = PBXGroup;
+			children = (
+				D1CB821D20FF6EFB00DC5F54 /* ArgsParser.swift */,
+				D1CB821E20FF6EFB00DC5F54 /* BaseTest.swift */,
+				D1CB821C20FF6EFB00DC5F54 /* LiveFilesTester.swift */,
+				D719118120A43EAE00B14F66 /* LiveFilesTester.entitlements */,
+				D71016862005F842006493C3 /* LiveFileTester.xcconfig */,
+				D1898CA11FFCC69C0004C0FB /* Helpers */,
+				D1898C9F1FFCC6810004C0FB /* Resources */,
+				D1898C951FFCC5A30004C0FB /* main.swift */,
+				D1898C941FFCC5A20004C0FB /* LiveFilesTester-Bridging-Header.h */,
+				D1898C971FFCC5EB0004C0FB /* LiveFilesTester-Bridging-Header.c */,
+				D1898C9D1FFCC6660004C0FB /* Tests.swift */,
+				D124C373200E46F300BA6242 /* Randomizer.swift */,
+				D1A226AC2010CFCF00496F6D /* Node.swift */,
+			);
+			path = LiveFilesTester;
+			sourceTree = "<group>";
+		};
+		D1898C9F1FFCC6810004C0FB /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D1898CA01FFCC68C0004C0FB /* DMGs */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		D1898CA01FFCC68C0004C0FB /* DMGs */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = DMGs;
+			sourceTree = "<group>";
+		};
+		D1898CA11FFCC69C0004C0FB /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				D1898CA21FFCC6B70004C0FB /* Global.swift */,
+				D1898CA41FFCC6D00004C0FB /* Version.swift */,
+				D1898CA81FFCC7080004C0FB /* TestResult.swift */,
+				D1898CAA1FFCC7260004C0FB /* Utils.swift */,
+				D1898CAC1FFCC73B0004C0FB /* Logger.swift */,
+				D14D43D72003B33E007BBAF3 /* Hexdump.swift */,
+				D14F86E92015CE5700A703BE /* FSTree.swift */,
+				D1F123A3201F2B8A00552274 /* DMGTools.swift */,
+			);
+			path = Helpers;
+			sourceTree = "<group>";
+		};
+		D32A18FC27A9647C00574BF7 /* msdos_tests */ = {
+			isa = PBXGroup;
+			children = (
+				D3D393B628A39E5000F9CA59 /* msdos_testplan.xctestplan */,
+				D32A18FD27A9647C00574BF7 /* msdos_unit_tests.m */,
+				9AC7DFF92869C94200A7A4BF /* msdos_tests.h */,
+				9AC7DFFA2869C96000A7A4BF /* msdos_tests_utilities.m */,
+				9A8C82472872DEF00097298B /* msdos_tests_utilities.h */,
+				9A772CCA286DBB1700978E45 /* msdos_performance_tests */,
+			);
+			path = msdos_tests;
+			sourceTree = "<group>";
+		};
+		D77EE2371F6957A900DB5C41 /* msdosfs_usbstorage_plugin */ = {
+			isa = PBXGroup;
+			children = (
+				D77EE23C1F69581C00DB5C41 /* usbstorage_tester.c */,
+				D77EE23D1F69581C00DB5C41 /* usbstorage_tester.h */,
+				D7238A7C1F7D491500D5F313 /* FAT_Access_M.c */,
+				D7238A7D1F7D491500D5F313 /* FAT_Access_M.h */,
+				D7238A801F7D49DB00D5F313 /* Common.h */,
+				D787B4721F829CB800AF1565 /* MR_SW_Lock.c */,
+				D787B4731F829CB800AF1565 /* MR_SW_Lock.h */,
+				7228011F1F84DE840029992C /* FileRecord_M.h */,
+				722801201F84DE840029992C /* FileRecord_M.c */,
+				72B494101F8BB63A00E5468E /* RawFile_Access_M.h */,
+				72B494111F8BB63A00E5468E /* RawFile_Access_M.c */,
+				D7C983711F938071006C2ED3 /* DirOPS_Handler.c */,
+				D7C983721F938071006C2ED3 /* DirOPS_Handler.h */,
+				D7C9837B1F9380C5006C2ED3 /* FileOPS_Handler.c */,
+				D7C9837C1F9380C5006C2ED3 /* FileOPS_Handler.h */,
+				D7C9837F1F9380DD006C2ED3 /* FSOPS_Handler.c */,
+				D7C983801F9380DD006C2ED3 /* FSOPS_Handler.h */,
+				D77EA67721F082E800719E7C /* utfconvdata.h */,
+				905417B01F94A07C0033E46D /* Conv.h */,
+				901090A21F94B33E00259D7C /* Conv.c */,
+				9022EC4A1FA5F75B00D1BCC4 /* Logger.c */,
+				9022EC4B1FA5F75B00D1BCC4 /* Logger.h */,
+				DB65E18E1FBD07030012DF97 /* livefiles_msdos_tester.entitlements */,
+				90778B1B1FCD5EBF000D829F /* ZeroFill.h */,
+				90778B1C1FCD5EBF000D829F /* ZeroFill.c */,
+				D75D8D6D2021CA6C0078CC24 /* diagnostic.h */,
+				D75D8D6E2021CA6C0078CC24 /* diagnostic.c */,
+				D79F2C912211983E003F8E27 /* Naming_Hash.c */,
+				D79F2C922211983E003F8E27 /* Naming_Hash.h */,
+			);
+			path = msdosfs_usbstorage_plugin;
 			sourceTree = "<group>";
 		};
 		D77EE2511F6958F800DB5C41 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				F9399E3728F6725A00C7DA02 /* IOKit.framework */,
+				9A772CD6286DBC5D00978E45 /* CoreFoundation.framework */,
+				9A772CD4286DBC5200978E45 /* UVFSPluginTesting.framework */,
+				D32A190627A964E100574BF7 /* UVFSPluginTesting.framework */,
+				D32A190427A964D800574BF7 /* CoreFoundation.framework */,
+				D194166E1FF8EC1A00F8C39C /* libswiftCore.dylib */,
 				D77EE2521F6958F800DB5C41 /* CoreFoundation.framework */,
-				F9399E3528F6722F00C7DA02 /* CoreFoundation.framework */,
 				D12A83A11FFCC4CE00A02A42 /* Foundation.framework */,
 			);
 			name = Frameworks;
@@ -1379,6 +1562,840 @@
 				PRODUCT_NAME = fsck_msdos;
 			};
 			name = CodeCoverage;
+		};
+		9A772CD1286DBB1700978E45 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.msdos-performance-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = Debug;
+		};
+		9A772CD2286DBB1700978E45 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.msdos-performance-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = CodeCoverage;
+		};
+		9A772CD3286DBB1700978E45 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.msdos-performance-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = Release;
+		};
+		D12A83A81FFCC4CE00A02A42 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D71016862005F842006493C3 /* LiveFileTester.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/LiveFiles_tester/Resources/msdosfs_plugin",
+					/usr/local/lib,
+				);
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OBJC_BRIDGING_HEADER = "LiveFilesTester/LiveFilesTester-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 4.2;
+			};
+			name = Debug;
+		};
+		D12A83A91FFCC4CE00A02A42 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/LiveFiles_tester/Resources/msdosfs_plugin",
+					/usr/local/lib,
+				);
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_OBJC_BRIDGING_HEADER = "LiveFilesTester/LiveFilesTester-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_VERSION = 4.2;
+			};
+			name = CodeCoverage;
+		};
+		D12A83AA1FFCC4CE00A02A42 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/LiveFiles_tester/Resources/msdosfs_plugin",
+					/usr/local/lib,
+				);
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_OBJC_BRIDGING_HEADER = "LiveFilesTester/LiveFilesTester-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_VERSION = 4.2;
+			};
+			name = Release;
+		};
+		D1AD93F720036C1700FF5EF7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = LiveFilesTester/LiveFilesTester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/LiveFiles;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_OBJC_BRIDGING_HEADER = "LiveFilesTester/LiveFilesTester-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 4.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D1AD93F820036C1700FF5EF7 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = LiveFilesTester/LiveFilesTester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/LiveFiles;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_OBJC_BRIDGING_HEADER = "LiveFilesTester/LiveFilesTester-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 4.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = CodeCoverage;
+		};
+		D1AD93F920036C1700FF5EF7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = LiveFilesTester/LiveFilesTester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/LiveFiles;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_OBJC_BRIDGING_HEADER = "LiveFilesTester/LiveFilesTester-Bridging-Header.h";
+				SWIFT_VERSION = 4.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D32A18FF27A9647C00574BF7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = NO;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+					"DIAGNOSTIC=1",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.msdos-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D32A190027A9647C00574BF7 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = NO;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"DIAGNOSTIC=1",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.msdos-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = CodeCoverage;
+		};
+		D32A190127A9647C00574BF7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = NO;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.msdos-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D77EE2331F69579900DB5C41 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = (
+					"DEBUG=1",
+					"USB_STORAGE_PLUGIN=1",
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = (
+					"DEBUG=1",
+					"DIAGNOSTIC=1",
+					"USB_STORAGE_PLUGIN=1",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				"INSTALL_PATH[sdk=iphoneos*]" = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Debug;
+		};
+		D77EE2341F69579900DB5C41 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "USB_STORAGE_PLUGIN=1";
+				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = (
+					"DEBUG=1",
+					"DIAGNOSTIC=1",
+					"USB_STORAGE_PLUGIN=1",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				"INSTALL_PATH[sdk=iphoneos*]" = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = CodeCoverage;
+		};
+		D77EE2351F69579900DB5C41 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "USB_STORAGE_PLUGIN=1";
+				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = (
+					"DEBUG=0",
+					"USB_STORAGE_PLUGIN=1",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				"INSTALL_PATH[sdk=iphoneos*]" = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
+		D77EE2491F69585600DB5C41 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_ENTITLEMENTS = msdosfs_usbstorage_plugin/livefiles_msdos_tester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = (
+					"DEBUG=1",
+					"DIAGNOSTIC=1",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Debug;
+		};
+		D77EE24A1F69585600DB5C41 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_ENTITLEMENTS = msdosfs_usbstorage_plugin/livefiles_msdos_tester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = (
+					"DEBUG=1",
+					"DIAGNOSTIC=1",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = CodeCoverage;
+		};
+		D77EE24B1F69585600DB5C41 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_ENTITLEMENTS = msdosfs_usbstorage_plugin/livefiles_msdos_tester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Release;
+		};
+		DB1AAB74204727B30036167F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
+			};
+			name = Debug;
+		};
+		DB1AAB75204727B30036167F /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
+			};
+			name = CodeCoverage;
+		};
+		DB1AAB76204727B30036167F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
+			};
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 

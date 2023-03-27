@@ -35,6 +35,8 @@
 
 #include <Security/SecItemPriv.h>
 
+#include "featureflags/featureflags.h"
+
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSKeychainViewState.h"

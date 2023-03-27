@@ -38,8 +38,9 @@
 
 #if defined(HAVE_OPENPTY)
 # if defined(HAVE_LIBUTIL_H)
-#  include <libutil.h>		/* *BSD */
-# elif defined(HAVE_UTIL_H)
+#  include <libutil.h>		/* *BSD and macOS */
+# endif
+# if defined(HAVE_UTIL_H)
 #  include <util.h>		/* macOS */
 # elif defined(HAVE_PTY_H)
 #  include <pty.h>		/* Linux */

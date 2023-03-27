@@ -119,9 +119,12 @@ et{
         chm{"mari"}
         chn{"tšinuki žargoon"}
         cho{"tšokto"}
+        cho_Latn{"tšokto"}
         chp{"tšipevai"}
         chr{"tšerokii"}
         chy{"šaieeni"}
+        cic{"chickasaw'"}
+        cic_Latn{"chickasaw'"}
         ckb{"sorani"}
         co{"korsika"}
         cop{"kopti"}

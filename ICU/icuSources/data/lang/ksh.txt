@@ -74,6 +74,7 @@ ksh{
         chk{"Trukehsesch"}
         chm{"Mahresch"}
         cho{"Tschoktoh"}
+        cho_Latn{"Tschoktoh"}
         chr{"Tschärrokeh"}
         chy{"Tschäjänn"}
         ckb{"Zäntrahl-Kurrdesch"}

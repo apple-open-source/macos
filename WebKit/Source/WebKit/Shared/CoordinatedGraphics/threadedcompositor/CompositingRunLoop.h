@@ -45,6 +45,8 @@ public:
     CompositingRunLoop(Function<void ()>&&);
     ~CompositingRunLoop();
 
+    bool isCurrent() const;
+
     void performTask(Function<void ()>&&);
     void performTaskSync(Function<void ()>&&);
 
@@ -54,7 +56,6 @@ public:
     Lock& stateLock() { return m_state.lock; }
 
     void scheduleUpdate();
-    void scheduleUpdate(LockHolder&);
     void stopUpdates();
 
     void updateCompleted(LockHolder&);
@@ -66,10 +67,11 @@ private:
         InProgress,
     };
 
+    void scheduleUpdate(LockHolder&);
     void updateTimerFired();
 
-    RunLoop* m_runLoop { nullptr };
-    RunLoop::Timer<CompositingRunLoop> m_updateTimer;
+    Ref<RunLoop> m_runLoop;
+    RunLoop::Timer m_updateTimer;
     Function<void ()> m_updateFunction;
     Lock m_dispatchSyncConditionLock;
     Condition m_dispatchSyncCondition;

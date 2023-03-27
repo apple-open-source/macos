@@ -24,59 +24,17 @@ namespace
 // To know when to call sh::Initialize and sh::Finalize.
 size_t gActiveCompilers = 0;
 
-ShShaderSpec SelectShaderSpec(GLint majorVersion,
-                              GLint minorVersion,
-                              bool isWebGL,
-                              EGLenum clientType)
-{
-    // For Desktop GL
-    if (clientType == EGL_OPENGL_API)
-    {
-        return SH_GL_COMPATIBILITY_SPEC;
-    }
-
-    if (majorVersion >= 3)
-    {
-        switch (minorVersion)
-        {
-            case 2:
-                ASSERT(!isWebGL);
-                return SH_GLES3_2_SPEC;
-            case 1:
-                return isWebGL ? SH_WEBGL3_SPEC : SH_GLES3_1_SPEC;
-            case 0:
-                return isWebGL ? SH_WEBGL2_SPEC : SH_GLES3_SPEC;
-            default:
-                UNREACHABLE();
-        }
-    }
-
-    // GLES1 emulation: Use GLES3 shader spec.
-    if (!isWebGL && majorVersion == 1)
-    {
-        return SH_GLES3_SPEC;
-    }
-
-    return isWebGL ? SH_WEBGL_SPEC : SH_GLES2_SPEC;
-}
-
 }  // anonymous namespace
 
 Compiler::Compiler(rx::GLImplFactory *implFactory, const State &state, egl::Display *display)
     : mImplementation(implFactory->createCompiler()),
-      mSpec(SelectShaderSpec(state.getClientMajorVersion(),
-                             state.getClientMinorVersion(),
-                             state.isWebGL(),
-                             state.getClientType())),
+      mSpec(SelectShaderSpec(state)),
       mOutputType(mImplementation->getTranslatorOutputType()),
       mResources()
 {
     // TODO(http://anglebug.com/3819): Update for GL version specific validation
     ASSERT(state.getClientMajorVersion() == 1 || state.getClientMajorVersion() == 2 ||
            state.getClientMajorVersion() == 3 || state.getClientMajorVersion() == 4);
-
-    const gl::Caps &caps             = state.getCaps();
-    const gl::Extensions &extensions = state.getExtensions();
 
     {
         std::lock_guard<std::mutex> lock(display->getDisplayGlobalMutex());
@@ -86,6 +44,9 @@ Compiler::Compiler(rx::GLImplFactory *implFactory, const State &state, egl::Disp
         }
         ++gActiveCompilers;
     }
+
+    const Caps &caps             = state.getCaps();
+    const Extensions &extensions = state.getExtensions();
 
     sh::InitBuiltInResources(&mResources);
     mResources.MaxVertexAttribs             = caps.maxVertexAttributes;
@@ -112,12 +73,13 @@ Compiler::Compiler(rx::GLImplFactory *implFactory, const State &state, egl::Disp
     mResources.EXT_shader_io_blocks  = extensions.shaderIoBlocksEXT;
     mResources.OES_texture_storage_multisample_2d_array =
         extensions.textureStorageMultisample2dArrayOES;
-    mResources.OES_texture_3D            = extensions.texture3DOES;
-    mResources.ANGLE_texture_multisample = extensions.textureMultisampleANGLE;
-    mResources.ANGLE_multi_draw          = extensions.multiDrawANGLE;
+    mResources.OES_texture_3D = extensions.texture3DOES;
     mResources.ANGLE_base_vertex_base_instance_shader_builtin =
         extensions.baseVertexBaseInstanceShaderBuiltinANGLE;
-    mResources.APPLE_clip_distance = extensions.clipDistanceAPPLE;
+    mResources.ANGLE_multi_draw                 = extensions.multiDrawANGLE;
+    mResources.ANGLE_shader_pixel_local_storage = extensions.shaderPixelLocalStorageANGLE;
+    mResources.ANGLE_texture_multisample        = extensions.textureMultisampleANGLE;
+    mResources.APPLE_clip_distance              = extensions.clipDistanceAPPLE;
     // OES_shader_multisample_interpolation
     mResources.OES_shader_multisample_interpolation = extensions.shaderMultisampleInterpolationOES;
     mResources.OES_shader_image_atomic              = extensions.shaderImageAtomicOES;
@@ -161,11 +123,20 @@ Compiler::Compiler(rx::GLImplFactory *implFactory, const State &state, egl::Disp
     // GL_EXT_clip_cull_distance
     mResources.EXT_clip_cull_distance = extensions.clipCullDistanceEXT;
 
+    // GL_ANGLE_clip_cull_distance
+    mResources.ANGLE_clip_cull_distance = extensions.clipCullDistanceANGLE;
+
     // GL_EXT_primitive_bounding_box
     mResources.EXT_primitive_bounding_box = extensions.primitiveBoundingBoxEXT;
 
     // GL_OES_primitive_bounding_box
     mResources.OES_primitive_bounding_box = extensions.primitiveBoundingBoxOES;
+
+    // GL_EXT_separate_shader_objects
+    mResources.EXT_separate_shader_objects = extensions.separateShaderObjectsEXT;
+
+    // GL_ARM_shader_framebuffer_fetch
+    mResources.ARM_shader_framebuffer_fetch = extensions.shaderFramebufferFetchARM;
 
     // GLSL ES 3.0 constants
     mResources.MaxVertexOutputVectors  = caps.maxVertexOutputComponents / 4;
@@ -177,10 +148,17 @@ Compiler::Compiler(rx::GLImplFactory *implFactory, const State &state, egl::Disp
     mResources.EXT_blend_func_extended  = extensions.blendFuncExtendedEXT;
     mResources.MaxDualSourceDrawBuffers = caps.maxDualSourceDrawBuffers;
 
-    // APPLE_clip_distance/EXT_clip_cull_distance
+    // APPLE_clip_distance / EXT_clip_cull_distance / ANGLE_clip_cull_distance
     mResources.MaxClipDistances                = caps.maxClipDistances;
     mResources.MaxCullDistances                = caps.maxCullDistances;
     mResources.MaxCombinedClipAndCullDistances = caps.maxCombinedClipAndCullDistances;
+
+    // ANGLE_shader_pixel_local_storage.
+    mResources.MaxPixelLocalStoragePlanes = caps.maxPixelLocalStoragePlanes;
+    mResources.MaxColorAttachmentsWithActivePixelLocalStorage =
+        caps.maxColorAttachmentsWithActivePixelLocalStorage;
+    mResources.MaxCombinedDrawBuffersAndPixelLocalStoragePlanes =
+        caps.maxCombinedDrawBuffersAndPixelLocalStoragePlanes;
 
     // OES_sample_variables
     mResources.OES_sample_variables = extensions.sampleVariablesOES;
@@ -289,11 +267,6 @@ Compiler::Compiler(rx::GLImplFactory *implFactory, const State &state, egl::Disp
 
     // Subpixel bits.
     mResources.SubPixelBits = static_cast<int>(caps.subPixelBits);
-
-    // Direct-to-metal constants:
-    mResources.DriverUniformsBindingIndex    = caps.driverUniformsBindingIndex;
-    mResources.DefaultUniformsBindingIndex   = caps.defaultUniformsBindingIndex;
-    mResources.UBOArgumentBufferBindingIndex = caps.UBOArgumentBufferBindingIndex;
 }
 
 Compiler::~Compiler() = default;
@@ -347,6 +320,52 @@ void Compiler::putInstance(ShCompilerInstance &&instance)
     }
 }
 
+ShShaderSpec Compiler::SelectShaderSpec(const State &state)
+{
+    const EGLenum clientType = state.getClientType();
+    const EGLint profileMask = state.getProfileMask();
+    const GLint majorVersion = state.getClientMajorVersion();
+    const GLint minorVersion = state.getClientMinorVersion();
+    bool isWebGL             = state.isWebGL();
+
+    // For Desktop GL
+    if (clientType == EGL_OPENGL_API)
+    {
+        if ((profileMask & EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT) != 0)
+        {
+            return SH_GL_CORE_SPEC;
+        }
+        else
+        {
+            return SH_GL_COMPATIBILITY_SPEC;
+        }
+    }
+
+    if (majorVersion >= 3)
+    {
+        switch (minorVersion)
+        {
+            case 2:
+                ASSERT(!isWebGL);
+                return SH_GLES3_2_SPEC;
+            case 1:
+                return isWebGL ? SH_WEBGL3_SPEC : SH_GLES3_1_SPEC;
+            case 0:
+                return isWebGL ? SH_WEBGL2_SPEC : SH_GLES3_SPEC;
+            default:
+                UNREACHABLE();
+        }
+    }
+
+    // GLES1 emulation: Use GLES3 shader spec.
+    if (!isWebGL && majorVersion == 1)
+    {
+        return SH_GLES3_SPEC;
+    }
+
+    return isWebGL ? SH_WEBGL_SPEC : SH_GLES2_SPEC;
+}
+
 ShCompilerInstance::ShCompilerInstance() : mHandle(nullptr) {}
 
 ShCompilerInstance::ShCompilerInstance(ShHandle handle,
@@ -394,9 +413,9 @@ ShaderType ShCompilerInstance::getShaderType() const
     return mShaderType;
 }
 
-const std::string &ShCompilerInstance::getBuiltinResourcesString()
+ShBuiltInResources ShCompilerInstance::getBuiltInResources() const
 {
-    return sh::GetBuiltInResourcesString(mHandle);
+    return sh::GetBuiltInResources(mHandle);
 }
 
 ShShaderOutput ShCompilerInstance::getShaderOutputType() const

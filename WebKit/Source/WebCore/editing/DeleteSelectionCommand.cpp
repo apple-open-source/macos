@@ -77,7 +77,7 @@ static bool isTableRowEmpty(Node* row)
 
 static bool isSpecialHTMLElement(const Node& node)
 {
-    ScriptDisallowedScope scriptDisallowedScope;
+    ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
     if (!is<HTMLElement>(node))
         return false;
@@ -420,6 +420,10 @@ void DeleteSelectionCommand::saveTypingStyleState()
         return;
     }
 
+    RefPtr<Node> startNode = m_selectionToDelete.start().deprecatedNode();
+    if (!startNode->isTextNode() && !startNode->hasTagName(imgTag) && !startNode->hasTagName(brTag))
+        return;
+
     // Figure out the typing style in effect before the delete is done.
     m_typingStyle = EditingStyle::create(m_selectionToDelete.start(), EditingStyle::EditingPropertiesInEffect);
     m_typingStyle->removeStyleAddedByNode(enclosingAnchorElement(m_selectionToDelete.start()));
@@ -479,7 +483,7 @@ void DeleteSelectionCommand::insertBlockPlaceholderForTableCellIfNeeded(Element&
 {
     // Make sure empty cell has some height.
     {
-        ScriptDisallowedScope scriptDisallowedScope;
+        ScriptDisallowedScope::InMainThread scriptDisallowedScope;
         auto* renderer = element.renderer();
         if (!is<RenderTableCell>(renderer))
             return;
@@ -941,7 +945,7 @@ String DeleteSelectionCommand::originalStringForAutocorrectionAtBeginningOfSelec
     if (!rangeOfFirstCharacter)
         return String();
 
-    ScriptDisallowedScope scriptDisallowedScope;
+    ScriptDisallowedScope::InMainThread scriptDisallowedScope;
     for (auto* marker : document().markers().markersInRange(*rangeOfFirstCharacter, DocumentMarker::Autocorrected)) {
         int startOffset = marker->startOffset();
         if (startOffset == startOfSelection.deepEquivalent().offsetInContainerNode())
@@ -977,7 +981,7 @@ void DeleteSelectionCommand::doApply()
     if (!m_hasSelectionToDelete)
         m_selectionToDelete = endingSelection();
 
-    if (!m_selectionToDelete.isNonOrphanedRange())
+    if (!m_selectionToDelete.isNonOrphanedRange() || !m_selectionToDelete.isContentEditable())
         return;
 
     String originalString = originalStringForAutocorrectionAtBeginningOfSelection();
@@ -1050,7 +1054,7 @@ void DeleteSelectionCommand::doApply()
     if (!document().editor().behavior().shouldRebalanceWhiteSpacesInSecureField()) {
         if (RefPtr endNode = m_endingPosition.deprecatedNode(); is<Text>(endNode)) {
             auto& textNode = downcast<Text>(*endNode);
-            ScriptDisallowedScope scriptDisallowedScope;
+            ScriptDisallowedScope::InMainThread scriptDisallowedScope;
             if (textNode.length() && textNode.renderer())
                 shouldRebalaceWhiteSpace = textNode.renderer()->style().textSecurity() == TextSecurity::None;
         }        
@@ -1063,7 +1067,7 @@ void DeleteSelectionCommand::doApply()
     if (!originalString.isEmpty())
         document().editor().deletedAutocorrectionAtPosition(m_endingPosition, originalString);
 
-    setEndingSelection(VisibleSelection(m_endingPosition, affinity, endingSelection().isDirectional()));
+    setEndingSelection(VisibleSelection(VisiblePosition(m_endingPosition, affinity), endingSelection().isDirectional()));
     clearTransientState();
 }
 

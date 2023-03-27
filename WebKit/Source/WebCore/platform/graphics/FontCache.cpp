@@ -39,6 +39,7 @@
 #include "ThreadGlobalData.h"
 #include "WebKitFontFamilyNames.h"
 #include "WorkerOrWorkletThread.h"
+#include <wtf/Function.h>
 #include <wtf/HashMap.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
@@ -130,6 +131,11 @@ struct FontCache::FontDataCaches {
 FontCache& FontCache::forCurrentThread()
 {
     return threadGlobalData().fontCache();
+}
+
+FontCache* FontCache::forCurrentThreadIfExists()
+{
+    return threadGlobalData().fontCacheIfExists();
 }
 
 FontCache* FontCache::forCurrentThreadIfNotDestroyed()
@@ -366,15 +372,14 @@ size_t FontCache::inactiveFontCount()
 
 void FontCache::addClient(FontSelector& client)
 {
-    ASSERT(!m_clients.contains(&client));
-    m_clients.add(&client);
+    ASSERT(!m_clients.contains(client));
+    m_clients.add(client);
 }
 
 void FontCache::removeClient(FontSelector& client)
 {
-    ASSERT(m_clients.contains(&client));
-
-    m_clients.remove(&client);
+    ASSERT(m_clients.contains(client));
+    m_clients.remove(client);
 }
 
 void FontCache::invalidate()
@@ -391,7 +396,7 @@ void FontCache::invalidate()
 
     ++m_generation;
 
-    for (auto& client : copyToVectorOf<RefPtr<FontSelector>>(m_clients))
+    for (auto& client : copyToVectorOf<Ref<FontSelector>>(m_clients))
         client->fontCacheInvalidated();
 
     purgeInactiveFontData();
@@ -408,15 +413,65 @@ void FontCache::registerFontCacheInvalidationCallback(Function<void()>&& callbac
     fontCacheInvalidationCallback() = WTFMove(callback);
 }
 
-void FontCache::invalidateAllFontCaches(ShouldRunInvalidationCallback shouldRunInvalidationCallback)
+template<typename F>
+static void dispatchToAllFontCaches(F function)
 {
     ASSERT(isMainThread());
 
-    // FIXME: Invalidate FontCaches in workers too.
-    FontCache::forCurrentThread().invalidate();
+    function(FontCache::forCurrentThread());
+
+    Locker locker { WorkerOrWorkletThread::workerOrWorkletThreadsLock() };
+    for (auto thread : WorkerOrWorkletThread::workerOrWorkletThreads()) {
+        thread->runLoop().postTask([function](ScriptExecutionContext&) {
+            if (auto fontCache = FontCache::forCurrentThreadIfExists())
+                function(*fontCache);
+        });
+    }
+}
+
+void FontCache::invalidateAllFontCaches(ShouldRunInvalidationCallback shouldRunInvalidationCallback)
+{
+    dispatchToAllFontCaches([](FontCache& fontCache) {
+        fontCache.invalidate();
+    });
 
     if (shouldRunInvalidationCallback == ShouldRunInvalidationCallback::Yes && fontCacheInvalidationCallback())
         fontCacheInvalidationCallback()();
+}
+
+void FontCache::releaseNoncriticalMemory()
+{
+    purgeInactiveFontData();
+    m_fontCascadeCache.clearWidthCaches();
+    platformReleaseNoncriticalMemory();
+}
+
+void FontCache::releaseNoncriticalMemoryInAllFontCaches()
+{
+    dispatchToAllFontCaches([](FontCache& fontCache) {
+        fontCache.releaseNoncriticalMemory();
+    });
+}
+
+bool FontCache::useBackslashAsYenSignForFamily(const AtomString& family)
+{
+    if (family.isEmpty())
+        return false;
+
+    if (m_familiesUsingBackslashAsYenSign.isEmpty()) {
+        auto add = [&] (ASCIILiteral name, std::initializer_list<UChar> unicodeName) {
+            m_familiesUsingBackslashAsYenSign.add(AtomString { name });
+            unsigned unicodeNameLength = unicodeName.size();
+            m_familiesUsingBackslashAsYenSign.add(AtomString { unicodeName.begin(), unicodeNameLength });
+        };
+        add("MS PGothic"_s, { 0xFF2D, 0xFF33, 0x0020, 0xFF30, 0x30B4, 0x30B7, 0x30C3, 0x30AF });
+        add("MS PMincho"_s, { 0xFF2D, 0xFF33, 0x0020, 0xFF30, 0x660E, 0x671D });
+        add("MS Gothic"_s, { 0xFF2D, 0xFF33, 0x0020, 0x30B4, 0x30B7, 0x30C3, 0x30AF });
+        add("MS Mincho"_s, { 0xFF2D, 0xFF33, 0x0020, 0x660E, 0x671D });
+        add("Meiryo"_s, { 0x30E1, 0x30A4, 0x30EA, 0x30AA });
+    }
+
+    return m_familiesUsingBackslashAsYenSign.contains(family);
 }
 
 #if !PLATFORM(COCOA)
@@ -437,6 +492,10 @@ void FontCache::prewarm(PrewarmInformation&&)
 RefPtr<Font> FontCache::similarFont(const FontDescription&, const String&)
 {
     return nullptr;
+}
+
+void FontCache::platformReleaseNoncriticalMemory()
+{
 }
 #endif
 

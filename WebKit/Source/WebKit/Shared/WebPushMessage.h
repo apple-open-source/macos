@@ -34,10 +34,8 @@ OBJC_CLASS NSDictionary;
 namespace WebKit {
 
 struct WebPushMessage {
-    template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static std::optional<WebPushMessage> decode(Decoder&);
-
     std::optional<Vector<uint8_t>> pushData;
+    String pushPartitionString;
     URL registrationURL;
 
 #if PLATFORM(COCOA)
@@ -45,30 +43,5 @@ struct WebPushMessage {
     NSDictionary *toDictionary() const;
 #endif
 };
-
-template<class Encoder>
-void WebPushMessage::encode(Encoder& encoder) const
-{
-    encoder << pushData << registrationURL;
-}
-
-template<class Decoder>
-std::optional<WebPushMessage> WebPushMessage::decode(Decoder& decoder)
-{
-    std::optional<std::optional<Vector<uint8_t>>> pushData;
-    decoder >> pushData;
-    if (!pushData)
-        return std::nullopt;
-
-    std::optional<URL> registrationURL;
-    decoder >> registrationURL;
-    if (!registrationURL)
-        return std::nullopt;
-
-    return { {
-        WTFMove(*pushData),
-        WTFMove(*registrationURL)
-    } };
-}
 
 } // namespace WebKit

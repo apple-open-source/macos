@@ -327,7 +327,6 @@ T_DECL(perf_contended_large_bench, "Contended large malloc",
 }
 
 // rdar://100479142
-#if 0
 #if CONFIG_DEFERRED_RECLAIM
 
 // If deferred reclaim is available but not enabled by default, test it too
@@ -341,9 +340,8 @@ T_DECL(perf_contended_large_deferred_reclaim_bench,
 {
 	// Add more iterations to also serve as a stress test for deferred reclaim
 	iterations_per_dt_stat_batch =
-			ITERATIONS_PER_DT_STAT_BATCH_LARGE_MALLOC * 10;
+			ITERATIONS_PER_DT_STAT_BATCH_LARGE_MALLOC * 20;
 	malloc_bench(false, 16 * 1024, 256 * 1024, 16 * 1024);
 }
 
 #endif // CONFIG_DEFERRED_RECLAIM
-#endif // 0

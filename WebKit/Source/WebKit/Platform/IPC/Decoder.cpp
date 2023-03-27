@@ -148,7 +148,9 @@ std::unique_ptr<Decoder> Decoder::unwrapForTesting(Decoder& decoder)
     if (!decoder.decode(wrappedMessage))
         return nullptr;
 
-    return Decoder::create(wrappedMessage.data(), wrappedMessage.size(), WTFMove(attachments));
+    std::unique_ptr<Decoder> wrappedDecoder = Decoder::create(wrappedMessage.data(), wrappedMessage.size(), WTFMove(attachments));
+    wrappedDecoder->setIsAllowedWhenWaitingForSyncReplyOverride(true);
+    return wrappedDecoder;
 }
 
 const uint8_t* Decoder::decodeFixedLengthReference(size_t size, size_t alignment)
@@ -164,8 +166,10 @@ const uint8_t* Decoder::decodeFixedLengthReference(size_t size, size_t alignment
 
 std::optional<Attachment> Decoder::takeLastAttachment()
 {
-    if (m_attachments.isEmpty())
+    if (m_attachments.isEmpty()) {
+        markInvalid();
         return std::nullopt;
+    }
     return m_attachments.takeLast();
 }
 

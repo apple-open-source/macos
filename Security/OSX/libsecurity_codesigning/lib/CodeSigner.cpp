@@ -57,10 +57,11 @@ public:
 	
 	bool getBool(CFStringRef key) const
 	{
-		if (CFBooleanRef flag = get<CFBooleanRef>(key))
+		if (CFBooleanRef flag = get<CFBooleanRef>(key)) {
 			return flag == kCFBooleanTrue;
-		else
+		} else {
 			return false;
+		}
 	}
 
 	uint32_t parseRuntimeVersion(std::string& runtime)
@@ -138,8 +139,9 @@ try {
 void SecCodeSigner::parameters(CFDictionaryRef paramDict)
 {
 	Parser(*this, paramDict);
-	if (!valid())
+	if (!valid()) {
 		MacOSError::throwMe(errSecCSInvalidObjectRef);
+	}
 }
 
 //
@@ -187,8 +189,9 @@ std::string SecCodeSigner::getTeamIDFromSigner(CFArrayRef certs)
 				MacOSError::throwMe(errSecCSInvalidTeamIdentifier);
 			}
 
-			if (teamIDFromCert)
+			if (teamIDFromCert) {
 				return cfString(teamIDFromCert);
+			}
 		}
 	}
 
@@ -228,8 +231,9 @@ void SecCodeSigner::sign(SecStaticCode *code, SecCSFlags flags)
 		secinfo("signer", "%p will edit signature of %p", this, code);
 		operation.edit(flags);
 	} else {
-		if (!valid())
+		if (!valid()) {
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
+		}
 		secinfo("signer", "%p will sign %p (flags 0x%x)", this, code, flags);
 		operation.sign(flags);
 	}
@@ -259,8 +263,9 @@ void SecCodeSigner::returnDetachedSignature(BlobCore *blob, Signer &signer)
 		SignatureDatabaseWriter db;
 		db.storeCode(blob, signer.path().c_str());
 #endif
-	} else
+	} else {
 		assert(false);
+	}
 }
 
 
@@ -298,16 +303,19 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 
 	// the signer may be an identity or null
 	state.mSigner = SecIdentityRef(get<CFTypeRef>(kSecCodeSignerIdentity));
-	if (state.mSigner)
-		if (CFGetTypeID(state.mSigner) != SecIdentityGetTypeID() && !CFEqual(state.mSigner, kCFNull))
+	if (state.mSigner) {
+		if (CFGetTypeID(state.mSigner) != SecIdentityGetTypeID() && !CFEqual(state.mSigner, kCFNull)) {
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
+		}
+	}
 
 	// the flags need some augmentation
 	if (CFNumberRef flags = get<CFNumberRef>(kSecCodeSignerFlags)) {
 		state.mCdFlagsGiven = true;
 		state.mCdFlags = cfNumber<uint32_t>(flags);
-	} else
+	} else {
 		state.mCdFlagsGiven = false;
+	}
 	
 	// digest algorithms are specified as a numeric code
 	if (CFCopyRef<CFTypeRef> digestAlgorithms = get<CFTypeRef>(kSecCodeSignerDigestAlgorithm)) {
@@ -316,50 +324,59 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 		std::copy(digests.begin(), digests.end(), std::inserter(state.mDigestAlgorithms, state.mDigestAlgorithms.begin()));
 	}
 
-	if (CFNumberRef cmsSize = get<CFNumberRef>(CFSTR("cmssize")))
+	if (CFNumberRef cmsSize = get<CFNumberRef>(CFSTR("cmssize"))) {
 		state.mCMSSize = cfNumber<size_t>(cmsSize);
-	else
+	} else {
 		state.mCMSSize = 18000;	// big enough for now, not forever.
+	}
 
 	// metadata preservation options
 	if (CFNumberRef preserve = get<CFNumberRef>(kSecCodeSignerPreserveMetadata)) {
 		state.mPreserveMetadata = cfNumber<uint32_t>(preserve);
-	} else
+	} else {
 		state.mPreserveMetadata = 0;
+	}
 
 	// signing time can be a CFDateRef or null
 	if (CFTypeRef time = get<CFTypeRef>(kSecCodeSignerSigningTime)) {
-		if (CFGetTypeID(time) == CFDateGetTypeID() || time == kCFNull)
+		if (CFGetTypeID(time) == CFDateGetTypeID() || time == kCFNull) {
 			state.mSigningTime = CFDateRef(time);
-		else
+		} else {
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
+		}
 	}
 	
-	if (CFStringRef ident = get<CFStringRef>(kSecCodeSignerIdentifier))
+	if (CFStringRef ident = get<CFStringRef>(kSecCodeSignerIdentifier)) {
 		state.mIdentifier = cfString(ident);
+	}
 	
-	if (CFStringRef teamid = get<CFStringRef>(kSecCodeSignerTeamIdentifier))
+	if (CFStringRef teamid = get<CFStringRef>(kSecCodeSignerTeamIdentifier)) {
 		state.mTeamID = cfString(teamid);
+	}
 	
 	if (CFNumberRef platform = get<CFNumberRef>(kSecCodeSignerPlatformIdentifier)) {
 		int64_t ident = cfNumber<int64_t>(platform);
-		if (ident < 0 || ident > maxPlatform)	// overflow
+		if (ident < 0 || ident > maxPlatform) {	// overflow
 			MacOSError::throwMe(errSecCSInvalidPlatform);
+		}
 		state.mPlatform = ident;
 	}
 	
-	if (CFStringRef prefix = get<CFStringRef>(kSecCodeSignerIdentifierPrefix))
+	if (CFStringRef prefix = get<CFStringRef>(kSecCodeSignerIdentifierPrefix)) {
 		state.mIdentifierPrefix = cfString(prefix);
+	}
 	
 	// Requirements can be binary or string (to be compiled).
 	// We must pass them along to the signer for possible text substitution
 	if (CFTypeRef reqs = get<CFTypeRef>(kSecCodeSignerRequirements)) {
-		if (CFGetTypeID(reqs) == CFDataGetTypeID() || CFGetTypeID(reqs) == CFStringGetTypeID())
+		if (CFGetTypeID(reqs) == CFDataGetTypeID() || CFGetTypeID(reqs) == CFStringGetTypeID()) {
 			state.mRequirements = reqs;
-		else
+		} else {
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
-	} else
+		}
+	} else {
 		state.mRequirements = NULL;
+	}
 	
 	state.mNoMachO = getBool(CFSTR("no-macho"));
 	
@@ -387,8 +404,9 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 		if (state.mSigner && state.mSigner != SecIdentityRef(kCFNull)) {
 			CFRef<SecCertificateRef> signerCert;
 			MacOSError::check(SecIdentityCopyCertificate(state.mSigner, &signerCert.aref()));
-			if (certificateHasField(signerCert, devIdLeafMarkerOID))
+			if (certificateHasField(signerCert, devIdLeafMarkerOID)) {
 				state.mWantTimeStamp = true;
+			}
 
 #if !TARGET_OS_OSX
 			if (state.mWantTimeStamp) {

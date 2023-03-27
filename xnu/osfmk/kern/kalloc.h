@@ -196,8 +196,8 @@ KALLOC_HEAP_DECLARE(KHEAP_KT_VAR);
  */
 #define KALLOC_HEAP_DEFINE(var, name, heap_id) \
 	SECURITY_READ_ONLY_LATE(struct kalloc_heap) var[1] = { { \
-	    .kh_name = name, \
-	    .kh_heap_id = heap_id, \
+	    .kh_name = (name), \
+	    .kh_heap_id = (heap_id), \
 	} }; \
 	STARTUP_ARG(ZALLOC, STARTUP_RANK_LAST, kheap_startup_init, var)
 
@@ -453,7 +453,8 @@ typedef struct kalloc_type_var_view *kalloc_type_var_view_t;
  * @param flags         a @c KT_* flag.
  */
 #define KALLOC_TYPE_DEFINE(var, type, flags) \
-	_KALLOC_TYPE_DEFINE(var, type, flags)
+	_KALLOC_TYPE_DEFINE(var, type, flags); \
+	__ZONE_DECLARE_TYPE(var, type)
 
 /*!
  * @macro KALLOC_TYPE_VAR_DECLARE
@@ -523,31 +524,26 @@ typedef struct kalloc_type_var_view *kalloc_type_var_view_t;
 #define kfree_data_addr(elem) \
 	kheap_free_addr(KHEAP_DATA_BUFFERS, elem);
 
-extern void
-kheap_free_bounded(
+extern void kheap_free_bounded(
 	kalloc_heap_t heap,
 	void         *addr __unsafe_indexable,
 	vm_size_t     min_sz,
 	vm_size_t     max_sz);
 
-extern void
-kalloc_data_require(
+extern void kalloc_data_require(
 	void         *data __unsafe_indexable,
 	vm_size_t     size);
 
-extern void
-kalloc_non_data_require(
+extern void kalloc_non_data_require(
 	void         *data __unsafe_indexable,
 	vm_size_t     size);
 
 #else /* XNU_KERNEL_PRIVATE */
 
-extern void *__sized_by(size)
-kalloc(
+extern void *__sized_by(size) kalloc(
 	vm_size_t           size) __attribute__((malloc, alloc_size(1)));
 
-extern void *__unsafe_indexable
-kalloc_data(
+extern void *__unsafe_indexable kalloc_data(
 	vm_size_t           size,
 	zalloc_flags_t      flags);
 
@@ -565,8 +561,7 @@ __kalloc_data(vm_size_t size, zalloc_flags_t flags)
 
 #define kalloc_data(size, fl) __kalloc_data(size, fl)
 
-extern void *__unsafe_indexable
-krealloc_data(
+extern void *__unsafe_indexable krealloc_data(
 	void               *ptr __unsafe_indexable,
 	vm_size_t           old_size,
 	vm_size_t           new_size,
@@ -591,18 +586,15 @@ __krealloc_data(
 #define krealloc_data(ptr, old_size, new_size, fl) \
 	__krealloc_data(ptr, old_size, new_size, fl)
 
-extern void
-kfree(
+extern void kfree(
 	void               *data __unsafe_indexable,
 	vm_size_t           size);
 
-extern void
-kfree_data(
+extern void kfree_data(
 	void               *ptr __unsafe_indexable,
 	vm_size_t           size);
 
-extern void
-kfree_data_addr(
+extern void kfree_data_addr(
 	void               *ptr __unsafe_indexable);
 
 #endif /* !XNU_KERNEL_PRIVATE */
@@ -676,7 +668,7 @@ kfree_data_addr(
  * - All allocations in kext for armv7
  */
 #define kalloc_type_require(type, value) ({                                    \
-	static KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);          \
+	static _KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);         \
 	zone_require(kt_view_var->kt_zv.zv_zone, value);                       \
 })
 
@@ -731,7 +723,7 @@ __options_decl(kt_granule_t, uint32_t, {
  * (1 << G) is set in the summary, that means that the type contains
  * one or more granules with encoding G.
  */
-#define KT_SUMMARY_GRANULE_TO_IDX(g)  (1UL << g)
+#define KT_SUMMARY_GRANULE_TO_IDX(g)  (1UL << (g))
 
 #define KT_SUMMARY_MASK_TYPE_BITS  (0xffff)
 
@@ -832,8 +824,8 @@ __options_decl(kt_granule_t, uint32_t, {
 #define KALLOC_TYPE_IS_COMPATIBLE_PTR(ptr, type)                   \
 	_Pragma("clang diagnostic push")                               \
 	_Pragma("clang diagnostic ignored \"-Wvoid-ptr-dereference\"") \
-	(__builtin_xnu_types_compatible(__typeof__(*ptr), type) ||     \
-	    __builtin_xnu_types_compatible(__typeof__(*ptr), void))    \
+	(__builtin_xnu_types_compatible(__typeof__(*(ptr)), type) ||   \
+	    __builtin_xnu_types_compatible(__typeof__(*(ptr)), void))  \
 	_Pragma("clang diagnostic pop")
 
 #define KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(ptr, type) \
@@ -852,7 +844,7 @@ __options_decl(kt_granule_t, uint32_t, {
  * - ~256M on 4k or PAC systems with 16k pages
  * - ~1G on other 16k systems.
  */
-#if __arm64e__
+#if __arm64e__ || KASAN_TBI
 #define KALLOC_ARRAY_SIZE_MAX   ((uint32_t)PAGE_MASK << PAGE_SHIFT)
 #define KALLOC_ARRAY_GRANULE    32ul
 #else
@@ -999,8 +991,6 @@ __options_decl(kt_granule_t, uint32_t, {
 	        } else {                                                        \
 	                size = kt_size(h_sz, e_sz, min_count) - 1;              \
 	        }                                                               \
-	        size &= -KALLOC_ARRAY_GRANULE;                                  \
-	        size += KALLOC_ARRAY_GRANULE - 1;                               \
 	        size  = kalloc_next_good_size(size, vm_period);                 \
 	        if (size <= KALLOC_ARRAY_SIZE_MAX) {                            \
 	               return (uint32_t)size;                                   \
@@ -1109,7 +1099,8 @@ __options_decl(kt_granule_t, uint32_t, {
                                                                                 \
 	        fl |= Z_KALLOC_ARRAY;                                           \
 	        fl = __zone_flags_mix_tag(fl, VM_ALLOC_SITE_TAG());             \
-	        return (name ## _t)(krealloc_ext)(name ## _kt_view,             \
+	        return (name ## _t)(krealloc_ext)(                              \
+	                        kt_mangle_var_view(name ## _kt_view),           \
 	                        (void *)base, size, new_size, fl, NULL).addr;   \
 	}                                                                       \
                                                                                 \
@@ -1267,19 +1258,14 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 	return s1;
 }
 
-#ifndef __ZONE_DECLARE_TYPE
-#define __ZONE_DECLARE_TYPE(var, type_t)  ((void)0)
-#endif
-
 #define kalloc_type_2(type, flags) ({                                          \
-	__ZONE_DECLARE_TYPE(kt_view_var, type);                                \
-	static KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);          \
+	static _KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);         \
 	__unsafe_forge_single(type *, kalloc_type_impl(kt_view_var, flags));   \
 })
 
 #define kfree_type_2(type, elem) ({                                            \
 	KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(elem, type);                     \
-	static KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);          \
+	static _KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);         \
 	kfree_type_impl(kt_view_var, os_ptr_load_and_erase(elem));             \
 })
 
@@ -1303,7 +1289,7 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 
 #ifdef XNU_KERNEL_PRIVATE
 #define kalloc_type_tag_3(type, flags, tag) ({                                 \
-	static KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);          \
+	static _KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);         \
 	__unsafe_forge_single(type *, zalloc_flags(kt_view_var,                \
 	    Z_VM_TAG(flags, tag)));                                            \
 })
@@ -1561,7 +1547,7 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 #ifdef XNU_KERNEL_PRIVATE
 
 #define kalloc_type_impl(kt_view, flags) \
-	zalloc_flags(kt_view, flags)
+	__zalloc_flags(kt_view, flags)
 
 static inline void
 kfree_type_impl(kalloc_type_view_t kt_view, void *__unsafe_indexable ptr)
@@ -1572,8 +1558,7 @@ kfree_type_impl(kalloc_type_view_t kt_view, void *__unsafe_indexable ptr)
 	zfree(kt_view, ptr);
 }
 
-extern struct kalloc_result
-kalloc_ext(
+extern struct kalloc_result kalloc_ext(
 	void                   *kheap_or_kt_view __unsafe_indexable,
 	vm_size_t               size,
 	zalloc_flags_t          flags,
@@ -1597,8 +1582,7 @@ __kalloc_ext(
 
 #define kalloc_ext(hov, size, fl, site) __kalloc_ext(hov, size, fl, site)
 
-extern void
-kfree_ext(
+extern void kfree_ext(
 	void                   *kheap_or_kt_view __unsafe_indexable,
 	void                   *addr __unsafe_indexable,
 	vm_size_t               size);
@@ -1628,8 +1612,7 @@ kfree_type_var_impl(
 
 #else /* XNU_KERNEL_PRIVATE */
 
-extern void *__unsafe_indexable
-kalloc_type_impl(
+extern void *__unsafe_indexable kalloc_type_impl(
 	kalloc_type_view_t  kt_view,
 	zalloc_flags_t      flags);
 
@@ -1647,17 +1630,22 @@ __kalloc_type_impl(
 
 #define kalloc_type_impl(ktv, fl) __kalloc_type_impl(ktv, fl)
 
-extern void
-kfree_type_impl(
+extern void kfree_type_impl(
 	kalloc_type_view_t  kt_view,
 	void                *ptr __unsafe_indexable);
 
-extern void *__unsafe_indexable
-kalloc_type_var_impl(
+extern void *__unsafe_indexable kalloc_type_var_impl(
 	kalloc_type_var_view_t  kt_view,
 	vm_size_t               size,
 	zalloc_flags_t          flags,
 	void                   *site);
+
+extern void kfree_type_var_impl(
+	kalloc_type_var_view_t  kt_view,
+	void                   *ptr __unsafe_indexable,
+	vm_size_t               size);
+
+#endif /* !XNU_KERNEL_PRIVATE */
 
 __attribute__((malloc, alloc_size(2)))
 static inline void *
@@ -1668,41 +1656,31 @@ __kalloc_type_var_impl(
 	zalloc_flags_t          flags,
 	void                   *site)
 {
-	void *addr = (kalloc_type_var_impl)(kt_view, size, flags, site);
+	void *__unsafe_indexable addr;
+
+	addr = (kalloc_type_var_impl)(kt_view, size, flags, site);
 	if (flags & Z_NOFAIL) {
 		__builtin_assume(addr != NULL);
 	}
-	return addr;
+	return __unsafe_forge_bidi_indexable(void *, addr, size);
 }
 
 #define kalloc_type_var_impl(ktv, size, fl, site) \
 	__kalloc_type_var_impl(ktv, size, fl, site)
 
-extern void
-kfree_type_var_impl(
-	kalloc_type_var_view_t  kt_view,
-	void                   *ptr __unsafe_indexable,
-	vm_size_t               size);
-
-#endif /* !XNU_KERNEL_PRIVATE */
-
-void *
-kalloc_type_impl_external(
+extern void *kalloc_type_impl_external(
 	kalloc_type_view_t  kt_view,
 	zalloc_flags_t      flags);
 
-void
-kfree_type_impl_external(
+extern void kfree_type_impl_external(
 	kalloc_type_view_t  kt_view,
 	void               *ptr __unsafe_indexable);
 
-extern void *
-OSObject_typed_operator_new(
+extern void *OSObject_typed_operator_new(
 	kalloc_type_view_t  ktv,
 	vm_size_t           size);
 
-extern void
-OSObject_typed_operator_delete(
+extern void OSObject_typed_operator_delete(
 	kalloc_type_view_t  ktv,
 	void               *mem __unsafe_indexable,
 	vm_size_t           size);
@@ -1720,15 +1698,13 @@ kalloc_type_get_size(uint32_t kt_size)
 	return kt_size & KALLOC_TYPE_SIZE_MASK;
 }
 
-bool
-IOMallocType_from_vm(
+extern bool IOMallocType_from_vm(
 	kalloc_type_view_t ktv);
 
 /* Used by kern_os_* and operator new */
 KALLOC_HEAP_DECLARE(KERN_OS_MALLOC);
 
-extern void
-kheap_startup_init(
+extern void kheap_startup_init(
 	kalloc_heap_t heap);
 
 __attribute__((malloc, alloc_size(2)))
@@ -1746,8 +1722,7 @@ __kheap_alloc(
 	return __unsafe_forge_bidi_indexable(void *, kr.addr, size);
 }
 
-extern struct kalloc_result
-krealloc_ext(
+extern struct kalloc_result krealloc_ext(
 	void                   *kheap_or_kt_view __unsafe_indexable,
 	void                   *addr __unsafe_indexable,
 	vm_size_t               old_size,
@@ -1809,13 +1784,11 @@ __krealloc_type(
 	return __unsafe_forge_bidi_indexable(void *, kr.addr, new_size);
 }
 
-extern void
-kfree_addr_ext(
+extern void kfree_addr_ext(
 	kalloc_heap_t           kheap,
 	void                   *addr __unsafe_indexable);
 
-extern zone_t
-kalloc_zone_for_size(
+extern zone_t kalloc_zone_for_size(
 	zone_id_t             zid,
 	vm_size_t             size);
 
@@ -1823,8 +1796,7 @@ extern vm_size_t kalloc_large_max;
 SCALABLE_COUNTER_DECLARE(kalloc_large_count);
 SCALABLE_COUNTER_DECLARE(kalloc_large_total);
 
-extern void
-kern_os_typed_free(
+extern void kern_os_typed_free(
 	kalloc_type_view_t    ktv,
 	void                 *addr __unsafe_indexable,
 	vm_size_t             esize);
@@ -1832,8 +1804,7 @@ kern_os_typed_free(
 #pragma GCC visibility pop
 #endif  /* !XNU_KERNEL_PRIVATE */
 
-extern void
-kern_os_zfree(
+extern void kern_os_zfree(
 	zone_t        zone,
 	void         *addr __unsafe_indexable,
 	vm_size_t     size);

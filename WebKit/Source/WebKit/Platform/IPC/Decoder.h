@@ -28,6 +28,7 @@
 #include "Attachment.h"
 #include "MessageNames.h"
 #include "ReceiverMatcher.h"
+#include <wtf/ArgumentCoder.h>
 #include <wtf/Function.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
@@ -42,8 +43,8 @@ enum class MessageFlags : uint8_t;
 enum class ShouldDispatchWhenWaitingForSyncReply : uint8_t;
 
 template<typename, typename> struct ArgumentCoder;
-template<typename, typename> struct HasLegacyDecoder;
-template<typename, typename> struct HasModernDecoder;
+template<typename, typename, typename> struct HasLegacyDecoder;
+template<typename, typename, typename> struct HasModernDecoder;
 
 class Decoder {
     WTF_MAKE_FAST_ALLOCATED;
@@ -67,8 +68,11 @@ public:
 
     bool isSyncMessage() const { return messageIsSync(messageName()); }
     ShouldDispatchWhenWaitingForSyncReply shouldDispatchMessageWhenWaitingForSyncReply() const;
+    bool isAllowedWhenWaitingForSyncReply() const { return messageAllowedWhenWaitingForSyncReply(messageName()) || m_isAllowedWhenWaitingForSyncReplyOverride; }
+    bool isAllowedWhenWaitingForUnboundedSyncReply() const { return messageAllowedWhenWaitingForUnboundedSyncReply(messageName()); }
     bool shouldUseFullySynchronousModeForTesting() const;
     bool shouldMaintainOrderingWithAsyncMessages() const;
+    void setIsAllowedWhenWaitingForSyncReplyOverride(bool value) { m_isAllowedWhenWaitingForSyncReplyOverride = value; }
 
 #if PLATFORM(MAC)
     void setImportanceAssertion(ImportanceAssertion&&);
@@ -88,11 +92,13 @@ public:
     // The data in the returned pointer here will only be valid for the lifetime of the Decoder object.
     // Returns nullptr on failure.
     WARN_UNUSED_RETURN const uint8_t* decodeFixedLengthReference(size_t, size_t alignment);
+    template<typename T>
+    WARN_UNUSED_RETURN Span<const T> decodeSpan(size_t);
 
     template<typename T>
     WARN_UNUSED_RETURN bool decode(T& t)
     {
-        using Impl = ArgumentCoder<std::remove_const_t<std::remove_reference_t<T>>, void>;
+        using Impl = ArgumentCoder<std::remove_cvref_t<T>, void>;
         if constexpr(HasLegacyDecoder<T, Impl>::value) {
             if (UNLIKELY(!Impl::decode(*this, t))) {
                 markInvalid();
@@ -121,7 +127,7 @@ public:
     template<typename T>
     std::optional<T> decode()
     {
-        using Impl = ArgumentCoder<std::remove_const_t<std::remove_reference_t<T>>, void>;
+        using Impl = ArgumentCoder<std::remove_cvref_t<T>, void>;
         if constexpr(HasModernDecoder<T, Impl>::value) {
             std::optional<T> t { Impl::decode(*this) };
             if (UNLIKELY(!t))
@@ -168,6 +174,7 @@ private:
     MessageName m_messageName;
 
     uint64_t m_destinationID;
+    bool m_isAllowedWhenWaitingForSyncReplyOverride { false };
 
 #if PLATFORM(MAC)
     ImportanceAssertion m_importanceAssertion;
@@ -219,6 +226,22 @@ inline bool Decoder::decodeFixedLengthData(uint8_t* data, size_t size, size_t al
     m_bufferPos += size;
 
     return true;
+}
+
+template<typename T>
+inline Span<const T> Decoder::decodeSpan(size_t size)
+{
+    if (size > std::numeric_limits<size_t>::max() / sizeof(T))
+        return { };
+
+    const uint8_t* alignedPosition = roundUpToMultipleOf<alignof(T)>(m_bufferPos);
+    if (UNLIKELY(!alignedBufferIsLargeEnoughToContain(alignedPosition, m_buffer, m_bufferEnd, size * sizeof(T)))) {
+        markInvalid();
+        return { };
+    }
+
+    m_bufferPos = alignedPosition + size * sizeof(T);
+    return { reinterpret_cast<const T*>(alignedPosition), size };
 }
 
 } // namespace IPC

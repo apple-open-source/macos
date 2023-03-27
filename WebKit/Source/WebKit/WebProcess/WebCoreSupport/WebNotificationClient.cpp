@@ -32,6 +32,7 @@
 #include "WebNotificationManager.h"
 #include "WebPage.h"
 #include "WebProcess.h"
+#include <WebCore/NotificationData.h>
 #include <WebCore/ScriptExecutionContext.h>
 
 namespace WebKit {
@@ -48,15 +49,12 @@ WebNotificationClient::~WebNotificationClient()
     ASSERT(isMainRunLoop());
 }
 
-bool WebNotificationClient::show(Notification& notification, CompletionHandler<void()>&& callback)
+bool WebNotificationClient::show(ScriptExecutionContext& context, NotificationData&& notification, RefPtr<NotificationResources>&& resources, CompletionHandler<void()>&& callback)
 {
-    auto* context = notification.scriptExecutionContext();
-    ASSERT(context);
-
     bool result;
-    callOnMainRunLoopAndWait([&result, protectedNotification = Ref { notification }, page = m_page, contextIdentifier = context->identifier(), callbackIdentifier = context->addNotificationCallback(WTFMove(callback))]() {
-        result = WebProcess::singleton().supplement<WebNotificationManager>()->show(protectedNotification.get(), page, [contextIdentifier, callbackIdentifier] {
-            ScriptExecutionContext::postTaskTo(contextIdentifier, [callbackIdentifier](auto& context) {
+    callOnMainRunLoopAndWait([&result, notification = WTFMove(notification).isolatedCopy(), resources = WTFMove(resources), page = m_page, contextIdentifier = context.identifier(), callbackIdentifier = context.addNotificationCallback(WTFMove(callback))]() mutable {
+        result = WebProcess::singleton().supplement<WebNotificationManager>()->show(WTFMove(notification), WTFMove(resources), page, [contextIdentifier, callbackIdentifier] {
+            ScriptExecutionContext::ensureOnContextThread(contextIdentifier, [callbackIdentifier](auto& context) {
                 if (auto callback = context.takeNotificationCallback(callbackIdentifier))
                     callback();
             });
@@ -65,20 +63,17 @@ bool WebNotificationClient::show(Notification& notification, CompletionHandler<v
     return result;
 }
 
-void WebNotificationClient::cancel(Notification& notification)
+void WebNotificationClient::cancel(NotificationData&& notification)
 {
-    callOnMainRunLoopAndWait([protectedNotification = Ref { notification }, page = m_page]() {
-        WebProcess::singleton().supplement<WebNotificationManager>()->cancel(protectedNotification.get(), page);
+    callOnMainRunLoopAndWait([notification = WTFMove(notification).isolatedCopy(), page = m_page]() mutable {
+        WebProcess::singleton().supplement<WebNotificationManager>()->cancel(WTFMove(notification), page);
     });
 }
 
-void WebNotificationClient::notificationObjectDestroyed(Notification& notification)
+void WebNotificationClient::notificationObjectDestroyed(NotificationData&& notification)
 {
-    // Make sure this Notification object is deallocated on this thread by holding one last ref() to it here
-    auto lastNotificationRef = Ref { notification };
-
-    callOnMainRunLoopAndWait([&notification, page = m_page]() {
-        WebProcess::singleton().supplement<WebNotificationManager>()->didDestroyNotification(notification, page);
+    callOnMainRunLoopAndWait([notification = WTFMove(notification).isolatedCopy(), page = m_page]() mutable {
+        WebProcess::singleton().supplement<WebNotificationManager>()->didDestroyNotification(WTFMove(notification), page);
     });
 }
 
@@ -101,25 +96,42 @@ void WebNotificationClient::requestPermission(ScriptExecutionContext& context, P
     auto* securityOrigin = context.securityOrigin();
     if (!securityOrigin)
         return permissionHandler(NotificationClient::Permission::Denied);
+
+    // Add origin to list of origins that have requested permission to use the Notifications API.
+    m_notificationPermissionRequesters.add(securityOrigin->data());
+
     m_page->notificationPermissionRequestManager()->startRequest(securityOrigin->data(), WTFMove(permissionHandler));
 }
 
 NotificationClient::Permission WebNotificationClient::checkPermission(ScriptExecutionContext* context)
 {
-    if (!context
-        || (!context->isDocument() && !context->isServiceWorkerGlobalScope())
-        || WebProcess::singleton().sessionID().isEphemeral())
+    if (!context || (!context->isDocument() && !context->isServiceWorkerGlobalScope()))
         return NotificationClient::Permission::Denied;
 
     auto* origin = context->securityOrigin();
     if (!origin)
         return NotificationClient::Permission::Denied;
 
+    bool hasRequestedPermission = m_notificationPermissionRequesters.contains(origin->data());
+    if (WebProcess::singleton().sessionID().isEphemeral())
+        return hasRequestedPermission ? NotificationClient::Permission::Denied : NotificationClient::Permission::Default;
+
     NotificationClient::Permission resultPermission;
     callOnMainRunLoopAndWait([&resultPermission, origin = origin->data().toString().isolatedCopy()] {
         resultPermission = WebProcess::singleton().supplement<WebNotificationManager>()->policyForOrigin(origin);
     });
+
+    // To reduce fingerprinting, if the origin has not requested permission to use the
+    // Notifications API, and the permission state is "denied", return "default" instead.
+    if (resultPermission == NotificationClient::Permission::Denied && !hasRequestedPermission)
+        return NotificationClient::Permission::Default;
+
     return resultPermission;
+}
+
+void WebNotificationClient::clearNotificationPermissionState()
+{
+    m_notificationPermissionRequesters.clear();
 }
 
 } // namespace WebKit

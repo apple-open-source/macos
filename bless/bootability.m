@@ -109,10 +109,13 @@ int blessViaBootability(BLContextPtr context, struct clarg actargs[klast])
 			goto out;
 		}
 		if (IOObjectConformsTo(devMediaObj, APFS_VOLUME_OBJECT) &&
-			(actargs[kcreatesnapshot].present || actargs[klastsealedsnapshot].present)) {
+			(actargs[kcreatesnapshot].present ||
+			 actargs[klastsealedsnapshot].present ||
+			 actargs[ksnapshot].present ||
+			 actargs[ksnapshotname].present)) {
 			// This is an APFS volume.  We need to mess with the preboot volume.
 			ret = BlessPrebootVolume(context, actargs[kdevice].argument + strlen(_PATH_DEV), NULL, NULL, NULL,
-									 actargs);
+									 false, actargs);
 		}
 		IOObjectRelease(devMediaObj);
 		if (ret) {
@@ -143,8 +146,12 @@ int blessViaBootability(BLContextPtr context, struct clarg actargs[klast])
 							   actargs[kmount].argument);
 			goto out;
 		}
-		if (actargs[kcreatesnapshot].present || actargs[klastsealedsnapshot].present) {
-			ret = BlessPrebootVolume(context, sb.f_mntfromname + strlen(_PATH_DEV), NULL, NULL, NULL, actargs);
+		if (actargs[kcreatesnapshot].present ||
+			actargs[klastsealedsnapshot].present ||
+			actargs[ksnapshot].present ||
+			actargs[ksnapshotname].present) {
+			ret = BlessPrebootVolume(context, sb.f_mntfromname + strlen(_PATH_DEV), NULL, NULL, NULL,
+									 false, actargs);
 			if (ret) {
 				blesscontextprintf(context, kBLLogLevelError,
 								   "Couldn't set bless data in preboot volume for mount point %s\n",

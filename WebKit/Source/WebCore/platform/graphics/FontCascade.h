@@ -110,7 +110,7 @@ public:
     // This constructor is only used if the platform wants to start with a native font.
     WEBCORE_EXPORT FontCascade(const FontPlatformData&, FontSmoothingMode = FontSmoothingMode::AutoSmoothing);
 
-    FontCascade(const FontCascade&);
+    WEBCORE_EXPORT FontCascade(const FontCascade&);
     WEBCORE_EXPORT FontCascade& operator=(const FontCascade&);
 
     WEBCORE_EXPORT bool operator==(const FontCascade& other) const;
@@ -178,6 +178,7 @@ public:
     int emphasisMarkAscent(const AtomString&) const;
     int emphasisMarkDescent(const AtomString&) const;
     int emphasisMarkHeight(const AtomString&) const;
+    float floatEmphasisMarkHeight(const AtomString&) const;
 
     const Font& primaryFont() const;
     const FontRanges& fallbackRangesAt(unsigned) const;
@@ -197,10 +198,8 @@ public:
     static bool leftExpansionOpportunity(StringView, TextDirection);
     static bool rightExpansionOpportunity(StringView, TextDirection);
 
-    WEBCORE_EXPORT static void setShouldUseSmoothing(bool);
-    WEBCORE_EXPORT static bool shouldUseSmoothing();
-
-    static bool isSubpixelAntialiasingAvailable();
+    WEBCORE_EXPORT static void setDisableFontSubpixelAntialiasingForTesting(bool);
+    WEBCORE_EXPORT static bool shouldDisableFontSubpixelAntialiasingForTesting();
 
     enum class CodePath : uint8_t { Auto, Simple, Complex, SimpleWithGlyphOverflow };
     CodePath codePath(const TextRun&, std::optional<unsigned> from = std::nullopt, std::optional<unsigned> to = std::nullopt) const;
@@ -235,6 +234,7 @@ private:
     void adjustSelectionRectForSimpleText(const TextRun&, LayoutRect& selectionRect, unsigned from, unsigned to) const;
 
     std::optional<GlyphData> getEmphasisMarkGlyphData(const AtomString&) const;
+    const Font* fontForEmphasisMark(const AtomString&) const;
 
     static bool canReturnFallbackFontsForComplexText();
     static bool canExpandAroundIdeographsInComplexText();
@@ -337,12 +337,13 @@ private:
     }
 
 #if PLATFORM(WIN) && USE(CG)
-    static double s_fontSmoothingContrast;
-    static uint32_t s_fontSmoothingType;
-    static int s_fontSmoothingLevel;
-    static uint32_t s_systemFontSmoothingType;
-    static bool s_systemFontSmoothingSet;
-    static bool s_systemFontSmoothingEnabled;
+    static Lock s_fontSmoothingLock;
+    static double s_fontSmoothingContrast WTF_GUARDED_BY_LOCK(s_fontSmoothingLock);
+    static uint32_t s_fontSmoothingType WTF_GUARDED_BY_LOCK(s_fontSmoothingLock);
+    static int s_fontSmoothingLevel WTF_GUARDED_BY_LOCK(s_fontSmoothingLock);
+    static uint32_t s_systemFontSmoothingType WTF_GUARDED_BY_LOCK(s_fontSmoothingLock);
+    static bool s_systemFontSmoothingSet WTF_GUARDED_BY_LOCK(s_fontSmoothingLock);
+    static bool s_systemFontSmoothingEnabled WTF_GUARDED_BY_LOCK(s_fontSmoothingLock);
 #endif
 
     FontCascadeDescription m_fontDescription;

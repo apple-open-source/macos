@@ -37,9 +37,11 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTMLElementFactory.h"
+#include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLImageElement.h"
+#include "HTMLMaybeFormAssociatedCustomElement.h"
 #include "HTMLOptGroupElement.h"
 #include "HTMLOptionElement.h"
 #include "HTMLParserIdioms.h"
@@ -50,6 +52,8 @@
 #include "JSCustomElementInterface.h"
 #include "NotImplemented.h"
 #include "SVGElementInlines.h"
+#include "Settings.h"
+#include "ShadowRoot.h"
 #include "Text.h"
 #include <unicode/ubrk.h>
 #include <wtf/text/TextBreakIterator.h>
@@ -60,7 +64,7 @@ using namespace ElementNames;
 using namespace HTMLNames;
 
 enum class HasDuplicateAttribute : bool { No, Yes };
-static inline void setAttributes(Element& element, Vector<Attribute>& attributes, HasDuplicateAttribute hasDuplicateAttribute, ParserContentPolicy parserContentPolicy)
+static inline void setAttributes(Element& element, Vector<Attribute>& attributes, HasDuplicateAttribute hasDuplicateAttribute, OptionSet<ParserContentPolicy> parserContentPolicy)
 {
     if (!scriptingContentIsAllowed(parserContentPolicy))
         element.stripScriptingAttributes(attributes);
@@ -68,7 +72,7 @@ static inline void setAttributes(Element& element, Vector<Attribute>& attributes
     element.setHasDuplicateAttribute(hasDuplicateAttribute == HasDuplicateAttribute::Yes);
 }
 
-static inline void setAttributes(Element& element, AtomHTMLToken& token, ParserContentPolicy parserContentPolicy)
+static inline void setAttributes(Element& element, AtomHTMLToken& token, OptionSet<ParserContentPolicy> parserContentPolicy)
 {
     setAttributes(element, token.attributes(), token.hasDuplicateAttribute() ? HasDuplicateAttribute::Yes : HasDuplicateAttribute::No, parserContentPolicy);
 }
@@ -129,7 +133,7 @@ static inline bool isAllWhitespace(const String& string)
 static inline void insert(HTMLConstructionSiteTask& task)
 {
     if (is<HTMLTemplateElement>(*task.parent)) {
-        task.parent = &downcast<HTMLTemplateElement>(*task.parent).content();
+        task.parent = &downcast<HTMLTemplateElement>(*task.parent).fragmentForInsertion();
         task.nextChild = nullptr;
     }
 
@@ -252,7 +256,7 @@ void HTMLConstructionSite::executeQueuedTasks()
     // We might be detached now.
 }
 
-HTMLConstructionSite::HTMLConstructionSite(Document& document, ParserContentPolicy parserContentPolicy, unsigned maximumDOMTreeDepth)
+HTMLConstructionSite::HTMLConstructionSite(Document& document, OptionSet<ParserContentPolicy> parserContentPolicy, unsigned maximumDOMTreeDepth)
     : m_document(document)
     , m_attachmentRoot(document)
     , m_parserContentPolicy(parserContentPolicy)
@@ -265,7 +269,7 @@ HTMLConstructionSite::HTMLConstructionSite(Document& document, ParserContentPoli
     ASSERT(m_document.isHTMLDocument() || m_document.isXHTMLDocument());
 }
 
-HTMLConstructionSite::HTMLConstructionSite(DocumentFragment& fragment, ParserContentPolicy parserContentPolicy, unsigned maximumDOMTreeDepth)
+HTMLConstructionSite::HTMLConstructionSite(DocumentFragment& fragment, OptionSet<ParserContentPolicy> parserContentPolicy, unsigned maximumDOMTreeDepth)
     : m_document(fragment.document())
     , m_attachmentRoot(fragment)
     , m_parserContentPolicy(parserContentPolicy)
@@ -352,7 +356,7 @@ void HTMLConstructionSite::setCompatibilityMode(DocumentCompatibilityMode mode)
     m_document.setCompatibilityMode(mode);
 }
 
-void HTMLConstructionSite::setCompatibilityModeFromDoctype(const String& name, const String& publicId, const String& systemId)
+void HTMLConstructionSite::setCompatibilityModeFromDoctype(const AtomString& name, const String& publicId, const String& systemId)
 {
     // There are three possible compatibility modes:
     // Quirks - quirks mode emulates WinIE and NS4. CSS parsing is also relaxed in this mode, e.g., unit types can
@@ -360,8 +364,14 @@ void HTMLConstructionSite::setCompatibilityModeFromDoctype(const String& name, c
     // Limited Quirks - This mode is identical to no-quirks mode except for its treatment of line-height in the inline box model.  
     // No Quirks - no quirks apply. Web pages will obey the specifications to the letter.
 
+    bool isNameHTML = name == HTMLNames::htmlTag->localName();
+    if (LIKELY((isNameHTML && publicId.isEmpty() && systemId.isEmpty()) || m_document.isSrcdocDocument())) {
+        setCompatibilityMode(DocumentCompatibilityMode::NoQuirksMode);
+        return;
+    }
+
     // Check for Quirks Mode.
-    if (name != "html"_s
+    if (!isNameHTML
         || startsWithLettersIgnoringASCIICase(publicId, "+//silmaril//dtd html pro v0r11 19970101//"_s)
         || startsWithLettersIgnoringASCIICase(publicId, "-//advasoft ltd//dtd html 3.0 aswedit + extensions//"_s)
         || startsWithLettersIgnoringASCIICase(publicId, "-//as//dtd html 3.0 aswedit + extensions//"_s)
@@ -463,7 +473,7 @@ void HTMLConstructionSite::insertDoctype(AtomHTMLToken&& token)
     if (m_isParsingFragment)
         return;
 
-    if (token.forceQuirks())
+    if (token.forceQuirks() && !m_document.isSrcdocDocument())
         setCompatibilityMode(DocumentCompatibilityMode::QuirksMode);
     else
         setCompatibilityModeFromDoctype(token.name(), publicId, systemId);
@@ -524,10 +534,39 @@ void HTMLConstructionSite::insertHTMLElement(AtomHTMLToken&& token)
     m_openElements.push(HTMLStackItem(WTFMove(element), WTFMove(token)));
 }
 
+void HTMLConstructionSite::insertHTMLTemplateElement(AtomHTMLToken&& token)
+{
+    if (m_document.settings().declarativeShadowDOMEnabled() && m_parserContentPolicy.contains(ParserContentPolicy::AllowDeclarativeShadowDOM)) {
+        std::optional<ShadowRootMode> mode;
+        bool delegatesFocus = false;
+        for (auto& attribute : token.attributes()) {
+            if (attribute.name() == HTMLNames::shadowrootmodeAttr) {
+                if (equalLettersIgnoringASCIICase(attribute.value(), "closed"_s))
+                    mode = ShadowRootMode::Closed;
+                else if (equalLettersIgnoringASCIICase(attribute.value(), "open"_s))
+                    mode = ShadowRootMode::Open;
+            } else if (attribute.name() == HTMLNames::shadowrootdelegatesfocusAttr)
+                delegatesFocus = true;
+        }
+        if (mode) {
+            auto exceptionOrShadowRoot = currentElement().attachDeclarativeShadow(*mode, delegatesFocus);
+            if (!exceptionOrShadowRoot.hasException()) {
+                Ref shadowRoot = exceptionOrShadowRoot.releaseReturnValue();
+                auto element = createHTMLElement(token);
+                RELEASE_ASSERT(is<HTMLTemplateElement>(element));
+                downcast<HTMLTemplateElement>(element.get()).setDeclarativeShadowRoot(shadowRoot);
+                m_openElements.push(HTMLStackItem(WTFMove(element), WTFMove(token)));
+                return;
+            }
+        }
+    }
+    insertHTMLElement(WTFMove(token));
+}
+
 std::unique_ptr<CustomElementConstructionData> HTMLConstructionSite::insertHTMLElementOrFindCustomElementInterface(AtomHTMLToken&& token)
 {
     JSCustomElementInterface* elementInterface = nullptr;
-    RefPtr<Element> element = createHTMLElementOrFindCustomElementInterface(token, &elementInterface);
+    auto element = createHTMLElementOrFindCustomElementInterface(token, &elementInterface);
     if (UNLIKELY(elementInterface))
         return makeUnique<CustomElementConstructionData>(*elementInterface, token.name(), WTFMove(token.attributes()));
     attachLater(currentNode(), *element);
@@ -571,7 +610,7 @@ void HTMLConstructionSite::insertScriptElement(AtomHTMLToken&& token)
     // For createContextualFragment, the specifications say to mark it parser-inserted and already-started and later unmark them.
     // However, we short circuit that logic to avoid the subtree traversal to find script elements since scripts can never see
     // those flags or effects thereof.
-    const bool parserInserted = m_parserContentPolicy != AllowScriptingContentAndDoNotMarkAlreadyStarted;
+    const bool parserInserted = !m_parserContentPolicy.contains(ParserContentPolicy::DoNotMarkAlreadyStarted);
     const bool alreadyStarted = m_isParsingFragment && parserInserted;
     auto element = HTMLScriptElement::create(scriptTag, ownerDocumentForCurrentNode(), parserInserted, alreadyStarted);
     setAttributes(element, token, m_parserContentPolicy);
@@ -653,7 +692,7 @@ void HTMLConstructionSite::insertTextNode(const String& characters, WhitespaceMo
             breakIndex = characters.length();
 
         unsigned substringLength = breakIndex - currentPosition;
-        auto substring = LIKELY(!currentPosition && substringLength >= characters.length()) ? characters : characters.substring(currentPosition, substringLength);
+        auto substring = characters.substring(currentPosition, substringLength);
         AtomString substringAtom = m_whitespaceCache.lookup(substring, whitespaceMode);
         auto textNode = Text::create(task.parent->document(), substringAtom.isNull() ? WTFMove(substring) : substringAtom.releaseString());
 
@@ -720,7 +759,7 @@ Ref<Element> HTMLConstructionSite::createElement(AtomHTMLToken& token, const Ato
 inline Document& HTMLConstructionSite::ownerDocumentForCurrentNode()
 {
     if (is<HTMLTemplateElement>(currentNode()))
-        return downcast<HTMLTemplateElement>(currentNode()).content().document();
+        return downcast<HTMLTemplateElement>(currentNode()).fragmentForInsertion().document();
     return currentNode().document();
 }
 
@@ -737,7 +776,7 @@ static inline JSCustomElementInterface* findCustomElementInterface(Document& own
     return registry->findInterface(localName);
 }
 
-RefPtr<Element> HTMLConstructionSite::createHTMLElementOrFindCustomElementInterface(AtomHTMLToken& token, JSCustomElementInterface** customElementInterface)
+RefPtr<HTMLElement> HTMLConstructionSite::createHTMLElementOrFindCustomElementInterface(AtomHTMLToken& token, JSCustomElementInterface** customElementInterface)
 {
     // FIXME: This can't use HTMLConstructionSite::createElement because we
     // have to pass the current form element.  We should rework form association
@@ -752,13 +791,14 @@ RefPtr<Element> HTMLConstructionSite::createHTMLElementOrFindCustomElementInterf
                 *customElementInterface = elementInterface;
                 return nullptr;
             }
-            element = HTMLElement::create(qualifiedNameForHTMLTag(token), ownerDocument);
+            ASSERT(qualifiedNameForHTMLTag(token) == elementInterface->name());
+            element = elementInterface->createElement(ownerDocument);
             element->setIsCustomElementUpgradeCandidate();
             element->enqueueToUpgrade(*elementInterface);
         } else {
             auto qualifiedName = qualifiedNameForHTMLTag(token);
             if (Document::validateCustomElementName(token.name()) == CustomElementNameValidationStatus::Valid) {
-                element = HTMLElement::create(qualifiedName, ownerDocument);
+                element = HTMLMaybeFormAssociatedCustomElement::create(qualifiedName, ownerDocument);
                 element->setIsCustomElementUpgradeCandidate();
             } else
                 element = HTMLUnknownElement::create(qualifiedName, ownerDocument);
@@ -775,13 +815,12 @@ RefPtr<Element> HTMLConstructionSite::createHTMLElementOrFindCustomElementInterf
         downcast<HTMLImageElement>(*element).setPictureElement(&downcast<HTMLPictureElement>(currentNode()));
 
     setAttributes(*element, token, m_parserContentPolicy);
-    ASSERT(element->isHTMLElement());
     return element;
 }
 
-Ref<Element> HTMLConstructionSite::createHTMLElement(AtomHTMLToken& token)
+Ref<HTMLElement> HTMLConstructionSite::createHTMLElement(AtomHTMLToken& token)
 {
-    RefPtr<Element> element = createHTMLElementOrFindCustomElementInterface(token, nullptr);
+    auto element = createHTMLElementOrFindCustomElementInterface(token, nullptr);
     ASSERT(element);
     return element.releaseNonNull();
 }
@@ -849,32 +888,31 @@ void HTMLConstructionSite::generateImpliedEndTags()
         m_openElements.pop();
 }
 
+// Adjusts |task| to match the "adjusted insertion location" determined by the foster parenting algorithm,
+// laid out as the substeps of step 2 of https://html.spec.whatwg.org/#appropriate-place-for-inserting-a-node
 void HTMLConstructionSite::findFosterSite(HTMLConstructionSiteTask& task)
 {
     // When a node is to be foster parented, the last template element with no table element is below it in the stack of open elements is the foster parent element (NOT the template's parent!)
-    auto* lastTemplateElement = m_openElements.topmost(HTML::template_);
-    if (lastTemplateElement && !m_openElements.inTableScope(HTML::table)) {
-        task.parent = &lastTemplateElement->element();
+    auto* lastTemplate = m_openElements.topmost(HTML::template_);
+    auto* lastTable = m_openElements.topmost(HTML::table);
+    if (lastTemplate && (!lastTable || lastTemplate->isAbove(*lastTable))) {
+        task.parent = &lastTemplate->element();
         return;
     }
 
-    if (auto* lastTableElementRecord = m_openElements.topmost(HTML::table)) {
-        auto& lastTableElement = lastTableElementRecord->element();
-        RefPtr parent = lastTableElement.parentNode();
-        // When parsing HTML fragments, we skip step 4.2 ("Let root be a new html element with no attributes") for efficiency,
-        // and instead use the DocumentFragment as a root node. So we must treat the root node (DocumentFragment) as if it is a html element here.
-        bool parentCanBeFosterParent = parent && (parent->isElementNode() || (m_isParsingFragment && parent == &m_openElements.rootNode()));
-        parentCanBeFosterParent = parentCanBeFosterParent || (is<DocumentFragment>(parent) && downcast<DocumentFragment>(parent.get())->isTemplateContent());
-        if (parentCanBeFosterParent) {
-            task.parent = parent;
-            task.nextChild = &lastTableElement;
-            return;
-        }
-        task.parent = &lastTableElementRecord->next()->element();
+    if (!lastTable) {
+        // Fragment case
+        task.parent = &m_openElements.rootNode();
         return;
     }
-    // Fragment case
-    task.parent = &m_openElements.rootNode(); // DocumentFragment
+
+    if (auto* parent = lastTable->element().parentNode()) {
+        task.parent = parent;
+        task.nextChild = &lastTable->element();
+        return;
+    }
+
+    task.parent = &lastTable->next()->element();
 }
 
 bool HTMLConstructionSite::shouldFosterParent() const

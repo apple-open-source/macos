@@ -347,12 +347,10 @@ void main()
 // Test that repeated EGL init + terminate with improper cleanup doesn't cause an OOM crash.
 // To reproduce the OOM error -
 //     1. Increase the loop count to a large number
-//     2. Run the test without the rest of the code in change 3329273
+//     2. Remove the call to "eglReleaseThread" in the for loop
 TEST_P(EGLMultiContextTest, RepeatedEglInitAndTerminate)
 {
-    // GL and GLES drivers don't seem to perform appropriate cleanup
-    // SwiftShader fails with "Extension not supported" error on the bots
-    ANGLE_SKIP_TEST_IF(!IsVulkan() || isSwiftshader());
+    ANGLE_SKIP_TEST_IF(!platformSupportsMultithreading());
 
     // Release all resources in parent thread
     getEGLWindow()->destroyGL();
@@ -360,7 +358,9 @@ TEST_P(EGLMultiContextTest, RepeatedEglInitAndTerminate)
     EGLDisplay dpy;
     EGLSurface srf;
     EGLContext ctx;
-    EGLint dispattrs[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, GetParam().getRenderer(), EGL_NONE};
+    EGLint dispattrs[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, GetParam().getRenderer(),
+                          EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, GetParam().getDeviceType(),
+                          EGL_NONE};
 
     for (int i = 0; i < 100; i++)
     {
@@ -395,6 +395,55 @@ TEST_P(EGLMultiContextTest, RepeatedEglInitAndTerminate)
 
         thread.join();
     }
+}
+
+// Test that thread B can reuse the unterminated display created by thread A
+// even after thread A is destroyed.
+TEST_P(EGLMultiContextTest, ReuseUnterminatedDisplay)
+{
+    // Release all resources in parent thread
+    getEGLWindow()->destroyGL();
+
+    EGLDisplay dpy;
+    EGLint dispattrs[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, GetParam().getRenderer(),
+                          EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, GetParam().getDeviceType(),
+                          EGL_NONE};
+
+    std::thread threadA = std::thread([&]() {
+        dpy = eglGetPlatformDisplayEXT(EGL_PLATFORM_ANGLE_ANGLE,
+                                       reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), dispattrs);
+        EXPECT_TRUE(dpy != EGL_NO_DISPLAY);
+        EXPECT_EGL_TRUE(eglInitialize(dpy, nullptr, nullptr));
+    });
+    threadA.join();
+
+    std::thread threadB = std::thread([&]() {
+        EGLSurface srf;
+        EGLContext ctx;
+        EGLConfig config = EGL_NO_CONFIG_KHR;
+        // If threadA's termination caused "dpy" to be incorrectly terminated all EGL APIs below
+        // staring with eglChooseConfig(...) will error out with an EGL_NOT_INITIALIZED error.
+        EXPECT_TRUE(chooseConfig(dpy, &config));
+
+        EXPECT_TRUE(createPbufferSurface(dpy, config, 2560, 1080, &srf));
+        ASSERT_EGL_SUCCESS() << "eglCreatePbufferSurface failed.";
+
+        EXPECT_TRUE(createContext(dpy, config, &ctx));
+        EXPECT_EGL_TRUE(eglMakeCurrent(dpy, srf, srf, ctx));
+
+        // Clear and read back to make sure thread uses context.
+        glClearColor(1.0, 0.0, 0.0, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        EXPECT_PIXEL_EQ(0, 0, 255, 0, 0, 255);
+
+        eglTerminate(dpy);
+        EXPECT_EGL_SUCCESS();
+        EXPECT_EGL_SUCCESS();
+        dpy = EGL_NO_DISPLAY;
+        srf = EGL_NO_SURFACE;
+        ctx = EGL_NO_CONTEXT;
+    });
+    threadB.join();
 }
 
 // Test that thread B can wait on thread A's sync before thread A flushes it, and wakes up after
@@ -562,6 +611,118 @@ TEST_P(EGLMultiContextTest, ThreadBServerWaitBeforeThreadASyncFinish)
 TEST_P(EGLMultiContextTest, ThreadBGetStatusBeforeThreadASyncFinish)
 {
     testFenceWithOpenRenderPass(FenceTest::GetStatus, FlushMethod::Finish);
+}
+
+// Test that thread B can submit while three other threads are waiting for GPU to finish.
+TEST_P(EGLMultiContextTest, ThreadBCanSubmitWhileThreadAWaiting)
+{
+    ANGLE_SKIP_TEST_IF(!platformSupportsMultithreading());
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_buffer_storage"));
+
+    constexpr uint32_t kWidth  = 100;
+    constexpr uint32_t kHeight = 200;
+
+    std::mutex mutex;
+    std::condition_variable condVar;
+
+    enum class Step
+    {
+        Start,
+        ThreadAMapBufferBufferRange,
+        ThreadBSubmit,
+        Finish,
+        Abort,
+    };
+
+    Step currentStep = Step::Start;
+    std::atomic<size_t> threadCountMakingMapBufferCall(0);
+    std::atomic<size_t> threadCountFinishedMapBufferCall(0);
+    constexpr size_t kMaxThreadCountMakingMapBufferCall = 3;
+    auto threadA = [&](EGLDisplay dpy, EGLSurface surface, EGLContext context) {
+        ThreadSynchronization<Step> threadSynchronization(&currentStep, &mutex, &condVar);
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Start));
+
+        EXPECT_EGL_TRUE(eglMakeCurrent(dpy, surface, surface, context));
+        // Issue a draw
+        ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+        drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
+        // Issue a compute shader write to a buffer
+        constexpr char kCS[] = R"(#version 310 es
+                                layout(local_size_x=1, local_size_y=1, local_size_z=1) in;
+                                layout(std140, binding = 0) buffer block {
+                                    uvec4 data;
+                                } outBlock;
+                                void main()
+                                {
+                                    outBlock.data += uvec4(1);
+                                })";
+        ANGLE_GL_COMPUTE_PROGRAM(computeProgram, kCS);
+        glUseProgram(computeProgram);
+        constexpr std::array<uint32_t, 4> kInitData = {};
+        GLBuffer coherentBuffer;
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, coherentBuffer);
+        glBufferStorageEXT(GL_SHADER_STORAGE_BUFFER, sizeof(kInitData), kInitData.data(),
+                           GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT_EXT |
+                               GL_MAP_COHERENT_BIT_EXT);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, coherentBuffer);
+        glDispatchCompute(100, 100, 100);
+        EXPECT_GL_NO_ERROR();
+
+        // Map the buffers for read. This should trigger driver wait for GPU to finish
+        glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT_EXT);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, coherentBuffer);
+        if (++threadCountMakingMapBufferCall == kMaxThreadCountMakingMapBufferCall)
+        {
+            threadSynchronization.nextStep(Step::ThreadAMapBufferBufferRange);
+        }
+        // Wait for thread B to start submit commands.
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::ThreadBSubmit));
+        glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(kInitData),
+                         GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT_EXT | GL_MAP_COHERENT_BIT_EXT);
+        ASSERT_GL_NO_ERROR();
+        ++threadCountFinishedMapBufferCall;
+
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Finish));
+        EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+        // Clean up
+        EXPECT_EGL_TRUE(eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
+    };
+
+    auto threadB = [&](EGLDisplay dpy, EGLSurface surface, EGLContext context) {
+        ThreadSynchronization<Step> threadSynchronization(&currentStep, &mutex, &condVar);
+        EXPECT_EGL_TRUE(eglMakeCurrent(dpy, surface, surface, context));
+
+        // Prepare for draw and then wait until threadA is ready to wait
+        ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::Green());
+        glScissor(0, 0, 1, 1);
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::ThreadAMapBufferBufferRange));
+
+        // Test submit in a loop
+        threadSynchronization.nextStep(Step::ThreadBSubmit);
+        for (int loop = 0;
+             loop < 16 && threadCountFinishedMapBufferCall < kMaxThreadCountMakingMapBufferCall;
+             loop++)
+        {
+            drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
+            glFinish();
+            EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::green);
+        }
+
+        // Clean up
+        ASSERT_GL_NO_ERROR();
+        EXPECT_EGL_TRUE(eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
+        threadSynchronization.nextStep(Step::Finish);
+    };
+
+    std::array<LockStepThreadFunc, kMaxThreadCountMakingMapBufferCall + 1> threadFuncs;
+    for (size_t i = 0; i < kMaxThreadCountMakingMapBufferCall; i++)
+    {
+        threadFuncs[i] = std::move(threadA);
+    }
+    threadFuncs[kMaxThreadCountMakingMapBufferCall] = std::move(threadB);
+
+    RunLockStepThreads(getEGLWindow(), threadFuncs.size(), threadFuncs.data());
+    ASSERT_NE(currentStep, Step::Abort);
 }
 
 }  // anonymous namespace

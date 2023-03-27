@@ -58,7 +58,7 @@
 #define kAllowConfiguredMembers		CFSTR("AllowConfiguredMembers")
 
 static int
-inet_dgram_socket()
+inet_dgram_socket(void)
 {
 	int	s;
 
@@ -274,7 +274,9 @@ SCBridgeInterfaceCopyAll(SCPreferencesRef prefs)
 }
 
 __private_extern__ void
-__SCBridgeInterfaceListCollectMembers(CFArrayRef interfaces, CFMutableSetRef set)
+__SCBridgeInterfaceListCollectMembers(CFArrayRef interfaces,
+				      CFMutableSetRef set,
+				      Boolean allow_configured)
 {
 	CFIndex	i;
 	CFIndex	n;
@@ -285,6 +287,12 @@ __SCBridgeInterfaceListCollectMembers(CFArrayRef interfaces, CFMutableSetRef set
 		CFArrayRef		members;
 
 		bridgeInterface = CFArrayGetValueAtIndex(interfaces, i);
+		if (allow_configured
+		    && SCBridgeInterfaceGetAllowConfiguredMembers(bridgeInterface)) {
+			/* this bridge allows members to be configured */
+			continue;
+		}
+
 		members = SCBridgeInterfaceGetMemberInterfaces(bridgeInterface);
 		if (members != NULL) {
 			CFIndex	j;
@@ -327,7 +335,8 @@ SCBridgeInterfaceCopyAvailableMemberInterfaces(SCPreferencesRef prefs)
 	// exclude Bridge [member] interfaces
 	interfaces = SCBridgeInterfaceCopyAll(prefs);
 	if (interfaces != NULL) {
-		__SCBridgeInterfaceListCollectMembers(interfaces, excluded);
+		__SCBridgeInterfaceListCollectMembers(interfaces, excluded,
+						      FALSE);
 		CFRelease(interfaces);
 	}
 

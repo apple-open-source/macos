@@ -28,13 +28,14 @@
 #if ENABLE(SEC_ITEM_SHIM)
 
 #include "Connection.h"
+#include "WorkQueueMessageReceiver.h"
 
 namespace WebKit {
 
 class SecItemRequestData;
 class SecItemResponseData;
 
-class SecItemShimProxy : public IPC::Connection::WorkQueueMessageReceiver {
+class SecItemShimProxy final : private IPC::MessageReceiver {
 WTF_MAKE_NONCOPYABLE(SecItemShimProxy);
 public:
     static SecItemShimProxy& singleton();
@@ -45,12 +46,12 @@ private:
     SecItemShimProxy();
     ~SecItemShimProxy();
 
-    // IPC::Connection::WorkQueueMessageReceiver
+    // IPC::Connection::MessageReceiver overrides.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
 
-    void secItemRequest(const SecItemRequestData&, CompletionHandler<void(std::optional<SecItemResponseData>&&)>&&);
-    void secItemRequestSync(const SecItemRequestData&, CompletionHandler<void(std::optional<SecItemResponseData>&&)>&&);
+    void secItemRequest(IPC::Connection&, const SecItemRequestData&, CompletionHandler<void(std::optional<SecItemResponseData>&&)>&&);
+    void secItemRequestSync(IPC::Connection&, const SecItemRequestData&, CompletionHandler<void(std::optional<SecItemResponseData>&&)>&&);
 
     Ref<WorkQueue> m_queue;
 };

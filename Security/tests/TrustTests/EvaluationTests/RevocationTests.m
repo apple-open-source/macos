@@ -276,6 +276,7 @@ errOut:
     CFReleaseNull(anchors);
     CFReleaseNull(verifyDate);
     CFReleaseNull(error);
+    CFReleaseSafe(revocationPolicy);
 }
 
 - (void) test_set_fetch_allowed {

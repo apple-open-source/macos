@@ -41,25 +41,25 @@ std::optional<BindGroupEntry> ConvertToBackingContext::convertToBacking(const PA
         if (!identifier)
             return std::nullopt;
 
-        return { { bindGroupEntry.binding, { }, identifier, BindingResourceType::Sampler } };
+        return { { bindGroupEntry.binding, { identifier }, identifier, BindingResourceType::Sampler } };
     }, [&] (std::reference_wrapper<PAL::WebGPU::TextureView> textureView) -> std::optional<BindGroupEntry> {
         auto identifier = convertToBacking(textureView);
         if (!identifier)
             return std::nullopt;
 
-        return { { bindGroupEntry.binding, { }, identifier, BindingResourceType::TextureView } };
+        return { { bindGroupEntry.binding, { identifier }, identifier, BindingResourceType::TextureView } };
     }, [&] (const auto& bufferBinding) -> std::optional<BindGroupEntry> {
         auto convertedBufferBinding = convertToBacking(bufferBinding);
         if (!convertedBufferBinding)
             return std::nullopt;
 
-        return { { bindGroupEntry.binding, WTFMove(*convertedBufferBinding), { }, BindingResourceType::TextureView } };
+        return { { bindGroupEntry.binding, WTFMove(*convertedBufferBinding), convertedBufferBinding->buffer, BindingResourceType::BufferBinding } };
     }, [&] (std::reference_wrapper<PAL::WebGPU::ExternalTexture> externalTexture) -> std::optional<BindGroupEntry> {
         auto identifier = convertToBacking(externalTexture);
         if (!identifier)
             return std::nullopt;
 
-        return { { bindGroupEntry.binding, { }, identifier, BindingResourceType::ExternalTexture } };
+        return { { bindGroupEntry.binding, { identifier }, identifier, BindingResourceType::ExternalTexture } };
     });
 }
 

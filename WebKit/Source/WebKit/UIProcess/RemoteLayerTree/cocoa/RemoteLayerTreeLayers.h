@@ -30,10 +30,14 @@
 #import <Foundation/Foundation.h>
 #import <QuartzCore/QuartzCore.h>
 
+namespace WebKit {
+class CGDisplayList;
+}
+
 @interface WKCompositingLayer : CALayer
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-- (void)_setWKContents:(id)contents withDisplayList:(CFDataRef)data replayForTesting:(BOOL)replay;
+- (void)_setWKContents:(id)contents withDisplayList:(WebKit::CGDisplayList&&)data replayForTesting:(BOOL)replay;
 #endif
 
 @end

@@ -48,5 +48,12 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>Disabled</key>
+	<dict>
+		<key>#IfFeatureFlagDisabled</key>
+		<string>Security/EnableSecureObjectSync</string>
+		<key>#Then</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

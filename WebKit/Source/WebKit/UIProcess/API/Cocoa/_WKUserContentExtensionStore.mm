@@ -56,7 +56,10 @@ static NSError *toUserContentRuleListStoreError(const NSError *error)
     }
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 @implementation _WKUserContentExtensionStore
+#pragma clang diagnostic pop
 
 + (instancetype)defaultStore
 {
@@ -100,7 +103,10 @@ static NSError *toUserContentRuleListStoreError(const NSError *error)
 
 @end
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 @implementation _WKUserContentExtensionStore (WKPrivate)
+#pragma clang diagnostic pop
 
 // For testing only.
 

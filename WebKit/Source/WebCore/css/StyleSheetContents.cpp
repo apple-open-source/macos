@@ -37,6 +37,7 @@
 #include "ResourceLoadInfo.h"
 #include "RuleSet.h"
 #include "SecurityOrigin.h"
+#include "StyleProperties.h"
 #include "StyleRule.h"
 #include "StyleRuleImport.h"
 #include <wtf/Deque.h>
@@ -497,6 +498,8 @@ bool StyleSheetContents::traverseSubresources(const Function<bool(const CachedRe
         switch (rule.type()) {
         case StyleRuleType::Style:
             return downcast<StyleRule>(rule).properties().traverseSubresources(handler);
+        case StyleRuleType::StyleWithNesting:
+            return downcast<StyleRuleWithNesting>(rule).properties().traverseSubresources(handler);
         case StyleRuleType::FontFace:
             return downcast<StyleRuleFontFace>(rule).properties().traverseSubresources(handler);
         case StyleRuleType::Import:
@@ -520,6 +523,7 @@ bool StyleSheetContents::traverseSubresources(const Function<bool(const CachedRe
         case StyleRuleType::FontFeatureValuesBlock:
         case StyleRuleType::FontPaletteValues:
         case StyleRuleType::Margin:
+        case StyleRuleType::Property:
             return false;
         };
         ASSERT_NOT_REACHED();

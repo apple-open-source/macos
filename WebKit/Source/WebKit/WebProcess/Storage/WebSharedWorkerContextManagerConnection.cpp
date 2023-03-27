@@ -30,6 +30,7 @@
 #include "RemoteWebLockRegistry.h"
 #include "RemoteWorkerFrameLoaderClient.h"
 #include "RemoteWorkerLibWebRTCProvider.h"
+#include "WebBadgeClient.h"
 #include "WebBroadcastChannelRegistry.h"
 #include "WebCacheStorageProvider.h"
 #include "WebCompiledContentRuleListData.h"
@@ -96,15 +97,16 @@ void WebSharedWorkerContextManagerConnection::launchSharedWorker(WebCore::Client
     RELEASE_LOG(SharedWorker, "WebSharedWorkerContextManagerConnection::launchSharedWorker: sharedWorkerIdentifier=%" PRIu64, sharedWorkerIdentifier.toUInt64());
     auto pageConfiguration = WebCore::pageConfigurationWithEmptyClients(WebProcess::singleton().sessionID());
 
+    pageConfiguration.badgeClient = WebBadgeClient::create();
     pageConfiguration.databaseProvider = WebDatabaseProvider::getOrCreate(m_pageGroupID);
     pageConfiguration.socketProvider = WebSocketProvider::create(m_webPageProxyID);
     pageConfiguration.broadcastChannelRegistry = WebProcess::singleton().broadcastChannelRegistry();
     pageConfiguration.userContentProvider = m_userContentController;
 #if ENABLE(WEB_RTC)
-    pageConfiguration.libWebRTCProvider = makeUniqueRef<RemoteWorkerLibWebRTCProvider>();
+    pageConfiguration.webRTCProvider = makeUniqueRef<RemoteWorkerLibWebRTCProvider>();
 #endif
 
-    pageConfiguration.loaderClientForMainFrame = makeUniqueRef<RemoteWorkerFrameLoaderClient>(m_webPageProxyID, m_pageID, WebCore::FrameIdentifier::generate(), m_userAgent);
+    pageConfiguration.loaderClientForMainFrame = makeUniqueRef<RemoteWorkerFrameLoaderClient>(m_webPageProxyID, m_pageID, m_userAgent);
 
     auto page = makeUniqueRef<WebCore::Page>(WTFMove(pageConfiguration));
     if (m_preferencesStore) {
@@ -118,7 +120,7 @@ void WebSharedWorkerContextManagerConnection::launchSharedWorker(WebCore::Client
     if (!initializationData.clientIdentifier)
         initializationData.clientIdentifier = WebCore::ScriptExecutionContextIdentifier::generate();
 
-    page->setupForRemoteWorker(workerFetchResult.lastRequestURL, origin.topOrigin, workerFetchResult.referrerPolicy);
+    page->setupForRemoteWorker(workerFetchResult.responseURL, origin.topOrigin, workerFetchResult.referrerPolicy);
     auto sharedWorkerThreadProxy = WebCore::SharedWorkerThreadProxy::create(WTFMove(page), sharedWorkerIdentifier, origin, WTFMove(workerFetchResult), WTFMove(workerOptions), WTFMove(initializationData), WebProcess::singleton().cacheStorageProvider());
 
     WebCore::SharedWorkerContextManager::singleton().registerSharedWorkerThread(WTFMove(sharedWorkerThreadProxy));
@@ -135,6 +137,12 @@ void WebSharedWorkerContextManagerConnection::close()
     m_connectionToNetworkProcess->send(Messages::NetworkConnectionToWebProcess::CloseSharedWorkerContextConnection { }, 0);
     WebCore::SharedWorkerContextManager::singleton().stopAllSharedWorkers();
     WebProcess::singleton().enableTermination();
+}
+
+void WebSharedWorkerContextManagerConnection::sharedWorkerTerminated(WebCore::SharedWorkerIdentifier sharedWorkerIdentifier)
+{
+    RELEASE_LOG(SharedWorker, "WebSharedWorkerContextManagerConnection::sharedWorkerTerminated: sharedWorkerIdentifier=%" PRIu64, sharedWorkerIdentifier.toUInt64());
+    m_connectionToNetworkProcess->send(Messages::WebSharedWorkerServerToContextConnection::SharedWorkerTerminated { sharedWorkerIdentifier }, 0);
 }
 
 } // namespace WebKit

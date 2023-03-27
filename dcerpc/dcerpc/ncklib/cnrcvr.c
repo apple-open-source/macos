@@ -1430,6 +1430,19 @@ INTERNAL void receive_packet
         {
             SWAB_INPLACE_16 (frag_length);
         }
+        
+         /* rdar://103142676
+         * Sanity check the frag_length field. We have received at least
+         * RPC_C_CN_FRAGLEN_HEADER_BYTES bytes of this fragment.
+         * Signal a protocol error if the frag_length
+         * field is zero.
+         */
+        if (!(frag_length)) {
+            /* Deallocate the fragbuf since we're bailing. */
+            (*fbp->fragbuf_dealloc)(fbp);
+            *st = rpc_s_protocol_error;
+            return;
+        }
 
         /*
          * Figure out how many bytes we need.

@@ -931,19 +931,25 @@ smb_nbst_disconnect(struct smbiod *iod)
 {
 	struct nbpcb *nbp = iod->iod_tdata;
 	socket_t so;
+	int flags;
 
-    if ((nbp == NULL) || !(nbp->nbp_flags & NBF_CONNECTED)) {
+	if (nbp == NULL) {
 		return (ENOTCONN);
-    }
+	}
 
 	if ((so = nbp->nbp_tso) != NULL) {
 		lck_mtx_lock(&iod->iod_tdata_lock);
+		flags = nbp->nbp_flags;
 		nbp->nbp_flags &= ~NBF_CONNECTED;
-        nbp->nbp_flags &= ~NBF_SOCK_OPENED;
-        /* Do not null out nbp_tso here due to the read thread using it */
+		nbp->nbp_flags &= ~NBF_SOCK_OPENED;
+		/* Do not null out nbp_tso here due to the read thread using it */
 		lck_mtx_unlock(&iod->iod_tdata_lock);
-		sock_shutdown(so, 2);
-		sock_close(so);
+		if (flags & NBF_CONNECTED) {
+			sock_shutdown(so, SHUT_RDWR);
+		}
+		if (flags & NBF_SOCK_OPENED) {
+			sock_close(so);
+		}
 	}
 	if (nbp->nbp_state != NBST_RETARGET) {
 		nbp->nbp_state = NBST_CLOSED;

@@ -1,4 +1,4 @@
-#compdef svn svnlite=svn svnadmin svnadmin-static=svnadmin
+#compdef svn svnlite=svn svnadmin svnadmin-static=svnadmin svnliteadmin=svnadmin
 
 _svn () {
   local curcontext="$curcontext" state line expl ret=1
@@ -68,7 +68,6 @@ _svn () {
     ;;
     args)
       local cmd args usage idx
-      typeset -gHA _cache_svn_status _cache_svn_mtime
 
       cmd="${${(k)_svn_cmds[(R)*:$words[1]:*]}:-${(k)_svn_cmds[(i):$words[1]:]}}"
       if (( $#cmd )); then
@@ -123,7 +122,7 @@ _svn () {
         case $cmd in;
           (add)
             args+=(
-              '*:file:_files -g "*(e:_svn_uncontrolled:)"'
+              '*:file: _svn_modified "addable"'
             )
           ;;
           (auth)
@@ -141,17 +140,17 @@ _svn () {
           (commit)
             args=(
 	      ${args/(#b)(*--file*):ARG:/$match[1]:file:_files}
-              '*:file:_files -g "*(e:_svn_status:)"'
+              '*:file: _svn_modified "committable"'
             )
           ;;
           (delete)
             args+=(
-              '*:file:_files -g ".svn(/e:_svn_deletedfiles:)"'
+              '*:file:_files -g "*(e:_svn_controlled:)"'
             )
           ;;
           (diff)
             args+=(
-	      '*: : _alternative "files:file:_files -g \*\(e:_svn_status:\)" "urls:URL:_svn_urls"'
+	      '*: : _alternative "files:file: _svn_modified revertable" "urls:URL:_svn_urls"'
 	    )
           ;;
           (help)
@@ -201,7 +200,7 @@ _svn () {
           ;;
           (revert)
             args+=(
-              '*:file:_files -g "(.svn|*)(/e:_svn_deletedfiles:,e:_svn_status:)"'
+              '*:file: _svn_modified "revertable"'
             )
           ;;
           (x-unshelve)
@@ -351,50 +350,76 @@ _svn_controlled() {
   # because 1.6 has been deprecated for 8 years and EOL for 6 years, we opt to DTRT
   # for >=1.7.  Therefore:
 
-  # TODO: Reimplement this function and _svn_uncontrolled for svn>=1.7.
+  # TODO: Reimplement this function for svn>=1.7.
   # (Use 'svn st' or 'svn info', not 'svn ls')
   return 0
 }
 
 
-(( $+functions[_svn_uncontrolled] )) ||
-_svn_uncontrolled() {
-  # TODO: See comments in _svn_controlled
-  return 0
-}
-
 (( $+functions[_svn_conflicts] )) ||
 _svn_conflicts() {
-  () { (( $# > 0 )) } $REPLY.(mine|r<->)(NY1)
+  # ### These strings are actually translatable
+  #
+  # The asterisks are to support an optional extension; see
+  # "preserved-conflict-file-exts" in ~/.subversion/config.
+  () { (( $# > 0 )) } $REPLY.(mine|r<->|working*|merge-left*|merge-right*)(NY1)
 }
 
-(( $+functions[_svn_deletedfiles] )) ||
-_svn_deletedfiles() {
-  # Typical usage would be _files -g '.svn(/e:_svn_deletedfiles:)'
-  local cont controlled
-  reply=( )
-  [[ $REPLY = (*/|).svn ]] || return
-  controlled=( $REPLY/text-base/*.svn-base(N:r:t) )
-  for cont in ${controlled}; do
-    [[ -e $REPLY:h/$cont ]] || reply+=( ${REPLY%.svn}$cont )
-  done
-}
+(( $+functions[_svn_modified] )) ||
+_svn_modified() {
+  setopt localoptions extendedglob
 
-(( $+functions[_svn_status] )) ||
-_svn_status() {
-  local dir=$REPLY:h
-  local pat="${1:-([ADMR~]|?M)}"
+  local depth dir expl maybe_quiet partial_word space=' '
 
-  zmodload -F zsh/stat b:zstat 2>/dev/null
-  local key="$(zstat +device $dir):$(zstat +inode $dir)"
-  local mtime="$(zstat +mtime $dir/.svn/entries)"
+  local svn_context=$1
 
-  if (( ! $+_cache_svn_status[$key] || _cache_svn_mtime[$key] != mtime )); then
-    _cache_svn_status[$key]="$(_call_program files svn status -N $dir)"
-    _cache_svn_mtime[$key]="$mtime"
+  local partial_word=${(Q)words[CURRENT]}
+  if [[ -z $partial_word ]]; then
+    dir="./"
+  elif [[ -d $partial_word ]]; then
+    dir=$partial_word
+  else
+    dir=${partial_word:h}
   fi
 
-  (( ${(M)#${(f)_cache_svn_status[$key]}:#(#s)${~pat}*$REPLY} ))
+  if zstyle -T ":completion:${curcontext}:${curtag}" verbose; then
+    depth=infinity
+  else
+    depth=immediates
+  fi
+
+  if [[ $svn_context = addable ]]; then
+    maybe_quiet=""
+  else
+    maybe_quiet="-q"
+  fi
+
+  local -a status_lines
+  # Run 'status'
+  status_lines=( ${(f)"$(_call_program modified-files "svn status $maybe_quiet --depth=${(q)depth} -- ${(q)dir}")"} )
+  # Filter to only the right set of statuses
+  case $svn_context in
+    (committable)
+      status_lines=( ${(M)status_lines:#(#s)([ADMR]?|?M)${space}???${space}${space}*} )
+      ;;
+    (revertable)
+      status_lines=( ${(M)status_lines:#(#s)([ACDMR~!]?|?[CM])${space}????${space}*} )
+      ;;
+    (addable)
+      # The 'D' is just in case there's an unversioned file of the same name as the deleted file
+      status_lines=( ${(M)status_lines:#(#s)[?ID]${space}${space}???${space}${space}*} )
+      ;;
+  esac
+  # Strip the 7 status-letter columns and the column of spaces
+  status_lines=( ${status_lines#????????} )
+  # Strip one leading space.  This is in case `svn status` ever adds another
+  # column.  If that hasn't happened and you're reading this comment because
+  # the following line broke your use of filenames that start with a literal
+  # space, well, nice to meet you!  I didn't know you existed.
+  status_lines=( ${status_lines#${space}} )
+
+  _wanted svn-modified expl 'modified files in svn' \
+    compadd - "${status_lines[@]}"
 }
 
 (( $+functions[_svn_remote_paths] )) ||

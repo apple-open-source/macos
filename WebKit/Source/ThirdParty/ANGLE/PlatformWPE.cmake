@@ -6,9 +6,9 @@ if (USE_OPENGL)
     list(APPEND ANGLE_DEFINITIONS ANGLE_ENABLE_GLSL)
 endif ()
 
-if (USE_ANGLE_EGL OR USE_ANGLE_WEBGL)
+if (USE_ANGLE_EGL OR ENABLE_WEBGL)
     list(APPEND ANGLE_SOURCES
-        ${_gl_backend_sources}
+        ${gl_backend_sources}
 
         ${angle_system_utils_sources_linux}
         ${angle_system_utils_sources_posix}

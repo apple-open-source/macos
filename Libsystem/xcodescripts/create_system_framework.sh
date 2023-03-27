@@ -5,6 +5,8 @@ if [ $# -ne 5 ]; then
     exit 1
 fi
 
+if [[ "${EXCLAVEKIT}" == "1" ]]; then exit 0; fi; # No compatibility symlinks or System.framework in ExclaveKit SDK
+
 DSTROOT="$1${INSTALL_PATH_FRAMEWORK_PREFIX}"
 SRCROOT="$2"
 ACTION="$3"

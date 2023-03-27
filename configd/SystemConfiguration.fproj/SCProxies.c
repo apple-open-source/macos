@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006-2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -458,6 +458,9 @@ SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef op
 	Boolean			bypass	= FALSE;
 	CFStringRef		key;
 	CFDictionaryRef		proxies	= NULL;
+#if	TARGET_OS_IPHONE
+	SCPreferencesRef	mcx_mobile;
+#endif	// TARGET_OS_IPHONE
 
 	if (options != NULL) {
 		CFBooleanRef	bypassGlobalOption;

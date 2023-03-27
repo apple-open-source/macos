@@ -6,6 +6,7 @@ import argparse
 import json
 import time
 import getpass
+from ria_helpers import *
 
 parser = argparse.ArgumentParser(description='Reset your iCloud Keychain account')
 parser.add_argument('--noprompt', action='store_true', help='do not prompt to continue after verifying passwords/passcode')
@@ -55,35 +56,9 @@ security_cmd = security_cmd_by_platform()
 def get_primary_appleid():
     try:
         output = subprocess.run(["accounts_tool","listAccounts","-v"], stdout=subprocess.PIPE, check=True).stdout
+        return parse_primary_appleid(output)
     except:
         print("Exception caught getting Primary AppleID! Exiting.")
-        print("Exception follows:")
-        raise
-
-    idx = output.find(b'accountClass = primary')
-    if idx == -1:
-        print("Couldn't find primary accountClass to get Primary AppleID! Exiting.")
-        sys.exit(1)
-    idx = output.find(b'appleId = "', idx)
-    if idx == -1:
-        print("Couldn't find appleId to get Primary AppleID! Exiting.")
-        sys.exit(1)
-    qStart = output.find(b'"',idx)
-    if qStart == -1:
-        print("Couldn't find start quote to get Primary AppleID! Exiting.")
-        sys.exit(1)
-    if qStart+1 >= len(output):
-        print("Start quote at end while getting Primary AppleID! Exiting.")
-        sys.exit(1)
-    qEnd = output.find(b'"',qStart+1)
-    if qEnd == -1:
-        print("Couldn't find end quote to get Primary AppleID! Exiting.")
-        sys.exit(1)
-    idBytes = output[qStart+1:qEnd]
-    try:
-        return idBytes.decode()
-    except:
-        print("Couldn't decode Primary AppleID:", idBytes)
         print("Exception follows:")
         raise
 
@@ -180,7 +155,7 @@ if not args.noprompt:
 
 
 # log a "com.apple.securityd:mark" message to see when this (version of this) script was run
-p = subprocess.run([security_cmd, "synclog", "-M", "reset_ick_account 2021-06-09-0001"], text=True, capture_output=True)
+p = subprocess.run([security_cmd, "synclog", "-M", "reset_ick_account 2022-11-04-0001"], text=True, capture_output=True)
 if p.returncode != 0:
     print("Could not write log message (return code {}). Exiting.".format(p.returncode))
     print("stdout follows")
@@ -189,11 +164,7 @@ if p.returncode != 0:
     print(p.stderr)
     sys.exit(1)
 
-
-print("deleting all escrow records")
-subprocess.run(["stingrayutil", "--deleteAll", "ReallyDeleteAll"], stdout=subprocess.PIPE, check=True)
-
-print("resetting SOS")
+print("priming SOS")
 
 subprocess.run([security_cmd, "sync", "-C"], stdout=subprocess.PIPE, check=True)
 
@@ -206,13 +177,12 @@ except:
     print("Exception caught providing iCloud password to SOS! Exiting.")
     print("Exception follows:")
     raise
-
-subprocess.run([security_cmd, "sync", "-O"], stdout=subprocess.PIPE, check=True)
-
-print("resetting octagon")
-p = subprocess.run(["otctl", "resetoctagon"], text=True, capture_output=True)
+    
+print("resetting protected data")
+id = get_primary_appleid()
+p = subprocess.run(["otctl", "resetProtectedData", "--appleID", id], text=True, capture_output=True)
 if p.returncode != 0:
-    print("Failed to reset octagon (return code {}). Exiting.".format(p.returncode))
+    print("Failed to reset protected data (return code {}). Exiting.".format(p.returncode))
     print("stdout follows")
     print(p.stdout)
     print("stderr follows")

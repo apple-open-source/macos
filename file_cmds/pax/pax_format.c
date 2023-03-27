@@ -410,7 +410,7 @@ pax_format_list_output(ARCHD *arcn, time_t now, FILE *fp, int term)
 }
 
 void
-cleanup_pax_invalid_action()
+cleanup_pax_invalid_action(void)
 {
 	switch (pax_invalid_action) {
 	case PAX_INVALID_ACTION_BYPASS:

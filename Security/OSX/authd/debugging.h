@@ -20,10 +20,16 @@ return log; \
 
 #define AUTHD_LOG AUTHD_LOG_DEFAULT()
 
+#ifndef CFReleaseSafe
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRelease(_cf); }
+#endif
+#ifndef CFReleaseNull
 #define CFReleaseNull(CF) { CFTypeRef _cf = (CF); \
     if (_cf) { (CF) = NULL; CFRelease(_cf); } }
+#endif
+#ifndef CFRetainSafe
 #define CFRetainSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRetain(_cf); }
+#endif
 #define CFAssignRetained(VAR,CF) ({ \
 __typeof__(VAR) *const _pvar = &(VAR); \
 __typeof__(CF) _cf = (CF); \

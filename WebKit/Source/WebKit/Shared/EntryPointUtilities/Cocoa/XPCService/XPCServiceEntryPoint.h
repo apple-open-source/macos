@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,7 +30,10 @@
 #import <JavaScriptCore/ExecutableAllocator.h>
 #import <wtf/OSObjectPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+
+#if !USE(RUNNINGBOARD)
 #import <wtf/spi/darwin/XPCSPI.h>
+#endif
 
 // FIXME: This should be moved to an SPI header.
 #if USE(APPLE_INTERNAL_SDK)
@@ -79,39 +82,49 @@ void initializeAuxiliaryProcess(AuxiliaryProcessInitializationParameters&& param
     XPCServiceType::singleton().initialize(WTFMove(parameters));
 }
 
-#if PLATFORM(MAC)
+#if !USE(RUNNINGBOARD)
 void setOSTransaction(OSObjectPtr<os_transaction_t>&&);
 #endif
 
 template<typename XPCServiceType, typename XPCServiceInitializerDelegateType>
-void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage, xpc_object_t priorityBoostMessage)
+void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
 {
     if (initializerMessage) {
+        bool optionsChanged = false;
         if (xpc_dictionary_get_bool(initializerMessage, "configure-jsc-for-testing"))
             JSC::Config::configureForTesting();
         if (xpc_dictionary_get_bool(initializerMessage, "enable-captive-portal-mode")) {
-            JSC::ExecutableAllocator::setJITEnabled(false);
             JSC::Options::initialize();
             JSC::Options::AllowUnfinalizedAccessScope scope;
+            JSC::ExecutableAllocator::disableJIT();
             JSC::Options::useGenerationalGC() = false;
             JSC::Options::useConcurrentGC() = false;
             JSC::Options::useLLIntICs() = false;
+            JSC::Options::useZombieMode() = true;
+            JSC::Options::allowDoubleShape() = false;
+            optionsChanged = true;
+        } else if (xpc_dictionary_get_bool(initializerMessage, "disable-jit")) {
+            JSC::Options::initialize();
+            JSC::Options::AllowUnfinalizedAccessScope scope;
+            JSC::ExecutableAllocator::disableJIT();
+            optionsChanged = true;
         }
-        if (xpc_dictionary_get_bool(initializerMessage, "disable-jit"))
-            JSC::ExecutableAllocator::setJITEnabled(false);
         if (xpc_dictionary_get_bool(initializerMessage, "enable-shared-array-buffer")) {
             JSC::Options::initialize();
             JSC::Options::AllowUnfinalizedAccessScope scope;
             JSC::Options::useSharedArrayBuffer() = true;
+            optionsChanged = true;
         }
+        if (optionsChanged)
+            JSC::Options::notifyOptionsChanged();
     }
 
     XPCServiceInitializerDelegateType delegate(WTFMove(connection), initializerMessage);
 
     // We don't want XPC to be in charge of whether the process should be terminated or not,
-    // so ensure that we have an outstanding transaction here. This is not needed on iOS because
-    // the UIProcess takes process assertions on behalf of its child processes.
-#if PLATFORM(MAC)
+    // so ensure that we have an outstanding transaction here. This is not needed when using
+    // RunningBoard because the UIProcess takes process assertions on behalf of its child processes.
+#if !USE(RUNNINGBOARD)
     setOSTransaction(adoptOSObject(os_transaction_create("WebKit XPC Service")));
 #endif
 
@@ -121,8 +134,6 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
         exit(EXIT_FAILURE);
 
     AuxiliaryProcessInitializationParameters parameters;
-    if (priorityBoostMessage)
-        parameters.priorityBoostMessage = priorityBoostMessage;
 
     if (!delegate.getConnectionIdentifier(parameters.connectionIdentifier))
         exit(EXIT_FAILURE);
@@ -161,6 +172,6 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
 
 int XPCServiceMain(int, const char**);
 
-void XPCServiceExit(OSObjectPtr<xpc_object_t>&& priorityBoostMessage);
+void XPCServiceExit();
 
 } // namespace WebKit

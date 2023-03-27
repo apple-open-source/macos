@@ -2451,7 +2451,7 @@ static bool callerIsEntitledToAssertion(
     return caller_is_allowed;
 }
 
-static void checkProcAggregates( )
+static void checkProcAggregates(void)
 {
     CFDictionaryRef update = NULL;
     IOReportSampleRef   delta = NULL;
@@ -2767,6 +2767,38 @@ void handleProcAssertionTimeout(pid_t pid, IOPMAssertionID id)
 
 }
 
+void checkRestartPreventers(void)
+{
+    __block int restartPreventers = 0;
+    assertionType_t *assertType = NULL;
+    static int token = 0;
+
+    // only kPreventIdleType, kDeclareSystemActivityType are considered for
+    // device restart prevention
+    int types[] = {kPreventIdleType, kDeclareSystemActivityType};
+    for (int i = 0; i < sizeof(types)/sizeof(types[0]); i++) {
+
+        assertType = &gAssertionTypes[types[i]];
+        applyToAssertionsSync(assertType, kSelectActive, ^(assertion_t *assertion)
+                              {
+                                  if (!assertion->allowsDeviceRestart) {
+                                      restartPreventers++;
+                                  }
+                              });
+    }
+
+    if (!token) {
+        notify_register_check("com.apple.powermanagement.restartpreventers", &token);
+    }
+    if ((restartPreventers && (gSysQualifier.restartPreventers == 0)) ||
+        ((restartPreventers == 0) && gSysQualifier.restartPreventers)) {
+        gSysQualifier.restartPreventers  = restartPreventers;
+        if (token) {
+            notify_set_state(token, gSysQualifier.restartPreventers);
+            notify_post("com.apple.powermanagement.restartpreventers");
+        }
+    }
+}
 
 void updateSystemQualifiers(assertion_t *assertion, assertionOps op)
 {
@@ -2899,6 +2931,8 @@ void updateSystemQualifiers(assertion_t *assertion, assertionOps op)
         create();
     }
 
+    dispatch_async(_getPMMainQueue(), ^{ checkRestartPreventers(); });
+
     newAudioExists = (gSysQualifier.audioin+gSysQualifier.audioout) ? 1 : 0;
     newCameraExists = (gSysQualifier.camera) ? 1 : 0;
 
@@ -2976,6 +3010,21 @@ void startProcTimer(pid_t pid, IOPMAssertionID id)
                           DISPATCH_TIME_FOREVER, 0);
     dispatch_resume(assertion->procTimer);
     assertion->state |= kAssertionProcTimerActive;
+}
+
+void InternalStartProcTimer(assertion_t *assertion)
+{
+    pid_t pid = 0;
+    IOPMAssertionID assertion_id = 0;
+    if (assertion) {
+        assertion_id = assertion->assertionId;
+        if (assertion->pinfo) {
+            pid = assertion->pinfo->pid;
+        }
+        dispatch_async(_getPMMainQueue(), ^{
+            startProcTimer(pid, assertion_id);
+        });
+    }
 }
 
 
@@ -3878,7 +3927,7 @@ void setAggregateLevel(kerAssertionType idx, uint8_t val)
         aggregate_assertions &= ~(1<<idx);
 }
 
-uint32_t getKerAssertionBits( )
+uint32_t getKerAssertionBits(void)
 {
     return kerAssertionBits;
 }
@@ -3911,17 +3960,7 @@ void insertActiveAssertion(assertion_t *assertion, assertionType_t *assertType, 
 
         updateSystemQualifiers(assertion, kAssertionOpRaise);
     }
-    pid_t pid = 0;
-    IOPMAssertionID assertion_id = 0;
-    if (assertion) {
-        assertion_id = assertion->assertionId;
-        if (assertion->pinfo) {
-            pid = assertion->pinfo->pid;
-        }
-        dispatch_async(_getPMMainQueue(), ^{
-            startProcTimer(pid, assertion_id);
-        });
-    }
+    InternalStartProcTimer(assertion);
 }
 
 void removeActiveAssertion(assertion_t *assertion, assertionType_t *assertType, bool updates)
@@ -4048,7 +4087,8 @@ void handleAssertionTimeout(assertionType_t *assertType)
         if (assertion->pinfo->remoteConnection) {
             sendAssertionTimeoutMsg(assertion);
         }
-        if (isA_CFString(timeoutAction) && CFEqual(kIOPMAssertionTimeoutActionRelease, timeoutAction))
+        if ( (isA_CFString(timeoutAction) && CFEqual(kIOPMAssertionTimeoutActionRelease, timeoutAction) ) ||
+            (CFDictionaryGetValue(assertion->props, kIOPMAsyncClientAssertionIdKey) != NULL)) // async assertions should always be released
         {
             releaseAssertionMemory(assertion, kATimeoutLog);
         }
@@ -4207,7 +4247,7 @@ void insertTimedAssertion(assertion_t *assertion, assertionType_t *assertType, b
         schedDisableAppSleep( assertion );
         updateSystemQualifiers(assertion, kAssertionOpRaise);
     }
-    startProcTimer(assertion->pinfo->pid, assertion->assertionId);
+    InternalStartProcTimer(assertion);
     /*  
      * If this assertion is not the one with earliest timeout,
      * there is nothing to do.
@@ -6197,7 +6237,7 @@ static void   evaluateForPSChange(void)
                 if ((!(assertion->state & kAssertionStateValidOnBatt)) && (assertType->flags & kAssertionTypeNotValidOnBatt)) {
                     updateAppStats(assertion, kAssertionOpRelease);
                 }
-                startProcTimer(assertion->pinfo->pid, assertion->assertionId);
+                InternalStartProcTimer(assertion);
             }
             else if (pwrSrc != kBatteryPowered) {
                 if (assertType->flags & kAssertionTypeNotValidOnBatt) {
@@ -6252,7 +6292,7 @@ static void evaluateProcTimerOnDisplayStateChange(bool displayAsleepOnTrigger) {
             assertType = &gAssertionTypes[i];
             applyToAssertionsSync(assertType, kSelectActive, ^(assertion_t *assertion)
             {
-                startProcTimer(assertion->pinfo->pid, assertion->assertionId);
+                InternalStartProcTimer(assertion);
             });
         }
     }

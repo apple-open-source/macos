@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,8 +42,7 @@ enum class HueInterpolationMethod : uint8_t {
     Shorter,
     Longer,
     Increasing,
-    Decreasing,
-    Specified
+    Decreasing
 };
 
 enum class ColorInterpolationColorSpace : uint8_t {
@@ -58,12 +57,12 @@ enum class ColorInterpolationColorSpace : uint8_t {
     XYZD50,
     XYZD65
 };
-    
+
 template <typename T, typename = void>
 struct HasHueInterpolationMethod : std::false_type { };
 
 template <typename T>
-struct HasHueInterpolationMethod<T, std::void_t<decltype(T::hueInterpolationMethod)>> : std::true_type { };
+struct HasHueInterpolationMethod<T, std::void_t<decltype(std::declval<T>().hueInterpolationMethod)>> : std::true_type { };
 
 template <typename T>
 inline constexpr bool hasHueInterpolationMethod = HasHueInterpolationMethod<T>::value;
@@ -266,6 +265,9 @@ inline constexpr bool operator==(const ColorInterpolationMethod& a, const ColorI
     return a.alphaPremultiplication == b.alphaPremultiplication && a.colorSpace == b.colorSpace;
 }
 
+void serializationForCSS(StringBuilder&, const ColorInterpolationMethod&);
+String serializationForCSS(const ColorInterpolationMethod&);
+
 WTF::TextStream& operator<<(WTF::TextStream&, ColorInterpolationColorSpace);
 WTF::TextStream& operator<<(WTF::TextStream&, HueInterpolationMethod);
 WTF::TextStream& operator<<(WTF::TextStream&, const ColorInterpolationMethod&);
@@ -280,8 +282,7 @@ template<> struct EnumTraits<WebCore::HueInterpolationMethod> {
         WebCore::HueInterpolationMethod::Shorter,
         WebCore::HueInterpolationMethod::Longer,
         WebCore::HueInterpolationMethod::Increasing,
-        WebCore::HueInterpolationMethod::Decreasing,
-        WebCore::HueInterpolationMethod::Specified
+        WebCore::HueInterpolationMethod::Decreasing
     >;
 };
 

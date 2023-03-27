@@ -898,6 +898,9 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 
             FakeCKZone* zone = strongSelf.zones[zoneID];
             XCTAssertNotNil(zone, "Should have a zone for these records");
+            if (zone == nil) {
+                return NO;
+            }
 
             // We only want to match if the synckeys aren't pointing correctly
 
@@ -1004,6 +1007,9 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     return ^BOOL(CKRecord* record) {
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
+        if (strongSelf == nil) {
+            return NO;
+        }
 
         ZoneKeys* zoneKeys = strongSelf.keys[zoneID];
         XCTAssertNotNil(zoneKeys, "Have zone keys for %@", zoneID);

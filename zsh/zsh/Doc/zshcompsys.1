@@ -1,4 +1,4 @@
-.TH "ZSHCOMPSYS" "1" "February 12, 2022" "zsh 5\&.8\&.1"
+.TH "ZSHCOMPSYS" "1" "May 14, 2022" "zsh 5\&.9"
 .SH "NAME"
 zshcompsys \- zsh completion system
 .\" Yodl file: Zsh/compsys.yo
@@ -48,7 +48,7 @@ Styles modify various operations of the completion system, such as
 output formatting, but also what kinds of completers are used (and in
 what order), or which tags are examined\&.  Styles may accept arguments
 and are manipulated using the \fBzstyle\fP command described in
-see \fIzshmodules\fP(1)\&.
+\fIzshmodules\fP(1)\&.
 .PP
 In summary, tags describe \fIwhat\fP the completion objects are, and style
 \fBhow\fP they are to be completed\&.  At various points of execution, the
@@ -175,7 +175,7 @@ root or by the current user\&.  If such files or directories are found,
 avoid these tests and make all files found be used without asking, use the
 option \fB\-u\fP, and to make \fBcompinit\fP silently ignore all insecure files
 and directories use the option \fB\-i\fP\&.  This security check is skipped
-entirely when the \fB\-C\fP option is given\&.
+entirely when the \fB\-C\fP option is given, provided the dumpfile exists\&.
 .PP
 The security check can be retried at any time by running the function
 \fBcompaudit\fP\&.  This is the same check used by \fBcompinit\fP, but when it
@@ -312,12 +312,12 @@ The special contexts for which completion functions can be defined are:
 The right hand side of an array\-assignment
 (`\fIname\fP\fB=(\fP\fI\&.\&.\&.\fP\fB)\fP\&')
 .TP
-\fB\-brace\-parameter\-\fP
-The name of a parameter expansion within braces (`\fB${\fP\fI\&.\&.\&.\fP\fB}\fP\&')
-.TP
 \fB\-assign\-parameter\-\fP
 The name of a parameter in an assignment, i\&.e\&. on the left hand side of
 an `\fB=\fP\&'
+.TP
+\fB\-brace\-parameter\-\fP
+The name of a parameter expansion within braces (`\fB${\fP\fI\&.\&.\&.\fP\fB}\fP\&')
 .TP
 \fB\-command\-\fP
 A word in command position
@@ -667,8 +667,8 @@ the section `Bindable Commands\&' below\&.
 When looking up styles the completion system uses full context names,
 including the tag\&.  Looking up the value of a style therefore consists of
 two things: the context, which is matched to the most specific (best
-fitting) style pattern, and the name of the style itself, which must be
-matched exactly\&.  The following examples demonstrate that style patterns
+fitting) pattern, and the name of the style itself, which must be
+matched exactly\&.  The following examples demonstrate that patterns
 may be loosely defined for styles that apply broadly, or as tightly
 defined as desired for styles that apply in narrower circumstances\&.
 .PP
@@ -686,7 +686,7 @@ put
 in a startup file (probably \fB\&.zshrc\fP)\&.
 This gives the \fBverbose\fP style the value \fByes\fP in every
 context inside the completion system, unless that context has a more
-specific definition\&.  It is best to avoid giving the context as `\fB*\fP\&'
+specific definition\&.  It is best to avoid giving the pattern as `\fB*\fP\&'
 in case the style has some meaning outside the completion system\&.
 .PP
 Many such general purpose styles can be configured simply by using the
@@ -733,15 +733,21 @@ as \fBmenu\fP and \fBlist\-rows\-first\fP\&.
 .PP
 Note that the order in which styles are \fIdefined\fP does not matter; the
 style mechanism uses the most specific possible match for a particular
-style to determine the set of values\&.  More precisely, strings are
+style to determine the set of values\&.  Strings are
 preferred over patterns (for example, `\fB:completion::complete:::foo\fP\&' is
 more specific than `\fB:completion::complete:::*\&'\fP), and longer patterns are
-preferred over shorter patterns\&.
+preferred over the pattern `\fB*\fP\&'\&. See 
+\fIzmodules\fP(1)
+for details\&.
 .PP
-A good rule of thumb is that any completion style pattern that needs to
-include more than one wildcard (\fB*\fP) and that does not end in a tag
-name, should include all six colons (\fB:\fP), possibly surrounding
-additional wildcards\&.
+Context patterns that use something other than a wildcard (\fB*\fP) to match the
+middle parts of the context \-\- the \fIcompleter\fP, \fIcommand\fP, and
+\fIargument\fP in
+\fB:completion:\fP\fIfunction\fP\fB:\fP\fIcompleter\fP\fB:\fP\fIcommand\fP\fB:\fP\fIargument\fP\fB:\fP\fItag\fP
+\-\- should include all six colons (\fB:\fP) explicitly\&. Without this,
+a pattern such as \fB:completion:*:foo:*\fP could match \fBfoo\fP against a
+component other than the intended one (for example, against \fIcompleter\fP when
+a match against \fIcommand\fP was intended)\&.
 .PP
 Style names like those of tags are arbitrary and depend on the completion
 function\&.  However, the following two sections list some of the most
@@ -874,11 +880,11 @@ for hostnames
 \fBindexes\fP
 for array indexes
 .TP
-\fBjobs\fP
-for jobs (as listed by the `\fBjobs\fP\&' builtin)
-.TP
 \fBinterfaces\fP
 for network interfaces
+.TP
+\fBjobs\fP
+for jobs (as listed by the `\fBjobs\fP\&' builtin)
 .TP
 \fBkeymaps\fP
 for names of zsh keymaps
@@ -898,11 +904,11 @@ directory when completing arguments of \fBcd\fP and related builtin
 commands (compare \fBpath\-directories\fP) \-\- when the \fBcdpath\fP
 array is unset, \fBdirectories\fP is used instead
 .TP
-\fBmanuals\fP
-for names of manual pages
-.TP
 \fBmailboxes\fP
 for e\-mail folders
+.TP
+\fBmanuals\fP
+for names of manual pages
 .TP
 \fBmaps\fP
 for map names (e\&.g\&. NIS maps)
@@ -940,10 +946,6 @@ offering the original string as a match
 .TP
 \fBother\-accounts\fP
 used to look up the \fBusers\-hosts\fP style
-.TP
-\fBother\-files\fP
-for the names of any non\-directory files\&.  This is used instead
-of \fBall\-files\fP when the \fBlist\-dirs\-first\fP style is in effect\&.
 .TP
 \fBpackages\fP
 for packages (e\&.g\&. \fBrpm\fP or installed \fBDebian\fP packages)
@@ -1329,6 +1331,11 @@ that the resulting string is the longest unambiguous string possible\&.
 However, menu completion can be used to cycle through all matches\&.
 .RE
 .TP
+\fBextra\-verbose\fP
+If set, the completion listing is more verbose at the cost of
+a probable decrease in completion speed\&.  Completion performance
+will suffer if this style is set to `true\&'\&.
+.TP
 \fBfake\fP
 This style may be set for any completion context\&.  It
 specifies additional strings that will always be completed in that
@@ -1483,9 +1490,10 @@ If no `\fB:\fP\fItag\fP\&' is given the `\fBfiles\fP' tag will be used\&.
 The \fItag\fP may also be followed by an optional second colon and a
 description, which will be used for the `\fB%d\fP\&' in the value of
 the \fBformat\fP style (if that is set) instead of the default
-description supplied by the completion function\&.  If the description
-given here contains itself a `\fB%d\fP\&', that is replaced with the
-description supplied by the completion function\&.
+description supplied by the completion function\&.  The inclusion
+of a description also gives precedence to associated options such as
+for completion grouping so it can be used where files should be
+separated\&.
 .PP
 For example, to make the \fBrm\fP command first complete only names of
 object files and then the names of all files if there is no matching
@@ -1514,6 +1522,19 @@ This works even where there is no special pattern: \fB_files\fP matches
 all files using the pattern `\fB*\fP\&' at the first step and stops when it
 sees this pattern\&.  Note also it will never try a pattern more than once
 for a single completion attempt\&.
+.PP
+To separate directories into a separate group from the files but still
+complete them at the first attempt, a description needs to be given\&.
+Note that directories need to be explicitly excluded from the
+globbed\-files because `\fB*\fP\&' will match directories\&. For grouping, it
+is also necessary to set the \fBgroup\-name\fP style\&.
+.PP
+.RS
+.nf
+\fBzstyle \&':completion:*' file\-patterns \e 
+    \&'%p(^\-/):globbed\-files *(\-/):directories:location'\fP
+.fi
+.RE
 .PP
 During the execution of completion functions, the \fBEXTENDED_GLOB\fP
 option is in effect, so the characters `\fB#\fP\&', `\fB~\fP' and `\fB^\fP' have
@@ -1605,6 +1626,14 @@ builtin command from the \fBzsh/zutil\fP module, see
 \fIzshmodules\fP(1)\&.
 .RE
 .TP
+\fBgain\-privileges\fP
+If set to \fBtrue\fP, this style enables the use of commands like \fBsudo\fP
+or \fBdoas\fP to gain extra privileges when retrieving information for
+completion\&. This is only done when a command such as \fBsudo\fP appears on
+the command\-line\&. To force the use of, e\&.g\&. \fBsudo\fP or to override any
+prefix that might be added due to \fBgain\-privileges\fP, the \fBcommand\fP
+style can be used with a value that begins with a hyphen\&.
+.TP
 \fBglob\fP
 This is used by the \fB_expand\fP completer\&.  If
 it is set to `true\&' (the default), globbing will be attempted on the
@@ -1649,6 +1678,9 @@ different types of matches displayed separately, one can just set:
 .PP
 All matches for which no group name is defined will be put in a group
 named \fB\-default\-\fP\&.
+.PP
+To display the group name in the output, see the \fBformat\fP style (q\&.v\&.)
+under the \fBdescriptions\fP tag\&.
 .RE
 .TP
 \fBgroup\-order\fP
@@ -1760,11 +1792,6 @@ Excluded values act in a similar fashion to values of the
 the \fB_ignored\fP completer\&.
 .RE
 .TP
-\fBextra\-verbose\fP
-If set, the completion listing is more verbose at the cost of
-a probable decrease in completion speed\&.  Completion performance
-will suffer if this style is set to `true\&'\&.
-.TP
 \fBignored\-patterns\fP
 A list of patterns; any trial completion matching one of the patterns
 will be excluded from consideration\&.  The
@@ -1800,6 +1827,33 @@ unique before converting the name to an ID; attempts at completion will
 be unsuccessful until that point\&.  If the value is any other
 string, menu completion will be started when the string typed by the
 user is longer than the common prefix to the corresponding IDs\&.
+.RE
+.TP
+\fBinsert\-sections\fP
+This style is used with tags of the form `\fBmanuals\&.\fP\fIX\fP\&' when
+completing names of manual pages\&. If set and the \fIX\fP in the tag name matches
+the section number of the page being completed, the section number is inserted
+along with the page name\&. For example, given
+.RS
+.PP
+.RS
+.nf
+\fBzstyle \&':completion:*:manuals\&.*' insert\-sections true\fP
+.fi
+.RE
+.PP
+\fBman ssh_<TAB>\fP may be completed to \fBman 5 ssh_config\fP\&.
+.PP
+The value may also be set to one of `\fBprepend\fP\&', or `\fBsuffix\fP'\&.
+`\fBprepend\fP\&' behaves the same as `true' as in the above example, while
+`\fBsuffix\fP\&' would complete \fBman ssh_<TAB>\fP as \fBman ssh_config\&.5\fP\&.
+.PP
+This is especially useful in conjunction with \fBseparate\-sections\fP, as
+it ensures that the page requested of \fBman\fP corresponds to the one
+displayed in the completion listing when there are multiple pages with the
+same name (e\&.g\&., \fBprintf(1)\fP and \fBprintf(3)\fP)\&.
+.PP
+The default for this style is `false\&'\&.
 .RE
 .TP
 \fBinsert\-tab\fP
@@ -1842,14 +1896,6 @@ the string `\fBpattern\fP\&'\&.  Then the pattern on the line is left
 unchanged if it does not match unambiguously\&.
 .RE
 .TP
-\fBgain\-privileges\fP
-If set to \fBtrue\fP, this style enables the use of commands like \fBsudo\fP
-or \fBdoas\fP to gain extra privileges when retrieving information for
-completion\&. This is only done when a command such as \fBsudo\fP appears on
-the command\-line\&. To force the use of, e\&.g\&. \fBsudo\fP or to override any
-prefix that might be added due to \fBgain\-privileges\fP, the \fBcommand\fP
-style can be used with a value that begins with a hyphen\&.
-.TP
 \fBkeep\-prefix\fP
 This style is used by the \fB_expand\fP completer\&.  If it is `true\&', the
 completer will try to keep a prefix containing a tilde or parameter
@@ -1866,6 +1912,12 @@ to give up when a single expansion with the restored prefix is the same
 as the original; hence any remaining completers may be called\&.
 .RE
 .TP
+\fBknown\-hosts\-files\fP
+This style should contain a list of files to search for host names and
+(if the \fBuse\-ip\fP style is set) IP addresses in a format compatible with
+ssh \fBknown_hosts\fP files\&.  If it is not set, the files
+\fB/etc/ssh/ssh_known_hosts\fP and \fB~/\&.ssh/known_hosts\fP are used\&.
+.TP
 \fBlast\-prompt\fP
 This is a more flexible form of the \fBALWAYS_LAST_PROMPT\fP option\&.
 If it is `true\&', the completion system will try to return the cursor to
@@ -1875,12 +1927,6 @@ tested for all tags valid for the current completion, then the
 previous line if this style is `true\&' for all types of match\&.  Note
 that unlike the \fBALWAYS_LAST_PROMPT\fP option this is independent of the
 numeric argument\&.
-.TP
-\fBknown\-hosts\-files\fP
-This style should contain a list of files to search for host names and
-(if the \fBuse\-ip\fP style is set) IP addresses in a format compatible with
-ssh \fBknown_hosts\fP files\&.  If it is not set, the files
-\fB/etc/ssh/ssh_known_hosts\fP and \fB~/\&.ssh/known_hosts\fP are used\&.
 .TP
 \fBlist\fP
 This style is used by the \fB_history_complete_word\fP bindable command\&.
@@ -1922,11 +1968,10 @@ obtained by setting the style to an empty string (i\&.e\&. \fB\&''\fP)\&.
 .RE
 .TP
 \fBlist\-dirs\-first\fP
-This is used by file completion\&.  If set, directories to be completed
-are listed separately from and before completion for other files,
-regardless of tag ordering\&.  In addition, the tag \fBother\-files\fP
-is used in place of \fBall\-files\fP for the remaining files, to indicate
-that no directories are presented with that tag\&.
+This is used by file completion and corresponds to a particular
+setting of the \fBfile\-patterns\fP style\&.
+If set, the default directories to be completed
+are listed separately from and before completion for other files\&.
 .TP
 \fBlist\-grouped\fP
 If this style is `true\&' (the default), the completion system will try to
@@ -1977,16 +2022,16 @@ This style is tested in the same way as the \fBlist\-packed\fP style and
 determines whether matches are to be listed in a rows\-first fashion as
 if the \fBLIST_ROWS_FIRST\fP option were set\&.
 .TP
+\fBlist\-separator\fP
+The value of this style is used in completion listing to separate the
+string to complete from a description when possible (e\&.g\&. when
+completing options)\&.  It defaults to `\fB\-\fP\fB\-\fP\&' (two hyphens)\&.
+.TP
 \fBlist\-suffixes\fP
 This style is used by the function that completes filenames\&.  If it is
 `true\&', and completion is attempted on a string containing multiple partially
 typed pathname components, all ambiguous components will be shown\&.
 Otherwise, completion stops at the first ambiguous component\&.
-.TP
-\fBlist\-separator\fP
-The value of this style is used in completion listing to separate the
-string to complete from a description when possible (e\&.g\&. when
-completing options)\&.  It defaults to `\fB\-\fP\fB\-\fP\&' (two hyphens)\&.
 .TP
 \fBlocal\fP
 This is for use with functions that complete URLs for which the
@@ -2448,7 +2493,7 @@ For example,
 .RE
 .PP
 If the current directory is \fB/home/pws/zsh/Src\fP, then
-\fBzle_tr\fP\fITAB\fP can be completed to \fBZle/zle_tricky\&.c\fP\&.
+\fBzle_tr<TAB>\fP can be completed to \fBZle/zle_tricky\&.c\fP\&.
 .RE
 .TP
 \fBregular\fP
@@ -2501,13 +2546,16 @@ The default is to scroll by single lines\&.
 \fBseparate\-sections\fP
 This style is used with the \fBmanuals\fP tag when completing names of
 manual pages\&.  If it is `true\&', entries for different sections are
-added separately using tag names of the form `\fBmanual\&.\fP\fIX\fP\&',
+added separately using tag names of the form `\fBmanuals\&.\fP\fIX\fP\&',
 where \fIX\fP is the section number\&.  When the \fBgroup\-name\fP style is
 also in effect, pages from different sections will appear separately\&.
 This style is also used similarly with the \fBwords\fP style when
 completing words for the dict command\&. It allows words from different
-dictionary databases to be added separately\&.
+dictionary databases to be added separately\&. See also \fBinsert\-sections\fP\&.
+.RS
+.PP
 The default for this style is `false\&'\&.
+.RE
 .TP
 \fBshow\-ambiguity\fP
 If the \fBzsh/complist\fP module is loaded, this style can be used to
@@ -3644,8 +3692,20 @@ described using the \fIspec\fPs which are of the form:
 `\fItag\fP\fB:\fP\fIdescr\fP\fB:\fP\fIaction\fP\&'\&.  The \fItag\fPs are offered using
 \fB_tags\fP and if the tag is requested, the \fIaction\fP is executed with the
 given description \fIdescr\fP\&.  The \fIaction\fPs are those accepted
-by the \fB_arguments\fP function (described below), excluding the
-`\fB\->\fP\fIstate\fP\&' and `\fB=\fP\fI\&.\&.\&.\fP' forms\&.
+by the \fB_arguments\fP function (described below), with the following
+exceptions:
+.PD 0
+.TP
+.PD
+\(bu
+The `\fB\->\fP\fIstate\fP\&' and `\fB=\fP\fI\&.\&.\&.\fP' forms are not supported\&.
+
+.TP
+\(bu
+The `\fB((a\e:bar b\e:baz\fP\fB))\fP\&' form does not need
+the colon to be escaped, since the \fIspec\fPs have no colon\-separated fields
+after the \fIaction\fP\&.
+
 .PP
 For example, the \fIaction\fP may be a simple function call:
 .PP
@@ -3800,6 +3860,12 @@ The default \fImatchspec\fP allows partial word completion after `\fB_\fP\&' and
 \fB\fBr:|[_\-]=* r:|=*\fP\fP
 .fi
 .RE
+.TP
+\fB\-0\fP
+When populating values of the `\fBopt_args\fP\&' associative array, don't
+backslash\-escape colons and backslashes and use NUL rather than colon for
+joining multiple values\&. This option is described in more detail below, under
+the heading \fI\fIspec\fPs: actions\fP\&.
 .PP
 \fI\fIspec\fPs: overview\fP
 .PP
@@ -4006,6 +4072,7 @@ specific contexts: on the first call `\fB_arguments $global_options\fP\&' is
 used, and on subsequent calls `\fB_arguments !$^global_options\fP\&'\&.
 .PP
 \fI\fIspec\fPs: actions\fP
+
 .PP
 In each of the forms above the \fIaction\fP determines how
 completions should be generated\&.  Except for the `\fB\->\fP\fIstring\fP\&'
@@ -4147,9 +4214,29 @@ the normal arguments from the command line, i\&.e\&. the words from the
 command line after the command name excluding all options and their
 arguments\&.  Options are stored in the associative array
 `\fBopt_args\fP\&' with option names as keys and their arguments as
-the values\&.  For options that have more than one argument these are
-given as one string, separated by colons\&.  All colons and backslashes
-in the original arguments are preceded with backslashes\&.
+the values\&.  By default, all colons and backslashes in the value are escaped
+with backslashes, and if an option has multiple arguments (for example, when
+using an \fIoptspec\fP of the form `\fB*\fP\fIoptspec\fP\&'), they are joined with
+(unescaped) colons\&.  However, if the \fB\-0\fP option was passed, no backslash
+escaping is performed, and multiple values are joined with NUL bytes\&.  For
+example, after `\fBzsh \-o foo:foo \-o bar:bar \-o <TAB>\fP\&', the contents of
+`\fBopt_args\fP\&' would be
+.PP
+.RS
+.nf
+\fBtypeset \-A opt_args=( [\-o]=\&'foo\e:foo:bar\e:bar:' )\fP
+.fi
+.RE
+.PP
+by default, and
+.PP
+.RS
+.nf
+\fBtypeset \-A opt_args=( [\-o]=$\&'foo:foo\ex00bar:bar\ex00' )\fP
+.fi
+.RE
+.PP
+if \fB_arguments\fP had been called with the \fB\-0\fP option\&.
 .PP
 The parameter `\fBcontext\fP\&' is set when returning to the calling function
 to perform an action of the form `\fB\->\fP\fIstring\fP\&'\&.  It is set to an
@@ -4398,7 +4485,7 @@ The last two descriptions say what should be completed as
 arguments\&.  The first describes the first argument as a
 `\fIpostscript file\fP\&' and makes files ending in `\fBps\fP' or `\fBeps\fP' 
 be completed\&.  The last description gives all other arguments the
-description `\fIpage numbers\fP\&' but does not offer completions\&.
+description `\fIpage number\fP\&' but does not offer completions\&.
 .RE
 .TP
 \fB_cache_invalid\fP \fIcache_identifier\fP
@@ -4533,6 +4620,14 @@ This function completes names of completers\&.
 \fB\-p\fP
 Include the leading underscore (`\fB_\fP\&') in the matches\&.
 .RE
+.TP
+\fB_default\fP
+This function corresponds to the \fB\-default\-\fP special context which is
+applied where no completion is defined\&.  It is useful to call it under
+certain error conditions such as completion after an unrecognised
+subcommand\&.  This applies the concept of graceful degradation to the
+completion system, allowing it to fallback on basic completion of
+commonly useful things like filenames\&.
 
 .TP
 .PD 0
@@ -4611,8 +4706,26 @@ not contain an explanation string to be displayed above the matches\&.
 If \fB_description\fP is called with more than three arguments,
 the additional \fIspec\fPs should be of the form `\fIchar\fP\fB:\fP\fIstr\fP\&'\&.
 These supply escape sequence replacements for the \fBformat\fP style:
-every appearance of `\fB%\fP\fIchar\fP\&' will be
-replaced by \fIstring\fP\&.
+every appearance of `\fB%\fP\fIchar\fP\&' will be replaced by \fIstring\fP\&.
+If no additional \fIspec\fPs are given but the description in \fIdescr\fP
+conforms to a common form then further escape sequences are set for
+elements of that description\&.  These elements correspond to a default
+value (`\fB%o\fP\&'), the units (`\fB%m\fP') range of acceptable values
+(`\fB%r\fP\&') and the remaining initial part of the description (`\fB%h\fP')\&.
+The form the description takes consists of specifying the units and
+range in parentheses and the default value in square brackets, for
+example:
+.PP
+.RS
+.nf
+\fB_description times expl \&'timeout (seconds) (0\-60) [20]'\fP
+.fi
+.RE
+.PP
+It is possible to use \fBzformat\fP conditional expressions when styling
+these elements\&. So, for example, to add `\fBdefault:\fP\&' as a tag but only
+when there is a default value to show, the \fBformat\fP style might
+include `\fB%(o\&.default: %o\&.)\fP\&'\&.
 .PP
 If the \fB\-x\fP option is given, the description will be passed to
 \fBcompadd\fP using the \fB\-x\fP option instead of the default \fB\-X\fP\&.  This
@@ -4915,6 +5028,78 @@ checked\&.  If it is set completion is terminated at that point even if
 no matches have been found\&.  This is the same effect as in the
 \fB\-first\-\fP context\&.
 .RE
+.TP
+\fB_numbers\fP [ \fIoption\fP \&.\&.\&. ] [ \fIdescription\fP ] [ \fIsuffix\fP \&.\&.\&. ]
+This can be used where a number is followed by a suffix to indicate the units\&.
+The unit suffixes are completed and can also be included in the description
+used when completion is invoked for the preceding number\&.
+.RS
+.PP
+In addition to common \fBcompadd\fP options, \fB_numbers\fP accepts the following
+options:
+.PP
+.PD 0
+.TP
+.PD
+\fB\-t\fP \fItag\fP
+Specify a tag to use instead of the default of \fBnumbers\fP\&.
+.TP
+\fB\-u\fP \fIunits\fP
+Indicate the default units for the number, e\&.g\&. \fBbytes\fP\&.
+.TP
+\fB\-l\fP \fImin\fP
+Specify the lowest possible value for the number\&.
+.TP
+\fB\-m\fP \fImax\fP
+Specify the highest possible value for the number\&.
+.TP
+\fB\-d\fP \fIdefault\fP
+Specify the default value\&.
+.TP
+\fB\-N\fP
+Allow negative numbers\&.  This is implied if the range includes a negative\&.
+.TP
+\fB\-f\fP
+Allow decimal numbers\&.
+.PP
+Where a particular suffix represents the default units for a number, it
+should be prefixed with a colon\&.  Additionally, suffixes can be followed
+by a colon and a description\&.  So for example, the following allows the
+age of something to be specified, either in seconds or with an optional
+suffix with a longer unit of time:
+.PP
+.RS
+.nf
+\fB_numbers \-u seconds age :s:seconds m:minutes h:hours d:days\fP
+.fi
+.RE
+.PP
+It is typically helpful for units to be presented in order of magnitude
+when completed\&.  To facilitate this, the order in which they are given
+is preserved\&.
+.PP
+When the \fBformat\fP style is looked up with the \fBdescriptions\fP tag or
+the tag specified with \fB\-t\fP, the list of suffixes is available as a
+`\fB%x\fP\&' escape sequence\&. This is in addition to the usual sequences
+documented under the \fBformat\fP style\&. The form this list takes can also
+be configured\&. To this end, the \fBformat\fP style is first looked up with
+the tag \fBunit\-suffixes\fP\&. The retrieved format is applied to each
+suffix in turn and the results are then concatenated to form the
+completed list\&. For the \fBunit\-suffixes\fP format, `\fB%x\fP\&' expands to
+the individual suffix and `\fB%X\fP\&' to its description\&. \fB%d\fP' indicates
+a default suffix and can be used in a condition\&. The index and reverse
+index are set in `\fB%i\fP\&' and `\fB%r\fP' respectively and are useful for
+text included only with the first and last suffixes in the list\&. So for
+example, the following joins the suffixes together as a comma\-separated
+list:
+.PP
+.RS
+.nf
+\fBzstyle \&':completion:*:unit\-suffixes' format '%x%(r::,)'\fP
+.fi
+.RE
+.RE
+.PP
 .TP
 \fB_options\fP
 This can be used to complete the names of shell options\&.  It provides a
@@ -5513,9 +5698,12 @@ matches with the given description:
 .nf
 \fBlocal expl
 _wanted tag expl \&'description' \e 
-    compadd matches\&.\&.\&.\fP
+    compadd \-\- \fImatch1\fP \fImatch2\fP\&.\&.\&.\fP
 .fi
 .RE
+.PP
+See also the use of \fB_wanted\fP in the example function in
+the subsection `Dynamic named directories\&' in \fIzshexpn\fP(1)\&.
 .PP
 Note that, as for \fB_requested\fP, the \fIcommand\fP must be able to
 accept options to be passed down to \fBcompadd\fP\&.
@@ -5549,8 +5737,6 @@ needs to know what the user\&'s option preferences are\&. These are saved
 in the \fB_comp_caller_options\fP associative array\&. Option names, spelled
 in lowercase without underscores, are mapped to one or other of the
 strings `\fBon\fP\&' and `\fBoff\fP'\&.
-.RS
-.PP
 .TP
 \fB_comp_priv_prefix\fP
 Completion functions such as \fB_sudo\fP can set the \fB_comp_priv_prefix\fP

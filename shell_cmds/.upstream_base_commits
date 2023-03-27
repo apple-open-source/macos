@@ -18,8 +18,8 @@ basename/tests/t_basename.sh	freebsd	contrib/netbsd-tests/usr.bin/basename/t_bas
 chroot/chroot.8	freebsd	usr.sbin/chroot/chroot.8	a40cf4175c90142442d0c6515f6c83956336699b
 chroot/chroot.c	freebsd	usr.sbin/chroot/chroot.c	0634390572b2390cfa8e2a3fd83359a944461f34
 
-date/date.1	freebsd	bin/date/date.1	3e4946f0aad9961c6e121192acb33956ff612e46
-date/date.c	freebsd	bin/date/date.c	8b82def341087b6512496f05f3aa3ca0ebc9b5a8
+date/date.1	freebsd	bin/date/date.1	4148dffadd3b10fa11717cc36263e1d536aaa2f0
+date/date.c	freebsd	bin/date/date.c	c537bf9d5903d0689321f83691341c93b5919172
 date/tests/format_string_test.sh	freebsd	bin/date/tests/format_string_test.sh	2c77ec54190294415c52a8da0c0d9c5a957c03a3
 
 dirname/dirname.c	freebsd	usr.bin/dirname/dirname.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4

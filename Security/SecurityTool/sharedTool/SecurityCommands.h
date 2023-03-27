@@ -26,7 +26,7 @@ SECURITY_COMMAND("add-internet-password", keychain_add_internet_password,
                  "Add an internet password item.")
 
 SECURITY_COMMAND("item", keychain_item,
-                 "[-v] [-y | -Y passcode] [-a|-D|-u attr=value,...|[-q|-s groupKitGroup][-j][-g] attr=value,...] [-d password | -f datafile] [attr=value,...]\n"
+                 "[-v] [-y | -Y passcode] [-a|-D|-u attr=value,...|[-q|-s group][-j][-g] attr=value,...] [-d password | -f datafile] [attr=value,...]\n"
                  "-y Prompt for passcode to authenticate (not available on tvOS/bridge)\n"
                  "-Y use specified passcode to authenticate (not available on tvOS/bridge)\n"
                  "   For devices w/o a passcode set, use the empty string: -Y ''\n"
@@ -38,7 +38,7 @@ SECURITY_COMMAND("item", keychain_item,
                  "-j When printing results, print JSON\n"
                  "-p Get persistent reference\n"
                  "-P Find an item based on a persistent reference\n"
-                 "-s Share matching items with the given GroupKit group\n"
+                 "-s Share matching items with the given sharing group\n"
                  "Add, query, update, delete, or share items in the keychain.  Extra attr=value pairs after options always apply to the query\n"
                  "class=[genp|inet|cert|keys] is required for the query\n"
                  "To search the synchronizable items (not searched by default) use sync=1 as an attr=value pair.\n"

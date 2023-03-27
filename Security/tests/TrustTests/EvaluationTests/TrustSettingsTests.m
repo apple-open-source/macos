@@ -667,6 +667,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     XCTAssertFalse([eval evaluate:nil]);
     XCTAssertEqual(eval.trustResult, kSecTrustResultDeny);
     [self removeTrustSettingsForCert:(__bridge SecCertificateRef)systemRoot persistentRef:persistentRef];
+    CFReleaseSafe((__bridge CFTypeRef)systemRoot);
 }
 
 - (void)testDistrustAppleRoot
@@ -683,6 +684,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     XCTAssert([eval evaluate:nil]);
     XCTAssertEqual(eval.trustResult, kSecTrustResultProceed);
     [self removeTrustSettingsForCert:(__bridge SecCertificateRef)appleRoot persistentRef:persistentRef];
+    CFReleaseSafe((__bridge CFTypeRef)appleRoot);
 }
 
 - (void)testFatalResultsNonOverride
@@ -704,6 +706,8 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     XCTAssertFalse([eval evaluate:nil]);
     XCTAssertEqual(eval.trustResult, kSecTrustResultFatalTrustFailure);
     [self removeTrustSettingsForCert:(__bridge SecCertificateRef)root persistentRef:persistentRef];
+    CFReleaseSafe((__bridge CFTypeRef)revokedLeaf);
+    CFReleaseSafe((__bridge CFTypeRef)root);
 }
 
 - (void)testSystemTrustStore
@@ -735,6 +739,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
     CFReleaseNull(usageConstraints);
     CFReleaseNull(root);
+    CFReleaseSafe((__bridge CFTypeRef)appleRoot);
 }
 
 - (void)testRemoveAll
