@@ -50,6 +50,8 @@ public:
         return bitwise_cast<ModuleProgramCodeBlock*>(Base::codeBlock());
     }
 
+    UnlinkedModuleProgramCodeBlock* getUnlinkedCodeBlock(JSGlobalObject*);
+
     UnlinkedModuleProgramCodeBlock* unlinkedCodeBlock() const
     {
         return bitwise_cast<UnlinkedModuleProgramCodeBlock*>(Base::unlinkedCodeBlock());

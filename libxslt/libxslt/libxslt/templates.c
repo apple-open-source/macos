@@ -229,7 +229,7 @@ xsltEvalTemplateString(xsltTransformContextPtr ctxt,
     insert = xmlNewDocNode(ctxt->output, NULL,
 	                   (const xmlChar *)"fake", NULL);
     if (insert == NULL) {
-	xsltTransformError(ctxt, NULL, contextNode,
+	xsltTransformError(ctxt, NULL, inst,
 		"Failed to create temporary node\n");
 	return(NULL);
     }

@@ -26,6 +26,7 @@ atf_test_case ignorecase
 #ifdef __APPLE__
 atf_test_case unified_timestamp
 atf_test_case crlfeol_body
+atf_test_case color
 #endif
 
 simple_body()
@@ -392,6 +393,46 @@ crlfeol_body()
 	atf_check -s exit:0 \
 		diff -A myers -b a b
 }
+
+color_body()
+{
+	cat <<EOF > foo_a.orig
+XXX
+123
+XXX
+EOF
+
+	sed -e 's/123/456/' foo_a.orig > foo_a
+
+	for algorithm in patience myers; do
+		atf_check -o save:${algorithm}_normal.colored -s exit:1 \
+		    diff --color=always --algorithm=${algorithm} \
+		    foo_a.orig foo_a
+		atf_check -o save:${algorithm}_uni.colored -s exit:1 \
+		    diff --color=always --algorithm=${algorithm} -u \
+		    --label foo_a.orig --label foo_a \
+		    foo_a.orig foo_a
+
+		# Confirm that it actually did color the output.
+		atf_check grep -q $'\033' ${algorithm}_normal.colored
+		atf_check grep -q $'\033' ${algorithm}_uni.colored
+	done
+}
+
+atf_test_case truncated
+truncated_body()
+{
+	# rdar://problem/107617002 - diff(1) truncates diff lines to 512
+	# characters.  Other artifacts ensue as a result of this, we just need
+	# to test the basic handling of our line buffer overflow.
+
+	(jot -b 'a' -s '' 512; jot -b 'b' -s '' 12) > file1.txt
+	jot -b 'b' -s '' 12 > file2.txt
+
+	expected=$(jot -b 'a' -s '' 512)
+
+	atf_check -s exit:1 -o match:"${expected}" diff -u file2.txt file1.txt
+}
 #endif
 
 atf_init_test_cases()
@@ -422,5 +463,7 @@ atf_init_test_cases()
 #ifdef __APPLE__
 	atf_add_test_case unified_timestamp
 	atf_add_test_case crlfeol
+	atf_add_test_case color
+	atf_add_test_case truncated
 #endif
 }

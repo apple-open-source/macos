@@ -248,7 +248,6 @@
 #include "StyleSheetList.h"
 #include "StyleTreeResolver.h"
 #include "SubresourceLoader.h"
-#include "TemplateContentDocumentFragment.h"
 #include "TextAutoSizing.h"
 #include "TextEvent.h"
 #include "TextManipulationController.h"
@@ -1162,11 +1161,6 @@ ExceptionOr<Ref<Node>> Document::adoptNode(Node& source)
         if (source.isShadowRoot()) {
             // ShadowRoot cannot disconnect itself from the host node.
             return Exception { HierarchyRequestError };
-        }
-        if (is<TemplateContentDocumentFragment>(source)) {
-            // TemplateContentDocumentFragment::host is never null until its destruction.
-            ASSERT(downcast<TemplateContentDocumentFragment>(source).host());
-            return Ref<Node> { source };
         }
         if (is<HTMLFrameOwnerElement>(source)) {
             auto& frameOwnerElement = downcast<HTMLFrameOwnerElement>(source);
@@ -7416,9 +7410,6 @@ bool Document::processingUserGestureForMedia() const
     if (UserGestureIndicator::processingUserGestureForMedia())
         return true;
 
-    if (m_domWindow && m_domWindow->hasTransientActivation())
-        return true;
-
     if (m_userActivatedMediaFinishedPlayingTimestamp + maxIntervalForUserGestureForwardingAfterMediaFinishesPlaying >= MonotonicTime::now())
         return true;
 
@@ -9077,16 +9068,23 @@ bool Document::hitTest(const HitTestRequest& request, HitTestResult& result)
 bool Document::hitTest(const HitTestRequest& request, const HitTestLocation& location, HitTestResult& result)
 {
     Ref<Document> protectedThis(*this);
-    updateLayout();
+
     if (!renderView())
         return false;
+
+    auto& frameView = renderView()->frameView();
+    Ref<FrameView> protector(frameView);
+
+    // If hit testing can descend into child frames, then we should make sure those frames have an updated layout
+    // before proceeding
+    if (request.allowsAnyFrameContent())
+        frameView.updateLayoutAndStyleIfNeededRecursive();
+    else
+        updateLayout();
 
 #if ASSERT_ENABLED
     SetForScope hitTestRestorer { m_inHitTesting, true };
 #endif
-
-    auto& frameView = renderView()->frameView();
-    Ref<FrameView> protector(frameView);
 
     bool resultLayer = renderView()->layer()->hitTest(request, location, result);
 

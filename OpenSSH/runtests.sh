@@ -47,6 +47,7 @@ export TEST_SSH_SSHKEYGEN=/usr/bin/ssh-keygen
 export TEST_SSH_SSHKEYSCAN=/usr/bin/ssh-keyscan
 export TEST_SSH_SFTP=/usr/bin/sftp
 export TEST_SSH_SFTPSERVER=/usr/libexec/sftp-server
+export TEST_SSH_PKCS11_HELPER=/usr/libexec/ssh-pkcs11-helper
 export SUDO=/usr/bin/sudo
 export SKIP_UNIT=YES
 

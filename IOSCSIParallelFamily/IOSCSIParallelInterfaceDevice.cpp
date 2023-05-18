@@ -34,6 +34,7 @@
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/IOKitKeys.h>
 
 // IOKit storage includes
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
@@ -1532,7 +1533,8 @@ IOSCSIParallelInterfaceDevice::IsProtocolServiceSupported (
 							void * 						value )
 {
 	
-	bool	isSupported = false;
+	bool			isSupported = false;
+	OSNumber *		number = NULL;
 	
 	require ( ( isInactive ( ) == false ), ErrorExit );
 	require_nonzero ( fController, ErrorExit );
@@ -1581,7 +1583,71 @@ IOSCSIParallelInterfaceDevice::IsProtocolServiceSupported (
 			isSupported = fMultiPathSupport;
 		}
 		break;
-		
+
+		case kSCSIProtocolFeature_MaximumReadBlockTransferCount:
+		{
+
+			number = OSDynamicCast ( OSNumber, fController->getProperty ( kIOMaximumBlockCountReadKey ) );
+
+			if ( number != NULL )
+			{
+
+				* ( ( UInt64 * ) value ) = number->unsigned64BitValue ( );
+				isSupported = true;
+
+			}
+
+		}
+		break;
+
+		case kSCSIProtocolFeature_MaximumWriteBlockTransferCount:
+		{
+
+			number = OSDynamicCast ( OSNumber, fController->getProperty ( kIOMaximumBlockCountWriteKey ) );
+
+			if ( number != NULL )
+			{
+
+				* ( ( UInt64 * ) value ) = number->unsigned64BitValue ( );
+				isSupported = true;
+
+			}
+
+		}
+		break;
+
+		case kSCSIProtocolFeature_MaximumReadTransferByteCount:
+		{
+
+			number = OSDynamicCast ( OSNumber, fController->getProperty ( kIOMaximumByteCountReadKey ) );
+
+			if ( number != NULL )
+			{
+
+				* ( ( UInt64 * ) value ) = number->unsigned64BitValue ( );
+				isSupported = true;
+
+			}
+
+		}
+		break;
+
+		case kSCSIProtocolFeature_MaximumWriteTransferByteCount:
+		{
+
+			number = OSDynamicCast ( OSNumber, fController->getProperty ( kIOMaximumByteCountWriteKey ) );
+
+			if ( number != NULL )
+			{
+
+				* ( ( UInt64 * ) value ) = number->unsigned64BitValue ( );
+				isSupported = true;
+
+			}
+
+		}
+		break;
+
 		default:
 		{
 			// Since isSupported is set to false by default, there is

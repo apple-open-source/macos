@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -1265,7 +1265,7 @@ Curl_os400_bind(int sd, struct sockaddr *localaddr, int addrlen)
 
 int
 Curl_os400_sendto(int sd, char *buffer, int buflen, int flags,
-                  struct sockaddr *dstaddr, int addrlen)
+                  const struct sockaddr *dstaddr, int addrlen)
 {
   int i;
   struct sockaddr_storage laddr;

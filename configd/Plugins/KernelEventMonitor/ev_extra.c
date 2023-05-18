@@ -92,6 +92,7 @@ is_expensive(SCNetworkInterfaceRef _Nonnull interface)
 		else if (WiFiIsExpensive()) {
 			SC_log(LOG_NOTICE, "%@: Wi-Fi is expensive",
 			       SCNetworkInterfaceGetBSDName(interface));
+			expensive = kCFBooleanTrue;
 		}
 		goto done;
 	}

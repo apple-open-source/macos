@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLMOPT_SOCKETFUNCTION 3 "October 26, 2022" "libcurl 7.87.0" "curl_multi_setopt options"
+.TH CURLMOPT_SOCKETFUNCTION 3 "February 07, 2023" "libcurl 7.88.1" "curl_multi_setopt options"
 
 .SH NAME
 CURLMOPT_SOCKETFUNCTION \- callback informed about what to wait for
@@ -33,7 +33,7 @@ CURLMOPT_SOCKETFUNCTION \- callback informed about what to wait for
 int socket_callback(CURL *easy,      /* easy handle */
                     curl_socket_t s, /* socket */
                     int what,        /* describes the socket */
-                    void *userp,     /* private callback pointer */
+                    void *clientp,     /* private callback pointer */
                     void *socketp);  /* private socket pointer */
 
 CURLMcode curl_multi_setopt(CURLM *handle, CURLMOPT_SOCKETFUNCTION, socket_callback);
@@ -64,7 +64,7 @@ The socket callback should return 0 on success, and -1 on error. If this
 callback returns error, \fBall\fP transfers currently in progress in this
 multi handle will be aborted and fail.
 
-\fBuserp\fP is set with \fICURLMOPT_SOCKETDATA(3)\fP.
+\fBclientp\fP is set with \fICURLMOPT_SOCKETDATA(3)\fP.
 
 \fBsocketp\fP is set with \fIcurl_multi_assign(3)\fP or will be NULL.
 

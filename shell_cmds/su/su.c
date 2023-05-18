@@ -105,6 +105,7 @@ __FBSDID("$FreeBSD$");
 
 #ifdef __APPLE__
 #include <bsm/audit_session.h>
+#include <rootless.h>
 #endif /* __APPLE__ */
 
 #define PAM_END() do {							\
@@ -643,7 +644,26 @@ main(int argc, char *argv[])
 		if (ruid != 0)
 			syslog(LOG_NOTICE, "%s to %s%s", username, user,
 			    ontty());
-
+#ifdef __APPLE__
+		if (!strncmp("root", user, strnlen(user, MAXLOGNAME))) {
+			switch (rootless_restricted_environment()) {
+				case 1:
+					if (strncmp("/bin/sh", shell, sizeof("/bin/sh"))) {
+							errx(1, "Refusing to spawn shell other than \"/bin/sh\" as root during installer");
+					}
+					break;
+				case 0:
+					// Not in a restricted environment
+					break;
+				case -1:
+					err(1, "Error when checking for rootless environment");
+					break;
+				default:
+					errx(1, "Unexpected return value from rootless_restricted_envrionment");
+					break;
+			}
+		}
+#endif /* __APPLE__ */
 		execv(shell, np.b);
 		err(1, "%s", shell);
 	}

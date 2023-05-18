@@ -2396,6 +2396,30 @@ static inline bool isNonReplacedInline(RenderObject& renderer)
     return renderer.isInline() && !renderer.isReplacedOrInlineBlock();
 }
 
+static bool rendererCanHaveTrimmedMargin(const RenderBox& renderer, std::optional<MarginTrimType> marginTrimType)
+{
+    // A renderer will have a specific margin marked as trimmed by setting its rare data bit if:
+    // 1.) The layout system the box is in has this logic (setting the rare data bit for this 
+    // specific margin) implemented
+    // 2.) The block container/flexbox/grid has this margin specified in its margin-trim style
+    // If marginTrimType is empty we will check if any of the supported margins are in the style
+    auto* containingBlock = renderer.containingBlock();
+    if (!containingBlock || containingBlock->isRenderView())
+        return false;
+
+    // containingBlock->isBlockContainer() can return true even if the item is in a RenderFlexibleBox
+    // (e.g. buttons) so we should explicitly check that the item is not a flex item to catch block containers here
+    if (!renderer.isFlexItem() && containingBlock->isBlockContainer())
+        return false;
+
+    if (containingBlock->isFlexibleBox() || containingBlock->isRenderGrid()) {
+        if (!marginTrimType)
+            return containingBlock->style().marginTrim().containsAny({ MarginTrimType::BlockStart, MarginTrimType::InlineEnd });
+        return containingBlock->style().marginTrim().contains(marginTrimType.value());
+    }
+    return false;
+}
+
 static bool isLayoutDependent(CSSPropertyID propertyID, const RenderStyle* style, RenderObject* renderer)
 {
     switch (propertyID) {
@@ -2425,16 +2449,17 @@ static bool isLayoutDependent(CSSPropertyID propertyID, const RenderStyle* style
         if (!renderer || !renderer->isBox())
             return false;
         return !(style && style->marginTop().isFixed() && style->marginRight().isFixed()
-            && style->marginBottom().isFixed() && style->marginLeft().isFixed());
+            && style->marginBottom().isFixed() && style->marginLeft().isFixed())
+            || (rendererCanHaveTrimmedMargin(downcast<RenderBox>(*renderer), { }));
     }
     case CSSPropertyMarginTop:
-        return paddingOrMarginIsRendererDependent<&RenderStyle::marginTop>(style, renderer);
+        return paddingOrMarginIsRendererDependent<&RenderStyle::marginTop>(style, renderer) || (is<RenderBox>(renderer) && (rendererCanHaveTrimmedMargin(downcast<RenderBox>(*renderer), MarginTrimType::BlockStart)));
     case CSSPropertyMarginRight:
-        return paddingOrMarginIsRendererDependent<&RenderStyle::marginRight>(style, renderer);
+        return paddingOrMarginIsRendererDependent<&RenderStyle::marginRight>(style, renderer) || ((is<RenderBox>(renderer)) && rendererCanHaveTrimmedMargin(downcast<RenderBox>(*renderer), MarginTrimType::InlineEnd));
     case CSSPropertyMarginBottom:
-        return paddingOrMarginIsRendererDependent<&RenderStyle::marginBottom>(style, renderer);
+        return paddingOrMarginIsRendererDependent<&RenderStyle::marginBottom>(style, renderer) ||  (is<RenderBox>(renderer) && rendererCanHaveTrimmedMargin(downcast<RenderBox>(*renderer), MarginTrimType::BlockEnd));
     case CSSPropertyMarginLeft:
-        return paddingOrMarginIsRendererDependent<&RenderStyle::marginLeft>(style, renderer);
+        return paddingOrMarginIsRendererDependent<&RenderStyle::marginLeft>(style, renderer) || (is<RenderBox>(renderer) && rendererCanHaveTrimmedMargin(downcast<RenderBox>(*renderer), MarginTrimType::InlineStart));
     case CSSPropertyPadding: {
         if (!renderer || !renderer->isBox())
             return false;
@@ -3371,9 +3396,18 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         if (style.specifiedLocale().isNull())
             return CSSPrimitiveValue::create(CSSValueAuto);
         return CSSPrimitiveValue::createCustomIdent(style.specifiedLocale());
-    case CSSPropertyMarginTop:
+    case CSSPropertyMarginTop: {
+        if (auto* box = dynamicDowncast<RenderBox>(renderer); box
+            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockStart) 
+            && box->hasTrimmedMargin(PhysicalDirection::Top))
+            return zoomAdjustedPixelValue(box->marginTop(), style);
         return zoomAdjustedPaddingOrMarginPixelValue<&RenderStyle::marginTop, &RenderBoxModelObject::marginTop>(style, renderer);
+    }
     case CSSPropertyMarginRight: {
+        if (auto* box = dynamicDowncast<RenderBox>(renderer); box
+            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::InlineEnd)
+            && box->hasTrimmedMargin(PhysicalDirection::Right))
+            return zoomAdjustedPixelValue(box->marginRight(), style);
         Length marginRight = style.marginRight();
         if (marginRight.isFixed() || !is<RenderBox>(renderer))
             return zoomAdjustedPixelValueForLength(marginRight, style);
@@ -3388,9 +3422,18 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return zoomAdjustedPixelValue(value, style);
     }
     case CSSPropertyMarginBottom:
+        if (auto* box = dynamicDowncast<RenderBox>(renderer); box 
+            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockEnd) 
+            && box->hasTrimmedMargin(PhysicalDirection::Bottom))
+            return zoomAdjustedPixelValue(box->marginBottom(), style);
         return zoomAdjustedPaddingOrMarginPixelValue<&RenderStyle::marginBottom, &RenderBoxModelObject::marginBottom>(style, renderer);
-    case CSSPropertyMarginLeft:
+    case CSSPropertyMarginLeft: {
+        if (auto* box = dynamicDowncast<RenderBox>(renderer);  box 
+            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::InlineStart) 
+            && box->hasTrimmedMargin(PhysicalDirection::Left))
+            return zoomAdjustedPixelValue(box->marginLeft(), style);
         return zoomAdjustedPaddingOrMarginPixelValue<&RenderStyle::marginLeft, &RenderBoxModelObject::marginLeft>(style, renderer);
+    }
     case CSSPropertyMarginTrim: {
         auto marginTrim = style.marginTrim();
         if (marginTrim.isEmpty())

@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -22,7 +22,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH curl_ws_send 3 "December 11, 2022" "libcurl 7.87.0" "libcurl Manual"
+.TH curl_ws_send 3 "February 06, 2023" "libcurl 7.88.1" "libcurl Manual"
 
 .SH NAME
 curl_ws_send - send WebSocket data
@@ -54,6 +54,8 @@ should be set to zero.
 If \fBCURLWS_RAW_MODE\fP is enabled in \fICURLOPT_WS_OPTIONS(3)\fP, the
 \fBflags\fP argument should be set to 0.
 
+To send a message consisting of multiple frames, set the \fICURLWS_CONT\fP bit
+in all frames except the final one.
 .SH FLAGS
 .IP CURLWS_TEXT
 The buffer contains text data. Note that this makes a difference to WebSocket

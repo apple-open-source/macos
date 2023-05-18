@@ -86,6 +86,8 @@ static md_mod_conf_t defmc = {
     NULL,                      /* CA cert file to use */
     apr_time_from_sec(5),      /* minimum delay for retries */
     13,                        /* retry_failover after 14 errors, with 5s delay ~ half a day */
+    0,                         /* store locks, disabled by default */
+    apr_time_from_sec(5),      /* max time to wait to obaint a store lock */
 };
 
 static md_timeslice_t def_renew_window = {
@@ -118,6 +120,7 @@ static md_srv_conf_t defconf = {
     NULL,                      /* ca eab hmac */
     0,                         /* stapling */
     1,                         /* staple others */
+    NULL,                      /* dns01_cmd */
     NULL,                      /* currently defined md */
     NULL,                      /* assigned md, post config */
     0,                         /* is_ssl, set during mod_ssl post_config */
@@ -172,6 +175,7 @@ static void srv_conf_props_clear(md_srv_conf_t *sc)
     sc->ca_eab_hmac = NULL;
     sc->stapling = DEF_VAL;
     sc->staple_others = DEF_VAL;
+    sc->dns01_cmd = NULL;
 }
 
 static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
@@ -192,6 +196,7 @@ static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
     to->ca_eab_hmac = from->ca_eab_hmac;
     to->stapling = from->stapling;
     to->staple_others = from->staple_others;
+    to->dns01_cmd = from->dns01_cmd;
 }
 
 static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t *p)
@@ -215,6 +220,7 @@ static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t
     if (from->ca_eab_kid) md->ca_eab_kid = from->ca_eab_kid;
     if (from->ca_eab_hmac) md->ca_eab_hmac = from->ca_eab_hmac;
     if (from->stapling != DEF_VAL) md->stapling = from->stapling;
+    if (from->dns01_cmd) md->dns01_cmd = from->dns01_cmd;
 }
 
 void *md_config_create_svr(apr_pool_t *pool, server_rec *s)
@@ -260,6 +266,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc->ca_eab_hmac = add->ca_eab_hmac? add->ca_eab_hmac : base->ca_eab_hmac;
     nsc->stapling = (add->stapling != DEF_VAL)? add->stapling : base->stapling;
     nsc->staple_others = (add->staple_others != DEF_VAL)? add->staple_others : base->staple_others;
+    nsc->dns01_cmd = (add->dns01_cmd)? add->dns01_cmd : base->dns01_cmd;
     nsc->current = NULL;
     
     return nsc;
@@ -647,6 +654,36 @@ static const char *md_config_set_retry_failover(cmd_parms *cmd, void *dc, const 
     return NULL;
 }
 
+static const char *md_config_set_store_locks(cmd_parms *cmd, void *dc, const char *s)
+{
+    md_srv_conf_t *config = md_config_get(cmd->server);
+    const char *err = md_conf_check_location(cmd, MD_LOC_NOT_MD);
+    int use_store_locks;
+    apr_time_t wait_time = 0;
+
+    (void)dc;
+    if (err) {
+        return err;
+    }
+    else if (!apr_strnatcasecmp("off", s)) {
+        use_store_locks = 0;
+    }
+    else if (!apr_strnatcasecmp("on", s)) {
+        use_store_locks = 1;
+    }
+    else {
+        if (md_duration_parse(&wait_time, s, "s") != APR_SUCCESS) {
+            return "neither 'on', 'off' or a duration specified";
+        }
+        use_store_locks = (wait_time != 0);
+    }
+    config->mc->use_store_locks = use_store_locks;
+    if (wait_time) {
+        config->mc->lock_wait_timeout = wait_time;
+    }
+    return NULL;
+}
+
 static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const char *value)
 {
     md_srv_conf_t *config = md_config_get(cmd->server);
@@ -934,10 +971,16 @@ static const char *md_config_set_dns01_cmd(cmd_parms *cmd, void *mconfig, const 
     md_srv_conf_t *sc = md_config_get(cmd->server);
     const char *err;
 
-    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
-    apr_table_set(sc->mc->env, MD_KEY_CMD_DNS01, arg);
+
+    if (inside_md_section(cmd)) {
+        sc->dns01_cmd = arg;
+    } else {
+        apr_table_set(sc->mc->env, MD_KEY_CMD_DNS01, arg);
+    }
+
     (void)mconfig;
     return NULL;
 }
@@ -1215,6 +1258,8 @@ const command_rec md_cmds[] = {
                   "Time length for first retry, doubled on every consecutive error."),
     AP_INIT_TAKE1("MDRetryFailover", md_config_set_retry_failover, NULL, RSRC_CONF,
                   "The number of errors before a failover to another CA is triggered."),
+    AP_INIT_TAKE1("MDStoreLocks", md_config_set_store_locks, NULL, RSRC_CONF,
+                  "Configure locking of store for updates."),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };

@@ -77,7 +77,7 @@ enum enctype {
 };
 
 typedef enum {
-    NONE, TCP, OPTIONS, HEAD, GET, CPING, PROVIDER, EOT
+    NONE, TCP, OPTIONS, HEAD, GET, CPING, PROVIDER, OPTIONS11, HEAD11, GET11, EOT
 } hcmethod_t;
 
 typedef struct {
@@ -353,6 +353,8 @@ PROXY_WORKER_HC_FAIL )
 #define PROXY_WORKER_IS_GENERIC(f)   ( (f)->s->status &  PROXY_WORKER_GENERIC )
 
 #define PROXY_WORKER_IS_HCFAILED(f)   ( (f)->s->status &  PROXY_WORKER_HC_FAIL )
+
+#define PROXY_WORKER_IS_ERROR(f)   ( (f)->s->status &  PROXY_WORKER_IN_ERROR )
 
 #define PROXY_WORKER_IS(f, b)   ( (f)->s->status & (b) )
 

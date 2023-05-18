@@ -51,6 +51,9 @@ class OffscreenSurfaceVk : public SurfaceVk
     egl::Error initialize(const egl::Display *display) override;
     void destroy(const egl::Display *display) override;
 
+    egl::Error unMakeCurrent(const gl::Context *context) override;
+    const vk::ImageHelper *getColorImage() const { return &mColorAttachment.image; }
+
     egl::Error swap(const gl::Context *context) override;
     egl::Error postSubBuffer(const gl::Context *context,
                              EGLint x,
@@ -182,13 +185,13 @@ struct SwapchainImage : angle::NonCopyable
     SwapchainImage(SwapchainImage &&other);
     ~SwapchainImage();
 
-    vk::ImageHelper image;
+    std::unique_ptr<vk::ImageHelper> image;
     vk::ImageViewHelper imageViews;
     vk::Framebuffer framebuffer;
     vk::Framebuffer fetchFramebuffer;
     vk::Framebuffer framebufferResolveMS;
 
-    uint64_t mFrameNumber = 0;
+    uint64_t frameNumber = 0;
 };
 }  // namespace impl
 
@@ -213,6 +216,9 @@ class WindowSurfaceVk : public SurfaceVk
     void destroy(const egl::Display *display) override;
 
     egl::Error initialize(const egl::Display *display) override;
+
+    egl::Error unMakeCurrent(const gl::Context *context) override;
+
     angle::Result getAttachmentRenderTarget(const gl::Context *context,
                                             GLenum binding,
                                             const gl::ImageIndex &imageIndex,
@@ -363,7 +369,6 @@ class WindowSurfaceVk : public SurfaceVk
                           EGLint n_rects,
                           const void *pNextChain,
                           bool *presentOutOfDate);
-    void waitPendingPresent() const;
 
     angle::Result cleanUpPresentHistory(vk::Context *context);
 

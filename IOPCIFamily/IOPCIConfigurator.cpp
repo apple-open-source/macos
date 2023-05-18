@@ -218,6 +218,75 @@ IOPCIConfigEntry * CLASS::findEntry(IORegistryEntry * from, IOPCIAddressSpace sp
 
     return (child);
 }
+
+bool CLASS::rangeListContains(IOPCIRange *range, IOPCIScalar address)
+{
+	while (range)
+	{
+		DLOG("Comparing address %lx to range [%lx,%lx]\n", address, range->start, range->end);
+		if (range->start <= address && address < range->end) return true;
+		range = range->next;
+	}
+
+    return false;
+}
+
+IOPCIConfigEntry * CLASS::findEntryByAddress(IORegistryEntry * from, IOPCIScalar address)
+{
+    IOPCIConfigEntry * child;
+    IOPCIConfigEntry * entry;
+    IOPCIConfigEntry * next;
+
+    next  = fRoot;
+    child = NULL;
+
+    // find the IORegistryEntry root bridge as a point of reference for the search
+    while(from != NULL)
+    {
+        IORegistryEntry* parent = from->getParentEntry(gIOServicePlane);
+        if (   (OSDynamicCast(IOPCIDevice, parent) == NULL)
+            && (OSDynamicCast(IOPCIBridge, parent) == NULL))
+        {
+            break;
+        }
+        from = parent;
+    }
+
+    while ((entry = next))
+    {
+        next = NULL;
+        for (child = entry->child; child; child = child->peer)
+        {
+            if (child->hostBridge != from) continue;
+			DLOG("Checking device " D() "\n", DEVICE_IDENT(child));
+            if (!child->isBridge)
+            {
+                for (int idx = kIOPCIRangeBAR0; idx <= kIOPCIRangeExpansionROM; idx++)
+                {
+					if (child->ranges[idx])
+						DLOG("Comparing address %lx to BAR%u\n", address, idx);
+                    if (rangeListContains(child->ranges[idx], address))
+                    {
+						DLOG("[%s()] Found a match with " D() "\n", __func__, DEVICE_IDENT(child));
+                        return child;
+                    }
+                }
+            }
+            else
+            {
+                if (   rangeListContains(child->ranges[kIOPCIRangeBridgeMemory], address)
+                    || rangeListContains(child->ranges[kIOPCIRangeBridgePFMemory], address))
+                {
+					DLOG("[%s()] Found a match with bridge " B() "\n", __func__, BRIDGE_IDENT(child));
+                    next = child;
+                    break;
+                }
+            }
+        }
+    }
+
+    return (child);
+}
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * arg2)
@@ -249,6 +318,19 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 
 		case kConfigOpFindEntry:
             entry = findEntry(device, *((IOPCIAddressSpace *) arg2));
+            *((void **) arg) = NULL;
+            if (!entry || !entry->dtNub) ret = kIOReturnNotFound;
+            else
+            {
+                entry->dtNub->retain();
+                *((void **) arg) = entry->dtNub;
+                ret = kIOReturnSuccess;
+            }
+			return (ret);
+            break;
+
+		case kConfigOpFindEntryByAddress:
+            entry = findEntryByAddress(device, *((IOPCIScalar *) arg2));
             *((void **) arg) = NULL;
             if (!entry || !entry->dtNub) ret = kIOReturnNotFound;
             else
@@ -1447,7 +1529,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
             if (child->dtEntry && (child->dtEntry != nub)) nub->setProperty(kIOPCIDeviceDeviceTreeEntryKey, child->dtEntry);
             if (!initDT)
             {
-                if (copyReg)
+                if (copyReg && !copyReg->propertyExists("pci-generate-name"))
                 {
                     if ((sym = copyReg->copyName()))
                     {
@@ -1472,6 +1554,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
                 while ((propKey = (const OSSymbol *)propIter->getNextObject()))
                 {
                     if (   !child->dtNub->getProperty(propKey)
+                        || (propKey->isEqualTo("name") && child->dtNub->propertyExists("pci-generate-name"))
                         || (propKey->isEqualTo("ranges"))
                         || (propKey->isEqualTo("reg"))
                         || (propKey->isEqualTo("assigned-addresses"))
@@ -1551,6 +1634,93 @@ void CLASS::maskUR(IOPCIConfigEntry *entry, bool mask)
 	}
 }
 
+bool CLASS::endpointPresent(IOPCIConfigEntry * bridge)
+{
+	if (bridge->dtEntry && bridge->dtEntry->propertyExists(kIOPCIEndpointPrsnt))
+	{
+		return true;
+	}
+	return false;
+}
+
+uint16_t CLASS::waitForLinkUp(IOPCIConfigEntry * bridge)
+{
+	// Following conventional reset, wait up to 1s for the link to
+	// train (PCIe base spec section 6.6.1).
+	uint16_t linkStatus = configRead16(bridge, bridge->expressCapBlock + 0x12);
+	uint64_t startTime = fResetStartTime;
+	uint64_t timeout = 0;
+	uint64_t timeElapsed = 0;
+	OSData *waitData = NULL;
+
+	// rdar://103579149 shows that there is a card that is out of spec. It takes longer than 1s to link train
+	// if property exists, overwrite the wait time with the value from EDT
+	if (bridge->dtEntry && (waitData = OSDynamicCast(OSData, bridge->dtEntry->getProperty(kIOPCIWaitForLinkUpKey))))
+	{
+		uint32_t waitTime = *((uint32_t *) waitData->getBytesNoCopy());;
+		fResetWaitTime = (uint64_t) waitTime;
+	}
+	clock_interval_to_absolutetime_interval(fResetWaitTime, kMillisecondScale, &timeout);
+	while (!(kLinkStatusDataLinkLayerLinkActive & linkStatus) || (kLinkStatusLinkTraining & linkStatus))
+	{
+		IOSleepWithLeeway(1, 1);
+		if ((timeElapsed = (mach_absolute_time() - startTime)) >= timeout)
+		{
+			IOLog("Endpoint failed to respond successfully after spec mandated wait time\n");
+			break;
+		}
+		linkStatus = configRead16(bridge, bridge->expressCapBlock + 0x12);
+	}
+
+	if ((kLinkStatusDataLinkLayerLinkActive & linkStatus) && (timeElapsed < timeout))
+	{
+		uint64_t nanoTime = 0;
+		absolutetime_to_nanoseconds(timeElapsed, &nanoTime);
+		DLOG("IOPCIConfigurator::waitForLinkUp waited for %llu ms for " B() " to link up\n", nanoTime/1000, BRIDGE_IDENT(bridge));
+		// Wait 100 ms after link up before making any configuration requests (PCI Express Base 5.0 - 6.6.1)
+		// Following a Conventional Reset of a device, within 1.0 s the device must be able to receive a Configuration Request and return a Successful Completion if the Request is valid (PCI Express Base 5.0 - 6.6.1)
+		// We only wait if we have not reached the upper bound of the wait time
+		IOSleep(100);
+	}
+
+	return linkStatus;
+}
+
+uint32_t CLASS::retrainLink(IOPCIConfigEntry * bridge)
+{
+	uint16_t linkStatus = 0;
+
+	// Per the PCIe base spec's implementation note "Avoiding Race Conditions
+	// When Using the Retrain Link Bit", wait for the Link Training bit to go
+	// to 0 before initiating a retrain.
+	AbsoluteTime deadline, now = 0;
+	clock_interval_to_deadline(1, kSecondScale, &deadline);
+	do
+	{
+		linkStatus = configRead16(bridge, bridge->expressCapBlock + 0x12);
+		if ((linkStatus & (1 << 11)) == 0)
+		{
+			break;
+		}
+		IOSleep(1);
+		clock_get_uptime(&now);
+	}
+	while (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline));
+
+	if (AbsoluteTime_to_scalar(&now) >= AbsoluteTime_to_scalar(&deadline))
+	{
+		IOLog("Link Training bit didn't reach 0 within 1s.");
+		return kIOReturnError;
+	}
+
+	// Set the Link Retrain bit
+	uint16_t linkControl = configRead16(bridge, bridge->expressCapBlock + 0x10);
+	linkControl |= (1 << 5);
+	configWrite16(bridge, bridge->expressCapBlock + 0x10, linkControl);
+
+	return kIOReturnSuccess;
+}
+
 void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 {
     IOPCIAddressSpace   space;
@@ -1583,6 +1753,20 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 			&& !ignoreNoLink)
 		{
 			noLink = kPCIDeviceStateNoLink;
+			if (endpointPresent(bridge))
+			{
+				// some endpoint take a long time to train so we wait rdar://103579149
+				linkStatus = waitForLinkUp(bridge);
+				if (kLinkStatusDataLinkLayerLinkActive & linkStatus)
+				{
+					noLink = 0;
+				}
+				else if (bridge->dtEntry && bridge->dtEntry->getProperty(kIOPCIRetrainLinkKey))
+				{
+					// if retrain did not result in a link up, remove the retrain property so we don't retrain on wake
+					bridge->dtEntry->removeProperty(kIOPCIRetrainLinkKey);
+				}
+			}
 		}
 
 		if (linkStatus == 0xFFFF)
@@ -1651,7 +1835,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 				child = bridgeProbeChild(bridge, space);
 	
 				// look in function 0 for multi function flag
-				if (0 == scanFunction)
+				if (child && 0 == scanFunction)
 				{
 					uint32_t flags = configRead32(bridge, kIOPCIConfigCacheLineSize, &space);
 					if ((flags != 0xFFFFFFFF) && (0x00800000 & flags))
@@ -1681,6 +1865,11 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 		}
 
 		maskUR(bridge, false);
+	}
+	if (fResetWaitTime > kIOPCIEnumerationWaitTime)
+	{
+		// if fResetWaitTime was set to > kIOPCIEnumerationWaitTime, reset it here to default value for the next bus scan
+		fResetWaitTime = kIOPCIEnumerationWaitTime;
 	}
 }
 
@@ -2680,6 +2869,57 @@ void CLASS::cardbusProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask)
     bridge->ranges[kIOPCIRangeBridgeMemory] = range;
 }
 
+//---------------------------------------------------------------------------
+// ASM workaround rdar://93129225 or rdar://102254456
+
+void CLASS::bridgeRetrainMask(IOPCIConfigEntry * bridge)
+{
+	OSNumber*          retrainNumber;
+	if (((bridge->expressCaps & 0xf0) == 0x50) && bridge->dtEntry
+			&& (retrainNumber = OSDynamicCast(OSNumber, bridge->dtEntry->getProperty(kIOPCIRetrainLinkMaskKey))))
+	{
+		// retrainMask is bitmask for the device number below the bridge
+		uint32_t retrainMask = retrainNumber->unsigned32BitValue();
+		uint16_t linkStatus, linkControl2 = 0;
+		bool retrained = false;
+
+		FOREACH_CHILD(bridge, child)
+		{
+			// Check if device requires retrain and only retrain if there's an endpoint present on the child bridge
+			if ((retrainMask & (1 << child->space.s.deviceNum)) && (endpointPresent(child) == true))
+			{
+				// this workaround is only applicable if the current link speed != target link speed
+				linkStatus = configRead16(child, child->expressCapBlock + 0x12);
+				linkControl2 = configRead16(child, child->expressCapBlock + 0x30);
+				if ((linkStatus & 0x0f) == (linkControl2 & 0x0f))
+				{
+					continue;
+				}
+				if (retrainLink(child) == kIOReturnSuccess)
+				{
+					retrained = true;
+					// the design of this retrain workaround requires the bridge to be on the device tree.
+					// if this becomes a workaround needed for downstream devices whose bridge is not on the device tree,
+					// we'll have to rethink this
+					if (child->dtEntry)
+					{
+						child->dtEntry->setProperty(kIOPCIRetrainLinkKey, kOSBooleanTrue);
+					}
+				}
+			}
+		}
+
+		if (retrained)
+		{
+			// these variables are used for all devices during scanning (i.e., wait for link up, CRS wait).
+			// We decided that for the sake of simple implementation, it is okay for other devices
+			// to use this timestamp instead of keeping 2 sets of timestamp for very little benefits.
+			fResetStartTime = mach_absolute_time();
+			// we reset wait time to 1000ms (1s) for link retrain
+			fResetWaitTime = kIOPCIWaitForLinkUpTime;
+		}
+	}
+}
 
 //---------------------------------------------------------------------------
 
@@ -2717,12 +2957,14 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 										| kPCIDeviceStateAllocatedBus);
 			}
 		}
-        
+
         // associate bootrom devices
         bridgeConnectDeviceTree(bridge);
         // scan ranges
         if (haveBus) bridgeProbeChildRanges(bridge, resetMask);
         bridgeFinishProbe(bridge);
+        // link retrain workaround check
+        bridgeRetrainMask(bridge);
     }
     if (!bootScan)
 	{
@@ -2978,18 +3220,17 @@ void CLASS::configure(uint32_t options)
 
     if (bootConfig) IOLog("[ PCI configuration begin ]\n");
 
-    // As of PCIE specs Revision 5.0 Version 1.0, we support only Conventional Reset
-    // If this is not a boot scan then we assume that it is a scan after CR
-    // which requires up to 1s wait time for Successful response from Endpoint
-    // In future, if there are other scans that require different behaviors, this
-    // condition needs to be modified accordingly.
-    if (!bootConfig)
-    {
-        fResetStartTime = mach_absolute_time();
-        // Time scale is millisecond
-        fResetWaitTime = 900; // Waiting 900ms since we waited 100ms after link up
-    }
+    // An Endpoint may return CRS after a Reset which requires up to 1s wait time
+    // for Successful response. However it is arguable that boot is a form of reset.
+    // rdar://106326237 shows that the Endpoint responded with CRS on boot scan
+    fResetStartTime = mach_absolute_time();
+    // Time scale is millisecond
+    // Per PCIE Base spec v5.0, PCIE device must link train, initialize, and return
+    // successful completion to valid Config Request 1s after reset exit
+    // So we're supposed to wait 900ms since we waited 100ms after link up
+    fResetWaitTime = kIOPCIEnumerationWaitTime;
 
+    IOLog("IOPCIConfigurator::configure kIOPCIEnumerationWaitTime is %d\n", kIOPCIEnumerationWaitTime);
     PE_Video	       consoleInfo;
 
 	fFlags |= options;

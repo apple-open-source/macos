@@ -2782,11 +2782,12 @@ do_addsub(
 		    ? (int)STRLEN(ptr) - col
 		    : length);
 
+	int overflow = FALSE;
 	vim_str2nr(ptr + col, &pre, &length,
 		0 + (do_bin ? STR2NR_BIN : 0)
 		    + (do_oct ? STR2NR_OCT : 0)
 		    + (do_hex ? STR2NR_HEX : 0),
-		NULL, &n, maxlen, FALSE);
+		NULL, &n, maxlen, FALSE, &overflow);
 
 	// ignore leading '-' for hex and octal and bin numbers
 	if (pre && negative)
@@ -2803,10 +2804,14 @@ do_addsub(
 	    subtract ^= TRUE;
 
 	oldn = n;
-	if (subtract)
-	    n -= (uvarnumber_T)Prenum1;
-	else
-	    n += (uvarnumber_T)Prenum1;
+	if (!overflow)  // if number is too big don't add/subtract
+	{
+	    if (subtract)
+		n -= (uvarnumber_T)Prenum1;
+	    else
+		n += (uvarnumber_T)Prenum1;
+	}
+
 	// handle wraparound for decimal numbers
 	if (!pre)
 	{
@@ -3407,7 +3412,7 @@ static callback_T opfunc_cb;
  * Returns OK or FAIL.
  */
     char *
-set_operatorfunc_option(void)
+did_set_operatorfunc(optset_T *args UNUSED)
 {
     if (option_set_callback_func(p_opfunc, &opfunc_cb) == FAIL)
 	return e_invalid_argument;

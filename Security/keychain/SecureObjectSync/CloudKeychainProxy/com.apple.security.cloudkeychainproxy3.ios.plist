@@ -25,8 +25,6 @@
 	<dict>
 		<key>DEBUGSCOPE</key>
 		<string>all</string>
-		<key>WAIT4DEBUGGER</key>
-		<string>NO</string>
 	</dict>
 	<key>LaunchEvents</key>
 	<dict>

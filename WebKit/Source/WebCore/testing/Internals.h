@@ -237,7 +237,7 @@ public:
     unsigned imagePendingDecodePromisesCountForTesting(HTMLImageElement&);
     void setClearDecoderAfterAsyncFrameRequestForTesting(HTMLImageElement&, bool enabled);
     unsigned imageDecodeCount(HTMLImageElement&);
-    unsigned pdfDocumentCachingCount(HTMLImageElement&);
+    unsigned imageCachedSubimageCreateCount(HTMLImageElement&);
     unsigned remoteImagesCountForTesting() const;
     void setLargeImageAsyncDecodingEnabledForTesting(HTMLImageElement&, bool enabled);
     void setForceUpdateImageDataEnabledForTesting(HTMLImageElement&, bool enabled);
@@ -1129,6 +1129,8 @@ public:
     void setUseSystemAppearance(bool);
 
     size_t pluginCount();
+    ExceptionOr<unsigned> pluginScrollPositionX(Element&);
+    ExceptionOr<unsigned> pluginScrollPositionY(Element&);
 
     void notifyResourceLoadObserver();
 

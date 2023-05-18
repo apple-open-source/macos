@@ -10,8 +10,6 @@
 	<dict>
 		<key>DEBUGSCOPE</key>
 		<string>-policy-node,policy-set,policy,alloc,trust,bind,profile,trace,dbconn,OTR,serverxpc,sqlite3,error_thee_well, ringSigning</string>
-		<key>WAIT4DEBUGGER</key>
-		<string>NO</string>
 	</dict>
 	<key>GroupName</key>
 	<string>_securityd</string>

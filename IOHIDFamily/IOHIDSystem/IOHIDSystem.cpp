@@ -855,21 +855,23 @@ exit:
 }
 
 
-
-/*
- * Open the driver for business.  This call must be made before
- * any other calls to the Event driver.  We can only be opened by
- * one user at a time.
- */
-IOReturn IOHIDSystem::evOpen(void)
+IOReturn IOHIDSystem::evOpenGated(void)
 {
     IOReturn r = kIOReturnSuccess;
-
+    
+    if ( evOpenCalled == true ) {
+        cmdGate->commandSleep(&evOpenCalled, THREAD_ABORTSAFE);
+    }
+        
     if ( evOpenCalled == true )
     {
         r = kIOReturnBusy;
         goto done;
     }
+    
+    evOpenedByPID = proc_selfpid();
+    HIDLog("evOpen by %d", evOpenedByPID);
+    
     evOpenCalled = true;
 
     if (!evInitialized)
@@ -880,6 +882,20 @@ IOReturn IOHIDSystem::evOpen(void)
 
 done:
     return r;
+}
+/*
+ * Open the driver for business.  This call must be made before
+ * any other calls to the Event driver.  We can only be opened by
+ * one user at a time.
+ */
+IOReturn IOHIDSystem::evOpen(void)
+{
+    __block IOReturn ret;
+    cmdGate->runActionBlock(^IOReturn{
+        ret = evOpenGated();
+        return kIOReturnSuccess;
+    });
+    return ret;
 }
 
 IOReturn IOHIDSystem::evClose(void){
@@ -915,6 +931,11 @@ IOReturn IOHIDSystem::evCloseGated(void)
     evOpenCalled = false;
     eventsOpen = false;
 
+    cmdGate->commandWakeup(&evOpenCalled);
+
+    HIDLog("evClose by %d", evOpenedByPID);
+    evOpenedByPID = -1;
+    
     return kIOReturnSuccess;
 }
 
@@ -2868,7 +2889,7 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
                     /* withProps*/  OSDictionary *  properties,
                     /* client */    IOUserClient ** handler)
 {
-    IOUserClient * newConnect = 0;
+    IOUserClient * newConnect = NULL;
     IOReturn  err = kIOReturnNoMemory;
 
     do {
@@ -2899,12 +2920,10 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
         if ((false == newConnect->initWithTask(owningTask, security_id, type, properties))
             || (false == newConnect->setProperty(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue))
             || (false == newConnect->attach( this ))
-            || (false == newConnect->start( this ))
-            || ((type == kIOHIDServerConnectType)
-                && (err = evOpen()))) {
+            || (false == newConnect->start( this ))) {
             newConnect->detach( this );
             newConnect->release();
-            newConnect = 0;
+            newConnect = NULL;
             break;
         }
 

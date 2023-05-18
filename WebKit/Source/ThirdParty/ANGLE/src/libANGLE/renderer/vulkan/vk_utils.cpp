@@ -890,9 +890,7 @@ void ClearValuesArray::storeNoDepthStencil(uint32_t index, const VkClearValue &c
 
 gl::DrawBufferMask ClearValuesArray::getColorMask() const
 {
-    constexpr uint32_t kColorBuffersMask =
-        angle::BitMask<uint32_t>(gl::IMPLEMENTATION_MAX_DRAW_BUFFERS);
-    return gl::DrawBufferMask(mEnabled.bits() & kColorBuffersMask);
+    return gl::DrawBufferMask(mEnabled.bits() & kUnpackedColorBuffersMask);
 }
 
 // ResourceSerialFactory implementation.
@@ -971,9 +969,6 @@ PFN_vkGetPhysicalDeviceMemoryProperties2KHR vkGetPhysicalDeviceMemoryProperties2
 
 // VK_KHR_external_semaphore_fd
 PFN_vkImportSemaphoreFdKHR vkImportSemaphoreFdKHR = nullptr;
-
-// VK_EXT_external_memory_host
-PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesEXT = nullptr;
 
 // VK_EXT_host_query_reset
 PFN_vkResetQueryPoolEXT vkResetQueryPoolEXT = nullptr;
@@ -1138,11 +1133,6 @@ void InitGGPStreamDescriptorSurfaceFunctions(VkInstance instance)
 void InitExternalSemaphoreFdFunctions(VkInstance instance)
 {
     GET_INSTANCE_FUNC(vkImportSemaphoreFdKHR);
-}
-
-void InitExternalMemoryHostFunctions(VkInstance instance)
-{
-    GET_INSTANCE_FUNC(vkGetMemoryHostPointerPropertiesEXT);
 }
 
 void InitHostQueryResetFunctions(VkDevice device)
@@ -1358,6 +1348,8 @@ VkSamplerAddressMode GetSamplerAddressMode(const GLenum wrap)
             return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         case GL_CLAMP_TO_EDGE:
             return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        case GL_MIRROR_CLAMP_TO_EDGE_EXT:
+            return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
         default:
             UNIMPLEMENTED();
             return VK_SAMPLER_ADDRESS_MODE_MAX_ENUM;

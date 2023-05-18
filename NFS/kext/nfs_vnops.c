@@ -86,6 +86,8 @@
 
 #define NFS_VNOP_DBG(...) NFSCLNT_DBG(NFSCLNT_FAC_VNOP, 7, ## __VA_ARGS__)
 #define DEFAULT_READLINK_NOCACHE 0
+#define NFS_CLOSE_LOCK_RETRY    10
+
 /*
  * NFS vnode ops
  */
@@ -1235,6 +1237,98 @@ out:
 	return NFS_MAPERR(error);
 }
 
+#if CONFIG_NFS4
+
+/*
+ * Release lock owner as lock's state id is not valid after file is closed
+ * Iterate over the lock owners list to handle a case with fd is shipped to another process.
+ */
+int
+nfs_release_locks_for_open_owner(vfs_context_t ctx, nfsnode_t np, struct nfs_open_file *nofp)
+{
+	uint32_t length = 0;
+	struct nfsmount *nmp = NFSTONMP(np);
+	struct nfs_lock_owner *nlop, *nlop2;
+	int retry = NFS_CLOSE_LOCK_RETRY, error = 0;
+	int slpflag = NMFLAG(nmp, INTR) ? PCATCH : 0;
+	struct nfs_file_lock *nflp = NULL, *next_nflp = NULL;
+	struct timespec ts = { .tv_sec = 1, .tv_nsec = 0 };
+
+retry:
+	lck_mtx_lock(&np->n_openlock);
+	/* Iterate over the lock owners list to handle a case with fd is shipped to another process */
+	TAILQ_FOREACH_SAFE(nlop, &np->n_lock_owners, nlo_link, nlop2) {
+		/* Find a lock owner of the same open file */
+		if (nofp == nlop->nlo_open_file) {
+			/* Acquire lock-owner lock */
+			lck_mtx_lock(&nlop->nlo_lock);
+			nlop->nlo_flags |= NFS_LOCK_OWNER_PENDING_CLOSE;
+
+			/* Calculate the length of held locks list */
+			length = 0;
+			TAILQ_FOREACH(nflp, &nlop->nlo_locks, nfl_lolink) {
+				length++;
+			}
+
+			/* Validate no LOCK/UNLOCK operation in progress */
+			if (retry > 0 && os_ref_get_count(&nlop->nlo_refcnt) > (length + 1)) {
+				NP(np, "nfs_release_locks_for_open_owner: LOCK/UNLOCK operation in progress, retry %d", retry);
+				if ((error = nfs_sigintr(nmp, NULL, vfs_context_thread(ctx), 0))) {
+					break;
+				}
+				lck_mtx_unlock(&np->n_openlock);
+				msleep(nlop, &nlop->nlo_lock, slpflag | PDROP, "nfs_release_locks_for_open_owner", &ts);
+				slpflag = 0;
+				retry--;
+				goto retry;
+			}
+			slpflag = NMFLAG(nmp, INTR) ? PCATCH : 0;
+			retry = NFS_CLOSE_LOCK_RETRY;
+
+			/* Clean up file locks */
+			lck_mtx_unlock(&nlop->nlo_lock);
+			TAILQ_FOREACH_SAFE(nflp, &nlop->nlo_locks, nfl_lolink, next_nflp) {
+				if (!(nflp->nfl_flags & (NFS_FILE_LOCK_BLOCKED | NFS_FILE_LOCK_DEAD))) {
+					/* try sending an unlock RPC if it wasn't delegated */
+					if (!(nflp->nfl_flags & NFS_FILE_LOCK_DELEGATED)) {
+						error = nfs4_unlock_rpc(np, nlop, nflp->nfl_type, nflp->nfl_start, nflp->nfl_end, 0, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+						if (error) {
+							NP(np, "nfs_release_locks_for_open_owner: was not able to unlock a file, error %d", error);
+						}
+					}
+					TAILQ_REMOVE(&nlop->nlo_locks, nflp, nfl_lolink);
+				}
+				TAILQ_REMOVE(&np->n_locks, nflp, nfl_link);
+				nfs_file_lock_destroy(np, nflp, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+			}
+
+			/* Send RELEASE_LOCKOWNER operation to the server */
+			error = nfs4_release_lockowner_rpc(np, nlop, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+			if (error) {
+				NP(np, "nfs_release_locks_for_open_owner: was not able to release lock owner, error %d", error);
+			}
+
+			/* Release lock owner if we are the only one holding it */
+			lck_mtx_lock(&nlop->nlo_lock);
+			if (os_ref_get_count(&nlop->nlo_refcnt) == 1) {
+				TAILQ_REMOVE(&np->n_lock_owners, nlop, nlo_link);
+				nlop->nlo_flags &= ~NFS_LOCK_OWNER_LINK;
+				lck_mtx_unlock(&nlop->nlo_lock);
+				nfs_lock_owner_destroy(nlop);
+			} else {
+				/* Erase state generation ID to force future LOCK operations to request new lock owner */
+				nlop->nlo_stategenid = 0;
+				lck_mtx_unlock(&nlop->nlo_lock);
+				NP(np, "nfs_release_locks_for_open_owner: was not able to destroy lock owner %p", nlop);
+			}
+		}
+	}
+	lck_mtx_unlock(&np->n_openlock);
+
+	return error;
+}
+#endif
+
 /*
  * nfs_close(): common function that does all the heavy lifting of file closure
  *
@@ -1307,6 +1401,10 @@ nfs_close(
 		nfs_wait_bufs(np);
 		closed = 1;
 		if (!delegated && !(nofp->nof_flags & NFS_OPEN_FILE_LOST)) {
+			error = nfs_release_locks_for_open_owner(ctx, np, nofp);
+			if (error) {
+				NP(np, "nfs_close: nfs_release_locks_for_open_owner for np %p and nofp %p returned %d", np, nofp, error);
+			}
 			error = nfs4_close_rpc(np, nofp, vfs_context_thread(ctx), vfs_context_ucred(ctx), 0);
 		}
 		if (error == NFSERR_LOCKS_HELD) {
@@ -1318,7 +1416,7 @@ nfs_close(
 			if (nlop) {
 				nfs4_unlock_rpc(np, nlop, F_WRLCK, 0, UINT64_MAX,
 				    0, vfs_context_thread(ctx), vfs_context_ucred(ctx));
-				nfs_lock_owner_rele(np, nlop, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+				nfs_lock_owner_rele(nlop);
 			}
 			error = nfs4_close_rpc(np, nofp, vfs_context_thread(ctx), vfs_context_ucred(ctx), 0);
 		}

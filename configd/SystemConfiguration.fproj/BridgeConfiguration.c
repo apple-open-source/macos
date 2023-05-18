@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -120,8 +120,60 @@ ifbifconf_copy(int s, const char * ifname)
 	}
 	return NULL;
 }
-#endif	// IFT_BRIDGE
 
+static void
+set_configured_mtu(SCPreferencesRef prefs,
+		   int s, const char * info_str, CFStringRef if_name)
+{
+	CFDictionaryRef	dict;
+	struct ifreq	ifr;
+	int		mtu = 0;
+	CFNumberRef	mtu_cf;
+	CFStringRef	path;
+	SCNetworkSetRef	set = NULL;
+
+	set = SCNetworkSetCopyCurrent(prefs);
+	if (set == NULL) {
+		SC_log(LOG_NOTICE, "%s: no current set", __func__);
+		goto done;
+	}
+	path = SCPreferencesPathKeyCreateSetNetworkInterfaceEntity(NULL,
+								   SCNetworkSetGetSetID(set),
+								   if_name,
+								   kSCEntNetEthernet);
+	dict = SCPreferencesPathGetValue(prefs, path);
+	CFRelease(path);
+	if (dict == NULL) {
+		goto done;
+	}
+	mtu_cf = CFDictionaryGetValue(dict, kSCPropNetEthernetMTU);
+	if (isA_CFNumber(mtu_cf) == NULL) {
+		goto done;
+	}
+	if (!CFNumberGetValue(mtu_cf, kCFNumberIntType, &mtu)) {
+		goto done;
+	}
+	memset((char *)&ifr, 0, sizeof(ifr));
+	(void)_SC_cfstring_to_cstring(if_name, ifr.ifr_name,
+				      sizeof(ifr.ifr_name), kCFStringEncodingUTF8);
+	ifr.ifr_mtu = mtu;
+	if (ioctl(s, SIOCSIFMTU, (caddr_t)&ifr) < 0) {
+		SC_log(LOG_ERR,
+		       "%s: %s set mtu %d failed, %s (%d)",
+		       info_str, ifr.ifr_name, mtu, strerror(errno), errno);
+	}
+	else {
+		SC_log(LOG_NOTICE, "%s: %s set MTU %d", info_str,
+		       ifr.ifr_name, mtu);
+	}
+ done:
+	if (set != NULL) {
+		CFRelease(set);
+	}
+	return;
+}
+
+#endif	// IFT_BRIDGE
 
 static void
 add_interface(CFMutableArrayRef *interfaces, CFStringRef if_name, SCPreferencesRef ni_prefs)
@@ -1083,10 +1135,15 @@ SCBridgeInterfaceGetAllowConfiguredMembers(SCBridgeInterfaceRef bridge)
 
 #ifdef	IFT_BRIDGE
 static Boolean
-__bridge_add_interface(int s, CFStringRef bridge_if, CFStringRef interface_if)
+__bridge_add_interface(SCPreferencesRef prefs, int s, CFStringRef bridge_if, CFStringRef interface_if)
 {
 	struct ifbreq	breq;
 	struct ifdrv	ifd;
+
+	//
+	// set the MTU (if configured) before adding the interface
+	//
+	set_configured_mtu(prefs, s, "BridgeConfiguration", interface_if);
 
 	// bridge interface
 	memset(&ifd, 0, sizeof(ifd));
@@ -1432,7 +1489,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 						 * add the member interface to the bridge.
 						 */
 						c_interface_if = SCNetworkInterfaceGetBSDName(c_interface);
-						if (!__bridge_add_interface(s, c_bridge_if, c_interface_if)) {
+						if (!__bridge_add_interface(prefs, s, c_bridge_if, c_interface_if)) {
 							// if member could not be added
 							ok = FALSE;
 						}
@@ -1506,7 +1563,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 				 * add the member interface to the bridge.
 				 */
 				c_interface_if = SCNetworkInterfaceGetBSDName(c_interface);
-				if (!__bridge_add_interface(s, c_bridge_if, c_interface_if)) {
+				if (!__bridge_add_interface(prefs, s, c_bridge_if, c_interface_if)) {
 					// if member could not be added
 					ok = FALSE;
 				}

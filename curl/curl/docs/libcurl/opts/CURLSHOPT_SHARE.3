@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -21,7 +21,7 @@
 .\" * SPDX-License-Identifier: curl
 .\" *
 .\" **************************************************************************
-.TH CURLSHOPT_SHARE 3 "May 17, 2022" "libcurl 7.87.0" "libcurl Manual"
+.TH CURLSHOPT_SHARE 3 "January 02, 2023" "libcurl 7.88.1" "libcurl Manual"
 
 .SH NAME
 CURLSHOPT_SHARE - add data to share
@@ -79,6 +79,10 @@ Added in 7.61.0.
 
 Note that when you use the multi interface, all easy handles added to the same
 multi handle will share PSL cache by default without using this option.
+.IP CURL_LOCK_DATA_HSTS
+The in-memory HSTS cache.
+
+Added in 7.88.0
 .SH PROTOCOLS
 All
 .SH EXAMPLE

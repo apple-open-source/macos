@@ -613,6 +613,9 @@ bool ValidCap(const Context *context, GLenum cap, bool queryOnly)
         case GL_DITHER:
             return true;
 
+        case GL_DEPTH_CLAMP_EXT:
+            return context->getExtensions().depthClampEXT;
+
         case GL_PRIMITIVE_RESTART_FIXED_INDEX:
         case GL_RASTERIZER_DISCARD:
             return (context->getClientMajorVersion() >= 3);
@@ -663,6 +666,12 @@ bool ValidCap(const Context *context, GLenum cap, bool queryOnly)
         case GL_COLOR_LOGIC_OP:
             return context->getClientVersion() < Version(2, 0) ||
                    context->getExtensions().logicOpANGLE;
+
+        case GL_FETCH_PER_SAMPLE_ARM:
+            return context->getExtensions().shaderFramebufferFetchARM;
+
+        case GL_FRAGMENT_SHADER_FRAMEBUFFER_FETCH_MRT_ARM:
+            return queryOnly && context->getExtensions().shaderFramebufferFetchARM;
 
         default:
             break;
@@ -1274,17 +1283,6 @@ bool ValidateES2TexImageParametersBase(const Context *context,
                         return false;
                 }
                 break;
-            case GL_STENCIL_INDEX:
-                switch (type)
-                {
-                    case GL_UNSIGNED_BYTE:
-                        break;
-                    default:
-                        context->validationError(entryPoint, GL_INVALID_OPERATION,
-                                                 kMismatchedTypeAndFormat);
-                        return false;
-                }
-                break;
             default:
                 context->validationErrorF(entryPoint, GL_INVALID_ENUM, kEnumNotSupported, format);
                 return false;
@@ -1342,37 +1340,6 @@ bool ValidateES2TexImageParametersBase(const Context *context,
                         context->validationError(entryPoint, GL_INVALID_OPERATION, kLevelNotZero);
                         return false;
                     }
-                }
-                break;
-            case GL_STENCIL_INDEX:
-                if (!context->getExtensions().textureStencil8OES)
-                {
-                    context->validationError(entryPoint, GL_INVALID_OPERATION, kInvalidFormat);
-                    return false;
-                }
-
-                switch (target)
-                {
-                    case TextureTarget::_2D:
-                    case TextureTarget::_2DArray:
-                    case TextureTarget::CubeMapNegativeX:
-                    case TextureTarget::CubeMapNegativeY:
-                    case TextureTarget::CubeMapNegativeZ:
-                    case TextureTarget::CubeMapPositiveX:
-                    case TextureTarget::CubeMapPositiveY:
-                    case TextureTarget::CubeMapPositiveZ:
-                        break;
-                    default:
-                        context->validationError(entryPoint, GL_INVALID_OPERATION,
-                                                 kMismatchedTargetAndFormat);
-                        return false;
-                }
-
-                if (internalformat != GL_STENCIL_INDEX8)
-                {
-                    context->validationError(entryPoint, GL_INVALID_OPERATION,
-                                             kMismatchedTargetAndFormat);
-                    return false;
                 }
                 break;
             default:
@@ -1457,14 +1424,6 @@ bool ValidateES2TexImageParametersBase(const Context *context,
                     if (!(context->getExtensions().depthTextureANGLE ||
                           context->getExtensions().packedDepthStencilOES ||
                           context->getExtensions().depthTextureCubeMapOES))
-                    {
-                        context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidFormat);
-                        return false;
-                    }
-                    break;
-
-                case GL_STENCIL_INDEX8:
-                    if (!context->getExtensions().textureStencil8OES)
                     {
                         context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidFormat);
                         return false;
@@ -2138,19 +2097,13 @@ bool ValidateGetDebugMessageLogKHR(const Context *context,
     return true;
 }
 
-bool ValidatePushDebugGroupKHR(const Context *context,
-                               angle::EntryPoint entryPoint,
-                               GLenum source,
-                               GLuint id,
-                               GLsizei length,
-                               const GLchar *message)
+bool ValidatePushDebugGroupBase(const Context *context,
+                                angle::EntryPoint entryPoint,
+                                GLenum source,
+                                GLuint id,
+                                GLsizei length,
+                                const GLchar *message)
 {
-    if (!context->getExtensions().debugKHR)
-    {
-        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
-        return false;
-    }
-
     if (!ValidDebugSource(source, true))
     {
         context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidDebugSource);
@@ -2174,14 +2127,8 @@ bool ValidatePushDebugGroupKHR(const Context *context,
     return true;
 }
 
-bool ValidatePopDebugGroupKHR(const Context *context, angle::EntryPoint entryPoint)
+bool ValidatePopDebugGroupBase(const Context *context, angle::EntryPoint entryPoint)
 {
-    if (!context->getExtensions().debugKHR)
-    {
-        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
-        return false;
-    }
-
     size_t currentStackSize = context->getState().getDebug().getGroupStackDepth();
     if (currentStackSize <= 1)
     {
@@ -2190,6 +2137,33 @@ bool ValidatePopDebugGroupKHR(const Context *context, angle::EntryPoint entryPoi
     }
 
     return true;
+}
+
+bool ValidatePushDebugGroupKHR(const Context *context,
+                               angle::EntryPoint entryPoint,
+                               GLenum source,
+                               GLuint id,
+                               GLsizei length,
+                               const GLchar *message)
+{
+    if (!context->getExtensions().debugKHR)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidatePushDebugGroupBase(context, entryPoint, source, id, length, message);
+}
+
+bool ValidatePopDebugGroupKHR(const Context *context, angle::EntryPoint entryPoint)
+{
+    if (!context->getExtensions().debugKHR)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidatePopDebugGroupBase(context, entryPoint);
 }
 
 static bool ValidateObjectIdentifierAndName(const Context *context,

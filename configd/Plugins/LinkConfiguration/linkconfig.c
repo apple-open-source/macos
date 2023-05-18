@@ -1162,7 +1162,7 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 }
 
 
-#ifdef	MAIN
+#ifdef TEST_LINKCONFIG
 
 
 #pragma mark -
@@ -1245,4 +1245,4 @@ main(int argc, char * const argv[])
 	exit(0);
 	return 0;
 }
-#endif
+#endif /* TEST_LINKCONFIG */

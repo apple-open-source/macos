@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -8603,6 +8603,7 @@ IGNORE_CLANG_WARNINGS_END
             authenticate->append(size64Bits, B3::ValueRep(B3::ValueRep::SomeLateRegister));
             authenticate->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
                 jit.move(params[1].gpr(), params[0].gpr());
+                jit.zeroExtend48ToWord(params[2].gpr(), params[2].gpr()); // See rdar://107561209, rdar://107724053.
                 jit.tagArrayPtr(params[2].gpr(), params[0].gpr());
             });
             storage = authenticate;
@@ -14141,6 +14142,25 @@ IGNORE_CLANG_WARNINGS_END
             LValue propertyIndex = m_out.phi(Int32, initialIndexForHasProperty, incrementedIndexResult);
             m_out.addIncomingToPhi(indexPhi, m_out.anchor(propertyIndex));
             ValueFromBlock finalPropertyIndex = m_out.anchor(propertyIndex);
+            if (m_node->arrayMode().permitsBoundsCheckLowering()) {
+                switch (m_node->arrayMode().type()) {
+                case Array::Int32:
+                case Array::Contiguous:
+                case Array::Double: {
+                    LValue storage = lowStorage(m_graph.varArgChild(m_node, m_node->storageChildIndex()));
+                    speculate(OutOfBounds, noValue(), nullptr, m_out.aboveOrEqual(propertyIndex, m_out.load32NonNegative(storage, m_heaps.Butterfly_publicLength)));
+                    break;
+                }
+                case Array::ArrayStorage: {
+                    LValue storage = lowStorage(m_graph.varArgChild(m_node, m_node->storageChildIndex()));
+                    speculate(OutOfBounds, noValue(), nullptr, m_out.aboveOrEqual(propertyIndex, m_out.load32NonNegative(storage, m_heaps.ArrayStorage_vectorLength)));
+                    break;
+                }
+                default: {
+                    break;
+                }
+                }
+            }
             LValue hasProperty = compileHasIndexedPropertyImpl(propertyIndex, operationHasEnumerableIndexedProperty);
             m_out.branch(hasProperty, unsure(continuation), unsure(increment));
 

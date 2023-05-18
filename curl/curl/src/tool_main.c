@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -155,7 +155,7 @@ static CURLcode main_init(struct GlobalConfig *config)
 #endif
 
   /* Initialise the global config */
-  config->showerror = -1;             /* Will show errors */
+  config->showerror = FALSE;          /* show errors when silent */
   config->errors = stderr;            /* Default errors to stderr */
   config->styled_output = TRUE;       /* enable detection */
   config->parallel_max = PARALLEL_DEFAULT;

@@ -818,9 +818,46 @@ void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& max
         layoutBlockChild(child, marginInfo, previousFloatLogicalBottom, maxFloatLogicalBottom);
     }
     
+    if (style().marginTrim().contains(MarginTrimType::BlockEnd))
+        trimBlockEndChildrenMargins();
     // Now do the handling of the bottom of the block, adding in our bottom border/padding and
     // determining the correct collapsed bottom margin information.
     handleAfterSideOfBlock(beforeEdge, afterEdge, marginInfo);
+}
+
+
+void RenderBlockFlow::trimBlockEndChildrenMargins()
+{
+    ASSERT(style().marginTrim().contains(MarginTrimType::BlockEnd));
+    // If we are trimming the block end margin, we need to make sure we trim the margin of the children
+    // at the end of the block by walking back up the container. Any self collapsing children will also need to
+    // have their position adjusted to below the last non self-collapsing child in its containing block
+    auto* child = lastChildBox();
+    while (child) {
+        if (child->isExcludedFromNormalLayout() || !child->isInFlow()) {
+            child = child->previousSiblingBox();
+            continue;
+        }
+
+        auto* childContainingBlock = child->containingBlock();
+        childContainingBlock->setMarginAfterForChild(*child, 0_lu);
+        if (child->isSelfCollapsingBlock()) {
+            childContainingBlock->setMarginBeforeForChild(*child, 0_lu);
+            childContainingBlock->setLogicalTopForChild(*child, childContainingBlock->logicalHeight());
+            child = child->previousSiblingBox();
+        }  else if (auto* nestedBlock = dynamicDowncast<RenderBlockFlow>(child); nestedBlock && nestedBlock->isBlockContainer() && !nestedBlock->childrenInline() && !nestedBlock->style().marginTrim().contains(MarginTrimType::BlockEnd)) {
+            MarginInfo nestedBlockMarginInfo(*nestedBlock, nestedBlock->borderAndPaddingBefore(), nestedBlock->borderAndPaddingAfter());
+            // The margins *inside* this nested block are protected so we should not introspect and try to
+            // trim any of them.
+            if (!nestedBlockMarginInfo.canCollapseMarginAfterWithChildren())
+                break;
+
+            child = child->lastChildBox();
+        } else
+            // We hit another type of block child that doesn't apply to our search. We can just
+            // end the search since nothing before this block can affect the bottom margin of the outer one we are trimming for.
+            break;
+    }
 }
 
 void RenderBlockFlow::simplifiedNormalFlowLayout()
@@ -2283,13 +2320,17 @@ void RenderBlockFlow::styleDidChange(StyleDifference diff, const RenderStyle* ol
         lineLayout->updateStyle(*this, *oldStyle);
 
     if (multiColumnFlow())
-        updateStylesForColumnChildren();
+        updateStylesForColumnChildren(oldStyle);
 }
 
-void RenderBlockFlow::updateStylesForColumnChildren()
+void RenderBlockFlow::updateStylesForColumnChildren(const RenderStyle* oldStyle)
 {
-    for (auto* child = firstChildBox(); child && (child->isRenderFragmentedFlow() || child->isRenderMultiColumnSet()); child = child->nextSiblingBox())
+    auto columnsNeedLayout = oldStyle && (oldStyle->columnCount() != style().columnCount() || oldStyle->columnWidth() != style().columnWidth()); 
+    for (auto* child = firstChildBox(); child && (child->isRenderFragmentedFlow() || child->isRenderMultiColumnSet()); child = child->nextSiblingBox()) {
         child->setStyle(RenderStyle::createAnonymousStyleWithDisplay(style(), DisplayType::Block));
+        if (columnsNeedLayout)
+            child->setNeedsLayoutAndPrefWidthsRecalc();
+    }
 }
 
 void RenderBlockFlow::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)

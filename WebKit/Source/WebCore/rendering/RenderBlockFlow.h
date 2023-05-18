@@ -233,6 +233,8 @@ public:
     void adjustPositionedBlock(RenderBox& child, const MarginInfo&);
     void adjustFloatingBlock(const MarginInfo&);
 
+    void trimBlockEndChildrenMargins();
+
     void setStaticInlinePositionForChild(RenderBox& child, LayoutUnit blockOffset, LayoutUnit inlinePosition);
     void updateStaticInlinePositionForChild(RenderBox& child, LayoutUnit logicalTop, IndentTextOrNot shouldIndentText);
 
@@ -381,7 +383,7 @@ public:
     bool hasNextPage(LayoutUnit logicalOffset, PageBoundaryRule = ExcludePageBoundary) const;
 
     void updateColumnProgressionFromStyle(const RenderStyle&);
-    void updateStylesForColumnChildren();
+    void updateStylesForColumnChildren(const RenderStyle* oldStyle);
 
     bool needsLayoutAfterFragmentRangeChange() const override;
     WEBCORE_EXPORT RenderText* findClosestTextAtAbsolutePoint(const FloatPoint&);

@@ -64,7 +64,7 @@ public:
     bool isNamespaceRule() const { return type() == StyleRuleType::Namespace; }
     bool isMediaRule() const { return type() == StyleRuleType::Media; }
     bool isPageRule() const { return type() == StyleRuleType::Page; }
-    bool isStyleRule() const { return type() == StyleRuleType::Style || type() == StyleRuleType::StyleWithNesting; }
+    bool isStyleRule() const { return type() == StyleRuleType::Style; }
     bool isStyleRuleWithNesting() const { return type() == StyleRuleType::StyleWithNesting; }
     bool isGroupRule() const { return type() == StyleRuleType::Media || type() == StyleRuleType::Supports || type() == StyleRuleType::LayerBlock || type() == StyleRuleType::Container; }
     bool isSupportsRule() const { return type() == StyleRuleType::Supports; }
@@ -156,17 +156,23 @@ private:
 class StyleRuleWithNesting final : public StyleRule {
 public:
     static Ref<StyleRuleWithNesting> create(Ref<StyleProperties>&&, bool hasDocumentSecurityOrigin, CSSSelectorList&&, Vector<Ref<StyleRuleBase>>&& nestedRules);
+    static Ref<StyleRuleWithNesting> create(StyleRule&&);
+    Ref<StyleRuleWithNesting> copy() const;
+    ~StyleRuleWithNesting();
 
     const Vector<Ref<StyleRuleBase>>& nestedRules() const { return m_nestedRules; }
-    const CSSSelectorList& resolvedSelectorList() const { return m_resolvedSelectorList; }
-    void setResolvedSelectorList(CSSSelectorList&&) const;
-    StyleRuleWithNesting(const StyleRuleWithNesting&) = delete;
+    Vector<Ref<StyleRuleBase>>& nestedRules() { return m_nestedRules; }
+    const CSSSelectorList& originalSelectorList() const { return m_originalSelectorList; }
+
+protected:
+    StyleRuleWithNesting(const StyleRuleWithNesting&);
 
 private:
     StyleRuleWithNesting(Ref<StyleProperties>&&, bool hasDocumentSecurityOrigin, CSSSelectorList&&, Vector<Ref<StyleRuleBase>>&& nestedRules);
+    StyleRuleWithNesting(StyleRule&&);
 
     Vector<Ref<StyleRuleBase>> m_nestedRules;
-    mutable CSSSelectorList m_resolvedSelectorList;
+    CSSSelectorList m_originalSelectorList;
 };
 
 class StyleRuleFontFace final : public StyleRuleBase {
@@ -277,6 +283,9 @@ public:
 
     void wrapperInsertRule(unsigned, Ref<StyleRuleBase>&&);
     void wrapperRemoveRule(unsigned);
+
+    friend class CSSGroupingRule;
+    friend class CSSStyleSheet;
 
 protected:
     StyleRuleGroup(StyleRuleType, Vector<RefPtr<StyleRuleBase>>&&);

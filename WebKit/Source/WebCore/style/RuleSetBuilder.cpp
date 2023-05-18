@@ -215,15 +215,19 @@ void RuleSetBuilder::addRulesFromSheetContents(const StyleSheetContents& sheet)
     addChildRules(sheet.childRules());
 }
 
-void RuleSetBuilder::populateStyleRuleResolvedSelectorList(const StyleRuleWithNesting& rule)
+void RuleSetBuilder::resolveSelectorListWithNesting(StyleRuleWithNesting& rule)
 {
-    auto resolvedSelectorList = rule.selectorList();
-
-    // FIXME: handle top-level nesting selector
+    const CSSSelectorList* parentResolvedSelectorList = nullptr;
     if (m_styleRuleStack.size()) 
-        resolvedSelectorList = CSSSelectorParser::resolveNestingParent(rule.selectorList(), m_styleRuleStack.last());
+        parentResolvedSelectorList =  m_styleRuleStack.last();
 
-    rule.setResolvedSelectorList(WTFMove(resolvedSelectorList));    
+    // If it's a top-level rule without a nesting parent selector, keep the selector list as is.
+    if (!rule.originalSelectorList().hasExplicitNestingParent() && !parentResolvedSelectorList)
+        return;
+
+    auto resolvedSelectorList = CSSSelectorParser::resolveNestingParent(rule.originalSelectorList(), parentResolvedSelectorList);
+    ASSERT(!resolvedSelectorList.hasExplicitNestingParent());
+    rule.wrapperAdoptSelectorList(WTFMove(resolvedSelectorList));    
 }
 
 void RuleSetBuilder::addStyleRuleWithSelectorList(const CSSSelectorList& selectorList, const StyleRule& rule)
@@ -239,11 +243,11 @@ void RuleSetBuilder::addStyleRuleWithSelectorList(const CSSSelectorList& selecto
     }
 }
 
-void RuleSetBuilder::addStyleRule(const StyleRuleWithNesting& rule)
+void RuleSetBuilder::addStyleRule(StyleRuleWithNesting& rule)
 {
-    populateStyleRuleResolvedSelectorList(rule);
+    resolveSelectorListWithNesting(rule);
 
-    auto& selectorList = rule.resolvedSelectorList();
+    auto& selectorList = rule.selectorList();
     addStyleRuleWithSelectorList(selectorList, rule);
     
     // Process nested rules

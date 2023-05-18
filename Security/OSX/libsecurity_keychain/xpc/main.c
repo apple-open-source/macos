@@ -372,12 +372,6 @@ static const char* g_path_to_plist = "/Library/Preferences/com.apple.security.pl
 
 int main(int argc, const char *argv[])
 {
-    char *wait4debugger = getenv("WAIT4DEBUGGER");
-    if (wait4debugger && !strcasecmp("YES", wait4debugger)) {
-        syslog(LOG_ERR, "Waiting for debugger");
-        kill(getpid(), SIGSTOP);
-    }
-
     // get the home directory
     const char* home_dir = getenv("HOME");
 

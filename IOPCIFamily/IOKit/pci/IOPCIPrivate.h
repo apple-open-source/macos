@@ -51,6 +51,12 @@ class IOPCIHostBridge;
 
 enum
 {
+	kIOPCIWaitForLinkUpTime	= 1000, // spec compliant link up wait time - unit in ms
+	kIOPCIEnumerationWaitTime = (kIOPCIWaitForLinkUpTime - 100), // wait time during enumeration (APCIE already waits 100ms after link up)
+};
+
+enum
+{
 	kIOPCIClassBridge           = 0x06,
 	kIOPCIClassNetwork          = 0x02,
 	kIOPCIClassGraphics         = 0x03,
@@ -154,6 +160,7 @@ struct IOPCIDeviceExpansionData
 	IONotifier*             _matchedNotifier;
 
 	uint32_t probeTimeMS;
+	bool clientCrashed;
 };
 
 enum
@@ -344,13 +351,8 @@ enum
 
 enum
 {
-	kCheckLinkParents  = 0x00000001,
-	kCheckLinkForPower = 0x00000002,
-};
-
-enum
-{
 	kLinkCapDataLinkLayerActiveReportingCapable = (1 << 20),
+	kLinkStatusLinkTraining						= (1 << 11),
 	kLinkStatusDataLinkLayerLinkActive 			= (1 << 13),
 	kSlotCapHotplug					 			= (1 << 6),
 	kSlotCapPowerController			 			= (1 << 1),

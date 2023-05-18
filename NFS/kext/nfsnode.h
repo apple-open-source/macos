@@ -530,7 +530,6 @@ TAILQ_HEAD(nfs_file_lock_queue, nfs_file_lock);
 
 /* nfs_lock_owner_find flags */
 #define NFS_LOCK_OWNER_FIND_ALLOC               0x01
-#define NFS_LOCK_OWNER_FIND_DEQUEUE             0x02
 
 /*
  * NFSv4 lock owner structure - per open owner per process per nfsnode
@@ -546,6 +545,7 @@ struct nfs_lock_owner {
 	lck_mtx_t                       nlo_lock;       /* owner mutex */
 	TAILQ_ENTRY(nfs_lock_owner)     nlo_link;       /* List of lock owners (on nfsnode) */
 	struct nfs_open_owner *         nlo_open_owner; /* corresponding open owner */
+	struct nfs_open_file *          nlo_open_file;  /* corresponding open file */
 	struct nfs_file_lock_queue      nlo_locks;      /* list of locks held */
 	struct nfs_file_lock            nlo_alock;      /* most lockers will only ever have one */
 	struct timeval                  nlo_pid_start;  /* Start time of process id */
@@ -559,9 +559,10 @@ struct nfs_lock_owner {
 	nfs_stateid                     nlo_stateid;    /* lock stateid */
 };
 /* nlo_flags */
-#define NFS_LOCK_OWNER_LINK     0x1     /* linked into mount's lock owner list */
-#define NFS_LOCK_OWNER_BUSY     0x2     /* lock state-modifying operation in progress */
-#define NFS_LOCK_OWNER_WANT     0x4     /* someone else wants to mark busy */
+#define NFS_LOCK_OWNER_LINK          0x1     /* linked into mount's lock owner list */
+#define NFS_LOCK_OWNER_BUSY          0x2     /* lock state-modifying operation in progress */
+#define NFS_LOCK_OWNER_WANT          0x4     /* someone else wants to mark busy */
+#define NFS_LOCK_OWNER_PENDING_CLOSE 0x8     /* lock owner is pending close */
 
 /*
  * The nfsnode is the NFS equivalent of an inode.

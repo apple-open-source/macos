@@ -52,7 +52,9 @@ namespace Style {
 struct ResolutionContext;
 }
 
-class KeyframeEffect : public AnimationEffect, public CSSPropertyBlendingClient {
+
+class KeyframeEffect final : public AnimationEffect, public CSSPropertyBlendingClient {
+    WTF_MAKE_ISO_ALLOCATED(KeyframeEffect);
 public:
     static ExceptionOr<Ref<KeyframeEffect>> create(JSC::JSGlobalObject&, Document&, Element*, JSC::Strong<JSC::JSObject>&&, std::optional<std::variant<double, KeyframeEffectOptions>>&&);
     static Ref<KeyframeEffect> create(Ref<KeyframeEffect>&&);
@@ -175,6 +177,7 @@ public:
     void effectStackNoLongerAllowsAcceleration();
 
     void lastStyleChangeEventStyleDidChange(const RenderStyle* previousStyle, const RenderStyle* currentStyle);
+    void acceleratedPropertiesOverriddenByCascadeDidChange();
 
     static String CSSPropertyIDToIDLAttributeName(CSSPropertyID);
 
@@ -222,6 +225,7 @@ private:
     void computeHasImplicitKeyframeForAcceleratedProperty();
     void computeHasKeyframeComposingAcceleratedProperty();
     void computeHasExplicitlyInheritedKeyframeProperty();
+    void computeHasAcceleratedPropertyOverriddenByCascadeProperty();
     void abilityToBeAcceleratedDidChange();
 
     // AnimationEffect
@@ -260,6 +264,7 @@ private:
     bool m_hasImplicitKeyframeForAcceleratedProperty { false };
     bool m_hasKeyframeComposingAcceleratedProperty { false };
     bool m_hasExplicitlyInheritedKeyframeProperty { false };
+    bool m_hasAcceleratedPropertyOverriddenByCascadeProperty { false };
 };
 
 } // namespace WebCore

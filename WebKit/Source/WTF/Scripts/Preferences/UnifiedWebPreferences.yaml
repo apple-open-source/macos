@@ -706,6 +706,17 @@ BeaconAPIEnabled:
     WebCore:
       default: false
 
+BlobRegistryTopOriginPartitioningEnabled:
+  type: bool
+  status: unstable
+  humanReadableName: "Partition Blob URL Registry"
+  humanReadableDescription: "Partition Blob URL Registry by Top-Level Origin"
+  webcoreBinding: none
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: false
+
 BlockIOKitInWebContentSandbox:
   type: bool
   status: internal
@@ -1023,11 +1034,11 @@ CSSNestingEnabled:
   humanReadableDescription: "Enable support for CSS nesting https://www.w3.org/TR/css-nesting-1/"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSOMViewScrollingAPIEnabled:
   type: bool
@@ -1165,16 +1176,16 @@ CSSTransformStyleOptimized3DEnabled:
 
 CSSTypedOMColorEnabled:
   type: bool
-  status: stable
+  status: testable
   humanReadableName: "CSS Typed OM: Color Support"
   humanReadableDescription: "Enable the CSS Typed OM Color support"
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
 
 CSSTypedOMEnabled:
   type: bool
@@ -2617,7 +2628,8 @@ ICECandidateFilteringEnabled:
 
 IOSFormControlRefreshEnabled:
   type: bool
-  status: unstable
+  status: internal
+  category: dom
   humanReadableName: "iOS Form Control Refresh"
   humanReadableDescription: "Enable the new appearance for form controls on iOS"
   condition: ENABLE(IOS_FORM_CONTROL_REFRESH)

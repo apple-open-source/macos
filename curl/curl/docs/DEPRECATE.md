@@ -40,6 +40,37 @@ We remove support for building curl with the NSS TLS library in August 2023.
 Starting in 7.82.0, building curl to use NSS configure requires the additional
 flag `--with-nss-deprecated` in an attempt to highlight these plans.
 
+## gskit
+
+We remove support for building curl with the gskit TLS library in August 2023.
+
+- This is a niche TLS library, only running on some IBM systems
+- no regular curl contributors use this backend
+- no CI builds use or verify this backend
+- gskit, or the curl adaption for it, lacks many modern TLS features making it
+  an inferior solution
+- build breakages in this code take weeks or more to get detected
+- fixing gskit code is mostly done "flying blind"
+
+## space-separated `NOPROXY` patterns
+
+When specifying patterns/domain names for curl that should *not* go through a
+proxy, the curl tool features the `--noproxy` command line option and the
+library supports the `NO_PROXY` environment variable and the `CURLOPT_NOPROXY`
+libcurl option.
+
+They all set the same list of patterns. This list is documented to be a set of
+**comma-separated** names, but can also be provided separated with just
+space. The ability to just use spaces for this has never been documented but
+some users may still have come to rely on this.
+
+Several other tools and utilities also parse the `NO_PROXY` environment
+variable but do not consider a space to be a valid separator. Using spaces for
+separator is probably less portable and might cause more friction than commas
+do. Users should use commas for this for greater portability.
+
+curl will remove the support for space-separated names in July 2024.
+
 ## past removals
 
  - Pipelining

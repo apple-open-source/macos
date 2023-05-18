@@ -53,6 +53,7 @@
 				F5A5C96E20868571003DDEC2 /* PBXTargetDependency */,
 				FEB4D3491CAB294400CFCE67 /* PBXTargetDependency */,
 				FE996A571C7D88C5006637D5 /* PBXTargetDependency */,
+				65CF7E1129C2305B003FDF0F /* PBXTargetDependency */,
 				FE996A591C7D88C5006637D5 /* PBXTargetDependency */,
 				FE996A5B1C7D88C5006637D5 /* PBXTargetDependency */,
 				FE996A5D1C7D88C5006637D5 /* PBXTargetDependency */,
@@ -134,6 +135,7 @@
 				2E945F1325DF0E38009F507F /* PBXTargetDependency */,
 				2EE61783255BA9A50081B164 /* PBXTargetDependency */,
 				2EFC51E3255A341900D8A19A /* PBXTargetDependency */,
+				65CF7E1329C23084003FDF0F /* PBXTargetDependency */,
 				2EFC51E5255A341E00D8A19A /* PBXTargetDependency */,
 				2EFC51E7255A342200D8A19A /* PBXTargetDependency */,
 				2EFC5209255A342B00D8A19A /* PBXTargetDependency */,
@@ -501,6 +503,22 @@
 		2EF55BEA2610D93200334976 /* ssh-sk-client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EA0DF3C260966FF0074A51D /* ssh-sk-client.c */; };
 		2EF55BEB2610D94300334976 /* ssh-sk-client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EA0DF3C260966FF0074A51D /* ssh-sk-client.c */; };
 		2EF55BEC2610D9B900334976 /* ssh-sk-client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EA0DF3C260966FF0074A51D /* ssh-sk-client.c */; };
+		6582298829C21D0D00E241A5 /* clientloop.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F050FEC5C48004F1935 /* clientloop.c */; };
+		6582298929C21D0D00E241A5 /* keychain.m in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F240FEC5D46004F1935 /* keychain.m */; };
+		6582298A29C21D0D00E241A5 /* mux.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F070FEC5C48004F1935 /* mux.c */; };
+		6582298B29C21D0D00E241A5 /* platform-pledge.c in Sources */ = {isa = PBXBuildFile; fileRef = FEC3D3E61C9BE92F00B698D9 /* platform-pledge.c */; };
+		6582298C29C21D0D00E241A5 /* readconf.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F080FEC5C48004F1935 /* readconf.c */; };
+		6582298D29C21D0D00E241A5 /* ssh-sk-client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EA0DF3C260966FF0074A51D /* ssh-sk-client.c */; };
+		6582298E29C21D0D00E241A5 /* ssh.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F0A0FEC5C48004F1935 /* ssh.c */; };
+		6582298F29C21D0D00E241A5 /* sshconnect.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F0D0FEC5C48004F1935 /* sshconnect.c */; };
+		6582299029C21D0D00E241A5 /* sshconnect2.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F100FEC5C48004F1935 /* sshconnect2.c */; };
+		6582299129C21D0D00E241A5 /* sshtty.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F110FEC5C48004F1935 /* sshtty.c */; };
+		6582299329C21D0D00E241A5 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 90F7275C1F6DC0A5000FE301 /* libnetwork.tbd */; };
+		6582299429C21D0D00E241A5 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FEF086501CB6DC40008C4B6D /* Security.framework */; };
+		6582299529C21D0D00E241A5 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C76A5A80FF004A500D35824 /* libresolv.dylib */; };
+		6582299629C21D0D00E241A5 /* libopenbsd-compat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2CBB0FEC4E73004F1935 /* libopenbsd-compat.a */; };
+		6582299729C21D0D00E241A5 /* libssh.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2DAC0FEC5695004F1935 /* libssh.a */; };
+		65F8F93429C2225700A1F587 /* apple-sec-entitlements.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 65F8F93329C2225700A1F587 /* apple-sec-entitlements.sh */; };
 		727891151D9F1EA200767C80 /* platform-tracing.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891141D9F1E9800767C80 /* platform-tracing.c */; };
 		727891161D9F1EDB00767C80 /* platform-tracing.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891141D9F1E9800767C80 /* platform-tracing.c */; };
 		727891181D9F1F0300767C80 /* platform-tracing.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891141D9F1E9800767C80 /* platform-tracing.c */; };
@@ -984,6 +1002,34 @@
 			remoteGlobalIDString = 1C7D817910FFC2BE00F0889F;
 			remoteInfo = "regression-tests";
 		};
+		6582298429C21D0D00E241A5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C6B2DAB0FEC5695004F1935;
+			remoteInfo = libssh;
+		};
+		6582298629C21D0D00E241A5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C6B2CBA0FEC4E73004F1935;
+			remoteInfo = "openbsd-compat";
+		};
+		65CF7E1029C2305B003FDF0F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6582298229C21D0D00E241A5;
+			remoteInfo = "ssh-apple-pkcs11";
+		};
+		65CF7E1229C23084003FDF0F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6582298229C21D0D00E241A5;
+			remoteInfo = "ssh-apple-pkcs11";
+		};
 		730F2F51183700D4006E4D51 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -1258,6 +1304,7 @@
 				1C18265110FFE3F400C8B173 /* login-timeout.sh in CopyFiles */,
 				1C18265210FFE3F400C8B173 /* Makefile in CopyFiles */,
 				1C18265310FFE3F400C8B173 /* multiplex.sh in CopyFiles */,
+				65F8F93429C2225700A1F587 /* apple-sec-entitlements.sh in CopyFiles */,
 				1C18265410FFE3F400C8B173 /* proto-mismatch.sh in CopyFiles */,
 				FEB9B18F215E8FCB00487B1E /* cfgmatchlisten.sh in CopyFiles */,
 				2E7C130F287CA11700CC9DD8 /* keygen-sshfp.sh in CopyFiles */,
@@ -1761,6 +1808,10 @@
 		2EE940BA28790749009B239A /* bsd-pselect.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "bsd-pselect.c"; path = "openssh/openbsd-compat/bsd-pselect.c"; sourceTree = "<group>"; };
 		2EE940BC2879076A009B239A /* port-prngd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "port-prngd.c"; path = "openssh/openbsd-compat/port-prngd.c"; sourceTree = "<group>"; };
 		2EF4499926125420003C5694 /* agent-subprocess.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "agent-subprocess.sh"; path = "openssh/regress/agent-subprocess.sh"; sourceTree = "<group>"; };
+		6582299D29C21D0D00E241A5 /* ssh-apple-pkcs11 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "ssh-apple-pkcs11"; sourceTree = BUILT_PRODUCTS_DIR; };
+		65F8F93129C2222500A1F587 /* ssh-apple-pkcs11.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "ssh-apple-pkcs11.entitlements"; sourceTree = "<group>"; };
+		65F8F93229C2222500A1F587 /* ssh-add.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "ssh-add.entitlements"; sourceTree = "<group>"; };
+		65F8F93329C2225700A1F587 /* apple-sec-entitlements.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "apple-sec-entitlements.sh"; path = "openssh/regress/apple-sec-entitlements.sh"; sourceTree = "<group>"; };
 		727891101D9EF6E900767C80 /* bsd-err.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "bsd-err.c"; path = "openssh/openbsd-compat/bsd-err.c"; sourceTree = "<group>"; };
 		727891111D9F1D6D00767C80 /* utf8.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = utf8.c; path = openssh/utf8.c; sourceTree = "<group>"; };
 		727891121D9F1D7B00767C80 /* utf8.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utf8.h; path = openssh/utf8.h; sourceTree = "<group>"; };
@@ -2234,6 +2285,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6582299229C21D0D00E241A5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6582299329C21D0D00E241A5 /* libnetwork.tbd in Frameworks */,
+				6582299429C21D0D00E241A5 /* Security.framework in Frameworks */,
+				6582299529C21D0D00E241A5 /* libresolv.dylib in Frameworks */,
+				6582299629C21D0D00E241A5 /* libopenbsd-compat.a in Frameworks */,
+				6582299729C21D0D00E241A5 /* libssh.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		730F2F4018370038006E4D51 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -2369,6 +2432,7 @@
 				FEB9B18B215E8F6900487B1E /* mkdtemp */,
 				2EB04E9A25DAD45600F642F2 /* esc-acp */,
 				2E945F1025DF0DA0009F507F /* dropbear */,
+				6582299D29C21D0D00E241A5 /* ssh-apple-pkcs11 */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2503,6 +2567,7 @@
 		1C7D817F10FFC4CD00F0889F /* regress */ = {
 			isa = PBXGroup;
 			children = (
+				65F8F93329C2225700A1F587 /* apple-sec-entitlements.sh */,
 				2E7C130A287CA11700CC9DD8 /* agent-restrict.sh */,
 				2E7C1307287CA11700CC9DD8 /* ed25519_openssh.prv */,
 				2E7C1308287CA11700CC9DD8 /* ed25519_openssh.pub */,
@@ -2687,6 +2752,8 @@
 		FE15F0FC21237F6600B75390 /* Entitlements */ = {
 			isa = PBXGroup;
 			children = (
+				65F8F93229C2222500A1F587 /* ssh-add.entitlements */,
+				65F8F93129C2222500A1F587 /* ssh-apple-pkcs11.entitlements */,
 				FECD1CCE212B890F00CC0BBB /* ssh-keygen.entitlements */,
 				FE15F0FD21237F9A00B75390 /* ssh-pkcs11-helper.entitlements */,
 				FE4CF7441CB6CE8F0018C72F /* ssh.entitlements */,
@@ -3499,6 +3566,24 @@
 			productReference = 2EB04E9A25DAD45600F642F2 /* esc-acp */;
 			productType = "com.apple.product-type.tool";
 		};
+		6582298229C21D0D00E241A5 /* ssh-apple-pkcs11 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6582299A29C21D0D00E241A5 /* Build configuration list for PBXNativeTarget "ssh-apple-pkcs11" */;
+			buildPhases = (
+				6582298729C21D0D00E241A5 /* Sources */,
+				6582299229C21D0D00E241A5 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6582298329C21D0D00E241A5 /* PBXTargetDependency */,
+				6582298529C21D0D00E241A5 /* PBXTargetDependency */,
+			);
+			name = "ssh-apple-pkcs11";
+			productName = ssh;
+			productReference = 6582299D29C21D0D00E241A5 /* ssh-apple-pkcs11 */;
+			productType = "com.apple.product-type.tool";
+		};
 		730F2F4218370038006E4D51 /* remote-login-status */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 730F2F4C18370038006E4D51 /* Build configuration list for PBXNativeTarget "remote-login-status" */;
@@ -3739,6 +3824,7 @@
 				1C6B2E8E0FEC5AEB004F1935 /* ssh-add */,
 				1C6B2E9B0FEC5B07004F1935 /* ssh-keygen */,
 				1C6B2E410FEC5A0D004F1935 /* ssh */,
+				6582298229C21D0D00E241A5 /* ssh-apple-pkcs11 */,
 				1C6B2EA80FEC5B19004F1935 /* ssh-keyscan */,
 				1C6B2EB50FEC5B2E004F1935 /* ssh-keysign */,
 				1C6B2EC20FEC5B54004F1935 /* ssh-agent */,
@@ -4617,6 +4703,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6582298729C21D0D00E241A5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6582298829C21D0D00E241A5 /* clientloop.c in Sources */,
+				6582298929C21D0D00E241A5 /* keychain.m in Sources */,
+				6582298A29C21D0D00E241A5 /* mux.c in Sources */,
+				6582298B29C21D0D00E241A5 /* platform-pledge.c in Sources */,
+				6582298C29C21D0D00E241A5 /* readconf.c in Sources */,
+				6582298D29C21D0D00E241A5 /* ssh-sk-client.c in Sources */,
+				6582298E29C21D0D00E241A5 /* ssh.c in Sources */,
+				6582298F29C21D0D00E241A5 /* sshconnect.c in Sources */,
+				6582299029C21D0D00E241A5 /* sshconnect2.c in Sources */,
+				6582299129C21D0D00E241A5 /* sshtty.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		730F2F3F18370038006E4D51 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -4947,6 +5050,26 @@
 			isa = PBXTargetDependency;
 			target = 1C7D817910FFC2BE00F0889F /* regression-tests */;
 			targetProxy = 2EFC5210255A344800D8A19A /* PBXContainerItemProxy */;
+		};
+		6582298329C21D0D00E241A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C6B2DAB0FEC5695004F1935 /* libssh */;
+			targetProxy = 6582298429C21D0D00E241A5 /* PBXContainerItemProxy */;
+		};
+		6582298529C21D0D00E241A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C6B2CBA0FEC4E73004F1935 /* openbsd-compat */;
+			targetProxy = 6582298629C21D0D00E241A5 /* PBXContainerItemProxy */;
+		};
+		65CF7E1129C2305B003FDF0F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6582298229C21D0D00E241A5 /* ssh-apple-pkcs11 */;
+			targetProxy = 65CF7E1029C2305B003FDF0F /* PBXContainerItemProxy */;
+		};
+		65CF7E1329C23084003FDF0F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6582298229C21D0D00E241A5 /* ssh-apple-pkcs11 */;
+			targetProxy = 65CF7E1229C23084003FDF0F /* PBXContainerItemProxy */;
 		};
 		730F2F52183700D4006E4D51 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -5300,6 +5423,22 @@
 		2EFC51C1255A33E500D8A19A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+			};
+			name = Debug;
+		};
+		6582299B29C21D0D00E241A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E2D2D1B283C4AC9004292DC /* libexec-entitlements.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		6582299C29C21D0D00E241A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E2D2D1B283C4AC9004292DC /* libexec-entitlements.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
 		};
@@ -5798,6 +5937,15 @@
 			buildConfigurations = (
 				2EFC51C0255A33E500D8A19A /* Release */,
 				2EFC51C1255A33E500D8A19A /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6582299A29C21D0D00E241A5 /* Build configuration list for PBXNativeTarget "ssh-apple-pkcs11" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6582299B29C21D0D00E241A5 /* Release */,
+				6582299C29C21D0D00E241A5 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

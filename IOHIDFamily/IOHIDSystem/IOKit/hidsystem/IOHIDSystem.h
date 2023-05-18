@@ -127,6 +127,7 @@ private:
 //	int	clickState;	// Current click state
 
 	bool evOpenCalled;	// Has the driver been opened?
+    int  evOpenedByPID;
 	bool evInitialized;	// Has the first-open-only initialization run?
 	bool eventsOpen;	// Boolean: has evmmap been called yet?
 	bool cursorStarted;	// periodic events running?
@@ -510,6 +511,7 @@ void updateEventFlags(unsigned flags, OSObject * sender);
 
 static	IOReturn	doEvClose (IOHIDSystem *self);
         IOReturn	evCloseGated (void);
+        IOReturn    evOpenGated(void);
 
 static	IOReturn	doUnregisterScreen (IOHIDSystem *self, void * arg0);
         IOReturn	unregisterScreenGated (int index);

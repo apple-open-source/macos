@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 2000 - 2022, EdelWeb for EdelKey and OpenEvidence
+# Copyright (C) EdelWeb for EdelKey and OpenEvidence
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -63,8 +63,8 @@ set -e
 
 echo SERIAL=$SERIAL PREFIX=$PREFIX DURATION=$DURATION KEYSIZE=$KEYSIZE
 
-echo "openssl genrsa -out $PREFIX-ca.key $KEYSIZE -passout XXX"
-openssl genrsa -out $PREFIX-ca.key $KEYSIZE -passout pass:secret
+echo "openssl genrsa -out $PREFIX-ca.key -passout XXX $KEYSIZE"
+openssl genrsa -out $PREFIX-ca.key -passout pass:secret $KEYSIZE
 
 echo "openssl req -config $PREFIX-ca.prm -new -key $PREFIX-ca.key -out $PREFIX-ca.csr"
 $OPENSSL req -config $PREFIX-ca.prm -new -key $PREFIX-ca.key -out $PREFIX-ca.csr -passin pass:secret

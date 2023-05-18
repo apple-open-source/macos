@@ -40,11 +40,6 @@
 	<array/>
 	<key>XPCService</key>
 	<dict>
-		<key>EnvironmentVariables</key>
-		<dict>
-			<key>WAIT4DEBUGGER</key>
-			<string>NO</string>
-		</dict>
 		<key>RunLoopType</key>
 		<string>dispatch_main</string>
 		<key>ServiceType</key>

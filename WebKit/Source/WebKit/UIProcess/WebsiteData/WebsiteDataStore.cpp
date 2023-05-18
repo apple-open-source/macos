@@ -111,6 +111,12 @@ static HashMap<PAL::SessionID, WebsiteDataStore*>& allDataStores()
     return map;
 }
 
+WorkQueue& WebsiteDataStore::websiteDataStoreIOQueue()
+{
+    static auto& queue = WorkQueue::create("com.apple.WebKit.WebsiteDataStoreIO").leakRef();
+    return queue;
+}
+
 void WebsiteDataStore::forEachWebsiteDataStore(Function<void(WebsiteDataStore&)>&& function)
 {
     for (auto* dataStore : allDataStores().values())
@@ -226,6 +232,16 @@ void WebsiteDataStore::deleteDefaultDataStoreForTesting()
 bool WebsiteDataStore::defaultDataStoreExists()
 {
     return !!globalDefaultDataStore();
+}
+
+RefPtr<WebsiteDataStore> WebsiteDataStore::existingDataStoreForIdentifier(const UUID& identifier)
+{
+    for (auto* dataStore : allDataStores().values()) {
+        if (dataStore && dataStore->configuration().identifier() == identifier)
+            return dataStore;
+    }
+
+    return nullptr;
 }
 
 void WebsiteDataStore::registerWithSessionIDMap()
@@ -1748,6 +1764,15 @@ void WebsiteDataStore::clearResourceLoadStatisticsInWebProcesses(CompletionHandl
 }
 #endif
 
+bool WebsiteDataStore::isBlobRegistryPartitioningEnabled() const
+{
+    return WTF::anyOf(m_processes, [] (const WebProcessProxy& process) {
+        return WTF::anyOf(process.pages(), [](const auto& page) {
+            return page && page->preferences().blobRegistryTopOriginPartitioningEnabled();
+        });
+    });
+}
+
 void WebsiteDataStore::setAllowsAnySSLCertificateForWebSocket(bool allows)
 {
     networkProcess().sendSync(Messages::NetworkProcess::SetAllowsAnySSLCertificateForWebSocket(allows), 0);
@@ -1879,6 +1904,7 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
 #if !HAVE(NSURLSESSION_WEBSOCKET)
     networkSessionParameters.shouldAcceptInsecureCertificatesForWebSockets = m_configuration->shouldAcceptInsecureCertificatesForWebSockets();
 #endif
+    networkSessionParameters.isBlobRegistryTopOriginPartitioningEnabled = isBlobRegistryPartitioningEnabled();
     networkSessionParameters.unifiedOriginStorageLevel = m_configuration->unifiedOriginStorageLevel();
     networkSessionParameters.perOriginStorageQuota = perOriginStorageQuota();
     networkSessionParameters.perThirdPartyOriginStorageQuota = perThirdPartyOriginStorageQuota();
@@ -2225,6 +2251,13 @@ void WebsiteDataStore::resumeDownload(const DownloadProxy& downloadProxy, const 
     }
 
     networkProcess().send(Messages::NetworkProcess::ResumeDownload(m_sessionID, downloadProxy.downloadID(), resumeData.dataReference(), path, sandboxExtensionHandle, callDownloadDidStart), 0);
+}
+
+bool WebsiteDataStore::hasActivePages()
+{
+    return WTF::anyOf(WebProcessPool::allProcessPools(), [&](auto& pool) {
+        return pool->hasPagesUsingWebsiteDataStore(*this);
+    });
 }
 
 }

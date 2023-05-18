@@ -182,7 +182,8 @@
 
         _resyncRecordsSeen = nil;
 
-        _stateMachine = [[OctagonStateMachine alloc] initWithName:@"ckks"
+        NSString* stateMachineName = [contextID isEqualToString:CKKSDefaultContextID] ? @"ckks" : [NSString stringWithFormat:@"ckks-%@", contextID];
+        _stateMachine = [[OctagonStateMachine alloc] initWithName:stateMachineName
                                                            states:CKKSAllStates()
                                                             flags:CKKSAllStateFlags()
                                                      initialState:CKKSStateWaitForCloudKitAccountStatus

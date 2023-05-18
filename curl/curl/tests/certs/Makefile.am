@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -30,7 +30,10 @@ CERTCONFIGS = \
   EdelCurlRoot-ca.cnf \
   Server-localhost-sv.prm \
   Server-localhost.nn-sv.prm \
-  Server-localhost0h-sv.prm
+  Server-localhost0h-sv.prm \
+  Server-localhost-firstSAN-sv.prm \
+  Server-localhost-lastSAN-sv.prm \
+  stunnel-sv.prm
 
 GENERATEDCERTS = \
   EdelCurlRoot-ca.cacert \

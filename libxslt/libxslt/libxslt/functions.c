@@ -489,13 +489,13 @@ xsltKeyFunction(xmlXPathParserContextPtr ctxt, int nargs){
 	 */
 	valuePush(ctxt, obj2);
 	xmlXPathStringFunction(ctxt, 1);
-	if ((ctxt->value == NULL) || (ctxt->value->type != XPATH_STRING)) {
+	obj2 = valuePop(ctxt);
+	if ((obj2 == NULL) || (obj2->type != XPATH_STRING)) {
 	    xsltTransformError(tctxt, NULL, tctxt->inst,
 		"key() : invalid arg expecting a string\n");
 	    ctxt->error = XPATH_INVALID_TYPE;
 	    goto error;
 	}
-	obj2 = valuePop(ctxt);
 	value = obj2->stringval;
 
 	/*

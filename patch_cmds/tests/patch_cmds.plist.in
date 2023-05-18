@@ -362,31 +362,6 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.unified_timestamp</string>
-			<key>ShellEnv</key>
-			<dict>
-				<key>ATF_SH</key>
-				<string>/usr/local/bin/atf-sh</string>
-				<key>__RUNNING_INSIDE_ATF_RUN</key>
-				<string>internal-yes-value</string>
-			</dict>
-			<key>Command</key>
-			<array>
-				<string>/usr/local/bin/atf-sh</string>
-				<string>/AppleInternal/Tests/patch_cmds/diff/diff_test.sh</string>
-				<string>-s</string>
-				<string>/AppleInternal/Tests/patch_cmds/diff</string>
-				<string>-r</string>
-				<string>diff_test.sh.unified_timestamp.results.txt</string>
-				<string>unified</string>
-			</array>
-			<key>MayRunConcurrently</key>
-			<true/>
-			<key>Timeout</key>
-			<integer>300</integer>
-		</dict>
-		<dict>
-			<key>TestName</key>
 			<string>patch_cmds.diff.diff_test.header</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -906,6 +881,81 @@
 				<string>-r</string>
 				<string>diff_test.sh.ignorecase.results.txt</string>
 				<string>ignorecase</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.diff.diff_test.unified_timestamp</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff/diff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff</string>
+				<string>-r</string>
+				<string>diff_test.sh.unified_timestamp.results.txt</string>
+				<string>unified</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.diff.diff_test.color</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff/diff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff</string>
+				<string>-r</string>
+				<string>diff_test.sh.color.results.txt</string>
+				<string>unified</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.diff.diff_test.truncated</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff/diff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff</string>
+				<string>-r</string>
+				<string>diff_test.sh.truncated.results.txt</string>
+				<string>truncated</string>
 			</array>
 			<key>MayRunConcurrently</key>
 			<true/>

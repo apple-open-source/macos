@@ -90,6 +90,7 @@ exit:
 
 bool IOHIDUserClient::start( IOService * _owner )
 {
+    IOReturn ret;
     owner = OSDynamicCast(IOHIDSystem, _owner);
     if (!owner) {
         return( false);
@@ -103,7 +104,9 @@ bool IOHIDUserClient::start( IOService * _owner )
     setProperty(kIOUserClientDefaultLockingSingleThreadExternalMethodKey, kOSBooleanFalse);
     setProperty(kIOUserClientEntitlementsKey,                             kOSBooleanFalse);
     
-    return( true );
+    ret = owner->evOpen();
+    
+    return (ret == kIOReturnSuccess) ? true : false;
 }
 
 IOReturn IOHIDUserClient::clientClose( void )

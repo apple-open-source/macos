@@ -199,6 +199,13 @@ struct FeaturesMtl : FeatureSetBase
         &members,
     };
 
+    FeatureInfo avoidStencilTextureSwizzle = {
+        "avoidStencilTextureSwizzle",
+        FeatureCategory::MetalFeatures,
+        "Do not create swizzled views of stencil textures",
+        &members,
+    };
+
     FeatureInfo multisampleColorFormatShaderReadWorkaround = {
         "multisampleColorFormatShaderReadWorkaround", FeatureCategory::MetalWorkarounds,
         "Add shaderRead usage to some multisampled texture formats", &members,
@@ -254,6 +261,10 @@ struct FeaturesMtl : FeatureSetBase
     FeatureInfo enableInMemoryMtlLibraryCache = {
         "enableInMemoryMtlLibraryCache", FeatureCategory::MetalFeatures,
         "Cache MTLLibrary objects in memory.", &members, "http://crbug.com/1385510"};
+
+    FeatureInfo enableParallelMtlLibraryCompilation = {
+        "enableParallelMtlLibraryCompilation", FeatureCategory::MetalFeatures,
+        "Compile MTLLibrary in multiple threads.", &members, "http://crbug.com/1385510"};
 };
 
 inline FeaturesMtl::FeaturesMtl()  = default;

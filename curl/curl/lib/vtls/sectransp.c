@@ -5,8 +5,8 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2012 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
- * Copyright (C) 2012 - 2017, Nick Zitzmann, <nickzman@gmail.com>.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Nick Zitzmann, <nickzman@gmail.com>.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -137,14 +137,6 @@
 /* The last #include file should be: */
 #include "memdebug.h"
 
-
-#define DEBUG_CF 0
-
-#if DEBUG_CF
-#define CF_DEBUGF(x) x
-#else
-#define CF_DEBUGF(x) do { } while(0)
-#endif
 
 /* From MacTypes.h (which we can't include because it isn't present in iOS: */
 #define ioErr -36
@@ -841,15 +833,15 @@ static OSStatus bio_cf_in_read(SSLConnectionRef connection,
   struct Curl_cfilter *cf = (struct Curl_cfilter *)connection;
   struct ssl_connect_data *connssl = cf->ctx;
   struct ssl_backend_data *backend = connssl->backend;
-  struct Curl_easy *data = connssl->call_data;
+  struct Curl_easy *data = CF_DATA_CURRENT(cf);
   ssize_t nread;
   CURLcode result;
   OSStatus rtn = noErr;
 
   DEBUGASSERT(data);
   nread = Curl_conn_cf_recv(cf->next, data, buf, *dataLength, &result);
-  CF_DEBUGF(infof(data, CFMSG(cf, "bio_read(len=%zu) -> %zd, result=%d"),
-            *dataLength, nread, result));
+  DEBUGF(LOG_CF(data, cf, "bio_read(len=%zu) -> %zd, result=%d",
+                *dataLength, nread, result));
   if(nread < 0) {
     switch(result) {
       case CURLE_OK:
@@ -877,15 +869,15 @@ static OSStatus bio_cf_out_write(SSLConnectionRef connection,
   struct Curl_cfilter *cf = (struct Curl_cfilter *)connection;
   struct ssl_connect_data *connssl = cf->ctx;
   struct ssl_backend_data *backend = connssl->backend;
-  struct Curl_easy *data = connssl->call_data;
+  struct Curl_easy *data = CF_DATA_CURRENT(cf);
   ssize_t nwritten;
   CURLcode result;
   OSStatus rtn = noErr;
 
   DEBUGASSERT(data);
   nwritten = Curl_conn_cf_send(cf->next, data, buf, *dataLength, &result);
-  CF_DEBUGF(infof(data, CFMSG(cf, "bio_send(len=%zu) -> %zd, result=%d"),
-            *dataLength, nwritten, result));
+  DEBUGF(LOG_CF(data, cf, "bio_send(len=%zu) -> %zd, result=%d",
+                *dataLength, nwritten, result));
   if(nwritten <= 0) {
     if(result == CURLE_AGAIN) {
       rtn = errSSLWouldBlock;
@@ -1738,7 +1730,6 @@ static CURLcode sectransp_connect_step1(struct Curl_cfilter *cf,
   const bool verifypeer = conn_config->verifypeer;
   char * const ssl_cert = ssl_config->primary.clientcert;
   const struct curl_blob *ssl_cert_blob = ssl_config->primary.cert_blob;
-  bool isproxy = Curl_ssl_cf_is_proxy(cf);
 #ifdef ENABLE_IPV6
   struct in6_addr addr;
 #else
@@ -1751,7 +1742,7 @@ static CURLcode sectransp_connect_step1(struct Curl_cfilter *cf,
 
   DEBUGASSERT(backend);
 
-  CF_DEBUGF(infof(data, CFMSG(cf, "connect_step1")));
+  DEBUGF(LOG_CF(data, cf, "connect_step1"));
   GetDarwinVersionNumber(&darwinver_maj, &darwinver_min);
 #endif /* CURL_BUILD_MAC */
 
@@ -1899,33 +1890,28 @@ static CURLcode sectransp_connect_step1(struct Curl_cfilter *cf,
 #endif /* CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS */
 
 #if (CURL_BUILD_MAC_10_13 || CURL_BUILD_IOS_11) && HAVE_BUILTIN_AVAILABLE == 1
-  if(cf->conn->bits.tls_enable_alpn) {
+  if(connssl->alpn) {
     if(__builtin_available(macOS 10.13.4, iOS 11, tvOS 11, *)) {
+      struct alpn_proto_buf proto;
+      size_t i;
+      CFStringRef cstr;
       CFMutableArrayRef alpnArr = CFArrayCreateMutable(NULL, 0,
                                                        &kCFTypeArrayCallBacks);
-
-#ifdef USE_HTTP2
-      if(data->state.httpwant >= CURL_HTTP_VERSION_2
-#ifndef CURL_DISABLE_PROXY
-         && (!isproxy || !cf->conn->bits.tunnel_proxy)
-#endif
-        ) {
-        CFArrayAppendValue(alpnArr, CFSTR(ALPN_H2));
-        infof(data, VTLS_INFOF_ALPN_OFFER_1STR, ALPN_H2);
+      for(i = 0; i < connssl->alpn->count; ++i) {
+        cstr = CFStringCreateWithCString(NULL, connssl->alpn->entries[i],
+                                         kCFStringEncodingUTF8);
+        if(!cstr)
+          return CURLE_OUT_OF_MEMORY;
+        CFArrayAppendValue(alpnArr, cstr);
+        CFRelease(cstr);
       }
-#endif
-
-      CFArrayAppendValue(alpnArr, CFSTR(ALPN_HTTP_1_1));
-      infof(data, VTLS_INFOF_ALPN_OFFER_1STR, ALPN_HTTP_1_1);
-
-      /* expects length prefixed preference ordered list of protocols in wire
-       * format
-       */
       err = SSLSetALPNProtocols(backend->ssl_ctx, alpnArr);
       if(err != noErr)
         infof(data, "WARNING: failed to set ALPN protocols; OSStatus %d",
               err);
       CFRelease(alpnArr);
+      Curl_alpn_to_proto_str(&proto, connssl->alpn);
+      infof(data, VTLS_INFOF_ALPN_OFFER_1STR, proto.data);
     }
   }
 #endif
@@ -2396,7 +2382,7 @@ static CURLcode verify_cert_buf(struct Curl_cfilter *cf,
       /* This is not a PEM file, probably a certificate in DER format. */
       rc = append_cert_to_array(data, certbuf, buflen, array);
       if(rc != CURLE_OK) {
-        CF_DEBUGF(infof(data, CFMSG(cf, "append_cert for CA failed")));
+        DEBUGF(LOG_CF(data, cf, "append_cert for CA failed"));
         result = rc;
         goto out;
       }
@@ -2410,7 +2396,7 @@ static CURLcode verify_cert_buf(struct Curl_cfilter *cf,
     rc = append_cert_to_array(data, der, derlen, array);
     free(der);
     if(rc != CURLE_OK) {
-      CF_DEBUGF(infof(data, CFMSG(cf, "append_cert for CA failed")));
+      DEBUGF(LOG_CF(data, cf, "append_cert for CA failed"));
       result = rc;
       goto out;
     }
@@ -2426,7 +2412,7 @@ static CURLcode verify_cert_buf(struct Curl_cfilter *cf,
     goto out;
   }
 
-  CF_DEBUGF(infof(data, CFMSG(cf, "setting %d trust anchors"), n));
+  DEBUGF(LOG_CF(data, cf, "setting %d trust anchors", n));
   ret = SecTrustSetAnchorCertificates(trust, array);
   if(ret != noErr) {
     failf(data, "SecTrustSetAnchorCertificates() returned error %d", ret);
@@ -2448,11 +2434,11 @@ static CURLcode verify_cert_buf(struct Curl_cfilter *cf,
   switch(trust_eval) {
     case kSecTrustResultUnspecified:
       /* what does this really mean? */
-      CF_DEBUGF(infof(data, CFMSG(cf, "trust result: Unspecified")));
+      DEBUGF(LOG_CF(data, cf, "trust result: Unspecified"));
       result = CURLE_OK;
       goto out;
     case kSecTrustResultProceed:
-      CF_DEBUGF(infof(data, CFMSG(cf, "trust result: Proceed")));
+      DEBUGF(LOG_CF(data, cf, "trust result: Proceed"));
       result = CURLE_OK;
       goto out;
 
@@ -2485,7 +2471,7 @@ static CURLcode verify_cert(struct Curl_cfilter *cf,
   size_t buflen;
 
   if(ca_info_blob) {
-    CF_DEBUGF(infof(data, CFMSG(cf, "verify_peer, CA from config blob")));
+    DEBUGF(LOG_CF(data, cf, "verify_peer, CA from config blob"));
     certbuf = (unsigned char *)malloc(ca_info_blob->len + 1);
     if(!certbuf) {
       return CURLE_OUT_OF_MEMORY;
@@ -2495,8 +2481,7 @@ static CURLcode verify_cert(struct Curl_cfilter *cf,
     certbuf[ca_info_blob->len]='\0';
   }
   else if(cafile) {
-    CF_DEBUGF(infof(data, CFMSG(cf, "verify_peer, CA from file '%s'"),
-              cafile));
+    DEBUGF(LOG_CF(data, cf, "verify_peer, CA from file '%s'", cafile));
     if(read_cert(cafile, &certbuf, &buflen) < 0) {
       failf(data, "SSL: failed to read or invalid CA certificate");
       return CURLE_SSL_CACERT_BADFILE;
@@ -2632,7 +2617,7 @@ static CURLcode sectransp_connect_step2(struct Curl_cfilter *cf,
               || ssl_connect_2_reading == connssl->connecting_state
               || ssl_connect_2_writing == connssl->connecting_state);
   DEBUGASSERT(backend);
-  CF_DEBUGF(infof(data, CFMSG(cf, "connect_step2")));
+  DEBUGF(LOG_CF(data, cf, "connect_step2"));
 
   /* Here goes nothing: */
 check_handshake:
@@ -3097,7 +3082,7 @@ static CURLcode sectransp_connect_step3(struct Curl_cfilter *cf,
 {
   struct ssl_connect_data *connssl = cf->ctx;
 
-  CF_DEBUGF(infof(data, CFMSG(cf, "connect_step3")));
+  DEBUGF(LOG_CF(data, cf, "connect_step3"));
   /* There is no step 3!
    * Well, okay, let's collect server certificates, and if verbose mode is on,
    * let's print the details of the server certificates. */
@@ -3116,7 +3101,7 @@ sectransp_connect_common(struct Curl_cfilter *cf, struct Curl_easy *data,
 {
   CURLcode result;
   struct ssl_connect_data *connssl = cf->ctx;
-  curl_socket_t sockfd = cf->conn->sock[cf->sockindex];
+  curl_socket_t sockfd = Curl_conn_cf_get_socket(cf, data);
   int what;
 
   /* check if the connection has already been established */
@@ -3206,7 +3191,7 @@ sectransp_connect_common(struct Curl_cfilter *cf, struct Curl_easy *data,
   }
 
   if(ssl_connect_done == connssl->connecting_state) {
-    CF_DEBUGF(infof(data, CFMSG(cf, "connected")));
+    DEBUGF(LOG_CF(data, cf, "connected"));
     connssl->state = ssl_connection_complete;
     *done = TRUE;
   }
@@ -3252,7 +3237,7 @@ static void sectransp_close(struct Curl_cfilter *cf, struct Curl_easy *data)
   DEBUGASSERT(backend);
 
   if(backend->ssl_ctx) {
-    CF_DEBUGF(infof(data, CFMSG(cf, "close")));
+    DEBUGF(LOG_CF(data, cf, "close"));
     (void)SSLClose(backend->ssl_ctx);
 #if CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS
     if(SSLCreateContext)
@@ -3294,9 +3279,10 @@ static int sectransp_shutdown(struct Curl_cfilter *cf,
 
   rc = 0;
 
-  what = SOCKET_READABLE(cf->conn->sock[cf->sockindex], SSL_SHUTDOWN_TIMEOUT);
+  what = SOCKET_READABLE(Curl_conn_cf_get_socket(cf, data),
+                         SSL_SHUTDOWN_TIMEOUT);
 
-  CF_DEBUGF(infof(data, CFMSG(cf, "shutdown")));
+  DEBUGF(LOG_CF(data, cf, "shutdown"));
   while(loop--) {
     if(what < 0) {
       /* anything that gets here is fatally bad */
@@ -3323,7 +3309,7 @@ static int sectransp_shutdown(struct Curl_cfilter *cf,
     if(nread <= 0)
       break;
 
-    what = SOCKET_READABLE(cf->conn->sock[cf->sockindex], 0);
+    what = SOCKET_READABLE(Curl_conn_cf_get_socket(cf, data), 0);
   }
 
   return rc;
@@ -3365,7 +3351,7 @@ static int sectransp_check_cxn(struct Curl_cfilter *cf,
   DEBUGASSERT(backend);
 
   if(backend->ssl_ctx) {
-    CF_DEBUGF(infof(data, CFMSG(cf, "check connection")));
+    DEBUGF(LOG_CF(data, cf, "check connection"));
     err = SSLGetSessionState(backend->ssl_ctx, &state);
     if(err == noErr)
       return state == kSSLConnected || state == kSSLHandshake;
@@ -3386,7 +3372,7 @@ static bool sectransp_data_pending(struct Curl_cfilter *cf,
   DEBUGASSERT(backend);
 
   if(backend->ssl_ctx) {  /* SSL is in use */
-    CF_DEBUGF(infof(data, CFMSG(cf, "data_pending")));
+    DEBUGF(LOG_CF((struct Curl_easy *)data, cf, "data_pending"));
     err = SSLGetBufferedReadSize(backend->ssl_ctx, &buffer);
     if(err == noErr)
       return buffer > 0UL;

@@ -9637,7 +9637,8 @@ main(int argc, char * argv[])
 		exit(1);
 	}
 	if_name = CFStringCreateWithCString(NULL, argv[1], kCFStringEncodingUTF8);
-	sc_if = _SCNetworkInterfaceCreateWithBSDName(NULL, if_name, 0);
+	sc_if = _SCNetworkInterfaceCreateWithBSDName(NULL, if_name,
+						     kIncludeAllVirtualInterfaces);
 	if (sc_if == NULL) {
 		fprintf(stderr, "can't allocate SCNetworkInterface\n");
 		exit(2);

@@ -247,4 +247,22 @@ void KeyframeEffectStack::lastStyleChangeEventStyleDidChange(const RenderStyle* 
         effect->lastStyleChangeEventStyleDidChange(previousStyle, currentStyle);
 }
 
+void KeyframeEffectStack::cascadeDidOverrideProperties(const HashSet<AnimatableProperty>& overriddenProperties)
+{
+    HashSet<AnimatableProperty> acceleratedPropertiesOverriddenByCascade;
+    for (auto animatedProperty : overriddenProperties) {
+        if (CSSPropertyAnimation::animationOfPropertyIsAccelerated(animatedProperty))
+            acceleratedPropertiesOverriddenByCascade.add(animatedProperty);
+    }
+
+    if (acceleratedPropertiesOverriddenByCascade == m_acceleratedPropertiesOverriddenByCascade)
+        return;
+
+    m_acceleratedPropertiesOverriddenByCascade = WTFMove(acceleratedPropertiesOverriddenByCascade);
+
+    for (auto& effect : m_effects)
+        effect->acceleratedPropertiesOverriddenByCascadeDidChange();
+}
+
+
 } // namespace WebCore

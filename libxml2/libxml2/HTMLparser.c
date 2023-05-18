@@ -504,29 +504,38 @@ htmlCurrentChar(xmlParserCtxtPtr ctxt, int *len) {
     cur = ctxt->input->cur;
     c = *cur;
     if (c & 0x80) {
+        size_t avail;
+
         if ((c & 0x40) == 0)
             goto encoding_error;
-        if (cur[1] == 0) {
+
+        avail = ctxt->input->end - ctxt->input->cur;
+
+        if (avail < 2) {
             xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
             cur = ctxt->input->cur;
+            avail = ctxt->input->end - ctxt->input->cur;
         }
-        if ((cur[1] & 0xc0) != 0x80)
+
+        if ((avail < 2) || ((cur[1] & 0xc0) != 0x80))
             goto encoding_error;
         if ((c & 0xe0) == 0xe0) {
 
-            if (cur[2] == 0) {
+            if (avail < 3) {
                 xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
                 cur = ctxt->input->cur;
+                avail = ctxt->input->end - ctxt->input->cur;
             }
-            if ((cur[2] & 0xc0) != 0x80)
+            if ((avail < 3) || ((cur[2] & 0xc0) != 0x80))
                 goto encoding_error;
             if ((c & 0xf0) == 0xf0) {
-                if (cur[3] == 0) {
+                if (avail < 4) {
                     xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
                     cur = ctxt->input->cur;
+                    avail = ctxt->input->end - ctxt->input->cur;
                 }
                 if (((c & 0xf8) != 0xf0) ||
-                    ((cur[3] & 0xc0) != 0x80))
+                    (avail < 4) || ((cur[3] & 0xc0) != 0x80))
                     goto encoding_error;
                 /* 4-byte code */
                 *len = 4;
@@ -3015,9 +3024,9 @@ htmlParseSystemLiteral(htmlParserCtxtPtr ctxt) {
         htmlParseErr(ctxt, XML_ERR_LITERAL_NOT_FINISHED,
                      "Unfinished SystemLiteral\n", NULL, NULL);
     } else {
-        NEXT;
         if (err == 0)
             ret = xmlStrndup((BASE_PTR+startPosition), len);
+        NEXT;
     }
 
     return(ret);
@@ -3070,9 +3079,9 @@ htmlParsePubidLiteral(htmlParserCtxtPtr ctxt) {
         htmlParseErr(ctxt, XML_ERR_LITERAL_NOT_FINISHED,
                      "Unfinished PubidLiteral\n", NULL, NULL);
     } else {
-        NEXT;
         if (err == 0)
             ret = xmlStrndup((BASE_PTR + startPosition), len);
+        NEXT;
     }
 
     return(ret);
@@ -3144,6 +3153,7 @@ htmlParseScript(htmlParserCtxtPtr ctxt) {
             htmlParseErrInt(ctxt, XML_ERR_INVALID_CHAR,
                             "Invalid char in CDATA 0x%X\n", cur);
         }
+	NEXTL(l);
 	if (nbchar >= HTML_PARSER_BIG_BUFFER_SIZE) {
             buf[nbchar] = 0;
 	    if (ctxt->sax->cdataBlock!= NULL) {
@@ -3157,7 +3167,6 @@ htmlParseScript(htmlParserCtxtPtr ctxt) {
 	    nbchar = 0;
 	}
 	GROW;
-	NEXTL(l);
 	cur = CUR_CHAR(l);
     }
 
@@ -3853,7 +3862,7 @@ htmlCheckEncodingDirect(htmlParserCtxtPtr ctxt, const xmlChar *encoding) {
 	    (ctxt->input->buf->raw != NULL) &&
 	    (ctxt->input->buf->buffer != NULL)) {
 	    int nbchars;
-	    int processed;
+	    size_t processed;
 
 	    /*
 	     * convert as much as possible to the parser reading buffer.

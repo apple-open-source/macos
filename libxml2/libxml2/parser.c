@@ -9313,7 +9313,7 @@ xmlParseStartTag2(xmlParserCtxtPtr ctxt, const xmlChar **pref,
     int maxatts = ctxt->maxatts;
     int nratts, nbatts, nbdef, inputid;
     int i, j, nbNs, attval;
-    unsigned long cur;
+    size_t cur;
     int nsNr = ctxt->nsNr;
 
     if (RAW != '<') return(NULL);
@@ -11252,7 +11252,8 @@ xmlCheckCdataPush(const xmlChar *utf, int len, int complete) {
 static int
 xmlParseTryOrFinish(xmlParserCtxtPtr ctxt, int terminate) {
     int ret = 0;
-    int avail, tlen;
+    int tlen;
+    size_t avail;
     xmlChar cur, next;
     const xmlChar *lastlt, *lastgt;
 
@@ -12212,7 +12213,11 @@ done:
 #endif
     return(ret);
 encoding_error:
-    {
+    if (ctxt->input->end - ctxt->input->cur < 4) {
+	__xmlErrEncoding(ctxt, XML_ERR_INVALID_CHAR,
+		     "Input is not proper UTF-8, indicate encoding !\n",
+		     NULL, NULL);
+    } else {
         char buffer[150];
 
 	snprintf(buffer, 149, "Bytes: 0x%02X 0x%02X 0x%02X 0x%02X\n",

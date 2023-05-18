@@ -6,7 +6,5 @@
 	<array>
 		<string>com.apple.ssh.passphrases</string>
 	</array>
-	<key>com.apple.private.security.clear-library-validation</key>
-	<true/>
 </dict>
 </plist>

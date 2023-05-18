@@ -196,11 +196,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     }
 
     func establish(reload: Bool,
-                   store: NSPersistentStoreDescription) throws -> (Container, String) {
-        return try self.establish(reload: reload, contextID: OTDefaultContext, accountIsDemo: false, store: store)
-    }
-
-    func establish(reload: Bool,
                    contextID: String = OTDefaultContext,
                    allowedMachineIDs: Set<String> = Set(["aaa", "bbb", "ccc"]),
                    accountIsDemo: Bool = false,
@@ -1948,7 +1943,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         // But all that goes away, and a new peer establishes
         self.cuttlefish.state = FakeCuttlefishServer.State()
-        let (_, peerID2) = try establish(reload: false, contextID: "second", accountIsDemo: false, store: tmpStoreDescription(name: "container-peer2.db"))
+        let (_, peerID2) = try establish(reload: false, contextID: "second", store: tmpStoreDescription(name: "container-peer2.db"))
 
         // And the first container fetches again, which should succeed
         self.cuttlefish.nextFetchErrors.append(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired))
@@ -3062,7 +3057,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
     func testMachineIDListSetDisallowedOldUnknownMachineIDs() throws {
         let description = tmpStoreDescription(name: "container.db")
-        var (container, peerID1) = try establish(reload: false, contextID: OTDefaultContext, allowedMachineIDs: Set(["aaa"]), accountIsDemo: false, store: description)
+        var (container, peerID1) = try establish(reload: false, allowedMachineIDs: Set(["aaa"]), store: description)
 
         // and set the machine ID list to something that doesn't include 'ddd'
         XCTAssertNil(container.setAllowedMachineIDsSync(test: self, allowedMachineIDs: ["aaa", "bbb", "ccc"], accountIsDemo: false, listDifference: true), "should be able to set allowed machine IDs")
@@ -3163,7 +3158,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     func testMachineIDListHandlingInDemoAccounts() throws {
         // Demo accounts have no machine IDs in their lists
         let description = tmpStoreDescription(name: "container.db")
-        var (container, peerID1) = try establish(reload: false, contextID: OTDefaultContext, allowedMachineIDs: Set(), accountIsDemo: true, store: description)
+        var (container, peerID1) = try establish(reload: false, allowedMachineIDs: Set(), accountIsDemo: true, store: description)
 
         // And so we just don't write down any MIDs
         try self.assert(container: container, allowedMachineIDs: Set([]), disallowedMachineIDs: [], unknownMachineIDs: Set([]), persistentStore: description, cuttlefish: self.cuttlefish)
@@ -3778,7 +3773,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                 self.cuttlefish = FakeCuttlefishServer(nil, ckZones: [:], ckksZoneKeys: [:])
 
                 let (c, peerID1) = try establish(reload: false,
-                                                 contextID: OTDefaultContext,
                                                  allowedMachineIDs: Set(["aaa"] + joiningMIDs),
                                                  store: store)
 
@@ -3809,7 +3803,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     }
 
     func testMemoryUseLoadingManyPeers() throws {
-        let joiningMIDs = (0...10).map {
+        let additionalPeerCount = 49 // not including initial peer
+        let remainingPeerCount = 9 // how many of the additional peers will be trusted at the end
+        let joiningMIDs = (0..<additionalPeerCount).map {
             "mid\($0)"
         }
 
@@ -3817,7 +3813,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         self.cuttlefish = FakeCuttlefishServer(nil, ckZones: [:], ckksZoneKeys: [:])
 
         let (c, peerID1) = try establish(reload: false,
-                                         contextID: OTDefaultContext,
                                          allowedMachineIDs: Set(["aaa"] + joiningMIDs),
                                          store: store)
 
@@ -3845,13 +3840,12 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         }
 
         // Now half of the containers are thrown out
-        let remainingPeerCount = 8
-        let newIDList = Set(["aaa"] + joiningMIDs[0...remainingPeerCount])
-        let newTrustedList = [peerID1] + joinedContainers[0...remainingPeerCount].map { $1 }
+        let newIDList = Set(["aaa"] + joiningMIDs[0..<remainingPeerCount])
+        let newTrustedList = [peerID1] + joinedContainers[0..<remainingPeerCount].map { $1 }
 
-        joinedContainers[0...remainingPeerCount].forEach { joinedContainer, _ in
+        joinedContainers[0..<remainingPeerCount].forEach { joinedContainer, _ in
             XCTAssertNil(joinedContainer.setAllowedMachineIDsSync(test: self,
-                                                                  allowedMachineIDs: Set(newIDList),
+                                                                  allowedMachineIDs: newIDList,
                                                                   accountIsDemo: false,
                                                                   listDifference: true), "should be able to set allowed machine IDs")
 
@@ -3868,20 +3862,20 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         }
 
         let options = XCTMeasureOptions()
-        options.iterationCount = 5 // Note that XCT will always do one more iteration than requested
-        self.measure(metrics: [XCTMemoryMetric()], options: options) {
-            do {
-                let (_, _, updateError) = c.updateSync(test: self)
-                XCTAssertNil(updateError, "Should be able to update first container")
+        options.iterationCount = 25 // Note that XCT will always do one more iteration than requested
+        options.invocationOptions = .manuallyStop // so we can measure memory before our container goes out of scope
+        self.measure(metrics: [XCTCPUMetric(), XCTMemoryMetric()], options: options) {
+            let (_, _, updateError) = c.updateSync(test: self)
+            XCTAssertNil(updateError, "Should be able to update first container")
 
-                // reload: to simulate memory use when the daemon restarts
-                do {
-                    let container = try Container(name: c.name,
-                                                  persistentStoreDescription: store,
-                                                  darwinNotifier: FakeCKKSNotifier.self,
-                                                  cuttlefish: cuttlefish)
-                    self.assertTrusts(context: container, peerIDs: newTrustedList)
-                }
+            // reload: to simulate memory use when the daemon restarts
+            do {
+                let container = try Container(name: c.name,
+                                              persistentStoreDescription: store,
+                                              darwinNotifier: FakeCKKSNotifier.self,
+                                              cuttlefish: cuttlefish)
+                self.assertTrusts(context: container, peerIDs: newTrustedList)
+                self.stopMeasuring()
             } catch {
                 XCTFail("Expected no failures: \(error)")
             }

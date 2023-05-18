@@ -35,6 +35,7 @@
 
 #include "krb5_locl.h"
 #include <Foundation/Foundation.h>
+#import <CFNetwork/CFURLRequestPriv.h>
 
 static krb5_error_code
 requestToURL(krb5_context context,
@@ -67,6 +68,9 @@ requestToURL(krb5_context context,
 	[request setHTTPBody:bodyData];
 	[request addValue:@"application/octet-stream" forHTTPHeaderField:@"Content-Type"];
 	[request addValue:@(PACKAGE_STRING) forHTTPHeaderField:@"X-Kerberos-Client"];
+	
+	// the KDC Proxy request should only use HTTP 1.1
+	_CFURLRequestSetAllowedProtocolTypes((__bridge CFURLRequestRef)request, _kCFURLRequestAllowedProtocolTypeHTTP);
 	
 	dispatch_semaphore_t sem = dispatch_semaphore_create(0);
 	NSURLSession *session = [NSURLSession sessionWithConfiguration:NSURLSessionConfiguration.ephemeralSessionConfiguration];

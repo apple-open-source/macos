@@ -601,6 +601,7 @@ void WebProcessProxy::shutDown()
     m_activityForHoldingLockedFiles = nullptr;
     m_audibleMediaActivity = std::nullopt;
     m_mediaStreamingActivity = std::nullopt;
+    m_throttler.didDisconnectFromProcess();
 
     for (auto& page : pages()) {
         if (page)
@@ -717,6 +718,8 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
 
     updateRegistrationWithDataStore();
     updateBackgroundResponsivenessTimer();
+    updateWebGPUEnabledStateInGPUProcess();
+    updateBlobRegistryPartitioningState();
 }
 
 void WebProcessProxy::markIsNoLongerInPrewarmedPool()
@@ -747,6 +750,9 @@ void WebProcessProxy::removeWebPage(WebPageProxy& webPage, EndsUsingDataStore en
     updateAudibleMediaAssertions();
     updateMediaStreamingActivity();
     updateBackgroundResponsivenessTimer();
+    updateWebGPUEnabledStateInGPUProcess();
+
+    updateBlobRegistryPartitioningState();
 
     maybeShutDown();
 }
@@ -1786,6 +1792,22 @@ void WebProcessProxy::didExceedCPULimit()
 void WebProcessProxy::updateBackgroundResponsivenessTimer()
 {
     m_backgroundResponsivenessTimer.updateState();
+}
+
+void WebProcessProxy::updateWebGPUEnabledStateInGPUProcess()
+{
+    if (auto* process = processPool().gpuProcess()) {
+        process->updateWebGPUEnabled(*this, WTF::anyOf(pages(), [](const auto& page) {
+            return page && page->preferences().webGPU();
+        }));
+    }
+}
+
+void WebProcessProxy::updateBlobRegistryPartitioningState() const
+{
+    auto* dataStore = websiteDataStore();
+    if (auto* networkProcess = dataStore ? dataStore->networkProcessIfExists() : nullptr)
+        networkProcess->setBlobRegistryTopOriginPartitioningEnabled(sessionID(),  dataStore->isBlobRegistryPartitioningEnabled());
 }
 
 #if !PLATFORM(COCOA)

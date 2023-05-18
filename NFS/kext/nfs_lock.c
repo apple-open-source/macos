@@ -754,6 +754,7 @@ nfs3_setlock_rpc(
 	if (!nlop->nlo_open_owner) {
 		nfs_open_owner_ref(nofp->nof_owner);
 		nlop->nlo_open_owner = nofp->nof_owner;
+		nlop->nlo_open_file = nofp;
 	}
 	if ((error = nfs_lock_owner_set_busy(nlop, thd))) {
 		return error;

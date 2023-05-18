@@ -1,4 +1,4 @@
-c: Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+c: Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 SPDX-License-Identifier: curl
 Long: header
 Short: H
@@ -10,6 +10,7 @@ See-also: user-agent referer
 Example: -H "X-First-Name: Joe" $URL
 Example: -H "User-Agent: yes-please/2000" $URL
 Example: -H "Host:" $URL
+Example: -H @headers.txt $URL
 Added: 5.0
 Multi: append
 ---

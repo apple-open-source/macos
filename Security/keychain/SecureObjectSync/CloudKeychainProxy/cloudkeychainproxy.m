@@ -486,12 +486,6 @@ static void diagnostics(int argc, const char *argv[]) {
 
 int main(int argc, const char *argv[]) {
     secinfo(PROXYXPCSCOPE, "Starting CloudKeychainProxy");
-    char *wait4debugger = getenv("WAIT4DEBUGGER");
-
-    if (wait4debugger && !strcasecmp("YES", wait4debugger)) {
-        syslog(LOG_ERR, "Waiting for debugger");
-        kill(getpid(), SIGTSTP);
-    }
 
     if (argc > 1) {
         diagnostics(argc, argv);

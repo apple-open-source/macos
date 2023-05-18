@@ -323,6 +323,9 @@ bool SecCKKSSetEnforceManifests(bool value);
 bool SecCKKSReduceRateLimiting(void);
 bool SecCKKSSetReduceRateLimiting(bool value);
 
+bool SecCKKSHighPriorityOperations(void);
+bool SecCKKSSetHighPriorityOperations(bool value);
+
 // Testing support
 bool SecCKKSTestsEnabled(void);
 bool SecCKKSTestsEnable(void);

@@ -121,6 +121,11 @@ func jsonFromFile(filename: String) -> [String: Any] {
     return dictionary
 }
 
+guard SecIsInternalRelease() else {
+    print("Error: command unavailable")
+    exit(EXIT_FAILURE)
+}
+
 var commands: [Command] = []
 var argIterator = args.makeIterator()
 var configurationData: [String: Any]?

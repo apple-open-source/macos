@@ -145,7 +145,7 @@
 /* Define if struct sigcontext is present */
 #define HAVE_SIGCONTEXT 1
 
-/* Define if touuper/tolower only work on lower/upercase characters */
+/* Define if toupper/tolower only work on lower/uppercase characters */
 /* #undef BROKEN_TOUPPER */
 
 /* Define if stat() ignores a trailing slash */

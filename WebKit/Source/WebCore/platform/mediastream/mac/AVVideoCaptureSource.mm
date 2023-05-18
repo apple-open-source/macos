@@ -309,10 +309,14 @@ double AVVideoCaptureSource::facingModeFitnessScoreAdjustment() const
             [devicePriorities addObject:AVCaptureDeviceTypeBuiltInTripleCamera];
         if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeBuiltInDualWideCamera())
             [devicePriorities addObject:AVCaptureDeviceTypeBuiltInDualWideCamera];
-        [devicePriorities addObject:AVCaptureDeviceTypeBuiltInUltraWideCamera];
-        [devicePriorities addObject:AVCaptureDeviceTypeBuiltInDualCamera];
-        [devicePriorities addObject:AVCaptureDeviceTypeBuiltInWideAngleCamera];
-        [devicePriorities addObject:AVCaptureDeviceTypeBuiltInTelephotoCamera];
+        if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeBuiltInUltraWideCamera())
+            [devicePriorities addObject:AVCaptureDeviceTypeBuiltInUltraWideCamera];
+        if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeBuiltInDualCamera())
+            [devicePriorities addObject:AVCaptureDeviceTypeBuiltInDualCamera];
+        if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeBuiltInWideAngleCamera())
+            [devicePriorities addObject:AVCaptureDeviceTypeBuiltInWideAngleCamera];
+        if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeBuiltInTelephotoCamera())
+            [devicePriorities addObject:AVCaptureDeviceTypeBuiltInTelephotoCamera];
         if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeDeskViewCamera())
             [devicePriorities addObject:AVCaptureDeviceTypeDeskViewCamera];
     }
@@ -346,6 +350,14 @@ void AVVideoCaptureSource::setFrameRateWithPreset(double requestedFrameRate, Ref
 
     setSessionSizeAndFrameRate();
 }
+
+#if PLATFORM(IOS_FAMILY)
+static bool isVirtualWideCamera(AVCaptureDeviceType deviceType)
+{
+    return (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeBuiltInTripleCamera() && deviceType == AVCaptureDeviceTypeBuiltInTripleCamera)
+        || (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeBuiltInDualWideCamera() && deviceType == AVCaptureDeviceTypeBuiltInDualWideCamera);
+}
+#endif
 
 void AVVideoCaptureSource::setSessionSizeAndFrameRate()
 {
@@ -399,6 +411,11 @@ void AVVideoCaptureSource::setSessionSizeAndFrameRate()
                 [device() setActiveVideoMaxFrameDuration: frameDuration];
             } else
                 ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "cannot find proper frame rate range for the selected preset\n");
+
+#if PLATFORM(IOS_FAMILY)
+            if (isVirtualWideCamera([device() deviceType]))
+                [device() setVideoZoomFactor:2.0];
+#endif
 
             [device() unlockForConfiguration];
             m_appliedFrameRateRange = frameRateRange;

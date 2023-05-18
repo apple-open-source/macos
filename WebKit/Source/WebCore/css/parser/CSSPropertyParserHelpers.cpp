@@ -4672,10 +4672,8 @@ RefPtr<CSSValue> consumeImage(CSSParserTokenRange& range, const CSSParserContext
             return consumeGeneratedImage(range, context);
 
         if (allowedImageTypes.contains(AllowedImageType::ImageSet)) {
-            if (functionId == CSSValueImageSet)
+            if (functionId == CSSValueImageSet || functionId == CSSValueWebkitImageSet)
                 return consumeImageSet(range, context, (allowedImageTypes | AllowedImageType::RawStringAsURL) - AllowedImageType::ImageSet);
-            if (functionId == CSSValueWebkitImageSet)
-                return consumeImageSet(range, context, AllowedImageType::URLFunction);
         }
     }
 
@@ -7787,7 +7785,7 @@ static bool consumeSubgridNameRepeatFunction(CSSParserTokenRange& range, CSSValu
 
 RefPtr<CSSValue> consumeGridTrackList(CSSParserTokenRange& range, const CSSParserContext& context, TrackListType trackListType)
 {
-    if (range.peek().id() == CSSValueMasonry)
+    if (context.masonryEnabled && range.peek().id() == CSSValueMasonry)
         return consumeIdent(range);
     bool seenAutoRepeat = false;
     if (trackListType == GridTemplate && context.subgridEnabled && range.peek().id() == CSSValueSubgrid) {

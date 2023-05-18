@@ -613,8 +613,14 @@ ansi_step(pansi, ch)
 		/* Hyperlink ends with \7 or ESC-backslash. */
 		if (ch == '\7')
 			return ANSI_END;
+#ifdef __APPLE__
+		/* CVE-2022-46663 */
+		if (pansi->prev_esc)
+			return (ch == '\\') ? ANSI_END : ANSI_ERR;
+#else
 		if (pansi->prev_esc && ch == '\\')
 			return ANSI_END;
+#endif
 		pansi->prev_esc = (ch == ESC);
 		return ANSI_MID;
 	}

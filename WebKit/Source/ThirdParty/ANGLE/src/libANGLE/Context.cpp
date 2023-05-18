@@ -685,6 +685,7 @@ void Context::initializeDefaultResources()
 
     // Initialize dirty bit masks
     mAllDirtyBits.set();
+    mAllExtendedDirtyBits.set();
 
     mDrawDirtyObjects.set(State::DIRTY_OBJECT_ACTIVE_TEXTURES);
     mDrawDirtyObjects.set(State::DIRTY_OBJECT_DRAW_FRAMEBUFFER);
@@ -697,7 +698,6 @@ void Context::initializeDefaultResources()
 
     mTexImageDirtyBits.set(State::DIRTY_BIT_UNPACK_STATE);
     mTexImageDirtyBits.set(State::DIRTY_BIT_UNPACK_BUFFER_BINDING);
-    mTexImageDirtyBits.set(State::DIRTY_BIT_EXTENDED);
     // No dirty objects.
 
     // Readpixels uses the pack state and read FBO
@@ -2256,14 +2256,6 @@ void Context::getIntegervImpl(GLenum pname, GLint *params) const
             *params = mState.mCaps.textureBufferOffsetAlignment;
             break;
 
-        // GL_EXT_clip_control
-        case GL_CLIP_ORIGIN_EXT:
-            *params = mState.mClipControlOrigin;
-            break;
-        case GL_CLIP_DEPTH_MODE_EXT:
-            *params = mState.mClipControlDepth;
-            break;
-
         // ANGLE_shader_pixel_local_storage
         case GL_MAX_PIXEL_LOCAL_STORAGE_PLANES_ANGLE:
             *params = mState.mCaps.maxPixelLocalStoragePlanes;
@@ -3557,11 +3549,6 @@ void Context::disableExtension(const char *name)
 
 void Context::setExtensionEnabled(const char *name, bool enabled)
 {
-    // OVR_multiview is implicitly enabled when OVR_multiview2 is enabled
-    if (strcmp(name, "GL_OVR_multiview2") == 0)
-    {
-        setExtensionEnabled("GL_OVR_multiview", enabled);
-    }
     const ExtensionInfoMap &extensionInfos = GetExtensionInfoMap();
     ASSERT(extensionInfos.find(name) != extensionInfos.end());
     const auto &extension = extensionInfos.at(name);
@@ -3575,6 +3562,37 @@ void Context::setExtensionEnabled(const char *name, bool enabled)
     }
 
     mState.mExtensions.*(extension.ExtensionsMember) = enabled;
+
+    if (enabled)
+    {
+        if (strcmp(name, "GL_OVR_multiview2") == 0)
+        {
+            // OVR_multiview is implicitly enabled when OVR_multiview2 is enabled
+            requestExtension("GL_OVR_multiview");
+        }
+        else if (strcmp(name, "GL_ANGLE_shader_pixel_local_storage") == 0 ||
+                 strcmp(name, "GL_ANGLE_shader_pixel_local_storage_coherent") == 0)
+        {
+            // ANGLE_shader_pixel_local_storage/ANGLE_shader_pixel_local_storage_coherent have
+            // various dependency extensions, including each other.
+            const auto enableIfRequestable = [this](const char *extensionName) {
+                for (const char *requestableExtension : mRequestableExtensionStrings)
+                {
+                    if (strcmp(extensionName, requestableExtension) == 0)
+                    {
+                        requestExtension(extensionName);
+                        return;
+                    }
+                }
+            };
+            enableIfRequestable("GL_OES_draw_buffers_indexed");
+            enableIfRequestable("GL_EXT_draw_buffers_indexed");
+            enableIfRequestable("GL_EXT_color_buffer_float");
+            enableIfRequestable("GL_EXT_color_buffer_half_float");
+            enableIfRequestable("GL_ANGLE_shader_pixel_local_storage_coherent");
+            enableIfRequestable("GL_ANGLE_shader_pixel_local_storage");
+        }
+    }
 
     reinitializeAfterExtensionsChanged();
 }
@@ -3656,10 +3674,15 @@ Extensions Context::generateSupportedExtensions() const
         supportedExtensions.multiviewMultisampleANGLE    = false;
         supportedExtensions.copyTexture3dANGLE           = false;
         supportedExtensions.textureMultisampleANGLE      = false;
+        supportedExtensions.textureStencil8OES           = false;
+        supportedExtensions.conservativeDepthEXT         = false;
         supportedExtensions.drawBuffersIndexedEXT        = false;
         supportedExtensions.drawBuffersIndexedOES        = false;
         supportedExtensions.EGLImageArrayEXT             = false;
+        supportedExtensions.stencilTexturingANGLE        = false;
         supportedExtensions.textureFormatSRGBOverrideEXT = false;
+        supportedExtensions.renderSharedExponentQCOM     = false;
+        supportedExtensions.renderSnormEXT               = false;
 
         // Support GL_EXT_texture_norm16 on non-WebGL ES2 contexts. This is needed for R16/RG16
         // texturing for HDR video playback in Chromium which uses ES2 for compositor contexts.
@@ -4503,7 +4526,7 @@ angle::Result Context::prepareForClearBuffer(GLenum buffer, GLint drawbuffer)
 ANGLE_INLINE angle::Result Context::prepareForCopyImage()
 {
     ANGLE_TRY(syncDirtyObjects(mCopyImageDirtyObjects, Command::CopyImage));
-    return syncDirtyBits(mCopyImageDirtyBits, Command::CopyImage);
+    return syncDirtyBits(mCopyImageDirtyBits, mCopyImageExtendedDirtyBits, Command::CopyImage);
 }
 
 ANGLE_INLINE angle::Result Context::prepareForDispatch()
@@ -4525,7 +4548,7 @@ ANGLE_INLINE angle::Result Context::prepareForDispatch()
     }
 
     ANGLE_TRY(syncDirtyObjects(mComputeDirtyObjects, Command::Dispatch));
-    return syncDirtyBits(mComputeDirtyBits, Command::Dispatch);
+    return syncDirtyBits(mComputeDirtyBits, mComputeExtendedDirtyBits, Command::Dispatch);
 }
 
 angle::Result Context::prepareForInvalidate(GLenum target)
@@ -4538,17 +4561,22 @@ angle::Result Context::prepareForInvalidate(GLenum target)
         effectiveTarget = GL_DRAW_FRAMEBUFFER;
     }
     ANGLE_TRY(mState.syncDirtyObject(this, effectiveTarget));
-    return syncDirtyBits(effectiveTarget == GL_READ_FRAMEBUFFER ? mReadInvalidateDirtyBits
-                                                                : mDrawInvalidateDirtyBits,
-                         Command::Invalidate);
+    const State::DirtyBits &dirtyBits                 = effectiveTarget == GL_READ_FRAMEBUFFER
+                                                            ? mReadInvalidateDirtyBits
+                                                            : mDrawInvalidateDirtyBits;
+    const State::ExtendedDirtyBits &extendedDirtyBits = effectiveTarget == GL_READ_FRAMEBUFFER
+                                                            ? mReadInvalidateExtendedDirtyBits
+                                                            : mDrawInvalidateExtendedDirtyBits;
+    return syncDirtyBits(dirtyBits, extendedDirtyBits, Command::Invalidate);
 }
 
 angle::Result Context::syncState(const State::DirtyBits &bitMask,
+                                 const State::ExtendedDirtyBits &extendedBitMask,
                                  const State::DirtyObjects &objectMask,
                                  Command command)
 {
     ANGLE_TRY(syncDirtyObjects(objectMask, command));
-    ANGLE_TRY(syncDirtyBits(bitMask, command));
+    ANGLE_TRY(syncDirtyBits(bitMask, extendedBitMask, command));
     return angle::Result::Continue;
 }
 
@@ -5744,12 +5772,14 @@ void Context::flushMappedBufferRange(BufferBinding /*target*/,
 
 angle::Result Context::syncStateForReadPixels()
 {
-    return syncState(mReadPixelsDirtyBits, mReadPixelsDirtyObjects, Command::ReadPixels);
+    return syncState(mReadPixelsDirtyBits, mReadPixelsExtendedDirtyBits, mReadPixelsDirtyObjects,
+                     Command::ReadPixels);
 }
 
 angle::Result Context::syncStateForTexImage()
 {
-    return syncState(mTexImageDirtyBits, mTexImageDirtyObjects, Command::TexImage);
+    return syncState(mTexImageDirtyBits, mTexImageExtendedDirtyBits, mTexImageDirtyObjects,
+                     Command::TexImage);
 }
 
 angle::Result Context::syncStateForBlit(GLbitfield mask)
@@ -5770,12 +5800,12 @@ angle::Result Context::syncStateForBlit(GLbitfield mask)
 
     Command command = static_cast<Command>(static_cast<uint32_t>(Command::Blit) + commandMask);
 
-    return syncState(mBlitDirtyBits, mBlitDirtyObjects, command);
+    return syncState(mBlitDirtyBits, mBlitExtendedDirtyBits, mBlitDirtyObjects, command);
 }
 
 angle::Result Context::syncStateForClear()
 {
-    return syncState(mClearDirtyBits, mClearDirtyObjects, Command::Clear);
+    return syncState(mClearDirtyBits, mClearExtendedDirtyBits, mClearDirtyObjects, Command::Clear);
 }
 
 angle::Result Context::syncTextureForCopy(Texture *texture)
@@ -5923,9 +5953,9 @@ void Context::depthRangef(GLfloat zNear, GLfloat zFar)
     mState.setDepthRange(clamp01(zNear), clamp01(zFar));
 }
 
-void Context::clipControl(GLenum origin, GLenum depth)
+void Context::clipControl(ClipOrigin originPacked, ClipDepthMode depthPacked)
 {
-    mState.setClipControl(origin, depth);
+    mState.setClipControl(originPacked, depthPacked);
 }
 
 void Context::disable(GLenum cap)
@@ -9355,7 +9385,45 @@ void Context::pixelLocalStorageBarrier()
     pls.barrier(this);
 }
 
+void Context::framebufferPixelLocalStorageInterrupt()
+{
+    Framebuffer *framebuffer = mState.getDrawFramebuffer();
+    ASSERT(framebuffer);
+    if (framebuffer->id().value != 0)
+    {
+        PixelLocalStorage &pls = framebuffer->getPixelLocalStorage(this);
+        pls.interrupt(this);
+    }
+}
+
+void Context::framebufferPixelLocalStorageRestore()
+{
+    Framebuffer *framebuffer = mState.getDrawFramebuffer();
+    ASSERT(framebuffer);
+    if (framebuffer->id().value != 0)
+    {
+        PixelLocalStorage &pls = framebuffer->getPixelLocalStorage(this);
+        pls.restore(this);
+    }
+}
+
 void Context::getFramebufferPixelLocalStorageParameterfv(GLint plane, GLenum pname, GLfloat *params)
+{
+    getFramebufferPixelLocalStorageParameterfvRobust(
+        plane, pname, std::numeric_limits<GLsizei>::max(), nullptr, params);
+}
+
+void Context::getFramebufferPixelLocalStorageParameteriv(GLint plane, GLenum pname, GLint *params)
+{
+    getFramebufferPixelLocalStorageParameterivRobust(
+        plane, pname, std::numeric_limits<GLsizei>::max(), nullptr, params);
+}
+
+void Context::getFramebufferPixelLocalStorageParameterfvRobust(GLint plane,
+                                                               GLenum pname,
+                                                               GLsizei bufSize,
+                                                               GLsizei *length,
+                                                               GLfloat *params)
 {
     Framebuffer *framebuffer = mState.getDrawFramebuffer();
     ASSERT(framebuffer);
@@ -9364,12 +9432,20 @@ void Context::getFramebufferPixelLocalStorageParameterfv(GLint plane, GLenum pna
     switch (pname)
     {
         case GL_PIXEL_LOCAL_CLEAR_VALUE_FLOAT_ANGLE:
+            if (length != nullptr)
+            {
+                *length = 4;
+            }
             pls.getPlane(plane).getClearValuef(params);
             break;
     }
 }
 
-void Context::getFramebufferPixelLocalStorageParameteriv(GLint plane, GLenum pname, GLint *params)
+void Context::getFramebufferPixelLocalStorageParameterivRobust(GLint plane,
+                                                               GLenum pname,
+                                                               GLsizei bufSize,
+                                                               GLsizei *length,
+                                                               GLint *params)
 {
     Framebuffer *framebuffer = mState.getDrawFramebuffer();
     ASSERT(framebuffer);
@@ -9382,13 +9458,25 @@ void Context::getFramebufferPixelLocalStorageParameteriv(GLint plane, GLenum pna
         case GL_PIXEL_LOCAL_TEXTURE_NAME_ANGLE:
         case GL_PIXEL_LOCAL_TEXTURE_LEVEL_ANGLE:
         case GL_PIXEL_LOCAL_TEXTURE_LAYER_ANGLE:
+            if (length != nullptr)
+            {
+                *length = 1;
+            }
             *params = pls.getPlane(plane).getIntegeri(this, pname);
             break;
         case GL_PIXEL_LOCAL_CLEAR_VALUE_INT_ANGLE:
+            if (length != nullptr)
+            {
+                *length = 4;
+            }
             pls.getPlane(plane).getClearValuei(params);
             break;
         case GL_PIXEL_LOCAL_CLEAR_VALUE_UNSIGNED_INT_ANGLE:
         {
+            if (length != nullptr)
+            {
+                *length = 4;
+            }
             GLuint valueui[4];
             pls.getPlane(plane).getClearValueui(valueui);
             memcpy(params, valueui, sizeof(valueui));
@@ -10114,6 +10202,7 @@ void Context::drawPixelLocalStorageEXTEnable(GLsizei n,
     ASSERT(mImplementation->getNativePixelLocalStorageOptions().type ==
            ShPixelLocalStorageType::PixelLocalStorageEXT);
     ANGLE_CONTEXT_TRY(syncState(mPixelLocalStorageEXTEnableDisableDirtyBits,
+                                mPixelLocalStorageEXTEnableDisableExtendedDirtyBits,
                                 mPixelLocalStorageEXTEnableDisableDirtyObjects, Command::Draw));
     ANGLE_CONTEXT_TRY(mImplementation->drawPixelLocalStorageEXTEnable(this, n, planes, loadops));
 }
@@ -10124,6 +10213,7 @@ void Context::drawPixelLocalStorageEXTDisable(const PixelLocalStoragePlane plane
     ASSERT(mImplementation->getNativePixelLocalStorageOptions().type ==
            ShPixelLocalStorageType::PixelLocalStorageEXT);
     ANGLE_CONTEXT_TRY(syncState(mPixelLocalStorageEXTEnableDisableDirtyBits,
+                                mPixelLocalStorageEXTEnableDisableExtendedDirtyBits,
                                 mPixelLocalStorageEXTEnableDisableDirtyObjects, Command::Draw));
     ANGLE_CONTEXT_TRY(mImplementation->drawPixelLocalStorageEXTDisable(this, planes, storeops));
 }

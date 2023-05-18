@@ -2579,6 +2579,8 @@ kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t option
               getName(),
               PCI_ADDRESS_TUPLE(this));
 
+		reserved->clientCrashed = true;
+
         IOReturn ret = parent->terminateChild(this);
         if (ret == kIOReturnNoDevice)
         {

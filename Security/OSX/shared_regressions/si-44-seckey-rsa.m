@@ -242,8 +242,23 @@ static void test_pss_sign(void) {
     test_pss_sign_run((__bridge SecKeyRef)privateKey, kSecKeyAlgorithmRSASignatureMessagePSSSHA256, kSecKeyAlgorithmRSASignatureDigestPSSSHA256, ccsha256_di());
     test_pss_sign_run((__bridge SecKeyRef)privateKey, kSecKeyAlgorithmRSASignatureMessagePSSSHA384, kSecKeyAlgorithmRSASignatureDigestPSSSHA384, ccsha384_di());
     test_pss_sign_run((__bridge SecKeyRef)privateKey, kSecKeyAlgorithmRSASignatureMessagePSSSHA512, kSecKeyAlgorithmRSASignatureDigestPSSSHA512, ccsha512_di());
+
+    error = nil;
+    params = @{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @1023, (id)kSecUseDataProtectionKeychain: @YES};
+    privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+    ok(privateKey != nil, "generate private key (error %@)", error);
+
+    test_pss_sign_run((__bridge SecKeyRef)privateKey, kSecKeyAlgorithmRSASignatureMessagePSSSHA1, kSecKeyAlgorithmRSASignatureDigestPSSSHA1, ccsha1_di());
+    test_pss_sign_run((__bridge SecKeyRef)privateKey, kSecKeyAlgorithmRSASignatureMessagePSSSHA224, kSecKeyAlgorithmRSASignatureDigestPSSSHA224, ccsha224_di());
+    test_pss_sign_run((__bridge SecKeyRef)privateKey, kSecKeyAlgorithmRSASignatureMessagePSSSHA256, kSecKeyAlgorithmRSASignatureDigestPSSSHA256, ccsha256_di());
+    test_pss_sign_run((__bridge SecKeyRef)privateKey, kSecKeyAlgorithmRSASignatureMessagePSSSHA384, kSecKeyAlgorithmRSASignatureDigestPSSSHA384, ccsha384_di());
+    ok(!SecKeyIsAlgorithmSupported((SecKeyRef)privateKey, kSecKeyOperationTypeSign, kSecKeyAlgorithmRSASignatureDigestPSSSHA512));
+    ok(!SecKeyIsAlgorithmSupported((SecKeyRef)privateKey, kSecKeyOperationTypeSign, kSecKeyAlgorithmRSASignatureMessagePSSSHA512));
 }
-static const int TestCountPSSSign = 1 + TestCountPSSSignRun * 4 + 2 + 1 + TestCountPSSSignRun * 5;
+static const int TestCountPSSSign =
+1 + TestCountPSSSignRun * 4 + 2
++ 1 + TestCountPSSSignRun * 5
++ 1 + TestCountPSSSignRun * 4 + 2;
 
 static void test_bad_input(NSInteger keySizeInBits, NSInteger inputSize, SecKeyAlgorithm algorithm) {
     NSError *error;

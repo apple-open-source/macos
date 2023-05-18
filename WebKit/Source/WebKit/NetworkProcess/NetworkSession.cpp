@@ -175,6 +175,8 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
     setTrackingPreventionEnabled(parameters.resourceLoadStatisticsParameters.enabled);
 #endif
 
+    setBlobRegistryTopOriginPartitioningEnabled(parameters.isBlobRegistryTopOriginPartitioningEnabled);
+
 #if ENABLE(SERVICE_WORKER)
     SandboxExtension::consumePermanently(parameters.serviceWorkerRegistrationDirectoryExtensionHandle);
     m_serviceWorkerInfo = ServiceWorkerInfo {
@@ -496,6 +498,12 @@ void NetworkSession::firePrivateClickMeasurementTimerImmediatelyForTesting()
     privateClickMeasurement().startTimerImmediatelyForTesting();
 }
 
+void NetworkSession::setBlobRegistryTopOriginPartitioningEnabled(bool enabled)
+{
+    RELEASE_LOG(Storage, "NetworkSession::setBlobRegistryTopOriginPartitioningEnabled as %" PUBLIC_LOG_STRING " for session %" PRIu64, enabled ? "enabled" : "disabled", m_sessionID.toUInt64());
+    m_blobRegistry.setPartitioningEnabled(enabled);
+}
+
 void NetworkSession::allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo& certificateInfo)
 {
     privateClickMeasurement().allowTLSCertificateChainForLocalPCMTesting(certificateInfo);
@@ -568,7 +576,7 @@ void NetworkSession::removeLoaderWaitingWebProcessTransfer(NetworkResourceLoadId
         cachedResourceLoader->takeLoader()->abort();
 }
 
-std::unique_ptr<WebSocketTask> NetworkSession::createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&, bool, bool, OptionSet<WebCore::NetworkConnectionIntegrity>)
+std::unique_ptr<WebSocketTask> NetworkSession::createWebSocketTask(WebPageProxyIdentifier, std::optional<WebCore::FrameIdentifier>, std::optional<WebCore::PageIdentifier>, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&, bool, bool, OptionSet<WebCore::NetworkConnectionIntegrity>, WebCore::ShouldRelaxThirdPartyCookieBlocking, WebCore::StoredCredentialsPolicy)
 {
     return nullptr;
 }

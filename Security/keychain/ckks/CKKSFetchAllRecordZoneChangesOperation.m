@@ -27,6 +27,7 @@
 
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
+#import <os/feature_private.h>
 
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ckks/CloudKitDependencies.h"
@@ -229,15 +230,16 @@
     self.fetchRecordZoneChangesOperation.group = self.ckoperationGroup;
     ckksnotice_global("ckksfetch", "Operation group is %@", self.ckoperationGroup);
 
-#if TARGET_OS_TV
     if([self.fetchReasons containsObject:CKKSFetchBecauseAPIFetchRequest] ||
        [self.fetchReasons containsObject:CKKSFetchBecauseInitialStart] ||
        [self.fetchReasons containsObject:CKKSFetchBecauseMoreComing] ||
        [self.fetchReasons containsObject:CKKSFetchBecauseKeyHierarchy]) {
-        // This operation is needed during CKKS bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
-        self.fetchRecordZoneChangesOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+
+        if(SecCKKSHighPriorityOperations()) {
+            // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+            self.fetchRecordZoneChangesOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+        }
     }
-#endif
 
     self.fetchRecordZoneChangesOperation.recordChangedBlock = ^(CKRecord *record) {
         STRONGIFY(self);

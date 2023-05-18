@@ -448,7 +448,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     // so dispatch to the main runloop to allow safe access to main-thread-only timers downstream of
     // notifyScrollPositionChanged (avoiding a crash). The timer causing the crash at the time of
     // this change was ScrollbarsControllerMac::m_sendContentAreaScrolledTimer.
-    callOnMainRunLoop([protectedPlugin = Ref { *_pdfPlugin }, newPosition] {
+    //
+    // This must be run on the main run loop synchronously. If it were dispatched asynchronously,
+    // updates to the scroll position could happen between the time the request is dispatched and when
+    // it is serviced, meaning we would overwrite the scroll position to a stale value.
+    callOnMainRunLoopAndWait([protectedPlugin = Ref { *_pdfPlugin }, newPosition] {
         protectedPlugin->notifyScrollPositionChanged(WebCore::IntPoint(newPosition));
     });
 }
@@ -1276,7 +1280,11 @@ void PDFPlugin::cancelAndForgetLoader(NetscapePlugInStreamLoader& loader)
 PluginInfo PDFPlugin::pluginInfo()
 {
     PluginInfo info;
-    info.name = builtInPDFPluginName();
+
+    // Note: HTML specification requires that the WebKit built-in PDF name
+    // is presented in plain English text.
+    // https://html.spec.whatwg.org/multipage/system-state.html#pdf-viewing-support
+    info.name = "WebKit built-in PDF"_s;
     info.desc = pdfDocumentTypeDescription();
     info.file = "internal-pdf-viewer"_s;
     info.isApplicationPlugin = true;

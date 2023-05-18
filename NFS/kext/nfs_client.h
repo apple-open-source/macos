@@ -502,7 +502,7 @@ void    nfs_revoke_open_state_for_node(nfsnode_t);
 struct nfs_lock_owner *nfs_lock_owner_find(nfsnode_t, proc_t, caddr_t, int);
 void    nfs_lock_owner_destroy(struct nfs_lock_owner *);
 void    nfs_lock_owner_ref(struct nfs_lock_owner *);
-void    nfs_lock_owner_rele(nfsnode_t, struct nfs_lock_owner *, thread_t, kauth_cred_t);
+void    nfs_lock_owner_rele(struct nfs_lock_owner *);
 int     nfs_lock_owner_set_busy(struct nfs_lock_owner *, thread_t);
 void    nfs_lock_owner_clear_busy(struct nfs_lock_owner *);
 void    nfs_lock_owner_insert_held_lock(struct nfs_lock_owner *, struct nfs_file_lock *);
@@ -533,7 +533,6 @@ int     nfs4_close_rpc(nfsnode_t, struct nfs_open_file *, thread_t, kauth_cred_t
 void    nfs4_delegation_return_enqueue(nfsnode_t);
 void    nfs4_delegation_return_read(vfs_context_t, nfsnode_t, int);
 int     nfs4_delegation_return(nfsnode_t, int, thread_t, kauth_cred_t);
-int     nfs4_lock_rpc(nfsnode_t, struct nfs_open_file *, struct nfs_file_lock *, int, int, thread_t, kauth_cred_t);
 int     nfs4_delegreturn_rpc(struct nfsmount *, u_char *, int, struct nfs_stateid *, int, thread_t, kauth_cred_t);
 
 nfsnode_t nfs4_named_attr_dir_get(nfsnode_t, int, vfs_context_t);

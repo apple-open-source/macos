@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -75,7 +75,8 @@ BEGIN {
 }
 
 use strict;
-use warnings;
+# Promote all warnings to fatal
+use warnings FATAL => 'all';
 use Cwd;
 use Digest::MD5 qw(md5);
 use MIME::Base64;
@@ -158,7 +159,8 @@ my $GOPHER6PORT=$noport; # Gopher IPv6 server port
 my $HTTPTLSPORT=$noport; # HTTP TLS (non-stunnel) server port
 my $HTTPTLS6PORT=$noport; # HTTP TLS (non-stunnel) IPv6 server port
 my $HTTPPROXYPORT=$noport; # HTTP proxy port, when using CONNECT
-my $HTTP2PORT=$noport;   # HTTP/2 server port
+my $HTTP2PORT=$noport;   # HTTP/2 no-tls server port
+my $HTTP2TLSPORT=$noport;  # HTTP/2 tls server port
 my $HTTP3PORT=$noport;   # HTTP/3 server port
 my $DICTPORT=$noport;    # DICT server port
 my $SMBPORT=$noport;     # SMB server port
@@ -864,7 +866,7 @@ sub stopserver {
         # given a ssh server, also kill socks piggybacking one
         push @killservers, "socks${2}";
     }
-    if($server eq "http") {
+    if($server eq "http" or $server eq "https") {
         # since the http2+3 server is a proxy that needs to know about the
         # dynamic http port it too needs to get restarted when the http server
         # is killed
@@ -1541,7 +1543,7 @@ sub runhttp2server {
 
     # don't retry if the server doesn't work
     if ($doesntrun{$pidfile}) {
-        return (0, 0, 0);
+        return (0, 0, 0, 0);
     }
 
     my $pid = processexists($pidfile);
@@ -1561,9 +1563,11 @@ sub runhttp2server {
 
     my ($http2pid, $pid2);
     my $port = 23113;
+    my $port2 = 23114;
     for(1 .. 10) {
         $port += int(rand(900));
-        my $aflags = "--port $port $flags";
+        $port2 += int(rand(900));
+        my $aflags = "--port $port --port2 $port2 $flags";
 
         my $cmd = "$exe $aflags";
         ($http2pid, $pid2) = startnew($cmd, $pidfile, 15, 0);
@@ -1578,14 +1582,16 @@ sub runhttp2server {
         $doesntrun{$pidfile} = 0;
 
         if($verbose) {
-            logmsg "RUN: $srvrname server PID $http2pid port $port\n";
+            logmsg "RUN: $srvrname server PID $http2pid ".
+                   "http-port $port https-port $port2 ".
+                   "backend $HOSTIP:$HTTPPORT\n";
         }
         last;
     }
 
     logmsg "RUN: failed to start the $srvrname server\n" if(!$http2pid);
 
-    return ($http2pid, $pid2, $port);
+    return ($http2pid, $pid2, $port, $port2);
 }
 
 #######################################################################
@@ -1734,7 +1740,7 @@ sub runhttpserver {
     }
 
     # where is it?
-    my $port;
+    my $port = 0;
     if(!$port_or_path) {
         $port = $port_or_path = pidfromfile($portfile);
     }
@@ -1752,7 +1758,7 @@ sub runhttpserver {
     $pid2 = $pid3;
 
     if($verbose) {
-        logmsg "RUN: $srvrname server is on PID $httppid port $port\n";
+        logmsg "RUN: $srvrname server is on PID $httppid port $port_or_path\n";
     }
 
     return ($httppid, $pid2, $port);
@@ -3010,6 +3016,7 @@ sub setupfeatures {
     $feature{"manual"} = $has_manual;
     $feature{"MinGW"} = $has_mingw;
     $feature{"MultiSSL"} = $has_multissl;
+    $feature{"mbedtls"} = $has_mbedtls;
     $feature{"NSS"} = $has_nss;
     $feature{"NTLM"} = $has_ntlm;
     $feature{"NTLM_WB"} = $has_ntlm_wb;
@@ -3121,45 +3128,45 @@ sub checksystem {
                 $has_win32 = 1;
                 $has_mingw = 1 if ($curl =~ /-pc-mingw32/);
             }
-           if ($libcurl =~ /(winssl|schannel)/i) {
+           if ($libcurl =~ /\s(winssl|schannel)\b/i) {
                $has_schannel=1;
                $has_sslpinning=1;
            }
-           elsif ($libcurl =~ /openssl/i) {
+           elsif ($libcurl =~ /\sopenssl\b/i) {
                $has_openssl=1;
                $has_sslpinning=1;
            }
-           elsif ($libcurl =~ /gnutls/i) {
+           elsif ($libcurl =~ /\sgnutls\b/i) {
                $has_gnutls=1;
                $has_sslpinning=1;
            }
-           elsif ($libcurl =~ /rustls-ffi/i) {
+           elsif ($libcurl =~ /\srustls-ffi\b/i) {
                $has_rustls=1;
            }
-           elsif ($libcurl =~ /nss/i) {
+           elsif ($libcurl =~ /\snss\b/i) {
                $has_nss=1;
                $has_sslpinning=1;
            }
-           elsif ($libcurl =~ /wolfssl/i) {
+           elsif ($libcurl =~ /\swolfssl\b/i) {
                $has_wolfssl=1;
                $has_sslpinning=1;
            }
-           elsif ($libcurl =~ /bearssl/i) {
+           elsif ($libcurl =~ /\sbearssl\b/i) {
                $has_bearssl=1;
            }
-           elsif ($libcurl =~ /securetransport/i) {
+           elsif ($libcurl =~ /\ssecuretransport\b/i) {
                $has_sectransp=1;
                $has_sslpinning=1;
            }
-           elsif ($libcurl =~ /BoringSSL/i) {
+           elsif ($libcurl =~ /\sBoringSSL\b/i) {
                $has_boringssl=1;
                $has_sslpinning=1;
            }
-           elsif ($libcurl =~ /libressl/i) {
+           elsif ($libcurl =~ /\slibressl\b/i) {
                $has_libressl=1;
                $has_sslpinning=1;
            }
-           elsif ($libcurl =~ /mbedTLS/i) {
+           elsif ($libcurl =~ /\smbedTLS\b/i) {
                $has_mbedtls=1;
                $has_sslpinning=1;
            }
@@ -3507,6 +3514,7 @@ sub subVariables {
     $$thing =~ s/${prefix}HTTPSPORT/$HTTPSPORT/g;
     $$thing =~ s/${prefix}HTTPSPROXYPORT/$HTTPSPROXYPORT/g;
     $$thing =~ s/${prefix}HTTP2PORT/$HTTP2PORT/g;
+    $$thing =~ s/${prefix}HTTP2TLSPORT/$HTTP2TLSPORT/g;
     $$thing =~ s/${prefix}HTTP3PORT/$HTTP3PORT/g;
     $$thing =~ s/${prefix}HTTPPORT/$HTTPPORT/g;
     $$thing =~ s/${prefix}PROXYPORT/$HTTPPROXYPORT/g;
@@ -4744,6 +4752,11 @@ sub singletest {
             }
         }
 
+        if($hash{'crlf'} ||
+           ($has_hyper && ($keywords{"HTTP"} || $keywords{"HTTPS"}))) {
+            map subNewlines(0, \$_), @protstrip;
+        }
+
         $res = compare($testnum, $testname, "proxy", \@out, \@protstrip);
         if($res) {
             return $errorreturncode;
@@ -5122,7 +5135,8 @@ sub startservers {
         }
         elsif($what eq "http/2") {
             if(!$run{'http/2'}) {
-                ($pid, $pid2, $HTTP2PORT) = runhttp2server($verbose);
+                ($pid, $pid2, $HTTP2PORT, $HTTP2TLSPORT) =
+                    runhttp2server($verbose);
                 if($pid <= 0) {
                     return "failed starting HTTP/2 server";
                 }
@@ -5368,7 +5382,7 @@ sub startservers {
         elsif($what eq "httptls") {
             if(!$httptlssrv) {
                 # for now, we can't run http TLS-EXT tests without gnutls-serv
-                return "no gnutls-serv";
+                return "no gnutls-serv (with SRP support)";
             }
             if($torture && $run{'httptls'} &&
                !responsive_httptls_server($verbose, "IPv4")) {

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -281,6 +281,9 @@ const struct helptxt helptext[] = {
    CURLHELP_HTTP},
   {"    --http3",
    "Use HTTP v3",
+   CURLHELP_HTTP},
+  {"    --http3-only",
+   "Use HTTP v3 only",
    CURLHELP_HTTP},
   {"    --ignore-content-length",
    "Ignore the size of the remote resource",

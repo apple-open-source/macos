@@ -840,7 +840,7 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
                                                                  error:(NSError**)error
 {
 #if OCTAGON
-    secnotice("octagontrust-fetch-account-wide-settings", "fetchAccountWideSettings invoked for context:%@", configurationContext);
+    secnotice("octagontrust-fetch-account-wide-settings", "fetchAccountWideSettings invoked for context:%@ forceFetch:%{bool}d", configurationContext, forceFetch);
 
     __block NSError* localError = nil;
 

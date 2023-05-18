@@ -63,7 +63,7 @@ extension Container {
                                     let (_, peerID, syncingPolicy) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
                                     reply(peerID, syncingPolicy, true, nil)
                                 } catch {
-                                    logger.info("preflightVouchWithBottle failed after refetches: \(String(describing: error), privacy: .public)")
+                                    logger.error("preflightVouchWithBottle failed after refetches: \(String(describing: error), privacy: .public)")
                                     reply(nil, nil, true, error)
                                 }
                             }

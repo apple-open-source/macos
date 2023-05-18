@@ -169,6 +169,7 @@
 #include "PlatformScreen.h"
 #include "PlatformStrategies.h"
 #include "PluginData.h"
+#include "PluginViewBase.h"
 #include "PrintContext.h"
 #include "PseudoElement.h"
 #include "PushSubscription.h"
@@ -1027,13 +1028,6 @@ static BitmapImage* bitmapImageFromImageElement(HTMLImageElement& element)
     return dynamicDowncast<BitmapImage>(imageFromImageElement(element));
 }
 
-#if USE(CG)
-static PDFDocumentImage* pdfDocumentImageFromImageElement(HTMLImageElement& element)
-{
-    return dynamicDowncast<PDFDocumentImage>(imageFromImageElement(element));
-}
-#endif
-
 unsigned Internals::imageFrameIndex(HTMLImageElement& element)
 {
     auto* bitmapImage = bitmapImageFromImageElement(element);
@@ -1105,15 +1099,10 @@ unsigned Internals::imageDecodeCount(HTMLImageElement& element)
     return bitmapImage ? bitmapImage->decodeCountForTesting() : 0;
 }
 
-unsigned Internals::pdfDocumentCachingCount(HTMLImageElement& element)
+unsigned Internals::imageCachedSubimageCreateCount(HTMLImageElement& element)
 {
-#if USE(CG)
-    auto* pdfDocumentImage = pdfDocumentImageFromImageElement(element);
-    return pdfDocumentImage ? pdfDocumentImage->cachingCountForTesting() : 0;
-#else
-    UNUSED_PARAM(element);
-    return 0;
-#endif
+    auto* image = imageFromImageElement(element);
+    return image ? image->cachedSubimageCreateCountForTesting() : 0;
 }
 
 unsigned Internals::remoteImagesCountForTesting() const
@@ -6199,6 +6188,28 @@ size_t Internals::pluginCount()
         return 0;
 
     return contextDocument()->page()->pluginData().webVisiblePlugins().size();
+}
+
+static std::optional<ScrollPosition> scrollPositionForPlugin(Element& element)
+{
+    auto* pluginElement = dynamicDowncast<HTMLPlugInElement>(element);
+    if (auto* pluginViewBase = pluginElement ? pluginElement->pluginWidget() : nullptr)
+        return pluginViewBase->scrollPositionForTesting();
+    return std::nullopt;
+}
+
+ExceptionOr<unsigned> Internals::pluginScrollPositionX(Element& element)
+{
+    if (std::optional scrollPosition = scrollPositionForPlugin(element))
+        return scrollPosition->x();
+    return Exception { InvalidAccessError };
+}
+
+ExceptionOr<unsigned> Internals::pluginScrollPositionY(Element& element)
+{
+    if (std::optional scrollPosition = scrollPositionForPlugin(element))
+        return scrollPosition->y();
+    return Exception { InvalidAccessError };
 }
 
 void Internals::notifyResourceLoadObserver()

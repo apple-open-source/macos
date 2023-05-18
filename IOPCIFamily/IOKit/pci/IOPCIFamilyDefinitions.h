@@ -86,6 +86,14 @@
 #define kIOPMPCISleepLinkDisableKey     "IOPMPCISleepLinkDisable"
 // property to issue a secondary bus reset on sleep
 #define kIOPMPCISleepResetKey           "IOPMPCISleepReset"
+// property to provide bitmask for link train while scanning
+#define kIOPCIRetrainLinkMaskKey        "IOPCIRetrainLinkMask"
+// property to issue a link retrain while on wake
+#define kIOPCIRetrainLinkKey            "IOPCIRetrainLink"
+// property to check if endpoint is present on bridge
+#define kIOPCIEndpointPrsnt             "IOPCIEndpointPrsnt"
+// property to change the wait time for link up from spec default
+#define kIOPCIWaitForLinkUpKey          "wait-for-link-up"
 
 /*  bits getInterruptType result */
 enum

@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#import <os/feature_private.h>
+
 #import "CKKSKeychainView.h"
 #import "CKKSCurrentKeyPointer.h"
 #import "CKKSKey.h"
@@ -402,10 +404,10 @@
             modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
             modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
-#if TARGET_OS_TV
-            // This operation is needed during CKKS bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
-            modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;
-#endif
+            if(SecCKKSHighPriorityOperations()) {
+                // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+                modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;
+            }
 
             modifyRecordsOp.group = self.deps.ckoperationGroup;
             ckksnotice("ckksheal", viewState.zoneID, "Operation group is %@", self.deps.ckoperationGroup);

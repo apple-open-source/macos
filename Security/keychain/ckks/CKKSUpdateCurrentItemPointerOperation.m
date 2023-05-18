@@ -23,6 +23,8 @@
 
 #if OCTAGON
 
+#import <os/feature_private.h>
+
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
@@ -293,10 +295,10 @@
         self.modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
         self.modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
-#if TARGET_OS_TV
-        // This operation might be needed during CKKS/Manatee bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
-        self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
-#endif
+        if(SecCKKSHighPriorityOperations()) {
+            // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+            self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+        }
 
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
         self.modifyRecordsOperation.group = self.ckoperationGroup;
@@ -389,10 +391,10 @@
     self.fetchRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     self.fetchRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
-#if TARGET_OS_TV
-    // This operation might be needed during CKKS/Manatee bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
-    self.fetchRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
-#endif
+    if(SecCKKSHighPriorityOperations()) {
+        // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+        self.fetchRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+    }
 
     self.fetchRecordsOperation.group = self.ckoperationGroup;
 

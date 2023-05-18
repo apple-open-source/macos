@@ -2,13 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>88</integer>
+	<integer>90</integer>
 	<dict>
 		<key>domains</key>
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>^p[0-9]{0,3}-content$|^p[0-9]{0,3}-content-|^p[0-9]{0,3}-ckdatabase$|^p[0-9]{0,3}-ckdatabase-|^p[0-9]{0,3}-ckshare$|^p[0-9]{0,3}-ckshare-|^p[0-9]{0,3}-ckdevice$|^p[0-9]{0,3}-ckdevice-|^p[0-9]{0,3}-ckcoderouter$|^p[0-9]{0,3}-ckcoderouter-|^gateway|^p[0-9]{0,3}-keyvalueservice$|^p[0-9]{0,3}-keyvalueservice-|^keyvalueservice|^p[0-9]{0,3}-pairingws$|^p[0-9]{0,3}-pairingws-|^pairingws|^metrics|^.*quota$</string>
+				<string>^p[0-9]{0,3}-content$|^p[0-9]{0,3}-content-|^p[0-9]{0,3}-ckdatabase$|^p[0-9]{0,3}-ckdatabase-|^p[0-9]{0,3}-ckshare$|^p[0-9]{0,3}-ckshare-|^p[0-9]{0,3}-ckdevice$|^p[0-9]{0,3}-ckdevice-|^p[0-9]{0,3}-ckcoderouter$|^p[0-9]{0,3}-ckcoderouter-|^gateway|^p[0-9]{0,3}-keyvalueservice$|^p[0-9]{0,3}-keyvalueservice-|^keyvalueservice|^p[0-9]{0,3}-pairingws$|^p[0-9]{0,3}-pairingws-|^pairingws|^metrics|^.*quota$|^.*contacts$|^.*caldav$</string>
 				<key>suffix</key>
 				<string>icloud.com</string>
 			</dict>
@@ -3035,6 +3035,40 @@
 						</dict>
 					</array>
 				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^gsa(s)?$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>GS</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkerOid</key>
+				<array>
+					<string>1.2.840.113635.100.6.27.2</string>
+					<dict>
+						<key>1.2.840.113635.100.6.48.1</key>
+						<string>1.2.840.113635.100.6.27.2</string>
+					</dict>
+				</array>
 				<key>Revocation</key>
 				<string>AnyRevocationMethod</string>
 			</dict>

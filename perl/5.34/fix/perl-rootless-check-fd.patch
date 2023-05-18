@@ -1,0 +1,67 @@
+diff --git a/pp_ctl.c b/pp_ctl.c
+index 6a373b3..07c2de9 100644
+--- a/pp_ctl.c
++++ b/pp_ctl.c
+@@ -35,6 +35,10 @@
+ #include "perl.h"
+ #include "feature.h"
+ 
++#ifdef __APPLE__
++#include <rootless.h>
++#endif
++
+ #define RUN_PP_CATCHABLY(thispp) \
+     STMT_START { if (CATCH_GET) return docatch(thispp); } STMT_END
+ 
+@@ -3641,6 +3645,9 @@ S_check_type_and_open(pTHX_ SV *name)
+     PerlIO * retio;
+     const char *p = SvPV_const(name, len);
+     int st_rc;
++#ifdef __APPLE__
++    int fd;
++#endif __APPLE__
+ 
+     PERL_ARGS_ASSERT_CHECK_TYPE_AND_OPEN;
+ 
+@@ -3681,6 +3688,41 @@ S_check_type_and_open(pTHX_ SV *name)
+ #endif
+ 
+     retio = PerlIO_openn(aTHX_ ":", PERL_SCRIPT_MODE, -1, 0, 0, NULL, 1, &name);
++
++#ifdef __APPLE__
++
++     fd = PerlIO_fileno(retio);
++     if (fd != -1) {
++         switch (rootless_restricted_environment()) {
++         case 1:
++            switch (rootless_check_trusted_fd(fd)) {
++            case 1:
++                DIE(aTHX_ "Refusing to load non system module from installer context");
++                break;
++            case 0:
++                // file is trusted it may continue
++                break;
++            case -1:
++                DIE(aTHX_ "Unexpected error checking rootless_restricted_fd %s", strerror(errno));
++                break;
++            default:
++                DIE(aTHX_ "Unexpected return value from rootless_restricted_fd");
++                break;
++            }
++             break;
++         case 0:
++             // not running in rootless env
++             break;
++         case -1:
++             DIE(aTHX_ "Unexpected error checking rootless_restricted_environment %s", strerror(errno));
++             break;
++         default:
++             DIE(aTHX_ "Unexpected return value from rootless_restricted_envrionment");
++             break;
++        }
++     }
++#endif // __APPPLE__
++
+ #ifdef WIN32
+     /* EACCES stops the INC search early in pp_require to implement
+        feature RT #113422 */

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -1978,19 +1978,14 @@
 		4CD04C2310361A30001C87D5 /* fold.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fold.pro; sourceTree = "<group>"; };
 		4CD04C2410361A30001C87D5 /* getchar.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = getchar.pro; sourceTree = "<group>"; };
 		4CD04C2510361A30001C87D5 /* gui.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui.pro; sourceTree = "<group>"; };
-		4CD04C2610361A30001C87D5 /* gui_athena.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_athena.pro; sourceTree = "<group>"; };
 		4CD04C2710361A30001C87D5 /* gui_beval.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_beval.pro; sourceTree = "<group>"; };
 		4CD04C2810361A30001C87D5 /* gui_gtk.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_gtk.pro; sourceTree = "<group>"; };
 		4CD04C2910361A30001C87D5 /* gui_gtk_x11.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_gtk_x11.pro; sourceTree = "<group>"; };
-		4CD04C2A10361A30001C87D5 /* gui_mac.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_mac.pro; sourceTree = "<group>"; };
 		4CD04C2B10361A30001C87D5 /* gui_motif.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_motif.pro; sourceTree = "<group>"; };
 		4CD04C2C10361A30001C87D5 /* gui_photon.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_photon.pro; sourceTree = "<group>"; };
-		4CD04C2D10361A30001C87D5 /* gui_riscos.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_riscos.pro; sourceTree = "<group>"; };
-		4CD04C2E10361A30001C87D5 /* gui_w16.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_w16.pro; sourceTree = "<group>"; };
 		4CD04C2F10361A30001C87D5 /* gui_w32.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_w32.pro; sourceTree = "<group>"; };
 		4CD04C3010361A30001C87D5 /* gui_x11.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_x11.pro; sourceTree = "<group>"; };
 		4CD04C3110361A30001C87D5 /* gui_xmdlg.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gui_xmdlg.pro; sourceTree = "<group>"; };
-		4CD04C3210361A30001C87D5 /* hangulin.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hangulin.pro; sourceTree = "<group>"; };
 		4CD04C3310361A30001C87D5 /* hardcopy.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hardcopy.pro; sourceTree = "<group>"; };
 		4CD04C3410361A30001C87D5 /* hashtab.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hashtab.pro; sourceTree = "<group>"; };
 		4CD04C3510361A30001C87D5 /* if_cscope.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = if_cscope.pro; sourceTree = "<group>"; };
@@ -2018,15 +2013,11 @@
 		4CD04C4B10361A30001C87D5 /* option.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = option.pro; sourceTree = "<group>"; };
 		4CD04C4C10361A30001C87D5 /* os_amiga.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_amiga.pro; sourceTree = "<group>"; };
 		4CD04C4D10361A30001C87D5 /* os_mac_conv.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_mac_conv.pro; sourceTree = "<group>"; };
-		4CD04C4E10361A30001C87D5 /* os_msdos.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_msdos.pro; sourceTree = "<group>"; };
 		4CD04C4F10361A30001C87D5 /* os_mswin.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_mswin.pro; sourceTree = "<group>"; };
 		4CD04C5010361A30001C87D5 /* os_qnx.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_qnx.pro; sourceTree = "<group>"; };
-		4CD04C5110361A30001C87D5 /* os_riscos.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_riscos.pro; sourceTree = "<group>"; };
 		4CD04C5210361A30001C87D5 /* os_unix.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_unix.pro; sourceTree = "<group>"; };
 		4CD04C5310361A30001C87D5 /* os_vms.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_vms.pro; sourceTree = "<group>"; };
-		4CD04C5410361A30001C87D5 /* os_win16.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_win16.pro; sourceTree = "<group>"; };
 		4CD04C5510361A30001C87D5 /* os_win32.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = os_win32.pro; sourceTree = "<group>"; };
-		4CD04C5610361A30001C87D5 /* popupmnu.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = popupmnu.pro; sourceTree = "<group>"; };
 		4CD04C5710361A30001C87D5 /* pty.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = pty.pro; sourceTree = "<group>"; };
 		4CD04C5810361A30001C87D5 /* quickfix.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = quickfix.pro; sourceTree = "<group>"; };
 		4CD04C5910361A30001C87D5 /* regexp.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = regexp.pro; sourceTree = "<group>"; };
@@ -2041,7 +2032,6 @@
 		4CD04C6210361A30001C87D5 /* undo.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = undo.pro; sourceTree = "<group>"; };
 		4CD04C6310361A30001C87D5 /* version.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = version.pro; sourceTree = "<group>"; };
 		4CD04C6410361A30001C87D5 /* window.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = window.pro; sourceTree = "<group>"; };
-		4CD04C6510361A30001C87D5 /* workshop.pro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = workshop.pro; sourceTree = "<group>"; };
 		4CD04C6610361A30001C87D5 /* proto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = proto.h; path = src/proto.h; sourceTree = "<group>"; };
 		4CD04C6810361A30001C87D5 /* quickfix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = quickfix.c; path = src/quickfix.c; sourceTree = "<group>"; };
 		4CD04C6A10361A30001C87D5 /* regexp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = regexp.c; path = src/regexp.c; sourceTree = "<group>"; };
@@ -2277,7 +2267,6 @@
 		C12D91BA228214A000501F22 /* crypt_zip.pro */ = {isa = PBXFileReference; lastKnownFileType = text; path = crypt_zip.pro; sourceTree = "<group>"; };
 		C12D91BB228214A000501F22 /* userfunc.pro */ = {isa = PBXFileReference; lastKnownFileType = text; path = userfunc.pro; sourceTree = "<group>"; };
 		C12D91BC228214A100501F22 /* crypt.pro */ = {isa = PBXFileReference; lastKnownFileType = text; path = crypt.pro; sourceTree = "<group>"; };
-		C12D91BD228214A100501F22 /* os_beos.pro */ = {isa = PBXFileReference; lastKnownFileType = text; path = os_beos.pro; sourceTree = "<group>"; };
 		C12D91BE228214A100501F22 /* usercmd.pro */ = {isa = PBXFileReference; lastKnownFileType = text; path = usercmd.pro; sourceTree = "<group>"; };
 		C12D91BF228214A100501F22 /* findfile.pro */ = {isa = PBXFileReference; lastKnownFileType = text; path = findfile.pro; sourceTree = "<group>"; };
 		C12D91C0228214E800501F22 /* usercmd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = usercmd.c; path = src/usercmd.c; sourceTree = "<group>"; };
@@ -4855,7 +4844,6 @@
 				C12D91A52282149E00501F22 /* insexpand.pro */,
 				C12D91B02282149F00501F22 /* json.pro */,
 				C12D91A42282149E00501F22 /* list.pro */,
-				C12D91BD228214A100501F22 /* os_beos.pro */,
 				C12D91B3228214A000501F22 /* sha256.pro */,
 				C12D91B5228214A000501F22 /* sign.pro */,
 				C12D91B8228214A000501F22 /* spellfile.pro */,
@@ -4879,19 +4867,14 @@
 				4CD04C2310361A30001C87D5 /* fold.pro */,
 				4CD04C2410361A30001C87D5 /* getchar.pro */,
 				4CD04C2510361A30001C87D5 /* gui.pro */,
-				4CD04C2610361A30001C87D5 /* gui_athena.pro */,
 				4CD04C2710361A30001C87D5 /* gui_beval.pro */,
 				4CD04C2810361A30001C87D5 /* gui_gtk.pro */,
 				4CD04C2910361A30001C87D5 /* gui_gtk_x11.pro */,
-				4CD04C2A10361A30001C87D5 /* gui_mac.pro */,
 				4CD04C2B10361A30001C87D5 /* gui_motif.pro */,
 				4CD04C2C10361A30001C87D5 /* gui_photon.pro */,
-				4CD04C2D10361A30001C87D5 /* gui_riscos.pro */,
-				4CD04C2E10361A30001C87D5 /* gui_w16.pro */,
 				4CD04C2F10361A30001C87D5 /* gui_w32.pro */,
 				4CD04C3010361A30001C87D5 /* gui_x11.pro */,
 				4CD04C3110361A30001C87D5 /* gui_xmdlg.pro */,
-				4CD04C3210361A30001C87D5 /* hangulin.pro */,
 				4CD04C3310361A30001C87D5 /* hardcopy.pro */,
 				4CD04C3410361A30001C87D5 /* hashtab.pro */,
 				4CD04C3510361A30001C87D5 /* if_cscope.pro */,
@@ -4919,15 +4902,11 @@
 				4CD04C4B10361A30001C87D5 /* option.pro */,
 				4CD04C4C10361A30001C87D5 /* os_amiga.pro */,
 				4CD04C4D10361A30001C87D5 /* os_mac_conv.pro */,
-				4CD04C4E10361A30001C87D5 /* os_msdos.pro */,
 				4CD04C4F10361A30001C87D5 /* os_mswin.pro */,
 				4CD04C5010361A30001C87D5 /* os_qnx.pro */,
-				4CD04C5110361A30001C87D5 /* os_riscos.pro */,
 				4CD04C5210361A30001C87D5 /* os_unix.pro */,
 				4CD04C5310361A30001C87D5 /* os_vms.pro */,
-				4CD04C5410361A30001C87D5 /* os_win16.pro */,
 				4CD04C5510361A30001C87D5 /* os_win32.pro */,
-				4CD04C5610361A30001C87D5 /* popupmnu.pro */,
 				4CD04C5710361A30001C87D5 /* pty.pro */,
 				4CD04C5810361A30001C87D5 /* quickfix.pro */,
 				4CD04C5910361A30001C87D5 /* regexp.pro */,
@@ -4942,7 +4921,6 @@
 				4CD04C6210361A30001C87D5 /* undo.pro */,
 				4CD04C6310361A30001C87D5 /* version.pro */,
 				4CD04C6410361A30001C87D5 /* window.pro */,
-				4CD04C6510361A30001C87D5 /* workshop.pro */,
 			);
 			name = proto;
 			path = src/proto;
@@ -5226,7 +5204,7 @@
 				};
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "vim" */;
-			compatibilityVersion = "Xcode 13.0";
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (

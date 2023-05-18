@@ -337,6 +337,14 @@ static CFDictionaryRef SecRSAPublicKeyCopyAttributeDictionary(SecKeyRef key) {
     CFMutableDictionaryRef mutableDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
     CFDictionarySetValue(mutableDict, kSecAttrCanDecrypt, kCFBooleanTrue);
     CFDictionarySetValue(mutableDict, kSecAttrCanDerive, kCFBooleanFalse);
+
+    ccrsa_pub_ctx_t pubkey = key->key;
+    CFIndex sizeInBits = cczp_bitlen(ccrsa_ctx_zm(pubkey));
+    CFNumberRef sizeInBitsValue = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &sizeInBits);
+    CFDictionarySetValue(mutableDict, kSecAttrKeySizeInBits, sizeInBitsValue);
+    CFDictionarySetValue(mutableDict, kSecAttrEffectiveKeySize, sizeInBitsValue);
+    CFReleaseSafe(sizeInBitsValue);
+
     CFAssignRetained(dict, mutableDict);
     return dict;
 }
@@ -356,7 +364,7 @@ static CFStringRef SecRSAPublicKeyCopyDescription(SecKeyRef key) {
     CFStringRef modulusString = CFDataCopyHexString(modRef);
     require_quiet(modulusString, fail);
 
-    keyDescription = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef algorithm id: %lu, key type: %s, version: %d, block size: %zu bits, exponent: {hex: %llx, decimal: %lld}, modulus: %@, addr: %p>"), SecKeyGetAlgorithmId(key), key->key_class->name, key->key_class->version, (8*SecKeyGetBlockSize(key)), (long long)*ccrsa_ctx_e(pubkey), (long long)*ccrsa_ctx_e(pubkey), modulusString, key);
+    keyDescription = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef algorithm id: %lu, key type: %s, version: %d, %d bits (block size: %zu), exponent: {hex: %llx, decimal: %lld}, modulus: %@, addr: %p>"), SecKeyGetAlgorithmId(key), key->key_class->name, key->key_class->version, (int)cczp_bitlen(ccrsa_ctx_zm(pubkey)), SecKeyGetBlockSize(key), (long long)*ccrsa_ctx_e(pubkey), (long long)*ccrsa_ctx_e(pubkey), modulusString, key);
 
 fail:
     CFReleaseSafe(modRef);
@@ -654,6 +662,14 @@ static CFDictionaryRef SecRSAPrivateKeyCopyAttributeDictionary(SecKeyRef key) {
 	dict = SecKeyGeneratePrivateAttributeDictionary(key, kSecAttrKeyTypeRSA, fullKeyBlob);
     CFMutableDictionaryRef mutableDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
     CFDictionarySetValue(mutableDict, kSecAttrCanDerive, kCFBooleanFalse);
+
+    ccrsa_full_ctx_t fullkey = key->key;
+    CFIndex sizeInBits = cczp_bitlen(ccrsa_ctx_zm(fullkey));
+    CFNumberRef sizeInBitsValue = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &sizeInBits);
+    CFDictionarySetValue(mutableDict, kSecAttrKeySizeInBits, sizeInBitsValue);
+    CFDictionarySetValue(mutableDict, kSecAttrEffectiveKeySize, sizeInBitsValue);
+    CFReleaseSafe(sizeInBitsValue);
+
     CFAssignRetained(dict, mutableDict);
 
 errOut:
@@ -668,7 +684,8 @@ static CFDataRef SecRSAPrivateKeyCopyExternalRepresentation(SecKeyRef key, CFErr
 
 static CFStringRef SecRSAPrivateKeyCopyDescription(SecKeyRef key){
 
-	return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef algorithm id: %lu, key type: %s, version: %d, block size: %zu bits, addr: %p>"), SecKeyGetAlgorithmId(key), key->key_class->name, key->key_class->version, (8*SecKeyGetBlockSize(key)), key);
+    ccrsa_full_ctx_t fullkey = key->key;
+	return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef algorithm id: %lu, key type: %s, version: %d, %d bits (block size: %zu), addr: %p>"), SecKeyGetAlgorithmId(key), key->key_class->name, key->key_class->version, (int)cczp_bitlen(ccrsa_ctx_zm(fullkey)), SecKeyGetBlockSize(key), key);
 
 }
 

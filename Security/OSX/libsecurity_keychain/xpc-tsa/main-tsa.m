@@ -333,13 +333,6 @@ void handle_connection_event(const xpc_connection_t peer)
 
 int main(int argc, const char *argv[])
 {
-    char *wait4debugger = getenv("WAIT4DEBUGGER");
-    if (wait4debugger && !strcasecmp("YES", wait4debugger))
-    {
-        syslog(LOG_ERR, "Waiting for debugger");
-        kill(getpid(), SIGSTOP);
-    }
-
     xpc_main(handle_connection_event);
     
     return EX_OSERR;

@@ -36,6 +36,7 @@
 #import <pal/spi/cocoa/NSFileManagerSPI.h>
 #import <wtf/Deque.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/WeakObjCPtr.h>
 #import <wtf/spi/cf/CFBundleSPI.h>
 
 SOFT_LINK_FRAMEWORK(CoreLocation)
@@ -183,25 +184,28 @@ struct PermissionRequest {
 
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert _setTitleMaximumLineCount:0]; // No limit, we need to make sure the title doesn't get truncated.
-        UIAlertAction *denyAction = [UIAlertAction actionWithTitle:denyActionTitle style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
-            [self _addChallengeCount:-1 forToken:_activeChallenge->token.get() requestingURL:_activeChallenge->requestingURL.get()];
-            [self _finishActiveChallenge:NO];
+        UIAlertAction *denyAction = [UIAlertAction actionWithTitle:denyActionTitle style:UIAlertActionStyleDefault handler:[weakSelf = WeakObjCPtr<WKWebGeolocationPolicyDecider>(self)](UIAlertAction *) mutable {
+            if (auto strongSelf = weakSelf.get())
+                [strongSelf _finishActiveChallenge:NO];
         }];
-        UIAlertAction *allowAction = [UIAlertAction actionWithTitle:allowActionTitle style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
-            [self _addChallengeCount:1 forToken:_activeChallenge->token.get() requestingURL:_activeChallenge->requestingURL.get()];
-            [self _finishActiveChallenge:YES];
+        UIAlertAction *allowAction = [UIAlertAction actionWithTitle:allowActionTitle style:UIAlertActionStyleDefault handler:[weakSelf = WeakObjCPtr<WKWebGeolocationPolicyDecider>(self)](UIAlertAction *) mutable {
+            if (auto strongSelf = weakSelf.get())
+                [strongSelf _finishActiveChallenge:YES];
         }];
 
         [alert addAction:denyAction];
         [alert addAction:allowAction];
 
-        [[_activeChallenge->view window].rootViewController presentViewController:alert animated:YES completion:nil];
+        [[UIViewController _viewControllerForFullScreenPresentationFromView:_activeChallenge->view.get()] presentViewController:alert animated:YES completion:nil];
     }];
 }
 
 - (void)_finishActiveChallenge:(BOOL)allow
 {
-    ASSERT(_activeChallenge);
+    if (!_activeChallenge)
+        return;
+
+    [self _addChallengeCount:allow ? 1 : -1 forToken:_activeChallenge->token.get() requestingURL:_activeChallenge->requestingURL.get()];
     if (allow)
         [_activeChallenge->listener allow];
     else

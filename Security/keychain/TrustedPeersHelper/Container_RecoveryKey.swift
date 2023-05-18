@@ -56,7 +56,7 @@ extension Container {
                     do {
                         recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
                     } catch {
-                        logger.info("preflightRecoveryKey: failed to create recovery keys: \(String(describing: error), privacy: .public)")
+                        logger.error("preflightRecoveryKey: failed to create recovery keys: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
                         return
                     }
@@ -92,7 +92,7 @@ extension Container {
 
                         reply(recoveryKeys.peerKeys.peerID, syncingPolicy, nil)
                     } catch {
-                        logger.info("preflightRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
+                        logger.error("preflightRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, error)
                         return
                     }
@@ -163,7 +163,7 @@ extension Container {
                     do {
                         crkRecoveryKey = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
                     } catch {
-                        logger.info("preflightCustodianRecoveryKey: failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
+                        logger.error("preflightCustodianRecoveryKey: failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
                         return
                     }
@@ -198,7 +198,7 @@ extension Container {
 
                         reply(crkRecoveryKey.peerKeys.peerID, syncingPolicy, nil)
                     } catch {
-                        logger.info("preflightCustodianRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
+                        logger.error("preflightCustodianRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, error)
                         return
                     }
@@ -219,7 +219,7 @@ extension Container {
 
         self.fetchAndPersistChanges { error in
             guard error == nil else {
-                logger.info("preflightRecoverOctagonWithRecoveryKey unable to fetch changes: \(String(describing: error), privacy: .public)")
+                logger.error("preflightRecoverOctagonWithRecoveryKey unable to fetch changes: \(String(describing: error), privacy: .public)")
                 reply(false, error)
                 return
             }
@@ -231,7 +231,7 @@ extension Container {
                 do {
                     recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
                 } catch {
-                    logger.info("preflightRecoverOctagonWithRecoveryKey: failed to create recovery keys: \(String(describing: error), privacy: .public)")
+                    logger.error("preflightRecoverOctagonWithRecoveryKey: failed to create recovery keys: \(String(describing: error), privacy: .public)")
                     reply(false, ContainerError.failedToCreateRecoveryKey)
                     return
                 }

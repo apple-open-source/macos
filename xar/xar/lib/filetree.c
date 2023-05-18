@@ -1047,7 +1047,7 @@ xar_file_t xar_file_new_from_parent(xar_file_t parent, const char *name) {
 						// Pull it out by having i's next become p's next.
 						XAR_FILE(p)->next = XAR_FILE(i)->next;
 						xar_file_free(i);
-						i = XAR_FILE(p)->next;
+						i = XAR_FILE(p); // Set i back to previous, it'll become (i = i->next) before the next for-loop iteration
 					} else {
 						// There is no previous node, we're first in the list
 						// This means our new file is the root children node for the parent.

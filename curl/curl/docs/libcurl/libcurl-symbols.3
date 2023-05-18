@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -21,7 +21,7 @@
 .\" * SPDX-License-Identifier: curl
 .\" *
 .\" **************************************************************************
-.TH libcurl-symbols 3 "Dec 21, 2022" "libcurl 7.41.0" "libcurl symbols"
+.TH libcurl-symbols 3 "Feb 15, 2023" "libcurl 7.41.0" "libcurl symbols"
 .SH NAME
 libcurl-symbols \- libcurl symbol version information
 .SH "libcurl symbols"
@@ -127,6 +127,8 @@ Introduced in 7.49.0
 Introduced in 7.47.0
 .IP CURL_HTTP_VERSION_3
 Introduced in 7.66.0
+.IP CURL_HTTP_VERSION_3ONLY
+Introduced in 7.88.0
 .IP CURL_HTTP_VERSION_NONE
 Introduced in 7.9.1
 .IP CURL_HTTPPOST_BUFFER
@@ -167,6 +169,8 @@ Introduced in 7.10.3
 Introduced in 7.10.3
 .IP CURL_LOCK_DATA_DNS
 Introduced in 7.10.3
+.IP CURL_LOCK_DATA_HSTS
+Introduced in 7.88.0
 .IP CURL_LOCK_DATA_NONE
 Introduced in 7.10.3
 .IP CURL_LOCK_DATA_PSL
@@ -2248,6 +2252,8 @@ Introduced in 7.62.0
 Introduced in 7.62.0
 .IP CURLU_PATH_AS_IS
 Introduced in 7.62.0
+.IP CURLU_PUNYCODE
+Introduced in 7.88.0
 .IP CURLU_URLDECODE
 Introduced in 7.62.0
 .IP CURLU_URLENCODE
@@ -2280,6 +2286,8 @@ Introduced in 7.81.0
 Introduced in 7.81.0
 .IP CURLUE_BAD_USER
 Introduced in 7.81.0
+.IP CURLUE_LACKS_IDN
+Introduced in 7.88.0
 .IP CURLUE_MALFORMED_INPUT
 Introduced in 7.62.0
 .IP CURLUE_NO_FRAGMENT

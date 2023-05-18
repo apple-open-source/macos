@@ -523,19 +523,28 @@ transchar_buf(buf_T *buf, int c)
 
 /*
  * Like transchar(), but called with a byte instead of a character.  Checks
- * for an illegal UTF-8 byte.
+ * for an illegal UTF-8 byte.  Uses 'fileformat' of the current buffer.
  */
     char_u *
 transchar_byte(int c)
 {
-    if (enc_utf8 && c >= 0x80)
-    {
-	transchar_nonprint(curbuf, transchar_charbuf, c);
-	return transchar_charbuf;
-    }
-    return transchar(c);
+    return transchar_byte_buf(curbuf, c);
 }
 
+/*
+ * Like transchar_buf(), but called with a byte instead of a character.  Checks
+ * for an illegal UTF-8 byte.  Uses 'fileformat' of "buf", unless it is NULL.
+ */
+    char_u *
+transchar_byte_buf(buf_T *buf, int c)
+{
+    if (enc_utf8 && c >= 0x80)
+    {
+	transchar_nonprint(buf, transchar_charbuf, c);
+	return transchar_charbuf;
+    }
+    return transchar_buf(buf, c);
+}
 /*
  * Convert non-printable character to two or more printable characters in
  * "charbuf[]".  "charbuf" needs to be able to hold five bytes.
@@ -546,7 +555,7 @@ transchar_nonprint(buf_T *buf, char_u *charbuf, int c)
 {
     if (c == NL)
 	c = NUL;		// we use newline in place of a NUL
-    else if (c == CAR && get_fileformat(buf) == EOL_MAC)
+    else if (buf != NULL && c == CAR && get_fileformat(buf) == EOL_MAC)
 	c = NL;			// we use CR in place of  NL in this case
 
     if (dy_flags & DY_UHEX)		// 'display' has "uhex"
@@ -898,6 +907,7 @@ vim_isfilec(int c)
     return (c >= 0x100 || (c > 0 && (g_chartab[c] & CT_FNAME_CHAR)));
 }
 
+#if defined(FEAT_SPELL) || defined(PROTO)
 /*
  * Return TRUE if 'c' is a valid file-name character, including characters left
  * out of 'isfname' to make "gf" work, such as comma, space, '@', etc.
@@ -907,6 +917,7 @@ vim_is_fname_char(int c)
 {
     return vim_isfilec(c) || c == ',' || c == ' ' || c == '@';
 }
+#endif
 
 /*
  * return TRUE if 'c' is a valid file-name character or a wildcard character
@@ -1187,7 +1198,7 @@ win_lbr_chartabsize(
 		       || (tp->tp_col == MAXCOL
 			   && ((tp->tp_flags & TP_FLAG_ALIGN_ABOVE)
 				? col == 0
-				: (s[0] == NUL || s[1] == NUL)
+				: (s[0] == NUL || s[charlen] == NUL)
 						  && cts->cts_with_trailing)))
 		    && -tp->tp_id - 1 < gap->ga_len)
 	    {
@@ -1755,7 +1766,7 @@ skipwhite_and_nl(char_u *q)
  * columns (bytes) at the start of a given line
  */
     int
-getwhitecols_curline()
+getwhitecols_curline(void)
 {
     return getwhitecols(ml_get_curline());
 }
@@ -2129,7 +2140,8 @@ vim_str2nr(
     varnumber_T		*nptr,	    // return: signed result
     uvarnumber_T	*unptr,	    // return: unsigned result
     int			maxlen,     // max length of string to check
-    int			strict)     // check strictly
+    int			strict,     // check strictly
+    int			*overflow)  // when not NULL set to TRUE for overflow
 {
     char_u	    *ptr = start;
     int		    pre = 0;		// default is decimal
@@ -2200,7 +2212,11 @@ vim_str2nr(
 	    if (un <= UVARNUM_MAX / 2)
 		un = 2 * un + (uvarnumber_T)(*ptr - '0');
 	    else
+	    {
 		un = UVARNUM_MAX;
+		if (overflow != NULL)
+		    *overflow = TRUE;
+	    }
 	    ++ptr;
 	    if (n++ == maxlen)
 		break;
@@ -2225,7 +2241,11 @@ vim_str2nr(
 	    if (un <= UVARNUM_MAX / 8)
 		un = 8 * un + (uvarnumber_T)(*ptr - '0');
 	    else
+	    {
 		un = UVARNUM_MAX;
+		if (overflow != NULL)
+		    *overflow = TRUE;
+	    }
 	    ++ptr;
 	    if (n++ == maxlen)
 		break;
@@ -2249,7 +2269,11 @@ vim_str2nr(
 	    if (un <= UVARNUM_MAX / 16)
 		un = 16 * un + (uvarnumber_T)hex2nr(*ptr);
 	    else
+	    {
 		un = UVARNUM_MAX;
+		if (overflow != NULL)
+		    *overflow = TRUE;
+	    }
 	    ++ptr;
 	    if (n++ == maxlen)
 		break;
@@ -2273,7 +2297,11 @@ vim_str2nr(
 		    || (un == UVARNUM_MAX / 10 && digit <= UVARNUM_MAX % 10))
 		un = 10 * un + digit;
 	    else
+	    {
 		un = UVARNUM_MAX;
+		if (overflow != NULL)
+		    *overflow = TRUE;
+	    }
 	    ++ptr;
 	    if (n++ == maxlen)
 		break;
@@ -2301,7 +2329,11 @@ vim_str2nr(
 	{
 	    // avoid ubsan error for overflow
 	    if (un > VARNUM_MAX)
+	    {
 		*nptr = VARNUM_MIN;
+		if (overflow != NULL)
+		    *overflow = TRUE;
+	    }
 	    else
 		*nptr = -(varnumber_T)un;
 	}
@@ -2309,7 +2341,11 @@ vim_str2nr(
 	{
 	    // prevent a large unsigned number to become negative
 	    if (un > VARNUM_MAX)
+	    {
 		un = VARNUM_MAX;
+		if (overflow != NULL)
+		    *overflow = TRUE;
+	    }
 	    *nptr = (varnumber_T)un;
 	}
     }

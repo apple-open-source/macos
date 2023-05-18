@@ -824,7 +824,7 @@ cmd_with_count(
  * Otherwise return OK.
  */
     static int
-check_split_disallowed()
+check_split_disallowed(void)
 {
     if (split_disallowed > 0)
     {
@@ -5273,15 +5273,15 @@ win_enter_ext(win_T *wp, int flags)
     int		curwin_invalid = (flags & WEE_CURWIN_INVALID);
     int		did_decrement = FALSE;
 
-    if (wp == curwin && !curwin_invalid)	// nothing to do
+    if (wp == curwin && curwin_invalid == 0)	// nothing to do
 	return FALSE;
 
 #ifdef FEAT_JOB_CHANNEL
-    if (!curwin_invalid)
+    if (curwin_invalid == 0)
 	leaving_window(curwin);
 #endif
 
-    if (!curwin_invalid && (flags & WEE_TRIGGER_LEAVE_AUTOCMDS))
+    if (curwin_invalid == 0 && (flags & WEE_TRIGGER_LEAVE_AUTOCMDS))
     {
 	/*
 	 * Be careful: If autocommands delete the window, return now.
@@ -5309,13 +5309,13 @@ win_enter_ext(win_T *wp, int flags)
 
     // Might need to scroll the old window before switching, e.g., when the
     // cursor was moved.
-    if (*p_spk == 'c')
+    if (*p_spk == 'c' && curwin_invalid == 0)
 	update_topline();
 
     // may have to copy the buffer options when 'cpo' contains 'S'
     if (wp->w_buffer != curbuf)
 	buf_copy_options(wp->w_buffer, BCO_ENTER | BCO_NOHELP);
-    if (!curwin_invalid)
+    if (curwin_invalid == 0)
     {
 	prevwin = curwin;	// remember for CTRL-W p
 	curwin->w_redr_status = TRUE;
@@ -5622,7 +5622,7 @@ win_free(
 		// If there already is an entry with "wi_win" set to NULL it
 		// must be removed, it would never be used.
 		// Skip "wip" itself, otherwise Coverity complains.
-		for (wip2 = buf->b_wininfo; wip2 != NULL; wip2 = wip2->wi_next)
+		FOR_ALL_BUF_WININFO(buf, wip2)
 		    if (wip2 != wip && wip2->wi_win == NULL)
 		    {
 			if (wip2->wi_next != NULL)
@@ -6014,7 +6014,7 @@ frame_comp_pos(frame_T *topfrp, int *row, int *col)
  * Make the current window show at least one line and one column.
  */
     void
-win_ensure_size()
+win_ensure_size(void)
 {
     if (curwin->w_height == 0)
 	win_setheight(1);
@@ -7357,7 +7357,7 @@ check_lnums_nested(int do_curwin)
  * check_lnums() must have been called first!
  */
     void
-reset_lnums()
+reset_lnums(void)
 {
     win_T	*wp;
     tabpage_T	*tp;
@@ -7378,7 +7378,7 @@ reset_lnums()
 
 /*
  * A snapshot of the window sizes, to restore them after closing the help
- * window.
+ * or other window.
  * Only these fields are used:
  * fr_layout
  * fr_width
@@ -7390,6 +7390,7 @@ reset_lnums()
 
 /*
  * Create a snapshot of the current frame sizes.
+ * "idx" is SNAP_HELP_IDX or SNAP_AUCMD_IDX.
  */
     void
 make_snapshot(int idx)
@@ -7473,6 +7474,7 @@ get_snapshot_curwin(int idx)
  * Restore a previously created snapshot, if there is any.
  * This is only done if the screen size didn't change and the window layout is
  * still the same.
+ * "idx" is SNAP_HELP_IDX or SNAP_AUCMD_IDX.
  */
     void
 restore_snapshot(

@@ -180,6 +180,10 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
     return self;
 }
+
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<OTConfigurationContext %@, %@, %@, %@>", self.context, self.containerName, self.dsid, self.altDSID];
+}
 @end
 
 @implementation OTBottleIDs

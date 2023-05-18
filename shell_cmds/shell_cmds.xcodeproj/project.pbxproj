@@ -2229,7 +2229,7 @@
 		FCBA13EC14A141A300AA698B /* sleep.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = sleep.1; sourceTree = "<group>"; };
 		FCBA13ED14A141A300AA698B /* sleep.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sleep.c; sourceTree = "<group>"; };
 		FCBA13F014A141A300AA698B /* su.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = su.1; sourceTree = "<group>"; };
-		FCBA13F114A141A300AA698B /* su.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = su.c; sourceTree = "<group>"; };
+		FCBA13F114A141A300AA698B /* su.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = su.c; sourceTree = "<group>"; usesTabs = 1; };
 		FCBA13F214A141A300AA698B /* su.pam */ = {isa = PBXFileReference; lastKnownFileType = text; path = su.pam; sourceTree = "<group>"; };
 		FCBA13F514A141A300AA698B /* tee.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = tee.1; sourceTree = "<group>"; };
 		FCBA13F614A141A300AA698B /* tee.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tee.c; sourceTree = "<group>"; };

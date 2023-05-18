@@ -2365,7 +2365,9 @@
     <ClCompile Include="..\..\..\..\lib\asyn-thread.c" />
     <ClCompile Include="..\..\..\..\lib\base64.c" />
     <ClCompile Include="..\..\..\..\lib\bufref.c" />
+    <ClCompile Include="..\..\..\..\lib\cf-http.c" />
     <ClCompile Include="..\..\..\..\lib\cfilters.c" />
+    <ClCompile Include="..\..\..\..\lib\cf-socket.c" />
     <ClCompile Include="..\..\..\..\lib\c-hyper.c" />
     <ClCompile Include="..\..\..\..\lib\conncache.c" />
     <ClCompile Include="..\..\..\..\lib\connect.c" />
@@ -2378,6 +2380,7 @@
     <ClCompile Include="..\..\..\..\lib\curl_gethostname.c" />
     <ClCompile Include="..\..\..\..\lib\curl_get_line.c" />
     <ClCompile Include="..\..\..\..\lib\curl_gssapi.c" />
+    <ClCompile Include="..\..\..\..\lib\curl_log.c" />
     <ClCompile Include="..\..\..\..\lib\curl_memrchr.c" />
     <ClCompile Include="..\..\..\..\lib\curl_multibyte.c" />
     <ClCompile Include="..\..\..\..\lib\curl_ntlm_core.c" />
@@ -2494,9 +2497,9 @@
     <ClCompile Include="..\..\..\..\lib\vauth\spnego_gssapi.c" />
     <ClCompile Include="..\..\..\..\lib\vauth\spnego_sspi.c" />
     <ClCompile Include="..\..\..\..\lib\vauth\vauth.c" />
-    <ClCompile Include="..\..\..\..\lib\vquic\msh3.c" />
-    <ClCompile Include="..\..\..\..\lib\vquic\ngtcp2.c" />
-    <ClCompile Include="..\..\..\..\lib\vquic\quiche.c" />
+    <ClCompile Include="..\..\..\..\lib\vquic\curl_msh3.c" />
+    <ClCompile Include="..\..\..\..\lib\vquic\curl_ngtcp2.c" />
+    <ClCompile Include="..\..\..\..\lib\vquic\curl_quiche.c" />
     <ClCompile Include="..\..\..\..\lib\vquic\vquic.c" />
     <ClCompile Include="..\..\..\..\lib\vssh\libssh2.c" />
     <ClCompile Include="..\..\..\..\lib\vssh\libssh.c" />
@@ -2524,7 +2527,9 @@
     <ClInclude Include="..\..\..\..\lib\arpa_telnet.h" />
     <ClInclude Include="..\..\..\..\lib\asyn.h" />
     <ClInclude Include="..\..\..\..\lib\bufref.h" />
+    <ClInclude Include="..\..\..\..\lib\cf-http.h" />
     <ClInclude Include="..\..\..\..\lib\cfilters.h" />
+    <ClInclude Include="..\..\..\..\lib\cf-socket.h" />
     <ClInclude Include="..\..\..\..\lib\c-hyper.h" />
     <ClInclude Include="..\..\..\..\lib\config-win32.h" />
     <ClInclude Include="..\..\..\..\lib\conncache.h" />
@@ -2543,6 +2548,7 @@
     <ClInclude Include="..\..\..\..\lib\curl_hmac.h" />
     <ClInclude Include="..\..\..\..\lib\curl_krb5.h" />
     <ClInclude Include="..\..\..\..\lib\curl_ldap.h" />
+    <ClInclude Include="..\..\..\..\lib\curl_log.h" />
     <ClInclude Include="..\..\..\..\lib\curl_md4.h" />
     <ClInclude Include="..\..\..\..\lib\curl_md5.h" />
     <ClInclude Include="..\..\..\..\lib\curl_memory.h" />
@@ -2609,7 +2615,6 @@
     <ClInclude Include="..\..\..\..\lib\pop3.h" />
     <ClInclude Include="..\..\..\..\lib\progress.h" />
     <ClInclude Include="..\..\..\..\lib\psl.h" />
-    <ClInclude Include="..\..\..\..\lib\quic.h" />
     <ClInclude Include="..\..\..\..\lib\rand.h" />
     <ClInclude Include="..\..\..\..\lib\rename.h" />
     <ClInclude Include="..\..\..\..\lib\rtsp.h" />
@@ -2648,10 +2653,11 @@
     <ClInclude Include="..\..\..\..\lib\vauth\digest.h" />
     <ClInclude Include="..\..\..\..\lib\vauth\ntlm.h" />
     <ClInclude Include="..\..\..\..\lib\vauth\vauth.h" />
-    <ClInclude Include="..\..\..\..\lib\vquic\msh3.h" />
-    <ClInclude Include="..\..\..\..\lib\vquic\ngtcp2.h" />
-    <ClInclude Include="..\..\..\..\lib\vquic\quiche.h" />
+    <ClInclude Include="..\..\..\..\lib\vquic\curl_msh3.h" />
+    <ClInclude Include="..\..\..\..\lib\vquic\curl_ngtcp2.h" />
+    <ClInclude Include="..\..\..\..\lib\vquic\curl_quiche.h" />
     <ClInclude Include="..\..\..\..\lib\vquic\vquic.h" />
+    <ClInclude Include="..\..\..\..\lib\vquic\vquic_int.h" />
     <ClInclude Include="..\..\..\..\lib\vssh\ssh.h" />
     <ClInclude Include="..\..\..\..\lib\vtls\bearssl.h" />
     <ClInclude Include="..\..\..\..\lib\vtls\gskit.h" />

@@ -1,5 +1,5 @@
 <!--
-Copyright (C) 1998 - 2022 Daniel Stenberg, <daniel@haxx.se>, et al.
+Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 
 SPDX-License-Identifier: curl
 -->
@@ -423,6 +423,7 @@ Features testable here are:
 - `oldlibssh` (versions before 0.9.4)
 - `libz`
 - `manual`
+- `mbedtls`
 - `Mime`
 - `netrc`
 - `NSS`
@@ -566,7 +567,7 @@ changing protocol data such as port numbers or user-agent strings.
 One perl op per line that operates on the protocol dump. This is pretty
 advanced. Example: `s/^EPRT .*/EPRT stripped/`.
 
-### `<protocol [nonewline="yes"] crlf="yes">`
+### `<protocol [nonewline="yes"][crlf="yes"]>`
 
 the protocol dump curl should transmit, if `nonewline` is set, we will cut off
 the trailing newline of this given data before comparing with the one actually
@@ -576,7 +577,7 @@ comparisons are made.
 `crlf=yes` forces the newlines to become CRLF even if not written so in the
 test.
 
-### `<proxy [nonewline="yes"]>`
+### `<proxy [nonewline="yes"][crlf="yes"]>`
 
 The protocol dump curl should transmit to an HTTP proxy (when the http-proxy
 server is used), if `nonewline` is set, we will cut off the trailing newline

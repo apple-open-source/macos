@@ -73,7 +73,7 @@ class Client: TrustedPeersHelperProtocol {
 
     func logComplete(function: String, container: ContainerName, error: Error?) {
         if let error = error {
-            logger.info("\(function, privacy: .public) errored for \(container.description, privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("\(function, privacy: .public) errored for \(container.description, privacy: .public): \(String(describing: error), privacy: .public)")
         } else {
             logger.info("\(function, privacy: .public) finished for \(container.description, privacy: .public)")
         }
@@ -93,7 +93,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(result, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Dumping failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Dumping failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -108,7 +108,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(peerID, perm, stable, dyn, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Dumping peer failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Dumping peer failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -121,7 +121,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(egoPeerStatus, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Trust status failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Trust status failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                   egoPeerMachineID: nil,
                                                   status: TPPeerStatus.unknown,
@@ -141,7 +141,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(peerState, peerList, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Fetch Trust State failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Fetch Trust State failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -154,7 +154,7 @@ class Client: TrustedPeersHelperProtocol {
                 self.logComplete(function: "Resetting", container: container.name, error: error)
                 reply(error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Resetting failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Resetting failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -168,7 +168,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Local reset failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Local reset failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -185,7 +185,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(differences, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Setting allowed machineIDs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Setting allowed machineIDs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(false, error.sanitizeForClientXPC())
         }
     }
@@ -201,7 +201,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Adding allowed machineID failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Adding allowed machineID failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -217,7 +217,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Removing allowed machineID failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Removing allowed machineID failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -231,7 +231,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(mids, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Fetching allowed machineIDs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Fetching allowed machineIDs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -244,7 +244,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(epoch, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Epoch retrieval failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Epoch retrieval failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(0, error.sanitizeForClientXPC())
         }
     }
@@ -288,7 +288,7 @@ class Client: TrustedPeersHelperProtocol {
                                 reply(peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, policy, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Prepare failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Prepare failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -332,7 +332,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, policy, recoveryKeyID, tlkShares, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("prepareInheritancePeer failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("prepareInheritancePeer failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, nil, nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -351,7 +351,7 @@ class Client: TrustedPeersHelperProtocol {
                                     self.logComplete(function: "Establishing", container: container.name, error: error)
                                     reply(peerID, keyHierarchyRecords, policy, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Establishing failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Establishing failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -376,7 +376,7 @@ class Client: TrustedPeersHelperProtocol {
                                 self.logComplete(function: "Vouching", container: container.name, error: error)
                                 reply(voucher, voucherSig, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Vouching failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Vouching failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -391,7 +391,7 @@ class Client: TrustedPeersHelperProtocol {
                 self.logComplete(function: "Preflight Vouch With Bottle", container: container.name, error: error)
                 reply(peerID, policy, refetched, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Preflighting Vouch With Bottle failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Preflighting Vouch With Bottle failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, false, error.sanitizeForClientXPC())
         }
     }
@@ -409,7 +409,7 @@ class Client: TrustedPeersHelperProtocol {
                 self.logComplete(function: "Vouching With Bottle", container: container.name, error: error)
                 reply(voucher, voucherSig, newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Vouching with Bottle failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Vouching with Bottle failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -425,7 +425,7 @@ class Client: TrustedPeersHelperProtocol {
                 self.logComplete(function: "Preflight Vouch With RecoveryKey", container: container.name, error: error)
                 reply(rkID, policy, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Preflighting Vouch With RecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Preflighting Vouch With RecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -440,7 +440,7 @@ class Client: TrustedPeersHelperProtocol {
                 self.logComplete(function: "Preflight Vouch With CustodianRecoveryKey", container: container.name, error: error)
                 reply(peerID, policy, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Preflighting Vouch With CustodianRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Preflighting Vouch With CustodianRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -457,7 +457,7 @@ class Client: TrustedPeersHelperProtocol {
                 self.logComplete(function: "Vouching With Recovery Key", container: container.name, error: error)
                 reply(voucher, voucherSig, newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Vouching with Recovery Key failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Vouching with Recovery Key failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -473,7 +473,7 @@ class Client: TrustedPeersHelperProtocol {
                 self.logComplete(function: "Recovering TLKShares for Inheritor", container: container.name, error: error)
                 reply(newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Recovering TLKShares for Inheritor failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Recovering TLKShares for Inheritor failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -489,7 +489,7 @@ class Client: TrustedPeersHelperProtocol {
                 self.logComplete(function: "Vouching With Custodian Recovery Key", container: container.name, error: error)
                 reply(voucher, voucherSig, newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("Vouching with Custodian Recovery Key failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Vouching with Custodian Recovery Key failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -512,7 +512,7 @@ class Client: TrustedPeersHelperProtocol {
                             reply(peerID, keyHierarchyRecords, policy, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Joining failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Joining failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -525,7 +525,7 @@ class Client: TrustedPeersHelperProtocol {
             let container = try self.containerMap.findOrCreate(user: user)
             container.preflightPreapprovedJoin(preapprovedKeys: preapprovedKeys) { success, error in reply(success, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("preflightPreapprovedJoin failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("preflightPreapprovedJoin failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(false, error.sanitizeForClientXPC())
         }
     }
@@ -543,7 +543,7 @@ class Client: TrustedPeersHelperProtocol {
                                       preapprovedKeys: preapprovedKeys) { peerID, keyHierarchyRecords, policy, error in
                                         reply(peerID, keyHierarchyRecords, policy, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("attemptPreapprovedJoin failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("attemptPreapprovedJoin failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -592,7 +592,7 @@ class Client: TrustedPeersHelperProtocol {
                              webAccess: webAccess
                              ) { state, policy, error in reply(state, policy, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("update failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("update failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -605,7 +605,7 @@ class Client: TrustedPeersHelperProtocol {
             let container = try self.containerMap.findOrCreate(user: user)
             container.set(preapprovedKeys: preapprovedKeys) { state, error in reply(state, error?.sanitizeForClientXPC()) }
         } catch {
-            logger.info("setPreapprovedKeys failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("setPreapprovedKeys failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -622,7 +622,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(records, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("updateTLKs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("updateTLKs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -636,7 +636,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("departByDistrustingSelf failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("departByDistrustingSelf failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -651,7 +651,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("distrustPeerIDs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("distrustPeerIDs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -664,7 +664,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(sortedBottleIDs, partialBottleIDs, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("fetchViableBottles failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("fetchViableBottles failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -687,7 +687,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(entropy, bottleID, signingPublicKey, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("fetchEscrowContents failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("fetchEscrowContents failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -703,7 +703,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(policy, peersOpinion, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("fetchCurrentPolicy failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("fetchCurrentPolicy failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, .UNKNOWN, error.sanitizeForClientXPC())
         }
     }
@@ -718,7 +718,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(entries, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("fetchPolicyDocuments failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("fetchPolicyDocuments failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -734,7 +734,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(records, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("fetchRecoverableTLKShares failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("fetchRecoverableTLKShares failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -749,7 +749,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(result, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("ValidatePeers failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("ValidatePeers failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -767,7 +767,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(records, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("SetRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("SetRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -787,7 +787,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(records, custodianRecoveryKey, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("CreateCustodianRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("CreateCustodianRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -803,7 +803,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("RemoveCustodianRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("RemoveCustodianRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -820,7 +820,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("ReportHealth failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("ReportHealth failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -834,7 +834,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("PushHealthInquiry failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("PushHealthInquiry failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -847,7 +847,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(postRepair, postEscrow, postReset, leaveTrust, moveRequest, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("Health Check! failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Health Check! failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(false, false, false, false, nil, error.sanitizeForClientXPC())
         }
     }
@@ -860,7 +860,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(info, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("getSupportInfo failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("getSupportInfo failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -872,7 +872,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("removeEscrowCache failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("removeEscrowCache failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -884,7 +884,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("resetAccountCDPContents failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("resetAccountCDPContents failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -896,7 +896,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(settings, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("fetchAccountSettings failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("fetchAccountSettings failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -908,7 +908,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(isSet, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("isRecoveryKeySet failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("isRecoveryKeySet failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(false, error.sanitizeForClientXPC())
         }
     }
@@ -920,7 +920,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(removed, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("removeRecoveryKey failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("removeRecoveryKey failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(false, error.sanitizeForClientXPC())
         }
     }
@@ -933,7 +933,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("performATOPRVActions failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("performATOPRVActions failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }
@@ -946,7 +946,7 @@ class Client: TrustedPeersHelperProtocol {
                 reply(correct, preflightError?.sanitizeForClientXPC())
             }
         } catch {
-            logger.info("preflightRecoverOctagon failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("preflightRecoverOctagon failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(false, error.sanitizeForClientXPC())
         }
     }

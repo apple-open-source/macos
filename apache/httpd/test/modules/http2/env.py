@@ -57,14 +57,20 @@ class H2TestSetup(HttpdTestSetup):
 
 class H2TestEnv(HttpdTestEnv):
 
+    @classmethod
+    @property
+    def is_unsupported(cls):
+        mpm_module = f"mpm_{os.environ['MPM']}" if 'MPM' in os.environ else 'mpm_event'
+        return mpm_module == 'mpm_prefork'
+
     def __init__(self, pytestconfig=None):
         super().__init__(pytestconfig=pytestconfig)
         self.add_httpd_conf([
-                             "H2MinWorkers 1",
-                             "H2MaxWorkers 64",
-                             "Protocols h2 http/1.1 h2c",
-                         ])
-        self.add_httpd_log_modules(["http2", "proxy_http2", "h2test"])
+            "H2MinWorkers 1",
+            "H2MaxWorkers 64",
+            "Protocols h2 http/1.1 h2c",
+        ])
+        self.add_httpd_log_modules(["http2", "proxy_http2", "h2test", "proxy", "proxy_http"])
         self.add_cert_specs([
             CertificateSpec(domains=[
                 f"push.{self._http_tld}",
@@ -86,12 +92,23 @@ class H2TestEnv(HttpdTestEnv):
             'AH00135',
             'AH02261',  # Re-negotiation handshake failed (our test_101)
             'AH03490',  # scoreboard full, happens on limit tests
-            'AH01247',  # cgi reports sometimes error on accept on cgid socket
+            'AH02429',  # invalid chars in response header names, see test_h2_200
+            'AH02430',  # invalid chars in response header values, see test_h2_200
+            'AH10373',  # SSL errors on uncompleted handshakes, see test_h2_105
+            'AH01247',  # mod_cgid sometimes freaks out on load tests
+            'AH01110',  # error by proxy reading response
+            'AH10400',  # warning that 'enablereuse' has not effect in certain configs test_h2_600
         ])
         self.httpd_error_log.add_ignored_patterns([
             re.compile(r'.*malformed header from script \'hecho.py\': Bad header: x.*'),
             re.compile(r'.*:tls_post_process_client_hello:.*'),
+            # OSSL 3 dropped the function name from the error description. Use the code instead:
+            # 0A0000C1 = no shared cipher -- Too restrictive SSLCipherSuite or using DSA server certificate?
+            re.compile(r'.*SSL Library Error: error:0A0000C1:.*'),
             re.compile(r'.*:tls_process_client_certificate:.*'),
+            # OSSL 3 dropped the function name from the error description. Use the code instead:
+            # 0A0000C7 = peer did not return a certificate -- No CAs known to server for verification?
+            re.compile(r'.*SSL Library Error: error:0A0000C7:.*'),
             re.compile(r'.*have incompatible TLS configurations.'),
         ])
 
@@ -106,6 +123,15 @@ class H2Conf(HttpdConf):
             f"cgi.{env.http_tld}": [
                 "SSLOptions +StdEnvVars",
                 "AddHandler cgi-script .py",
+                "<Location \"/h2test/echo\">",
+                "    SetHandler h2test-echo",
+                "</Location>",
+                "<Location \"/h2test/delay\">",
+                "    SetHandler h2test-delay",
+                "</Location>",
+                "<Location \"/h2test/error\">",
+                "    SetHandler h2test-error",
+                "</Location>",
             ]
         }))
 

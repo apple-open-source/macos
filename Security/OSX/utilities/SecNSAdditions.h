@@ -62,6 +62,10 @@ static inline NSString* asNSString(NSObject* object) {
 
 // MARK: NSData
 
+static inline NSData* asNSData(NSObject* object) {
+    return [object isKindOfClass:[NSData class]] ? (NSData*) object : nil;
+}
+
 @interface NSData (Hexinization)
 - (NSString*) asHexString;
 @end

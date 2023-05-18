@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -41,6 +41,10 @@
 #endif
 
 #include "curl_printf.h"
+
+#ifdef WIN32
+#define sleep(sec) Sleep ((sec)*1000)
+#endif
 
 #define test_setopt(A,B,C)                                      \
   if((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK)       \

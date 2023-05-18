@@ -1,6 +1,7 @@
 #if OCTAGON
 
 #import <CloudKit/CloudKit_Private.h>
+#import <os/feature_private.h>
 
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/CKKS.h"
@@ -221,10 +222,10 @@
     zoneModifyOperation.name = @"zone-creation-operation";
     zoneModifyOperation.group = [CKOperationGroup CKKSGroupWithName:@"zone-creation"];
 
-#if TARGET_OS_TV
-    // This operation is needed during CKKS bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
-    zoneModifyOperation.qualityOfService = NSQualityOfServiceUserInitiated;
-#endif
+    if(SecCKKSHighPriorityOperations()) {
+        // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+        zoneModifyOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+    }
 
     // We will use the zoneCreationOperation operation in ops to signal completion
     WEAKIFY(self);
@@ -278,10 +279,10 @@
     zoneSubscriptionOperation.database = self.database;
     zoneSubscriptionOperation.name = @"zone-subscription-operation";
 
-#if TARGET_OS_TV
-    // This operation is needed during CKKS bringup. On aTVs/HomePods, bump our priority to get it off-device and unblock Manatee access.
-    zoneSubscriptionOperation.qualityOfService = NSQualityOfServiceUserInitiated;
-#endif
+    if(SecCKKSHighPriorityOperations()) {
+        // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+        zoneSubscriptionOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+    }
 
     WEAKIFY(self);
     zoneSubscriptionOperation.modifySubscriptionsCompletionBlock = ^(NSArray<CKSubscription *> * _Nullable savedSubscriptions,

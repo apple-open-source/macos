@@ -21,7 +21,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -45,7 +45,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -198,6 +198,8 @@ DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
+APACHECTL = @APACHECTL@
+APXS = @APXS@
 AR = @AR@
 AR_FLAGS = @AR_FLAGS@
 AS = @AS@
@@ -206,6 +208,7 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BLANK_AT_MAKETIME = @BLANK_AT_MAKETIME@
+CADDY = @CADDY@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -267,6 +270,8 @@ HAVE_LIBZ = @HAVE_LIBZ@
 HAVE_OPENSSL_SRP = @HAVE_OPENSSL_SRP@
 HAVE_PROTO_BSDSOCKET_H = @HAVE_PROTO_BSDSOCKET_H@
 HAVE_ZSTD = @HAVE_ZSTD@
+HTTPD = @HTTPD@
+HTTPD_NGHTTPX = @HTTPD_NGHTTPX@
 IDN_ENABLED = @IDN_ENABLED@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -498,6 +503,7 @@ DPAGES = \
   http2-prior-knowledge.d \
   http2.d \
   http3.d \
+  http3-only.d \
   ignore-content-length.d \
   include.d \
   insecure.d \
@@ -667,6 +673,10 @@ DPAGES = \
 
 OTHERPAGES = page-footer page-header
 EXTRA_DIST = $(DPAGES) MANPAGE.md gen.pl $(OTHERPAGES) CMakeLists.txt
+GEN = $(GN_$(V))
+GN_0 = @echo "  GENERATE" $@;
+GN_1 = 
+GN_ = $(GN_0)
 all: all-am
 
 .SUFFIXES:
@@ -865,8 +875,7 @@ uninstall-am:
 all: $(MANPAGE)
 
 $(MANPAGE): $(DPAGES) $(OTHERPAGES) Makefile.inc
-	@echo "generate $(MANPAGE)"
-	@(cd $(srcdir) && @PERL@ ./gen.pl mainpage $(DPAGES)) > $(MANPAGE)
+	$(GEN)(rm -f $(MANPAGE) && cd $(srcdir) && @PERL@ ./gen.pl mainpage $(DPAGES) > $(builddir)/manpage.tmp && mv $(builddir)/manpage.tmp $(MANPAGE))
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

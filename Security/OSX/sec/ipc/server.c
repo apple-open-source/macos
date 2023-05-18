@@ -1690,14 +1690,6 @@ int main(int argc, char *argv[])
 
     DisableLocalization();
 
-    char *wait4debugger = getenv("WAIT4DEBUGGER");
-    if (wait4debugger && !strcasecmp("YES", wait4debugger)) {
-		seccritical("SIGSTOPing self, awaiting debugger");
-		kill(getpid(), SIGSTOP);
-		seccritical("Again, for good luck (or bad debuggers)");
-		kill(getpid(), SIGSTOP);
-	}
-
     bool useSystemKeychainKeybag = false;
 #if defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM
     SecPLDisable();

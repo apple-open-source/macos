@@ -4110,7 +4110,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcFetchAccountSettings:(void (^)(OTAccountSettings* _Nullable setting, NSError* _Nullable replyError))reply
 {
-    secnotice("octagon-settings", "Fetching account settings");
+    secinfo("octagon-settings", "Fetching account settings");
     [OTStashAccountSettingsOperation performWithAccountWide:false
                                                  forceFetch:false
                                        cuttlefishXPCWrapper:self.cuttlefishXPCWrapper
@@ -4130,7 +4130,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcAccountWideSettingsWithForceFetch:(bool)forceFetch reply:(void (^)(OTAccountSettings* setting, NSError* replyError))reply
 {
-    secnotice("octagon-settings", "Fetching account-wide settings");
+    secinfo("octagon-settings", "Fetching account-wide settings with force: %{bool}d",forceFetch);
     [OTStashAccountSettingsOperation performWithAccountWide:true
                                                  forceFetch:forceFetch
                                        cuttlefishXPCWrapper:self.cuttlefishXPCWrapper
@@ -4142,7 +4142,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                 secerror("octagon-settings: Failed fetching account settings: %@", error);
                 reply(nil, error);
             } else {
-                secerror("octagon-settings: Succeeded fetching account settings: %@", accountSettings);
+                secnotice("octagon-settings", "Succeeded fetching account settings: %@", accountSettings);
                 reply(accountSettings, nil);
             }
         }];

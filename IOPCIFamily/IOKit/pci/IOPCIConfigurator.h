@@ -277,6 +277,7 @@ enum
     kConfigOpUnpaused,
     kConfigOpTestPause,
     kConfigOpFindEntry,
+    kConfigOpFindEntryByAddress,
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -402,6 +403,8 @@ protected:
 
     void    configure(uint32_t options);
     void    maskUR(IOPCIConfigEntry * entry, bool mask);
+
+    uint32_t retrainLink(IOPCIConfigEntry * bridge);
     void    bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum);
 
     void    logAllocatorRange(IOPCIConfigEntry * device, IOPCIRange * range, char c);
@@ -448,6 +451,8 @@ protected:
     bool     createRoot(void);
     IOReturn addHostBridge(IOPCIHostBridge * hostBridge);
     IOPCIConfigEntry * findEntry(IORegistryEntry * from, IOPCIAddressSpace space);
+    IOPCIConfigEntry * findEntryByAddress(IORegistryEntry * from, IOPCIScalar address);
+	bool     rangeListContains(IOPCIRange * range, IOPCIScalar address);
 
     bool     configAccess(IOPCIConfigEntry * device, bool write);
     void     configAccess(IOPCIConfigEntry * device, uint32_t access, uint32_t offset, void * data);
@@ -469,6 +474,11 @@ public:
     virtual void     free(void);
 
     IOReturn configOp(IOService * device, uintptr_t op, void * result, void * arg2 = NULL);
+
+private:
+    bool endpointPresent(IOPCIConfigEntry * bridge);
+    uint16_t waitForLinkUp(IOPCIConfigEntry * bridge);
+    void bridgeRetrainMask(IOPCIConfigEntry * bridge);
 };
 
 #endif /* KERNEL */

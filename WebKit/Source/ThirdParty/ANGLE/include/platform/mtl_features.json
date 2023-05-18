@@ -186,7 +186,13 @@
                 "Allow creation of render passes without any attachments"
             ]
         },
-
+        {
+            "name": "avoid_stencil_texture_swizzle",
+            "category": "Features",
+            "description": [
+                "Do not create swizzled views of stencil textures"
+            ]
+        },
         {
             "name": "multisample_color_format_shader_read_workaround",
             "category": "Workarounds",
@@ -273,6 +279,14 @@
             "category": "Features",
             "description": [
                 "Cache MTLLibrary objects in memory."
+            ],
+            "issue": "http://crbug.com/1385510"
+        },
+        {
+            "name": "enable_parallel_mtl_library_compilation",
+            "category": "Features",
+            "description": [
+                "Compile MTLLibrary in multiple threads."
             ],
             "issue": "http://crbug.com/1385510"
         }

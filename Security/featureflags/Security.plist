@@ -108,5 +108,12 @@
 		<key>DevelopmentPhase</key>
 		<string>UnderDevelopment</string>
 	</dict>
+	<key>CKKSHighPriorityOperations</key>
+	<dict>
+		<key>DisplayName</key>
+		<string>Use high priority CloudKit operations for Keychain Sync</string>
+		<key>Enabled</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

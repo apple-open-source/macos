@@ -77,6 +77,12 @@
 #define CHANGED_CAP_BITS(x, y)              ((x) ^ (y))
 #define BIT_IS_SET(x,b)                     ((x & b)==b)
 #define BIT_IS_NOT_SET(x,b)                 ((x & (b))==0)
+#define IS_CAP_GAIN(c, f)       \
+        ((((c)->fromCapabilities & (f)) == 0) && \
+         (((c)->toCapabilities & (f)) != 0))
+#define IS_CAP_LOSS(c, f)       \
+        ((((c)->fromCapabilities & (f)) != 0) && \
+         (((c)->toCapabilities & (f)) == 0))
 
 /* gDebugFlags bits */
 #define kIOPMDebugAssertionASLLog           0x01

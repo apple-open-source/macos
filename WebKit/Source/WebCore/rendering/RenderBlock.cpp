@@ -2354,8 +2354,9 @@ void RenderBlock::computeBlockPreferredLogicalWidths(LayoutUnit& minLogicalWidth
         if (auto blockBox = dynamicDowncast<RenderBlockFlow>(this)) {
             // Floats inside a block level box may not use their margins in their
             // intrinsic size contributions if margin-trim is set
-            startMarginLength = blockBox->shouldChildInlineMarginContributeToContainerIntrinsicSize(MarginTrimType::InlineStart, *dynamicDowncast<RenderElement>(child)) ? childStyle.marginStartUsing(&styleToUse) : Length { 0, LengthType::Fixed };
-            endMarginLength = blockBox->shouldChildInlineMarginContributeToContainerIntrinsicSize(MarginTrimType::InlineEnd, *dynamicDowncast<RenderElement>(child)) ? childStyle.marginEndUsing(&styleToUse) : Length { 0, LengthType::Fixed };
+            auto* renderElement = dynamicDowncast<RenderElement>(child);
+            startMarginLength = (renderElement && blockBox->shouldChildInlineMarginContributeToContainerIntrinsicSize(MarginTrimType::InlineStart, *renderElement)) ? childStyle.marginStartUsing(&styleToUse) : Length { 0, LengthType::Fixed };
+            endMarginLength = (renderElement && blockBox->shouldChildInlineMarginContributeToContainerIntrinsicSize(MarginTrimType::InlineEnd, *renderElement)) ? childStyle.marginEndUsing(&styleToUse) : Length { 0, LengthType::Fixed };
         }   else {
             startMarginLength = childStyle.marginStartUsing(&styleToUse);
             endMarginLength = childStyle.marginEndUsing(&styleToUse);
@@ -3023,6 +3024,30 @@ bool RenderBlock::updateFragmentRangeForBoxChild(const RenderBox& box) const
     return false;
 }
 
+void RenderBlock::setTrimmedMarginForChild(RenderBox &child, MarginTrimType marginTrimType)
+{
+    switch (marginTrimType) {
+    case MarginTrimType::BlockStart:
+        setMarginBeforeForChild(child, 0_lu);
+        child.markMarginAsTrimmed(MarginTrimType::BlockStart);
+        break;
+    case MarginTrimType::BlockEnd:
+        setMarginAfterForChild(child, 0_lu);
+        child.markMarginAsTrimmed(MarginTrimType::BlockEnd);
+        break;
+    case MarginTrimType::InlineStart:
+        setMarginStartForChild(child, 0_lu);
+        child.markMarginAsTrimmed(MarginTrimType::InlineStart);
+        break;
+    case MarginTrimType::InlineEnd:
+        setMarginEndForChild(child, 0_lu);
+        child.markMarginAsTrimmed(MarginTrimType::InlineEnd);
+        break;
+    default:
+        ASSERT_NOT_IMPLEMENTED_YET();
+    }
+}
+
 LayoutUnit RenderBlock::collapsedMarginBeforeForChild(const RenderBox& child) const
 {
     // If the child has the same directionality as we do, then we can just return its
@@ -3215,7 +3240,7 @@ std::optional<LayoutUnit> RenderBlock::availableLogicalHeightForPercentageComput
         // Don't allow this to affect the block' size() member variable, since this
         // can get called while the block is still laying out its kids.
         LogicalExtentComputedValues computedValues = computeLogicalHeight(logicalHeight(), 0_lu);
-        availableHeight = computedValues.m_extent - borderAndPaddingLogicalHeight() - scrollbarLogicalHeight();
+        availableHeight = std::max(0_lu, computedValues.m_extent - borderAndPaddingLogicalHeight() - scrollbarLogicalHeight());
     } else if (styleToUse.logicalHeight().isPercentOrCalculated()) {
         std::optional<LayoutUnit> heightWithScrollbar = computePercentageLogicalHeight(styleToUse.logicalHeight());
         if (heightWithScrollbar) {

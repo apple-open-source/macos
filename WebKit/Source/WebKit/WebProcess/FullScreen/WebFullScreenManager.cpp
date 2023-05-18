@@ -234,6 +234,11 @@ void WebFullScreenManager::willEnterFullScreen()
         return;
     }
 
+    if (!m_element) {
+        close();
+        return;
+    }
+
 #if !PLATFORM(IOS_FAMILY)
     m_page->hidePageBanners();
 #endif
@@ -386,7 +391,9 @@ void WebFullScreenManager::saveScrollPosition()
 
 void WebFullScreenManager::restoreScrollPosition()
 {
-    m_page->corePage()->mainFrame().view()->setScrollPosition(m_scrollPosition);
+    auto& mainFrame = m_page->corePage()->mainFrame();
+    mainFrame.view()->forceLayout();
+    mainFrame.view()->setScrollPosition(m_scrollPosition);
 }
 
 void WebFullScreenManager::setFullscreenInsets(const WebCore::FloatBoxExtent& insets)

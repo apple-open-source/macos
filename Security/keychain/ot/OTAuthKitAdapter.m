@@ -40,7 +40,7 @@
     if(securityLevel == AKAppleIDSecurityLevelHSA2) {
         hsa2 = YES;
     }
-    secnotice("security-authkit", "Security level for altDSID %@ is %lu", altDSID, (unsigned long)securityLevel);
+    secnotice("authkit", "Security level for altDSID %@ is %lu", altDSID, (unsigned long)securityLevel);
     return hsa2;
 }
 
@@ -51,8 +51,7 @@
     ACAccount *authKitAccount = [manager authKitAccountWithAltDSID:altDSID];
     BOOL isDemo = [manager demoAccountForAccount:authKitAccount];
 
-    secnotice("security-authkit", "Account with altDSID %@ is a demo account: %{bool}d", altDSID, isDemo);
-
+    secnotice("authkit", "Account with altDSID %@ is a demo account: %{bool}d", altDSID, isDemo);
     return isDemo;
 }
 
@@ -92,10 +91,8 @@
     }
 
     secnotice("authkit", "fetched current machine ID as: %@", machineID);
-
     return machineID;
 }
-
 
 - (void)fetchCurrentDeviceListByAltDSID:(NSString*)altDSID
                                   reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))complete
@@ -136,15 +133,15 @@
 
             for (AKRemoteDevice *device in deviceList) {
                 [mids addObject:device.machineId];
+                secnotice("authkit", "Current machine ID on list (%@): %@", altDSID, device.machineId);
             }
 
-            secnotice("authkit", "Current machine ID list: %@", mids);
             complete(mids, error);
             [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventAuthKitDeviceList];
 
         } else {
             [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-            secnotice("authkit", "received no device list: %@", error);
+            secnotice("authkit", "received no device list(%@): %@", altDSID, error);
             complete(nil, error);
         }
     }];

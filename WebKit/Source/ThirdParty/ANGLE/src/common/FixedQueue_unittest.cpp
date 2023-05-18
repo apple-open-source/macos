@@ -151,14 +151,7 @@ TEST(FixedQueue, ConcurrentPushPop)
                 std::this_thread::sleep_for(std::chrono::microseconds(1));
             }
 
-            // test iterator
-            int i = 0;
-            for (uint64_t v : q)
-            {
-                EXPECT_EQ(expectedValue + i, v);
-                i++;
-            }
-
+            EXPECT_EQ(expectedValue, q.front());
             // test pop
             q.pop();
 
@@ -169,5 +162,18 @@ TEST(FixedQueue, ConcurrentPushPop)
 
     enqueueThread.join();
     dequeueThread.join();
+}
+
+// Test clearing the queue
+TEST(FixedQueue, Clear)
+{
+    FixedQueue<int, 5> q;
+    for (int i = 0; i < 5; ++i)
+    {
+        q.push(i);
+    }
+    q.clear();
+    EXPECT_EQ(0u, q.size());
+    EXPECT_EQ(true, q.empty());
 }
 }  // namespace angle

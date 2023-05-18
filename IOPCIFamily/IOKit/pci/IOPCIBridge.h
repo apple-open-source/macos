@@ -44,6 +44,12 @@ class IOPCIDevice;
 class IOPCIMessagedInterruptController;
 class IOPCIHostBridgeData;
 
+enum
+{
+	kCheckLinkParents  = 0x00000001,
+	kCheckLinkForPower = 0x00000002,
+};
+
 enum {
     kIOPCIResourceTypeMemory         = 0,
     kIOPCIResourceTypePrefetchMemory = 1,
@@ -373,6 +379,7 @@ protected:
 
     bool isSupportedLinkSpeed(IOPCIDevice *device, tIOPCILinkSpeed linkSpeed);
     void setTargetLinkSpeed(IOPCIDevice *device, tIOPCILinkSpeed linkSpeed);
+    IOReturn linkRetrain(IOPCIDevice *device, bool waitForLinkUp);
 
     OSMetaClassDeclareReservedUsed(IOPCIBridge,  9);
 	virtual void warmResetDisable(void);
@@ -459,6 +466,10 @@ public:
 
 protected:
 	void updateLinkStatusProperty(uint16_t linkStatus);
+
+	// findDeviceByXXX retains the returned IOPCIDevice object
+	IOPCIDevice *findDeviceByBDF(IOPCIAddressSpace space);
+	IOPCIDevice *findDeviceByMemAddress(IOPhysicalAddress address);
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

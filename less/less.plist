@@ -16,6 +16,7 @@
 		<string>ttyin.c: use stderr for commands if stdout is a terminal (86529734)</string>
 		<string>edit.c: support command substitution in examine file list (86529734)</string>
 		<string>less.nro: remove lesskey(1) SEE ALSO (100829510)</string>
+		<string>line.c: backport fix for CVE-2022-46663 (105576781)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>less</string>

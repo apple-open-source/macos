@@ -661,6 +661,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     css/parser/CSSParser.h
     css/parser/CSSParserContext.h
+    css/parser/CSSParserEnum.h
     css/parser/CSSParserMode.h
     css/parser/CSSParserSelector.h
     css/parser/CSSParserToken.h
@@ -1267,7 +1268,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/MemoryRelease.h
     page/ModalContainerTypes.h
     page/NavigatorIsLoggedIn.h
-    page/PDFImageCachingPolicy.h
     page/Page.h
     page/PageColorSampler.h
     page/PageConfiguration.h
@@ -1582,6 +1582,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/BifurcatedGraphicsContext.h
     platform/graphics/BitmapImage.h
     platform/graphics/ByteArrayPixelBuffer.h
+    platform/graphics/CachedSubimage.h
     platform/graphics/Color.h
     platform/graphics/ColorComponents.h
     platform/graphics/ColorConversion.h
@@ -2208,6 +2209,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/NavigationPreloadState.h
     workers/service/SWClientConnection.h
     workers/service/ServiceWorkerClientData.h
+    workers/service/ServiceWorkerClientPendingMessage.h
     workers/service/ServiceWorkerClientQueryOptions.h
     workers/service/ServiceWorkerClientType.h
     workers/service/ServiceWorkerContextData.h

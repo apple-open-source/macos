@@ -1,0 +1,19 @@
+diff --git a/httpd/configure b/httpd/configure
+index 4366bac..01428aa 100755
+--- configure
++++ configure
+@@ -6497,7 +6497,13 @@ case $host in
+       if test "x$LTFLAGS" = "x"; then
+           LTFLAGS='--silent'
+       fi
+-      my_libtool=`$apr_config --apr-libtool`
++
++      # we're relying on xcode installing things in the same place relative to eachother here
++      # this seems reasonable since apr and libtool are unlikely to be removed from .../usr/local/
++      my_libtool_prefix=$(echo $apr_config | rev | cut -d'/' -f3- | rev)
++      my_libtool_suffix=$(echo $($apr_config --apr-libtool) | rev | cut -d'/' -f1-4 | rev)
++      my_libtool="$my_libtool_prefix/$my_libtool_suffix"
++
+       LIBTOOL="$my_libtool \$(LTFLAGS)"
+       libtoolversion=`$my_libtool --version`
+       case $libtoolversion in

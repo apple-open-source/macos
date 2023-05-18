@@ -6659,10 +6659,6 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
     ALWAYS_LOG(LOGIDENTIFIER, ", m_videoFullscreenMode = ", m_videoFullscreenMode, ", mode = ", mode);
     ASSERT(mode != VideoFullscreenModeNone);
 
-    auto* window = document().domWindow();
-    if (!window)
-        return;
-
     if (m_videoFullscreenMode == mode)
         return;
 
@@ -6679,9 +6675,6 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
         return;
     }
 #endif
-
-    if (mediaSession().hasBehaviorRestriction(MediaElementSession::RequireUserGestureForFullscreen))
-        window->consumeTransientActivation();
 
     queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this, mode, logIdentifier = LOGIDENTIFIER] {
         if (isContextStopped())
@@ -7309,6 +7302,9 @@ void HTMLMediaElement::createMediaPlayer() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     if (m_isPlayingToWirelessTarget)
         setIsPlayingToWirelessTarget(false);
 #endif
+
+if (auto player = std::exchange(m_player, { }))
+    player->invalidate();
 
     m_player = MediaPlayer::create(*this);
     m_player->setBufferingPolicy(m_bufferingPolicy);

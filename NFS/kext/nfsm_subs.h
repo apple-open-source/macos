@@ -731,6 +731,7 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 /* get an NFSv4 "stateid" structure from an mbuf chain */
 #define nfsm_chain_get_stateid(E, NMC, SID) \
 	do { \
+	        if (E) break; \
 	        nfsm_chain_get_32((E), (NMC), (SID)->seqid); \
 	        nfsm_chain_get_32((E), (NMC), (SID)->other[0]); \
 	        nfsm_chain_get_32((E), (NMC), (SID)->other[1]); \

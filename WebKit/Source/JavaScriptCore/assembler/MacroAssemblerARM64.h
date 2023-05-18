@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -3181,6 +3181,11 @@ public:
         m_assembler.uxtw(dest, src);
     }
 
+    void zeroExtend48ToWord(RegisterID src, RegisterID dest)
+    {
+        m_assembler.ubfx<64>(dest, src, 0, 48);
+    }
+
     void moveConditionally32(RelationalCondition cond, RegisterID left, RegisterID right, RegisterID src, RegisterID dest)
     {
         m_assembler.cmp<32>(left, right);
@@ -5509,9 +5514,12 @@ public:
 
     void vectorDotProduct(FPRegisterID a, FPRegisterID b, FPRegisterID dest, FPRegisterID scratch) 
     {
+        ASSERT(scratch != dest);
+        ASSERT(scratch != a);
+        ASSERT(scratch != b);
         m_assembler.smullv(scratch, a, b, SIMDLane::i16x8);
         m_assembler.smull2v(dest, a, b, SIMDLane::i16x8);
-        m_assembler.addpv(dest, dest, scratch, SIMDLane::i32x4);
+        m_assembler.addpv(dest, scratch, dest, SIMDLane::i32x4);
     }
     void vectorSwizzle(FPRegisterID a, FPRegisterID control, FPRegisterID dest) { m_assembler.tbl(dest, a, control); }
     void vectorSwizzle2(FPRegisterID a, FPRegisterID b, FPRegisterID control, FPRegisterID dest)

@@ -14597,6 +14597,7 @@ xmlSchemaFixupTypeAttributeUses(xmlSchemaParserCtxtPtr pctxt,
 	    {
 		PERROR_INT("xmlSchemaFixupTypeAttributeUses",
 		"failed to expand attributes");
+                return(-1);
 	    }
 	    if (pctxt->attrProhibs->nbItems != 0)
 		prohibs = pctxt->attrProhibs;
@@ -14607,6 +14608,7 @@ xmlSchemaFixupTypeAttributeUses(xmlSchemaParserCtxtPtr pctxt,
 	    {
 		PERROR_INT("xmlSchemaFixupTypeAttributeUses",
 		"failed to expand attributes");
+                return(-1);
 	    }
 	}
     }
@@ -18678,7 +18680,7 @@ xmlSchemaFixupComplexType(xmlSchemaParserCtxtPtr pctxt,
 			"allowed to appear inside other model groups",
 			NULL, NULL);
 
-		} else if (! dummySequence) {
+		} else if ((!dummySequence) && (baseType->subtypes != NULL)) {
 		    xmlSchemaTreeItemPtr effectiveContent =
 			(xmlSchemaTreeItemPtr) type->subtypes;
 		    /*

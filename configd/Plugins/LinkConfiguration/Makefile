@@ -1,10 +1,14 @@
-all : linkconfig
+SDK=$(PLATFORM).internal
+SYSROOT=$(shell xcodebuild -version -sdk $(SDK) Path)
+CC = xcrun -sdk $(SDK) clang
+PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
+SCPRIV=-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
 
-linkconfig.o: linkconfig.c Makefile
-	cc -I../../SystemConfiguration.fproj -Wall -g -DMAIN -O0 -c linkconfig.c
+SYSPRIV=-I$(SYSROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+SC_INCLUDE=-I../common -I../../SystemConfiguration.fproj -I../../IPMonitorControl
 
-linkconfig: linkconfig.o Makefile
-	cc -o linkconfig linkconfig.o -framework CoreFoundation -framework SystemConfiguration
+linkconfig: linkconfig.c ../common/WiFiUtil.m
+	$(CC) -DTEST_LINKCONFIG $(SC_INCLUDE) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework CoreWiFi -Wall -g -o $@ $^
 
 clean:
 	rm -rf *.o linkconfig *.dSYM

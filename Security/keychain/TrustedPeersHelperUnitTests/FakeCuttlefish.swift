@@ -911,7 +911,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         if self.injectLegacyEscrowRecords {
             print("FakeCuttlefish: fetchViableBottles injecting legacy records")
             let record = EscrowInformation.with {
-                $0.label = "fake-label"
+                $0.label = "com.apple.icdp.record.fake-label"
             }
             legacy.append(record)
         }

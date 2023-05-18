@@ -393,21 +393,22 @@ static CFTypeRef SecKeyRSACopyEMSASignature(SecKeyOperationContext *context,
                                             CFDataRef in1, CFDataRef in2, CFErrorRef *error, bool pss, const struct ccdigest_info *di) {
     CFDictionaryRef parameters = NULL;
     __block CFTypeRef result = NULL;
+    CFIndex sizeInBits = 0;
 
     require_action_quiet(parameters = SecKeyCopyAttributes(context->key), out,
                          SecError(errSecParam, error, CFSTR("Unable to export key parameters")));
     require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA), out, result = kCFNull);
     require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPrivate), out, result = kCFNull);
-    CFReleaseNull(parameters);
 
     if (pss) {
         // Verify that algorithm is compatible with the modulus size.
-        size_t blockSize = SecKeyGetBlockSize(context->key);
-        require_action_quiet(blockSize >= di->output_size * 2 + 2, out,
+        sizeInBits = ((__bridge NSNumber *)CFDictionaryGetValue(parameters, kSecAttrKeySizeInBits)).integerValue;
+        require_action_quiet(sizeInBits >= (CFIndex)(2 * 8 * di->output_size + 9), out,
                              SecError(errSecParam, error, CFSTR("algorithm %@ incompatible with %lubit RSA key"),
                                       CFArrayGetValueAtIndex(context->algorithm, CFArrayGetCount(context->algorithm) - 1),
-                                      blockSize * 8));
+                                      sizeInBits));
     }
+    CFReleaseNull(parameters);
 
     if (!pss && di != NULL) {
         CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw);
@@ -418,7 +419,7 @@ static CFTypeRef SecKeyRSACopyEMSASignature(SecKeyOperationContext *context,
         return SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error);
     }
 
-    size_t size = SecKeyGetBlockSize(context->key);
+    const size_t size = SecKeyGetBlockSize(context->key);
     if (size == 0) {
         SecError(errSecParam, error, CFSTR("expecting RSA key"));
         return NULL;
@@ -433,7 +434,7 @@ static CFTypeRef SecKeyRSACopyEMSASignature(SecKeyOperationContext *context,
             require_noerr_action_quiet(err, out, SecError(errSecInternal, error, CFSTR("PSS salt gen fail (%zu bytes), err %d"),
                                                           di->output_size, err));
             err = ccrsa_emsa_pss_encode(di, di, di->output_size, salt.bytes,
-                                        CFDataGetLength(in1), CFDataGetBytePtr(in1), size * 8 - 1, s.mutableBytes);
+                                        CFDataGetLength(in1), CFDataGetBytePtr(in1), sizeInBits - 1, s.mutableBytes);
             require_noerr_action_quiet(err, out, SecError(errSecParam, error, CFSTR("RSASSA-PSS incompatible algorithm for key size")));
         } else {
             int err = ccrsa_emsa_pkcs1v15_encode(size, s.mutableBytes, CFDataGetLength(in1), CFDataGetBytePtr(in1), di ? di->oid : NULL);
@@ -441,12 +442,12 @@ static CFTypeRef SecKeyRSACopyEMSASignature(SecKeyOperationContext *context,
         }
         ccn_read_uint(ccn_nof_size(size), (cc_unit *)buffer, size, s.bytes);
         require_quiet(result = SecKeyRunAlgorithmAndCopyResult(context, data, NULL, error), out);
-        CFAssignRetained(result, SecKeyRSACopyCCUnitToBigEndian(result, SecKeyGetBlockSize(context->key)));
+        CFAssignRetained(result, SecKeyRSACopyCCUnitToBigEndian(result, size));
     out:;
     });
 
 out:
-    CFReleaseSafe(parameters);
+    CFReleaseNull(parameters);
     return result;
 }
 
@@ -565,8 +566,10 @@ static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPKCS1
 static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPSS ## name( \
         SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
     return SecKeyRSAVerifyAdaptorCopyResult(context, in2, error, ^Boolean(CFDataRef decrypted) { \
+        NSDictionary *attributes = CFBridgingRelease(SecKeyCopyAttributes(context->key)); \
+        NSNumber *bitSize = attributes[(id)kSecAttrKeySizeInBits]; \
         return ccrsa_emsa_pss_decode(di, di, di->output_size, CFDataGetLength(in1), CFDataGetBytePtr(in1), \
-                                     CFDataGetLength(decrypted) * 8 - 1, (uint8_t *)CFDataGetBytePtr(decrypted)) == 0; \
+                                     bitSize.integerValue - 1, (uint8_t *)CFDataGetBytePtr(decrypted)) == 0; \
     }); \
 }
 

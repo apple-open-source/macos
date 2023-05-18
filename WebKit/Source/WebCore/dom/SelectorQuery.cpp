@@ -610,6 +610,9 @@ ExceptionOr<SelectorQuery&> SelectorQueryCache::add(const String& selectors, Doc
     if (selectorList->selectorsNeedNamespaceResolution())
         return Exception { SyntaxError };
 
+    if (selectorList->hasExplicitNestingParent())
+        selectorList = CSSSelectorParser::resolveNestingParent(WTFMove(*selectorList), nullptr);
+
     const int maximumSelectorQueryCacheSize = 256;
     if (m_entries.size() == maximumSelectorQueryCacheSize)
         m_entries.remove(m_entries.random());

@@ -3946,6 +3946,7 @@ smbfs_tmpopen(struct smb_share *share, struct smbnode *np, uint32_t rights,
 	int searchOpenFiles;
 	int error = 0;
 	struct smbfattr fattr;
+	struct fileRefEntryBRL *fileBRLEntry;
 
 	/* If no vnode or the vnode is a directory then don't use already open items */
     if (!(np->n_vnode) || (vnode_isdir(np->n_vnode))) {
@@ -4003,7 +4004,31 @@ smbfs_tmpopen(struct smb_share *share, struct smbnode *np, uint32_t rights,
 		if (rights & SMB2_FILE_WRITE_ATTRIBUTES)
 			accessMode |= kAccessWrite;
         
-		/* First check the non deny mode opens, if we have one up the refcnt */
+        /* Check the fileBRLEntry with the requested access, if we have one up the refcnt */
+        fileBRLEntry = smbfs_find_lockEntry(np->n_vnode, accessMode);
+        if (fileBRLEntry && (fileBRLEntry->refcnt > 0)
+            && ((accessMode & fileBRLEntry->accessMode) == accessMode)) {
+            fileBRLEntry->refcnt += 1;
+            SMB_LOG_FILE_OPS_LOCK(np, "Incr f_fileBRLEntry_refcnt to <%d> on <%s> f_fileBRLEntry_fid 0x%llx\n",
+                                  fileBRLEntry->refcnt, np->n_name, fileBRLEntry->fid);
+            *fidp = fileBRLEntry->fid;
+            return (0);
+        }
+
+        /* Check the fileBRLEntry with read/write access, if we have one up the refcnt */
+        if (accessMode != (kAccessRead | kAccessWrite)) {
+            fileBRLEntry = smbfs_find_lockEntry(np->n_vnode, kAccessRead | kAccessWrite);
+            if (fileBRLEntry && (fileBRLEntry->refcnt > 0)
+                && ((accessMode & fileBRLEntry->accessMode) == accessMode)) {
+                fileBRLEntry->refcnt += 1;
+                SMB_LOG_FILE_OPS_LOCK(np, "Incr f_fileBRLEntryRW_refcnt to <%d> on <%s> f_fileBRLEntryRW_fid 0x%llx\n",
+                                      fileBRLEntry->refcnt, np->n_name, fileBRLEntry->fid);
+                *fidp = fileBRLEntry->fid;
+                return (0);
+            }
+        }
+
+		/* Check the non deny mode opens, if we have one up the refcnt */
 		if ((np->f_sharedFID_refcnt > 0)
             && ((accessMode & np->f_sharedFID_accessMode) == accessMode)) {
 			np->f_sharedFID_refcnt += 1;
@@ -4059,6 +4084,31 @@ smbfs_tmpopen(struct smb_share *share, struct smbnode *np, uint32_t rights,
 	return (error);
 }
 
+static int
+smbfs_tmpclose_fid(struct smb_share *share, struct smbnode *np, vfs_context_t context, int accessMode, int *refcnt)
+{
+    int openMode = 0;
+    if (*refcnt == 1) {
+        /*
+         * Set Open Mode to do last close for the SMBFID
+         */
+        openMode = accessMode;
+
+        return(smbfs_close(share, SMBTOV(np), openMode, context));
+    }
+
+    /*
+     * We borrowed the SMBFID, just decrement the ref count
+     * If its 0 (which would be odd), do nothing as its completely closed
+     * Must be > 1 because we checked for == 1 above, thus decrement
+     */
+    if (*refcnt > 0) {
+        *refcnt -= 1;
+    }
+
+    return 0;
+}
+
 /*
  * smbfs_tmpclose() - This function closes the FID that was opened using
  * smbfs_tmpopen(). If its dir, then just close the FID. If the FID does not
@@ -4079,7 +4129,6 @@ smbfs_tmpclose(struct smb_share *share, struct smbnode *np, SMBFID fid,
 			   vfs_context_t context)
 {
 	vnode_t vp = SMBTOV(np);
-    int openMode = 0;
 
     SMB_LOG_FILE_OPS_LOCK(np, "Enter on <%s> fid 0x%llx \n",
                           np->n_name, fid);
@@ -4098,15 +4147,8 @@ smbfs_tmpclose(struct smb_share *share, struct smbnode *np, SMBFID fid,
         return(smbfs_smb_close(share, fid, context));
     }
 
-    if ((fid != np->f_lockFID_fid) && (fid != np->f_sharedFID_fid)) {
-        /* FID does not match lockFID or sharedFID, so just close it */
-        SMB_LOG_FILE_OPS_LOCK(np, "Calling smbfs_smb_close 2 on <%s> fid 0x%llx \n",
-                              np->n_name, fid);
-        return(smbfs_smb_close(share, fid, context));
-    }
-    
-    SMB_LOG_FILE_OPS_LOCK(np, "<%s> fid 0x%llx lockFID 0x%llx shareFID 0x%llx \n",
-                          np->n_name, fid, np->f_lockFID_fid, np->f_sharedFID_fid);
+    SMB_LOG_FILE_OPS_LOCK(np, "<%s> fid 0x%llx lockFID 0x%llx shareFID 0x%llx BRLReadWriteFID 0x%llx BRLReadFID 0x%llx BRLWriteFID 0x%llx\n",
+                          np->n_name, fid, np->f_lockFID_fid, np->f_sharedFID_fid, np->f_sharedFID.lockEntries[0].fid, np->f_sharedFID.lockEntries[1].fid, np->f_sharedFID.lockEntries[2].fid);
 
     /*
 	 * OK we borrowed the fid, do we have the last reference count on it? If
@@ -4114,44 +4156,21 @@ smbfs_tmpclose(struct smb_share *share, struct smbnode *np, SMBFID fid,
 	 * for us.
 	 */
     if (fid == np->f_lockFID_fid) {
-        if (np->f_lockFID_refcnt == 1) {
-            /*
-             * Set Open Mode to do last close for lockFID
-             */
-            openMode = np->f_lockFID_accessMode;
-
-            return(smbfs_close(share, vp, openMode, context));
-        }
-        
-        /*
-         * We borrowed the lockFID, just decrement the ref count
-         * If its 0 (which would be odd), do nothing as its completely closed
-         * Must be > 1 because we checked for == 1 above, thus decrement
-         */
-        if (np->f_lockFID_refcnt > 0) {
-            np->f_lockFID_refcnt -= 1;
-        }
+        return smbfs_tmpclose_fid(share, np, context, np->f_lockFID_accessMode, &np->f_lockFID_refcnt);
+    } else if (fid == np->f_sharedFID_fid) {
+        return smbfs_tmpclose_fid(share, np, context, np->f_sharedFID_accessMode, &np->f_sharedFID_refcnt);
+    } else if (fid == np->f_sharedFID.lockEntries[0].fid) {
+        return smbfs_tmpclose_fid(share, np, context, np->f_sharedFID.lockEntries[0].accessMode, &np->f_sharedFID.lockEntries[0].refcnt);
+    } else if (fid == np->f_sharedFID.lockEntries[1].fid) {
+        return smbfs_tmpclose_fid(share, np, context, np->f_sharedFID.lockEntries[1].accessMode, &np->f_sharedFID.lockEntries[1].refcnt);
+    } else if (fid == np->f_sharedFID.lockEntries[2].fid) {
+        return smbfs_tmpclose_fid(share, np, context, np->f_sharedFID.lockEntries[2].accessMode, &np->f_sharedFID.lockEntries[2].refcnt);
+    } else {
+        /* FID does not match lockFID, sharedFID or ByteRangeLockFIDs, so just close it */
+        SMB_LOG_FILE_OPS_LOCK(np, "Calling smbfs_smb_close 2 on <%s> fid 0x%llx \n",
+                              np->n_name, fid);
+        return(smbfs_smb_close(share, fid, context));
     }
-    else {
-        if (np->f_sharedFID_refcnt == 1) {
-            /*
-             * Set Open Mode to do last close for sharedFID
-             */
-            openMode = np->f_sharedFID_accessMode;
-            return(smbfs_close(share, vp, openMode, context));
-        }
-        
-        /*
-         * We borrowed the sharedFID, just decrement the ref count
-         * If its 0 (which would be odd), do nothing as its completely closed
-         * Must be > 1 because we checked for == 1 above, thus decrement
-         */
-        if (np->f_sharedFID_refcnt > 0) {
-            np->f_sharedFID_refcnt -= 1;
-        }
-    }
-    
-    return(0);
 }
 
 /*

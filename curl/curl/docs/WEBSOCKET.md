@@ -1,5 +1,5 @@
 <!--
-Copyright (C) 2000 - 2022 Daniel Stenberg, <daniel@haxx.se>, et al.
+Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 
 SPDX-License-Identifier: curl
 -->
@@ -9,7 +9,7 @@ SPDX-License-Identifier: curl
 ## URL
 
 WebSocket communication with libcurl is done by setting up a transfer to a URL
-using the `ws:/` or `wss://` URL schemes. The latter one being the secure
+using the `ws://` or `wss://` URL schemes. The latter one being the secure
 version done over HTTPS.
 
 When using `wss://` to do WebSocket over HTTPS, the standard TLS and HTTPS

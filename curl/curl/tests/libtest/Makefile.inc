@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -69,7 +69,9 @@ noinst_PROGRAMS = chkhostname libauthretry libntlmconnect                \
          lib1915 lib1916 lib1917 lib1918 lib1919 \
  lib1933 lib1934 lib1935 lib1936 lib1937 lib1938 lib1939 lib1940 \
  lib1945 lib1946 lib1947 lib1948 lib1955 lib1956 lib1957 lib1958 lib1959 \
- lib2301 lib2302 lib2304 \
+ lib2301 lib2302 lib2304 lib2305 \
+ lib2402 \
+ lib2502 \
  lib3010 lib3025 lib3026 lib3027 \
  lib3100 lib3101
 
@@ -797,6 +799,17 @@ lib2302_LDADD = $(TESTUTIL_LIBS)
 
 lib2304_SOURCES = lib2304.c $(SUPPORTFILES)
 lib2304_LDADD = $(TESTUTIL_LIBS)
+
+lib2305_SOURCES = lib2305.c $(SUPPORTFILES) $(TESTUTIL) $(TSTTRACE) $(MULTIBYTE)
+lib2305_LDADD = $(TESTUTIL_LIBS)
+
+lib2402_SOURCES = lib2402.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
+lib2402_LDADD = $(TESTUTIL_LIBS)
+lib2402_CPPFLAGS = $(AM_CPPFLAGS) -DLIB2402
+
+lib2502_SOURCES = lib2502.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
+lib2502_LDADD = $(TESTUTIL_LIBS)
+lib2502_CPPFLAGS = $(AM_CPPFLAGS) -DLIB2502
 
 lib3010_SOURCES = lib3010.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
 lib3010_LDADD = $(TESTUTIL_LIBS)

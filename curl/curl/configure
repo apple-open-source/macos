@@ -12,7 +12,7 @@
 # This configure script is free software; the Free Software Foundation
 # gives unlimited permission to copy, distribute and modify it.
 #
-# Copyright (c) 1998 - 2022 Daniel Stenberg, <daniel@haxx.se>
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>
 # This configure script may be copied, distributed and modified under the
 # terms of the curl license; see COPYING for more details
 
@@ -1051,6 +1051,11 @@ build_os
 build_vendor
 build_cpu
 build
+HTTPD_NGHTTPX
+APACHECTL
+HTTPD
+APXS
+CADDY
 TEST_NGHTTPX
 PKGADD_VENDOR
 PKGADD_NAME
@@ -1184,6 +1189,8 @@ with_rustls
 with_nss_deprecated
 with_nss
 with_test_nghttpx
+with_test_caddy
+with_test_httpd
 with_darwinssl
 enable_largefile
 enable_shared
@@ -2072,6 +2079,8 @@ Optional Packages:
                           installation root
   --with-test-nghttpx=PATH
                           where to find nghttpx for testing
+  --with-test-caddy=PATH  where to find caddy for testing
+  --with-test-httpd=PATH  where to find httpd/apache2 for testing
 
   --with-pic[=PKGS]       try to use only PIC/non-PIC objects [default=use
                           both]
@@ -2250,7 +2259,7 @@ Copyright (C) 2021 Free Software Foundation, Inc.
 This configure script is free software; the Free Software Foundation
 gives unlimited permission to copy, distribute and modify it.
 
-Copyright (c) 1998 - 2022 Daniel Stenberg, <daniel@haxx.se>
+Copyright (C) Daniel Stenberg, <daniel@haxx.se>
 This configure script may be copied, distributed and modified under the
 terms of the curl license; see COPYING for more details
 _ACEOF
@@ -6844,6 +6853,444 @@ then :
 
 fi
 
+
+
+CADDY=caddy
+
+# Check whether --with-test-caddy was given.
+if test ${with_test_caddy+y}
+then :
+  withval=$with_test_caddy; CADDY=$withval
+  if test X"$OPT_CADDY" = "Xno" ; then
+      CADDY=""
+  fi
+
+fi
+
+
+
+
+# Check whether --with-test-httpd was given.
+if test ${with_test_httpd+y}
+then :
+  withval=$with_test_httpd; request_httpd=$withval
+else $as_nop
+  request_httpd=check
+fi
+
+if test x"$request_httpd" = "xcheck"; then
+  if test -x "/usr/sbin/apache2" -a -x "/usr/sbin/apache2ctl"; then
+    # common location on distros (debian/ubuntu)
+    HTTPD="/usr/sbin/apache2"
+    APACHECTL="/usr/sbin/apache2ctl"
+    # Extract the first word of "apxs", so it can be a program name with args.
+set dummy apxs; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_APXS+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  case $APXS in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_APXS="$APXS" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_APXS="$as_dir$ac_word$ac_exec_ext"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+APXS=$ac_cv_path_APXS
+if test -n "$APXS"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $APXS" >&5
+printf "%s\n" "$APXS" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+    if test "x$APXS" != "x"; then
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apache2-dev not installed, httpd tests disabled" >&5
+printf "%s\n" "$as_me: apache2-dev not installed, httpd tests disabled" >&6;}
+    fi
+  else
+    # Extract the first word of "httpd", so it can be a program name with args.
+set dummy httpd; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_HTTPD+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  case $HTTPD in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_HTTPD="$HTTPD" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_HTTPD="$as_dir$ac_word$ac_exec_ext"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+HTTPD=$ac_cv_path_HTTPD
+if test -n "$HTTPD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HTTPD" >&5
+printf "%s\n" "$HTTPD" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+    if test "x$HTTPD" = "x"; then
+      # Extract the first word of "apache2", so it can be a program name with args.
+set dummy apache2; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_HTTPD+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  case $HTTPD in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_HTTPD="$HTTPD" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_HTTPD="$as_dir$ac_word$ac_exec_ext"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+HTTPD=$ac_cv_path_HTTPD
+if test -n "$HTTPD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HTTPD" >&5
+printf "%s\n" "$HTTPD" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+    fi
+    # Extract the first word of "apachectl", so it can be a program name with args.
+set dummy apachectl; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_APACHECTL+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  case $APACHECTL in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_APACHECTL="$APACHECTL" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_APACHECTL="$as_dir$ac_word$ac_exec_ext"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+APACHECTL=$ac_cv_path_APACHECTL
+if test -n "$APACHECTL"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $APACHECTL" >&5
+printf "%s\n" "$APACHECTL" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+    # Extract the first word of "apxs", so it can be a program name with args.
+set dummy apxs; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_APXS+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  case $APXS in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_APXS="$APXS" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_APXS="$as_dir$ac_word$ac_exec_ext"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+APXS=$ac_cv_path_APXS
+if test -n "$APXS"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $APXS" >&5
+printf "%s\n" "$APXS" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+    if test "x$HTTPD" = "x" -o "x$APACHECTL" = "x"; then
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: httpd/apache2 not in PATH, httpd tests disabled" >&5
+printf "%s\n" "$as_me: httpd/apache2 not in PATH, httpd tests disabled" >&6;}
+    fi
+    if test "x$APXS" = "x"; then
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apxs not in PATH, httpd tests disabled" >&5
+printf "%s\n" "$as_me: apxs not in PATH, httpd tests disabled" >&6;}
+    fi
+  fi
+else
+  HTTPD="${request_httpd}/bin/httpd"
+  APACHECTL="${request_httpd}/bin/apachectl"
+  APXS="${request_httpd}/bin/apxs"
+  if test ! -x "${HTTPD}"; then
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: httpd not found as ${HTTPD}, httpd tests disabled" >&5
+printf "%s\n" "$as_me: httpd not found as ${HTTPD}, httpd tests disabled" >&6;}
+  elif test ! -x "${APACHECTL}"; then
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apachectl not found as ${APACHECTL}, httpd tests disabled" >&5
+printf "%s\n" "$as_me: apachectl not found as ${APACHECTL}, httpd tests disabled" >&6;}
+  elif test ! -x "${APXS}"; then
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apxs not found as ${APXS}, httpd tests disabled" >&5
+printf "%s\n" "$as_me: apxs not found as ${APXS}, httpd tests disabled" >&6;}
+  else
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: using HTTPD=$HTTPD for tests" >&5
+printf "%s\n" "$as_me: using HTTPD=$HTTPD for tests" >&6;}
+  fi
+fi
+
+
+
+
+if test "x$TEST_NGHTTPX" != "x"; then
+  HTTPD_NGHTTPX="$TEST_NGHTTPX"
+else
+  # Extract the first word of "nghttpx", so it can be a program name with args.
+set dummy nghttpx; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_HTTPD_NGHTTPX+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  case $HTTPD_NGHTTPX in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_HTTPD_NGHTTPX="$HTTPD_NGHTTPX" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_HTTPD_NGHTTPX="$as_dir$ac_word$ac_exec_ext"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+HTTPD_NGHTTPX=$ac_cv_path_HTTPD_NGHTTPX
+if test -n "$HTTPD_NGHTTPX"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HTTPD_NGHTTPX" >&5
+printf "%s\n" "$HTTPD_NGHTTPX" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+fi
+    # Extract the first word of "apxs", so it can be a program name with args.
+set dummy apxs; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_APXS+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  case $APXS in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_APXS="$APXS" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_APXS="$as_dir$ac_word$ac_exec_ext"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+APXS=$ac_cv_path_APXS
+if test -n "$APXS"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $APXS" >&5
+printf "%s\n" "$APXS" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+
+
+if test "x$TEST_CADDY" != "x"; then
+  CADDY="$TEST_CADDY"
+else
+  # Extract the first word of "caddy", so it can be a program name with args.
+set dummy caddy; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_CADDY+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  case $CADDY in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_CADDY="$CADDY" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_CADDY="$as_dir$ac_word$ac_exec_ext"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+CADDY=$ac_cv_path_CADDY
+if test -n "$CADDY"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $CADDY" >&5
+printf "%s\n" "$CADDY" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+fi
 
 
 if test -z "$TLSCHOICE"; then
@@ -25686,7 +26133,6 @@ then :
 
 fi
 
-                              CPPFLAGS="$CPPFLAGS -DOPENSSL_SUPPRESS_DEPRECATED"
 
 else $as_nop
 
@@ -26439,7 +26885,6 @@ printf "%s\n" "yes" >&6; }
 
 printf "%s\n" "#define HAVE_OPENSSL3 1" >>confdefs.h
 
-                              CPPFLAGS="$CPPFLAGS -DOPENSSL_SUPPRESS_DEPRECATED"
       ssl_msg="OpenSSL v3+"
 
 else $as_nop
@@ -44821,6 +45266,16 @@ printf "%s\n" "$ECH_SUPPORT" >&6; }
   fi
 fi
 
+if test "x$OPENSSL_ENABLED" = "x1"; then
+  ac_fn_c_check_func "$LINENO" "SSL_set0_wbio" "ac_cv_func_SSL_set0_wbio"
+if test "x$ac_cv_func_SSL_set0_wbio" = xyes
+then :
+  printf "%s\n" "#define HAVE_SSL_SET0_WBIO 1" >>confdefs.h
+
+fi
+
+fi
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether to support WebSockets" >&5
 printf %s "checking whether to support WebSockets... " >&6; }
 # Check whether --enable-websockets was given.
@@ -45360,7 +45815,7 @@ if test "x$want_curldebug_assumed" = "xyes" &&
   ac_configure_args="$ac_configure_args --enable-curldebug"
 fi
 
-ac_config_files="$ac_config_files Makefile docs/Makefile docs/examples/Makefile docs/libcurl/Makefile docs/libcurl/opts/Makefile docs/cmdline-opts/Makefile include/Makefile include/curl/Makefile src/Makefile lib/Makefile scripts/Makefile lib/libcurl.vers lib/libcurl.plist tests/Makefile tests/config tests/certs/Makefile tests/certs/scripts/Makefile tests/data/Makefile tests/server/Makefile tests/libtest/Makefile tests/unit/Makefile packages/Makefile packages/vms/Makefile curl-config libcurl.pc"
+ac_config_files="$ac_config_files Makefile docs/Makefile docs/examples/Makefile docs/libcurl/Makefile docs/libcurl/opts/Makefile docs/cmdline-opts/Makefile include/Makefile include/curl/Makefile src/Makefile lib/Makefile scripts/Makefile lib/libcurl.vers lib/libcurl.plist tests/Makefile tests/config tests/certs/Makefile tests/certs/scripts/Makefile tests/data/Makefile tests/server/Makefile tests/libtest/Makefile tests/unit/Makefile tests/tests-httpd/config.ini tests/tests-httpd/Makefile packages/Makefile packages/vms/Makefile curl-config libcurl.pc"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -46535,6 +46990,8 @@ do
     "tests/server/Makefile") CONFIG_FILES="$CONFIG_FILES tests/server/Makefile" ;;
     "tests/libtest/Makefile") CONFIG_FILES="$CONFIG_FILES tests/libtest/Makefile" ;;
     "tests/unit/Makefile") CONFIG_FILES="$CONFIG_FILES tests/unit/Makefile" ;;
+    "tests/tests-httpd/config.ini") CONFIG_FILES="$CONFIG_FILES tests/tests-httpd/config.ini" ;;
+    "tests/tests-httpd/Makefile") CONFIG_FILES="$CONFIG_FILES tests/tests-httpd/Makefile" ;;
     "packages/Makefile") CONFIG_FILES="$CONFIG_FILES packages/Makefile" ;;
     "packages/vms/Makefile") CONFIG_FILES="$CONFIG_FILES packages/vms/Makefile" ;;
     "curl-config") CONFIG_FILES="$CONFIG_FILES curl-config" ;;

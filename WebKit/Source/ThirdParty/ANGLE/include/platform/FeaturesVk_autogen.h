@@ -20,6 +20,12 @@ struct FeaturesVk : FeatureSetBase
     FeaturesVk();
     ~FeaturesVk();
 
+    FeatureInfo appendAliasedMemoryDecorationsToSsbo = {
+        "appendAliasedMemoryDecorationsToSsbo", FeatureCategory::VulkanWorkarounds,
+        "Append aliased memory decoration to ssbo in SpirV if the ssbo in GLSL is not declared "
+        "with restrict memory qualifier",
+        &members, "b/266235549"};
+
     FeatureInfo bresenhamLineRasterization = {
         "bresenhamLineRasterization",
         FeatureCategory::VulkanFeatures,
@@ -60,6 +66,13 @@ struct FeaturesVk : FeatureSetBase
         "mutableMipmapTextureUpload", FeatureCategory::VulkanFeatures,
         "Enable uploading the previously defined mutable mipmap texture.", &members,
         "https://anglebug.com/7308"};
+
+    FeatureInfo useVmaForImageSuballocation = {
+        "useVmaForImageSuballocation",
+        FeatureCategory::VulkanFeatures,
+        "Utilize VMA for image memory suballocation.",
+        &members,
+    };
 
     FeatureInfo supportsMemoryBudget = {
         "supportsMemoryBudget",
@@ -653,6 +666,12 @@ struct FeaturesVk : FeatureSetBase
         "driver bugs",
         &members, "https://bugs.fuchsia.dev/p/fuchsia/issues/detail?id=107106"};
 
+    FeatureInfo forceStaticPrimitiveRestartState = {
+        "forceStaticPrimitiveRestartState", FeatureCategory::VulkanWorkarounds,
+        "Force static state for VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE due to "
+        "driver bugs",
+        &members, "https://issuetracker.google.com/275210062"};
+
     FeatureInfo supportsExtendedDynamicState = {
         "supportsExtendedDynamicState", FeatureCategory::VulkanFeatures,
         "VkDevice supports VK_EXT_extended_dynamic_state extension", &members,
@@ -837,6 +856,13 @@ struct FeaturesVk : FeatureSetBase
                                        "VkDevice supports the VK_KHR_bind_memory2 extension",
                                        &members, "https://anglebug.com/4966"};
 
+    FeatureInfo supportsSamplerMirrorClampToEdge = {
+        "supportsSamplerMirrorClampToEdge",
+        FeatureCategory::VulkanFeatures,
+        "VkDevice supports the VK_KHR_sampler_mirror_clamp_to_edge extension",
+        &members,
+    };
+
     FeatureInfo preferSubmitOnAnySamplesPassedQueryEnd = {
         "preferSubmitOnAnySamplesPassedQueryEnd", FeatureCategory::VulkanWorkarounds,
         "Submit commands to driver when last GL_ANY_SAMPLES_PASSED query is made for performance "
@@ -847,6 +873,19 @@ struct FeaturesVk : FeatureSetBase
         "forceWaitForSubmissionToCompleteForQueryResult", FeatureCategory::VulkanWorkarounds,
         "Force wait for submission to complete before calling getQueryResult(wait).", &members,
         "https://issuetracker.google.com/253522366"};
+
+    FeatureInfo asyncCommandBufferReset = {"asyncCommandBufferReset",
+                                           FeatureCategory::VulkanFeatures,
+                                           "Reset command buffer in async thread.", &members,
+                                           "https://issuetracker.google.com/255411748"};
+
+    FeatureInfo useResetCommandBufferBitForSecondaryPools = {
+        "useResetCommandBufferBitForSecondaryPools",
+        FeatureCategory::VulkanWorkarounds,
+        "Use VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT for initializing "
+        "SecondaryCommandPools when using VulkanSecondaryCommandBuffer. ",
+        &members,
+    };
 };
 
 inline FeaturesVk::FeaturesVk()  = default;

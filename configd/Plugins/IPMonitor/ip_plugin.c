@@ -122,6 +122,7 @@
 #include "set-hostname.h"
 #include "nat64-configuration.h"
 #include "agent-monitor.h"
+#define NEED_EFFECTIVE_INTERFACE	1
 #endif	/* !TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) */
 
 #include "dns-configuration.h"
@@ -500,7 +501,9 @@ typedef union {
 typedef struct Candidate {
     CFStringRef			serviceID;
     CFStringRef			if_name;
+    CFStringRef			effective_if_name;
     Rank			rank;
+    boolean_t			ip_is_independent;
     boolean_t			ip_is_coupled;
     boolean_t			ineligible;
     SCNetworkReachabilityFlags	reachability_flags;
@@ -746,6 +749,75 @@ ipvx_other_char(int af)
     return ((af == AF_INET) ? '6' : '4');
 }
 
+static int
+get_other_af(int af)
+{
+    return (af == AF_INET) ? AF_INET6 : AF_INET;
+}
+
+static CFStringRef
+get_af_entity(int af)
+{
+    return (af == AF_INET) ? kSCEntNetIPv4 : kSCEntNetIPv6;
+}
+
+#if defined(NEED_EFFECTIVE_INTERFACE)
+
+static int
+open_inet_dgram_socket(void);
+
+static IFIndex
+get_effective_ifindex(const char * ifname)
+{
+    IFIndex		ifindex = 0;
+    struct ifreq	ifr;
+    int			s;
+
+
+    memset(&ifr, 0, sizeof(ifr));
+    strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+    s = open_inet_dgram_socket();
+    if (s != -1 && ioctl(s, SIOCGIFDELEGATE, &ifr) != -1) {
+	ifindex = ifr.ifr_delegated;
+    }
+    return (ifindex);
+}
+
+static CFStringRef
+copy_effective_if_name(CFStringRef if_name)
+{
+    IFIndex	ifindex;
+    char	ifname[IFNAMSIZ];
+    CFStringRef	ret_if_name = NULL;
+
+    CFStringGetCString(if_name, ifname, sizeof(ifname),
+		       kCFStringEncodingUTF8);
+    ifindex = get_effective_ifindex(ifname);
+    if (ifindex != 0) {
+	char	effective_ifname[IFNAMSIZ];
+
+	if (my_if_indextoname(ifindex, effective_ifname) != NULL) {
+	    ret_if_name = CFStringCreateWithCString(NULL,
+						    effective_ifname,
+						    kCFStringEncodingUTF8);
+	    my_log(LOG_NOTICE, "%s: %@ effective %@", __func__,
+		   if_name, ret_if_name);
+	}
+    }
+    return (ret_if_name);
+}
+
+#else /* NEED_EFFECTIVE_INTERFACE */
+
+static CFStringRef
+copy_effective_if_name(CFStringRef if_name)
+{
+#pragma unused(if_name)
+    return (NULL);
+}
+
+#endif /* NEED_EFFECTIVE_INTERFACE */
+
 /*
  * IPv4/IPv6 Service Dict keys: kIPDictRoutes, IPDictService
  *
@@ -981,17 +1053,54 @@ open_routing_socket(void)
     return (sockfd);
 }
 
-static __inline__ int
-inet6_dgram_socket(void)
-{
-    int	sockfd;
+static int inet_dgram_socket = -1;
 
-    sockfd = socket(AF_INET6, SOCK_DGRAM, 0);
-    if (sockfd == -1) {
+static int
+open_inet_dgram_socket(void)
+{
+    if (inet_dgram_socket != -1) {
+	goto done;
+    }
+    inet_dgram_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (inet_dgram_socket == -1) {
 	my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
     }
+ done:
+    return inet_dgram_socket;
+}
 
-    return sockfd;
+static void
+close_inet_dgram_socket(void)
+{
+    if (inet_dgram_socket != -1) {
+	close(inet_dgram_socket);
+	inet_dgram_socket = -1;
+    }
+}
+
+static int inet6_dgram_socket = -1;
+
+static __inline__ int
+open_inet6_dgram_socket(void)
+{
+    if (inet6_dgram_socket != -1) {
+	goto done;
+    }
+    inet6_dgram_socket = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (inet6_dgram_socket == -1) {
+	my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
+    }
+ done:
+    return inet6_dgram_socket;
+}
+
+static void
+close_inet6_dgram_socket(void)
+{
+    if (inet6_dgram_socket != -1) {
+	close(inet6_dgram_socket);
+	inet6_dgram_socket = -1;
+    }
 }
 
 static int
@@ -3898,16 +4007,13 @@ ipdict_is_routable(CFDictionaryRef entity_dict)
     return TRUE;
 }
 
-
 __private_extern__ boolean_t
 service_is_routable(CFDictionaryRef service_dict, int af)
 {
     boolean_t		contains_protocol;
-    CFStringRef		entity;
     CFDictionaryRef	entity_dict;
 
-    entity = (af == AF_INET) ? kSCEntNetIPv4 : kSCEntNetIPv6;
-    entity_dict = CFDictionaryGetValue(service_dict, entity);
+    entity_dict = CFDictionaryGetValue(service_dict, get_af_entity(af));
     if (entity_dict == NULL) {
 	return FALSE;
     }
@@ -3981,7 +4087,7 @@ service_is_scoped_only(CFDictionaryRef service_dict)
     }
 
     // check both both IPv4 and IPv6
-    alias = nwi_ifstate_get_alias(ifstate, ifstate->af == AF_INET ? AF_INET6 : AF_INET);
+    alias = nwi_ifstate_get_alias(ifstate, get_other_af(ifstate->af));
     if (alias == NULL) {
 	// if only one address family
 	return FALSE;
@@ -4213,7 +4319,7 @@ ipv6_service_update_router(CFStringRef serviceID, CFDictionaryRef new_service)
     if (ifname == NULL || ifindex == 0) {
 	return;
     }
-    s = inet6_dgram_socket();
+    s = open_inet6_dgram_socket();
     if (s < 0) {
 	goto done;
     }
@@ -4255,7 +4361,6 @@ ipv6_service_update_router(CFStringRef serviceID, CFDictionaryRef new_service)
 		   inet_ntop(AF_INET6, new_router, ntopbuf, sizeof(ntopbuf)));
 	}
     }
-    close(s);
 
   done:
     return;
@@ -5939,7 +6044,7 @@ set_ipv6_default_interface(IFIndex ifindex)
     else {
 	ndifreq.ifindex = lo0_ifindex();
     }
-    sock = inet6_dgram_socket();
+    sock = open_inet6_dgram_socket();
     if (sock < 0) {
 	goto done;
     }
@@ -5951,7 +6056,6 @@ set_ipv6_default_interface(IFIndex ifindex)
     else {
 	success = TRUE;
     }
-    close(sock);
 done:
     return (success);
 }
@@ -6048,18 +6152,12 @@ static boolean_t
 service_get_ip_is_coupled(CFStringRef serviceID)
 {
     boolean_t		ip_is_coupled = FALSE;
+    CFDictionaryRef	dict;
 
-    if (!S_disable_service_coupling) {
-	ip_is_coupled = TRUE;
-    }
-    else {
-	CFDictionaryRef	dict;
-
-	dict = service_dict_get(serviceID, kSCEntNetService);
-	if (dict != NULL) {
-	    if (CFDictionaryContainsKey(dict, kIPIsCoupled)) {
-		ip_is_coupled = TRUE;
-	    }
+    dict = service_dict_get(serviceID, kSCEntNetService);
+    if (dict != NULL) {
+	if (CFDictionaryContainsKey(dict, kIPIsCoupled)) {
+	    ip_is_coupled = TRUE;
 	}
     }
     return (ip_is_coupled);
@@ -6863,11 +6961,7 @@ VPNAttributesGet(CFStringRef		    service_id,
     int				status = 0;
     CFStringRef  		transient_entity = NULL;
 
-    if (af == AF_INET) {
-	entity_dict = service_dict_get(service_id, kSCEntNetIPv4);
-    } else {
-	entity_dict = service_dict_get(service_id, kSCEntNetIPv6);
-    }
+    entity_dict = service_dict_get(service_id, get_af_entity(af));
     entity_dict = ipdict_get_service(entity_dict);
     if (entity_dict == NULL) {
 	return;
@@ -6945,7 +7039,6 @@ VPNAttributesGet(CFStringRef		    service_id,
 
 typedef struct ElectionInfo {
     int				af;
-    CFStringRef			entity;
     int				n_services;
     CFArrayRef			order;
     CFIndex			n_order;
@@ -6961,6 +7054,7 @@ CandidateRelease(CandidateRef candidate)
     my_CFRelease(&candidate->serviceID);
     my_CFRelease(&candidate->if_name);
     my_CFRelease(&candidate->signature);
+    my_CFRelease(&candidate->effective_if_name);
     return;
 }
 
@@ -6968,14 +7062,17 @@ static void
 CandidateCopy(CandidateRef dest, CandidateRef src)
 {
     *dest = *src;
-    if (dest->serviceID) {
+    if (dest->serviceID != NULL) {
 	CFRetain(dest->serviceID);
     }
-    if (dest->if_name) {
+    if (dest->if_name != NULL) {
 	CFRetain(dest->if_name);
     }
-    if(dest->signature) {
+    if (dest->signature != NULL) {
 	CFRetain(dest->signature);
+    }
+    if (dest->effective_if_name != NULL) {
+	CFRetain(dest->effective_if_name);
     }
     return;
 }
@@ -7096,11 +7193,9 @@ ElectionResultsCopy(int af, CFArrayRef order)
     }
     info.af = af;
     if (af == AF_INET) {
-	info.entity = kSCEntNetIPv4;
 	info.rank_dict = S_ipv4_service_rank_dict;
     }
     else {
-	info.entity = kSCEntNetIPv6;
 	info.rank_dict = S_ipv6_service_rank_dict;
     }
     info.results = ElectionResultsAlloc(af, count);
@@ -7121,16 +7216,28 @@ ElectionResultsCopy(int af, CFArrayRef order)
 }
 
 static Boolean
-CandidateNoDemotionNeeded(CandidateRef candidate)
+CandidateSameInterface(CandidateRef other_candidate,
+		       CandidateRef candidate)
 {
-    Boolean	no_demotion;
+    Boolean	same = FALSE;
 
-    /* allow stf and gif to co-exist with any other interface */
-    no_demotion = (CFStringHasPrefix(candidate->if_name, CFSTR("stf"))
-		   || CFStringHasPrefix(candidate->if_name, CFSTR("gif")));
-
-    return (no_demotion);
+    if (CFEqual(other_candidate->if_name, candidate->if_name)) {
+	/* same interface */
+	same = TRUE;
+    }
+    else if (other_candidate->effective_if_name != NULL
+	     && CFEqual(other_candidate->effective_if_name,
+			candidate->if_name)) {
+	same = TRUE;
+    }
+    else if (candidate->effective_if_name != NULL
+	     && CFEqual(candidate->effective_if_name,
+			other_candidate->if_name)) {
+	same = TRUE;
+    }
+    return (same);
 }
+
 
 /*
  * Function: ElectionResultsCandidateNeedsDemotion
@@ -7161,17 +7268,16 @@ ElectionResultsCandidateNeedsDemotion(CandidateRef other_candidate,
 	/* the other candidate can't become primary */
 	goto done;
     }
+    if (candidate->ip_is_independent || other_candidate->ip_is_independent) {
+	/* either candidate is independent */
+	goto done;
+    }
     if (!candidate->ip_is_coupled && !other_candidate->ip_is_coupled) {
 	/* neither candidate is coupled */
 	goto done;
     }
-    if (CFEqual(other_candidate->if_name, candidate->if_name)) {
+    if (CandidateSameInterface(other_candidate, candidate)) {
 	/* they are over the same interface, no need to demote */
-	goto done;
-    }
-    if (CandidateNoDemotionNeeded(other_candidate)
-	|| CandidateNoDemotionNeeded(candidate)) {
-	/* either candidate needs no demotion */
 	goto done;
     }
     if (candidate->rank < other_candidate->rank) {
@@ -7461,6 +7567,28 @@ service_dict_get_signature(CFDictionaryRef service_dict)
     return (CFDictionaryGetValue(service_dict, kStoreKeyNetworkSignature));
 }
 
+static Boolean
+get_default_rank(CFDictionaryRef all_entities_dict, int af, Rank * ret_rank)
+{
+    CFDictionaryRef	ipdict;
+    Boolean		success = FALSE;
+
+    ipdict = CFDictionaryGetValue(all_entities_dict, get_af_entity(af));
+    if (ipdict != NULL) {
+	RouteListUnion	routelist;
+
+	routelist.ptr = ipdict_get_routelist(ipdict);
+	if (routelist.ptr != NULL
+	    && (routelist.common->flags	& kRouteListFlagsHasDefault) != 0) {
+	    *ret_rank = (af == AF_INET)
+		? routelist.v4->list->rank
+		: routelist.v6->list->rank;
+	    success = TRUE;
+	}
+    }
+    return (success);
+}
+
 /*
  * Function: elect_ip
  * Purpose:
@@ -7476,13 +7604,17 @@ elect_ip(const void * key, const void * value, void * context)
     ElectionInfoRef 	elect_info;
     CFStringRef		if_name;
     CFDictionaryRef	ipdict;
+    boolean_t		ip_is_coupled;
+    boolean_t		ip_is_independent;
+    Rank		other_default_rank;
     Rank		primary_rank;
     CFDictionaryRef	rank_entity;
     RouteListUnion	routelist;
     CFDictionaryRef	service_dict		= NULL;
 
     elect_info = (ElectionInfoRef)context;
-    ipdict = CFDictionaryGetValue(all_entities_dict, elect_info->entity);
+    ipdict = CFDictionaryGetValue(all_entities_dict,
+				  get_af_entity(elect_info->af));
     if (ipdict != NULL) {
 	routelist.ptr = ipdict_get_routelist(ipdict);
 	service_dict = ipdict_get_service(ipdict);
@@ -7533,12 +7665,57 @@ elect_ip(const void * key, const void * value, void * context)
 	}
     }
     candidate.rank = RankMake(candidate.rank, primary_rank);
-    candidate.ip_is_coupled = service_get_ip_is_coupled(candidate.serviceID);
+
+    /*
+     * `ip_is_independent` vs. `ip_is_coupled`
+     *
+     * Both flags have similar meaning, and relate to whether an
+     * IPv4/IPv6 service can co-exist with a service from another
+     * interface.
+     *
+     * `ip_is_independent` is the stronger flag, and means that
+     * the service can independently become primary for either
+     * IPv4 or IPv6 regardless of whether it can become primary
+     * for both IPv4 and IPv6. If `ip_is_independent` is true,
+     * `ip_is_coupled` is "don't care" since it is never consulted.
+     *
+     * `ip_is_coupled` means that the IPv4 and IPv6 services may
+     * not be able to become primary for either IPv4 or IPv6 unless
+     * they are primary for both. Exceptions to that exist, see
+     * `ElectionResultsCandidateNeedsDemotion()`.
+     */
+    ip_is_independent = FALSE;
+    ip_is_coupled = FALSE;
+    if (CFStringHasPrefix(if_name, CFSTR("stf"))
+	|| CFStringHasPrefix(if_name, CFSTR("gif"))) {
+	ip_is_independent = TRUE;
+    }
+    else if (service_get_ip_is_coupled(candidate.serviceID)) {
+	ip_is_coupled = TRUE;
+    }
+    else if (get_default_rank(all_entities_dict,
+			      get_other_af(elect_info->af),
+			      &other_default_rank)
+	     && other_default_rank != default_rank) {
+	/*
+	 * Service has both IPv4 and IPv6, and have different notions of
+	 * default rank, so allow the services to be elected independently
+	 * (rdar://105409646).
+	 */
+	ip_is_independent = TRUE;
+    }
+    else if (!S_disable_service_coupling) {
+	ip_is_coupled = TRUE;
+    }
     candidate.if_name = if_name;
+    candidate.ip_is_coupled = ip_is_coupled;
+    candidate.ip_is_independent = ip_is_independent;
+    candidate.effective_if_name = copy_effective_if_name(if_name);
     rank_dict_set_service_rank(elect_info->rank_dict,
 			       candidate.serviceID, candidate.rank);
     candidate.signature = service_dict_get_signature(service_dict);
     ElectionResultsAddCandidate(elect_info->results, &candidate);
+    my_CFRelease(&candidate.effective_if_name);
     return;
 }
 
@@ -7762,21 +7939,6 @@ get_changed_str(CFStringRef serviceID, CFStringRef entity,
 #define MANAGE_IF_IOCTL
 #endif /* SIOCSIFNETSIGNATURE */
 
-#ifdef MANAGE_IF_IOCTL
-static int
-inet_dgram_socket(void)
-{
-    int	sockfd;
-
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd == -1) {
-	my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-    }
-
-    return sockfd;
-}
-#endif /* MANAGE_IF_IOCTL */
-
 #ifdef MANAGE_IF_ORDER
 static Boolean
 interface_order_changed(nwi_state_t old_state, nwi_state_t new_state)
@@ -7977,11 +8139,11 @@ process_nwi_changes(CFMutableStringRef	log_output,
 	const sa_family_t 	af_list[] = {AF_INET, AF_INET6};
 	nwi_ifstate_t 		scan;
 #ifdef MANAGE_IF_IOCTL
-	int			sockfd = inet_dgram_socket();
+	int			sockfd = open_inet_dgram_socket();
 #endif /* MANAGE_IF_IOCTL */
 
 #ifdef MANAGE_IF_ORDER
-	if (interface_order_changed(new_state, old_state)) {
+	if (interface_order_changed(new_state, old_state) && sockfd != -1) {
 	    update_interface_order(new_state, sockfd);
 	}
 #endif /* MANAGE_IF_ORDER */
@@ -7992,7 +8154,9 @@ process_nwi_changes(CFMutableStringRef	log_output,
 	    CFMutableStringRef	primary_str = NULL;
 
 #ifdef MANAGE_IF_SIGNATURE
-	    process_state_differences(changes_state, af, sockfd);
+	    if (sockfd != -1) {
+		process_state_differences(changes_state, af, sockfd);
+	    }
 #endif /* MANAGE_IF_SIGNATURE */
 	    scan = nwi_state_get_first_ifstate(changes_state, af);
 	    while (scan != NULL) {
@@ -8029,9 +8193,8 @@ process_nwi_changes(CFMutableStringRef	log_output,
 	    }
 
 	    if (primary_str != NULL) {
-		CFStringAppendFormat(log_output, NULL, CFSTR(" %s(%@"),
-				     af == AF_INET ? "v4" : "v6",
-				     primary_str);
+		CFStringAppendFormat(log_output, NULL, CFSTR(" v%c(%@"),
+				     ipvx_char(af), primary_str);
 
 		if (changes != NULL && CFStringGetLength(changes) != 0) {
 		    CFStringAppendFormat(log_output, NULL, CFSTR("%@"),
@@ -8043,11 +8206,6 @@ process_nwi_changes(CFMutableStringRef	log_output,
 		my_CFRelease(&changes);
 	    }
 	}
-#ifdef MANAGE_IF_IOCTL
-	if (sockfd >= 0) {
-	    close(sockfd);
-	}
-#endif /* MANAGE_IF_IOCTL */
     }
 
     if (dns_changed || dnsinfo_changed) {
@@ -8782,6 +8940,12 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 
     /* release the name/index cache */
     my_if_freenameindex();
+
+    /* close open sockets */
+#if	!TARGET_OS_SIMULATOR
+    close_inet_dgram_socket();
+    close_inet6_dgram_socket();
+#endif /* !TARGET_OS_SIMULATOR */
 
     return;
 }

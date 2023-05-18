@@ -2682,7 +2682,7 @@ nfs_get_stateid(nfsnode_t np, thread_t thd, kauth_cred_t cred, nfs_stateid *sid,
 		sid->seqid = sid->other[0] = sid->other[1] = sid->other[2] = 0xffffffff;
 	}
 	if (nlop) {
-		nfs_lock_owner_rele(np, nlop, thd, cred);
+		nfs_lock_owner_rele(nlop);
 	}
 	if (noop) {
 		nfs_open_owner_rele(noop);
@@ -3307,7 +3307,6 @@ nfs_lock_owner_find(nfsnode_t np, proc_t p, caddr_t lockid, int flags)
 	pid_t pid = proc_pid(p);
 	struct timeval ptv;
 	int alloc = flags & NFS_LOCK_OWNER_FIND_ALLOC;
-	int dequeue = flags & NFS_LOCK_OWNER_FIND_DEQUEUE;
 	struct nfs_lock_owner *nlop, *newnlop = NULL;
 
 tryagain:
@@ -3315,6 +3314,10 @@ tryagain:
 	TAILQ_FOREACH(nlop, &np->n_lock_owners, nlo_link) {
 		os_ref_count_t newcount;
 
+		/* Do not use a lock owner that is waiting to be closed */
+		if (nlop->nlo_flags & NFS_LOCK_OWNER_PENDING_CLOSE) {
+			continue;
+		}
 		if (lockid != 0 && lockid == nlop->nlo_lockid) {
 			break;
 		}
@@ -3337,11 +3340,6 @@ tryagain:
 		nlop->nlo_seqid = 0;
 		nlop->nlo_stategenid = 0;
 		break;
-	}
-
-	if (dequeue && nlop && (nlop->nlo_flags & NFS_LOCK_OWNER_LINK)) {
-		TAILQ_REMOVE(&np->n_lock_owners, nlop, nlo_link);
-		nlop->nlo_flags &= ~NFS_LOCK_OWNER_LINK;
 	}
 
 	if (!nlop && !newnlop && alloc) {
@@ -3368,7 +3366,7 @@ tryagain:
 		nfs_lock_owner_destroy(newnlop);
 	}
 
-	if (nlop && !dequeue) {
+	if (nlop) {
 		nfs_lock_owner_ref(nlop);
 	}
 
@@ -3384,6 +3382,7 @@ nfs_lock_owner_destroy(struct nfs_lock_owner *nlop)
 	if (nlop->nlo_open_owner) {
 		nfs_open_owner_rele(nlop->nlo_open_owner);
 		nlop->nlo_open_owner = NULL;
+		nlop->nlo_open_file = NULL;
 	}
 	lck_mtx_destroy(&nlop->nlo_lock, get_lck_group(NLG_OPEN));
 	kfree_type(struct nfs_lock_owner, nlop);
@@ -3400,23 +3399,19 @@ nfs_lock_owner_ref(struct nfs_lock_owner *nlop)
 	lck_mtx_unlock(&nlop->nlo_lock);
 }
 
-#if !CONFIG_NFS4
-#define __no_nfsv4_unused      __unused
-#else
-#define __no_nfsv4_unused      /* nothing */
-#endif
-
 /*
  * drop a reference count on a lock owner and destroy it if
  * it is no longer referenced and no longer on the mount's list.
  */
 void
-nfs_lock_owner_rele(nfsnode_t np __no_nfsv4_unused, struct nfs_lock_owner *nlop, thread_t thd __no_nfsv4_unused, kauth_cred_t cred __no_nfsv4_unused)
+nfs_lock_owner_rele(struct nfs_lock_owner *nlop)
 {
+	int wanted;
 	os_ref_count_t newcount;
-	struct nfsmount *nmp = NFSTONMP(np);
 
 	lck_mtx_lock(&nlop->nlo_lock);
+	wanted = (nlop->nlo_flags & NFS_LOCK_OWNER_PENDING_CLOSE);
+
 	if (os_ref_get_count(&nlop->nlo_refcnt) < 1) {
 		panic("nfs_lock_owner_rele: no refcnt");
 	}
@@ -3427,18 +3422,11 @@ nfs_lock_owner_rele(nfsnode_t np __no_nfsv4_unused, struct nfs_lock_owner *nlop,
 	/* XXX we may potentially want to clean up idle/unused lock owner structures */
 	if (newcount || (nlop->nlo_flags & NFS_LOCK_OWNER_LINK)) {
 		lck_mtx_unlock(&nlop->nlo_lock);
+		if (wanted) {
+			wakeup(nlop);
+		}
 		return;
 	}
-
-
-#if CONFIG_NFS4
-	if (nmp && nmp->nm_vers >= NFS_VER4) {
-		int error = nfs4_release_lockowner_rpc(np, nlop, thd, cred);
-		if (error) {
-			NP(np, "nfs_lock_owner_rele: was not able to release lock owner. error %d", error);
-		}
-	}
-#endif /* CONFIG_NFS4 */
 
 	/* owner is no longer referenced or linked to mount, so destroy it */
 	lck_mtx_unlock(&nlop->nlo_lock);
@@ -3568,7 +3556,7 @@ nfs_file_lock_destroy(nfsnode_t np, struct nfs_file_lock *nflp, thread_t thd, ka
 		bzero(nflp, sizeof(*nflp));
 		lck_mtx_unlock(&nlop->nlo_lock);
 	}
-	nfs_lock_owner_rele(np, nlop, thd, cred);
+	nfs_lock_owner_rele(nlop);
 }
 
 /*
@@ -3655,6 +3643,7 @@ nfs4_setlock_rpc(
 		if (!nlop->nlo_open_owner) {
 			nfs_open_owner_ref(nofp->nof_owner);
 			nlop->nlo_open_owner = nofp->nof_owner;
+			nlop->nlo_open_file = nofp;
 		}
 	}
 	error = nfs_lock_owner_set_busy(nlop, thd);
@@ -4187,6 +4176,7 @@ restart:
 				if (!nlop->nlo_open_owner) {
 					nfs_open_owner_ref(nofp->nof_owner);
 					nlop->nlo_open_owner = nofp->nof_owner;
+					nlop->nlo_open_file = nofp;
 				}
 				break;
 			} else {
@@ -4911,7 +4901,7 @@ restart:
 
 out:
 	if (nlop) {
-		nfs_lock_owner_rele(np, nlop, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+		nfs_lock_owner_rele(nlop);
 	}
 	if (noop) {
 		nfs_open_owner_rele(noop);

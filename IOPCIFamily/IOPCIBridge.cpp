@@ -2482,6 +2482,17 @@ void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
                                           /* waitForFunction */ false,
                                           /* nub             */ device, NULL, NULL, NULL);
 
+	if (device->reserved->clientCrashed)
+	{
+		// The crashed process's leftover IODMACommand and IOMemoryDescriptor
+		// objects are released automatically on process exit, and this races
+		// with mapper tear-down during nub termination.  IOMapper and its
+		// subclasses don't provide a way to monitor this, so give process
+		// cleanup a 2s head start.
+        // TODO: rdar://107344875 (Handle client crash without terminating the IOPCIDevice nub)
+        IOSleep(2000);
+	}
+
     device->callPlatformFunction(gIOPCIDeviceChangedKey,
                                   /* waitForFunction */ false,
                                   /* nub             */ device,
@@ -3058,7 +3069,7 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 					}
 				}
 
-				if  (nub->reserved->configEntry->hostBridgeEntry)
+				if  (nub->reserved->configEntry->hostBridgeEntry && !(nub->reserved->rootPort))
 				{
 					nub->reserved->expressMaxReadRequestSize = nub->reserved->configEntry->hostBridgeEntry->expressEndpointMaxReadRequestSize;
 				}
@@ -3670,6 +3681,26 @@ void IOPCIBridge::updateLinkStatusProperty(uint16_t linkStatus)
 	}
 
 	OSSafeReleaseNULL(childIter);
+}
+
+IOPCIDevice *IOPCIBridge::findDeviceByBDF(IOPCIAddressSpace space)
+{
+	IOService *result;
+	configOpParams cp = {.device = this, .op = kConfigOpFindEntry, .result = &result, .arg = &space};
+
+	configOp(&cp);
+
+	return OSDynamicCast(IOPCIDevice, result);
+}
+
+IOPCIDevice *IOPCIBridge::findDeviceByMemAddress(IOPhysicalAddress address)
+{
+	IOService *result;
+	configOpParams cp = {.device = this, .op = kConfigOpFindEntryByAddress, .result = &result, .arg = &address};
+
+	configOp(&cp);
+
+	return OSDynamicCast(IOPCIDevice, result);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -5271,6 +5302,60 @@ IOPCIBridge::setProperties(OSObject * properties)
 				}
 				ret = kIOReturnSuccess;
 			}
+			else if (!strncmp("cto", cmdstr, 3))
+			{
+				// Attempt to cause a CTO by setting the root port's lowest possible CTO value,
+				// retraining victim's link, and issuing a non-posted config (cto_cfg) or memory
+				// (cto_mem) transaction.
+
+				// Set the root's completion timeout value to 1 (50us-100us)
+				IOPCIDevice* bridgeDevice = OSDynamicCast(IOPCIDevice, getParentEntry(gIOServicePlane));
+				IOPCIDevice *child = OSDynamicCast(IOPCIDevice, victim->getChildEntry(gIODTPlane));
+				uint16_t devCtrl2 = 0;
+
+				if (bridgeDevice)
+				{
+					uint16_t devCtrl2 = bridgeDevice->configRead16(bridgeDevice->reserved->expressCapability + 0x28);
+					bridgeDevice->configWrite16(bridgeDevice->reserved->expressCapability + 0x28, (devCtrl2 & ~0xF) | 0x1);
+				}
+
+				// Flip the target link speed between Gen1 and Gen2/3, if supported, to maximize link training time
+				uint16_t linkControl2 = victim->configRead16(victim->reserved->expressCapability + 0x30);
+				uint16_t speed = linkControl2 & 0xF;
+				linkControl2 &= ~0xF;
+				if (speed > 1)
+					linkControl2 |= 1;
+				else if (isSupportedLinkSpeed(victim, kIOPCILinkSpeed_16_GTs) || isSupportedLinkSpeed(victim, kIOPCILinkSpeed_8_GTs))
+					linkControl2 |= 3;
+				else if (isSupportedLinkSpeed(victim, kIOPCILinkSpeed_5_GTs))
+					linkControl2 |= 2;
+
+				victim->configWrite16(victim->reserved->expressCapability + 0x30, linkControl2);
+
+				// Set the Link Retrain bit
+				uint16_t linkControl = victim->configRead16(victim->reserved->expressCapability + 0x10);
+				linkControl |= (1 << 5);
+				victim->configWrite16(victim->reserved->expressCapability + 0x10, linkControl);
+
+				if (!strncmp("cto_cfg", cmdstr, 7) && child)
+				{
+					// Touch the endpoint's config state
+					IOLog("Child %s cfg[0]: 0x%x\n", child->getName(), child->configRead32(0));
+				}
+				else if (!strncmp("cto_mem", cmdstr, 7) && child)
+				{
+					IOMemoryMap *map = child->reserved->deviceMemoryMap[0];
+					uint32_t *ptr = (uint32_t *)(void *)map->getVirtualAddress();
+					// Touch the endpoint's config state
+					IOLog("Child %s mem[0]: 0x%x\n", child->getName(), *ptr);
+				}
+
+				// Reset the CTO value
+				if (bridgeDevice)
+				{
+					bridgeDevice->configWrite16(bridgeDevice->reserved->expressCapability + 0x28, devCtrl2);
+				}
+			}
 			else if (!strcmp("es", cmdstr))
 			{
 				IOPCIEventSource * src = victim->createEventSource(this, &PCIEventTest, 0);
@@ -5426,7 +5511,10 @@ IOPCIBridge::hotReset(IOPCIDevice *bridgeDevice)
     // Toggle secondary bus reset bit
     UInt16 bridgeControl = bridgeDevice->extendedConfigRead16(kPCI2PCIBridgeControl);
     bridgeDevice->extendedConfigWrite16(kPCI2PCIBridgeControl, bridgeControl | (1 << 6));
-    IOSleep(10);
+	// Secondary bus reset: "Software must ensure a minimum reset duration (Trst)“, where
+	// the PCI Local Bus spec defines Trst as 1ms. In practice, certain devices require
+	// a longer reset duration.
+    IOSleep(100);
     bridgeDevice->extendedConfigWrite16(kPCI2PCIBridgeControl, bridgeControl);
 }
 
@@ -5447,9 +5535,17 @@ IOPCIBridge::waitForLinkUp(IOPCIDevice *bridgeDevice)
 {
 	IOReturn ret = kIOReturnSuccess;
 
-    // Poll for link-up for up to 1s.
+    // rdar://103579149 we found a card that takes longer to link train so need to wait for 3s instead of 1s
     AbsoluteTime deadline, now = 0;
-    clock_interval_to_deadline(1, kSecondScale, &deadline);
+    uint32_t waitTime = kIOPCIWaitForLinkUpTime;
+    OSData *waitData = NULL;
+
+    if (waitData = OSDynamicCast(OSData, bridgeDevice->getProperty(kIOPCIWaitForLinkUpKey)))
+    {
+	    waitTime = *((uint32_t *) waitData->getBytesNoCopy());
+    }
+
+    clock_interval_to_deadline(waitTime, kMillisecondScale, &deadline);
     do
     {
         if (checkLink(kCheckLinkForPower) == kIOReturnSuccess) break;
@@ -5464,8 +5560,11 @@ IOPCIBridge::waitForLinkUp(IOPCIDevice *bridgeDevice)
 		ret = kIOReturnTimeout;
     }
 
-    // Wait 100 ms after link up before making any configuration requests (PCI Express Base 4.0 - 6.6.1)
-    IOSleep(100);
+    if (ret == kIOReturnSuccess)
+    {
+        // Wait 100 ms after link up before making any configuration requests (PCI Express Base 4.0 - 6.6.1)
+        IOSleep(100);
+    }
 
 	return ret;
 }
@@ -5683,32 +5782,20 @@ void IOPCIBridge::setTargetLinkSpeed(IOPCIDevice *device, tIOPCILinkSpeed linkSp
 	device->configWrite32(expressCapability + 0x30, linkControl2);
 }
 
-IOReturn IOPCI2PCIBridge::setLinkSpeed(tIOPCILinkSpeed linkSpeed, bool retrain)
+IOReturn IOPCIBridge::linkRetrain(IOPCIDevice *device, bool wait)
 {
-	uint8_t expressCapability = fBridgeDevice->reserved->expressCapability;
+	uint32_t ret = kIOReturnError;
 	uint16_t linkStatus = 0;
-
-	if (!isSupportedLinkSpeed(fBridgeDevice, linkSpeed))
-	{
-		return kIOReturnUnsupported;
-	}
-
-	setTargetLinkSpeed(fBridgeDevice, linkSpeed);
-
-	if (!retrain)
-	{
-		return kIOReturnSuccess;
-	}
+	uint8_t expressCapability = device->reserved->expressCapability;
 
 	// Per the PCIe base spec's implementation note "Avoiding Race Conditions
 	// When Using the Retrain Link Bit", wait for the Link Training bit to go
 	// to 0 before initiating a retrain.
-	AbsoluteTime deadline, now;
-	clock_get_uptime(&now);
+	AbsoluteTime deadline, now = 0;
 	clock_interval_to_deadline(1, kSecondScale, &deadline);
 	do
 	{
-		linkStatus = fBridgeDevice->configRead16(expressCapability + 0x12);
+		linkStatus = device->configRead16(expressCapability + 0x12);
 		if ((linkStatus & (1 << 11)) == 0)
 		{
 			break;
@@ -5721,40 +5808,46 @@ IOReturn IOPCI2PCIBridge::setLinkSpeed(tIOPCILinkSpeed linkSpeed, bool retrain)
 	if (AbsoluteTime_to_scalar(&now) >= AbsoluteTime_to_scalar(&deadline))
 	{
 		IOLog("Link Training bit didn't reach 0 within 1s.");
-		return kIOReturnError;
+		return ret;
 	}
 
 	// Set the Link Retrain bit
-	uint16_t linkControl = fBridgeDevice->configRead16(expressCapability + 0x10);
+	uint16_t linkControl = device->configRead16(expressCapability + 0x10);
 	linkControl |= (1 << 5);
-	fBridgeDevice->configWrite16(expressCapability + 0x10, linkControl);
+	device->configWrite16(expressCapability + 0x10, linkControl);
 
-	// Poll for link training completion for up to 1s
-	clock_get_uptime(&now);
-	clock_interval_to_deadline(1, kSecondScale, &deadline);
-	do
+	if (wait)
 	{
-		linkStatus = fBridgeDevice->configRead16(expressCapability + 0x12);
-		if ((linkStatus & (1 << 11)) == 0)
+		if ((ret = waitForLinkUp(device)) != kIOReturnSuccess)
 		{
-			break;
+			return ret;
 		}
-		IOSleep(1);
-		clock_get_uptime(&now);
-	}
-	while (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline));
+		linkStatus = device->configRead16(expressCapability + 0x12);
 
-	if (AbsoluteTime_to_scalar(&now) >= AbsoluteTime_to_scalar(&deadline))
+		updateLinkStatusProperty(linkStatus);
+		DLOG("%s: link training complete, linkStatus: 0x%x\n", device->getName(), linkStatus);
+	} else {
+		ret = kIOReturnSuccess;
+	}
+
+	return ret;
+}
+
+IOReturn IOPCI2PCIBridge::setLinkSpeed(tIOPCILinkSpeed linkSpeed, bool retrain)
+{
+	if (!isSupportedLinkSpeed(fBridgeDevice, linkSpeed))
 	{
-		IOLog("Link Training didn't complete within 1s.\n");
-		return kIOReturnError;
+		return kIOReturnUnsupported;
 	}
 
-	updateLinkStatusProperty(linkStatus);
+	setTargetLinkSpeed(fBridgeDevice, linkSpeed);
 
-	DLOG("%s: link training complete, linkStatus: 0x%x\n", fBridgeDevice->getName(), linkStatus);
+	if (!retrain)
+	{
+		return kIOReturnSuccess;
+	}
 
-	return kIOReturnSuccess;
+	return linkRetrain(fBridgeDevice, true);
 }
 
 IOReturn IOPCI2PCIBridge::getLinkSpeed(tIOPCILinkSpeed *linkSpeed)

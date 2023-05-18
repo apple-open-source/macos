@@ -1393,6 +1393,102 @@ void RenderBox::clearOverridingLogicalWidthLength()
         gOverridingLogicalWidthLengthMap->remove(this);
 }
 
+FlowRelativeDirection RenderBox::physicalToFlowRelativeDirectionMapping(PhysicalDirection direction) const
+{
+    auto determineFormattingContextRootStyle = [&]() -> const RenderStyle& {
+        if (isFlexItem() || isGridItem())
+            return parent()->style();
+        ASSERT_NOT_IMPLEMENTED_YET();
+        return style();
+    };
+    auto& formattingContextRootStyle = determineFormattingContextRootStyle();
+    auto isHorizontalWritingMode = formattingContextRootStyle.isHorizontalWritingMode();
+    auto isLeftToRightDirection = formattingContextRootStyle.isLeftToRightDirection();
+    // vertical-rl and horizontal-bt writing modes
+    auto isFlippedBlocksWritingMode = formattingContextRootStyle.isFlippedBlocksWritingMode();
+
+    if (isHorizontalWritingMode == formattingContextRootStyle.isHorizontalWritingMode()) {
+        switch (direction) {
+        case PhysicalDirection::Top:
+            if (isHorizontalWritingMode)
+                return FlowRelativeDirection::BlockStart;
+            return isLeftToRightDirection ? FlowRelativeDirection::InlineStart : FlowRelativeDirection::InlineEnd;
+        case PhysicalDirection::Right:
+            if (isHorizontalWritingMode)
+                return isLeftToRightDirection ? FlowRelativeDirection::InlineEnd : FlowRelativeDirection::InlineStart;
+            return isFlippedBlocksWritingMode ? FlowRelativeDirection::BlockStart : FlowRelativeDirection::BlockEnd;
+        case PhysicalDirection::Bottom:
+            if (isHorizontalWritingMode)
+                return FlowRelativeDirection::BlockEnd;
+            return isLeftToRightDirection ? FlowRelativeDirection::InlineEnd : FlowRelativeDirection::InlineStart;
+        case PhysicalDirection::Left:
+            if (isHorizontalWritingMode)
+                return isLeftToRightDirection ? FlowRelativeDirection::InlineStart : FlowRelativeDirection::InlineEnd;
+            return isFlippedBlocksWritingMode ? FlowRelativeDirection::BlockEnd : FlowRelativeDirection::BlockStart;
+        default:
+            ASSERT_NOT_IMPLEMENTED_YET();
+        } 
+    } else
+        ASSERT_NOT_IMPLEMENTED_YET();
+    return { };
+}
+
+static MarginTrimType flowRelativeDirectionToMarginTrimType(FlowRelativeDirection direction)
+{
+    switch (direction) {
+    case FlowRelativeDirection::BlockStart:
+        return MarginTrimType::BlockStart;
+    case FlowRelativeDirection::BlockEnd:
+        return MarginTrimType::BlockEnd;
+    case FlowRelativeDirection::InlineStart:
+        return MarginTrimType::InlineStart;
+    case FlowRelativeDirection::InlineEnd:
+        return MarginTrimType::InlineEnd;
+    default:
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+}
+
+void RenderBox::markMarginAsTrimmed(MarginTrimType newTrimmedMargin)
+{
+    ensureRareData().setTrimmedMargins(rareData().trimmedMargins() | static_cast<unsigned>(newTrimmedMargin));
+}
+
+void RenderBox::clearTrimmedMarginsMarkings()
+{
+    ASSERT(hasRareData());
+    ensureRareData().setTrimmedMargins(0);
+}
+
+bool RenderBox::hasTrimmedMargin(std::optional<MarginTrimType> marginTrimType) const
+{
+    if (!isInFlow())
+        return false;
+#if ASSERT_ENABLED
+    // We should assert here if this function is called with a layout system and
+    // MarginTrimType combination that is not supported yet (i.e. the layout system
+    // does not set the margin trim rare data bit for that margin)
+
+    // containingBlock->isBlockContainer() can return true even if the item is in a RenderFlexibleBox
+    // (e.g. buttons) so we should explicitly check that the item is not a flex item to catch block containers here
+    auto* containingBlock = this->containingBlock(); 
+    if (containingBlock && !containingBlock->isFlexibleBox() && containingBlock->isBlockContainer()) {
+        ASSERT_NOT_IMPLEMENTED_YET();
+        return false;
+    }
+#endif
+    if (!hasRareData())
+        return false;
+    return marginTrimType ? (rareData().trimmedMargins() & static_cast<unsigned>(*marginTrimType)) : rareData().trimmedMargins();
+}
+
+bool RenderBox::hasTrimmedMargin(PhysicalDirection physicalDirection) const
+{
+    ASSERT(!needsLayout());
+    return hasTrimmedMargin(flowRelativeDirectionToMarginTrimType(physicalToFlowRelativeDirectionMapping(physicalDirection)));
+}
+
 LayoutUnit RenderBox::adjustBorderBoxLogicalWidthForBoxSizing(const Length& logicalWidth) const
 {
     auto width = LayoutUnit { logicalWidth.value() };
@@ -2939,9 +3035,17 @@ bool RenderBox::sizesLogicalWidthToFitContent(SizeType widthType) const
 LayoutUnit RenderBox::computeOrTrimInlineMargin(const RenderBlock& containingBlock, MarginTrimType marginSide, std::function<LayoutUnit()> computeInlineMargin) const
 {
     ASSERT(computeInlineMargin);
-    if (containingBlock.shouldTrimChildMargin(marginSide, *this) || !computeInlineMargin)
+    if (containingBlock.shouldTrimChildMargin(marginSide, *this) || !computeInlineMargin) {
+        // FIXME(255434): This should be set when the margin is being trimmed
+        // within the context of its layout system (block, flex, grid) and should not 
+        // be done at this level within RenderBox. We should be able to leave the 
+        // trimming responsibility to each of those contexts and not need to
+        // do any of it here (trimming the margin and setting the rare data bit)
+        if (isGridItem() && (marginSide == MarginTrimType::InlineStart || marginSide == MarginTrimType::InlineEnd))
+            const_cast<RenderBox&>(*this).markMarginAsTrimmed(marginSide);
         return 0_lu;
-    return computeInlineMargin();
+    }
+        return computeInlineMargin();
 }
 
 void RenderBox::computeInlineDirectionMargins(const RenderBlock& containingBlock, LayoutUnit containerWidth, std::optional<LayoutUnit> availableSpaceAdjustedWithFloats, LayoutUnit childWidth, LayoutUnit& marginStart, LayoutUnit& marginEnd) const
@@ -3249,8 +3353,11 @@ LayoutUnit RenderBox::computeLogicalHeightWithoutLayout() const
 
 std::optional<LayoutUnit> RenderBox::computeLogicalHeightUsing(SizeType heightType, const Length& height, std::optional<LayoutUnit> intrinsicContentHeight) const
 {
-    if (is<RenderReplaced>(this))
-        return computeReplacedLogicalHeightUsing(heightType, height) + borderAndPaddingLogicalHeight();
+    if (is<RenderReplaced>(this)) {
+        if ((heightType == MinSize || heightType == MaxSize) && !replacedMinMaxLogicalHeightComputesAsNone(heightType))
+            return computeReplacedLogicalHeightUsing(heightType, height) + borderAndPaddingLogicalHeight();
+        return std::nullopt;
+    }
     if (std::optional<LayoutUnit> logicalHeight = computeContentAndScrollbarLogicalHeightUsing(heightType, height, intrinsicContentHeight))
         return adjustBorderBoxLogicalHeightForBoxSizing(logicalHeight.value());
     return std::nullopt;
@@ -3565,6 +3672,13 @@ LayoutUnit RenderBox::computeReplacedLogicalHeightRespectingMinMaxHeight(LayoutU
 LayoutUnit RenderBox::computeReplacedLogicalHeightUsing(SizeType heightType, Length logicalHeight) const
 {
     ASSERT(heightType == MinSize || heightType == MainOrPreferredSize || !logicalHeight.isAuto());
+#if ASSERT_ENABLED
+    // This function should get called with MinSize/MaxSize only if replacedMinMaxLogicalHeightComputesAsNone
+    // returns false, otherwise we should not try to compute those values as they may be incorrect. The caller
+    // should make sure this condition holds before calling this function
+    if (heightType == MinSize || heightType == MaxSize)
+        ASSERT(!replacedMinMaxLogicalHeightComputesAsNone(heightType));
+#endif
     if (heightType == MinSize && logicalHeight.isAuto())
         return adjustContentBoxLogicalHeightForBoxSizing(std::optional<LayoutUnit>(0));
 
@@ -3714,9 +3828,18 @@ void RenderBox::computeAndSetBlockDirectionMargins(const RenderBlock& containing
 
 LayoutUnit RenderBox::constrainBlockMarginInAvailableSpaceOrTrim(const RenderBox& containingBlock, LayoutUnit availableSpace, MarginTrimType marginSide) const
 {
+    
     ASSERT(marginSide == MarginTrimType::BlockStart || marginSide == MarginTrimType::BlockEnd);
-    if (containingBlock.shouldTrimChildMargin(marginSide, *this))
+    if (containingBlock.shouldTrimChildMargin(marginSide, *this)) {
+        // FIXME(255434): This should be set when the margin is being trimmed
+        // within the context of its layout system (block, flex, grid) and should not 
+        // be done at this level within RenderBox. We should be able to leave the 
+        // trimming responsibility to each of those contexts and not need to
+        // do any of it here (trimming the margin and setting the rare data bit)
+        if (isGridItem())
+            const_cast<RenderBox&>(*this).markMarginAsTrimmed(marginSide);
         return 0_lu;
+    }
     
     return marginSide == MarginTrimType::BlockStart ? minimumValueForLength(style().marginBeforeUsing(&containingBlock.style()), availableSpace) : minimumValueForLength(style().marginAfterUsing(&containingBlock.style()), availableSpace);
 }

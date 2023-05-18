@@ -10,8 +10,6 @@
 	<dict>
 		<key>DEBUGSCOPE</key>
 		<string>none</string>
-		<key>WAIT4DEBUGGER</key>
-		<string>NO</string>
 	</dict>
 	<key>Label</key>
 	<string>com.apple.security.swcagent</string>

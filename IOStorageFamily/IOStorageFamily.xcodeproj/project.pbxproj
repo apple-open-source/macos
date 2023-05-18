@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -643,6 +643,7 @@
 				60284E141517B57C00FDF55B /* ShellScript */,
 				956C6B5C24B91DA40044FE12 /* ShellScript */,
 				60DDA50B07382C6A00FAB8B3 /* Sources */,
+				520A780B29103998009AC87D /* Copy LLDB Macros */,
 			);
 			buildRules = (
 			);
@@ -661,6 +662,7 @@
 			buildPhases = (
 				C1E55B040D32D158002875AA /* Headers */,
 				C1E55B150D32D158002875AA /* Sources */,
+				520A780C29103A17009AC87D /* Copy LLDB Macros */,
 			);
 			buildRules = (
 			);
@@ -741,6 +743,46 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "headers=\"${DSTROOT}${INSTALL_PATH_PREFIX}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/storage/*.h\";\nfor header in ${headers}; do\n    unifdef -UKERNEL \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone\n";
+		};
+		520A780B29103998009AC87D /* Copy LLDB Macros */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy LLDB Macros";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/LLDBMacros/copy_lldbmacros_to_dsym.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		520A780C29103A17009AC87D /* Copy LLDB Macros */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy LLDB Macros";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/LLDBMacros/copy_lldbmacros_to_dsym.sh\"\n\n";
+			showEnvVarsInLog = 0;
 		};
 		529B5D3425CC8A94009EF9B4 /* Install .iig files */ = {
 			isa = PBXShellScriptBuildPhase;

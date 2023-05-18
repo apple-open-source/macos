@@ -40,6 +40,14 @@
 #include <libproc.h>
 
 
+#define SYSTEM_WILL_SLEEP(x) \
+                    (BIT_IS_SET(capArgs->changeFlags, kIOPMSystemCapabilityWillChange)  \
+                        && IS_CAP_LOSS(capArgs, kIOPMSystemCapabilityCPU))
+
+#define SYSTEM_DID_WAKE(x) \
+                    (BIT_IS_SET(capArgs->changeFlags, kIOPMSystemCapabilityDidChange)  \
+                        && IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityCPU))
+
 os_log_t    wakeRequests_log = NULL;
 #undef   LOG_STREAM
 #define  LOG_STREAM   wakeRequests_log
@@ -248,31 +256,23 @@ AutoWake_prime(void)
  *
  */
 
-__private_extern__ void AutoWakeCapabilitiesNotification(
-    IOPMSystemPowerStateCapabilities old_cap, 
-    IOPMSystemPowerStateCapabilities new_cap)
+__private_extern__ void AutoWakeCapabilitiesNotification(const struct IOPMSystemCapabilityChangeParameters *capArgs)
 {
-    int i;
-    
-    if (CAPABILITY_BIT_CHANGED(new_cap, old_cap, kIOPMSystemPowerStateCapabilityCPU)) 
-    {
-        if (BIT_IS_SET(new_cap, kIOPMSystemPowerStateCapabilityCPU)) 
+    if (SYSTEM_DID_WAKE(capArgs)) {
+        DEBUG_LOG("AutoWakeScheduler: Received Did-Wake Notification");
+        // scan for past events, yank 'em from the queue
+        for(int i=0; i<kBehaviorsCount; i++)
         {
-            // scan for past-wakeup events, yank 'em from the queue
-            for(i=0; i<kBehaviorsCount; i++) 
-            {
-                if(behaviors[i]) {
-                    purgePastEvents(behaviors[i]);
-                    
-                    if (!CFEqual(behaviors[i]->title, CFSTR(kIOPMAutoWakeOrPowerOn)))
-                       schedulePowerEvent(behaviors[i]);
-                }
+            if(behaviors[i]) {
+                purgePastEvents(behaviors[i]);
+                if (!CFEqual(behaviors[i]->title, CFSTR(kIOPMAutoWakeOrPowerOn)))
+                    schedulePowerEvent(behaviors[i]);
             }
-        } else {
-            // Going to sleep
-            schedulePowerEvent(&wakeBehavior);
         }
-        
+    } else if (SYSTEM_WILL_SLEEP(capArgs)) {
+        DEBUG_LOG("AutoWakeScheduler: Received Will-Sleep Notification");
+        // Going to sleep
+        schedulePowerEvent(&wakeBehavior);
     }
 }
 
@@ -325,8 +325,10 @@ static void handleTimerExpiration(void *info)
         (*behave->timerExpirationCallout)(behave->currentEvent);
     }
 
-    if (behave->currentEvent)
-       CFRelease(behave->currentEvent);
+    if (behave->currentEvent) {
+        DEBUG_LOG("AutoWakeScheduler: Handled timer expiration for: %{public}@\n", behave->currentEvent);
+        CFRelease(behave->currentEvent);
+    }
     behave->currentEvent = NULL;
 
     // Schedule the next event
@@ -399,9 +401,10 @@ schedulePowerEvent(PowerEventBehavior *behave)
         if(behave->timer) {
             dispatch_resume(behave->timer);
             dispatch_source_set_timer(behave->timer, dispatch_time(DISPATCH_WALLTIME_NOW, delta * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+            DEBUG_LOG("AutoWakeScheduler: Armed timer for: %{public}@\n", behave->currentEvent);
         }
     } else {
-        ERROR_LOG("AutoWakeScheduler: Not arming timer for a past or distant future event at %@", temp_date);
+        ERROR_LOG("AutoWakeScheduler: Not arming timer for a past or distant future event %{public}@\n", behave->currentEvent);
     }
 
 exit:
@@ -767,6 +770,8 @@ purgePastEvents(PowerEventBehavior  *behave)
         if (isEntryValidAndFuturistic(event, date_now) )
                 break;
 
+        CFDictionaryRef purgee = CFArrayGetValueAtIndex(behave->array, 0);
+        DEBUG_LOG("Purged past event: %{public}@\n", purgee);
         // Remove entry from the array - its time has past
         // The rest of the array will shift down to fill index 0
         CFArrayRemoveValueAtIndex(behave->array, 0);

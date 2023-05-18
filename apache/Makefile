@@ -4,8 +4,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 Sources    = $(SRCROOT)/$(Project)
 
-Patch_List = PR-18640257-SDK.diff \
-             patch-config.layout \
+Patch_List = patch-config.layout \
              patch-configure \
              PR-3921505.diff \
              PR-5432464.diff_httpd.conf \
@@ -24,7 +23,8 @@ Patch_List = PR-18640257-SDK.diff \
              PR-47162596.diff \
              OpenSSLVersion.diff \
              man.diff \
-             patch-server__Makefile.in 
+             patch-server__Makefile.in \
+             fix_apr_path.patch
 
 Configure_Flags = CPPFLAGS="-iwithsysroot /usr/local/libressl/include" \
                   LDFLAGS="-L${SDKROOT}/usr/local/libressl/lib" \
@@ -128,7 +128,7 @@ post-install:
 	$(SILENT) $(RM) -Rf $(DSTROOT)/BuildRoot
 	$(SILENT) $(RM) -Rf $(DSTROOT)/AppleInternal/BuildRoot
 	/usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/entitlements.plist $(DSTROOT)/usr/sbin/httpd
-	
+
 strip-modules:
 	$(CP) $(DSTROOT)/usr/libexec/apache2/*.so $(SYMROOT)
 	$(STRIP) -S $(DSTROOT)/usr/libexec/apache2/*.so

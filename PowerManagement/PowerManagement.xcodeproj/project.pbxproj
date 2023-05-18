@@ -1479,7 +1479,7 @@
 		A9D743DA05AF3D4D0075549C /* upsshutdown */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = upsshutdown; path = pmconfigd/upsshutdown; sourceTree = SOURCE_ROOT; };
 		A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = AutoWakeScheduler.c; sourceTree = "<group>"; };
 		A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AutoWakeScheduler.h; sourceTree = "<group>"; };
-		A9E691B80564519800938E2D /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A9E691B80564519800938E2D /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A9FD4B72047C482B00FA82A6 /* PrivateLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = PrivateLib.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		A9FD4B73047C482B00FA82A6 /* PrivateLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = PrivateLib.h; sourceTree = "<group>"; };
 		B30469702322E02F00B887C4 /* powermanagement-tests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "powermanagement-tests"; sourceTree = "<group>"; };
@@ -3392,13 +3392,10 @@
 			};
 			buildConfigurationList = 72D0ECD408F73D0000CCEA2F /* Build configuration list for PBXProject "PowerManagement" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
+				en,
 			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* pmconfigd */;
 			projectDirPath = "";
@@ -4171,7 +4168,7 @@
 		A9E691B70564519800938E2D /* Localizable.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				A9E691B80564519800938E2D /* English */,
+				A9E691B80564519800938E2D /* en */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";

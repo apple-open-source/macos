@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -270,10 +270,6 @@ sub single {
                 print STDERR "ERROR: no 'Long:' in $f\n";
                 return 1;
             }
-            if($multi !~ /(single|append|boolean|mutex)/) {
-                print STDERR "ERROR: bad 'Multi:' in $f\n";
-                return 1;
-            }
             if(!$category) {
                 print STDERR "ERROR: no 'Category:' in $f\n";
                 return 2;
@@ -374,6 +370,13 @@ sub single {
     elsif($multi eq "mutex") {
         push @extra,
             "\nProviding --$long multiple times has no extra effect.\n";
+    }
+    elsif($multi eq "custom") {
+        ; # left for the text to describe
+    }
+    else {
+        print STDERR "$f:$line:1:ERROR: unrecognized Multi: '$multi'\n";
+        return 2;
     }
 
     printdesc(@extra);
@@ -517,7 +520,7 @@ sub listhelp {
  *                            | (__| |_| |  _ <| |___
  *                             \\___|\\___/|_| \\_\\_____|
  *
- * Copyright (C) 1998 - $year, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -622,7 +625,9 @@ sub mainpage {
         $ret += single($f, 0);
     }
 
-    header("page-footer");
+    if(!$ret) {
+        header("page-footer");
+    }
     exit $ret if($ret);
 }
 

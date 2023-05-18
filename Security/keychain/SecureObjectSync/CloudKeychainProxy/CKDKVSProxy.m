@@ -303,7 +303,9 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
     }
 
     NSMutableDictionary<NSString*, NSObject*> *mutableValues = [values mutableCopy];
-    NSString* newDSID = asNSString([mutableValues extractObjectForKey:(__bridge NSString*) kSOSKVSOfficialDSIDKey]);
+    NSData* officialDSIDData = asNSData([mutableValues extractObjectForKey:(__bridge NSString*) kSOSKVSOfficialDSIDKey]);
+    NSString* newDSID = [[NSString alloc] initWithData:officialDSIDData encoding:kCFStringEncodingUTF8];
+   
     if (newDSID) {
         _dsid = newDSID;
     }

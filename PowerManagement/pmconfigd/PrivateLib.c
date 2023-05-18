@@ -180,7 +180,12 @@ static PowerEventReasons     reasons = {
             CFSTR("The caffeinate tool is preventing sleep."), \
             NULL);
 
-
+#define DUMMY_UPS_BUTTON(myBundle) CFCopyLocalizedStringWithDefaultValue( \
+            CFSTR("OK"), \
+            CFSTR("Localizable"), \
+            myBundle, \
+            CFSTR("OK"), \
+            NULL);
 
 // dynamicStoreNotifyCallBack is defined in pmconfigd.c
 // is not defined in pmset! so we don't compile this code in pmset.

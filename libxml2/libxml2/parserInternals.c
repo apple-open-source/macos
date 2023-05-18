@@ -309,7 +309,6 @@ int
 xmlParserInputGrow(xmlParserInputPtr in, int len) {
     int ret;
     size_t indx;
-    const xmlChar *content;
 
     if ((in == NULL) || (len < 0)) return(-1);
 #ifdef DEBUG_INPUT
@@ -334,22 +333,8 @@ xmlParserInputGrow(xmlParserInputPtr in, int len) {
     } else
         return(0);
 
-    /*
-     * NOTE : in->base may be a "dangling" i.e. freed pointer in this
-     *        block, but we use it really as an integer to do some
-     *        pointer arithmetic. Insure will raise it as a bug but in
-     *        that specific case, that's not !
-     */
-
-    content = xmlBufContent(in->buf->buffer);
-    if (in->base != content) {
-        /*
-	 * the buffer has been reallocated
-	 */
-	indx = in->cur - in->base;
-	in->base = content;
-	in->cur = &content[indx];
-    }
+    in->base = xmlBufContent(in->buf->buffer);
+    in->cur = in->base + indx;
     in->end = xmlBufEnd(in->buf->buffer);
 
     CHECK_BUFFER(in);
@@ -367,8 +352,6 @@ void
 xmlParserInputShrink(xmlParserInputPtr in) {
     size_t used;
     size_t ret;
-    size_t indx;
-    const xmlChar *content;
 
 #ifdef DEBUG_INPUT
     xmlGenericError(xmlGenericErrorContext, "Shrink\n");
@@ -381,7 +364,7 @@ xmlParserInputShrink(xmlParserInputPtr in) {
 
     CHECK_BUFFER(in);
 
-    used = in->cur - xmlBufContent(in->buf->buffer);
+    used = in->cur - in->base;
     /*
      * Do not shrink on large buffers whose only a tiny fraction
      * was consumed
@@ -389,27 +372,17 @@ xmlParserInputShrink(xmlParserInputPtr in) {
     if (used > INPUT_CHUNK) {
 	ret = xmlBufShrink(in->buf->buffer, used - LINE_LEN);
 	if (ret > 0) {
-	    in->cur -= ret;
+            used -= ret;
 	    in->consumed += ret;
 	}
-	in->end = xmlBufEnd(in->buf->buffer);
     }
 
-    CHECK_BUFFER(in);
+    if (xmlBufUse(in->buf->buffer) <= INPUT_CHUNK) {
+        xmlParserInputBufferRead(in->buf, 2 * INPUT_CHUNK);
+    }
 
-    if (xmlBufUse(in->buf->buffer) > INPUT_CHUNK) {
-        return;
-    }
-    xmlParserInputBufferRead(in->buf, 2 * INPUT_CHUNK);
-    content = xmlBufContent(in->buf->buffer);
-    if (in->base != content) {
-        /*
-	 * the buffer has been reallocated
-	 */
-	indx = in->cur - in->base;
-	in->base = content;
-	in->cur = &content[indx];
-    }
+    in->base = xmlBufContent(in->buf->buffer);
+    in->cur = in->base + used;
     in->end = xmlBufEnd(in->buf->buffer);
 
     CHECK_BUFFER(in);
@@ -442,7 +415,7 @@ xmlNextChar(xmlParserCtxtPtr ctxt)
 	return;
     }
 
-    if ((*ctxt->input->cur == 0) &&
+    if ((ctxt->input->end - ctxt->input->cur < 1) &&
         (xmlParserInputGrow(ctxt->input, INPUT_CHUNK) <= 0)) {
         return;
     }
@@ -477,30 +450,38 @@ xmlNextChar(xmlParserCtxtPtr ctxt)
 
         c = *cur;
         if (c & 0x80) {
+            size_t avail;
+
             if (c == 0xC0)
 	        goto encoding_error;
-            if (cur[1] == 0) {
+
+            avail = ctxt->input->end - ctxt->input->cur;
+
+            if (avail < 2) {
                 xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
                 cur = ctxt->input->cur;
+                avail = ctxt->input->end - ctxt->input->cur;
             }
-            if ((cur[1] & 0xc0) != 0x80)
+            if ((avail < 2) || (cur[1] & 0xc0) != 0x80)
                 goto encoding_error;
             if ((c & 0xe0) == 0xe0) {
                 unsigned int val;
 
-                if (cur[2] == 0) {
+                if (avail < 3) {
                     xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
                     cur = ctxt->input->cur;
+                    avail = ctxt->input->end - ctxt->input->cur;
                 }
-                if ((cur[2] & 0xc0) != 0x80)
+                if ((avail < 3) || (cur[2] & 0xc0) != 0x80)
                     goto encoding_error;
                 if ((c & 0xf0) == 0xf0) {
-                    if (cur[3] == 0) {
+                    if (avail < 4) {
                         xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
                         cur = ctxt->input->cur;
+                        avail = ctxt->input->end - ctxt->input->cur;
                     }
                     if (((c & 0xf8) != 0xf0) ||
-                        ((cur[3] & 0xc0) != 0x80))
+                        (avail < 4) || ((cur[3] & 0xc0) != 0x80))
                         goto encoding_error;
                     /* 4-byte code */
                     ctxt->input->cur += 4;
@@ -541,7 +522,7 @@ xmlNextChar(xmlParserCtxtPtr ctxt)
             ctxt->input->col++;
         ctxt->input->cur++;
     }
-    if (*ctxt->input->cur == 0)
+    if (ctxt->input->end - ctxt->input->cur < 1)
         xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
     return;
 encoding_error:
@@ -618,28 +599,36 @@ xmlCurrentChar(xmlParserCtxtPtr ctxt, int *len) {
 
 	c = *cur;
 	if (c & 0x80) {
+            size_t avail;
+
 	    if (((c & 0x40) == 0) || (c == 0xC0))
 		goto encoding_error;
-	    if (cur[1] == 0) {
+
+            avail = ctxt->input->end - ctxt->input->cur;
+
+	    if (avail < 2) {
 		xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
                 cur = ctxt->input->cur;
+                avail = ctxt->input->end - ctxt->input->cur;
             }
-	    if ((cur[1] & 0xc0) != 0x80)
+	    if ((avail < 2) || (cur[1] & 0xc0) != 0x80)
 		goto encoding_error;
 	    if ((c & 0xe0) == 0xe0) {
-		if (cur[2] == 0) {
+		if (avail < 3) {
 		    xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
                     cur = ctxt->input->cur;
+                    avail = ctxt->input->end - ctxt->input->cur;
                 }
-		if ((cur[2] & 0xc0) != 0x80)
+		if ((avail < 3) || (cur[2] & 0xc0) != 0x80)
 		    goto encoding_error;
 		if ((c & 0xf0) == 0xf0) {
-		    if (cur[3] == 0) {
+		    if (avail < 4) {
 			xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
                         cur = ctxt->input->cur;
+                        avail = ctxt->input->end - ctxt->input->cur;
                     }
 		    if (((c & 0xf8) != 0xf0) ||
-			((cur[3] & 0xc0) != 0x80))
+			(avail < 4) || ((cur[3] & 0xc0) != 0x80))
 			goto encoding_error;
 		    /* 4-byte code */
 		    *len = 4;
@@ -676,7 +665,7 @@ xmlCurrentChar(xmlParserCtxtPtr ctxt, int *len) {
 	} else {
 	    /* 1-byte code */
 	    *len = 1;
-	    if (*ctxt->input->cur == 0)
+	    if (ctxt->input->end - ctxt->input->cur < 1)
 		xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
 	    if ((*ctxt->input->cur == 0) &&
 	        (ctxt->input->end > ctxt->input->cur)) {

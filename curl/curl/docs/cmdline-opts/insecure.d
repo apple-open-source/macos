@@ -1,4 +1,4 @@
-c: Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+c: Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 SPDX-License-Identifier: curl
 Long: insecure
 Short: k
@@ -26,3 +26,8 @@ For SFTP and SCP, this option makes curl skip the *known_hosts* verification.
 ".ssh" subdirectory, which contains host names and their public keys.
 
 **WARNING**: using this option makes the transfer insecure.
+
+When curl uses secure protocols it trusts responses and allows for example
+HSTS and Alt-Svc information to be stored and used subsequently. Using
+--insecure can make curl trust and use such information from malicious
+servers.

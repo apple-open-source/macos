@@ -116,6 +116,17 @@ int __DAMountUserFSVolume( void * parameter )
             NSString *UUID = [volumeInfo objectForKey:(@"UUID")];
             NSString *volName = [volumeInfo objectForKey:(@"name")];
 
+            /* There are file systems which return a volume name during probe, but not during scanvols,
+             * and vice versa, in case of probe finding a name and scanvols not finding the name we
+             * prefer probed name
+             */
+            if (volumeName != nil && ![volumeName isEqual:volName]) {
+                DALogInfo("%@: got 2 different names from probe and userfs: p->%@  u->%@", deviceName, volumeName, volName);
+                if ([volName isEqual:@"Untitled"]) {
+                    volName = volumeName;
+                }
+            }
+
             mountFlags |= [volumeInfo[@"how"] intValue];
 
             if ( volumeInfo[@"errorForDomain"] )

@@ -1262,6 +1262,9 @@ INTERNAL unsigned32     reject_assoc_action_rtn
                                 true,
                                 &(assoc->assoc_status));
     RPC_CN_ASSOC_CHECK_ST (assoc, &(assoc->assoc_status));
+    
+    // Remove the closed association from its association group.
+    rem_assoc_from_grp_action_rtn(spc_struct, event_param, sm);
 
     sm_p->cur_state = RPC_C_SERVER_ASSOC_CLOSED;
     return (assoc->assoc_status);
@@ -2680,6 +2683,10 @@ INTERNAL unsigned32     abort_assoc_action_rtn
                                        &(assoc->assoc_status));
         RPC_CN_ASSOC_CHECK_ST (assoc, &(assoc->assoc_status));
     }
+    
+    // Remove the closed association from its association group.
+    rem_assoc_from_grp_action_rtn(spc_struct, event_param, sm);
+
     sm_p->cur_state =  RPC_C_SERVER_ASSOC_CLOSED;
     return (assoc->assoc_status);
 }

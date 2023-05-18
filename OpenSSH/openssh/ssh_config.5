@@ -1389,6 +1389,12 @@ The argument to this keyword is a path to the PKCS#11 shared library
 .Xr ssh 1
 should use to communicate with a PKCS#11 token providing keys for user
 authentication.
+.\" #ifdef __APPLE_KEYCHAIN__
+Setting
+.Cm PKCS11Provider
+will disable
+.Cm UseKeychain .
+.\" #endif
 .It Cm Port
 Specifies the port number to connect on the remote host.
 The default is 22.
@@ -1941,6 +1947,8 @@ or
 .Dq no .
 The default is
 .Dq no .
+Incompatible with
+.Cm PKCS11Provider .
 .\" #endif
 .It Cm User
 Specifies the user to log in as.

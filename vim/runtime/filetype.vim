@@ -1,7 +1,7 @@
 " Vim support file to detect file types
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2023 Feb 02
+" Last Change:	2023 Feb 25
 
 " Listen very carefully, I will say this only once
 if exists("did_load_filetypes")
@@ -205,6 +205,9 @@ au BufNewFile,BufRead *.mch,*.ref,*.imp		setf b
 au BufNewFile,BufRead *.bas			call dist#ft#FTbas()
 au BufNewFile,BufRead *.bi,*.bm			call dist#ft#FTbas()
 
+" Bass
+au BufNewFile,BufRead *.bass			setf bass
+
 " Visual Basic Script (close to Visual Basic) or Visual Basic .NET
 au BufNewFile,BufRead *.vb,*.vbs,*.dsm,*.ctl	setf vb
 
@@ -274,6 +277,9 @@ endif
 au BufNewFile,BufRead *.c			call dist#ft#FTlpc()
 au BufNewFile,BufRead *.lpc,*.ulpc		setf lpc
 
+" Cairo
+au BufNewFile,BufRead *.cairo			setf cairo
+
 " Calendar
 au BufNewFile,BufRead calendar			setf calendar
 
@@ -309,6 +315,9 @@ au BufNewFile,BufRead *.cdl			setf cdl
 
 " Conary Recipe
 au BufNewFile,BufRead *.recipe			setf conaryrecipe
+
+" ChainPack Object Notation (CPON)
+au BufNewFile,BufRead *.cpon			setf cpon
 
 " Controllable Regex Mutilator
 au BufNewFile,BufRead *.crm			setf crm
@@ -430,11 +439,17 @@ au BufNewFile,BufRead *.cook			setf cook
 " needs to be inspected.
 au BufNewFile,BufRead *.cql			setf cqlang
 
+" Crystal
+au BufNewFile,BufRead *.cr			setf crystal
+
 " CSV Files
 au BufNewFile,BufRead *.csv			setf csv
 
 " CUDA Compute Unified Device Architecture
 au BufNewFile,BufRead *.cu,*.cuh		setf cuda
+
+" Cue
+au BufNewFile,BufRead *.cue			setf cue
 
 " Dockerfile; Podman uses the same syntax with name Containerfile
 " Also see Dockerfile.* below.
@@ -518,6 +533,9 @@ au BufNewFile,BufRead */etc/apt/sources.list.d/*.list	setf debsources
 
 " Deny hosts
 au BufNewFile,BufRead denyhosts.conf		setf denyhosts
+
+" Dhall
+au BufNewFile,BufRead *.dhall			setf dhall
 
 " dnsmasq(8) configuration files
 au BufNewFile,BufRead */etc/dnsmasq.conf	setf dnsmasq
@@ -634,6 +652,9 @@ au BufNewFile,BufRead filter-rules		setf elmfilt
 
 " Elsa - https://github.com/ucsd-progsys/elsa
 au BufNewFile,BufRead *.lc			setf elsa
+
+" EdgeDB Schema Definition Language
+au BufNewFile,BufRead *.esdl			setf esdl
 
 " ESMTP rc file
 au BufNewFile,BufRead *esmtprc			setf esmtprc
@@ -1029,7 +1050,7 @@ au BufNewFile,BufRead *.ipynb			setf json
 au BufNewFile,BufRead .prettierrc,.firebaserc,.stylelintrc	setf json
 
 " JSONC (JSON with comments)
-au BufNewFile,BufRead *.jsonc,.babelrc,.eslintrc,.jsfmtrc 	setf jsonc
+au BufNewFile,BufRead *.jsonc,.babelrc,.eslintrc,.jsfmtrc	setf jsonc
 au BufNewFile,BufRead .jshintrc,.hintrc,.swrc,[jt]sconfig*.json	setf jsonc
 
 " JSON
@@ -1090,6 +1111,9 @@ au BufNewFile,BufRead *.ldif			setf ldif
 
 " Ld loader
 au BufNewFile,BufRead *.ld			setf ld
+
+" Lean
+au BufNewFile,BufRead *.lean			setf lean
 
 " Ledger
 au BufRead,BufNewFile *.ldg,*.ledger,*.journal			setf ledger
@@ -1375,6 +1399,9 @@ au BufNewFile,BufRead *.nse			setf lua
 " NSIS
 au BufNewFile,BufRead *.nsi,*.nsh		setf nsis
 
+" Nu
+au BufNewFile,BufRead {env,config}.nu		setf nu
+
 " Oblivion Language and Oblivion Script Extender
 au BufNewFile,BufRead *.obl,*.obse,*.oblivion,*.obscript  setf obse
 
@@ -1386,6 +1413,9 @@ au BufNewFile,BufRead *.occ			setf occam
 
 " Octave
 au BufNewFile,BufRead octave.conf,.octaverc,octaverc	setf octave
+
+" Odin
+au BufNewFile,BufRead *.odin			setf odin
 
 " Omnimark
 au BufNewFile,BufRead *.xom,*.xin		setf omnimark
@@ -1521,6 +1551,9 @@ au BufNewFile,BufRead *.plp			setf plp
 " PO and PO template (GNU gettext)
 au BufNewFile,BufRead *.po,*.pot		setf po
 
+" Pony
+au BufNewFile,BufRead *.pony			setf pony
+
 " Postfix main config
 au BufNewFile,BufRead main.cf,main.cf.proto	setf pfmain
 
@@ -1631,8 +1664,14 @@ au BufNewFile,BufRead *.ptl,*.pyi,SConstruct		   setf python
 " QL
 au BufRead,BufNewFile *.ql,*.qll		setf ql
 
+" QMLdir
+au BufRead,BufNewFile qmldir			setf qmldir
+
 " Quarto
-au BufRead,BufNewFile *.qmd     setf quarto
+au BufRead,BufNewFile *.qmd			setf quarto
+
+" Racket (formerly detected as "scheme")
+au BufNewFile,BufRead *.rkt,*.rktd,*.rktl	setf racket
 
 " Radiance
 au BufNewFile,BufRead *.rad,*.mat		setf radiance
@@ -1714,6 +1753,9 @@ au BufNewFile,BufRead *.rnc			setf rnc
 " Relax NG XML
 au BufNewFile,BufRead *.rng			setf rng
 
+" ILE RPG
+au BufNewFile,BufRead *.rpgle,*.rpgleinc	setf rpgle
+
 " RPL/2
 au BufNewFile,BufRead *.rpl			setf rpl
 
@@ -1768,6 +1810,9 @@ au BufNewFile,BufRead Cargo.lock,*/.cargo/config,*/.cargo/credentials	setf toml
 
 " S-lang (or shader language, or SmallLisp)
 au BufNewFile,BufRead *.sl			setf slang
+
+" Sage
+au BufNewFile,BufRead *.sage			setf sage
 
 " Samba config
 au BufNewFile,BufRead smb.conf			setf samba
@@ -1898,8 +1943,8 @@ au BufNewFile,BufRead .zprofile,*/etc/zprofile,.zfbfmarks  setf zsh
 au BufNewFile,BufRead .zshrc,.zshenv,.zlogin,.zlogout,.zcompdump setf zsh
 au BufNewFile,BufRead *.zsh			setf zsh
 
-" Scheme
-au BufNewFile,BufRead *.scm,*.ss,*.sld,*.rkt,*.rktd,*.rktl	setf scheme
+" Scheme ("racket" patterns are now separate, see above)
+au BufNewFile,BufRead *.scm,*.ss,*.sld		setf scheme
 
 " Screen RC
 au BufNewFile,BufRead .screenrc,screenrc	setf screen
@@ -2008,6 +2053,9 @@ au BufNewFile,BufRead *.sql			call dist#ft#SQL()
 " SQLJ
 au BufNewFile,BufRead *.sqlj			setf sqlj
 
+" PRQL
+au BufNewFile,BufRead *.prql			setf prql
+
 " SQR
 au BufNewFile,BufRead *.sqr,*.sqi		setf sqr
 
@@ -2021,6 +2069,9 @@ au BufNewFile,BufRead */etc/ssh/ssh_config.d/*.conf		setf sshconfig
 " OpenSSH server configuration
 au BufNewFile,BufRead sshd_config			setf sshdconfig
 au BufNewFile,BufRead */etc/ssh/sshd_config.d/*.conf	setf sshdconfig
+
+" Starlark
+au BufNewFile,BufRead *.ipd,*.star,*.starlark	setf starlark
 
 " OpenVPN configuration
 au BufNewFile,BufRead *.ovpn			setf openvpn
@@ -2078,6 +2129,9 @@ au BufNewFile,BufRead *.svg			setf svg
 " Surface
 au BufRead,BufNewFile *.sface			setf surface
 
+" LLVM TableGen
+au BufNewFile,BufRead *.td			setf tablegen
+
 " Tads (or Nroff or Perl test file)
 au BufNewFile,BufRead *.t
 	\ if !dist#ft#FTnroff() && !dist#ft#FTperl() | setf tads | endif
@@ -2087,6 +2141,9 @@ au BufNewFile,BufRead tags			setf tags
 
 " TAK
 au BufNewFile,BufRead *.tak			setf tak
+
+" Unx Tal
+au BufNewFile,BufRead *.tal			setf tal
 
 " Task
 au BufRead,BufNewFile {pending,completed,undo}.data  setf taskdata
@@ -2202,6 +2259,9 @@ au BufNewFile,BufRead */etc/udev/permissions.d/*.permissions setf udevperm
 " Udev symlinks config
 au BufNewFile,BufRead */etc/udev/cdsymlinks.conf	setf sh
 
+" Ungrammar, AKA Un-grammar
+au BufNewFile,BufRead *.ungram			setf ungrammar
+
 " UnrealScript
 au BufNewFile,BufRead *.uc			setf uc
 
@@ -2284,6 +2344,9 @@ au BufNewFile,BufRead *.vue			setf vue
 
 " WebAssembly
 au BufNewFile,BufRead *.wast,*.wat		setf wast
+
+" WebAssembly Interface Type (WIT)
+au BufNewFile,BufRead *.wit			setf wit
 
 " Webmacro
 au BufNewFile,BufRead *.wm			setf webmacro
@@ -2437,6 +2500,9 @@ au BufNewFile,BufRead */etc/yum.conf		setf dosini
 
 " YANG
 au BufRead,BufNewFile *.yang			setf yang
+
+" Yuck
+au BufNewFile,BufRead *.yuck			setf yuck
 
 " Zimbu
 au BufNewFile,BufRead *.zu			setf zimbu

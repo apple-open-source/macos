@@ -2095,14 +2095,14 @@ static void test(void)
 static void copyright(void)
 {
     if (!use_html) {
-        printf("This is ApacheBench, Version %s\n", AP_AB_BASEREVISION " <$Revision: 1901567 $>");
+        printf("This is ApacheBench, Version %s\n", AP_AB_BASEREVISION " <$Revision: 1903618 $>");
         printf("Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/\n");
         printf("Licensed to The Apache Software Foundation, http://www.apache.org/\n");
         printf("\n");
     }
     else {
         printf("<p>\n");
-        printf(" This is ApacheBench, Version %s <i>&lt;%s&gt;</i><br>\n", AP_AB_BASEREVISION, "$Revision: 1901567 $");
+        printf(" This is ApacheBench, Version %s <i>&lt;%s&gt;</i><br>\n", AP_AB_BASEREVISION, "$Revision: 1903618 $");
         printf(" Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/<br>\n");
         printf(" Licensed to The Apache Software Foundation, http://www.apache.org/<br>\n");
         printf("</p>\n<p>\n");
@@ -2306,7 +2306,6 @@ static apr_status_t open_postfile(const char *pfile)
 /* sort out command-line args and call test */
 int main(int argc, const char * const argv[])
 {
-    int l;
     char tmp[1024];
     apr_status_t status;
     apr_getopt_t *opt;
@@ -2447,8 +2446,7 @@ int main(int argc, const char * const argv[])
                 if (apr_base64_encode_len(strlen(opt_arg)) > sizeof(tmp)) {
                     err("Authentication credentials too long\n");
                 }
-                l = apr_base64_encode(tmp, opt_arg, strlen(opt_arg));
-                tmp[l] = '\0';
+                apr_base64_encode(tmp, opt_arg, strlen(opt_arg));
 
                 auth = apr_pstrcat(cntxt, auth, "Authorization: Basic ", tmp,
                                        "\r\n", NULL);
@@ -2462,8 +2460,7 @@ int main(int argc, const char * const argv[])
                 if (apr_base64_encode_len(strlen(opt_arg)) > sizeof(tmp)) {
                     err("Proxy credentials too long\n");
                 }
-                l = apr_base64_encode(tmp, opt_arg, strlen(opt_arg));
-                tmp[l] = '\0';
+                apr_base64_encode(tmp, opt_arg, strlen(opt_arg));
 
                 auth = apr_pstrcat(cntxt, auth, "Proxy-Authorization: Basic ",
                                        tmp, "\r\n", NULL);

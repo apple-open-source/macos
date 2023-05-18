@@ -2040,7 +2040,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         }
     }
 
-    if ([attributeName isEqualToString: NSAccessibilityVisibleCharacterRangeAttribute]) {
+    if ([attributeName isEqualToString:NSAccessibilityVisibleCharacterRangeAttribute]) {
         if (backingObject->isPasswordField())
             return nil;
         // TODO: Get actual visible range. <rdar://problem/4712101>

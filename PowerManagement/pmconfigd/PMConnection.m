@@ -1244,11 +1244,6 @@ static void setSystemSleepStateTracking(IOPMCapabilityBits capables)
     CFRelease(key);
 }
 
-#define IS_CAP_GAIN(c, f)       \
-        ((((c)->fromCapabilities & (f)) == 0) && \
-         (((c)->toCapabilities & (f)) != 0))
-
-
 #pragma mark -
 #pragma mark SleepServices
 
@@ -2305,7 +2300,7 @@ static void PMConnectionPowerCallBack(
 
     capArgs = (typeof(capArgs)) messageData;
 
-    AutoWakeCapabilitiesNotification(capArgs->fromCapabilities, capArgs->toCapabilities);
+    AutoWakeCapabilitiesNotification(capArgs);
     ClockSleepWakeNotification(capArgs->fromCapabilities, capArgs->toCapabilities,
                                capArgs->changeFlags);
     PMSettingsCapabilityChangeNotification(capArgs);

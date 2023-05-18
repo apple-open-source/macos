@@ -611,6 +611,32 @@ ssh_conn_info_free(struct ssh_conn_info *cinfo)
 	free(cinfo);
 }
 
+#if defined(ENABLE_PKCS11) && defined(__APPLE_KEYCHAIN__)
+#ifndef __APPLE_CLEAR_LV__
+#error entitled_to_clear_lv() depends on __APPLE_CLEAR_LV__
+#endif
+#include <Security/Security.h>
+#include <Security/SecTask.h>
+#include <stdbool.h>
+static bool
+entitled_to_clear_lv(void)
+{
+	SecTaskRef secTask = SecTaskCreateFromSelf(NULL);
+	if (secTask == NULL) {
+		fatal("SecTaskCreateFromSelf failed");
+	}
+	CFTypeRef value = SecTaskCopyValueForEntitlement(secTask, CFSTR("com.apple.private.security.clear-library-validation"), NULL);
+	if (value == NULL) {
+		CFRelease(secTask);
+		return false;
+	}
+	bool isBooleanAndTrue = (CFGetTypeID(value) == CFBooleanGetTypeID()) && CFBooleanGetValue(value);
+	CFRelease(value);
+	CFRelease(secTask);
+	return isBooleanAndTrue;
+}
+#endif
+
 /*
  * Main program for the ssh client.
  */
@@ -631,6 +657,15 @@ main(int ac, char **av)
 	size_t n, len;
 	u_int j;
 	struct ssh_conn_info *cinfo = NULL;
+
+#if defined(ENABLE_PKCS11) && defined(__APPLE_KEYCHAIN__)
+	/* Save argv for potential re-exec later. */
+	char **reexec_av = xcalloc(ac + 1, sizeof(*reexec_av));
+	for (i = 0; i < ac; i++) {
+		reexec_av[i] = xstrdup(av[i]);
+	}
+	reexec_av[i] = NULL;
+#endif
 
 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
 	sanitise_stdfd();
@@ -1323,6 +1358,42 @@ main(int ac, char **av)
 	    options.session_type != SESSION_TYPE_NONE)
 		fatal("Cannot fork into background without a command "
 		    "to execute.");
+
+#if defined(ENABLE_PKCS11) && defined(__APPLE_KEYCHAIN__)
+#define APPLE_PKCS11_REEXEC_GUARD "X_SSH_APPLE_PKCS11_REEXEC"
+	/*
+	 * UseKeychain requires an entitlement to access passphrases
+	 * stored in Keychain.
+	 * PKCS11Provider needs to dlopen() arbitrary dylibs.
+	 * To avoid PKCS#11 provider dylibs gaining access to passphrases,
+	 * we re-exec into a separate binary when PKCS#11 functionality
+	 * is needed.  The separate binary does not have any privileged
+	 * entitlements except for being entitled to clear LV.
+	 */
+	if (options.pkcs11_provider != NULL) {
+		if (!entitled_to_clear_lv()) {
+			if (getenv(APPLE_PKCS11_REEXEC_GUARD) != NULL) {
+				fatal("Infinite reexec detected; aborting");
+			}
+			if (setenv(APPLE_PKCS11_REEXEC_GUARD, "1", 1) == -1) {
+				fatal("setenv failed: %s", strerror(errno));
+			}
+			debug("PKCS11Provider set, reexec to ssh-apple-pkcs11 "
+			      "so we can clear LV");
+			execv(_PATH_SSH_APPLE_PKCS11, reexec_av);
+			abort();
+		} else {
+			if (options.use_keychain == 1) {
+				debug("UseKeychain=yes is incompatible with "
+				      "PKCS11Provider; disabling");
+				options.use_keychain = 0;
+			}
+			/* ssh-keychain.dylib uses getprogname() to decide
+			 * if it was called by an eligible caller. */
+			setprogname("/usr/bin/ssh");
+		}
+	}
+#endif
 
 	/* reinit */
 	log_init(argv0, options.log_level, options.log_facility, !use_syslog);

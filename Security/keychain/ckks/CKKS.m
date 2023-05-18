@@ -22,6 +22,7 @@
  */
 
 #include <dispatch/dispatch.h>
+#import <os/feature_private.h>
 #import <Foundation/Foundation.h>
 #if OCTAGON
 #import <CloudKit/CloudKit.h>
@@ -284,6 +285,34 @@ bool SecCKKSSetReduceRateLimiting(bool value) {
     CKKSReduceRateLimiting = value;
     ckksnotice_global("ratelimit", "reduce-rate-limiting is now %@", CKKSReduceRateLimiting ? @"on" : @"off");
     return CKKSReduceRateLimiting;
+}
+
+typedef enum {
+    CKKSHighPriorityOperation_DEFAULT,
+    CKKSHighPriorityOperation_OVERRIDE_TRUE,
+    CKKSHighPriorityOperation_OVERRIDE_FALSE,
+} CKKSHighPriorityOperation;
+
+static CKKSHighPriorityOperation gCKKSHighPriorityOperation = CKKSHighPriorityOperation_DEFAULT;
+
+bool SecCKKSHighPriorityOperations(void) {
+    if (gCKKSHighPriorityOperation != CKKSHighPriorityOperation_DEFAULT) {
+        return gCKKSHighPriorityOperation == CKKSHighPriorityOperation_OVERRIDE_TRUE;
+    }
+
+    static bool ffCKKSHighPriorityOperation = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        ffCKKSHighPriorityOperation = os_feature_enabled(Security, CKKSHighPriorityOperations);
+    });
+
+    return ffCKKSHighPriorityOperation;
+}
+
+bool SecCKKSSetHighPriorityOperations(bool value) {
+    gCKKSHighPriorityOperation = value ? CKKSHighPriorityOperation_OVERRIDE_TRUE : CKKSHighPriorityOperation_OVERRIDE_FALSE;
+    secnotice("keychain", "CKKSHighPriorityOperation Supported overridden to %s", value ? "enabled" : "disabled");
+    return value;
 }
 
 // Here's a mechanism for CKKS feature flags with default values from NSUserDefaults:

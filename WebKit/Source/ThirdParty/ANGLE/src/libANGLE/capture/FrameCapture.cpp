@@ -251,10 +251,6 @@ std::ostream &operator<<(std::ostream &os, const FmtCapturePrefix &fmt)
     {
         os << "_shared";
     }
-    else if (fmt.contextId != kNoContextId)
-    {
-        os << "_context" << fmt.contextId;
-    }
 
     return os;
 }
@@ -305,15 +301,11 @@ struct FmtReplayFunction
 
 std::ostream &operator<<(std::ostream &os, const FmtReplayFunction &fmt)
 {
-    os << "ReplayContext";
+    os << "Replay";
 
     if (fmt.contextId == kSharedContextId)
     {
         os << "Shared";
-    }
-    else
-    {
-        os << fmt.contextId;
     }
 
     os << "Frame" << fmt.frameIndex;
@@ -986,7 +978,7 @@ void WriteInitReplayCall(bool compression,
         out << "    // max" << name << " = " << maxIDs[resourceID] << "\n";
     }
 
-    out << "    InitializeReplay3(\"" << binaryDataFileName << "\", " << maxClientArraySize << ", "
+    out << "    InitializeReplay4(\"" << binaryDataFileName << "\", " << maxClientArraySize << ", "
         << readBufferSize << ", " << resourceIDBufferSize << ", " << contextID;
 
     for (ResourceIDType resourceID : AllEnums<ResourceIDType>())
@@ -2254,6 +2246,7 @@ bool IsSharedObjectResource(ResourceIDType type)
         case ResourceIDType::Context:
         case ResourceIDType::Image:
         case ResourceIDType::Surface:
+        case ResourceIDType::egl_Sync:
             // Return false for all EGL object types.
             return false;
 
@@ -3271,6 +3264,18 @@ void CaptureCustomCreateEGLImage(const char *name,
     EGLImage returnVal   = params.getReturnValue().value.EGLImageVal;
     egl::ImageID imageID = egl::PackParam<egl::ImageID>(returnVal);
     params.addValueParam("image", ParamType::TGLuint, imageID.value);
+    call.customFunctionName = name;
+    callsOut.emplace_back(std::move(call));
+}
+
+void CaptureCustomCreateEGLSync(const char *name,
+                                CallCapture &call,
+                                std::vector<CallCapture> &callsOut)
+{
+    ParamBuffer &&params = std::move(call.params);
+    EGLSync returnVal    = params.getReturnValue().value.EGLSyncVal;
+    egl::SyncID syncID   = egl::PackParam<egl::SyncID>(returnVal);
+    params.addValueParam("sync", ParamType::TGLuint, syncID.value);
     call.customFunctionName = name;
     callsOut.emplace_back(std::move(call));
 }
@@ -4953,6 +4958,11 @@ void CaptureMidExecutionSetup(const gl::Context *context,
         }
     }
 
+    if (currentRasterState.depthClamp != defaultRasterState.depthClamp)
+    {
+        capCap(GL_DEPTH_CLAMP_EXT, currentRasterState.depthClamp);
+    }
+
     // pointDrawMode/multiSample are only used in the D3D back-end right now.
 
     if (currentRasterState.rasterizerDiscard != defaultRasterState.rasterizerDiscard)
@@ -5240,6 +5250,13 @@ void CaptureMidExecutionSetup(const gl::Context *context,
     if (apiState.getNearPlane() != 0.0f || apiState.getFarPlane() != 1.0f)
     {
         cap(CaptureDepthRangef(replayState, true, apiState.getNearPlane(), apiState.getFarPlane()));
+    }
+
+    if (apiState.getClipOrigin() != gl::ClipOrigin::LowerLeft ||
+        apiState.getClipDepthMode() != gl::ClipDepthMode::NegativeOneToOne)
+    {
+        cap(CaptureClipControlEXT(replayState, true, apiState.getClipOrigin(),
+                                  apiState.getClipDepthMode()));
     }
 
     if (apiState.isScissorTestEnabled())
@@ -6622,6 +6639,16 @@ void FrameCaptureShared::maybeOverrideEntryPoint(const gl::Context *context,
             CaptureCustomCreateEGLImage("CreateEGLImageKHR", inCall, outCalls);
             break;
         }
+        case EntryPoint::EGLCreateSync:
+        {
+            CaptureCustomCreateEGLSync("CreateEGLSync", inCall, outCalls);
+            break;
+        }
+        case EntryPoint::EGLCreateSyncKHR:
+        {
+            CaptureCustomCreateEGLSync("CreateEGLSyncKHR", inCall, outCalls);
+            break;
+        }
         case EntryPoint::EGLCreatePbufferSurface:
         {
             CaptureCustomCreatePbufferSurface(inCall, outCalls);
@@ -7485,7 +7512,11 @@ void FrameCaptureShared::updateResourceCountsFromCallCapture(const CallCapture &
             updateResourceCountsFromParamCapture(call.params.getReturnValue(),
                                                  ResourceIDType::Sync);
             break;
-
+        case EntryPoint::EGLCreateSync:
+        case EntryPoint::EGLCreateSyncKHR:
+            updateResourceCountsFromParamCapture(call.params.getReturnValue(),
+                                                 ResourceIDType::egl_Sync);
+            break;
         default:
             break;
     }
@@ -7962,12 +7993,23 @@ void FrameCaptureShared::runMidExecutionCapture(gl::Context *mainContext)
                                      &mResourceTracker, mainContextReplayState,
                                      mValidateSerializedState);
             scanSetupCalls(frameCapture->getSetupCalls());
+
+            std::stringstream protoStream;
+            std::stringstream headerStream;
+            std::stringstream bodyStream;
+
+            protoStream << "void "
+                        << FmtSetupFunction(kNoPartId, mainContext->id(), FuncUsage::Prototype);
+            std::string proto = protoStream.str();
+
+            WriteCppReplayFunctionWithParts(mainContext->id(), ReplayFunc::Setup, mReplayWriter, 1,
+                                            &mBinaryData, frameCapture->getSetupCalls(),
+                                            headerStream, bodyStream, &mResourceIDBufferSize);
+
+            mReplayWriter.addPrivateFunction(proto, headerStream, bodyStream);
         }
         else
         {
-            // Track that this context was created as shared context before MEC started
-            mActiveSecondaryContexts.insert(shareContext->id().value);
-
             const gl::State &shareContextState = shareContext->getState();
             gl::State auxContextReplayState(
                 nullptr, nullptr, nullptr, nullptr, nullptr, shareContextState.getClientType(),
@@ -7995,6 +8037,8 @@ void FrameCaptureShared::runMidExecutionCapture(gl::Context *mainContext)
                 frameCapture->getSetupCalls(), &mBinaryData, mSerializeStateEnabled, *this,
                 &mResourceIDBufferSize);
         }
+        // Track that this context was created before MEC started
+        mActiveContexts.insert(shareContext->id().value);
     }
 
     egl::Error error = mainContext->makeCurrent(display, draw, read);
@@ -8029,8 +8073,6 @@ void FrameCaptureShared::onEndFrame(gl::Context *context)
         }
     }
 
-    // Assume that the context performing the swap is the "main" context.
-    ASSERT(mWindowSurfaceContextID.value == 0 || mWindowSurfaceContextID == context->id());
     mWindowSurfaceContextID = context->id();
 
     // On Android, we can trigger a capture during the run
@@ -8610,7 +8652,7 @@ void FrameCaptureShared::writeCppReplayIndexFiles(const gl::Context *context,
                    << ";\n";
         }
         source << "        default:\n";
-        source << "            return nullptr;\n";
+        source << "            return NULL;\n";
         source << "    }\n";
         source << "}\n";
 
@@ -8652,22 +8694,6 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
     if (frameIndex == 1)
     {
         {
-            std::stringstream protoStream;
-            std::stringstream headerStream;
-            std::stringstream bodyStream;
-
-            protoStream << "void "
-                        << FmtSetupFunction(kNoPartId, context->id(), FuncUsage::Prototype);
-            std::string proto = protoStream.str();
-
-            WriteCppReplayFunctionWithParts(context->id(), ReplayFunc::Setup, mReplayWriter,
-                                            frameIndex, &mBinaryData, setupCalls, headerStream,
-                                            bodyStream, &mResourceIDBufferSize);
-
-            mReplayWriter.addPrivateFunction(proto, headerStream, bodyStream);
-        }
-
-        {
             std::string proto = "void SetupReplay(void)";
 
             std::stringstream out;
@@ -8681,21 +8707,25 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
             {
                 out << "    " << FmtSetupFunction(kNoPartId, kSharedContextId, FuncUsage::Call)
                     << ";\n";
+                // Make sure that the current context is mapped correctly
+                out << "    SetCurrentContextID(" << context->id() << ");\n";
             }
-
-            // Setup the presentation (this) context first.
-            out << "    " << FmtSetupFunction(kNoPartId, context->id(), FuncUsage::Call) << ";\n";
-            out << "\n";
 
             // Setup each of the auxiliary contexts.
             egl::ShareGroup *shareGroup            = context->getShareGroup();
             const egl::ContextSet &shareContextSet = shareGroup->getContexts();
             for (gl::Context *shareContext : shareContextSet)
             {
-                // Skip the presentation context, since that context was created by the test
-                // framework.
                 if (shareContext->id() == context->id())
                 {
+                    if (usesMidExecutionCapture())
+                    {
+                        // Setup the presentation (this) context first.
+                        out << "    " << FmtSetupFunction(kNoPartId, context->id(), FuncUsage::Call)
+                            << ";\n";
+                        out << "\n";
+                    }
+
                     continue;
                 }
 
@@ -8706,8 +8736,7 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
                 {
                     // Only call SetupReplayContext for secondary contexts that were current before
                     // MEC started
-                    if (mActiveSecondaryContexts.find(shareContext->id().value) !=
-                        mActiveSecondaryContexts.end())
+                    if (mActiveContexts.find(shareContext->id().value) != mActiveContexts.end())
                     {
                         // TODO(http://anglebug.com/5878): Support capture/replay of
                         // eglCreateContext() so this block can be moved into SetupReplayContextXX()
@@ -8726,8 +8755,8 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
             if (shareContextSet.size() > 1)
             {
                 out << "\n";
-                out << "    eglMakeCurrent(nullptr, nullptr, nullptr, gContextMap2["
-                    << context->id() << "]);\n";
+                out << "    eglMakeCurrent(NULL, NULL, NULL, gContextMap2[" << context->id()
+                    << "]);\n";
             }
 
             out << "}\n";
@@ -8835,7 +8864,7 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
                 if (anyResourceReset && contextID != context->id())
                 {
                     contextChanged = true;
-                    bodyStream << "    eglMakeCurrent(nullptr, nullptr, nullptr, gContextMap2["
+                    bodyStream << "    eglMakeCurrent(NULL, NULL, NULL, gContextMap2["
                                << contextID.value << "]);\n\n";
                 }
 
@@ -8854,7 +8883,7 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
         // Bind the main context again if we bound any additional contexts
         if (contextChanged)
         {
-            resetBodyStream << "    eglMakeCurrent(nullptr, nullptr, nullptr, gContextMap2["
+            resetBodyStream << "    eglMakeCurrent(NULL, NULL, NULL, gContextMap2["
                             << context->id().value << "]);\n";
         }
 
@@ -9142,9 +9171,6 @@ void ReplayWriter::setFilenamePattern(const std::string &pattern)
     if (mFilenamePattern != pattern)
     {
         mFilenamePattern = pattern;
-
-        // Reset the frame counter if the filename pattern changes.
-        mFrameIndex = 1;
     }
 }
 

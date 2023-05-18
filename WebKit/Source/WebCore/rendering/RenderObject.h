@@ -298,7 +298,7 @@ public:
     };
 
     enum class SkipDescendentFragmentedFlow { No, Yes };
-    void setFragmentedFlowStateIncludingDescendants(FragmentedFlowState, const RenderElement* fragmentedFlowRoot, SkipDescendentFragmentedFlow = SkipDescendentFragmentedFlow::Yes);
+    void setFragmentedFlowStateIncludingDescendants(FragmentedFlowState, SkipDescendentFragmentedFlow = SkipDescendentFragmentedFlow::Yes);
 
     FragmentedFlowState fragmentedFlowState() const { return m_bitfields.fragmentedFlowState(); }
     void setFragmentedFlowState(FragmentedFlowState state) { m_bitfields.setFragmentedFlowState(state); }
@@ -1003,6 +1003,7 @@ private:
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
         ADD_BOOLEAN_BITFIELD(hasSVGTransform, HasSVGTransform);
 #endif
+        ADD_ENUM_BITFIELD(trimmedMargins, TrimmedMargins, unsigned, 4);
 
         // From RenderElement
         std::unique_ptr<ReferencedSVGResources> referencedSVGResources;

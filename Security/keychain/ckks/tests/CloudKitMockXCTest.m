@@ -557,6 +557,7 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     SecCKKSEnable();
     SecCKKSTestsEnable();
     SecCKKSSetReduceRateLimiting(true);
+    SecCKKSSetHighPriorityOperations(true);
 
     self.testFailureLogger = [[CKKSTestFailureLogger alloc] init];
 

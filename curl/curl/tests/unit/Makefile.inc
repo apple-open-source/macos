@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -38,6 +38,7 @@ UNITPROGS = unit1300          unit1302 unit1303 unit1304 unit1305 unit1307 \
  unit1620 unit1621 \
  unit1650 unit1651 unit1652 unit1653 unit1654 unit1655 \
  unit1660 unit1661 \
+ unit2600 \
  unit3200
 
 unit1300_SOURCES = unit1300.c $(UNITFILES)
@@ -163,6 +164,9 @@ unit1660_CPPFLAGS = $(AM_CPPFLAGS)
 
 unit1661_SOURCES = unit1661.c $(UNITFILES)
 unit1661_CPPFLAGS = $(AM_CPPFLAGS)
+
+unit2600_SOURCES = unit2600.c $(UNITFILES)
+unit2600_CPPFLAGS = $(AM_CPPFLAGS)
 
 unit3200_SOURCES = unit3200.c $(UNITFILES)
 unit3200_CPPFLAGS = $(AM_CPPFLAGS)
