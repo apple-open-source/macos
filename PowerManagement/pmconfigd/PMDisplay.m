@@ -110,6 +110,10 @@ __private_extern__ void blankDisplay(void)
 __private_extern__ bool canSustainFullWake(void)
 {
     if (isEmergencySleep()) {
+        if (_woke_up_after_lastcall()) {
+            INFO_LOG("Can sustain full wake after emergency sleep, we have woken up since.");
+            return true;
+        }
         INFO_LOG("Cannot sustain full wake due to emergency sleep");
         return false;
     }

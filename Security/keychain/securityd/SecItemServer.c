@@ -2467,12 +2467,19 @@ _SecDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error)
                 cert_class(),
                 keys_class(),
             };
+
             CFArrayRef accessGroups = CFArrayCreateForCFTypes(
                 NULL,
-                CFSTR("com.apple.cfnetwork"),
                 CFSTR("com.apple.safari.credit-cards"),
+                CFSTR("com.apple.cfnetwork"),
+                CFSTR("com.apple.cfnetwork-recently-deleted"),
                 CFSTR("com.apple.password-manager"),
+                CFSTR("com.apple.password-manager-recently-deleted"),
+                CFSTR("com.apple.password-manager.generated-passwords"),
+                CFSTR("com.apple.password-manager.personal"),
+                CFSTR("com.apple.password-manager.personal-recently-deleted"),
                 CFSTR("com.apple.webkit.webauthn"),
+                CFSTR("com.apple.webkit.webauthn-recently-deleted"),
                 NULL
             );
 

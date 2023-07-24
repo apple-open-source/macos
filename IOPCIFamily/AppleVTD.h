@@ -362,6 +362,9 @@ public:
 	uint64_t          fMemoryRangeBase[kMaxMemRegions];
 	uint64_t          fMemoryRangeLen[kMaxMemRegions];
 
+	vtd_space_t     * fAMDSpace;
+    IOLock          * fAMDMapperLock;
+
 	static void install(IOWorkLoop * wl, uint32_t flags,
 						IOService * provider, const OSData * data,
 						IOPCIMessagedInterruptController  * messagedInterruptController);
@@ -468,6 +471,7 @@ public:
 	AppleVTD    * fVTD;
 	vtd_space_t * fSpace;
 	uint32_t      fSourceID;
+	bool          fIsAMD;
 	uint8_t       fAllFunctions;
     IOLock      * fAppleVTDforDeviceLock;
 	ppnum_t       vsize;

@@ -160,6 +160,7 @@ main(int  argc,				/* I - Number of command-line arguments */
             strstr(uri, "/jobs") ? "Job" : "Printer", cupsLastErrorString());
     ippDelete(response);
     httpClose(http);
+    http = NULL;
     return (1);
   }
 
@@ -169,6 +170,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     fputs("ERROR: No notify-subscription-id in response!\n", stderr);
     ippDelete(response);
     httpClose(http);
+    http = NULL;
     return (1);
   }
 
@@ -274,6 +276,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   */
 
   httpClose(http);
+  http = NULL;
 
   return (0);
 }

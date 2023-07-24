@@ -40,7 +40,7 @@
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
                   ckoperationGroup:(CKOperationGroup* _Nullable)operationGroup
                        flagHandler:(id<OctagonStateFlagHandler>)flagHandler
-                     overallLaunch:(CKKSLaunchSequence*)overallLaunch
+                     overallLaunch:(SecLaunchSequence*)overallLaunch
                accountStateTracker:(CKKSAccountStateTracker*)accountStateTracker
                   lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker

@@ -291,6 +291,7 @@ NTSTATUS GetNetworkAccountSID(const char *ServerName, char **account, char **dom
     NTSTATUS nt_status = STATUS_SUCCESS;
 	WCHAR * UTF16ServerName = SMBConvertFromUTF8ToUTF16(ServerName, 1024, 0);
     rpc_ss_allocator_t  allocator;
+    boolean_t restoreMemAllocator = false;
     
     rpc_mempool * mempool(rpc_mempool::allocate(0));
 	
@@ -312,8 +313,11 @@ NTSTATUS GetNetworkAccountSID(const char *ServerName, char **account, char **dom
     allocator.p_allocate = rpc_pool_allocate;
     allocator.p_free = rpc_pool_free;
     allocator.p_context = (idl_void_p_t)mempool;
-	
+
+    /* Swap out the old alloc/free routines for use by the stub, */
+    /* and remember to restore the original allocator */
     rpc_ss_swap_client_alloc_free_ex(&allocator, &allocator);
+    restoreMemAllocator = true;
 	
 	nt_status = GetAccountName(UTF16ServerName, &AccountName, &DomainName, &binding);
 	/* Some servers will return success, but they won't return the user name.  */
@@ -384,6 +388,11 @@ done:
 	if (UTF16ServerName) {
 		free(UTF16ServerName);
 	}
-	rpc_mempool::destroy(mempool);
+    if (restoreMemAllocator == true) {
+        rpc_ss_swap_client_alloc_free_ex(&allocator, &allocator);
+    }
+    
+    /* Don't make the destroy() call for now, see rdar://110480550 */
+	/* rpc_mempool::destroy(mempool); */
 	return nt_status;
 }

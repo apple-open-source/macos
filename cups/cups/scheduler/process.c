@@ -59,7 +59,7 @@ static cups_array_t	*process_array = NULL;
 
 static int	compare_procs(cupsd_proc_t *a, cupsd_proc_t *b);
 #ifdef HAVE_SANDBOX_H
-static char	*cupsd_requote(char *dst, const char *src, size_t dstsize);
+static void	cupsd_requote(char *dst, const char *src, size_t dstsize);
 #endif /* HAVE_SANDBOX_H */
 
 
@@ -858,7 +858,7 @@ compare_procs(cupsd_proc_t *a,		/* I - First process */
  * 'cupsd_requote()' - Make a regular-expression version of a string.
  */
 
-static char *				/* O - Quoted string */
+static void				/* O - Quoted string */
 cupsd_requote(char       *dst,		/* I - Destination buffer */
               const char *src,		/* I - Source string */
 	      size_t     dstsize)	/* I - Size of destination buffer */
@@ -867,6 +867,15 @@ cupsd_requote(char       *dst,		/* I - Destination buffer */
   char	*dstptr,			/* Current position in buffer */
 	*dstend;			/* End of destination buffer */
 
+  if (dst == NULL || dstsize == 0) {
+    return;
+  }
+
+  *dst = '\0';
+
+  if (src == NULL) {
+    return;
+  }
 
   dstptr = dst;
   dstend = dst + dstsize - 2;
@@ -885,7 +894,5 @@ cupsd_requote(char       *dst,		/* I - Destination buffer */
   }
 
   *dstptr = '\0';
-
-  return (dst);
 }
 #endif /* HAVE_SANDBOX_H */

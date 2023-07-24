@@ -18,12 +18,12 @@
 @synthesize creationDate = _creationDate;
 - (void)setCreationDate:(uint64_t)v
 {
-    _has.creationDate = YES;
+    _has.creationDate = (uint)YES;
     _creationDate = v;
 }
 - (void)setHasCreationDate:(BOOL)f
 {
-    _has.creationDate = f;
+    _has.creationDate = (uint)f;
 }
 - (BOOL)hasCreationDate
 {
@@ -32,12 +32,12 @@
 @synthesize remainingAttempts = _remainingAttempts;
 - (void)setRemainingAttempts:(uint64_t)v
 {
-    _has.remainingAttempts = YES;
+    _has.remainingAttempts = (uint)YES;
     _remainingAttempts = v;
 }
 - (void)setHasRemainingAttempts:(BOOL)f
 {
-    _has.remainingAttempts = f;
+    _has.remainingAttempts = (uint)f;
 }
 - (BOOL)hasRemainingAttempts
 {
@@ -56,12 +56,12 @@
 @synthesize silentAttemptAllowed = _silentAttemptAllowed;
 - (void)setSilentAttemptAllowed:(uint64_t)v
 {
-    _has.silentAttemptAllowed = YES;
+    _has.silentAttemptAllowed = (uint)YES;
     _silentAttemptAllowed = v;
 }
 - (void)setHasSilentAttemptAllowed:(BOOL)f
 {
-    _has.silentAttemptAllowed = f;
+    _has.silentAttemptAllowed = (uint)f;
 }
 - (BOOL)hasSilentAttemptAllowed
 {
@@ -74,12 +74,12 @@
 }
 - (void)setRecordStatus:(OTEscrowRecord_RecordStatus)v
 {
-    _has.recordStatus = YES;
+    _has.recordStatus = (uint)YES;
     _recordStatus = v;
 }
 - (void)setHasRecordStatus:(BOOL)f
 {
-    _has.recordStatus = f;
+    _has.recordStatus = (uint)f;
 }
 - (BOOL)hasRecordStatus
 {
@@ -105,12 +105,12 @@
 }
 - (void)setRecoveryStatus:(OTEscrowRecord_RecoveryStatus)v
 {
-    _has.recoveryStatus = YES;
+    _has.recoveryStatus = (uint)YES;
     _recoveryStatus = v;
 }
 - (void)setHasRecoveryStatus:(BOOL)f
 {
-    _has.recoveryStatus = f;
+    _has.recoveryStatus = (uint)f;
 }
 - (BOOL)hasRecoveryStatus
 {
@@ -127,12 +127,12 @@
 @synthesize coolOffEnd = _coolOffEnd;
 - (void)setCoolOffEnd:(uint64_t)v
 {
-    _has.coolOffEnd = YES;
+    _has.coolOffEnd = (uint)YES;
     _coolOffEnd = v;
 }
 - (void)setHasCoolOffEnd:(BOOL)f
 {
-    _has.coolOffEnd = f;
+    _has.coolOffEnd = (uint)f;
 }
 - (BOOL)hasCoolOffEnd
 {
@@ -150,12 +150,12 @@
 }
 - (void)setRecordViability:(OTEscrowRecord_RecordViability)v
 {
-    _has.recordViability = YES;
+    _has.recordViability = (uint)YES;
     _recordViability = v;
 }
 - (void)setHasRecordViability:(BOOL)f
 {
-    _has.recordViability = f;
+    _has.recordViability = (uint)f;
 }
 - (BOOL)hasRecordViability
 {
@@ -176,12 +176,12 @@
 }
 - (void)setViabilityStatus:(OTEscrowRecord_SOSViability)v
 {
-    _has.viabilityStatus = YES;
+    _has.viabilityStatus = (uint)YES;
     _viabilityStatus = v;
 }
 - (void)setHasViabilityStatus:(BOOL)f
 {
-    _has.viabilityStatus = f;
+    _has.viabilityStatus = (uint)f;
 }
 - (BOOL)hasViabilityStatus
 {
@@ -291,13 +291,13 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
 
             case 1 /* creationDate */:
             {
-                self->_has.creationDate = YES;
+                self->_has.creationDate = (uint)YES;
                 self->_creationDate = PBReaderReadUint64(reader);
             }
             break;
             case 2 /* remainingAttempts */:
             {
-                self->_has.remainingAttempts = YES;
+                self->_has.remainingAttempts = (uint)YES;
                 self->_remainingAttempts = PBReaderReadUint64(reader);
             }
             break;
@@ -327,13 +327,13 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
             break;
             case 9 /* silentAttemptAllowed */:
             {
-                self->_has.silentAttemptAllowed = YES;
+                self->_has.silentAttemptAllowed = (uint)YES;
                 self->_silentAttemptAllowed = PBReaderReadUint64(reader);
             }
             break;
             case 10 /* recordStatus */:
             {
-                self->_has.recordStatus = YES;
+                self->_has.recordStatus = (uint)YES;
                 self->_recordStatus = PBReaderReadInt32(reader);
             }
             break;
@@ -345,13 +345,13 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
             break;
             case 12 /* recoveryStatus */:
             {
-                self->_has.recoveryStatus = YES;
+                self->_has.recoveryStatus = (uint)YES;
                 self->_recoveryStatus = PBReaderReadInt32(reader);
             }
             break;
             case 13 /* coolOffEnd */:
             {
-                self->_has.coolOffEnd = YES;
+                self->_has.coolOffEnd = (uint)YES;
                 self->_coolOffEnd = PBReaderReadUint64(reader);
             }
             break;
@@ -363,13 +363,13 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
             break;
             case 15 /* recordViability */:
             {
-                self->_has.recordViability = YES;
+                self->_has.recordViability = (uint)YES;
                 self->_recordViability = PBReaderReadInt32(reader);
             }
             break;
             case 16 /* viabilityStatus */:
             {
-                self->_has.viabilityStatus = YES;
+                self->_has.viabilityStatus = (uint)YES;
                 self->_viabilityStatus = PBReaderReadInt32(reader);
             }
             break;

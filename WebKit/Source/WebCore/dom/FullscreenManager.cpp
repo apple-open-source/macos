@@ -43,6 +43,7 @@
 #include "Page.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "QualifiedName.h"
+#include "Quirks.h"
 #include "Settings.h"
 #include <wtf/LoggerHelper.h>
 
@@ -491,13 +492,17 @@ bool FullscreenManager::willEnterFullscreen(Element& element)
     if (is<HTMLIFrameElement>(element))
         element.setIFrameFullscreenFlag(true);
 
-    notifyAboutFullscreenChangeOrError();
+    if (!document().quirks().shouldDelayFullscreenEventWhenExitingPictureInPictureQuirk())
+        notifyAboutFullscreenChangeOrError();
 
     return true;
 }
 
 bool FullscreenManager::didEnterFullscreen()
 {
+    if (document().quirks().shouldDelayFullscreenEventWhenExitingPictureInPictureQuirk())
+        notifyAboutFullscreenChangeOrError();
+
     if (!m_fullscreenElement) {
         ERROR_LOG(LOGIDENTIFIER, "No fullscreenElement; bailing");
         return false;
@@ -592,12 +597,14 @@ void FullscreenManager::dispatchEventForNode(Node& node, EventType eventType)
 {
     bool supportsUnprefixedAPI = document().settings().unprefixedFullscreenAPIEnabled();
     switch (eventType) {
-    case EventType::Change:
+    case EventType::Change: {
         if (supportsUnprefixedAPI)
             node.dispatchEvent(Event::create(eventNames().fullscreenchangeEvent, Event::CanBubble::Yes, Event::IsCancelable::No, Event::IsComposed::Yes));
-        if (!supportsUnprefixedAPI || !node.hasEventListeners(eventNames().fullscreenchangeEvent))
+        bool shouldEmitUnprefixed = !(node.hasEventListeners(eventNames().webkitfullscreenchangeEvent) && node.hasEventListeners(eventNames().fullscreenchangeEvent)) && !(node.document().hasEventListeners(eventNames().webkitfullscreenchangeEvent) && node.document().hasEventListeners(eventNames().fullscreenchangeEvent));
+        if (!supportsUnprefixedAPI || shouldEmitUnprefixed)
             node.dispatchEvent(Event::create(eventNames().webkitfullscreenchangeEvent, Event::CanBubble::Yes, Event::IsCancelable::No, Event::IsComposed::Yes));
         break;
+    }
     case EventType::Error:
         if (supportsUnprefixedAPI)
             node.dispatchEvent(Event::create(eventNames().fullscreenerrorEvent, Event::CanBubble::Yes, Event::IsCancelable::No, Event::IsComposed::Yes));

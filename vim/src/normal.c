@@ -913,7 +913,7 @@ normal_cmd(
 	msg_col = 0;
     }
 
-    old_pos = curwin->w_cursor;		// remember where cursor was
+    old_pos = curwin->w_cursor;		// remember where the cursor was
 
     // When 'keymodel' contains "startsel" some keys start Select/Visual
     // mode.
@@ -975,12 +975,15 @@ normal_end:
 	reset_reg_var();
 #endif
 
-    // Reset finish_op, in case it was set
 #ifdef CURSOR_SHAPE
     int prev_finish_op = finish_op;
 #endif
-    finish_op = FALSE;
-    may_trigger_modechanged();
+    if (oap->op_type == OP_NOP)
+    {
+	// Reset finish_op, in case it was set
+	finish_op = FALSE;
+	may_trigger_modechanged();
+    }
 #ifdef CURSOR_SHAPE
     // Redraw the cursor with another shape, if we were in Operator-pending
     // mode or did a replace command.
@@ -995,7 +998,7 @@ normal_end:
 #endif
 
     if (oap->op_type == OP_NOP && oap->regname == 0
-	    && ca.cmdchar != K_CURSORHOLD)
+						 && ca.cmdchar != K_CURSORHOLD)
 	clear_showcmd();
 
     checkpcmark();		// check if we moved since setting pcmark
@@ -1496,9 +1499,9 @@ prep_redo_num2(
 }
 
 /*
- * check for operator active and clear it
+ * Check for operator active and clear it.
  *
- * return TRUE if operator was active
+ * Beep and return TRUE if an operator was active.
  */
     static int
 checkclearop(oparg_T *oap)
@@ -1512,7 +1515,7 @@ checkclearop(oparg_T *oap)
 /*
  * Check for operator or Visual active.  Clear active operator.
  *
- * Return TRUE if operator or Visual was active.
+ * Beep and return TRUE if an operator or Visual was active.
  */
     static int
 checkclearopq(oparg_T *oap)
@@ -1803,9 +1806,19 @@ display_showcmd(void)
     cursor_off();
 
     if (*p_sloc == 's')
-	win_redr_status(curwin, FALSE);
+    {
+	if (showcmd_is_clear)
+	    curwin->w_redr_status = TRUE;
+	else
+	    win_redr_status(curwin, FALSE);
+    }
     else if (*p_sloc == 't')
-	draw_tabline();
+    {
+	if (showcmd_is_clear)
+	    redraw_tabline = TRUE;
+	else
+	    draw_tabline();
+    }
     else // 'showcmdloc' is "last" or empty
     {
 	if (!showcmd_is_clear)

@@ -1583,17 +1583,17 @@ inline void BuilderCustom::applyValueContent(BuilderState& builderState, CSSValu
     }
 
     bool didSet = false;
-    for (auto& item : downcast<CSSValueList>(value)) {
-        if (item->isImage()) {
-            builderState.style().setContent(builderState.createStyleImage(item.get()), didSet);
+    auto processSingleValue = [&] (const CSSValue& item) {
+        if (item.isImage()) {
+            builderState.style().setContent(builderState.createStyleImage(item), didSet);
             didSet = true;
-            continue;
+            return;
         }
 
         if (!is<CSSPrimitiveValue>(item))
-            continue;
+            return;
 
-        auto& contentValue = downcast<CSSPrimitiveValue>(item.get());
+        auto& contentValue = downcast<CSSPrimitiveValue>(item);
         if (contentValue.isString()) {
             builderState.style().setContent(contentValue.stringValue().impl(), didSet);
             didSet = true;
@@ -1638,6 +1638,12 @@ inline void BuilderCustom::applyValueContent(BuilderState& builderState, CSSValu
                 break;
             }
         }
+    };
+    if (is<CSSValueList>(value)) {
+        for (auto& item : downcast<CSSValueList>(value))
+            processSingleValue(item);
+    } else {
+        processSingleValue(value);
     }
     if (!didSet)
         builderState.style().clearContent();
@@ -2132,21 +2138,17 @@ inline void BuilderCustom::applyValueColor(BuilderState& builderState, CSSValue&
     auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
 
     // For the color property, current color is actually the inherited computed color.
-    auto absoluteColorOrInheritColor = [&](const StyleColor& color) {
-        if (color.isCurrentColor()) {
-            auto& parentStyle = builderState.parentStyle();
-            return parentStyle.color();
-        }
-        return color.absoluteColor();
+    auto resolveColor = [&](const StyleColor& color) {
+        return color.resolveColor(builderState.parentStyle().color());
     };
-    
+
     if (builderState.applyPropertyToRegularStyle()) {
         auto color = builderState.colorFromPrimitiveValue(primitiveValue, ForVisitedLink::No);
-        builderState.style().setColor(absoluteColorOrInheritColor(color));
+        builderState.style().setColor(resolveColor(color));
     }
     if (builderState.applyPropertyToVisitedLinkStyle()) {
         auto color = builderState.colorFromPrimitiveValue(primitiveValue, ForVisitedLink::Yes);
-        builderState.style().setVisitedLinkColor(absoluteColorOrInheritColor(color));
+        builderState.style().setVisitedLinkColor(resolveColor(color));
     }
     builderState.style().setDisallowsFastPathInheritance();
 }

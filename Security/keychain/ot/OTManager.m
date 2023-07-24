@@ -139,6 +139,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 @property (readonly) id<OTAccountsAdapter> accountsAdapter;
 @property (readonly) id<OTAuthKitAdapter> authKitAdapter;
 @property (readonly) id<OTTooManyPeersAdapter> tooManyPeersAdapter;
+@property (readonly) id<OTTapToRadarAdapter> tapToRadarAdapter;
 @property (readonly) id<OTDeviceInformationAdapter> deviceInformationAdapter;
 @property (readonly) id<OTPersonaAdapter> personaAdapter;
 @property (readonly) Class<OctagonAPSConnection> apsConnectionClass;
@@ -170,6 +171,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                     accountsAdapter:[[OTAccountsActualAdapter alloc] init]
                      authKitAdapter:[[OTAuthKitActualAdapter alloc] init]
                 tooManyPeersAdapter:[[OTTooManyPeersActualAdapter alloc] init]
+                  tapToRadarAdapter:[[OTTapToRadarActualAdapter alloc] init]
            deviceInformationAdapter:[[OTDeviceInformationActualAdapter alloc] init]
                      personaAdapter:[[OTPersonaActualAdapter alloc] init]
                  apsConnectionClass:[APSConnection class]
@@ -187,6 +189,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                    accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
                     authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
+                 tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
           deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                     personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                 apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
@@ -204,6 +207,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         _accountsAdapter = accountsAdapter;
         _authKitAdapter = authKitAdapter;
         _tooManyPeersAdapter = tooManyPeersAdapter;
+        _tapToRadarAdapter = tapToRadarAdapter;
         _deviceInformationAdapter = deviceInformationAdapter;
         _personaAdapter = personaAdapter;
         _loggerClass = loggerClass;
@@ -264,6 +268,8 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         _lockStateTracker = lockStateTracker;
         _personaAdapter = personaAdapter;
         _cloudKitClassDependencies = cloudKitClassDependencies;
+
+        // note: does not fill in _tapToRadarAdapter, _tooManyPeersAdapter, _authKitAdapter, or a few others
 
         _contexts = [NSMutableDictionary dictionary];
 
@@ -675,6 +681,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                                 accountsAdapter:self.accountsAdapter
                                                  authKitAdapter:self.authKitAdapter
                                             tooManyPeersAdapter:self.tooManyPeersAdapter
+                                              tapToRadarAdapter:self.tapToRadarAdapter
                                                lockStateTracker:self.lockStateTracker
                                        deviceInformationAdapter:self.deviceInformationAdapter];
 
@@ -726,6 +733,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                 accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
                                  authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                             tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
+                              tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
                                lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                        deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
 {
@@ -737,6 +745,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                          accountsAdapter:accountsAdapter
                           authKitAdapter:authKitAdapter
                      tooManyPeersAdapter:tooManyPeersAdapter
+                       tapToRadarAdapter:tapToRadarAdapter
                         lockStateTracker:lockStateTracker
                 deviceInformationAdapter:deviceInformationAdapter];
 }
@@ -749,6 +758,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                 accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
                                  authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                             tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
+                              tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
                                lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                        deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
 {
@@ -797,6 +807,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                                           authKitAdapter:authKitAdapter
                                                           personaAdapter:self.personaAdapter
                                                      tooManyPeersAdapter:tooManyPeersAdapter
+                                                       tapToRadarAdapter:tapToRadarAdapter
                                                         lockStateTracker:lockStateTracker
                                                      reachabilityTracker:self.reachabilityTracker
                                                      accountStateTracker:accountStateTracker
@@ -825,6 +836,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                          accountsAdapter:self.accountsAdapter
                           authKitAdapter:self.authKitAdapter
                      tooManyPeersAdapter:self.tooManyPeersAdapter
+                       tapToRadarAdapter:self.tapToRadarAdapter
                         lockStateTracker:self.lockStateTracker
                 deviceInformationAdapter:self.deviceInformationAdapter];
 }
@@ -890,6 +902,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                                  accountsAdapter:self.accountsAdapter
                                                   authKitAdapter:self.authKitAdapter
                                              tooManyPeersAdapter:self.tooManyPeersAdapter
+                                               tapToRadarAdapter:self.tapToRadarAdapter
                                                 lockStateTracker:self.lockStateTracker
                                         deviceInformationAdapter:self.deviceInformationAdapter];
     if(!context && error) {
@@ -1993,6 +2006,31 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }];
 }
 
+- (void)checkCustodianRecoveryKey:(OTControlArguments*)arguments
+                             uuid:(NSUUID *)uuid
+                            reply:(void (^)(bool exists, NSError *_Nullable error))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a checkCustodianRecoveryKey RPC for arguments (%@): %@", arguments, clientError);
+        reply(false, clientError);
+        return;
+    }
+
+    secnotice("octagon-custodian-recovery", "Check Custodian Recovery Key %@ for container: %@, context: %@", uuid, arguments.containerName, arguments.contextID);
+
+    SFAnalyticsActivityTracker *tracker = [[self.loggerClass logger] startLogSystemMetricsForActivityNamed:OctagonActivityCheckCustodianRecoveryKey];
+
+    [cfshContext startOctagonStateMachine];
+
+    [cfshContext rpcCheckCustodianRecoveryKeyWithUUID:uuid reply:^(bool exists, NSError *_Nullable error) {
+        [tracker stopWithEvent:OctagonEventCustodianRecoveryKey result:error];
+        reply(exists, error);
+    }];
+}
+
 ////
 // MARK: Inheritance Key
 ////
@@ -2187,6 +2225,31 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext rpcRemoveInheritanceKeyWithUUID:uuid reply:^(NSError *_Nullable error) {
         [tracker stopWithEvent:OctagonEventInheritanceKey result:error];
         reply(error);
+    }];
+}
+
+- (void)checkInheritanceKey:(OTControlArguments*)arguments
+                             uuid:(NSUUID *)uuid
+                            reply:(void (^)(bool exists, NSError *_Nullable error))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a checkInheritanceKey RPC for arguments (%@): %@", arguments, clientError);
+        reply(false, clientError);
+        return;
+    }
+
+    secnotice("octagon-custodian-recovery", "Check Custodian Recovery Key %@ for container: %@, context: %@", uuid, arguments.containerName, arguments.contextID);
+
+    SFAnalyticsActivityTracker *tracker = [[self.loggerClass logger] startLogSystemMetricsForActivityNamed:OctagonActivityCheckInheritanceKey];
+
+    [cfshContext startOctagonStateMachine];
+
+    [cfshContext rpcCheckInheritanceKeyWithUUID:uuid reply:^(bool exists, NSError *_Nullable error) {
+        [tracker stopWithEvent:OctagonEventInheritanceKey result:error];
+        reply(exists, error);
     }];
 }
 

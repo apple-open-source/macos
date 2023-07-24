@@ -138,7 +138,12 @@ NS_ASSUME_NONNULL_END
     NSInteger successCount = [self successCountForEventType:eventType];
     NSInteger hardFailureCount = [self hardFailureCountForEventType:eventType];
     NSInteger softFailureCount = [self softFailureCountForEventType:eventType];
-    [self insertOrReplaceInto:SFAnalyticsTableSuccessCount values:@{SFAnalyticsColumnEventType : eventType, SFAnalyticsColumnSuccessCount : @(successCount + 1), SFAnalyticsColumnHardFailureCount : @(hardFailureCount), SFAnalyticsColumnSoftFailureCount : @(softFailureCount)}];
+    [self insertOrReplaceInto:SFAnalyticsTableSuccessCount values:@{
+        SFAnalyticsColumnEventType : eventType,
+        SFAnalyticsColumnSuccessCount : @(successCount + 1),
+        SFAnalyticsColumnHardFailureCount : @(hardFailureCount),
+        SFAnalyticsColumnSoftFailureCount : @(softFailureCount),
+    }];
 }
 
 - (NSInteger)hardFailureCountForEventType:(NSString*)eventType
@@ -193,10 +198,24 @@ NS_ASSUME_NONNULL_END
             continue;
         }
 
-        successCountsDict[eventName] = @{SFAnalyticsTableSuccessCount : rowDict[SFAnalyticsColumnSuccessCount], SFAnalyticsColumnHardFailureCount : rowDict[SFAnalyticsColumnHardFailureCount], SFAnalyticsColumnSoftFailureCount : rowDict[SFAnalyticsColumnSoftFailureCount]};
+        successCountsDict[eventName] = @{
+            SFAnalyticsTableSuccessCount : rowDict[SFAnalyticsColumnSuccessCount],
+            SFAnalyticsColumnHardFailureCount : rowDict[SFAnalyticsColumnHardFailureCount],
+            SFAnalyticsColumnSoftFailureCount : rowDict[SFAnalyticsColumnSoftFailureCount],
+        };
     }
 
     return successCountsDict;
+}
+
+- (NSArray*)rockwells
+{
+    if (![self tryToOpenDatabase]) {
+        return [NSArray new];
+    }
+    return [self select:@[SFAnalyticsColumnData] from:SFAnalyticsTableRockwell mapEachRow:^id(id<SFSQLiteRow> row) {
+        return deserializedRecordFromRow(row);
+    }];
 }
 
 - (NSArray*)hardFailures
@@ -232,6 +251,10 @@ NS_ASSUME_NONNULL_END
     [self begin];
 
     NSMutableArray<SFAnalyticsEvent *> *all = [NSMutableArray new];
+
+    NSArray<SFAnalyticsEvent *> *rockwell = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableRockwell mapEachRow:rowToEvent];
+    [all addObjectsFromArray:rockwell];
+    rockwell = nil;
 
     NSArray<SFAnalyticsEvent *> *hard = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableHardFailures mapEachRow:rowToEvent];
     [all addObjectsFromArray:hard];
@@ -276,6 +299,31 @@ NS_ASSUME_NONNULL_END
         secerror("Couldn't serialize failure record: %@", error);
     }
 }
+
+- (void)addRockwellDict:(NSString *)eventName
+               userinfo:(NSDictionary*)eventDict
+                toTable:(NSString*)table
+        timestampBucket:(SFAnalyticsTimestampBucket)bucket
+{
+    if (![self tryToOpenDatabase]) {
+        return;
+    }
+
+    NSTimeInterval timestamp = [[NSDate date] timeIntervalSince1970WithBucket:bucket];
+    NSError* error = nil;
+    NSData* serializedRecord = [NSPropertyListSerialization dataWithPropertyList:eventDict format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
+    if(!error && serializedRecord) {
+        [self insertOrReplaceInto:table values:@{
+            SFAnalyticsColumnEventType : eventName,
+            SFAnalyticsColumnDate : @(timestamp),
+            SFAnalyticsColumnData : serializedRecord,
+        }];
+    }
+    if(error && !serializedRecord) {
+        secerror("Couldn't serialize failure record: %@", error);
+    }
+}
+
 
 - (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table
 {
@@ -333,7 +381,6 @@ NS_ASSUME_NONNULL_END
     }
 }
 
-
 - (void)clearAllData
 {
     if (![self tryToOpenDatabase]) {
@@ -343,6 +390,7 @@ NS_ASSUME_NONNULL_END
     [self deleteFrom:SFAnalyticsTableHardFailures where:@"id >= 0" bindings:nil];
     [self deleteFrom:SFAnalyticsTableSoftFailures where:@"id >= 0" bindings:nil];
     [self deleteFrom:SFAnalyticsTableSamples where:@"id >= 0" bindings:nil];
+    [self deleteFrom:SFAnalyticsTableRockwell where:@"event_type like ?" bindings:@[@"%"]];
 }
 
 @end

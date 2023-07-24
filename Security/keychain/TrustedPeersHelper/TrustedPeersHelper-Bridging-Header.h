@@ -31,6 +31,7 @@
 
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTPersonaAdapter.h"
+#import "keychain/ot/OTManagedConfigurationAdapter.h"
 #import "keychain/ot/ErrorUtils.h"
 #import "keychain/ot/proto/generated_source/OTEscrowRecord.h"
 #import "keychain/ot/proto/generated_source/OTEscrowRecordMetadata.h"
@@ -65,3 +66,6 @@
 #if TARGET_OS_OSX
 #include <sandbox.h>
 #endif
+
+#import <Security/SecABC.h>
+#import "OSX/utilities/SecInternalReleasePriv.h"

@@ -321,7 +321,6 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
     
     __block CFDataRef newParameters = NULL;
     __block bool initial_sync = false;
-    __block CFStringRef kvs_account_dsid = NULL;
     bool sosIsEnabled = [account sosIsEnabled];
     
     CFDictionaryForEach(updates, ^(const void *key, const void *value) {
@@ -363,14 +362,6 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
                 }
                 break;
             }
-            case kDSIDKey:
-                kvs_account_dsid = NULL;
-                if (isData(value)) {
-                    kvs_account_dsid = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, (CFDataRef) value, kCFStringEncodingUTF8);
-                } else if (isString(value)) {
-                    kvs_account_dsid = CFRetain(value);
-                }
-                break;
             case kRingKey:
                 if(isString(ring_name)) {
                     if(sosIsEnabled || sosDisabledRingException(ring_name)) { // listen for recovery ring and icloud identity ring
@@ -386,6 +377,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
             case kLastCircleKey:
             case kLastKeyParameterKey:
             case kUnknownKey:
+            case kDSIDKey:
                 secnotice("updates", "Unknown key '%@', ignoring", key);
                 break;
         }
@@ -415,11 +407,6 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
         CFArrayAppendValue(handledKeys, kSOSKVSKeyParametersKey);
     }
     CFReleaseNull(newParameters);
-    
-    if(kvs_account_dsid) {
-        SOSAccountAssertDSID(txn.account, kvs_account_dsid);
-        CFReleaseNull(kvs_account_dsid);
-    }
     
     if(initial_sync){
         CFArrayAppendValue(handledKeys, kSOSKVSInitialSyncKey);

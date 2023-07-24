@@ -80,9 +80,10 @@ generate_type_seq (const Symbol *s)
     fprintf (codefile,
 	     "int ret;\n"
 	     "void *ptr;\n"
+	     "size_t size = 0;\n"
 	     "\n"
-	     "ptr = realloc(data->val, \n"
-	     "\t(data->len + 1) * sizeof(data->val[0]));\n"
+	     "if (os_add_and_mul_overflow(data->len, 1, sizeof(data->val[0]), &size)) return ASN1_OVERRUN;\n"
+	     "ptr = realloc(data->val, size);\n"
 	     "if (ptr == NULL) return ENOMEM;\n"
 	     "data->val = ptr;\n\n"
 	     "ret = copy_%s(element, &data->val[data->len]);\n"
@@ -100,17 +101,20 @@ generate_type_seq (const Symbol *s)
 
     fprintf (codefile,
 	     "void *ptr;\n"
+	     "size_t size, move_size = 0;\n"
 	     "\n"
 	     "if (data->len == 0 || element >= data->len)\n"
 	     "\treturn ASN1_OVERRUN;\n"
 	     "free_%s(&data->val[element]);\n"
 	     "data->len--;\n"
 	     /* don't move if its the last element */
-	     "if (element < data->len)\n"
-	     "\tmemmove(&data->val[element], &data->val[element + 1], \n"
-	     "\t\tsizeof(data->val[0]) * (data->len - element));\n"
+	     "if (element < data->len) {\n"
+	     "if (os_mul_overflow(sizeof(data->val[0]), (data->len - element), &move_size)) return ASN1_OVERRUN;\n"
+	     "\tmemmove(&data->val[element], &data->val[element + 1], move_size);\n"
+	     "}\n"
 	     /* resize but don't care about failures since it doesn't matter */
-	     "ptr = realloc(data->val, data->len * sizeof(data->val[0]));\n"
+	     "if (os_mul_overflow(data->len, sizeof(data->val[0]), &size)) return ASN1_OVERRUN;\n"
+	     "ptr = realloc(data->val, size);\n"
 	     "if (ptr != NULL || data->len == 0) data->val = ptr;\n"
 	     "return 0;\n",
 	     subname);

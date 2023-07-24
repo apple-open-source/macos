@@ -41,5 +41,23 @@
 		<string>kTCCServiceListenEvent</string>
 		<string>kTCCServicePostEvent</string>
 	</array>
+	<key>com.apple.aop.hid-device.user-client</key>
+	<dict>
+		<key>wakehint</key>
+		<dict>
+			<key>aggd</key>
+			<dict/>
+		</dict>
+		<key>prox</key>
+		<dict>
+			<key>aggd</key>
+			<dict/>
+		</dict>
+		<key>aop-button</key>
+		<dict>
+			<key>aggd</key>
+			<dict/>
+		</dict>
+	</dict>
 </dict>
 </plist>

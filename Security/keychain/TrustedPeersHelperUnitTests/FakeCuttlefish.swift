@@ -9,6 +9,14 @@ import CloudKitCode
 import Foundation
 import InternalSwiftProtobuf
 
+public class FakeManagedConfiguration: OTManagedConfigurationAdapter {
+    var keychainAllowed = true
+
+    public func isCloudKeychainSyncAllowed() -> Bool {
+        return keychainAllowed
+    }
+}
+
 enum FakeCuttlefishOpinion {
     case trusts
     case trustsByPreapproval

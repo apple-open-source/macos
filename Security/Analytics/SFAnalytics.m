@@ -30,6 +30,7 @@
 #import "SFAnalyticsMultiSampler+Internal.h"
 #import "SFAnalyticsSQLiteStore.h"
 #import "SFAnalyticsCollection.h"
+#import "keychain/analytics/SecLaunchSequence.h"
 #import "NSDate+SFAnalytics.h"
 #import "utilities/debugging.h"
 #import <utilities/SecFileLocations.h>
@@ -50,6 +51,7 @@
 
 // SFAnalyticsDefines constants
 NSString* const SFAnalyticsTableSuccessCount = @"success_count";
+NSString* const SFAnalyticsTableRockwell = @"rockwell";
 NSString* const SFAnalyticsTableHardFailures = @"hard_failures";
 NSString* const SFAnalyticsTableSoftFailures = @"soft_failures";
 NSString* const SFAnalyticsTableSamples = @"samples";
@@ -131,9 +133,14 @@ NSString* const SFAnalyticsTableSchema =    @"CREATE TABLE IF NOT EXISTS hard_fa
                                                 @"hard_failure_count INTEGER,\n"
                                                 @"soft_failure_count INTEGER\n"
                                             @");\n"
+                                            @"CREATE TABLE IF NOT EXISTS rockwell (\n"
+                                                @"event_type STRING PRIMARY KEY,\n"
+                                                @"timestamp REAL,"
+                                                @"data BLOB\n"
+                                            @");\n"
                                             @"DROP TABLE IF EXISTS all_events;\n";
 
-NSUInteger const SFAnalyticsMaxEventsToReport = 1000;
+NSUInteger const SFAnalyticsMaxEventsToReport = 1000; // Max failures to report (not including health summaries)
 
 NSString* const SFAnalyticsErrorDomain = @"com.apple.security.sfanalytics";
 
@@ -642,7 +649,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 }
 
 // Daily CoreAnalytics metrics
-// Call this once per say if you want to have the once per day sampler collect their data and submit it
+// Call this once per say if you want to have the once per day sampler collect their data and submit i
 
 - (void)dailyCoreAnalyticsMetrics:(NSString *)eventName
 {
@@ -799,6 +806,10 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         else if (class == SFAnalyticsEventClassSuccess) {
             if (!(actions & SFAnalyticsMetricsHookExcludeCount)) {
                 [strongSelf.database incrementSuccessCountForEventType:eventName];
+            }
+        } else if (class == SFAnalyticsEventClassRockwell) {
+            if (!(actions & SFAnalyticsMetricsHookExcludeEvent)) {
+                [strongSelf.database addRockwellDict:eventName userinfo:eventDict toTable:SFAnalyticsTableRockwell timestampBucket:timestampBucket];
             }
         }
 
@@ -1007,6 +1018,18 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         (void)transaction;
         transaction = nil;
     });
+}
+
+
+- (void)noteLaunchSequence:(nonnull SecLaunchSequence *)launchSequence {
+    NSDictionary *reportAttributes = [launchSequence metricsReport];
+    if (reportAttributes == nil) {
+        return;
+    }
+    [self logEventNamed:[NSString stringWithFormat:@"Launch-%@", launchSequence.name]
+                  class:SFAnalyticsEventClassRockwell
+             attributes:reportAttributes
+        timestampBucket:SFAnalyticsTimestampBucketSecond];
 }
 
 // Flush the pending databases from - logMetrics:withName:oncePerReport:

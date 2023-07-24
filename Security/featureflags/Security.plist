@@ -115,5 +115,10 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>TTRTrustLossOnHomePod</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
 </dict>
 </plist>

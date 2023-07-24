@@ -106,15 +106,15 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSString* uuid;
 @property (nullable) NSData* encryptionKey;
 @property (nullable) NSData* signingKey;
-@property NSString* recoveryString;
-@property NSString* salt;
+@property (nullable) NSString* recoveryString;
+@property (nullable) NSString* salt;
 @property TPPBCustodianRecoveryKey_Kind kind;
 
 - (instancetype)initWithUUID:(NSString*)uuid
                encryptionKey:(NSData* _Nullable)encryptionKey
                   signingKey:(NSData* _Nullable)signingKey
-              recoveryString:(NSString*)recoveryString
-                        salt:(NSString*)salt
+              recoveryString:(NSString* _Nullable)recoveryString
+                        salt:(NSString* _Nullable)salt
                         kind:(TPPBCustodianRecoveryKey_Kind)kind;
 @end
 
@@ -169,6 +169,7 @@ notifyIdMS:(bool)notifyIdMS
 - (void)setAllowedMachineIDsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                            allowedMachineIDs:(NSSet<NSString*> *)allowedMachineIDs
                         honorIDMSListChanges:(BOOL)honorIDMSListChanges
+                                     version:(NSString* _Nullable)version
                                        reply:(void (^)(BOOL listDifferences, NSError * _Nullable error))reply;
 
 - (void)addAllowedMachineIDsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
@@ -459,6 +460,10 @@ notifyIdMS:(bool)notifyIdMS
                                               uuid:(NSUUID *)uuid
                                              reply:(void (^)(NSError* _Nullable error))reply;
 
+- (void)findCustodianRecoveryKeyWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                            uuid:(NSUUID *)uuid
+                                           reply:(void (^)(TrustedPeersHelperCustodianRecoveryKey* _Nullable crk, NSError* _Nullable error))reply;
+
 - (void)reportHealthWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                    stateMachineState:(NSString *)state
                           trustState:(NSString *)trustState
@@ -498,6 +503,10 @@ notifyIdMS:(bool)notifyIdMS
 
 - (void)performATOPRVActionsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                        reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)testSemaphoreWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                  arg:(NSString*)arg
+                                reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)preflightRecoverOctagonUsingRecoveryKey:(TPSpecificUser* _Nullable)specificUser
                                     recoveryKey:(NSString*)recoveryKey

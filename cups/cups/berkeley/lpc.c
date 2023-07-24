@@ -132,6 +132,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   */
 
   httpClose(http);
+  http = NULL;
 
   return (0);
 }

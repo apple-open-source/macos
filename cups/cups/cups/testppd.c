@@ -1100,6 +1100,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
     ippDelete(response);
     httpClose(http);
+    http = NULL;
     return (0);
   }
   else

@@ -81,7 +81,9 @@ typedef struct octagon_signpost_s {
 #define OctagonSignpostNameGenerateInheritanceKey                           "GenerateInheritanceKey"
 #define OctagonSignpostNameStoreInheritanceKey                              "StoreInheritanceKey"
 #define OctagonSignpostNameRemoveCustodianRecoveryKey                       "RemoveCustodianRecoveryKey"
+#define OctagonSignpostNameCheckCustodianRecoveryKey                        "CheckCustodianRecoveryKey"
 #define OctagonSignpostNameRemoveInheritanceKey                             "RemoveInheritanceKey"
+#define OctagonSignpostNameCheckInheritanceKey                              "CheckInheritanceKey"
 #define OctagonSignpostNamePerformedCDPStateMachineRun                      "PerformedCDPStateMachineRun"
 #define OctagonSignpostNameWaitForOctagonUpgrade                            "WaitForOctagonUpgrade"
 

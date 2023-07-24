@@ -234,7 +234,7 @@ _nc_read_termtype(TERMTYPE *ptr, char *buffer, int limit)
 
     ptr->num_Booleans = BOOLCOUNT;
     ptr->num_Numbers = NUMCOUNT;
-    ptr->num_Strings = STRCOUNT;
+    ptr->num_Strings = max(STRCOUNT, str_count);
 
     /*
      * Read extended entries, if any, after the normal end of terminfo data.
@@ -262,7 +262,7 @@ _nc_read_termtype(TERMTYPE *ptr, char *buffer, int limit)
 
 	ptr->num_Booleans = BOOLCOUNT + ext_bool_count;
 	ptr->num_Numbers = NUMCOUNT + ext_num_count;
-	ptr->num_Strings = STRCOUNT + ext_str_count;
+	ptr->num_Strings = max(str_count, STRCOUNT) + ext_str_count;
 
 	ptr->Booleans = typeRealloc(NCURSES_SBOOL, ptr->num_Booleans, ptr->Booleans);
 	ptr->Numbers = typeRealloc(short, ptr->num_Numbers, ptr->Numbers);
@@ -310,7 +310,7 @@ _nc_read_termtype(TERMTYPE *ptr, char *buffer, int limit)
 	    TR(TRACE_DATABASE,
 	       ("Before computing extended-string capabilities str_count=%d, ext_str_count=%d",
 		str_count, ext_str_count));
-	    convert_strings(buf, ptr->Strings + str_count, ext_str_count,
+	    convert_strings(buf, ptr->Strings + max(str_count, STRCOUNT), ext_str_count,
 			    ext_str_limit, ptr->ext_str_table);
 	    for (i = ext_str_count - 1; i >= 0; i--) {
 		TR(TRACE_DATABASE, ("MOVE from [%d:%d] %s",

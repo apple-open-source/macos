@@ -38,7 +38,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(trustStatusWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(resetWithSpecificUser:resetReason:idmsTargetContext:idmsCuttlefishPassword:notifyIdMS:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(localResetWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(setAllowedMachineIDsWithSpecificUser:allowedMachineIDs:honorIDMSListChanges:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(setAllowedMachineIDsWithSpecificUser:allowedMachineIDs:honorIDMSListChanges:version:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(addAllowedMachineIDsWithSpecificUser:machineIDs:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(removeAllowedMachineIDsWithSpecificUser:machineIDs:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchAllowedMachineIDsWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
@@ -72,6 +72,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(setRecoveryKeyWithSpecificUser:recoveryKey:salt:ckksKeys:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(createCustodianRecoveryKeyWithSpecificUser:recoveryKey:salt:ckksKeys:uuid:kind:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(removeCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(reportHealthWithSpecificUser:stateMachineState:trustState:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(pushHealthInquiryWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:knownFederations:reply:) argumentIndex:5 ofReply:YES];
@@ -80,6 +81,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(removeEscrowCacheWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchAccountSettingsWithSpecificUser:forceFetch:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(isRecoveryKeySet:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(testSemaphoreWithSpecificUser:arg:reply:) argumentIndex:0 ofReply:YES];
 
         [interface setClasses:arrayOfSettings forSelector:@selector(fetchAccountSettingsWithSpecificUser:forceFetch:reply:) argumentIndex:0 ofReply:YES];
        
@@ -209,6 +211,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                                            crk:
                                                                                            tlkShares:
                                                                                            reply:) argumentIndex:1 ofReply:NO];
+        [interface setClasses:trustedPeersHelperCustodianRecoveryKey forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:trustedPeersHelperPeerState forSelector:@selector(updateWithSpecificUser:
                                                                                 forceRefetch:
                                                                                 deviceName:

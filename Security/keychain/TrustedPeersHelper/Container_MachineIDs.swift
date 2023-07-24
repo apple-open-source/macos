@@ -86,15 +86,18 @@ extension Container {
         }
     }
 
-    func setAllowedMachineIDs(_ allowedMachineIDs: Set<String>, honorIDMSListChanges: Bool, reply: @escaping (Bool, Error?) -> Void) {
-        self.semaphore.wait()
+    func setAllowedMachineIDs(_ allowedMachineIDs: Set<String>,
+                              honorIDMSListChanges: Bool,
+                              version: String?,
+                              reply: @escaping (Bool, Error?) -> Void) {
+        let sem = self.grabSemaphore()
         let reply: (Bool, Error?) -> Void = {
             logger.info("setAllowedMachineIDs complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
-        logger.info("Setting allowed machine IDs: \(allowedMachineIDs, privacy: .public)")
+        logger.info("Setting allowed machine IDs: \(allowedMachineIDs, privacy: .public), version \(String(describing: version), privacy: .public)")
 
         // Note: we currently ignore any machineIDs that are set in the model, but never appeared on the
         // Trusted Devices list. We should give them a grace period (1wk?) then kick them out.
@@ -196,6 +199,8 @@ extension Container {
                     logger.notice("Believe we're in a demo account, not enforcing IDMS list")
                 }
 
+                self.containerMO.idmsTrustedDevicesVersion = version
+
                 // We no longer use allowed machine IDs.
                 self.containerMO.allowedMachineIDs = NSSet()
 
@@ -210,10 +215,10 @@ extension Container {
     }
 
     func addAllow(_ machineIDs: [String], reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             logger.info("addAllow complete: \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -259,10 +264,10 @@ extension Container {
     }
 
     func removeAllow(_ machineIDs: [String], reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             logger.info("removeAllow complete: \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -308,10 +313,10 @@ extension Container {
     }
 
     func fetchAllowedMachineIDs(reply: @escaping (Set<String>?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Set<String>?, Error?) -> Void = {
             logger.info("fetchAllowedMachineIDs complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 

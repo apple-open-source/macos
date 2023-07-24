@@ -2047,11 +2047,16 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     OctagonSetSOSFeatureEnabled(true);
     
     NSArray *allowedAccessGroups = @[
-        @"com.apple.cfnetwork",
         @"com.apple.safari.credit-cards",
+        @"com.apple.cfnetwork",
+        @"com.apple.cfnetwork-recently-deleted",
         @"com.apple.password-manager",
-        @"com.apple.other.agrp",
+        @"com.apple.password-manager-recently-deleted",
+        @"com.apple.password-manager.personal",
+        @"com.apple.password-manager.personal-recently-deleted",
         @"com.apple.webkit.webauthn",
+        @"com.apple.webkit.webauthn-recently-deleted",
+        @"com.apple.other.agrp",
     ];
     SecurityClient client = {
         .accessGroups = (__bridge CFArrayRef)allowedAccessGroups,
@@ -2067,17 +2072,6 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert Internet password to remove");
 
-    // Items in this access group aren't removed on sign out.
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
-        (id)kSecClass: (id)kSecClassInternetPassword,
-        (id)kSecUseDataProtectionKeychain: @YES,
-        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
-        (id)kSecAttrSynchronizable: @YES,
-        (id)kSecAttrAccessGroup: @"com.apple.other.agrp",
-        (id)kSecAttrAccount: @"account2",
-        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
-    }, &client, NULL, NULL), "Should insert Internet password to keep");
-
     XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
@@ -2087,6 +2081,34 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecAttrService: @"service1",
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert first generic password to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassCertificate,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.cfnetwork",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert certificate to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.cfnetwork-recently-deleted",
+        (id)kSecAttrService: @"service1",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert first generic password to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassCertificate,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.cfnetwork-recently-deleted",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert certificate to remove");
 
     XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassGenericPassword,
@@ -2099,13 +2121,14 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     }, &client, NULL, NULL), "Should insert second generic password to remove");
 
     XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
-        (id)kSecClass: (id)kSecClassCertificate,
+        (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
-        (id)kSecAttrSynchronizable: @YES,
-        (id)kSecAttrAccessGroup: @"com.apple.cfnetwork",
-        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
-    }, &client, NULL, NULL), "Should insert certificate to remove");
+        (id)kSecAttrSynchronizable: @NO,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager",
+        (id)kSecAttrLabel: @"origin.example.net",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert unsynced key to keep");
 
     XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
@@ -2113,6 +2136,96 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
         (id)kSecAttrSynchronizable: @YES,
         (id)kSecAttrAccessGroup: @"com.apple.password-manager",
+        (id)kSecAttrLabel: @"origin.example.com",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert first key to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager-recently-deleted",
+        (id)kSecAttrService: @"service2",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert second generic password to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @NO,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager-recently-deleted",
+        (id)kSecAttrLabel: @"origin.example.net",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert unsynced key to keep");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager-recently-deleted",
+        (id)kSecAttrLabel: @"origin.example.com",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert first key to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal",
+        (id)kSecAttrService: @"service2",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert second generic password to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @NO,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal",
+        (id)kSecAttrLabel: @"origin.example.net",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert unsynced key to keep");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal",
+        (id)kSecAttrLabel: @"origin.example.com",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert first key to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal-recently-deleted",
+        (id)kSecAttrService: @"service2",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert second generic password to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @NO,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal-recently-deleted",
+        (id)kSecAttrLabel: @"origin.example.net",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert unsynced key to keep");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal-recently-deleted",
         (id)kSecAttrLabel: @"origin.example.com",
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert first key to remove");
@@ -2131,11 +2244,23 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
-        (id)kSecAttrSynchronizable: @NO,
-        (id)kSecAttrAccessGroup: @"com.apple.password-manager",
-        (id)kSecAttrLabel: @"origin.example.net",
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.webkit.webauthn-recently-deleted",
+        (id)kSecAttrLabel: @"origin.example.com",
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
-    }, &client, NULL, NULL), "Should insert unsynced key to keep");
+    }, &client, NULL, NULL), "Should insert second key to remove");
+
+
+    // Items in this access group aren't removed on sign out.
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.other.agrp",
+        (id)kSecAttrAccount: @"account2",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert Internet password to keep");
 
     {
         dispatch_queue_t notificationQueue = dispatch_queue_create("com.apple.security.secdxctests.KeychainAPITests.testDeleteItemsOnSignOut", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
@@ -2203,6 +2328,58 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
         bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassCertificate,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.cfnetwork",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed all certificates");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassGenericPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.cfnetwork-recently-deleted",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed first generic password");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassCertificate,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.cfnetwork-recently-deleted",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed all certificates");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassGenericPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2214,6 +2391,125 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         NSError *error = CFBridgingRelease(rawError);
         XCTAssertFalse(ok, "Should have removed second generic password");
         XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassKey,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, NULL);
+        XCTAssertTrue(ok, "Should have kept unsynced key");
+        NSArray *result = CFBridgingRelease(rawResult);
+        XCTAssertEqual(result.count, 1);
+        XCTAssertEqualObjects(result.firstObject[(id)kSecAttrLabel], @"origin.example.net");
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassGenericPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager-recently-deleted",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed second generic password");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassKey,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager-recently-deleted",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, NULL);
+        XCTAssertTrue(ok, "Should have kept unsynced key");
+        NSArray *result = CFBridgingRelease(rawResult);
+        XCTAssertEqual(result.count, 1);
+        XCTAssertEqualObjects(result.firstObject[(id)kSecAttrLabel], @"origin.example.net");
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassGenericPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed second generic password");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassKey,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, NULL);
+        XCTAssertTrue(ok, "Should have kept unsynced key");
+        NSArray *result = CFBridgingRelease(rawResult);
+        XCTAssertEqual(result.count, 1);
+        XCTAssertEqualObjects(result.firstObject[(id)kSecAttrLabel], @"origin.example.net");
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassGenericPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal-recently-deleted",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed second generic password");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassKey,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager.personal-recently-deleted",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, NULL);
+        XCTAssertTrue(ok, "Should have kept unsynced key");
+        NSArray *result = CFBridgingRelease(rawResult);
+        XCTAssertEqual(result.count, 1);
+        XCTAssertEqualObjects(result.firstObject[(id)kSecAttrLabel], @"origin.example.net");
     }
 
     {
@@ -2237,16 +2533,16 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
         bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
-            (id)kSecClass: (id)kSecClassCertificate,
+            (id)kSecClass: (id)kSecClassInternetPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
-            (id)kSecAttrAccessGroup: @"com.apple.cfnetwork",
+            (id)kSecAttrAccessGroup: @"com.apple.webkit.webauthn-recently-deleted",
 
             (id)kSecMatchLimit: (id)kSecMatchLimitAll,
             (id)kSecReturnAttributes: @YES,
         }, &client, &rawResult, &rawError);
         NSError *error = CFBridgingRelease(rawError);
-        XCTAssertFalse(ok, "Should have removed all certificates");
+        XCTAssertFalse(ok, "Should have removed all WebAuthn keys");
         XCTAssertEqual(error.code, errSecItemNotFound);
     }
 
@@ -2265,23 +2561,6 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         NSArray *result = CFBridgingRelease(rawResult);
         XCTAssertEqual(result.count, 1);
         XCTAssertEqualObjects(result.firstObject[(id)kSecAttrAccount], @"account2");
-    }
-
-    {
-        CFTypeRef rawResult = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
-            (id)kSecClass: (id)kSecClassKey,
-            (id)kSecUseDataProtectionKeychain: @YES,
-            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
-            (id)kSecAttrAccessGroup: @"com.apple.password-manager",
-
-            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
-            (id)kSecReturnAttributes: @YES,
-        }, &client, &rawResult, NULL);
-        XCTAssertTrue(ok, "Should have kept unsynced key");
-        NSArray *result = CFBridgingRelease(rawResult);
-        XCTAssertEqual(result.count, 1);
-        XCTAssertEqualObjects(result.firstObject[(id)kSecAttrLabel], @"origin.example.net");
     }
 }
 

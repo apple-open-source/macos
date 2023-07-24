@@ -203,6 +203,16 @@ tgoto(const char *string, int x, int y)
 	result = tgoto_internal(string, x, y);
     else
 #endif
-	result = TPARM_2((NCURSES_CONST char *) string, y, x);
+    if ((result = TIPARM_2((NCURSES_CONST char *) string, y, x)) == NULL) {
+	    /*
+	     * 		* Because termcap did not provide a more general solution such as
+	     * 				* tparm(), it was necessary to handle single-parameter capabilities
+	     * 						* using tgoto().  The internal _nc_tiparm() function returns a NULL
+	     * 								* for that case; retry for the single-parameter case.
+	     * 										*/
+	    if ((result = TIPARM_1(string, y)) == NULL) {
+		    result = TIPARM_0(string);
+	    }
+    }
     returnPtr(result);
 }

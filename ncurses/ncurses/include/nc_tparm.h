@@ -63,3 +63,15 @@
 #define TPARM_1(a,b) TPARM_2(a,b,0)
 #define TPARM_0(a) TPARM_1(a,0)
 #endif
+
+#define TIPARM_0(s) _nc_tiparm(0,s)
+#define TIPARM_1(s,a) _nc_tiparm(1,s,a)
+#define TIPARM_2(s,a,b) _nc_tiparm(2,s,a,b)
+#define TIPARM_3(s,a,b,c) _nc_tiparm(3,s,a,b,c)
+#define TIPARM_4(s,a,b,c,d) _nc_tiparm(4,s,a,b,c,d)
+#define TIPARM_5(s,a,b,c,d,e) _nc_tiparm(5,s,a,b,c,d,e)
+#define TIPARM_6(s,a,b,c,d,e,f) _nc_tiparm(6,s,a,b,c,d,e,f)
+#define TIPARM_7(s,a,b,c,d,e,f,g) _nc_tiparm(7,s,a,b,c,d,e,f,g)
+#define TIPARM_8(s,a,b,c,d,e,f,g,h) _nc_tiparm(8,s,a,b,c,d,e,f,g,h)
+#define TIPARM_9(s,a,b,c,d,e,f,g,h,i) _nc_tiparm(9,s,a,b,c,d,e,f,g,h,i)
+

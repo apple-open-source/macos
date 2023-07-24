@@ -242,6 +242,9 @@
 #if (defined(UNIX) || defined(VMS)) \
 	&& (!defined(MACOS_X) || defined(HAVE_CONFIG_H))
 # include "os_unix.h"	    // bring lots of system header files
+#else
+  // For all non-Unix systems: use old-fashioned signal().
+# define mch_signal(signum, sighandler) signal(signum, sighandler)
 #endif
 
 // Mark unused function arguments with UNUSED, so that gcc -Wunused-parameter
@@ -1873,7 +1876,8 @@ typedef LARGE_INTEGER proftime_T;
 #  define PROF_TOTALS_HEADER "count  total (s)   self (s)"
 # else
    // Use tv_fsec for fraction of second (micro or nano) of proftime_T
-#  if defined(HAVE_TIMER_CREATE)
+#  if defined(HAVE_TIMER_CREATE) && defined(HAVE_CLOCK_GETTIME)
+#   define PROF_NSEC 1
 typedef struct timespec proftime_T;
 #   define PROF_GET_TIME(tm) clock_gettime(CLOCK_MONOTONIC, tm)
 #   define tv_fsec tv_nsec
@@ -2253,6 +2257,7 @@ typedef enum {
     ASSERT_NOTEQUAL,
     ASSERT_MATCH,
     ASSERT_NOTMATCH,
+    ASSERT_FAILS,
     ASSERT_OTHER
 } assert_type_T;
 
@@ -2757,6 +2762,7 @@ typedef char *(*opt_did_set_cb_T)(optset_T *args);
 // flags for find_name_end()
 #define FNE_INCL_BR	1	// include [] in name
 #define FNE_CHECK_START	2	// check name starts with valid character
+#define FNE_ALLOW_CURLY	4	// always allow curly braces name
 
 // BSD is supposed to cover FreeBSD and similar systems.
 #if (defined(SUN_SYSTEM) || defined(BSD) || defined(__FreeBSD_kernel__)) \

@@ -175,7 +175,7 @@ curl_headers_msg="enabled (--disable-headers-api)"
     ssl_backends=
      curl_h1_msg="enabled (internal)"
      curl_h2_msg="no      (--with-nghttp2, --with-hyper)"
-     curl_h3_msg="no      (--with-ngtcp2, --with-quiche --with-msh3)"
+     curl_h3_msg="no      (--with-ngtcp2 --with-nghttp3, --with-quiche, --with-msh3)"
 
 enable_altsvc="yes"
 hsts="yes"
@@ -185,6 +185,21 @@ dnl Save some initial values the user might have provided
 dnl
 INITIAL_LDFLAGS=$LDFLAGS
 INITIAL_LIBS=$LIBS
+
+dnl
+dnl Generates a shell script to run the compiler with LD_LIBRARY_PATH set to
+dnl the value used right now. This lets CURL_RUN_IFELSE set LD_LIBRARY_PATH to
+dnl something different but only have that affect the execution of the results
+dnl of the compile, not change the libraries for the compiler itself.
+dnl
+compilersh="run-compiler"
+export "CURL_SAVED_CC=$CC"
+export "CURL_SAVED_LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+cat <<\EOF > "$compilersh"
+export "CC=$CURL_SAVED_CC"
+export "LD_LIBRARY_PATH=$CURL_SAVED_LD_LIBRARY_PATH"
+exec $CC "$@"
+EOF
 
 dnl **********************************************************************
 dnl See which TLS backend(s) that are requested. Just do all the
@@ -323,17 +338,19 @@ AC_SUBST(CADDY)
 
 dnl we'd like a httpd+apachectl as test server
 dnl
+HTTPD_ENABLED="maybe"
 AC_ARG_WITH(test-httpd, [AS_HELP_STRING([--with-test-httpd=PATH],
                          [where to find httpd/apache2 for testing])],
   [request_httpd=$withval], [request_httpd=check])
-if test x"$request_httpd" = "xcheck"; then
+if test x"$request_httpd" = "xcheck" -o x"$request_httpd" = "xyes"; then
   if test -x "/usr/sbin/apache2" -a -x "/usr/sbin/apache2ctl"; then
     # common location on distros (debian/ubuntu)
     HTTPD="/usr/sbin/apache2"
     APACHECTL="/usr/sbin/apache2ctl"
     AC_PATH_PROG([APXS], [apxs])
-    if test "x$APXS" != "x"; then
+    if test "x$APXS" = "x"; then
       AC_MSG_NOTICE([apache2-dev not installed, httpd tests disabled])
+      HTTPD_ENABLED="no"
     fi
   else
     AC_PATH_PROG([HTTPD], [httpd])
@@ -343,37 +360,47 @@ if test x"$request_httpd" = "xcheck"; then
     AC_PATH_PROG([APACHECTL], [apachectl])
     AC_PATH_PROG([APXS], [apxs])
     if test "x$HTTPD" = "x" -o "x$APACHECTL" = "x"; then
-      AC_MSG_NOTICE([httpd/apache2 not in PATH, httpd tests disabled])
+      AC_MSG_NOTICE([httpd/apache2 not in PATH, http tests disabled])
+      HTTPD_ENABLED="no"
     fi
     if test "x$APXS" = "x"; then
-      AC_MSG_NOTICE([apxs not in PATH, httpd tests disabled])
+      AC_MSG_NOTICE([apxs not in PATH, http tests disabled])
+      HTTPD_ENABLED="no"
     fi
   fi
-else
+elif test x"$request_httpd" != "xno"; then
   HTTPD="${request_httpd}/bin/httpd"
   APACHECTL="${request_httpd}/bin/apachectl"
   APXS="${request_httpd}/bin/apxs"
   if test ! -x "${HTTPD}"; then
-    AC_MSG_NOTICE([httpd not found as ${HTTPD}, httpd tests disabled])
+    AC_MSG_NOTICE([httpd not found as ${HTTPD}, http tests disabled])
+    HTTPD_ENABLED="no"
   elif test ! -x "${APACHECTL}"; then
-    AC_MSG_NOTICE([apachectl not found as ${APACHECTL}, httpd tests disabled])
+    AC_MSG_NOTICE([apachectl not found as ${APACHECTL}, http tests disabled])
+    HTTPD_ENABLED="no"
   elif test ! -x "${APXS}"; then
-    AC_MSG_NOTICE([apxs not found as ${APXS}, httpd tests disabled])
+    AC_MSG_NOTICE([apxs not found as ${APXS}, http tests disabled])
+    HTTPD_ENABLED="no"
   else
     AC_MSG_NOTICE([using HTTPD=$HTTPD for tests])
   fi
+fi
+if test x"$HTTPD_ENABLED" = "xno"; then
+  HTTPD=""
+  APACHECTL=""
+  APXS=""
 fi
 AC_SUBST(HTTPD)
 AC_SUBST(APACHECTL)
 AC_SUBST(APXS)
 
 dnl the nghttpx we might use in httpd testing
-if test "x$TEST_NGHTTPX" != "x"; then
+if test "x$TEST_NGHTTPX" != "x" -a "x$TEST_NGHTTPX" != "xnghttpx"; then
   HTTPD_NGHTTPX="$TEST_NGHTTPX"
 else
-  AC_PATH_PROG([HTTPD_NGHTTPX], [nghttpx])
+  AC_PATH_PROG([HTTPD_NGHTTPX], [nghttpx], [],
+    [$PATH:/usr/bin:/usr/local/bin])
 fi
-    AC_PATH_PROG([APXS], [apxs])
 AC_SUBST(HTTPD_NGHTTPX)
 
 dnl the Caddy server we might use in testing
@@ -612,12 +639,25 @@ case $host in
       ]])
     ],[
       curl_mingw_original=yes
+      curl_mingw_die=yes
       AC_MSG_RESULT([yes])
     ],[
       AC_MSG_RESULT([no])
     ])
     ;;
 esac
+
+
+AC_ARG_WITH(mingw1-deprecated,dnl
+AS_HELP_STRING([--with-mingw1-deprecated],[confirm you realize support for mingw v1 is dying]),
+  if test X"$withval" != Xno; then
+    curl_mingw_die=
+  fi
+)
+
+if test -n "$curl_mingw_die"; then
+  AC_MSG_ERROR([support for mingw v1 is going away, enable temporarily with --with-mingw1-deprecated])
+fi
 
 dnl **********************************************************************
 dnl Compilation based checks should not be done before this point.
@@ -870,13 +910,11 @@ if test X"$want_hyper" != Xno; then
   AC_MSG_NOTICE([Disable RTSP support with hyper])
   AC_DEFINE(CURL_DISABLE_RTSP, 1, [to disable RTSP])
   AC_SUBST(CURL_DISABLE_RTSP, [1])
-
 else
-
   AC_MSG_CHECKING([whether to support rtsp])
   AC_ARG_ENABLE(rtsp,
-  AS_HELP_STRING([--enable-rtsp],[Enable RTSP support])
-  AS_HELP_STRING([--disable-rtsp],[Disable RTSP support]),
+AS_HELP_STRING([--enable-rtsp],[Enable RTSP support])
+AS_HELP_STRING([--disable-rtsp],[Disable RTSP support]),
   [ case "$enableval" in
     no)
        AC_MSG_RESULT(no)
@@ -1769,9 +1807,17 @@ AC_MSG_CHECKING([if argv can be written to])
 CURL_RUN_IFELSE([[
 int main(int argc, char **argv)
 {
+#ifdef _WIN32
+  /* on Windows, writing to the argv does not hide the argument in
+     process lists so it can just be skipped */
+  (void)argc;
+  (void)argv;
+  return 1;
+#else
   (void)argc;
   argv[0][0] = ' ';
   return (argv[0][0] == ' ')?0:1;
+#endif
 }
 ]],[
   curl_cv_writable_argv=yes
@@ -2773,6 +2819,8 @@ if test X"$want_nghttp2" != Xno; then
     dnl no nghttp2 pkg-config found and no custom directory specified,
     dnl deal with it
     AC_MSG_ERROR([--with-nghttp2 was specified but could not find libnghttp2 pkg-config file.])
+  else
+    LIB_H2="-lnghttp2"
   fi
 
   LDFLAGS="$LDFLAGS $LD_H2"
@@ -3211,7 +3259,7 @@ if test X"$want_quiche" != Xno; then
     if test "x$cross_compiling" != "xyes"; then
       DIR_QUICHE=`echo $LD_QUICHE | $SED -e 's/^-L//'`
     fi
-    AC_CHECK_LIB(quiche, quiche_connect,
+    AC_CHECK_LIB(quiche, quiche_conn_send_ack_eliciting,
       [
        AC_CHECK_HEADERS(quiche.h,
           experimental="$experimental HTTP3"
@@ -3464,6 +3512,9 @@ CPPFLAGS="-I$srcdir/include $CPPFLAGS"
 CURL_SIZEOF(curl_off_t, [
 #include <curl/system.h>
 ])
+CURL_SIZEOF(curl_socket_t, [
+#include <curl/curl.h>
+])
 CPPFLAGS=$o
 
 AC_CHECK_TYPE(long long,
@@ -3472,17 +3523,8 @@ AC_CHECK_TYPE(long long,
    longlong="yes"
 )
 
-
 if test ${ac_cv_sizeof_curl_off_t} -lt 8; then
-  AC_ARG_WITH(n64-deprecated,dnl
-AS_HELP_STRING([--with-n64-deprecated],[confirm you realize support for systems without 64 bit data types is going away]),
-  if test X"$withval" != Xno; then
-    OPT_N64_AWARE=$withval
-  fi
-)
-  if test -z "$OPT_N64_AWARE"; then
-    AC_MSG_ERROR([support for systems without 64 bit curl_off_t is deprecated, use --with-n64-deprecated until then])
-  fi
+  AC_MSG_ERROR([64 bit curl_off_t is required])
 fi
 
 # check for ssize_t
@@ -3635,7 +3677,8 @@ AC_CHECK_FUNCS([fnmatch \
   setrlimit \
   snprintf \
   utime \
-  utimes
+  utimes \
+  arc4random
 ],[
 ],[
   func="$ac_func"
@@ -4232,14 +4275,13 @@ AS_HELP_STRING([--disable-headers-api],[Disable headers-api support]),
 
 dnl only check for HSTS if there's SSL present
 if test -n "$SSL_ENABLED"; then
-
   dnl ************************************************************
   dnl switch on/off hsts
   dnl
   AC_MSG_CHECKING([whether to support HSTS])
   AC_ARG_ENABLE(hsts,
-  AS_HELP_STRING([--enable-hsts],[Enable HSTS support])
-  AS_HELP_STRING([--disable-hsts],[Disable HSTS support]),
+AS_HELP_STRING([--enable-hsts],[Enable HSTS support])
+AS_HELP_STRING([--disable-hsts],[Disable HSTS support]),
   [ case "$enableval" in
     no)
        AC_MSG_RESULT(no)
@@ -4367,6 +4409,8 @@ else
   LIBCURL_NO_SHARED=
 fi
 AC_SUBST(LIBCURL_NO_SHARED)
+
+rm $compilersh
 
 dnl
 dnl For keeping supported features and protocols also in pkg-config file
@@ -4663,8 +4707,9 @@ AC_CONFIG_FILES([Makefile \
            tests/server/Makefile \
            tests/libtest/Makefile \
            tests/unit/Makefile \
-           tests/tests-httpd/config.ini \
-           tests/tests-httpd/Makefile \
+           tests/http/config.ini \
+           tests/http/Makefile \
+           tests/http/clients/Makefile \
            packages/Makefile \
            packages/vms/Makefile \
            curl-config \
@@ -4673,8 +4718,6 @@ AC_CONFIG_FILES([Makefile \
 AC_OUTPUT
 
 CURL_GENERATE_CONFIGUREHELP_PM
-
-XC_AMEND_DISTCLEAN([lib src tests/unit tests/server tests/libtest docs/examples])
 
 AC_MSG_NOTICE([Configured to build curl/libcurl:
 

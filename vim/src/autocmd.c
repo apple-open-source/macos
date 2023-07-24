@@ -1566,6 +1566,8 @@ aucmd_prepbuf(
     aco->save_curwin_id = curwin->w_id;
     aco->save_curbuf = curbuf;
     aco->save_prevwin_id = prevwin == NULL ? 0 : prevwin->w_id;
+    aco->save_State = State;
+
     if (win != NULL)
     {
 	// There is a window for "buf" in the current tab page, make it the
@@ -1657,7 +1659,13 @@ aucmd_restbuf(
 	    }
 	}
 win_found:
-
+#ifdef FEAT_JOB_CHANNEL
+	// May need to stop Insert mode if we were in a prompt buffer.
+	leaving_window(curwin);
+	// Do not stop Insert mode when already in Insert mode before.
+	if (aco->save_State & MODE_INSERT)
+	    stop_insert_mode = FALSE;
+#endif
 	// Remove the window and frame from the tree of frames.
 	(void)winframe_remove(curwin, &dummy, NULL);
 	win_remove(curwin, NULL);
@@ -2012,7 +2020,7 @@ apply_autocmds_group(
     save_redo_T	save_redo;
     int		save_KeyTyped = KeyTyped;
     int		save_did_emsg;
-    ESTACK_CHECK_DECLARATION
+    ESTACK_CHECK_DECLARATION;
 
     /*
      * Quickly return if there are no autocommands for this event or
@@ -2218,7 +2226,7 @@ apply_autocmds_group(
 
     // name and lnum are filled in later
     estack_push(ETYPE_AUCMD, NULL, 0);
-    ESTACK_CHECK_SETUP
+    ESTACK_CHECK_SETUP;
 
     save_current_sctx = current_sctx;
 
@@ -2331,7 +2339,7 @@ apply_autocmds_group(
     filechangeshell_busy = FALSE;
     autocmd_nested = save_autocmd_nested;
     vim_free(SOURCING_NAME);
-    ESTACK_CHECK_NOW
+    ESTACK_CHECK_NOW;
     estack_pop();
     vim_free(autocmd_fname);
     autocmd_fname = save_autocmd_fname;

@@ -85,7 +85,8 @@ typedef ssize_t  Curl_cft_recv(struct Curl_cfilter *cf,
                                CURLcode *err);         /* error to return */
 
 typedef bool     Curl_cft_conn_is_alive(struct Curl_cfilter *cf,
-                                        struct Curl_easy *data);
+                                        struct Curl_easy *data,
+                                        bool *input_pending);
 
 typedef CURLcode Curl_cft_conn_keep_alive(struct Curl_cfilter *cf,
                                           struct Curl_easy *data);
@@ -109,8 +110,6 @@ typedef CURLcode Curl_cft_conn_keep_alive(struct Curl_cfilter *cf,
 #define CF_CTRL_DATA_DONE_SEND        8  /* 0          NULL     ignored */
 /* update conn info at connection and data */
 #define CF_CTRL_CONN_INFO_UPDATE (256+0) /* 0          NULL     ignored */
-/* report conn statistics (timers) for connection and data */
-#define CF_CTRL_CONN_REPORT_STATS (256+1) /* 0         NULL     ignored */
 
 /**
  * Handle event/control for the filter.
@@ -138,6 +137,8 @@ typedef CURLcode Curl_cft_cntrl(struct Curl_cfilter *cf,
 #define CF_QUERY_MAX_CONCURRENT     1  /* number     -        */
 #define CF_QUERY_CONNECT_REPLY_MS   2  /* number     -        */
 #define CF_QUERY_SOCKET             3  /* -          curl_socket_t */
+#define CF_QUERY_TIMER_CONNECT      4  /* -          struct curltime */
+#define CF_QUERY_TIMER_APPCONNECT   5  /* -          struct curltime */
 
 /**
  * Query the cfilter for properties. Filters ignorant of a query will
@@ -196,10 +197,6 @@ void Curl_cf_def_destroy_this(struct Curl_cfilter *cf,
 
 /* Default implementations for the type functions, implementing pass-through
  * the filter chain. */
-void     Curl_cf_def_close(struct Curl_cfilter *cf, struct Curl_easy *data);
-CURLcode Curl_cf_def_connect(struct Curl_cfilter *cf,
-                             struct Curl_easy *data,
-                             bool blocking, bool *done);
 void     Curl_cf_def_get_host(struct Curl_cfilter *cf, struct Curl_easy *data,
                               const char **phost, const char **pdisplay_host,
                               int *pport);
@@ -216,7 +213,8 @@ CURLcode Curl_cf_def_cntrl(struct Curl_cfilter *cf,
                                 struct Curl_easy *data,
                                 int event, int arg1, void *arg2);
 bool     Curl_cf_def_conn_is_alive(struct Curl_cfilter *cf,
-                                   struct Curl_easy *data);
+                                   struct Curl_easy *data,
+                                   bool *input_pending);
 CURLcode Curl_cf_def_conn_keep_alive(struct Curl_cfilter *cf,
                                      struct Curl_easy *data);
 CURLcode Curl_cf_def_query(struct Curl_cfilter *cf,
@@ -252,11 +250,16 @@ void Curl_conn_cf_insert_after(struct Curl_cfilter *cf_at,
                                struct Curl_cfilter *cf_new);
 
 /**
- * Discard, e.g. remove and destroy a specific filter instance.
- * If the filter is attached to a connection, it will be removed before
- * it is destroyed.
+ * Discard, e.g. remove and destroy `discard` iff
+ * it still is in the filter chain below `cf`. If `discard`
+ * is no longer found beneath `cf` return FALSE.
+ * if `destroy_always` is TRUE, will call `discard`s destroy
+ * function and free it even if not found in the subchain.
  */
-void Curl_conn_cf_discard(struct Curl_cfilter *cf, struct Curl_easy *data);
+bool Curl_conn_cf_discard_sub(struct Curl_cfilter *cf,
+                              struct Curl_cfilter *discard,
+                              struct Curl_easy *data,
+                              bool destroy_always);
 
 /**
  * Discard all cfilters starting with `*pcf` and clearing it afterwards.
@@ -279,8 +282,6 @@ void Curl_conn_cf_close(struct Curl_cfilter *cf, struct Curl_easy *data);
 int Curl_conn_cf_get_select_socks(struct Curl_cfilter *cf,
                                   struct Curl_easy *data,
                                   curl_socket_t *socks);
-bool Curl_conn_cf_data_pending(struct Curl_cfilter *cf,
-                               const struct Curl_easy *data);
 ssize_t Curl_conn_cf_send(struct Curl_cfilter *cf, struct Curl_easy *data,
                           const void *buf, size_t len, CURLcode *err);
 ssize_t Curl_conn_cf_recv(struct Curl_cfilter *cf, struct Curl_easy *data,
@@ -289,6 +290,12 @@ CURLcode Curl_conn_cf_cntrl(struct Curl_cfilter *cf,
                             struct Curl_easy *data,
                             bool ignore_result,
                             int event, int arg1, void *arg2);
+
+/**
+ * Determine if the connection filter chain is using SSL to the remote host
+ * (or will be once connected).
+ */
+bool Curl_conn_cf_is_ssl(struct Curl_cfilter *cf);
 
 /**
  * Get the socket used by the filter chain starting at `cf`.
@@ -435,15 +442,10 @@ void Curl_conn_ev_update_info(struct Curl_easy *data,
                               struct connectdata *conn);
 
 /**
- * Inform connection filters to report statistics.
- */
-void Curl_conn_ev_report_stats(struct Curl_easy *data,
-                               struct connectdata *conn);
-
-/**
  * Check if FIRSTSOCKET's cfilter chain deems connection alive.
  */
-bool Curl_conn_is_alive(struct Curl_easy *data, struct connectdata *conn);
+bool Curl_conn_is_alive(struct Curl_easy *data, struct connectdata *conn,
+                        bool *input_pending);
 
 /**
  * Try to upkeep the connection filters at sockindex.
@@ -452,6 +454,7 @@ CURLcode Curl_conn_keep_alive(struct Curl_easy *data,
                               struct connectdata *conn,
                               int sockindex);
 
+void Curl_cf_def_close(struct Curl_cfilter *cf, struct Curl_easy *data);
 void Curl_conn_get_host(struct Curl_easy *data, int sockindex,
                         const char **phost, const char **pdisplay_host,
                         int *pport);

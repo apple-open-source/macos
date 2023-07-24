@@ -44,6 +44,10 @@
 		<string>Uninstall</string>
 		<string>Lookup</string>
 	</array>
+	<key>com.apple.private.network.management.control</key>
+	<true/>
+	<key>com.apple.private.network.management.data</key>
+	<true/>
 	<key>com.apple.private.necp.drop_all_bypass</key>
 	<true/>
 	<key>com.apple.private.necp.match</key>

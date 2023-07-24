@@ -728,6 +728,7 @@ int sock_initaddress(const char *host, const char *port,
 			get_gai_errstring(errbuf, errbuflen, "", retval,
 			    host, port);
 		}
+		*addrinfo = NULL;
 		return -1;
 	}
 	/*

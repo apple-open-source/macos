@@ -1014,25 +1014,15 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
 #endif
 }
 
-+ (NSString * _Nullable)createAndSetRecoveryKeyWithContext:(OTConfigurationContext*)ctx error:(NSError**)error
++ (BOOL)registerRecoveryKeyWithContext:(OTConfigurationContext*)ctx recoveryKey:(NSString*)recoveryKey error:(NSError**)error
 {
 #if OCTAGON
-    secnotice("octagon-create-recovery-key", "createAndSetRecoveryKeyWithContext invoked for context: %@", ctx.context);
-
-    NSError* rkError = nil;
-    NSString* recoveryKey = SecRKCreateRecoveryKeyString(&rkError);
-    if (!recoveryKey || rkError) {
-        secerror("octagon-create-recovery-key, failed to create recovery key error: %@", rkError);
-        if (error) {
-            *error = rkError;
-        }
-        return nil;
-    }
+    secnotice("octagon-register-recovery-key", "registerRecoveryKeyWithContext invoked for context: %@", ctx.context);
     
     NSError* createRecoveryKeyError = nil;
     SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(recoveryKey, &createRecoveryKeyError);
     if (!rk || createRecoveryKeyError) {
-        secerror("octagon-create-recovery-key, SecRKCreateRecoveryKeyWithError() failed: %@", createRecoveryKeyError);
+        secerror("octagon-register-recovery-key, SecRKCreateRecoveryKeyWithError() failed: %@", createRecoveryKeyError);
 
         NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
         userInfo[NSLocalizedDescriptionKey] = @"SecRKCreateRecoveryKeyWithError() failed";
@@ -1047,52 +1037,99 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
         if (error) {
             *error = retError;
         }
-        return nil;
+        return NO;
     }
 
     // set the recovery key for Octagon
     NSError* controlError = nil;
     OTControl* control = [ctx makeOTControl:&controlError];
     if(!control) {
-        secnotice("octagon-create-recovery-key", "failed to make OTControl object: %@", controlError);
+        secnotice("octagon-register-recovery-key", "failed to make OTControl object: %@", controlError);
         if (error) {
             *error = controlError;
         }
-        return nil;
+        return NO;
     }
     
     __block NSError* createError = nil;
     [control createRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] recoveryKey:recoveryKey reply:^(NSError * replyError) {
         if (replyError){
-            secerror("octagon-create-recovery-key, failed to create octagon recovery key error: %@", replyError);
+            secerror("octagon-register-recovery-key, failed to create octagon recovery key error: %@", replyError);
             createError = replyError;
         } else {
-            secnotice("octagon-create-recovery-key", "successfully set octagon recovery key");
+            secnotice("octagon-register-recovery-key", "successfully set octagon recovery key");
         }
     }];
     
-    if (error && createError) {
-        *error = createError;
-        return nil;
+    if (createError) {
+        if (error) {
+            *error = createError;
+        }
+        return NO;
     }
     
     // set the recovery key in SOS
     if([OTClique platformSupportsSOS]) {
         CFErrorRef registerError = nil;
         if (!SecRKRegisterBackupPublicKey(rk, &registerError)) {
-            secerror("octagon-create-recovery-key, SecRKRegisterBackupPublicKey() failed: %@", registerError);
+            secerror("octagon-register-recovery-key, SecRKRegisterBackupPublicKey() failed: %@", registerError);
+            __block NSError* localError = nil;
+            [control removeRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] reply:^(NSError * _Nullable replyError) {
+                if(replyError) {
+                    secerror("octagon-register-recovery-key: removeRecoveryKey failed: %@", replyError);
+                } else {
+                    secnotice("octagon-register-recovery-key", "removeRecoveryKey succeeded");
+                }
+                localError = replyError;
+            }];
             
             if (error) {
                 if (registerError) {
                     *error = CFBridgingRelease(registerError);
+                } else if (localError) {
+                    *error = localError;
                 } else {
                     *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:kSOSErrorFailedToRegisterBackupPublicKey description:@"Failed to register backup public key"];
                 }
             }
-            return nil;
+            return NO;
         } else {
-            secnotice("octagon-create-recovery-key", "successfully registered recovery key for SOS");
+            secnotice("octagon-register-recovery-key", "successfully registered recovery key for SOS");
         }
+    }
+    
+    return YES;
+#else // !OCTAGON
+    if (error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return NO;
+#endif
+}
+
++ (NSString * _Nullable)createAndSetRecoveryKeyWithContext:(OTConfigurationContext*)ctx error:(NSError**)error
+{
+#if OCTAGON
+    secnotice("octagon-create-recovery-key", "createAndSetRecoveryKeyWithContext invoked for context: %@", ctx.context);
+
+    NSError* rkError = nil;
+    NSString* recoveryKey = SecRKCreateRecoveryKeyString(&rkError);
+    if (!recoveryKey || rkError) {
+        secerror("octagon-create-recovery-key, failed to create recovery key error: %@", rkError);
+        if (error) {
+            *error = rkError;
+        }
+        return nil;
+    }
+
+    NSError* localError = nil;
+    BOOL registerResult = [self registerRecoveryKeyWithContext:ctx recoveryKey:recoveryKey error:&localError];
+    if (registerResult == NO || localError) {
+        secerror("octagon-create-recovery-key, failed to register recovery key error: %@", localError);
+        if (localError && error) {
+            *error = localError;
+        }
+        return nil;
     }
     
     return recoveryKey;

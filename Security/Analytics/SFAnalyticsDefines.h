@@ -35,6 +35,7 @@ extern NSString* const SFAnalyticsTableHardFailures;
 extern NSString* const SFAnalyticsTableSoftFailures;
 extern NSString* const SFAnalyticsTableSamples;
 extern NSString* const SFAnalyticsTableNotes;
+extern NSString* const SFAnalyticsTableRockwell;
 
 extern NSString* const SFAnalyticsColumnSuccessCount;
 extern NSString* const SFAnalyticsColumnHardFailureCount;
@@ -71,7 +72,8 @@ typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
     SFAnalyticsEventClassSuccess,
     SFAnalyticsEventClassHardFailure,
     SFAnalyticsEventClassSoftFailure,
-    SFAnalyticsEventClassNote
+    SFAnalyticsEventClassNote,
+    SFAnalyticsEventClassRockwell,
 };
 
 extern NSString* const SFAnalyticsTableSchema;

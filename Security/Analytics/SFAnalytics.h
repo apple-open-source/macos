@@ -33,6 +33,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class SecLaunchSequence;
+
 // this sampling interval will cause the sampler to run only at data reporting time
 extern const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport;
 
@@ -111,6 +113,8 @@ typedef SFAnalyticsMetricsHookActions(^SFAnalyticsMetricsHook)(NSString* eventNa
 // or just log an event if it is not failable
 - (void)noteEventNamed:(NSString*)eventName;
 - (void)noteEventNamed:(NSString*)eventName timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
+
+- (void)noteLaunchSequence:(SecLaunchSequence *)launchSequence;
 
 - (void)logResultForEvent:(NSString*)eventName
               hardFailure:(bool)hardFailure

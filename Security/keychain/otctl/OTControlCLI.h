@@ -86,6 +86,10 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
                                     uuidString:(NSString*)uuidString
                                        timeout:(NSTimeInterval)timeout;
 
+- (int)checkCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
+                                   uuidString:(NSString*)uuidString
+                                      timeout:(NSTimeInterval)timeout;
+
 - (int)removeRecoveryKeyWithArguments:(OTControlArguments*)arguments;
 
 - (int)setRecoveryKeyWithArguments:(OTControlArguments*)arguments;
@@ -119,6 +123,10 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
 - (int)removeInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
                               uuidString:(NSString*)uuidString
                                  timeout:(NSTimeInterval)timeout;
+
+- (int)checkInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+                             uuidString:(NSString*)uuidString
+                                timeout:(NSTimeInterval)timeout;
 
 - (int)setMachineIDOverride:(OTControlArguments*)arguments
                   machineID:(NSString*)machineID

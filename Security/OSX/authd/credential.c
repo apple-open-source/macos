@@ -124,7 +124,7 @@ credential_create(uid_t uid)
     cred = _credential_create();
     require(cred != NULL, done);
 
-    struct passwd *pw = getpwuid(uid);
+    struct passwd *pw = ((int)uid > -1) ? getpwuid(uid) : NULL;
 	if (pw != NULL) {
         // avoid hinting a locked account
 		// LibInfo started to return asterisk for system accounts in <rdar://problem/31633690> J93: 17a240: Hang during boot (opendirectoryd/powerd deadlock)

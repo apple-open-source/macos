@@ -2416,7 +2416,6 @@ static void PMConnectionPowerCallBack(
 
         // reset display state
         resetDisplayState();
-        gEmergencySleep = false;
 #endif
         incrementSleepCnt();
         logAwakeTime();
@@ -3913,11 +3912,29 @@ __private_extern__ void _set_sleep_revert(bool state)
     gMachineStateRevertible = state;
 }
 
-__private_extern__ bool _can_revert_sleep(void)
+__private_extern__ bool _woke_up_after_lastcall(void)
 {
     uint64_t wakeabs_ts = 0;
     size_t size = sizeof(wakeabs_ts);
     int ret;
+
+    ret = sysctlbyname("kern.wake_abs_time", &wakeabs_ts, &size, NULL, 0);
+    if (ret) {
+        ERROR_LOG("Failed to read sysctl 'kern.wake_abs_time'\n");
+        return false;
+    }
+
+    INFO_LOG("wake_ts:0x%llx lastcall_ts:0x%llx\n", wakeabs_ts, lastcall_ts);
+    if (wakeabs_ts > lastcall_ts) {
+        // system is waking up
+        return true;
+    }
+    return false;
+
+}
+
+__private_extern__ bool _can_revert_sleep(void)
+{
     bool revertible = gMachineStateRevertible;
 
     if (!gMachineStateRevertible) {
@@ -3927,18 +3944,7 @@ __private_extern__ bool _can_revert_sleep(void)
          * when sytem is waking up, until "WillPowerOn" is received and machine
          * sleep state is revertible in that duration.
          */
-
-        ret = sysctlbyname("kern.wake_abs_time", &wakeabs_ts, &size, NULL, 0);
-        if (ret) {
-            ERROR_LOG("Failed to read sysctl 'kern.wake_abs_time'\n");
-            return gMachineStateRevertible;
-        }
-
-        if (wakeabs_ts > lastcall_ts) {
-            // system is waking up
-            revertible = true;
-        }
-        INFO_LOG("wake_ts:0x%llx lastcall_ts:0x%llx\n", wakeabs_ts, lastcall_ts);
+        revertible = _woke_up_after_lastcall();
     }
     INFO_LOG("Sleep revert state: %d\n", revertible);
     return revertible;

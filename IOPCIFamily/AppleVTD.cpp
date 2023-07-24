@@ -841,6 +841,8 @@ AppleVTD::init(IOWorkLoop * wl, const OSData * data)
 
 	fNumMemoryRanges = 0;
 	fSpace = 0;
+	fAMDSpace = NULL;
+	fAMDMapperLock = NULL;
 
 	return (unitIdx != 0);
 }
@@ -2544,10 +2546,31 @@ AppleVTD::deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options)
 	space = 0;
     if ((kDeviceMapperActivate | kDeviceMapperUnpause) & options)
     {
-		if (!mapper->fSpace) mapper->fSpace = space_create(mapper->vsize, 0, 1);
+		bool created = false;
+		// Check if the AMD mapper space has been created
+		if (mapper->fIsAMD)
+		{
+			mapper->fSpace = mapper->fVTD->fAMDSpace;
+		}
+
+		if (!mapper->fSpace)
+		{
+			mapper->fSpace = space_create(mapper->vsize, 0, 1);
+			created = true;
+		}
 		space = mapper->fSpace;
 		if (!space) ret = kIOReturnNoMemory;
-		mapper->fVTD->reserveRanges(space, false);
+
+		// If we created the AMD mapper space, save it
+		if (mapper->fIsAMD && !mapper->fVTD->fAMDSpace)
+		{
+			mapper->fVTD->fAMDSpace = space;
+		}
+
+		if (created)
+		{
+			mapper->fVTD->reserveRanges(space, false);
+		}
 	}
 	if (!space) space = fSpace;
 
@@ -2568,7 +2591,8 @@ AppleVTD::deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options)
 	}
 	if (!(kDeviceMapperActivate & options)) contextInvalidate(mapper->fSpace->domain);
 
-    if (kDeviceMapperDeactivate & options)
+	// The AMD mapper space is persistent
+    if ((kDeviceMapperDeactivate & options) && !(mapper->fIsAMD))
     {
 		space_destroy(mapper->fSpace);
 		mapper->fSpace = 0;
@@ -2590,16 +2614,21 @@ AppleVTDDeviceMapper::forDevice(IOService * device, uint32_t flags)
 	AppleVTDDeviceMapper * mapper;
 	IOPCIDevice          * pciDevice;
 	uint32_t               vendorProduct;
+	bool                   isAMD;
 
 	if (!(pciDevice = OSDynamicCast(IOPCIDevice, device))) return (NULL);
+
+	vendorProduct = pciDevice->savedConfig[kIOPCIConfigVendorID >> 2];
+
+	isAMD = (0x1002 == (vendorProduct & 0xffff));
 
 	mapper = OSTypeAlloc(AppleVTDDeviceMapper);
 	if (!mapper) return (0);
 
 	mapper->fVTD      = OSDynamicCast(AppleVTD, IOMapper::gSystem);
 	mapper->fDevice   = pciDevice;
+	mapper->fIsAMD    = isAMD;
 
-	vendorProduct = pciDevice->savedConfig[kIOPCIConfigVendorID >> 2];
 	mapper->fAllFunctions =    ((0x91201b4b == vendorProduct)
 							 || (0x91231b4b == vendorProduct)
 							 || (0x91281b4b == vendorProduct)
@@ -2620,15 +2649,27 @@ AppleVTDDeviceMapper::forDevice(IOService * device, uint32_t flags)
 
 	// rdar://91139135: AppleVTD: limit non-AMD device mappers to 4GB DVA space
 	mapper->vsize = 1<<20;
-	if (0x1002 == (vendorProduct & 0xffff))
+	if (isAMD)
 	{
 		mapper->vsize = kVPages;
 	}
 
     mapper->initHardware(NULL);
 
-	//allocate the IO lock 
-	mapper->fAppleVTDforDeviceLock = IOLockAlloc();
+	if (!isAMD)
+	{
+		//allocate the IO lock
+		mapper->fAppleVTDforDeviceLock = IOLockAlloc();
+	}
+	else
+	{
+		//allocate the shared IO lock
+		if (!mapper->fVTD->fAMDMapperLock)
+		{
+			mapper->fVTD->fAMDMapperLock = IOLockAlloc();
+		}
+		mapper->fAppleVTDforDeviceLock = mapper->fVTD->fAMDMapperLock;
+	}
 
     return (mapper);
 }

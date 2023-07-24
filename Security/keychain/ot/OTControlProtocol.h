@@ -165,6 +165,10 @@ NS_ASSUME_NONNULL_BEGIN
                               uuid:(NSUUID *)uuid
                              reply:(void (^)(NSError *_Nullable error))reply;
 
+- (void)checkCustodianRecoveryKey:(OTControlArguments*)arguments
+                             uuid:(NSUUID *)uuid
+                            reply:(void (^)(bool exists, NSError *_Nullable error))reply;
+
 - (void)createInheritanceKey:(OTControlArguments*)arguments
                         uuid:(NSUUID *_Nullable)uuid
                        reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
@@ -188,6 +192,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)removeInheritanceKey:(OTControlArguments*)arguments
                         uuid:(NSUUID *)uuid
                        reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)checkInheritanceKey:(OTControlArguments*)arguments
+                       uuid:(NSUUID *)uuid
+                      reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck

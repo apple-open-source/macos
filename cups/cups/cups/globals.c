@@ -361,6 +361,7 @@ cups_globals_free(_cups_globals_t *cg)	/* I - Pointer to global data */
   cupsArrayDelete(cg->pwg_size_lut);
 
   httpClose(cg->http);
+  cg->http = NULL;
 
 #ifdef HAVE_SSL
   _httpFreeCredentials(cg->tls_credentials);

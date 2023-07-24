@@ -147,15 +147,15 @@ __attribute__((visibility("hidden")))
     BOOL _warmedEscrowCache;
     BOOL _warnedTooManyPeers;
     struct {
-        int epoch:1;
-        int lastHealthCheckup:1;
-        int attemptedJoin:1;
-        int cdpState:1;
-        int icloudAccountState:1;
-        int trustState:1;
-        int isInheritedAccount:1;
-        int warmedEscrowCache:1;
-        int warnedTooManyPeers:1;
+        uint epoch:1;
+        uint lastHealthCheckup:1;
+        uint attemptedJoin:1;
+        uint cdpState:1;
+        uint icloudAccountState:1;
+        uint trustState:1;
+        uint isInheritedAccount:1;
+        uint warmedEscrowCache:1;
+        uint warnedTooManyPeers:1;
     } _has;
 }
 

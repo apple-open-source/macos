@@ -29,6 +29,8 @@ NS_ASSUME_NONNULL_BEGIN
 /* register for deviceName updates */
 - (void)registerForDeviceNameUpdates:(id<OTDeviceInformationNameUpdateListener>)listener;
 
+/* Returns whether the current device is a homepod */
+- (BOOL)isHomePod;
 @end
 
 @interface OTDeviceInformationActualAdapter : NSObject <OTDeviceInformationAdapter>

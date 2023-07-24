@@ -2334,7 +2334,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     if (scrollView.isDragging || scrollView.isZooming || scrollView._isInterruptingDeceleration)
         stabilityFlags.add(WebKit::ViewStabilityFlag::ScrollViewInteracting);
 
-    if (scrollView.isDecelerating || scrollView._isAnimatingZoom || scrollView._isScrollingToTop)
+    if (scrollView.isDecelerating || scrollView._isAnimatingZoom || scrollView._isScrollingToTop || scrollView.isZoomBouncing)
         stabilityFlags.add(WebKit::ViewStabilityFlag::ScrollViewAnimatedScrollOrZoom);
 
     if (scrollView == _scrollView.get() && _isChangingObscuredInsetsInteractively)
@@ -3082,7 +3082,8 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
 #if ENABLE(LOCKDOWN_MODE_API)
 
-constexpr auto WebKitLockdownModeAlertShownKey = @"WebKitLockdownModeAlertShown";
+// Note: Use the legacy 'CaptivePortal' string to avoid losing users choice from earlier releases.
+constexpr auto WebKitLockdownModeAlertShownKey = @"WebKitCaptivePortalModeAlertShown";
 
 static bool lockdownModeWarningNeeded = true;
 

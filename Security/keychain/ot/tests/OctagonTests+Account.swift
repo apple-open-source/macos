@@ -203,6 +203,7 @@ class OctagonAccountTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit,
                                          authKitAdapter: self.mockAuthKit,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: self.mockDeviceInfo)
         self.assertResetAndBecomeTrusted(context: peer1)
@@ -218,6 +219,7 @@ class OctagonAccountTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: self.mockDeviceInfo)
         self.assertJoinViaProximitySetup(joiningContext: peer2, sponsor: peer1)
@@ -231,6 +233,7 @@ class OctagonAccountTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit3,
                                          authKitAdapter: self.mockAuthKit3,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: self.mockDeviceInfo)
         self.assertJoinViaProximitySetup(joiningContext: peer3, sponsor: peer1)

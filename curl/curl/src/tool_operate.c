@@ -306,7 +306,7 @@ static CURLcode pre_transfer(struct GlobalConfig *global,
     if((per->infd == -1) || fstat(per->infd, &fileinfo))
 #endif
     {
-      helpf(global->errors, "Can't open '%s'!\n", per->uploadfile);
+      helpf(stderr, "Can't open '%s'!\n", per->uploadfile);
       if(per->infd != -1) {
         close(per->infd);
         per->infd = STDIN_FILENO;
@@ -323,6 +323,7 @@ static CURLcode pre_transfer(struct GlobalConfig *global,
       struct OperationConfig *config = per->config; /* for the macro below */
 #ifdef CURL_DISABLE_LIBCURL_OPTION
       (void)config;
+      (void)global;
 #endif
       my_setopt(per->curl, CURLOPT_INFILESIZE_LARGE, uploadfilesize);
     }
@@ -404,10 +405,10 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
     if(!config->synthetic_error && result &&
        (!global->silent || global->showerror)) {
       const char *msg = per->errorbuffer;
-      fprintf(global->errors, "curl: (%d) %s\n", result,
+      fprintf(stderr, "curl: (%d) %s\n", result,
               (msg && msg[0]) ? msg : curl_easy_strerror(result));
       if(result == CURLE_PEER_FAILED_VERIFICATION)
-        fputs(CURL_CA_CERT_ERRORMSG, global->errors);
+        fputs(CURL_CA_CERT_ERRORMSG, stderr);
     }
     else if(config->failwithbody) {
       /* if HTTP response >= 400, return error */
@@ -415,7 +416,7 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
       if(code >= 400) {
         if(!global->silent || global->showerror)
-          fprintf(global->errors,
+          fprintf(stderr,
                   "curl: (%d) The requested URL returned error: %ld\n",
                   CURLE_HTTP_RETURNED_ERROR, code);
         result = CURLE_HTTP_RETURNED_ERROR;
@@ -448,7 +449,7 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
       /* something went wrong in the writing process */
       result = CURLE_WRITE_ERROR;
       if(!global->silent || global->showerror)
-        fprintf(global->errors, "curl: (%d) Failed writing body\n", result);
+        fprintf(stderr, "curl: (%d) Failed writing body\n", result);
     }
   }
 
@@ -589,8 +590,7 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
         /* We have written data to an output file, we truncate file
          */
         if(!global->silent)
-          fprintf(global->errors, "Throwing away %"
-                  CURL_FORMAT_CURL_OFF_T " bytes\n",
+          fprintf(stderr, "Throwing away %"  CURL_FORMAT_CURL_OFF_T " bytes\n",
                   outs->bytes);
         fflush(outs->stream);
         /* truncate file at the position where we started appending */
@@ -599,8 +599,7 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
           /* when truncate fails, we can't just append as then we'll
              create something strange, bail out */
           if(!global->silent || global->showerror)
-            fprintf(global->errors,
-                    "curl: (23) Failed to truncate file\n");
+            fprintf(stderr, "curl: (23) Failed to truncate file\n");
           return CURLE_WRITE_ERROR;
         }
         /* now seek to the end of the file, the position where we
@@ -615,8 +614,7 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
 #endif
         if(rc) {
           if(!global->silent || global->showerror)
-            fprintf(global->errors,
-                    "curl: (23) Failed seeking to end of file\n");
+            fprintf(stderr, "curl: (23) Failed seeking to end of file\n");
           return CURLE_WRITE_ERROR;
         }
         outs->bytes = 0; /* clear for next round */
@@ -626,7 +624,7 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
       return CURLE_OK;
     }
   } /* if retry_numretries */
-  noretry:
+noretry:
 
   if((global->progressmode == CURL_PROGRESS_BAR) &&
      per->progressbar.calls)
@@ -641,7 +639,7 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
       /* something went wrong in the writing process */
       result = CURLE_WRITE_ERROR;
       if(!global->silent || global->showerror)
-        fprintf(global->errors, "curl: (%d) Failed writing body\n", result);
+        fprintf(stderr, "curl: (%d) Failed writing body\n", result);
     }
     if(result && config->rm_partial) {
       notef(global, "Removing output file: %s\n", outs->filename);
@@ -661,7 +659,7 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
 
   /* Write the --write-out data before cleanup but after result is final */
   if(config->writeout)
-    ourWriteOut(config->writeout, per, result);
+    ourWriteOut(config, per, result);
 
   /* Close function-local opened file descriptors */
   if(per->heads.fopened && per->heads.stream)
@@ -801,7 +799,7 @@ static CURLcode single_transfer(struct GlobalConfig *global,
       /* Unless explicitly shut off */
       result = glob_url(&inglob, infiles, &state->infilenum,
                         (!global->silent || global->showerror)?
-                        global->errors:NULL);
+                        stderr:NULL);
       if(result)
         break;
       config->state.inglob = inglob;
@@ -837,7 +835,7 @@ static CURLcode single_transfer(struct GlobalConfig *global,
              expressions and return total number of URLs in pattern set */
           result = glob_url(&state->urls, urlnode->url, &state->urlnum,
                             (!global->silent || global->showerror)?
-                            global->errors:NULL);
+                            stderr:NULL);
           if(result)
             break;
           urlnum = state->urlnum;
@@ -983,13 +981,14 @@ static CURLcode single_transfer(struct GlobalConfig *global,
              * for every transfer.
              */
             if(!per->prev || per->prev->config != config) {
-              newfile = fopen(config->headerfile, "wb+");
-              fclose(newfile);
+              newfile = fopen(config->headerfile, "wb");
+              if(newfile)
+                fclose(newfile);
             }
-            newfile = fopen(config->headerfile, "ab+");
+            newfile = fopen(config->headerfile, "ab");
 
             if(!newfile) {
-              warnf(global, "Failed to open %s\n", config->headerfile);
+              errorf(global, "Failed to open %s\n", config->headerfile);
               result = CURLE_WRITE_ERROR;
               break;
             }
@@ -1095,7 +1094,7 @@ static CURLcode single_transfer(struct GlobalConfig *global,
              file output call */
 
           if(config->create_dirs) {
-            result = create_dir_hierarchy(per->outfile, global->errors);
+            result = create_dir_hierarchy(per->outfile, stderr);
             /* create_dir_hierarchy shows error upon CURLE_WRITE_ERROR */
             if(result)
               break;
@@ -1238,9 +1237,6 @@ static CURLcode single_transfer(struct GlobalConfig *global,
               break;
           }
         }
-
-        if(!global->errors)
-          global->errors = stderr;
 
         if((!per->outfile || !strcmp(per->outfile, "-")) &&
            !config->use_ascii) {
@@ -1402,19 +1398,30 @@ static CURLcode single_transfer(struct GlobalConfig *global,
 
         switch(config->httpreq) {
         case HTTPREQ_SIMPLEPOST:
-          my_setopt_str(curl, CURLOPT_POSTFIELDS,
-                        config->postfields);
-          my_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
-                    config->postfieldsize);
+          if(config->resume_from) {
+            errorf(global, "cannot mix --continue-at with --data\n");
+            result = CURLE_FAILED_INIT;
+          }
+          else {
+            my_setopt_str(curl, CURLOPT_POSTFIELDS,
+                          config->postfields);
+            my_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
+                      config->postfieldsize);
+          }
           break;
         case HTTPREQ_MIMEPOST:
           /* free previous remainders */
           curl_mime_free(config->mimepost);
           config->mimepost = NULL;
-          result = tool2curlmime(curl, config->mimeroot, &config->mimepost);
-          if(result)
-            break;
-          my_setopt_mimepost(curl, CURLOPT_MIMEPOST, config->mimepost);
+          if(config->resume_from) {
+            errorf(global, "cannot mix --continue-at with --form\n");
+            result = CURLE_FAILED_INIT;
+          }
+          else {
+            result = tool2curlmime(curl, config->mimeroot, &config->mimepost);
+            if(!result)
+              my_setopt_mimepost(curl, CURLOPT_MIMEPOST, config->mimepost);
+          }
           break;
         default:
           break;
@@ -1450,7 +1457,7 @@ static CURLcode single_transfer(struct GlobalConfig *global,
           /* new in libcurl 7.36.0 */
           if(config->proxyheaders) {
             my_setopt_slist(curl, CURLOPT_PROXYHEADER, config->proxyheaders);
-            my_setopt(curl, CURLOPT_HEADEROPT, CURLHEADER_SEPARATE);
+            my_setopt(curl, CURLOPT_HEADEROPT, (long)CURLHEADER_SEPARATE);
           }
 
           /* new in libcurl 7.5 */
@@ -1850,7 +1857,7 @@ static CURLcode single_transfer(struct GlobalConfig *global,
         my_setopt(curl, CURLOPT_TIMEVALUE_LARGE, config->condtime);
         my_setopt_str(curl, CURLOPT_CUSTOMREQUEST, config->customrequest);
         customrequest_helper(config, config->httpreq, config->customrequest);
-        my_setopt(curl, CURLOPT_STDERR, global->errors);
+        my_setopt(curl, CURLOPT_STDERR, stderr);
 
         /* three new ones in libcurl 7.3: */
         my_setopt_str(curl, CURLOPT_INTERFACE, config->iface);
@@ -1882,7 +1889,7 @@ static CURLcode single_transfer(struct GlobalConfig *global,
         if(config->dns_ipv4_addr)
           my_setopt_str(curl, CURLOPT_DNS_LOCAL_IP4, config->dns_ipv4_addr);
         if(config->dns_ipv6_addr)
-        my_setopt_str(curl, CURLOPT_DNS_LOCAL_IP6, config->dns_ipv6_addr);
+          my_setopt_str(curl, CURLOPT_DNS_LOCAL_IP6, config->dns_ipv6_addr);
 
         /* new in libcurl 7.6.2: */
         my_setopt_slist(curl, CURLOPT_TELNETOPTIONS, config->telnet_options);
@@ -2471,8 +2478,10 @@ static CURLcode serial_transfers(struct GlobalConfig *global,
     else {
       /* setup the next one just before we delete this */
       result = create_transfer(global, share, &added);
-      if(result)
+      if(result) {
+        returncode = result;
         bailout = TRUE;
+      }
     }
 
     per = del_per_transfer(per);
@@ -2514,7 +2523,7 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
 
   /* Check we have a url */
   if(!config->url_list || !config->url_list->url) {
-    helpf(global->errors, "no URL specified!\n");
+    helpf(stderr, "(%d) no URL specified!\n", CURLE_FAILED_INIT);
     return CURLE_FAILED_INIT;
   }
 
@@ -2572,7 +2581,7 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
           if(!config->capath) {
             curl_free(env);
             curl_easy_cleanup(curltls);
-            helpf(global->errors, "out of memory\n");
+            helpf(stderr, "out of memory\n");
             return CURLE_OUT_OF_MEMORY;
           }
           capath_from_env = true;
@@ -2690,7 +2699,7 @@ CURLcode operate(struct GlobalConfig *global, int argc, argv_item_t argv[])
 
     /* If we had no arguments then make sure a url was specified in .curlrc */
     if((argc < 2) && (!global->first->url_list)) {
-      helpf(global->errors, NULL);
+      helpf(stderr, NULL);
       result = CURLE_FAILED_INIT;
     }
   }

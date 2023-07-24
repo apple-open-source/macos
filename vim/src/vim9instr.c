@@ -413,7 +413,7 @@ generate_two_op(cctx_T *cctx, char_u *op)
  */
     static isntype_T
 get_compare_isn(
-	exprtype_T exprtype,
+	exprtype_T  exprtype,
 	typval_T    *tv1,
 	typval_T    *tv2,
 	type_T	    *type1,
@@ -485,13 +485,17 @@ get_compare_isn(
 	return ISN_DROP;
     }
     if (isntype == ISN_DROP
-	    || ((exprtype != EXPR_EQUAL && exprtype != EXPR_NEQUAL
-		    && (vartype1 == VAR_BOOL || vartype1 == VAR_SPECIAL
-		       || vartype2 == VAR_BOOL || vartype2 == VAR_SPECIAL)))
-	    || ((exprtype != EXPR_EQUAL && exprtype != EXPR_NEQUAL
-			       && exprtype != EXPR_IS && exprtype != EXPR_ISNOT
-		    && (vartype1 == VAR_BLOB || vartype2 == VAR_BLOB
-			|| vartype1 == VAR_LIST || vartype2 == VAR_LIST))))
+	    || (isntype != ISN_COMPARENULL
+		&& (((exprtype != EXPR_EQUAL
+			&& exprtype != EXPR_NEQUAL
+			&& (vartype1 == VAR_BOOL || vartype1 == VAR_SPECIAL
+			  || vartype2 == VAR_BOOL || vartype2 == VAR_SPECIAL)))
+		    || ((exprtype != EXPR_EQUAL
+			 && exprtype != EXPR_NEQUAL
+			 && exprtype != EXPR_IS
+			 && exprtype != EXPR_ISNOT
+			 && (vartype1 == VAR_BLOB || vartype2 == VAR_BLOB
+			  || vartype1 == VAR_LIST || vartype2 == VAR_LIST))))))
     {
 	semsg(_(e_cannot_compare_str_with_str),
 		vartype_name(vartype1), vartype_name(vartype2));
@@ -1622,8 +1626,14 @@ check_internal_func_args(
 
     if (method_call && argoff > 1)
     {
-	isn_T	*isn = generate_instr(cctx, ISN_SHUFFLE);
+	if (argcount < argoff)
+	{
+	    semsg(_(e_not_enough_arguments_for_function_str),
+						 internal_func_name(func_idx));
+	    return FAIL;
+	}
 
+	isn_T	*isn = generate_instr(cctx, ISN_SHUFFLE);
 	if (isn  == NULL)
 	    return FAIL;
 	isn->isn_arg.shuffle.shfl_item = argcount;

@@ -20,10 +20,10 @@ extension Container {
 
     func preflightVouchWithBottle(bottleID: String,
                                   reply: @escaping (String?, TPSyncingPolicy?, Bool, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (String?, TPSyncingPolicy?, Bool, Error?) -> Void = {
             logger.info("preflightVouchWithBottle complete: \(traceError($3), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3)
         }
 

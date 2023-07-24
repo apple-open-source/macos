@@ -7,10 +7,10 @@ extension Container {
     func preflightVouchWithRecoveryKey(recoveryKey: String,
                                        salt: String,
                                        reply: @escaping (String?, TPSyncingPolicy?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (String?, TPSyncingPolicy?, Error?) -> Void = {
             logger.info("preflightRecoveryKey complete: \(traceError($2), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2)
         }
 
@@ -103,10 +103,10 @@ extension Container {
 
     func preflightVouchWithCustodianRecoveryKey(crk: TrustedPeersHelperCustodianRecoveryKey,
                                                 reply: @escaping (String?, TPSyncingPolicy?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (String?, TPSyncingPolicy?, Error?) -> Void = {
             logger.info("preflightCustodianRecoveryKey complete: \(traceError($2), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2)
         }
 
@@ -159,9 +159,15 @@ extension Container {
                         return
                     }
 
+                    guard let recoveryKeyString = crk.recoveryString, let recoverySalt = crk.salt else {
+                        logger.info("Bad format CRK: recovery string or salt not set")
+                        reply(nil, nil, ContainerError.custodianRecoveryKeyMalformed)
+                        return
+                    }
+
                     let crkRecoveryKey: CustodianRecoveryKey
                     do {
-                        crkRecoveryKey = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
+                        crkRecoveryKey = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: recoveryKeyString, recoverySalt: recoverySalt)
                     } catch {
                         logger.error("preflightCustodianRecoveryKey: failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
@@ -210,10 +216,10 @@ extension Container {
     func preflightRecoverOctagonWithRecoveryKey(recoveryKey: String,
                                                 salt: String,
                                                 reply: @escaping (Bool, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Bool, Error?) -> Void = {
             logger.info("preflightRecoverOctagonWithRecoveryKey complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 

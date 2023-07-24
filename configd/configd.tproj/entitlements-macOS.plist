@@ -2,21 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.networkd.modify_settings</key>
+	<true/>
+	<key>com.apple.networkd_privileged</key>
+	<true/>
 	<key>com.apple.private.corewifi</key>
 	<true/>
 	<key>com.apple.private.necp.match</key>
 	<true/>
 	<key>com.apple.private.necp.policies</key>
 	<true/>
+	<key>com.apple.private.network.management.control</key>
+	<true/>
+	<key>com.apple.private.network.management.data</key>
+	<true/>
 	<key>com.apple.private.tcc.allow</key>
 	<array>
 		<string>kTCCServiceSystemPolicySysAdminFiles</string>
 	</array>
 	<key>com.apple.private.vfs.allow-low-space-writes</key>
-	<true/>
-	<key>com.apple.networkd_privileged</key>
-	<true/>
-	<key>com.apple.networkd.modify_settings</key>
 	<true/>
 	<key>com.apple.security.temporary-exception.iokit-user-client-class</key>
 	<array>

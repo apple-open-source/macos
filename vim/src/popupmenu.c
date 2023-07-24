@@ -18,6 +18,7 @@ static int pum_selected;		// index of selected item or -1
 static int pum_first = 0;		// index of top item
 
 static int call_update_screen = FALSE;
+static int pum_in_cmdline = FALSE;
 
 static int pum_height;			// nr of displayed pum items
 static int pum_width;			// width of displayed pum items
@@ -238,13 +239,16 @@ pum_display(
 	    // cmdline completion popup menu
 	    cursor_col = cmdline_compl_startcol();
 	else
+	{
+	    // w_wcol includes virtual text "above"
+	    int wcol = curwin->w_wcol % curwin->w_width;
 #ifdef FEAT_RIGHTLEFT
-	if (right_left)
-	    cursor_col = curwin->w_wincol + curwin->w_width
-							  - curwin->w_wcol - 1;
-	else
+	    if (right_left)
+		cursor_col = curwin->w_wincol + curwin->w_width - wcol - 1;
+	    else
 #endif
-	    cursor_col = curwin->w_wincol + curwin->w_wcol;
+		cursor_col = curwin->w_wincol + wcol;
+	}
 
 	// if there are more items than room we need a scrollbar
 	if (pum_height < size)
@@ -1064,6 +1068,11 @@ pum_undisplay(void)
     pum_array = NULL;
     redraw_all_later(UPD_NOT_VALID);
     redraw_tabline = TRUE;
+    if (pum_in_cmdline)
+    {
+	clear_cmdline = TRUE;
+	pum_in_cmdline = FALSE;
+    }
     status_redraw_all();
 #if defined(FEAT_PROP_POPUP) && defined(FEAT_QUICKFIX)
     // hide any popup info window
@@ -1190,6 +1199,8 @@ pum_position_at_mouse(int min_width)
 	pum_row = mouse_row + 1;
 	if (pum_height > Rows - pum_row)
 	    pum_height = Rows - pum_row;
+	if (pum_row + pum_height > cmdline_row)
+	    pum_in_cmdline = TRUE;
     }
     else
     {
@@ -1515,7 +1526,7 @@ pum_show_popupmenu(vimmenu_T *menu)
     // pum_size being zero.
     if (pum_size <= 0)
     {
-	emsg(e_menu_only_exists_in_another_mode);
+	emsg(_(e_menu_only_exists_in_another_mode));
 	return;
     }
 
@@ -1638,7 +1649,7 @@ pum_make_popup(char_u *path_name, int use_mouse_pos)
     {
 	// Hack: set mouse position at the cursor so that the menu pops up
 	// around there.
-	mouse_row = curwin->w_winrow + curwin->w_wrow;
+	mouse_row = W_WINROW(curwin) + curwin->w_wrow;
 	mouse_col = curwin->w_wincol + curwin->w_wcol;
     }
 

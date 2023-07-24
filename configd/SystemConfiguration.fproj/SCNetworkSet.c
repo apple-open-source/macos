@@ -1304,7 +1304,8 @@ hasServiceWithInterface(SCNetworkSetRef set, SCNetworkInterfaceRef interface)
 
 			service = CFArrayGetValueAtIndex(services, i);
 			service_interface = SCNetworkServiceGetInterface(service);
-			if (CFEqual(interface, service_interface)) {
+			if (service_interface != NULL
+			    && CFEqual(interface, service_interface)) {
 				found = TRUE;
 				break;
 			}

@@ -124,8 +124,20 @@ allowed_user(struct ssh *ssh, struct passwd * pw)
 	 */
 	if (options.chroot_directory == NULL ||
 	    strcasecmp(options.chroot_directory, "none") == 0) {
+#if !TARGET_OS_OSX
+		char *shell;
+		char *shell_override = getenv("SSHD_PATH_BSHELL_OVERRIDE");
+		if (shell_override != NULL) {
+			shell = strdup(shell_override);
+		}
+		else {
+			shell = xstrdup((pw->pw_shell[0] == '\0') ?
+			    _PATH_BSHELL : pw->pw_shell); /* empty = /bin/sh */
+		}
+#else
 		char *shell = xstrdup((pw->pw_shell[0] == '\0') ?
 		    _PATH_BSHELL : pw->pw_shell); /* empty = /bin/sh */
+#endif
 
 		if (stat(shell, &st) == -1) {
 			logit("User %.100s not allowed because shell %.100s "

@@ -6249,15 +6249,21 @@ resend:
     if ((SMBV_SMB21_OR_LATER(sessionp)) &&
         (sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
         (vnode_type == VREG)) {
-        /* Add in the file lease to avoid a lease break due to rename */
-        smb2_lease_init(share, NULL, create_np, 0, &temp_lease, 1);
-        temp_lease.req_lease_state = create_np->n_lease.lease_state;
-        dur_hndl_lease.leasep = &temp_lease;
-        lease_need_free = 1;
+        /*
+         * if SMBFS_MNT_DUR_HANDLE_LOCKFID_ONLY is on and
+         * it's not an O_EXLOCK/O_SHLOCK open, we shouldn't ask for a lease
+         */
+        if (((share->ss_mount->sm_args.altflags & SMBFS_MNT_DUR_HANDLE_LOCKFID_ONLY) == 0) ||
+            ((share_access & NTCREATEX_SHARE_ACCESS_WRITE) == 0)) {
+            /* Add in the file lease to avoid a lease break due to rename */
+            smb2_lease_init(share, NULL, create_np, 0, &temp_lease, 1);
+            temp_lease.req_lease_state = create_np->n_lease.lease_state;
+            dur_hndl_lease.leasep = &temp_lease;
+            lease_need_free = 1;
 
-        /* lease should already be in the tables */
-        
-        create_flags |= SMB2_CREATE_FILE_LEASE;
+            /* lease should already be in the tables */
+            create_flags |= SMB2_CREATE_FILE_LEASE;
+        }
     }
 
     error = smb2fs_smb_ntcreatex(share, create_np,

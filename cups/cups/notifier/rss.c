@@ -177,6 +177,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      resource, host, port, status, httpStatus(status));
 
       httpClose(http);
+      http = NULL;
+
       unlink(filename);
 
       return (1);
@@ -387,6 +389,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     unlink(filename);
     httpClose(http);
+    http = NULL;
   }
 
   return (exit_status);

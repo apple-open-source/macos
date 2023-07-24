@@ -444,6 +444,12 @@ static int invocationCount = 0;
 {
     return [OTClique createAndSetRecoveryKeyWithContext:context error:error];
 }
+
+- (BOOL)registerRecoveryKeyWithContext:(OTConfigurationContext*)context recoveryKey:(NSString*)recoveryKey error:(NSError**)error
+{
+    return [OTClique registerRecoveryKeyWithContext:context recoveryKey:recoveryKey error:error];
+}
+
 + (BOOL)isRecoveryKeySet:(OTConfigurationContext*)ctx error:(NSError**)error
 {
     NSError* localError = nil;

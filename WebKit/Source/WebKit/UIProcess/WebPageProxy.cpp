@@ -4939,6 +4939,8 @@ void WebPageProxy::didExplicitOpenForFrame(FrameIdentifier frameID, URL&& url, S
 
     m_hasCommittedAnyProvisionalLoads = true;
     m_process->didCommitProvisionalLoad();
+    if (!url.protocolIsAbout())
+        m_process->didCommitMeaningfulProvisionalLoad();
 
     m_pageLoadState.commitChanges();
 }
@@ -5046,6 +5048,9 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
 {
     LOG(Loading, "(Loading) WebPageProxy %" PRIu64 " in web process pid %i didFailProvisionalLoadForFrame to provisionalURL %s", m_identifier.toUInt64(), process->processIdentifier(), provisionalURL.utf8().data());
     WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "didFailProvisionalLoadForFrame: frameID=%" PRIu64 ", isMainFrame=%d, domain=%s, code=%d, isMainFrame=%d", frame.frameID().object().toUInt64(), frame.isMainFrame(), error.domain().utf8().data(), error.errorCode(), frame.isMainFrame());
+
+    MESSAGE_CHECK_URL(process, provisionalURL);
+    MESSAGE_CHECK_URL(process, error.failingURL());
 
     PageClientProtector protector(pageClient());
 
@@ -5163,6 +5168,8 @@ void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&
 
     m_hasCommittedAnyProvisionalLoads = true;
     m_process->didCommitProvisionalLoad();
+    if (!request.url().protocolIsAbout())
+        m_process->didCommitMeaningfulProvisionalLoad();
 
     if (frame->isMainFrame()) {
         m_hasUpdatedRenderingAfterDidCommitLoad = false;
@@ -6245,18 +6252,7 @@ void WebPageProxy::createNewPage(FrameInfoData&& originatingFrameInfoData, WebPa
 #endif
     };
 
-    RefPtr<API::UserInitiatedAction> userInitiatedActivity;
-    
-#if ENABLE(TRACKING_PREVENTION)
-    // WebKit cancels the original gesture to open the BBC radio player so
-    // we can call the Storage Access API first. When we re-initiate the open,
-    // we should make sure the client knows that this was user initiated so it
-    // does not block the popup.
-    if (request.url().string() == Quirks::staticRadioPlayerURLString())
-        userInitiatedActivity = API::UserInitiatedAction::create();
-    else
-#endif
-        userInitiatedActivity = m_process->userInitiatedActivity(navigationActionData.userGestureTokenIdentifier);
+    RefPtr<API::UserInitiatedAction> userInitiatedActivity = m_process->userInitiatedActivity(navigationActionData.userGestureTokenIdentifier);
 
     bool shouldOpenAppLinks = originatingFrameInfo->request().url().host() != request.url().host();
     auto navigationAction = API::NavigationAction::create(WTFMove(navigationActionData), originatingFrameInfo.ptr(), nullptr, std::nullopt, WTFMove(request), URL(), shouldOpenAppLinks, WTFMove(userInitiatedActivity));
@@ -6633,9 +6629,8 @@ void WebPageProxy::printFrame(FrameIdentifier frameID, const String& title, cons
     frame->didChangeTitle(title);
 
     m_uiClient->printFrame(*this, *frame, pdfFirstPageSize, [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] () mutable {
-        endPrinting(); // Send a message synchronously while m_isPerformingDOMPrintOperation is still true.
+        endPrinting(WTFMove(completionHandler)); // Send a message synchronously while m_isPerformingDOMPrintOperation is still true.
         m_isPerformingDOMPrintOperation = false;
-        completionHandler();
     });
 }
 
@@ -9522,17 +9517,19 @@ void WebPageProxy::beginPrinting(WebFrameProxy* frame, const PrintInfo& printInf
         send(Messages::WebPage::BeginPrinting(frame->frameID(), printInfo));
 }
 
-void WebPageProxy::endPrinting()
+void WebPageProxy::endPrinting(CompletionHandler<void()>&& callback)
 {
-    if (!m_isInPrintingMode)
+    if (!m_isInPrintingMode) {
+        callback();
         return;
+    }
 
     m_isInPrintingMode = false;
 
     if (m_isPerformingDOMPrintOperation)
-        send(Messages::WebPage::EndPrintingDuringDOMPrintOperation(), IPC::SendOption::DispatchMessageEvenWhenWaitingForUnboundedSyncReply);
+        sendWithAsyncReply(Messages::WebPage::EndPrintingDuringDOMPrintOperation(), WTFMove(callback), IPC::SendOption::DispatchMessageEvenWhenWaitingForUnboundedSyncReply);
     else
-        send(Messages::WebPage::EndPrinting());
+        sendWithAsyncReply(Messages::WebPage::EndPrinting(), WTFMove(callback));
 }
 
 IPC::Connection::AsyncReplyID WebPageProxy::computePagesForPrinting(FrameIdentifier frameID, const PrintInfo& printInfo, CompletionHandler<void(const Vector<WebCore::IntRect>&, double, const WebCore::FloatBoxExtent&)>&& callback)
@@ -11390,7 +11387,7 @@ void WebPageProxy::loadServiceWorker(const URL& url, bool usingModules, Completi
 #endif
 }
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(COCOA)
 bool WebPageProxy::shouldForceForegroundPriorityForClientNavigation() const
 {
     return false;

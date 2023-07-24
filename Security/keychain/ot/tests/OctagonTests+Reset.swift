@@ -560,6 +560,7 @@ class OctagonResetTests: OctagonTestsBase {
                                                     accountsAdapter: self.mockAuthKit2,
                                                     authKitAdapter: self.mockAuthKit2,
                                                     tooManyPeersAdapter: self.mockTooManyPeers,
+                                                    tapToRadarAdapter: self.mockTapToRadar,
                                                     lockStateTracker: self.lockStateTracker,
                                                     deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
 

@@ -108,7 +108,9 @@
         secerror("octagon-authkit: failed to fetch demo account flag: %@", localError);
     }
 
-    [self.deps.authKitAdapter fetchCurrentDeviceListByAltDSID:altDSID reply:^(NSSet<NSString *> * _Nullable machineIDs, NSError * _Nullable error) {
+    [self.deps.authKitAdapter fetchCurrentDeviceListByAltDSID:altDSID reply:^(NSSet<NSString *> * _Nullable machineIDs,
+                                                                              NSString* _Nullable version,
+                                                                              NSError * _Nullable error) {
         STRONGIFY(self);
 
         if (error) {
@@ -141,12 +143,12 @@
             if (self.logForUpgrade) {
                 [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventUpgradeFetchDeviceIDs];
             }
-            [self afterAuthKitFetch:machineIDs accountIsDemo:isAccountDemo];
+            [self afterAuthKitFetch:machineIDs accountIsDemo:isAccountDemo version:version];
         }
     }];
 }
 
-- (void)afterAuthKitFetch:(NSSet<NSString *>*)allowedMachineIDs accountIsDemo:(BOOL)accountIsDemo
+- (void)afterAuthKitFetch:(NSSet<NSString *>*)allowedMachineIDs accountIsDemo:(BOOL)accountIsDemo version:(NSString* _Nullable)version
 {
     WEAKIFY(self);
     BOOL honorIDMSListChanges = accountIsDemo ? NO : YES;
@@ -158,6 +160,7 @@
     [self.deps.cuttlefishXPCWrapper setAllowedMachineIDsWithSpecificUser:self.deps.activeAccount
                                                        allowedMachineIDs:allowedMachineIDs
                                                     honorIDMSListChanges:honorIDMSListChanges
+                                                                 version:version
                                                                    reply:^(BOOL listDifferences, NSError * _Nullable error) {
         STRONGIFY(self);
 
@@ -168,7 +171,7 @@
             secnotice("octagon-authkit", "Unable to save machineID allow-list: %@", error);
             self.error = error;
         } else {
-            secnotice("octagon-authkit", "Successfully saved machineID allow-list (%@ change)", listDifferences ? @"some" : @"no");
+            secnotice("octagon-authkit", "Successfully saved machineID allow-list (%@ change), version = %@", listDifferences ? @"some" : @"no", version);
             if(listDifferences) {
                 self.nextState = self.stateIfListUpdates;
             } else {

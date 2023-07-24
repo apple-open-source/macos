@@ -76,8 +76,8 @@ RefPtr<Image> StyleCanvasImage::image(const RenderElement* renderer, const Float
     if (!renderer)
         return &Image::nullImage();
 
-    ASSERT(clients().contains(const_cast<RenderElement*>(renderer)));
-    auto* element = this->element(renderer->document());
+    ASSERT(clients().contains(const_cast<RenderElement&>(*renderer)));
+    RefPtr element = this->element(renderer->document());
     if (!element || !element->buffer())
         return nullptr;
     return element->copiedImage();
@@ -117,8 +117,10 @@ void StyleCanvasImage::canvasChanged(CanvasBase& canvasBase, const std::optional
         return;
 
     auto imageChangeRect = enclosingIntRect(changedRect.value());
-    for (auto& client : clients().values())
-        client->imageChanged(static_cast<WrappedImagePtr>(this), &imageChangeRect);
+    for (auto entry : clients()) {
+        auto& client = entry.key;
+        client.imageChanged(static_cast<WrappedImagePtr>(this), &imageChangeRect);
+    }
 }
 
 void StyleCanvasImage::canvasResized(CanvasBase& canvasBase)
@@ -126,8 +128,10 @@ void StyleCanvasImage::canvasResized(CanvasBase& canvasBase)
     ASSERT_UNUSED(canvasBase, is<HTMLCanvasElement>(canvasBase));
     ASSERT_UNUSED(canvasBase, m_element == &downcast<HTMLCanvasElement>(canvasBase));
 
-    for (auto& client : clients().values())
-        client->imageChanged(static_cast<WrappedImagePtr>(this));
+    for (auto entry : clients()) {
+        auto& client = entry.key;
+        client.imageChanged(static_cast<WrappedImagePtr>(this));
+    }
 }
 
 void StyleCanvasImage::canvasDestroyed(CanvasBase& canvasBase)

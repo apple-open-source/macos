@@ -226,6 +226,10 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
                               uuid:(NSUUID *)uuid
                              reply:(void (^)(NSError *_Nullable error))reply;
 
+- (void)checkCustodianRecoveryKey:(OTControlArguments*)arguments
+                             uuid:(NSUUID *)uuid
+                            reply:(void (^)(bool exists, NSError *_Nullable error))reply;
+
 - (void)createInheritanceKey:(OTControlArguments*)arguments
                         uuid:(NSUUID *_Nullable)uuid
                        reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
@@ -249,6 +253,10 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
 - (void)removeInheritanceKey:(OTControlArguments*)arguments
                         uuid:(NSUUID *)uuid
                        reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)checkInheritanceKey:(OTControlArguments*)arguments
+                       uuid:(NSUUID *)uuid
+                      reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck

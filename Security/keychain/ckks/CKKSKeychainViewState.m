@@ -50,7 +50,7 @@
 
         self.viewKeyHierarchyState = SecCKKSZoneKeyStateInitializing;
 
-        _launch = [[CKKSLaunchSequence alloc] initWithRocketName:@"com.apple.security.ckks.launch"];
+        _launch = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.security.ckks.launch"];
         [_launch addAttribute:@"view" value:zoneID.zoneName];
 
         // We'll never send a ready notification, unless armReadyNotification is called.

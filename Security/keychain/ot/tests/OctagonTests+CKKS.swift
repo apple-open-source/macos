@@ -210,6 +210,48 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
     }
 
+    func testUserControllableViewManagedTrue() throws {
+        #if os(tvOS) || os(watchOS)
+        return
+        #endif
+
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        self.assertModifyUserViews(clique: clique, intendedSyncStatus: true)
+
+        self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
+
+        self.mcAdapterPlaceholder.keychainAllowed = true
+        let peer2Context = self.makeInitiatorContext(contextID: "peer2")
+        let peer2Clique = self.cliqueFor(context: peer2Context)
+        self.assertJoinViaEscrowRecovery(joiningContext: peer2Context, sponsor: self.cuttlefishContext)
+
+        self.assertFetchUserControllableViewsSyncStatus(clique: peer2Clique, status: true)
+    }
+
+    func testUserControllableViewManagedFalse() throws {
+        #if os(tvOS) || os(watchOS)
+        return
+        #endif
+
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        self.assertModifyUserViews(clique: clique, intendedSyncStatus: true)
+
+        self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
+
+        self.mcAdapterPlaceholder.keychainAllowed = false
+        let peer2Context = self.makeInitiatorContext(contextID: "peer2")
+        let peer2Clique = self.cliqueFor(context: peer2Context)
+        self.assertJoinViaEscrowRecovery(joiningContext: peer2Context, sponsor: self.cuttlefishContext)
+
+        self.assertFetchUserControllableViewsSyncStatus(clique: peer2Clique, status: false)
+    }
+
     func testUserControllableViewStatusAPI() throws {
         self.startCKAccountStatusMock()
 

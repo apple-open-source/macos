@@ -427,6 +427,7 @@ generate_header_of_codefile(const char *name)
     fprintf (codefile,
 	     "#include <asn1_err.h>\n"
 	     "#include <der.h>\n"
+	     "#include <os/overflow.h>\n"
 	     "#include <asn1-template.h>\n\n");
 
     if (parse_units_flag)

@@ -1910,7 +1910,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
     [control removeCustodianRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] uuid:uuid reply:^(NSError *_Nullable error) {
             if(error) {
-                secerror("octagon-removecustodianrecoverykey, failed to create remove custodian recovery key");
+                secerror("octagon-removecustodianrecoverykey, failed to remove custodian recovery key");
                 OctagonSignpostEnd(signPost, OctagonSignpostNameRemoveCustodianRecoveryKey, OctagonSignpostNumber1(OctagonSignpostNameRemoveCustodianRecoveryKey), (int)subTaskSuccess);
                 reply(error);
                 return;
@@ -1925,6 +1925,44 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     
 #else
     reply([NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
+#endif
+}
+
+// Check for the existence of a custodian recovery key.
++ (void)checkCustodianRecoveryKey:(OTConfigurationContext*)ctx
+         custodianRecoveryKeyUUID:(NSUUID *)uuid
+                            reply:(void (^)(bool exists, NSError *_Nullable error))reply
+{
+#if OCTAGON
+    secnotice("octagon-checkcustodianrecoverykey", "checkCustodianRecoveryKey invoked for context: %@", ctx.context);
+    OctagonSignpost signPost = OctagonSignpostBegin(OctagonSignpostNameCheckCustodianRecoveryKey);
+    __block bool subTaskSuccess = false;
+
+    NSError* controlError = nil;
+    OTControl* control = [ctx makeOTControl:&controlError];
+    if(!control) {
+        secnotice("octagon-checkcustodianrecoverykey", "failed to fetch OTControl object: %@", controlError);
+        OctagonSignpostEnd(signPost, OctagonSignpostNameCheckCustodianRecoveryKey, OctagonSignpostNumber1(OctagonSignpostNameCheckCustodianRecoveryKey), (int)subTaskSuccess);
+        reply(false, controlError);
+        return;
+    }
+    [control checkCustodianRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] uuid:uuid reply:^(bool exists, NSError *_Nullable error) {
+            if(error) {
+                secerror("octagon-checkcustodianrecoverykey, failed to check custodian recovery key");
+                OctagonSignpostEnd(signPost, OctagonSignpostNameCheckCustodianRecoveryKey, OctagonSignpostNumber1(OctagonSignpostNameCheckCustodianRecoveryKey), (int)subTaskSuccess);
+                reply(false, error);
+                return;
+            } else {
+                secnotice("octagon-checkcheckcustodianrecoverykey", "successfully checked custodian recovery key");
+                subTaskSuccess = true;
+                OctagonSignpostEnd(signPost, OctagonSignpostNameCheckCustodianRecoveryKey, OctagonSignpostNumber1(OctagonSignpostNameCheckCustodianRecoveryKey), (int)subTaskSuccess);
+                reply(exists, nil);
+                return;
+            }
+        }];
+    
+#else
+    reply(false, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
 #endif
 }
 
@@ -2132,7 +2170,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
     [control removeInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx] uuid:uuid reply:^(NSError *_Nullable error) {
             if(error) {
-                secerror("octagon-removeinheritancekey, failed to create remove inheritance key");
+                secerror("octagon-removeinheritancekey, failed to remove inheritance key");
                 OctagonSignpostEnd(signPost, OctagonSignpostNameRemoveInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameRemoveInheritanceKey), (int)subTaskSuccess);
                 reply(error);
                 return;
@@ -2150,6 +2188,43 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
+// Check for the existence of an inheritance key.
++ (void)checkInheritanceKey:(OTConfigurationContext*)ctx
+         inheritanceKeyUUID:(NSUUID *)uuid
+                      reply:(void (^)(bool exists, NSError *_Nullable error))reply
+{
+#if OCTAGON
+    secnotice("octagon-checkinheritancekey", "checkInheritanceKey invoked for context: %@", ctx.context);
+    OctagonSignpost signPost = OctagonSignpostBegin(OctagonSignpostNameCheckInheritanceKey);
+    __block bool subTaskSuccess = false;
+
+    NSError* controlError = nil;
+    OTControl* control = [ctx makeOTControl:&controlError];
+    if(!control) {
+        secnotice("octagon-checkinheritancekey", "failed to fetch OTControl object: %@", controlError);
+        OctagonSignpostEnd(signPost, OctagonSignpostNameCheckInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameCheckInheritanceKey), (int)subTaskSuccess);
+        reply(false, controlError);
+        return;
+    }
+    [control checkInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx] uuid:uuid reply:^(bool exists, NSError *_Nullable error) {
+            if(error) {
+                secerror("octagon-checkinheritancekey, failed to check inheritance key");
+                OctagonSignpostEnd(signPost, OctagonSignpostNameCheckInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameCheckInheritanceKey), (int)subTaskSuccess);
+                reply(false, error);
+                return;
+            } else {
+                secnotice("octagon-checkinheritancekey", "successfully checked inerhitance key");
+                subTaskSuccess = true;
+                OctagonSignpostEnd(signPost, OctagonSignpostNameCheckInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameCheckInheritanceKey), (int)subTaskSuccess);
+                reply(exists, nil);
+                return;
+            }
+        }];
+    
+#else
+    reply(false, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
+#endif
+}
 
 - (void)performedCDPStateMachineRun:(OTCliqueCDPContextType)type
                             success:(BOOL)success

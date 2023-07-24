@@ -1249,17 +1249,19 @@ bool RenderStyle::changeRequiresRepaint(const RenderStyle& other, OptionSet<Styl
         return true;
 
 
-    if (m_nonInheritedData.ptr() != other.m_nonInheritedData.ptr()) {
-        if (m_nonInheritedData->backgroundData.ptr() != other.m_nonInheritedData->backgroundData.ptr()) {
+    if (currentColorDiffers || m_nonInheritedData.ptr() != other.m_nonInheritedData.ptr()) {
+        if (currentColorDiffers || m_nonInheritedData->backgroundData.ptr() != other.m_nonInheritedData->backgroundData.ptr()) {
             if (!m_nonInheritedData->backgroundData->isEquivalentForPainting(*other.m_nonInheritedData->backgroundData, currentColorDiffers))
                 return true;
         }
 
-        if (m_nonInheritedData->surroundData.ptr() != other.m_nonInheritedData->surroundData.ptr()) {
+        if (currentColorDiffers || m_nonInheritedData->surroundData.ptr() != other.m_nonInheritedData->surroundData.ptr()) {
             if (!m_nonInheritedData->surroundData->border.isEquivalentForPainting(other.m_nonInheritedData->surroundData->border, currentColorDiffers))
                 return true;
         }
+    }
 
+    if (m_nonInheritedData.ptr() != other.m_nonInheritedData.ptr()) {
         if (m_nonInheritedData->miscData.ptr() != other.m_nonInheritedData->miscData.ptr()
             && miscDataChangeRequiresRepaint(*m_nonInheritedData->miscData, *other.m_nonInheritedData->miscData, changedContextSensitiveProperties))
             return true;
@@ -2314,7 +2316,7 @@ Color RenderStyle::colorResolvingCurrentColor(CSSPropertyID colorProperty, bool 
 {
     auto result = unresolvedColorForProperty(colorProperty, visitedLink);
 
-    if (isCurrentColor(result)) {
+    if (result.isCurrentColor()) {
         if (colorProperty == CSSPropertyTextDecorationColor) {
             if (hasPositiveStrokeWidth()) {
                 // Prefer stroke color if possible but not if it's fully transparent.
@@ -2355,17 +2357,20 @@ Color RenderStyle::colorResolvingCurrentColor(const StyleColor& color) const
     return color.resolveColor(this->color());
 }
 
-Color RenderStyle::visitedDependentColor(CSSPropertyID colorProperty) const
+Color RenderStyle::visitedDependentColor(CSSPropertyID colorProperty, OptionSet<PaintBehavior> paintBehavior) const
 {
     Color unvisitedColor = colorResolvingCurrentColor(colorProperty, false);
     if (insideLink() != InsideLink::InsideVisited)
+        return unvisitedColor;
+
+    if (paintBehavior.contains(PaintBehavior::DontShowVisitedLinks))
         return unvisitedColor;
 
 #if ENABLE(CSS_COMPOSITING)
     if (isInSubtreeWithBlendMode())
         return unvisitedColor;
 #endif
-    
+
     Color visitedColor = colorResolvingCurrentColor(colorProperty, true);
 
     // FIXME: Technically someone could explicitly specify the color transparent, but for now we'll just
@@ -2380,12 +2385,12 @@ Color RenderStyle::visitedDependentColor(CSSPropertyID colorProperty) const
     return visitedColor.colorWithAlpha(unvisitedColor.alphaAsFloat());
 }
 
-Color RenderStyle::visitedDependentColorWithColorFilter(CSSPropertyID colorProperty) const
+Color RenderStyle::visitedDependentColorWithColorFilter(CSSPropertyID colorProperty, OptionSet<PaintBehavior> paintBehavior) const
 {
     if (!hasAppleColorFilter())
-        return visitedDependentColor(colorProperty);
+        return visitedDependentColor(colorProperty, paintBehavior);
 
-    return colorByApplyingColorFilter(visitedDependentColor(colorProperty));
+    return colorByApplyingColorFilter(visitedDependentColor(colorProperty, paintBehavior));
 }
 
 Color RenderStyle::colorByApplyingColorFilter(const Color& color) const

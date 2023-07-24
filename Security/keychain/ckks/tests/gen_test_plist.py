@@ -25,7 +25,7 @@ test_list = Foundation.NSMutableArray.array()
 test_files = glob(test_dir + '/*.m') + glob(test_dir + '/*.h')
 
 def get_class_names():
-    test_classes = ['CKKSLaunchSequenceTests']
+    test_classes = ['SecLaunchSequenceTests']
     for filename in test_files:
         f = open(filename, 'r')
         for line in f:

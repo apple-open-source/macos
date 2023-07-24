@@ -119,6 +119,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		if (i >= argc)
 		{
 		  httpClose(http);
+		  http = NULL;
 
 		  usage();
 		}
@@ -183,6 +184,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 	  default :
 	      httpClose(http);
+	      http = NULL;
 
 	      usage();
 	}
@@ -238,6 +240,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	                _("%s: Error - no default destination available."),
 			argv[0]);
       httpClose(http);
+      http = NULL;
       return (1);
     }
 
@@ -269,6 +272,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   */
 
   httpClose(http);
+  http = NULL;
 
   return (0);
 }

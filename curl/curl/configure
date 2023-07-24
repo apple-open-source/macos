@@ -1201,6 +1201,7 @@ with_aix_soname
 with_gnu_ld
 with_sysroot
 enable_libtool_lock
+with_mingw1_deprecated
 enable_http
 enable_ftp
 enable_file
@@ -1254,7 +1255,6 @@ with_quiche
 with_msh3
 with_zsh_functions_dir
 with_fish_functions_dir
-with_n64_deprecated
 enable_threaded_resolver
 enable_pthreads
 enable_verbose
@@ -1960,7 +1960,7 @@ Optional Features:
   --enable-ldaps          Enable LDAPS support
   --disable-ldaps         Disable LDAPS support
   --enable-rtsp           Enable RTSP support
-    --disable-rtsp          Disable RTSP support
+  --disable-rtsp          Disable RTSP support
   --enable-proxy          Enable proxy support
   --disable-proxy         Disable proxy support
   --enable-dict           Enable DICT support
@@ -2048,7 +2048,7 @@ Optional Features:
   --enable-headers-api    Enable headers-api support
   --disable-headers-api   Disable headers-api support
   --enable-hsts           Enable HSTS support
-    --disable-hsts          Disable HSTS support
+  --disable-hsts          Disable HSTS support
   --enable-websockets     Enable WebSockets support
   --disable-websockets    Disable WebSockets support
 
@@ -2090,6 +2090,8 @@ Optional Packages:
   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
   --with-sysroot[=DIR]    Search for dependent libraries within DIR (or the
                           compiler's sysroot if not specified).
+  --with-mingw1-deprecated
+                          confirm you realize support for mingw v1 is dying
   --with-hyper=PATH       Enable hyper usage
   --without-hyper         Disable hyper usage
   --with-zlib=PATH        search for zlib in PATH
@@ -2170,8 +2172,6 @@ Optional Packages:
                           Install fish completions to PATH
   --without-fish-functions-dir
                           Do not install fish completions
-  --with-n64-deprecated   confirm you realize support for systems without 64
-                          bit data types is going away
 
 Some influential environment variables:
   CC          C compiler command
@@ -6667,13 +6667,22 @@ curl_headers_msg="enabled (--disable-headers-api)"
     ssl_backends=
      curl_h1_msg="enabled (internal)"
      curl_h2_msg="no      (--with-nghttp2, --with-hyper)"
-     curl_h3_msg="no      (--with-ngtcp2, --with-quiche --with-msh3)"
+     curl_h3_msg="no      (--with-ngtcp2 --with-nghttp3, --with-quiche, --with-msh3)"
 
 enable_altsvc="yes"
 hsts="yes"
 
 INITIAL_LDFLAGS=$LDFLAGS
 INITIAL_LIBS=$LIBS
+
+compilersh="run-compiler"
+export "CURL_SAVED_CC=$CC"
+export "CURL_SAVED_LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+cat <<\EOF > "$compilersh"
+export "CC=$CURL_SAVED_CC"
+export "LD_LIBRARY_PATH=$CURL_SAVED_LD_LIBRARY_PATH"
+exec $CC "$@"
+EOF
 
 OPT_SCHANNEL=no
 
@@ -6869,6 +6878,7 @@ fi
 
 
 
+HTTPD_ENABLED="maybe"
 
 # Check whether --with-test-httpd was given.
 if test ${with_test_httpd+y}
@@ -6878,7 +6888,7 @@ else $as_nop
   request_httpd=check
 fi
 
-if test x"$request_httpd" = "xcheck"; then
+if test x"$request_httpd" = "xcheck" -o x"$request_httpd" = "xyes"; then
   if test -x "/usr/sbin/apache2" -a -x "/usr/sbin/apache2ctl"; then
     # common location on distros (debian/ubuntu)
     HTTPD="/usr/sbin/apache2"
@@ -6928,9 +6938,10 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-    if test "x$APXS" != "x"; then
+    if test "x$APXS" = "x"; then
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apache2-dev not installed, httpd tests disabled" >&5
 printf "%s\n" "$as_me: apache2-dev not installed, httpd tests disabled" >&6;}
+      HTTPD_ENABLED="no"
     fi
   else
     # Extract the first word of "httpd", so it can be a program name with args.
@@ -7116,37 +7127,47 @@ fi
 
 
     if test "x$HTTPD" = "x" -o "x$APACHECTL" = "x"; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: httpd/apache2 not in PATH, httpd tests disabled" >&5
-printf "%s\n" "$as_me: httpd/apache2 not in PATH, httpd tests disabled" >&6;}
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: httpd/apache2 not in PATH, http tests disabled" >&5
+printf "%s\n" "$as_me: httpd/apache2 not in PATH, http tests disabled" >&6;}
+      HTTPD_ENABLED="no"
     fi
     if test "x$APXS" = "x"; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apxs not in PATH, httpd tests disabled" >&5
-printf "%s\n" "$as_me: apxs not in PATH, httpd tests disabled" >&6;}
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apxs not in PATH, http tests disabled" >&5
+printf "%s\n" "$as_me: apxs not in PATH, http tests disabled" >&6;}
+      HTTPD_ENABLED="no"
     fi
   fi
-else
+elif test x"$request_httpd" != "xno"; then
   HTTPD="${request_httpd}/bin/httpd"
   APACHECTL="${request_httpd}/bin/apachectl"
   APXS="${request_httpd}/bin/apxs"
   if test ! -x "${HTTPD}"; then
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: httpd not found as ${HTTPD}, httpd tests disabled" >&5
-printf "%s\n" "$as_me: httpd not found as ${HTTPD}, httpd tests disabled" >&6;}
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: httpd not found as ${HTTPD}, http tests disabled" >&5
+printf "%s\n" "$as_me: httpd not found as ${HTTPD}, http tests disabled" >&6;}
+    HTTPD_ENABLED="no"
   elif test ! -x "${APACHECTL}"; then
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apachectl not found as ${APACHECTL}, httpd tests disabled" >&5
-printf "%s\n" "$as_me: apachectl not found as ${APACHECTL}, httpd tests disabled" >&6;}
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apachectl not found as ${APACHECTL}, http tests disabled" >&5
+printf "%s\n" "$as_me: apachectl not found as ${APACHECTL}, http tests disabled" >&6;}
+    HTTPD_ENABLED="no"
   elif test ! -x "${APXS}"; then
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apxs not found as ${APXS}, httpd tests disabled" >&5
-printf "%s\n" "$as_me: apxs not found as ${APXS}, httpd tests disabled" >&6;}
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: apxs not found as ${APXS}, http tests disabled" >&5
+printf "%s\n" "$as_me: apxs not found as ${APXS}, http tests disabled" >&6;}
+    HTTPD_ENABLED="no"
   else
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: using HTTPD=$HTTPD for tests" >&5
 printf "%s\n" "$as_me: using HTTPD=$HTTPD for tests" >&6;}
   fi
 fi
+if test x"$HTTPD_ENABLED" = "xno"; then
+  HTTPD=""
+  APACHECTL=""
+  APXS=""
+fi
 
 
 
 
-if test "x$TEST_NGHTTPX" != "x"; then
+if test "x$TEST_NGHTTPX" != "x" -a "x$TEST_NGHTTPX" != "xnghttpx"; then
   HTTPD_NGHTTPX="$TEST_NGHTTPX"
 else
   # Extract the first word of "nghttpx", so it can be a program name with args.
@@ -7163,7 +7184,8 @@ else $as_nop
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
+as_dummy="$PATH:/usr/bin:/usr/local/bin"
+for as_dir in $as_dummy
 do
   IFS=$as_save_IFS
   case $as_dir in #(((
@@ -7195,51 +7217,6 @@ fi
 
 
 fi
-    # Extract the first word of "apxs", so it can be a program name with args.
-set dummy apxs; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_APXS+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  case $APXS in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_APXS="$APXS" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_APXS="$as_dir$ac_word$ac_exec_ext"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-APXS=$ac_cv_path_APXS
-if test -n "$APXS"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $APXS" >&5
-printf "%s\n" "$APXS" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-
 
 
 if test "x$TEST_CADDY" != "x"; then
@@ -18516,7 +18493,6 @@ squeeze() {
       CLANG)
         #
                                 tmp_CFLAGS="$tmp_CFLAGS -Qunused-arguments"
-                        tmp_CFLAGS="$tmp_CFLAGS -Wno-pointer-bool-conversion"
         ;;
         #
       DEC_C)
@@ -18709,7 +18685,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -18754,6 +18732,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -19038,7 +19017,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -19083,6 +19064,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -19457,7 +19439,150 @@ printf "%s\n" "$as_me: WARNING: compiler options rejected: $tmp_options" >&2;}
 
           fi
           #
+                    if test "$compiler_num" -ge "300"; then
+
+    ac_var_added_warnings=""
+  for warning in bad-function-cast; do
+
+  ac_var_match_word="no"
+  for word1 in $CFLAGS; do
+    for word2 in -Wno-$warning -W$warning; do
+      if test "$word1" = "$word2"; then
+        ac_var_match_word="yes"
+      fi
+    done
+  done
+
+    if test "$ac_var_match_word" = "no"; then
+      ac_var_added_warnings="$ac_var_added_warnings -W$warning"
+    fi
+  done
+    tmp_CFLAGS="$tmp_CFLAGS $ac_var_added_warnings"
+  squeeze tmp_CFLAGS
+
+
+    ac_var_added_warnings=""
+  for warning in conversion; do
+
+  ac_var_match_word="no"
+  for word1 in $CFLAGS; do
+    for word2 in -Wno-$warning -W$warning; do
+      if test "$word1" = "$word2"; then
+        ac_var_match_word="yes"
+      fi
+    done
+  done
+
+    if test "$ac_var_match_word" = "no"; then
+      ac_var_added_warnings="$ac_var_added_warnings -W$warning"
+    fi
+  done
+    tmp_CFLAGS="$tmp_CFLAGS $ac_var_added_warnings"
+  squeeze tmp_CFLAGS
+
+
+    ac_var_added_warnings=""
+  for warning in empty-body; do
+
+  ac_var_match_word="no"
+  for word1 in $CFLAGS; do
+    for word2 in -Wno-$warning -W$warning; do
+      if test "$word1" = "$word2"; then
+        ac_var_match_word="yes"
+      fi
+    done
+  done
+
+    if test "$ac_var_match_word" = "no"; then
+      ac_var_added_warnings="$ac_var_added_warnings -W$warning"
+    fi
+  done
+    tmp_CFLAGS="$tmp_CFLAGS $ac_var_added_warnings"
+  squeeze tmp_CFLAGS
+
+
+    ac_var_added_warnings=""
+  for warning in ignored-qualifiers; do
+
+  ac_var_match_word="no"
+  for word1 in $CFLAGS; do
+    for word2 in -Wno-$warning -W$warning; do
+      if test "$word1" = "$word2"; then
+        ac_var_match_word="yes"
+      fi
+    done
+  done
+
+    if test "$ac_var_match_word" = "no"; then
+      ac_var_added_warnings="$ac_var_added_warnings -W$warning"
+    fi
+  done
+    tmp_CFLAGS="$tmp_CFLAGS $ac_var_added_warnings"
+  squeeze tmp_CFLAGS
+
+
+    ac_var_added_warnings=""
+  for warning in type-limits; do
+
+  ac_var_match_word="no"
+  for word1 in $CFLAGS; do
+    for word2 in -Wno-$warning -W$warning; do
+      if test "$word1" = "$word2"; then
+        ac_var_match_word="yes"
+      fi
+    done
+  done
+
+    if test "$ac_var_match_word" = "no"; then
+      ac_var_added_warnings="$ac_var_added_warnings -W$warning"
+    fi
+  done
+    tmp_CFLAGS="$tmp_CFLAGS $ac_var_added_warnings"
+  squeeze tmp_CFLAGS
+
+
+    ac_var_added_warnings=""
+  for warning in no-sign-conversion; do
+
+  ac_var_match_word="no"
+  for word1 in $CFLAGS; do
+    for word2 in -Wno-$warning -W$warning; do
+      if test "$word1" = "$word2"; then
+        ac_var_match_word="yes"
+      fi
+    done
+  done
+
+    if test "$ac_var_match_word" = "no"; then
+      ac_var_added_warnings="$ac_var_added_warnings -W$warning"
+    fi
+  done
+    tmp_CFLAGS="$tmp_CFLAGS $ac_var_added_warnings"
+  squeeze tmp_CFLAGS
+
+          fi
+          #
                     if test "$compiler_num" -ge "302"; then
+
+    ac_var_added_warnings=""
+  for warning in enum-conversion; do
+
+  ac_var_match_word="no"
+  for word1 in $CFLAGS; do
+    for word2 in -Wno-$warning -W$warning; do
+      if test "$word1" = "$word2"; then
+        ac_var_match_word="yes"
+      fi
+    done
+  done
+
+    if test "$ac_var_match_word" = "no"; then
+      ac_var_added_warnings="$ac_var_added_warnings -W$warning"
+    fi
+  done
+    tmp_CFLAGS="$tmp_CFLAGS $ac_var_added_warnings"
+  squeeze tmp_CFLAGS
+
             case $host_os in
             cygwin* | mingw*)
                                           ;;
@@ -19484,6 +19609,29 @@ printf "%s\n" "$as_me: WARNING: compiler options rejected: $tmp_options" >&2;}
 
               ;;
             esac
+          fi
+          #
+                    if test "$compiler_num" -ge "304"; then
+
+    ac_var_added_warnings=""
+  for warning in unused-const-variable; do
+
+  ac_var_match_word="no"
+  for word1 in $CFLAGS; do
+    for word2 in -Wno-$warning -W$warning; do
+      if test "$word1" = "$word2"; then
+        ac_var_match_word="yes"
+      fi
+    done
+  done
+
+    if test "$ac_var_match_word" = "no"; then
+      ac_var_added_warnings="$ac_var_added_warnings -W$warning"
+    fi
+  done
+    tmp_CFLAGS="$tmp_CFLAGS $ac_var_added_warnings"
+  squeeze tmp_CFLAGS
+
           fi
           #
                     if test "$compiler_num" -ge "306"; then
@@ -19579,6 +19727,7 @@ printf "%s\n" "$as_me: WARNING: compiler options rejected: $tmp_options" >&2;}
 
           fi
         fi
+                                tmp_CFLAGS="$tmp_CFLAGS -Wno-pointer-bool-conversion"
         ;;
         #
       DEC_C)
@@ -20535,7 +20684,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -20580,6 +20731,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -21034,6 +21186,7 @@ if ac_fn_c_try_compile "$LINENO"
 then :
 
       curl_mingw_original=yes
+      curl_mingw_die=yes
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
 
@@ -21046,6 +21199,22 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     ;;
 esac
+
+
+
+# Check whether --with-mingw1-deprecated was given.
+if test ${with_mingw1_deprecated+y}
+then :
+  withval=$with_mingw1_deprecated; if test X"$withval" != Xno; then
+    curl_mingw_die=
+  fi
+
+fi
+
+
+if test -n "$curl_mingw_die"; then
+  as_fn_error $? "support for mingw v1 is going away, enable temporarily with --with-mingw1-deprecated" "$LINENO" 5
+fi
 
 
 
@@ -22164,9 +22333,7 @@ printf "%s\n" "#define CURL_DISABLE_RTSP 1" >>confdefs.h
 
   CURL_DISABLE_RTSP=1
 
-
 else
-
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether to support rtsp" >&5
 printf %s "checking whether to support rtsp... " >&6; }
   # Check whether --enable-rtsp was given.
@@ -23400,7 +23567,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -23458,6 +23627,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -25038,9 +25208,17 @@ else $as_nop
 
 int main(int argc, char **argv)
 {
+#ifdef _WIN32
+  /* on Windows, writing to the argv does not hide the argument in
+     process lists so it can just be skipped */
+  (void)argc;
+  (void)argv;
+  return 1;
+#else
   (void)argc;
   argv[0][0] = ' ';
   return (argv[0][0] == ' ')?0:1;
+#endif
 }
 
 _ACEOF
@@ -25058,7 +25236,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -25071,9 +25251,17 @@ else $as_nop
 
 int main(int argc, char **argv)
 {
+#ifdef _WIN32
+  /* on Windows, writing to the argv does not hide the argument in
+     process lists so it can just be skipped */
+  (void)argc;
+  (void)argv;
+  return 1;
+#else
   (void)argc;
   argv[0][0] = ' ';
   return (argv[0][0] == ' ')?0:1;
+#endif
 }
 
 _ACEOF
@@ -25090,6 +25278,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -26810,6 +26999,44 @@ printf "%s\n" "yes" >&6; }
 printf "%s\n" "#define HAVE_BORINGSSL 1" >>confdefs.h
 
         ssl_msg="BoringSSL"
+
+else $as_nop
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for AWS-LC" >&5
+printf %s "checking for AWS-LC... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+                #include <openssl/base.h>
+
+int main (void)
+{
+
+                #ifndef OPENSSL_IS_AWSLC
+                #error not AWS-LC
+                #endif
+
+ ;
+ return 0;
+}
+
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+printf "%s\n" "#define HAVE_AWSLC 1" >>confdefs.h
+
+        ssl_msg="AWS-LC"
 
 else $as_nop
 
@@ -30932,6 +31159,8 @@ printf "%s\n" "$as_me: -L is $LD_H2" >&6;}
     DIR_H2=${want_nghttp2_path}/lib$libsuff
   elif test X"$want_nghttp2" != Xdefault; then
             as_fn_error $? "--with-nghttp2 was specified but could not find libnghttp2 pkg-config file." "$LINENO" 5
+  else
+    LIB_H2="-lnghttp2"
   fi
 
   LDFLAGS="$LDFLAGS $LD_H2"
@@ -32552,9 +32781,9 @@ printf "%s\n" "$as_me: -L is $LD_QUICHE" >&6;}
     if test "x$cross_compiling" != "xyes"; then
       DIR_QUICHE=`echo $LD_QUICHE | $SED -e 's/^-L//'`
     fi
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for quiche_connect in -lquiche" >&5
-printf %s "checking for quiche_connect in -lquiche... " >&6; }
-if test ${ac_cv_lib_quiche_quiche_connect+y}
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for quiche_conn_send_ack_eliciting in -lquiche" >&5
+printf %s "checking for quiche_conn_send_ack_eliciting in -lquiche... " >&6; }
+if test ${ac_cv_lib_quiche_quiche_conn_send_ack_eliciting+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
@@ -32567,27 +32796,27 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 #ifdef __cplusplus
 extern "C"
 #endif
-char quiche_connect ();
+char quiche_conn_send_ack_eliciting ();
 int main (void)
 {
-return quiche_connect ();
+return quiche_conn_send_ack_eliciting ();
  ;
  return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  ac_cv_lib_quiche_quiche_connect=yes
+  ac_cv_lib_quiche_quiche_conn_send_ack_eliciting=yes
 else $as_nop
-  ac_cv_lib_quiche_quiche_connect=no
+  ac_cv_lib_quiche_quiche_conn_send_ack_eliciting=no
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_quiche_quiche_connect" >&5
-printf "%s\n" "$ac_cv_lib_quiche_quiche_connect" >&6; }
-if test "x$ac_cv_lib_quiche_quiche_connect" = xyes
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_quiche_quiche_conn_send_ack_eliciting" >&5
+printf "%s\n" "$ac_cv_lib_quiche_quiche_conn_send_ack_eliciting" >&6; }
+if test "x$ac_cv_lib_quiche_quiche_conn_send_ack_eliciting" = xyes
 then :
 
               for ac_header in quiche.h
@@ -34489,7 +34718,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -34523,6 +34754,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -34829,6 +35061,57 @@ printf "%s\n" "#define SIZEOF_CURL_OFF_T $r" >>confdefs.h
 
 
 
+
+
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking size of curl_socket_t" >&5
+printf %s "checking size of curl_socket_t... " >&6; }
+  r=0
+    for typesize in 8 4 2 16 1; do
+     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <sys/types.h>
+
+#include <curl/curl.h>
+
+
+int main (void)
+{
+switch(0) {
+       case 0:
+       case (sizeof(curl_socket_t) == $typesize):;
+     }
+
+ ;
+ return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+
+       r=$typesize
+else $as_nop
+
+       r=0
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+        if test $r -gt 0; then
+      break;
+    fi
+  done
+  if test $r -eq 0; then
+    as_fn_error $? "Failed to find size of curl_socket_t" "$LINENO" 5
+  fi
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $r" >&5
+printf "%s\n" "$r" >&6; }
+    tname=$(echo "ac_cv_sizeof_curl_socket_t" | tr A-Z a-z | tr " " "_")
+  eval "$tname=$r"
+
+
+printf "%s\n" "#define SIZEOF_CURL_SOCKET_T $r" >>confdefs.h
+
+
+
 CPPFLAGS=$o
 
 ac_fn_c_check_type "$LINENO" "long long" "ac_cv_type_long_long" "$ac_includes_default"
@@ -34842,21 +35125,8 @@ printf "%s\n" "#define HAVE_LONGLONG 1" >>confdefs.h
 fi
 
 
-
 if test ${ac_cv_sizeof_curl_off_t} -lt 8; then
-
-# Check whether --with-n64-deprecated was given.
-if test ${with_n64_deprecated+y}
-then :
-  withval=$with_n64_deprecated; if test X"$withval" != Xno; then
-    OPT_N64_AWARE=$withval
-  fi
-
-fi
-
-  if test -z "$OPT_N64_AWARE"; then
-    as_fn_error $? "support for systems without 64 bit curl_off_t is deprecated, use --with-n64-deprecated until then" "$LINENO" 5
-  fi
+  as_fn_error $? "64 bit curl_off_t is required" "$LINENO" 5
 fi
 
 # check for ssize_t
@@ -34986,7 +35256,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -35022,6 +35294,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -37667,7 +37940,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -37732,6 +38007,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -39224,7 +39500,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -39275,6 +39553,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -39516,7 +39795,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -39567,6 +39848,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -39873,7 +40155,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -39966,6 +40250,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -40215,7 +40500,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -40301,6 +40588,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -41139,7 +41427,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -41202,6 +41492,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -42917,7 +43208,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -42971,6 +43264,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -43083,7 +43377,9 @@ fi
 
      ;;
      *)
+      oldcc=$CC
       old=$LD_LIBRARY_PATH
+      CC="sh ./run-compiler"
       LD_LIBRARY_PATH=$CURL_LIBRARY_PATH:$old
       export LD_LIBRARY_PATH
       if test "$cross_compiling" = yes
@@ -43137,6 +43433,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
       LD_LIBRARY_PATH=$old # restore
+      CC=$oldcc
      ;;
    esac
 
@@ -43770,7 +44067,7 @@ fi
 
 
 
-  for ac_func in fnmatch fchmod fork geteuid getpass_r getppid getpwuid getpwuid_r getrlimit gettimeofday if_nametoindex mach_absolute_time pipe sched_yield sendmsg setlocale setmode setrlimit snprintf utime utimes
+  for ac_func in fnmatch fchmod fork geteuid getpass_r getppid getpwuid getpwuid_r getrlimit gettimeofday if_nametoindex mach_absolute_time pipe sched_yield sendmsg setlocale setmode setrlimit snprintf utime utimes arc4random
 do :
   as_ac_var=`printf "%s\n" "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
@@ -45196,7 +45493,6 @@ fi
 
 
 if test -n "$SSL_ENABLED"; then
-
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether to support HSTS" >&5
 printf %s "checking whether to support HSTS... " >&6; }
   # Check whether --enable-hsts was given.
@@ -45374,6 +45670,8 @@ else
   LIBCURL_NO_SHARED=
 fi
 
+
+rm $compilersh
 
 
 if test "x$OPENSSL_ENABLED" = "x1"; then
@@ -45815,7 +46113,7 @@ if test "x$want_curldebug_assumed" = "xyes" &&
   ac_configure_args="$ac_configure_args --enable-curldebug"
 fi
 
-ac_config_files="$ac_config_files Makefile docs/Makefile docs/examples/Makefile docs/libcurl/Makefile docs/libcurl/opts/Makefile docs/cmdline-opts/Makefile include/Makefile include/curl/Makefile src/Makefile lib/Makefile scripts/Makefile lib/libcurl.vers lib/libcurl.plist tests/Makefile tests/config tests/certs/Makefile tests/certs/scripts/Makefile tests/data/Makefile tests/server/Makefile tests/libtest/Makefile tests/unit/Makefile tests/tests-httpd/config.ini tests/tests-httpd/Makefile packages/Makefile packages/vms/Makefile curl-config libcurl.pc"
+ac_config_files="$ac_config_files Makefile docs/Makefile docs/examples/Makefile docs/libcurl/Makefile docs/libcurl/opts/Makefile docs/cmdline-opts/Makefile include/Makefile include/curl/Makefile src/Makefile lib/Makefile scripts/Makefile lib/libcurl.vers lib/libcurl.plist tests/Makefile tests/config tests/certs/Makefile tests/certs/scripts/Makefile tests/data/Makefile tests/server/Makefile tests/libtest/Makefile tests/unit/Makefile tests/http/config.ini tests/http/Makefile tests/http/clients/Makefile packages/Makefile packages/vms/Makefile curl-config libcurl.pc"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -46990,8 +47288,9 @@ do
     "tests/server/Makefile") CONFIG_FILES="$CONFIG_FILES tests/server/Makefile" ;;
     "tests/libtest/Makefile") CONFIG_FILES="$CONFIG_FILES tests/libtest/Makefile" ;;
     "tests/unit/Makefile") CONFIG_FILES="$CONFIG_FILES tests/unit/Makefile" ;;
-    "tests/tests-httpd/config.ini") CONFIG_FILES="$CONFIG_FILES tests/tests-httpd/config.ini" ;;
-    "tests/tests-httpd/Makefile") CONFIG_FILES="$CONFIG_FILES tests/tests-httpd/Makefile" ;;
+    "tests/http/config.ini") CONFIG_FILES="$CONFIG_FILES tests/http/config.ini" ;;
+    "tests/http/Makefile") CONFIG_FILES="$CONFIG_FILES tests/http/Makefile" ;;
+    "tests/http/clients/Makefile") CONFIG_FILES="$CONFIG_FILES tests/http/clients/Makefile" ;;
     "packages/Makefile") CONFIG_FILES="$CONFIG_FILES packages/Makefile" ;;
     "packages/vms/Makefile") CONFIG_FILES="$CONFIG_FILES packages/vms/Makefile" ;;
     "curl-config") CONFIG_FILES="$CONFIG_FILES curl-config" ;;
@@ -48447,111 +48746,6 @@ use vars qw(
 
 1;
 _EOF
-
-
-
-## ---------------------------------- ##
-##  Start of distclean amending code  ##
-## ---------------------------------- ##
-
-for xc_subdir in lib src tests/unit tests/server tests/libtest docs/examples
-do
-
-if test ! -f "$xc_subdir/Makefile"; then
-  echo "$xc_msg_err $xc_subdir/Makefile file not found. $xc_msg_abrt" >&2
-  exit 1
-fi
-
-# Fetch dependency tracking file list from Makefile include lines.
-
-xc_inc_lines=`grep '^include .*(DEPDIR)' "$xc_subdir/Makefile" 2>/dev/null`
-xc_cnt_words=`echo "$xc_inc_lines" | wc -w | tr -d "$xc_space$xc_tab"`
-
-# --disable-dependency-tracking might have been used, consequently
-# there is nothing to amend without a dependency tracking file list.
-
-if test $xc_cnt_words -gt 0; then
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: amending $xc_subdir/Makefile" >&5
-printf "%s\n" "$as_me: amending $xc_subdir/Makefile" >&6;}
-
-# Build Makefile specific patch hunk.
-
-xc_p="$xc_subdir/xc_patch.tmp"
-
-xc_rm_depfiles=`echo "$xc_inc_lines" \
-  | $SED 's%include%	-rm -f%' 2>/dev/null`
-
-xc_dep_subdirs=`echo "$xc_inc_lines" \
-  | $SED 's%include[ ][ ]*%%' 2>/dev/null \
-  | $SED 's%(DEPDIR)/.*%(DEPDIR)%' 2>/dev/null \
-  | sort | uniq`
-
-echo "$xc_rm_depfiles" >$xc_p
-
-for xc_dep_dir in $xc_dep_subdirs; do
-  echo "${xc_tab}@xm_dep_cnt=\`ls $xc_dep_dir | wc -l 2>/dev/null\`; \\"            >>$xc_p
-  echo "${xc_tab}if test \$\$xm_dep_cnt -eq 0 && test -d $xc_dep_dir; then \\"      >>$xc_p
-  echo "${xc_tab}  rm -rf $xc_dep_dir; \\"                                          >>$xc_p
-  echo "${xc_tab}fi"                                                                >>$xc_p
-done
-
-# Build Makefile patching sed scripts.
-
-xc_s1="$xc_subdir/xc_script_1.tmp"
-xc_s2="$xc_subdir/xc_script_2.tmp"
-xc_s3="$xc_subdir/xc_script_3.tmp"
-
-cat >$xc_s1 <<\_EOT
-/^distclean[ ]*:/,/^[^	][^	]*:/{
-  s/^.*(DEPDIR)/___xc_depdir_line___/
-}
-/^maintainer-clean[ ]*:/,/^[^	][^	]*:/{
-  s/^.*(DEPDIR)/___xc_depdir_line___/
-}
-_EOT
-
-cat >$xc_s2 <<\_EOT
-/___xc_depdir_line___$/{
-  N
-  /___xc_depdir_line___$/D
-}
-_EOT
-
-cat >$xc_s3 <<_EOT
-/^___xc_depdir_line___/{
-  r $xc_p
-  d
-}
-_EOT
-
-# Apply patch to Makefile and cleanup.
-
-$SED -f "$xc_s1" "$xc_subdir/Makefile"      >"$xc_subdir/Makefile.tmp1"
-$SED -f "$xc_s2" "$xc_subdir/Makefile.tmp1" >"$xc_subdir/Makefile.tmp2"
-$SED -f "$xc_s3" "$xc_subdir/Makefile.tmp2" >"$xc_subdir/Makefile.tmp3"
-
-if test -f "$xc_subdir/Makefile.tmp3"; then
-  mv -f "$xc_subdir/Makefile.tmp3" "$xc_subdir/Makefile"
-fi
-
-test -f "$xc_subdir/Makefile.tmp1" && rm -f "$xc_subdir/Makefile.tmp1"
-test -f "$xc_subdir/Makefile.tmp2" && rm -f "$xc_subdir/Makefile.tmp2"
-test -f "$xc_subdir/Makefile.tmp3" && rm -f "$xc_subdir/Makefile.tmp3"
-
-test -f "$xc_p"  && rm -f "$xc_p"
-test -f "$xc_s1" && rm -f "$xc_s1"
-test -f "$xc_s2" && rm -f "$xc_s2"
-test -f "$xc_s3" && rm -f "$xc_s3"
-
-fi
-
-done
-
-## -------------------------------- ##
-##  End of distclean amending code  ##
-## -------------------------------- ##
-
 
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: Configured to build curl/libcurl:

@@ -224,6 +224,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
         peer2.startOctagonStateMachine()
@@ -415,6 +416,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -573,6 +575,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -645,6 +648,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -727,6 +731,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -792,6 +797,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -863,6 +869,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                                 accountsAdapter: self.mockAuthKit2,
                                                 authKitAdapter: self.mockAuthKit2,
                                                 tooManyPeersAdapter: self.mockTooManyPeers,
+                                                tapToRadarAdapter: self.mockTapToRadar,
                                                 lockStateTracker: self.lockStateTracker,
                                                 deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -1111,6 +1118,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -1154,6 +1162,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                                                      accountsAdapter: self.mockAuthKit3,
                                                      authKitAdapter: self.mockAuthKit3,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
+                                                     tapToRadarAdapter: self.mockTapToRadar,
                                                      lockStateTracker: self.lockStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone-3", serialNumber: "456", osVersion: "iOS (fake version)"))
         let peer2AltDSID = try peer2.accountMetadataStore.loadOrCreateAccountMetadata().altDSID

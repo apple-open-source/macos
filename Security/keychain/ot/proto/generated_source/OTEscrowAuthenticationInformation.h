@@ -23,8 +23,8 @@
     BOOL _fmipRecovery;
     BOOL _idmsRecovery;
     struct {
-        int fmipRecovery:1;
-        int idmsRecovery:1;
+        uint fmipRecovery:1;
+        uint idmsRecovery:1;
     } _has;
 }
 

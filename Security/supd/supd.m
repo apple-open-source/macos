@@ -845,17 +845,6 @@ static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
     return statistics;
 }
 
-- (NSMutableDictionary *)dropZeroValues:(NSDictionary*)oldSummary {
-    __block NSMutableDictionary* summary = [NSMutableDictionary dictionary];
-    [oldSummary enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
-        if ([obj isEqual:@0]) {
-            return;
-        }
-        summary[key] = obj;
-    }];
-    return summary;
-}
-
 - (NSMutableDictionary*)healthSummaryWithName:(SFAnalyticsClient*)client store:(SFAnalyticsSQLiteStore*)store uuid:(NSUUID *)uuid
 {
     dispatch_assert_queue(client.queue);
@@ -912,8 +901,6 @@ static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
         [summary addEntriesFromDictionary:event];
     }];
 
-    summary = [self dropZeroValues:summary];
-
     // Should always return yes because we already checked for event blacklisting specifically (unless summary itself is blacklisted)
     if (![self prepareEventForUpload:summary linkedUUID:uuid]) {
         secwarning("supd: health summary for %@ blacklisted", name);
@@ -958,7 +945,7 @@ static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
     if (json) {
         return [json length];
     } else {
-        secnotice("serializedEventSize", "failed to serialize event");
+        secnotice("serializedEventSize", "failed to serialize event: %@", error ? *error : nil);
         return 0;
     }
 }
@@ -971,8 +958,9 @@ static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
     size_t currentSize = 0;
     size_t currentEventCount = 0;
 
-    NSMutableArray<NSArray<NSDictionary *> *> *eventChunks = [[NSMutableArray<NSArray<NSDictionary *> *> alloc] init];
-    NSMutableArray<NSDictionary *> *currentEventChunk = [[NSMutableArray<NSDictionary *> alloc] init];
+    NSMutableArray<NSArray<NSDictionary*>*>*eventChunks = [NSMutableArray array];
+    NSMutableArray<NSDictionary *> *currentEventChunk = [NSMutableArray array];
+
     for (NSDictionary *event in events) {
         NSError *localError = nil;
         size_t eventSize = [self serializedEventSize:event error:&localError];
@@ -987,8 +975,10 @@ static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
         BOOL countLessThanLimit = currentEventCount < postBodyLimit;
         BOOL sizeLessThanCapacity = (currentSize + eventSize) <= sizeCapacity;
         if (!countLessThanLimit || !sizeLessThanCapacity) {
-            [eventChunks addObject:currentEventChunk];
-            currentEventChunk = [[NSMutableArray<NSDictionary *> alloc] init];
+            if (currentEventChunk.count > 0) {
+                [eventChunks addObject:currentEventChunk];
+                currentEventChunk = [NSMutableArray array];
+            }
             currentEventCount = 0;
             currentSize = 0;
         }
@@ -1005,18 +995,12 @@ static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
     return eventChunks;
 }
 
-- (NSDictionary *)createEventDictionary:(NSArray *)healthSummaries
-                               failures:(NSArray<NSDictionary *> *)failures
+- (NSDictionary *)createEventDictionary:(NSArray<NSDictionary *> *)events
+                              timestamp:(NSDate *)timestamp
                                   error:(NSError **)error
 {
-    NSMutableArray *events = [[NSMutableArray alloc] init];
-    [events addObjectsFromArray:healthSummaries];
-    if (failures) {
-        [events addObjectsFromArray:failures];
-    }
-
     NSDictionary *eventDictionary = @{
-        SFAnalyticsPostTime : @([[NSDate date] timeIntervalSince1970] * 1000),
+        SFAnalyticsPostTime : @([timestamp timeIntervalSince1970] * 1000),
         @"events" : events,
     };
 
@@ -1032,41 +1016,31 @@ static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
     return eventDictionary;
 }
 
+
 - (NSArray<NSDictionary *> *)createChunkedLoggingJSON:(NSArray<NSDictionary *> *)healthSummaries
                                              failures:(NSArray<NSDictionary *> *)failures
                                                 error:(NSError **)error
 {
-    NSError *localError = nil;
-    size_t baseSize = [self serializedEventSize:healthSummaries error:&localError];
-    if (localError != nil) {
-        secemergency("Unable to serialize health summary JSON");
-        if (error) {
-            *error = localError;
-        }
-        return nil;
-    }
+    NSMutableArray<NSDictionary *> *jsonResults = [NSMutableArray array];
+    NSDate *now = [NSDate date];
 
-    NSArray<NSArray *> *chunkedEvents = [self chunkFailureSet:(self.uploadSizeLimit - baseSize) events:failures error:&localError];
+    NSArray<NSArray *>* chunkedEvents;
 
-    NSMutableArray<NSDictionary *> *jsonResults = [[NSMutableArray<NSDictionary *> alloc] init];
-    for (NSArray<NSDictionary *> *failureSet in chunkedEvents) {
-        NSDictionary *eventDictionary = [self createEventDictionary:healthSummaries failures:failureSet error:error];
-        if (eventDictionary) {
-            [jsonResults addObject:eventDictionary];
-        } else {
-            return nil;
+    chunkedEvents = [self chunkFailureSet:self.uploadSizeLimit events:healthSummaries error:error];
+    for (NSArray<NSDictionary *> *healthChunk in chunkedEvents) {
+        NSDictionary *events = [self createEventDictionary:healthChunk timestamp:now error:error];
+        if (events) {
+            [jsonResults addObject:events];
         }
     }
-
-    if ([jsonResults count] == 0) {
-        NSDictionary *eventDictionary = [self createEventDictionary:healthSummaries failures:nil error:error];
-        if (eventDictionary) {
-            [jsonResults addObject:eventDictionary];
-        } else {
-            return nil;
+    
+    chunkedEvents = [self chunkFailureSet:self.uploadSizeLimit events:failures error:error];
+    for (NSArray<NSDictionary *> *failureChunk in chunkedEvents) {
+        NSDictionary *events = [self createEventDictionary:failureChunk timestamp:now error:error];
+        if (events) {
+            [jsonResults addObject:events];
         }
     }
-
     return jsonResults;
 }
 
@@ -1117,19 +1091,18 @@ static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
     return carryStatus;
 }
 
-- (BOOL)copyEvents:(NSMutableArray<NSDictionary *> **)healthSummaries
-          failures:(NSMutableArray<NSDictionary *> **)failures
+- (BOOL)copyEvents:(NSMutableArray<NSDictionary *> *)healthSummaries
+          failures:(NSMutableArray<NSDictionary *> *)failures
          forUpload:(BOOL)upload
-participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
+participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
              force:(BOOL)force
         linkedUUID:(NSUUID *)linkedUUID
              error:(NSError**)error
 {
-    NSMutableArray<SFAnalyticsClient*> *localClients = [[NSMutableArray alloc] init];
-    NSMutableArray<NSDictionary *> *localHealthSummaries = [[NSMutableArray<NSDictionary *> alloc] init];
-    NSMutableArray<NSDictionary *> *localFailures = [[NSMutableArray<NSDictionary *> alloc] init];
-    NSMutableArray<NSArray*> *hardFailures = [[NSMutableArray alloc] init];
-    NSMutableArray<NSArray*> *softFailures = [[NSMutableArray alloc] init];
+    NSMutableArray<SFAnalyticsClient*> *localClients = [NSMutableArray array];
+    NSMutableArray<NSArray*> *rockwells = [NSMutableArray array];
+    NSMutableArray<NSArray*> *hardFailures = [NSMutableArray array];
+    NSMutableArray<NSArray*> *softFailures = [NSMutableArray array];
     NSString *ckdeviceID = nil;
     NSString *accountID = nil;
     NSString *appleUser = nil;
@@ -1188,9 +1161,10 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
                 if (appleUser) {
                     healthSummary[SFAnalyticsIsAppleUser] = @(appleUser != nil);
                 }
-                [localHealthSummaries addObject:healthSummary];
+                [healthSummaries addObject:healthSummary];
             }
 
+            [rockwells addObject:store.rockwells];
             [hardFailures addObject:store.hardFailures];
             [softFailures addObject:store.softFailures];
         }];
@@ -1206,35 +1180,32 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
         return NO;
     }
 
-    if (clients) {
-        *clients = localClients;
-    }
+    [clients addObjectsFromArray:localClients];
 
-    if (failures) {
-        [self addFailures:hardFailures toUploadRecords:localFailures threshold:_maxEventsToReport/10 linkedUUID:linkedUUID];
-        [self addFailures:softFailures toUploadRecords:localFailures threshold:0 linkedUUID:linkedUUID];
-        [*failures addObjectsFromArray:localFailures];
-    }
+    NSMutableArray<NSDictionary *>* localFailures = [NSMutableArray array];
 
-    if (healthSummaries) {
-        [*healthSummaries addObjectsFromArray:localHealthSummaries];
-    }
+    [self addFailures:rockwells toUploadRecords:localFailures threshold:_maxEventsToReport/10 linkedUUID:linkedUUID];
+    [self addFailures:hardFailures toUploadRecords:localFailures threshold:_maxEventsToReport/10 linkedUUID:linkedUUID];
+    [self addFailures:softFailures toUploadRecords:localFailures threshold:0 linkedUUID:linkedUUID];
+
+    [failures addObjectsFromArray:localFailures];
 
     return YES;
 }
 
 - (NSArray<NSDictionary *> *)createChunkedLoggingJSON:(bool)pretty
                                             forUpload:(BOOL)upload
-                                 participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
+                                 participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
                                                 force:(BOOL)force                                       // supdctl uploads ignore privacy settings and recency
                                                 error:(NSError**)error
 {
     NSUUID *linkedUUID = [NSUUID UUID];
     NSError *localError = nil;
-    NSMutableArray *failures = [[NSMutableArray alloc] init];
-    NSMutableArray *healthSummaries = [[NSMutableArray alloc] init];
-    BOOL copied = [self copyEvents:&healthSummaries
-                          failures:&failures
+    NSMutableArray<NSDictionary *>* failures = [NSMutableArray array];
+    NSMutableArray<NSDictionary *>* healthSummaries = [NSMutableArray array];
+
+    BOOL copied = [self copyEvents:healthSummaries
+                          failures:failures
                          forUpload:upload
               participatingClients:clients
                              force:force
@@ -1247,11 +1218,9 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
         return nil;
     }
 
-    // Trim failures to the max count, based on health summary count
-    if ([failures count] > (_maxEventsToReport - [healthSummaries count])) {
-        NSRange range;
-        range.location = 0;
-        range.length = _maxEventsToReport - [healthSummaries count];
+    // Trim failures to the max count, disregard the health summaries
+    if (failures.count > _maxEventsToReport) {
+        NSRange range = NSMakeRange(0, _maxEventsToReport);
         failures = [[failures subarrayWithRange:range] mutableCopy];
     }
 
@@ -1260,15 +1229,16 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 
 - (NSDictionary *)createLoggingJSON:(bool)pretty
                           forUpload:(BOOL)upload
-               participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
+               participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
                               force:(BOOL)force                                       // supdctl uploads ignore privacy settings and recency
                               error:(NSError**)error
 {
     NSError *localError = nil;
-    NSMutableArray *failures = [[NSMutableArray alloc] init];
-    NSMutableArray *healthSummaries = [[NSMutableArray alloc] init];
-    BOOL copied = [self copyEvents:&healthSummaries
-                          failures:&failures
+    NSMutableArray<NSDictionary *>* failures = [NSMutableArray array];
+    NSMutableArray<NSDictionary *>* healthSummaries = [NSMutableArray array];
+
+    BOOL copied = [self copyEvents:healthSummaries
+                          failures:failures
                          forUpload:upload
               participatingClients:clients
                              force:force
@@ -1282,14 +1252,16 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
     }
 
     // Trim failures to the max count, based on health summary count
-    if ([failures count] > (_maxEventsToReport - [healthSummaries count])) {
-        NSRange range;
-        range.location = 0;
-        range.length = _maxEventsToReport - [healthSummaries count];
+    if ([failures count] > _maxEventsToReport) {
+        NSRange range = NSMakeRange(0, _maxEventsToReport);
         failures = [[failures subarrayWithRange:range] mutableCopy];
     }
 
-    return [self createEventDictionary:healthSummaries failures:failures error:error];
+    NSMutableArray<NSDictionary *>* events = [NSMutableArray array];
+    [events addObjectsFromArray:healthSummaries];
+    [events addObjectsFromArray:failures];
+
+    return [self createEventDictionary:events timestamp:[NSDate date] error:error];
 }
 
 // Is at least one client eligible for data collection based on user consent? Otherwise callers should NOT reach off-device.
@@ -1759,7 +1731,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
         return nil;
     }
 
-    NSMutableArray<NSData *> *serializedEvents = [[NSMutableArray<NSData *> alloc] init];
+    NSMutableArray<NSData *> *serializedEvents = [NSMutableArray array];
     for (NSDictionary *event in events) {
         NSError *serializationError = nil;
         NSData* serializedEvent = [NSJSONSerialization dataWithJSONObject:event
@@ -1795,8 +1767,12 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
                 continue;
             }
 
-            NSMutableArray<SFAnalyticsClient*>* clients = [NSMutableArray new];
-            NSArray<NSDictionary *> *jsonEvents = [topic createChunkedLoggingJSON:false forUpload:YES participatingClients:&clients force:force error:&localError];
+            NSMutableArray<SFAnalyticsClient*>* clients = [NSMutableArray array];
+            NSArray<NSDictionary *> *jsonEvents = [topic createChunkedLoggingJSON:false
+                                                                        forUpload:YES
+                                                             participatingClients:clients
+                                                                            force:force
+                                                                            error:&localError];
             if (!jsonEvents || localError) {
                 if ([[localError domain] isEqualToString:SupdErrorDomain] && [localError code] == SupdInvalidJSONError) {
                     // Pretend this was a success because at least we'll get rid of bad data.
@@ -1911,6 +1887,9 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     }
     else if (eventClass == SFAnalyticsEventClassSoftFailure) {
         return @"EventSoftFailure";
+    }
+    else if (eventClass == SFAnalyticsEventClassRockwell) {
+        return @"EventRockwell";
     }
     else {
         return @"EventUnknown";

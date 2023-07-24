@@ -16,12 +16,12 @@
 @synthesize secureBackupMetadataTimestamp = _secureBackupMetadataTimestamp;
 - (void)setSecureBackupMetadataTimestamp:(uint64_t)v
 {
-    _has.secureBackupMetadataTimestamp = YES;
+    _has.secureBackupMetadataTimestamp = (uint)YES;
     _secureBackupMetadataTimestamp = v;
 }
 - (void)setHasSecureBackupMetadataTimestamp:(BOOL)f
 {
-    _has.secureBackupMetadataTimestamp = f;
+    _has.secureBackupMetadataTimestamp = (uint)f;
 }
 - (BOOL)hasSecureBackupMetadataTimestamp
 {
@@ -30,12 +30,12 @@
 @synthesize secureBackupNumericPassphraseLength = _secureBackupNumericPassphraseLength;
 - (void)setSecureBackupNumericPassphraseLength:(uint64_t)v
 {
-    _has.secureBackupNumericPassphraseLength = YES;
+    _has.secureBackupNumericPassphraseLength = (uint)YES;
     _secureBackupNumericPassphraseLength = v;
 }
 - (void)setHasSecureBackupNumericPassphraseLength:(BOOL)f
 {
-    _has.secureBackupNumericPassphraseLength = f;
+    _has.secureBackupNumericPassphraseLength = (uint)f;
 }
 - (BOOL)hasSecureBackupNumericPassphraseLength
 {
@@ -44,12 +44,12 @@
 @synthesize secureBackupUsesComplexPassphrase = _secureBackupUsesComplexPassphrase;
 - (void)setSecureBackupUsesComplexPassphrase:(uint64_t)v
 {
-    _has.secureBackupUsesComplexPassphrase = YES;
+    _has.secureBackupUsesComplexPassphrase = (uint)YES;
     _secureBackupUsesComplexPassphrase = v;
 }
 - (void)setHasSecureBackupUsesComplexPassphrase:(BOOL)f
 {
-    _has.secureBackupUsesComplexPassphrase = f;
+    _has.secureBackupUsesComplexPassphrase = (uint)f;
 }
 - (BOOL)hasSecureBackupUsesComplexPassphrase
 {
@@ -58,12 +58,12 @@
 @synthesize secureBackupUsesNumericPassphrase = _secureBackupUsesNumericPassphrase;
 - (void)setSecureBackupUsesNumericPassphrase:(uint64_t)v
 {
-    _has.secureBackupUsesNumericPassphrase = YES;
+    _has.secureBackupUsesNumericPassphrase = (uint)YES;
     _secureBackupUsesNumericPassphrase = v;
 }
 - (void)setHasSecureBackupUsesNumericPassphrase:(BOOL)f
 {
-    _has.secureBackupUsesNumericPassphrase = f;
+    _has.secureBackupUsesNumericPassphrase = (uint)f;
 }
 - (BOOL)hasSecureBackupUsesNumericPassphrase
 {
@@ -107,12 +107,12 @@
 @synthesize devicePlatform = _devicePlatform;
 - (void)setDevicePlatform:(uint64_t)v
 {
-    _has.devicePlatform = YES;
+    _has.devicePlatform = (uint)YES;
     _devicePlatform = v;
 }
 - (void)setHasDevicePlatform:(BOOL)f
 {
-    _has.devicePlatform = f;
+    _has.devicePlatform = (uint)f;
 }
 - (BOOL)hasDevicePlatform
 {
@@ -196,25 +196,25 @@ BOOL OTEscrowRecordMetadataClientMetadataReadFrom(__unsafe_unretained OTEscrowRe
 
             case 1 /* secureBackupMetadataTimestamp */:
             {
-                self->_has.secureBackupMetadataTimestamp = YES;
+                self->_has.secureBackupMetadataTimestamp = (uint)YES;
                 self->_secureBackupMetadataTimestamp = PBReaderReadUint64(reader);
             }
             break;
             case 2 /* secureBackupNumericPassphraseLength */:
             {
-                self->_has.secureBackupNumericPassphraseLength = YES;
+                self->_has.secureBackupNumericPassphraseLength = (uint)YES;
                 self->_secureBackupNumericPassphraseLength = PBReaderReadUint64(reader);
             }
             break;
             case 3 /* secureBackupUsesComplexPassphrase */:
             {
-                self->_has.secureBackupUsesComplexPassphrase = YES;
+                self->_has.secureBackupUsesComplexPassphrase = (uint)YES;
                 self->_secureBackupUsesComplexPassphrase = PBReaderReadUint64(reader);
             }
             break;
             case 4 /* secureBackupUsesNumericPassphrase */:
             {
-                self->_has.secureBackupUsesNumericPassphrase = YES;
+                self->_has.secureBackupUsesNumericPassphrase = (uint)YES;
                 self->_secureBackupUsesNumericPassphrase = PBReaderReadUint64(reader);
             }
             break;
@@ -262,7 +262,7 @@ BOOL OTEscrowRecordMetadataClientMetadataReadFrom(__unsafe_unretained OTEscrowRe
             break;
             case 12 /* devicePlatform */:
             {
-                self->_has.devicePlatform = YES;
+                self->_has.devicePlatform = (uint)YES;
                 self->_devicePlatform = PBReaderReadUint64(reader);
             }
             break;

@@ -3,7 +3,7 @@ vim9script
 # Vim functions for file type detection
 #
 # Maintainer:	Bram Moolenaar <Bram@vim.org>
-# Last Change:	2022 Dec 14
+# Last Change:	2023 Apr 22
 
 # These functions are moved here from runtime/filetype.vim to make startup
 # faster.
@@ -307,14 +307,16 @@ export def FTfs()
   if exists("g:filetype_fs")
     exe "setf " .. g:filetype_fs
   else
-    var line = getline(nextnonblank(1))
-    # comments and colon definitions
-    if line =~ '^\s*\.\=( ' || line =~ '^\s*\\G\= ' || line =~ '^\\$'
-	  \ || line =~ '^\s*: \S'
-      setf forth
-    else
-      setf fsharp
-    endif
+    var n = 1
+    while n < 100 && n <= line("$")
+      # Forth comments and colon definitions
+      if getline(n) =~ "^[:(\\\\] "
+        setf forth
+        return
+      endif
+      n += 1
+    endwhile
+    setf fsharp
   endif
 enddef
 
@@ -468,7 +470,7 @@ enddef
 
 # Returns true if file content looks like LambdaProlog module
 def IsLProlog(): bool
-  # skip apparent comments and blank lines, what looks like 
+  # skip apparent comments and blank lines, what looks like
   # LambdaProlog comment may be RAPID header
   var l: number = nextnonblank(1)
   while l > 0 && l < line('$') && getline(l) =~ '^\s*%' # LambdaProlog comment
@@ -1102,6 +1104,66 @@ export def FTlsl()
   else
     setf lsl
   endif
+enddef
+
+export def FTtyp()
+  if exists("g:filetype_typ")
+    exe "setf " .. g:filetype_typ
+    return
+  endif
+
+  # Look for SQL type definition syntax
+  for line in getline(1, 200)
+    # SQL type files may define the casing
+    if line =~ '^CASE\s\==\s\=\(SAME\|LOWER\|UPPER\|OPPOSITE\)$'
+      setf sql
+      return
+    endif
+
+    # SQL type files may define some types as follows
+    if line =~ '^TYPE\s.*$'
+      setf sql
+      return
+    endif
+  endfor
+
+  # Otherwise, affect the typst filetype
+  setf typst
+enddef
+
+# Set the filetype of a *.v file to Verilog, V or Cog based on the first 200
+# lines.
+export def FTv()
+  if did_filetype()
+    # ":setf" will do nothing, bail out early
+    return
+  endif
+
+  for line in getline(1, 200)
+    if line[0] =~ '^\s*/'
+      # skip comment line
+      continue
+    endif
+
+    # Verilog: line ends with ';' followed by an optional variable number of
+    # spaces and an optional start of a comment.
+    # Example: " b <= a + 1; // Add 1".
+    if line =~ ';\(\s*\)\?\(/.*\)\?$'
+      setf verilog
+      return
+    endif
+
+    # Coq: line ends with a '.' followed by an optional variable number of
+    # spaces and an optional start of a comment.
+    # Example: "Definition x := 10. (*".
+    if line =~ '\.\(\s*\)\?\((\*.*\)\?$'
+      setf coq
+      return
+    endif
+  endfor
+
+  # No line matched, fall back to "v".
+  setf v
 enddef
 
 # Uncomment this line to check for compilation errors early

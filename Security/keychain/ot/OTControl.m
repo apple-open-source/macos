@@ -520,6 +520,15 @@
     }] removeCustodianRecoveryKey:arguments uuid:uuid reply:reply];
 }
 
+- (void)checkCustodianRecoveryKey:(OTControlArguments*)arguments
+                             uuid:(NSUUID *)uuid
+                            reply:(void (^)(bool exists, NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(false, error);
+    }] checkCustodianRecoveryKey:arguments uuid:uuid reply:reply];
+}
+
 - (void) createInheritanceKey:(OTControlArguments*)arguments
                          uuid:(NSUUID *_Nullable)uuid
                         reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply
@@ -572,6 +581,15 @@
     [[self getConnection:^(NSError *error) {
         reply(error);
     }] removeInheritanceKey:arguments uuid:uuid reply:reply];
+}
+
+- (void)checkInheritanceKey:(OTControlArguments*)arguments
+                       uuid:(NSUUID *)uuid
+                      reply:(void (^)(bool exists, NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(false, error);
+    }] checkInheritanceKey:arguments uuid:uuid reply:reply];
 }
 
 - (void)healthCheck:(OTControlArguments*)arguments

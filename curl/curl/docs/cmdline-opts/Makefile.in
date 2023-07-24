@@ -574,6 +574,7 @@ DPAGES = \
   proxy-crlfile.d \
   proxy-digest.d \
   proxy-header.d \
+  proxy-http2.d \
   proxy-insecure.d \
   proxy-key-type.d \
   proxy-key.d \
@@ -874,7 +875,7 @@ uninstall-am:
 
 all: $(MANPAGE)
 
-$(MANPAGE): $(DPAGES) $(OTHERPAGES) Makefile.inc
+$(MANPAGE): $(DPAGES) $(OTHERPAGES) Makefile.inc gen.pl
 	$(GEN)(rm -f $(MANPAGE) && cd $(srcdir) && @PERL@ ./gen.pl mainpage $(DPAGES) > $(builddir)/manpage.tmp && mv $(builddir)/manpage.tmp $(MANPAGE))
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

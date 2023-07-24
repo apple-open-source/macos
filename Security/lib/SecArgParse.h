@@ -83,7 +83,7 @@ struct arguments {
     struct argument* arguments;
 };
 
-bool options_parse(int argc, char * const *argv, struct arguments* args);
-void print_usage(struct arguments* args);
+bool options_parse(int argc, char * const *argv, const struct arguments* args);
+void print_usage(const struct arguments* args);
 
 #endif /* SecArgParse_h */

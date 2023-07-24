@@ -909,6 +909,7 @@ _cupsCreateDest(const char *name,	/* I - Printer name */
   {
     ippDelete(response);
     httpClose(http);
+    http = NULL;
     return (NULL);
   }
 
@@ -935,6 +936,7 @@ _cupsCreateDest(const char *name,	/* I - Printer name */
   ippDelete(response);
 
   httpClose(http);
+  http = NULL;
 
   return (uri);
 }

@@ -2579,8 +2579,6 @@ kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t option
               getName(),
               PCI_ADDRESS_TUPLE(this));
 
-		reserved->clientCrashed = true;
-
         IOReturn ret = parent->terminateChild(this);
         if (ret == kIOReturnNoDevice)
         {
@@ -2645,9 +2643,52 @@ IOReturn IOPCIDevice::clientCrashedThreadCall(thread_call_t threadCall)
 			}
 		}
 
+		char pmAssertionString[128] = { 0 };
+		IOPMDriverAssertionID powerAssertion = kIOPMUndefinedDriverAssertionID;
+
+		snprintf(pmAssertionString, sizeof(pmAssertionString), "com.apple.pci.%p crash", this);
+
+		do {
+			IOPCIHostBridgeData *vars = parent->reserved->hostBridgeData;
+			if (!vars)
+			{
+				// This should never happen, but if so just continue
+				break;
+			}
+
+			// Grab a PM assertion
+			powerAssertion = getPMRootDomain()->createPMAssertion(kIOPMDriverAssertionCPUBit, kIOPMDriverAssertionLevelOn, this, pmAssertionString);
+
+			// Check if system is going to sleep
+			if (!vars->systemActive() || (bridgeDevice->reserved->pmState != kIOPCIDeviceOnState) || (powerAssertion == kIOPMUndefinedDriverAssertionID))
+			{
+				// Release the assertion and defer this thread until parent bridge is powered on
+				//DLOG("[%s()] Entering sleep, defer %s probe until wake\n", __func__, getName());
+				DLOG("[%s()] Defer %s probe until parent is on and system is active\n", __func__, getName());
+				if (powerAssertion != kIOPMUndefinedDriverAssertionID)
+				{
+					getPMRootDomain()->releasePMAssertion(powerAssertion);
+					powerAssertion = kIOPMUndefinedDriverAssertionID;
+				}
+
+				IOSleepWithLeeway(100, 10);
+			}
+			else
+			{
+				// PM assertion will keep the system awake until we release it
+				break;
+			}
+		} while (1);
+
         DLOG("%s reprobing bus\n", __PRETTY_FUNCTION__);
         // re-scan the bridge for this device and its functions
         parent->kernelRequestProbe(bridgeDevice, kIOPCIProbeOptionNeedsScan | kIOPCIProbeOptionDone);
+
+		if (powerAssertion != kIOPMUndefinedDriverAssertionID)
+		{
+			getPMRootDomain()->releasePMAssertion(powerAssertion);
+			powerAssertion = kIOPMUndefinedDriverAssertionID;
+		}
     }
 
     // clean up threadcall

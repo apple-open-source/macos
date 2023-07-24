@@ -399,8 +399,10 @@ cupsGetPPD3(http_t     *http,		/* I  - HTTP connection or @code CUPS_HTTP_DEFAUL
 
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, NULL, 0);
 
-    if (http2 != http)
+    if (http2 != http) {
       httpClose(http2);
+      http2 = NULL;
+    }
 
     return (HTTP_STATUS_SERVER_ERROR);
   }
@@ -442,8 +444,10 @@ cupsGetPPD3(http_t     *http,		/* I  - HTTP connection or @code CUPS_HTTP_DEFAUL
   else if (tempfile[0])
     unlink(tempfile);
 
-  if (http2 != http)
+  if (http2 != http) {
     httpClose(http2);
+    http2 = NULL;
+  }
 
  /*
   * Return the PPD file...

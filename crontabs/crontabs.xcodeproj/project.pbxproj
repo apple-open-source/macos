@@ -55,7 +55,6 @@
 		FDB436941492DBE400D5E278 /* periodic.conf in Install etc/defaults */ = {isa = PBXBuildFile; fileRef = FDB4367D1492DB0B00D5E278 /* periodic.conf */; };
 		FDB436961492DC1300D5E278 /* periodic.conf.5 in Install man5 */ = {isa = PBXBuildFile; fileRef = FDB4367E1492DB0B00D5E278 /* periodic.conf.5 */; };
 		FDB4369A1492DCFB00D5E278 /* 110.clean-tmps in Install daily */ = {isa = PBXBuildFile; fileRef = FDB436681492DB0B00D5E278 /* 110.clean-tmps */; };
-		FDB4369B1492DCFE00D5E278 /* 130.clean-msgs in Install daily */ = {isa = PBXBuildFile; fileRef = FDB436691492DB0B00D5E278 /* 130.clean-msgs */; };
 		FDB4369C1492DD0000D5E278 /* 140.clean-rwho in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366A1492DB0B00D5E278 /* 140.clean-rwho */; };
 		FDB4369D1492DD0200D5E278 /* 199.clean-fax in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366B1492DB0B00D5E278 /* 199.clean-fax */; };
 		FDB4369E1492DD0500D5E278 /* 310.accounting in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366C1492DB0B00D5E278 /* 310.accounting */; };
@@ -184,7 +183,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				FDB4369A1492DCFB00D5E278 /* 110.clean-tmps in Install daily */,
-				FDB4369B1492DCFE00D5E278 /* 130.clean-msgs in Install daily */,
 				FDB4369C1492DD0000D5E278 /* 140.clean-rwho in Install daily */,
 				FDB4369D1492DD0200D5E278 /* 199.clean-fax in Install daily */,
 				FDB4369E1492DD0500D5E278 /* 310.accounting in Install daily */,
@@ -233,7 +231,6 @@
 		FDB4365B1492D3D900D5E278 /* periodic.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = periodic.8; sourceTree = "<group>"; };
 		FDB4365C1492D3D900D5E278 /* periodic.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = periodic.sh; sourceTree = "<group>"; };
 		FDB436681492DB0B00D5E278 /* 110.clean-tmps */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "110.clean-tmps"; sourceTree = "<group>"; };
-		FDB436691492DB0B00D5E278 /* 130.clean-msgs */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "130.clean-msgs"; sourceTree = "<group>"; };
 		FDB4366A1492DB0B00D5E278 /* 140.clean-rwho */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "140.clean-rwho"; sourceTree = "<group>"; };
 		FDB4366B1492DB0B00D5E278 /* 199.clean-fax */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "199.clean-fax"; sourceTree = "<group>"; };
 		FDB4366C1492DB0B00D5E278 /* 310.accounting */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 310.accounting; sourceTree = "<group>"; };
@@ -336,7 +333,6 @@
 			isa = PBXGroup;
 			children = (
 				FDB436681492DB0B00D5E278 /* 110.clean-tmps */,
-				FDB436691492DB0B00D5E278 /* 130.clean-msgs */,
 				FDB4366A1492DB0B00D5E278 /* 140.clean-rwho */,
 				FDB4366B1492DB0B00D5E278 /* 199.clean-fax */,
 				FDB4366C1492DB0B00D5E278 /* 310.accounting */,

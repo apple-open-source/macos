@@ -29,6 +29,7 @@
 #import <OCMock/OCMock.h>
 #import "supd.h"
 #import <Security/SFAnalytics.h>
+#import <Security/SecLaunchSequence.h>
 #import "SFAnalyticsDefines.h"
 #import <CoreFoundation/CFPriv.h>
 #import <Foundation/NSXPCConnection_Private.h>
@@ -227,7 +228,7 @@ static NSInteger _reporterWrites;
         }
     }
 
-    XCTAssertLessThanOrEqual(((NSArray*)data[@"events"]).count, 1000ul, @"Total event count fits in alloted data");
+    XCTAssertLessThanOrEqual(((NSArray*)data[@"events"]).count - summfound, 1000ul, @"Total event count fits in alloted data");
     XCTAssertEqual(summfound, summ);
 
     // Add customizable fuzziness
@@ -555,7 +556,7 @@ static NSInteger _reporterWrites;
     XCTAssertTrue((int)_reporterWrites == (int)numWrites, "Expected %zu report, got %d", numWrites, (int)_reporterWrites);
 }
 
-- (NSDictionary *)findHealthSummary:(NSString *)name inData:(NSDictionary *)data {
+- (NSDictionary *)findEventOfName:(NSString *)name inData:(NSDictionary *)data {
 
     for (NSDictionary* event in data[@"events"]) {
         if ([event[SFAnalyticsEventType] isEqual:name]) {
@@ -582,7 +583,7 @@ static NSInteger _reporterWrites;
     NSDictionary* data = [self getJSONDataFromSupd];
     [self inspectDataBlobStructure:data];
 
-    NSDictionary* hs = [self findHealthSummary:@"ckksHealthSummary" inData:data];
+    NSDictionary* hs = [self findEventOfName:@"ckksHealthSummary" inData:data];
     XCTAssert(hs);
 
     XCTAssertEqual([hs[SFAnalyticsColumnSuccessCount] integerValue], 7);
@@ -811,15 +812,14 @@ static NSInteger _reporterWrites;
     XCTAssertEqual(1000000, keySyncTopic.uploadSizeLimit);
 }
 
-- (NSArray<NSDictionary *> *)createRandomEventList:(size_t)count
+- (NSArray<NSDictionary *> *)createRandomEventList:(size_t)count key:(NSString *)key dataSize:(NSUInteger)dataSize
 {
     NSMutableArray<NSDictionary *> *eventSet = [[NSMutableArray<NSDictionary *> alloc] init];
 
-    const size_t dataSize = 100;
-    uint8_t backingBuffer[dataSize] = {};
     for (size_t i = 0; i < count; i++) {
-        NSData *data = [[NSData alloc] initWithBytes:backingBuffer length:dataSize];
-        NSDictionary *entry = @{@"key" : [data base64EncodedStringWithOptions:0]};
+        NSMutableData *data = [NSMutableData dataWithLength:dataSize];
+        (void)SecRandomCopyBytes(kSecRandomDefault, data.length, data.mutableBytes);
+        NSDictionary *entry = @{key : [data base64EncodedStringWithOptions:0]};
         [eventSet addObject:entry];
     }
 
@@ -828,8 +828,8 @@ static NSInteger _reporterWrites;
 
 - (void)testCreateLoggingJSON
 {
-    NSArray<NSDictionary *> *summaries = [self createRandomEventList:5];
-    NSArray<NSDictionary *> *failures = [self createRandomEventList:100];
+    NSArray<NSDictionary *> *summaries = [self createRandomEventList:5 key:@"health" dataSize:100];
+    NSArray<NSDictionary *> *failures = [self createRandomEventList:100 key:@"failure" dataSize:100];
     NSMutableArray<NSDictionary *> *visitedEvents = [[NSMutableArray<NSDictionary *> alloc] init];
 
     SFAnalyticsTopic *topic = [self TrustTopic];
@@ -840,19 +840,19 @@ static NSInteger _reporterWrites;
     NSArray<NSDictionary *> *eventSet = [topic createChunkedLoggingJSON:summaries failures:failures error:&error];
     XCTAssertNil(error);
 
+    NSUInteger foundSummaries = 0;
+
     for (NSDictionary *event in eventSet) {
         XCTAssertNotNil([event objectForKey:@"events"]);
         XCTAssertNotNil([event objectForKey:SFAnalyticsPostTime]);
         NSArray *events = [event objectForKey:@"events"];
         for (NSDictionary *summary in summaries) {
-            BOOL foundSummary = NO;
             for (NSDictionary *innerEvent in events) {
                 if ([summary isEqualToDictionary:innerEvent]) {
-                    foundSummary = YES;
+                    foundSummaries++;
                     break;
                 }
             }
-            XCTAssertTrue(foundSummary);
         }
 
         // Record the events we've seen so far
@@ -860,6 +860,8 @@ static NSInteger _reporterWrites;
             [visitedEvents addObject:innerEvent];
         }
     }
+    XCTAssertEqual(foundSummaries, summaries.count, "found all summaries");
+
 
     // Check that each summary and failure is in the visitedEvents
     for (NSDictionary *summary in summaries) {
@@ -884,9 +886,26 @@ static NSInteger _reporterWrites;
     }
 }
 
+- (void)testCreateChunkedLoggingJSON
+{
+    NSArray<NSDictionary *> *summaries = [self createRandomEventList:2 key:@"health" dataSize:900];
+    NSArray<NSDictionary *> *failures = @[];
+
+    SFAnalyticsTopic *topic = [self TrustTopic];
+    const size_t sizeLimit = 1000; // total size of the encoded data
+    topic.uploadSizeLimit = sizeLimit;
+
+    NSError *error = nil;
+    NSArray<NSDictionary *> *eventSet = [topic createChunkedLoggingJSON:summaries failures:failures error:&error];
+    XCTAssertNil(error);
+
+    XCTAssertEqual(2, [eventSet count]);
+}
+
+
 - (void)testEventSetChunking
 {
-    NSArray<NSDictionary *> *eventSet = [self createRandomEventList:100];
+    NSArray<NSDictionary *> *eventSet = [self createRandomEventList:12 key:@"chunk" dataSize:1000];
     SFAnalyticsTopic *topic = [self TrustTopic];
 
     const size_t sizeLimit = 10000; // total size of the encoded data
@@ -914,28 +933,50 @@ static NSInteger _reporterWrites;
     NSDictionary* data = [self getJSONDataFromSupd];
     [self inspectDataBlobStructure:data];
 
-    NSDictionary* hs = [self findHealthSummary:@"ckksHealthSummary" inData:data];
+    NSDictionary* hs = [self findEventOfName:@"ckksHealthSummary" inData:data];
     XCTAssert(hs);
 
     XCTAssertEqualObjects(hs[@"sfaAccountID"], metricsAccountID);
 }
 
-- (void)testZeroDeletionHealthSummary
+- (void)testSuccessLaunchSequence
 {
-    deviceAnalyticsEnabled = YES;
+    SecLaunchSequence *ls = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.sear.test"];
+    ls.firstLaunch = true;
+    [ls addAttribute:@"integer" value:@1];
+    [ls addAttribute:@"string" value:@"string"];
+    [ls addEvent:@"event1"];
+    [ls addEvent:@"event2"];
+    [ls launch];
 
-    [_transparencyAnalytics logSuccessForEventNamed:@"foo"];
+    [_ckksAnalytics noteLaunchSequence:ls];
 
-    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicTransparency];
-    [self inspectDataBlobStructure:data forTopic:[[self TransparencyTopic] splunkTopicName]];
+    NSDictionary* data = [self getJSONDataFromSupd];
+    [self inspectDataBlobStructure:data];
 
-    NSDictionary* hs = [self findHealthSummary:@"transparencyHealthSummary" inData:data];
-    XCTAssert(hs);
+    NSDictionary* hs = [self findEventOfName:[NSString stringWithFormat:@"Launch-%@", ls.name] inData:data];
+    XCTAssertNotNil(hs, "should have launch event");
 
-    XCTAssertEqualObjects(hs[@"foo-success"], @1);
-    XCTAssertNil(hs[@"foo-hardfail"]);
+    NSArray *events = hs[@"events"];
+    XCTAssertNotNil(events);
+    if (events.count != 4) {
+        XCTFail("events are not 4: %@", events);
+        return;
+    }
+    XCTAssertEqualObjects(events[0][@"name"], @"started");
+    XCTAssertEqualObjects(events[1][@"name"], @"event1");
+    XCTAssertEqualObjects(events[2][@"name"], @"event2");
+
+    NSDictionary *attributes = hs[@"attributes"];
+    XCTAssertNotNil(attributes);
+    if (attributes.count != 2) {
+        XCTFail("attributes are not 2: %@", attributes);
+        return;
+    }
+    XCTAssertEqualObjects(attributes[@"integer"], @1);
+    XCTAssertEqualObjects(attributes[@"string"], @"string");
+
 }
-
 
 
 // TODO

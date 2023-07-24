@@ -34,6 +34,7 @@
 #import "keychain/ot/OTAccountsAdapter.h"
 #import "keychain/ot/OTAuthKitAdapter.h"
 #import "keychain/ot/OTPersonaAdapter.h"
+#import "keychain/ot/OTTapToRadarAdapter.h"
 #import "keychain/ot/OTTooManyPeersAdapter.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
@@ -69,6 +70,7 @@ NS_ASSUME_NONNULL_BEGIN
                    accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
                     authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
+                 tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
           deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                     personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                 apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
@@ -99,6 +101,7 @@ NS_ASSUME_NONNULL_BEGIN
                                 accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
                                  authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                             tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
+                              tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
                                lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                        deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter;
 
@@ -155,6 +158,10 @@ NS_ASSUME_NONNULL_BEGIN
                               uuid:(NSUUID *)uuid
                              reply:(void (^)(NSError *_Nullable error))reply;
 
+- (void)checkCustodianRecoveryKey:(OTControlArguments*)arguments
+                             uuid:(NSUUID *)uuid
+                            reply:(void (^)(bool exists, NSError *_Nullable error))reply;
+
 - (void)createInheritanceKey:(OTControlArguments*)arguments
                         uuid:(NSUUID *_Nullable)uuid
                        reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply;
@@ -178,6 +185,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)removeInheritanceKey:(OTControlArguments*)arguments
                         uuid:(NSUUID *)uuid
                        reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)checkInheritanceKey:(OTControlArguments*)arguments
+                       uuid:(NSUUID *)uuid
+                      reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
 - (void)tlkRecoverabilityForEscrowRecordData:(OTControlArguments*)arguments
                                   recordData:(NSData*)recordData

@@ -132,14 +132,14 @@ NS_INLINE OTEscrowRecord_SOSViability StringAsOTEscrowRecord_SOSViability(NSStri
     NSString *_serialNumber;
     OTEscrowRecord_SOSViability _viabilityStatus;
     struct {
-        int coolOffEnd:1;
-        int creationDate:1;
-        int remainingAttempts:1;
-        int silentAttemptAllowed:1;
-        int recordStatus:1;
-        int recordViability:1;
-        int recoveryStatus:1;
-        int viabilityStatus:1;
+        uint coolOffEnd:1;
+        uint creationDate:1;
+        uint remainingAttempts:1;
+        uint silentAttemptAllowed:1;
+        uint recordStatus:1;
+        uint recordViability:1;
+        uint recoveryStatus:1;
+        uint viabilityStatus:1;
     } _has;
 }
 

@@ -137,6 +137,7 @@ func Test_smoothscroll_number()
         'line',
       ])
       set smoothscroll
+      set splitkeep=topline
       set number cpo+=n
       :3
 
@@ -167,8 +168,16 @@ func Test_smoothscroll_number()
   call term_sendkeys(buf, "\<C-Y>")
   call VerifyScreenDump(buf, 'Test_smooth_number_6', {})
 
-  call term_sendkeys(buf, ":call DoRel()\<CR>")
+  call term_sendkeys(buf, ":botright split\<CR>gg")
   call VerifyScreenDump(buf, 'Test_smooth_number_7', {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, 'Test_smooth_number_8', {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, 'Test_smooth_number_9', {})
+  call term_sendkeys(buf, ":close\<CR>")
+
+  call term_sendkeys(buf, ":call DoRel()\<CR>")
+  call VerifyScreenDump(buf, 'Test_smooth_number_10', {})
 
   call StopVimInTerminal(buf)
 endfunc
@@ -314,11 +323,11 @@ func Test_smoothscroll_wrap_long_line()
   call VerifyScreenDump(buf, 'Test_smooth_long_10', {})
 
   " Test zt/zz/zb that they work properly when a long line is above it
-  call term_sendkeys(buf, "zb")
+  call term_sendkeys(buf, "zt")
   call VerifyScreenDump(buf, 'Test_smooth_long_11', {})
   call term_sendkeys(buf, "zz")
   call VerifyScreenDump(buf, 'Test_smooth_long_12', {})
-  call term_sendkeys(buf, "zt")
+  call term_sendkeys(buf, "zb")
   call VerifyScreenDump(buf, 'Test_smooth_long_13', {})
 
   " Repeat the step and move the cursor down again.
@@ -326,9 +335,12 @@ func Test_smoothscroll_wrap_long_line()
   " than one window. Note that the cursor is at the bottom this time because
   " Vim prefers to do so if we are scrolling a few lines only.
   call term_sendkeys(buf, ":call setline(1, ['one', 'two', 'Line' .. (' with lots of text'->repeat(10)) .. ' end', 'four'])\<CR>")
+  " Currently visible lines were replaced, test that the lines and cursor
+  " are correctly displayed.
+  call VerifyScreenDump(buf, 'Test_smooth_long_14', {})
   call term_sendkeys(buf, "3Gzt")
   call term_sendkeys(buf, "j")
-  call VerifyScreenDump(buf, 'Test_smooth_long_14', {})
+  call VerifyScreenDump(buf, 'Test_smooth_long_15', {})
 
   " Repeat the step but this time start it when the line is smooth-scrolled by
   " one line. This tests that the offset calculation is still correct and
@@ -336,7 +348,7 @@ func Test_smoothscroll_wrap_long_line()
   " screen.
   call term_sendkeys(buf, "3Gzt")
   call term_sendkeys(buf, "\<C-E>j")
-  call VerifyScreenDump(buf, 'Test_smooth_long_15', {})
+  call VerifyScreenDump(buf, 'Test_smooth_long_16', {})
 
   call StopVimInTerminal(buf)
 endfunc
@@ -578,7 +590,7 @@ func Test_smoothscroll_mouse_pos()
 endfunc
 
 " this was dividing by zero
-func Test_smoothscrol_zero_width()
+func Test_smoothscroll_zero_width()
   CheckScreendump
 
   let lines =<< trim END
@@ -595,7 +607,6 @@ func Test_smoothscrol_zero_width()
   END
   call writefile(lines, 'XSmoothScrollZero', 'D')
   let buf = RunVimInTerminal('-u NONE -i NONE -n -m -X -Z -e -s -S XSmoothScrollZero', #{rows: 6, cols: 60, wait_for_ruler: 0})
-  call TermWait(buf, 3000)
   call VerifyScreenDump(buf, 'Test_smoothscroll_zero_1', {})
 
   call term_sendkeys(buf, ":sil norm \<C-V>\<C-W>\<C-V>\<C-N>\<CR>")
@@ -604,5 +615,73 @@ func Test_smoothscrol_zero_width()
   call StopVimInTerminal(buf)
 endfunc
 
+" this was unnecessarily inserting lines
+func Test_smoothscroll_ins_lines()
+  CheckScreendump
+
+  let lines =<< trim END
+      set wrap
+      set smoothscroll
+      set scrolloff=0
+      set conceallevel=2
+      call setline(1, [
+        \'line one' .. 'with lots of text in one line '->repeat(2),
+        \'line two',
+        \'line three',
+        \'line four',
+        \'line five'
+      \])
+  END
+  call writefile(lines, 'XSmoothScrollInsLines', 'D')
+  let buf = RunVimInTerminal('-S XSmoothScrollInsLines', #{rows: 6, cols: 40})
+
+  call term_sendkeys(buf, "\<C-E>gjgk")
+  call VerifyScreenDump(buf, 'Test_smooth_ins_lines', {})
+
+  call StopVimInTerminal(buf)
+endfunc
+
+" this placed the cursor in the command line
+func Test_smoothscroll_cursormoved_line()
+  CheckScreendump
+
+  let lines =<< trim END
+      set smoothscroll
+      call setline(1, [
+        \'',
+        \'_'->repeat(&lines * &columns),
+        \(('_')->repeat(&columns - 2) .. 'xxx')->repeat(2)
+      \])
+      autocmd CursorMoved * eval [line('w0'), line('w$')]
+      call search('xxx')
+  END
+  call writefile(lines, 'XSmoothCursorMovedLine', 'D')
+  let buf = RunVimInTerminal('-S XSmoothCursorMovedLine', #{rows: 6})
+
+  call VerifyScreenDump(buf, 'Test_smooth_cursormoved_line', {})
+
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_smoothscroll_eob()
+  CheckScreendump
+
+  let lines =<< trim END
+      set smoothscroll
+      call setline(1, ['']->repeat(100))
+      norm G
+  END
+  call writefile(lines, 'XSmoothEob', 'D')
+  let buf = RunVimInTerminal('-S XSmoothEob', #{rows: 10})
+
+  " does not scroll halfway when scrolling to end of buffer
+  call VerifyScreenDump(buf, 'Test_smooth_eob_1', {})
+
+  " cursor is not placed below window
+  call term_sendkeys(buf, ":call setline(92, 'a'->repeat(100))\<CR>\<C-B>G")
+  call VerifyScreenDump(buf, 'Test_smooth_eob_2', {})
+
+  call StopVimInTerminal(buf)
+endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

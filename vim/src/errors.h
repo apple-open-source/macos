@@ -1236,7 +1236,7 @@ EXTERN char e_use_w_or_w_gt_gt[]
 	INIT(= N_("E494: Use w or w>>"));
 EXTERN char e_no_autocommand_file_name_to_substitute_for_afile[]
 	INIT(= N_("E495: No autocommand file name to substitute for \"<afile>\""));
-EXTERN char e_no_autocommand_buffer_name_to_substitute_for_abuf[]
+EXTERN char e_no_autocommand_buffer_number_to_substitute_for_abuf[]
 	INIT(= N_("E496: No autocommand buffer number to substitute for \"<abuf>\""));
 EXTERN char e_no_autocommand_match_name_to_substitute_for_amatch[]
 	INIT(= N_("E497: No autocommand match name to substitute for \"<amatch>\""));
@@ -2894,8 +2894,7 @@ EXTERN char e_using_string_as_bool_str[]
 #endif
 EXTERN char e_cmd_mapping_must_end_with_cr_before_second_cmd[]
 	INIT(= N_("E1136: <Cmd> mapping must end with <CR> before second <Cmd>"));
-EXTERN char e_cmd_mapping_must_not_include_str_key[]
-	INIT(= N_("E1137: <Cmd> mapping must not include %s key"));
+// E1137 unused
 #ifdef FEAT_EVAL
 EXTERN char e_using_bool_as_number[]
 	INIT(= N_("E1138: Using a Bool as a Number"));
@@ -3276,7 +3275,7 @@ EXTERN char e_could_not_clear_timeout_str[]
 	INIT(= N_("E1285: Could not clear timeout: %s"));
 EXTERN char e_could_not_set_timeout_str[]
 	INIT(= N_("E1286: Could not set timeout: %s"));
-#ifndef HAVE_TIMER_CREATE
+#ifndef PROF_NSEC
 EXTERN char e_could_not_set_handler_for_timeout_str[]
 	INIT(= N_("E1287: Could not set handler for timeout: %s"));
 EXTERN char e_could_not_reset_handler_for_timeout_str[]
@@ -3459,3 +3458,5 @@ EXTERN char e_cannot_use_non_null_object[]
 EXTERN char e_incomplete_type[]
 	INIT(= N_("E1363: Incomplete type"));
 #endif
+EXTERN char e_warning_pointer_block_corrupted[]
+	INIT(= N_("E1364: Warning: Pointer block corrupted"));

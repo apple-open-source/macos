@@ -222,7 +222,7 @@ vidputs(chtype newmode, int (*outc) (int))
     } else if (set_attributes) {
 	if (turn_on || turn_off) {
 	    TPUTS_TRACE("set_attributes");
-	    tputs(tparm(set_attributes,
+	    tputs(TIPARM_9(set_attributes,
 			(newmode & A_STANDOUT) != 0,
 			(newmode & A_UNDERLINE) != 0,
 			(newmode & A_REVERSE) != 0,

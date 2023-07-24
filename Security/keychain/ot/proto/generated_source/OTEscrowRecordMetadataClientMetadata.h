@@ -26,11 +26,11 @@
     NSString *_deviceModelVersion;
     NSString *_deviceName;
     struct {
-        int devicePlatform:1;
-        int secureBackupMetadataTimestamp:1;
-        int secureBackupNumericPassphraseLength:1;
-        int secureBackupUsesComplexPassphrase:1;
-        int secureBackupUsesNumericPassphrase:1;
+        uint devicePlatform:1;
+        uint secureBackupMetadataTimestamp:1;
+        uint secureBackupNumericPassphraseLength:1;
+        uint secureBackupUsesComplexPassphrase:1;
+        uint secureBackupUsesNumericPassphrase:1;
     } _has;
 }
 

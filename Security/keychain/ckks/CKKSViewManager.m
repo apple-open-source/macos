@@ -1291,8 +1291,6 @@ dispatch_once_t globalZoneStateQueueOnce;
         ckksnotice_global("ckks", "Trust not ready, still going ahead");
     }
 
-    [[CKKSAnalytics logger] dailyCoreAnalyticsMetrics:@"com.apple.security.CKKSHealthSummary"];
-
     // For now, poke the views and tell them to update their device states if they'd like
 
 

@@ -2358,7 +2358,7 @@ eval_func(
     // Need to make a copy, in case evaluating the arguments makes
     // the name invalid.
     s = vim_strsave(s);
-    if (s == NULL || (evaluate && (*s == NUL || (flags & EVAL_CONSTANT))))
+    if (s == NULL || (evaluate && *s == NUL))
 	ret = FAIL;
     else
     {
@@ -2647,7 +2647,6 @@ eval0_retarg(
     char_u	*expr_end;
     int		did_emsg_before = did_emsg;
     int		called_emsg_before = called_emsg;
-    int		flags = evalarg == NULL ? 0 : evalarg->eval_flags;
     int		check_for_end = retarg == NULL;
     int		end_error = FALSE;
 
@@ -2692,7 +2691,6 @@ eval0_retarg(
 	if (!aborting()
 		&& did_emsg == did_emsg_before
 		&& called_emsg == called_emsg_before
-		&& (flags & EVAL_CONSTANT) == 0
 		&& (!in_vim9script() || !vim9_bad_comment(p)))
 	{
 	    if (end_error)
@@ -2701,12 +2699,15 @@ eval0_retarg(
 		semsg(_(e_invalid_expression_str), arg);
 	}
 
-	// Some of the expression may not have been consumed.  Do not check for
-	// a next command to avoid more errors, unless "|" is following, which
-	// could only be a command separator.
-	if (eap != NULL && p != NULL
-			  &&  skipwhite(p)[0] == '|' && skipwhite(p)[1] != '|')
-	    eap->nextcmd = check_nextcmd(p);
+	if (eap != NULL && p != NULL)
+	{
+	    // Some of the expression may not have been consumed.
+	    // Only execute a next command if it cannot be a "||" operator.
+	    // The next command may be "catch".
+	    char_u *nextcmd = check_nextcmd(p);
+	    if (nextcmd != NULL && *nextcmd != '|')
+		eap->nextcmd = nextcmd;
+	}
 	return FAIL;
     }
 
@@ -2807,7 +2808,7 @@ eval1(char_u **arg, typval_T *rettv, evalarg_T *evalarg)
 	}
 	*arg = skipwhite_and_linebreak(*arg + 1, evalarg_used);
 	evalarg_used->eval_flags = (op_falsy ? !result : result)
-				    ? orig_flags : orig_flags & ~EVAL_EVALUATE;
+				  ? orig_flags : (orig_flags & ~EVAL_EVALUATE);
 	if (eval1(arg, &var2, evalarg_used) == FAIL)
 	{
 	    evalarg_used->eval_flags = orig_flags;
@@ -2856,7 +2857,7 @@ eval1(char_u **arg, typval_T *rettv, evalarg_T *evalarg)
 	    }
 	    *arg = skipwhite_and_linebreak(*arg + 1, evalarg_used);
 	    evalarg_used->eval_flags = !result ? orig_flags
-						 : orig_flags & ~EVAL_EVALUATE;
+					       : (orig_flags & ~EVAL_EVALUATE);
 	    if (eval1(arg, &var2, evalarg_used) == FAIL)
 	    {
 		if (evaluate && result)
@@ -2960,7 +2961,7 @@ eval2(char_u **arg, typval_T *rettv, evalarg_T *evalarg)
 	    }
 	    *arg = skipwhite_and_linebreak(*arg + 2, evalarg_used);
 	    evalarg_used->eval_flags = !result ? orig_flags
-						 : orig_flags & ~EVAL_EVALUATE;
+					       : (orig_flags & ~EVAL_EVALUATE);
 	    if (eval3(arg, &var2, evalarg_used) == FAIL)
 		return FAIL;
 
@@ -3086,7 +3087,7 @@ eval3(char_u **arg, typval_T *rettv, evalarg_T *evalarg)
 	    }
 	    *arg = skipwhite_and_linebreak(*arg + 2, evalarg_used);
 	    evalarg_used->eval_flags = result ? orig_flags
-						 : orig_flags & ~EVAL_EVALUATE;
+					      : (orig_flags & ~EVAL_EVALUATE);
 	    CLEAR_FIELD(var2);
 	    if (eval4(arg, &var2, evalarg_used) == FAIL)
 		return FAIL;
@@ -4279,8 +4280,6 @@ eval9(
 		*arg = skipwhite(*arg);
 		ret = eval_func(arg, evalarg, s, len, rettv, flags, NULL);
 	    }
-	    else if (flags & EVAL_CONSTANT)
-		ret = FAIL;
 	    else if (evaluate)
 	    {
 		// get the value of "true", "false", etc. or a variable
@@ -6585,7 +6584,7 @@ find_name_end(
     int		br_nest = 0;
     char_u	*p;
     int		len;
-    int		vim9script = in_vim9script();
+    int		allow_curly = (flags & FNE_ALLOW_CURLY) || !in_vim9script();
 
     if (expr_start != NULL)
     {
@@ -6595,12 +6594,12 @@ find_name_end(
 
     // Quick check for valid starting character.
     if ((flags & FNE_CHECK_START) && !eval_isnamec1(*arg)
-						&& (*arg != '{' || vim9script))
+					      && (*arg != '{' || !allow_curly))
 	return arg;
 
     for (p = arg; *p != NUL
 		    && (eval_isnamec(*p)
-			|| (*p == '{' && !vim9script)
+			|| (*p == '{' && allow_curly)
 			|| ((flags & FNE_INCL_BR) && (*p == '['
 					 || (*p == '.' && eval_isdictc(p[1]))))
 			|| mb_nest != 0
@@ -6641,7 +6640,7 @@ find_name_end(
 		--br_nest;
 	}
 
-	if (br_nest == 0 && !vim9script)
+	if (br_nest == 0 && allow_curly)
 	{
 	    if (*p == '{')
 	    {

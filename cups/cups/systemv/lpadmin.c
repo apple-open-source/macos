@@ -671,8 +671,10 @@ main(int  argc,				/* I - Number of command-line arguments */
   if (printer == NULL)
     usage();
 
-  if (http)
+  if (http) {
     httpClose(http);
+    http = NULL;
+  }
 
   return (0);
 }
@@ -1247,6 +1249,7 @@ get_printer_ppd(
 
   ippDelete(response);
   httpClose(http);
+  http = NULL;
 
   if (buffer[0])
     return (buffer);

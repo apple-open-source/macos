@@ -1007,8 +1007,10 @@ show_classes(const char *dests)		/* I - Destinations */
 	if ((response2 = cupsDoRequest(http2, request, "/")) != NULL)
 	  members = ippFindAttribute(response2, "member-names", IPP_TAG_NAME);
 
-	if (http2)
+	if (http2) {
 	  httpClose(http2);
+	  http2 = NULL;
+	}
       }
 
      /*
@@ -2027,6 +2029,7 @@ show_scheduler(void)
   {
     _cupsLangPuts(stdout, _("scheduler is running"));
     httpClose(http);
+    http = NULL;
   }
   else
     _cupsLangPuts(stdout, _("scheduler is not running"));

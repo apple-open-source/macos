@@ -26,17 +26,18 @@
 #import <notify.h>
 #import <os/feature_private.h>
 #import <Security/Security.h>
+#import <Security/SecLaunchSequence.h>
 #include <Security/SecRandomP.h>
 #import <Security/SecXPCHelper.h>
 #import <SecurityFoundation/SFKey_Private.h>
 #include <sys/sysctl.h>
 #import <TrustedPeers/TrustedPeers.h>
 
+#import <TapToRadarKit/TapToRadarKit.h>
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #include "keychain/SecureObjectSync/SOSInternal.h"
 
-#import "keychain/analytics/CKKSLaunchSequence.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSAccountStateTracker.h"
@@ -64,6 +65,7 @@
 #import "keychain/ot/OTEpochOperation.h"
 #import "keychain/ot/OTEstablishOperation.h"
 #import "keychain/ot/OTFetchViewsOperation.h"
+#import "keychain/ot/OTFindCustodianRecoveryKeyOperation.h"
 #import "keychain/ot/OTFollowup.h"
 #import "keychain/ot/OTJoinSOSAfterCKKSFetchOperation.h"
 #import "keychain/ot/OTJoinWithVoucherOperation.h"
@@ -136,7 +138,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     BOOL _skipRateLimitingCheck;
 }
 
-@property CKKSLaunchSequence* launchSequence;
+@property SecLaunchSequence* launchSequence;
 @property NSOperationQueue* operationQueue;
 @property (nonatomic, strong) OTCuttlefishAccountStateHolder *accountMetadataStore;
 @property OTFollowup *followupHandler;
@@ -182,6 +184,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                        authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                        personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                   tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
+                    tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
                      lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                   reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                   accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer>)accountStateTracker
@@ -213,8 +216,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         _initialBecomeUntrustedPosted = NO;
 
         _tooManyPeersAdapter = tooManyPeersAdapter;
+        _tapToRadarAdapter = tapToRadarAdapter;
 
-        _launchSequence = [[CKKSLaunchSequence alloc] initWithRocketName:@"com.apple.octagon.launch"];
+        _launchSequence = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.octagon.launch"];
 
         _queue = dispatch_queue_create("com.apple.security.otcuttlefishcontext", DISPATCH_QUEUE_SERIAL);
         _operationQueue = [[NSOperationQueue alloc] init];
@@ -342,6 +346,14 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     if (newState.trustState != OTAccountMetadataClassC_TrustState_TRUSTED && oldState.trustState == OTAccountMetadataClassC_TrustState_TRUSTED) {
         [self.launchSequence addEvent:@"Untrusted"];
         [self notifyTrustChanged:newState.trustState];
+
+        // At trust loss time, issue a TTR on homepod
+        if(self.operationDependencies.deviceInformationAdapter.isHomePod) {
+            secnotice("octagon", "Trust transition from TRUSTED to some other state, posting TTR");
+            [self.tapToRadarAdapter postHomePodLostTrustTTR];
+        } else {
+            secnotice("octagon", "Trust transition from TRUSTED to UNTRUSTED on a non-homepod");
+        }
     }
 
     if(![newState.syncingPolicy isEqualToData:oldState.syncingPolicy]) {
@@ -1525,6 +1537,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     } else if([currentState isEqualToString:OctagonStateInherited]) {
         [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:OctagonAnalyticsLastKeystateReady];
         [self.launchSequence launch];
+        [[CKKSAnalytics logger] noteLaunchSequence:self.launchSequence];
 
         return nil;
     } else if([currentState isEqualToString:OctagonStateReady]) {
@@ -1662,6 +1675,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
         [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:OctagonAnalyticsLastKeystateReady];
         [self.launchSequence launch];
+        [[CKKSAnalytics logger] noteLaunchSequence:self.launchSequence];
         return nil;
     }
 
@@ -3497,7 +3511,22 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     [callback addDependency:pendingOp];
     [self.operationQueue addOperation:callback];
     [self.operationQueue addOperation:pendingOp];
+}
 
+- (void)rpcCheckCustodianRecoveryKeyWithUUID:(NSUUID *)uuid
+                                       reply:(void (^)(bool exists, NSError *_Nullable error))reply
+{
+    OTFindCustodianRecoveryKeyOperation *pendingOp = [[OTFindCustodianRecoveryKeyOperation alloc] initWithUUID:uuid dependencies:self.operationDependencies];
+    CKKSResultOperation* callback = [CKKSResultOperation named:@"checkCustodianRecoveryKey-callback"
+                                                     withBlock:^{
+                                                         secnotice("otrpc", "Returning a check custodian recovery key call: %@, %@", pendingOp.crk, pendingOp.error);
+                                                         reply(pendingOp.crk != nil && pendingOp.crk.kind == TPPBCustodianRecoveryKey_Kind_RECOVERY_KEY,
+                                                               pendingOp.error);
+                                                     }];
+
+    [callback addDependency:pendingOp];
+    [self.operationQueue addOperation:callback];
+    [self.operationQueue addOperation:pendingOp];
 }
 
 - (void)rpcCreateInheritanceKeyWithUUID:(NSUUID *_Nullable)uuid
@@ -3557,6 +3586,22 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                      withBlock:^{
                                                          secnotice("otrpc", "Returning remove inheritance key call: %@", pendingOp.error);
                                                          reply(pendingOp.error);
+                                                     }];
+
+    [callback addDependency:pendingOp];
+    [self.operationQueue addOperation:callback];
+    [self.operationQueue addOperation:pendingOp];
+}
+
+- (void)rpcCheckInheritanceKeyWithUUID:(NSUUID *)uuid
+                                       reply:(void (^)(bool exists, NSError *_Nullable error))reply
+{
+    OTFindCustodianRecoveryKeyOperation *pendingOp = [[OTFindCustodianRecoveryKeyOperation alloc] initWithUUID:uuid dependencies:self.operationDependencies];
+    CKKSResultOperation* callback = [CKKSResultOperation named:@"checkInheritanceKey-callback"
+                                                     withBlock:^{
+                                                         secnotice("otrpc", "Returning a check inheritance key call: %@, %@", pendingOp.crk, pendingOp.error);
+        reply(pendingOp.crk != nil && pendingOp.crk.kind == TPPBCustodianRecoveryKey_Kind_INHERITANCE_KEY,
+                                                               pendingOp.error);
                                                      }];
 
     [callback addDependency:pendingOp];

@@ -312,6 +312,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                                           accountsAdapter: self.mockAuthKit2,
                                           authKitAdapter: self.mockAuthKit2,
                                           tooManyPeersAdapter: self.mockTooManyPeers,
+                                          tapToRadarAdapter: self.mockTapToRadar,
                                           lockStateTracker: self.lockStateTracker,
                                           deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
         iphone.startOctagonStateMachine()
@@ -351,6 +352,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                                        accountsAdapter: self.mockAuthKit2,
                                        authKitAdapter: self.mockAuthKit2,
                                        tooManyPeersAdapter: self.mockTooManyPeers,
+                                       tapToRadarAdapter: self.mockTapToRadar,
                                        lockStateTracker: self.lockStateTracker,
                                        deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iMac7,1", deviceName: "test-mac", serialNumber: "456", osVersion: "macOS (fake version)"))
         mac.startOctagonStateMachine()
@@ -383,6 +385,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                                           accountsAdapter: self.mockAuthKit2,
                                           authKitAdapter: self.mockAuthKit2,
                                           tooManyPeersAdapter: self.mockTooManyPeers,
+                                          tapToRadarAdapter: self.mockTapToRadar,
                                           lockStateTracker: self.lockStateTracker,
                                           deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
         iphone.startOctagonStateMachine()
@@ -400,6 +403,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                                             accountsAdapter: self.mockAuthKit3,
                                             authKitAdapter: self.mockAuthKit3,
                                             tooManyPeersAdapter: self.mockTooManyPeers,
+                                            tapToRadarAdapter: self.mockTapToRadar,
                                             lockStateTracker: self.lockStateTracker,
                                             deviceInformationAdapter: self.mockDeviceInfo)
         self.assertJoinViaProximitySetup(joiningContext: tvjoiner, sponsor: iphone)
@@ -437,6 +441,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                                            accountsAdapter: self.mockAuthKit3,
                                            authKitAdapter: self.mockAuthKit3,
                                            tooManyPeersAdapter: self.mockTooManyPeers,
+                                           tapToRadarAdapter: self.mockTapToRadar,
                                            lockStateTracker: self.lockStateTracker,
                                            deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
         iphone2.startOctagonStateMachine()

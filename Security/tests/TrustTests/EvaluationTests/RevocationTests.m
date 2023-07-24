@@ -142,7 +142,7 @@
     CFArrayAppendValue(rcerts, leaf);
     CFArrayAppendValue(rcerts, subCA);
 
-    SecPolicyRef policy = SecPolicyCreateAppleExternalDeveloper();
+    SecPolicyRef policy = SecPolicyCreateAppleExternalDeveloperOptionalExpiry(true);
     SecPolicyRef ocspPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod);
     const void *v_policies[] = { policy, ocspPolicy };
     CFArrayRef policies = CFArrayCreate(NULL, v_policies,
@@ -229,7 +229,7 @@
     const void *v_anchors[] = { root };
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
-    policy = SecPolicyCreateAppleExternalDeveloper();
+    policy = SecPolicyCreateAppleExternalDeveloperOptionalExpiry(false);
     revocationPolicy = SecPolicyCreateRevocation(kSecRevocationRequirePositiveResponse | kSecRevocationOCSPMethod);
     NSArray *policies = @[ (__bridge id)policy, (__bridge id)revocationPolicy ];
     require_noerr_action(SecTrustCreateWithCertificates(certs, (__bridge CFArrayRef)policies, &trust), errOut,

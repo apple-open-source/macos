@@ -27,7 +27,8 @@ import os.log
 
 let containerMap = ContainerMap(ckCodeOperationRunnerCreator: CuttlefishCKOperationRunnerCreator(),
                                 darwinNotifier: CKKSNotifyPostNotifier.self,
-                                personaAdapter: OTPersonaActualAdapter())
+                                personaAdapter: OTPersonaActualAdapter(),
+                                managedConfigurationAdapter: OTManagedConfigurationActualAdapter())
 
 private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "main")
 

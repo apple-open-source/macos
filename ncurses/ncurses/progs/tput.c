@@ -54,9 +54,12 @@ MODULE_ID("$Id: tput.c,v 1.42 2008/07/13 11:05:12 tom Exp $")
 #define FLUSH		fflush(stdout)
 
 typedef enum {
-    Numbers = 0
+    Other = -1
+    ,Numbers = 0
+    ,Str
     ,Num_Str
     ,Num_Str_Str
+    ,Str_Str
 } TParams;
 
 static char *prg_name;
@@ -103,6 +106,7 @@ static TParams
 tparm_type(const char *name)
 {
 #define TD(code, longname, ti, tc) {code,longname},{code,ti},{code,tc}
+#define XD(code, onlyname) TD(code, onlyname, onlyname, onlyname)
     TParams result = Numbers;
     /* *INDENT-OFF* */
     static const struct {
@@ -114,6 +118,10 @@ tparm_type(const char *name)
 	TD(Num_Str,	"pkey_xmit",	"pfx",		"px"),
 	TD(Num_Str,	"plab_norm",	"pln",		"pn"),
 	TD(Num_Str_Str, "pkey_plab",	"pfxl",		"xl"),
+#if NCURSES_XNAMES
+	XD(Str,		"Cs"),
+	XD(Str_Str,	"Ms"),
+#endif
     };
     /* *INDENT-ON* */
 
@@ -180,14 +188,14 @@ tput(int argc, char *argv[])
 
 #ifdef set_lr_margin
 	if (set_lr_margin != 0) {
-	    PUTS(TPARM_2(set_lr_margin, 0, columns - 1));
+	    PUTS(TIPARM_2(set_lr_margin, 0, columns - 1));
 	} else
 #endif
 #ifdef set_left_margin_parm
 	    if (set_left_margin_parm != 0
 		&& set_right_margin_parm != 0) {
-	    PUTS(TPARM_1(set_left_margin_parm, 0));
-	    PUTS(TPARM_1(set_right_margin_parm, columns - 1));
+	    PUTS(TIPARM_1(set_left_margin_parm, 0));
+	    PUTS(TIPARM_1(set_right_margin_parm, columns - 1));
 	} else
 #endif
 	    if (clear_margins != 0
@@ -201,7 +209,7 @@ tput(int argc, char *argv[])
 	    }
 	    PUTS(set_left_margin);
 	    if (parm_right_cursor) {
-		PUTS(TPARM_1(parm_right_cursor, columns - 1));
+		PUTS(TIPARM_1(parm_right_cursor, columns - 1));
 	    } else {
 		for (i = 0; i < columns - 1; i++) {
 		    PUTCHAR(' ');
@@ -220,7 +228,7 @@ tput(int argc, char *argv[])
 	    if (clear_all_tabs != 0 && set_tab != 0) {
 		for (i = 0; i < columns - 1; i += 8) {
 		    if (parm_right_cursor) {
-			PUTS(TPARM_1(parm_right_cursor, 8));
+			PUTS(TIPARM_1(parm_right_cursor, 8));
 		    } else {
 			for (j = 0; j < 8; j++)
 			    PUTCHAR(' ');

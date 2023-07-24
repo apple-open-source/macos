@@ -1012,14 +1012,31 @@ ExpandOne(
     {
 	len = 0;
 	for (i = 0; i < xp->xp_numfiles; ++i)
+	{
+	    if (i > 0)
+	    {
+		if (xp->xp_prefix == XP_PREFIX_NO)
+		    len += 2;	// prefix "no"
+		else if (xp->xp_prefix == XP_PREFIX_INV)
+		    len += 3;	// prefix "inv"
+	    }
 	    len += (long_u)STRLEN(xp->xp_files[i]) + 1;
+	}
 	ss = alloc(len);
 	if (ss != NULL)
 	{
 	    *ss = NUL;
 	    for (i = 0; i < xp->xp_numfiles; ++i)
 	    {
+		if (i > 0)
+		{
+		    if (xp->xp_prefix == XP_PREFIX_NO)
+			STRCAT(ss, "no");
+		    else if (xp->xp_prefix == XP_PREFIX_INV)
+			STRCAT(ss, "inv");
+		}
 		STRCAT(ss, xp->xp_files[i]);
+
 		if (i != xp->xp_numfiles - 1)
 		    STRCAT(ss, (options & WILD_USE_NL) ? "\n" : " ");
 	    }
@@ -1044,6 +1061,7 @@ ExpandInit(expand_T *xp)
 {
     CLEAR_POINTER(xp);
     xp->xp_backslash = XP_BS_NONE;
+    xp->xp_prefix = XP_PREFIX_NONE;
     xp->xp_numfiles = -1;
 }
 
@@ -1484,8 +1502,8 @@ addstar(
  *  EXPAND_FILES	    After command with EX_XFILE set, or after setting
  *			    with P_EXPAND set.	eg :e ^I, :w>>^I
  *  EXPAND_DIRECTORIES	    In some cases this is used instead of the latter
- *			    when we know only directories are of interest.  eg
- *			    :set dir=^I
+ *			    when we know only directories are of interest.
+ *			    E.g.  :set dir=^I  and  :cd ^I
  *  EXPAND_SHELLCMD	    After ":!cmd", ":r !cmd"  or ":w !cmd".
  *  EXPAND_SETTINGS	    Complete variable names.  eg :set d^I
  *  EXPAND_BOOL_SETTINGS    Complete boolean variables only,  eg :set no^I

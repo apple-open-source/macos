@@ -8435,8 +8435,7 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
     nwi_state_t		changes_state		= NULL;
     boolean_t		dns_changed		= FALSE;
     boolean_t		dnsinfo_changed		= FALSE;
-    boolean_t		global_ipv4_changed	= FALSE;
-    boolean_t		global_ipv6_changed	= FALSE;
+    boolean_t		global_ip_changed	= FALSE;
     CFMutableSetRef	ipv4_service_changes	= NULL;
     CFMutableSetRef	ipv6_service_changes	= NULL;
     keyChangeList	keys;
@@ -8508,8 +8507,7 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 
 	change = CFArrayGetValueAtIndex(changed_keys, i);
 	if (CFEqual(change, S_setup_global_ipv4)) {
-	    global_ipv4_changed = TRUE;
-	    global_ipv6_changed = TRUE;
+	    global_ip_changed = TRUE;
 	}
 	else if (CFEqual(change, S_multicast_resolvers)) {
 	    dnsinfo_changed = TRUE;
@@ -8627,17 +8625,16 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	}
 	if ((changes & (1 << kEntityTypeServiceOptions)) != 0) {
 	    /* if __Service__ (e.g. PrimaryRank) changed */
-	    global_ipv4_changed = TRUE;
-	    global_ipv6_changed = TRUE;
+	    global_ip_changed = TRUE;
 	}
 	else {
 	    if ((changes & (1 << kEntityTypeIPv4)) != 0) {
-		global_ipv4_changed = TRUE;
+		global_ip_changed = TRUE;
 		dnsinfo_changed = TRUE;
 		proxies_changed = TRUE;
 	    }
 	    if ((changes & (1 << kEntityTypeIPv6)) != 0) {
-		global_ipv6_changed = TRUE;
+		global_ip_changed = TRUE;
 		dnsinfo_changed = TRUE;
 		proxies_changed = TRUE;
 		nat64_changed = TRUE;
@@ -8672,15 +8669,14 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
     old_nwi_state = nwi_state_make_copy(S_nwi_state);
     S_nwi_state = nwi_state_new(S_nwi_state, n_services);
 
-    if (global_ipv4_changed) {
+    if (global_ip_changed) {
 	if (S_ipv4_results != NULL) {
 	    ElectionResultsRelease(S_ipv4_results);
 	}
 	S_ipv4_results
 	    = ElectionResultsCopy(AF_INET, service_order);
 	ElectionResultsLog(LOG_INFO, S_ipv4_results, "IPv4");
-    }
-    if (global_ipv6_changed) {
+
 	if (S_ipv6_results != NULL) {
 	    ElectionResultsRelease(S_ipv6_results);
 	}
@@ -8688,7 +8684,7 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	    = ElectionResultsCopy(AF_INET6, service_order);
 	ElectionResultsLog(LOG_INFO, S_ipv6_results, "IPv6");
     }
-    if (global_ipv4_changed || global_ipv6_changed || dnsinfo_changed) {
+    if (global_ip_changed || dnsinfo_changed) {
 	CFStringRef	new_primary;
 	CFStringRef	new_primary_dns	    = NULL;
 	CFStringRef	new_primary_proxies = NULL;
@@ -8808,12 +8804,10 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 
     changes_state = nwi_state_diff(old_nwi_state, S_nwi_state);
 
-    if (global_ipv4_changed || global_ipv6_changed
-	|| dnsinfo_changed || reachability_changed) {
+    if (global_ip_changed || dnsinfo_changed || reachability_changed) {
 	if (S_nwi_state != NULL) {
 	    S_nwi_state->generation_count = mach_absolute_time();
-	    if (global_ipv4_changed || global_ipv6_changed
-		|| reachability_changed) {
+	    if (global_ip_changed || reachability_changed) {
 		SCNetworkReachabilityFlags reach_flags_v4 = 0;
 		SCNetworkReachabilityFlags reach_flags_v6 = 0;
 

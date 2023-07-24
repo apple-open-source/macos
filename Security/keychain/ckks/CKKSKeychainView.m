@@ -54,7 +54,6 @@
 #import "CKKSManifestLeafRecord.h"
 #import "CKKSZoneChangeFetcher.h"
 #import "CKKSAnalytics.h"
-#import "keychain/analytics/CKKSLaunchSequence.h"
 #import "keychain/ckks/CKKSCloudKitClassDependencies.h"
 #import "keychain/ckks/CKKSDeviceStateEntry.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
@@ -79,6 +78,7 @@
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OctagonCKKSPeerAdapter.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import <Security/SecLaunchSequence.h>
 
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecTrace.h>
@@ -220,7 +220,7 @@
                                                                  reachabilityTracker:reachabilityTracker
                                                                 cloudkitDependencies:cloudKitClassDependencies];
 
-        CKKSLaunchSequence* overallLaunch = [[CKKSLaunchSequence alloc] initWithRocketName:@"com.apple.security.ckks.launch"];
+        SecLaunchSequence* overallLaunch = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.security.ckks.launch"];
         [overallLaunch addAttribute:@"view" value:@"global"];
 
         _policyLoaded = [[CKKSCondition alloc] init];
@@ -900,6 +900,7 @@
             [viewState launchComplete];
         }
         [self.operationDependencies.overallLaunch launch];
+        [[CKKSAnalytics logger] noteLaunchSequence:self.operationDependencies.overallLaunch];
 
         return nil;
     }

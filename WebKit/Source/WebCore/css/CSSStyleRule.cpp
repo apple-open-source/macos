@@ -124,7 +124,10 @@ void CSSStyleRule::setSelectorText(const String& selectorText)
 
     CSSStyleSheet::RuleMutationScope mutationScope(this);
 
-    m_styleRule->wrapperAdoptSelectorList(WTFMove(*selectorList));
+    if (m_styleRule->isStyleRuleWithNesting())
+        downcast<StyleRuleWithNesting>(m_styleRule.get()).wrapperAdoptOriginalSelectorList(WTFMove(*selectorList));
+    else
+        m_styleRule->wrapperAdoptSelectorList(WTFMove(*selectorList));
 
     if (hasCachedSelectorText()) {
         selectorTextCache().remove(this);
@@ -179,28 +182,13 @@ String CSSStyleRule::cssText() const
     return builder.toString();
 }
 
-// FIXME: share all methods below with CSSGroupingRule.
-
-void CSSStyleRule::cssTextForDeclsAndRules(StringBuilder& decls, StringBuilder& rules) const
+void CSSStyleRule::cssTextForDeclsAndRules(StringBuilder&, StringBuilder& rules) const
 {
-    for (unsigned index = 0 ; index < nestedRules().size() ; index++) {
-        // We put the declarations at the upper level when the rule:
-        // - is a style rule
-        // - has just "&" as selector
-        // - has no child rules
-        auto childRule = nestedRules()[index];
-        if (childRule->isStyleRuleWithNesting()) {
-            auto& nestedStyleRule = downcast<StyleRuleWithNesting>(childRule.get());
-            if (nestedStyleRule.originalSelectorList().hasOnlyNestingSelector() && nestedStyleRule.nestedRules().isEmpty()) {
-                decls.append(nestedStyleRule.properties().asText());
-                continue;
-            }
-        }
-        // Otherwise we print the child rule
-        auto wrappedRule = item(index);
-        rules.append("\n  ", wrappedRule->cssText());
-    }
+    for (unsigned index = 0 ; index < nestedRules().size() ; index++)
+        rules.append("\n  ", item(index)->cssText());
 }
+
+// FIXME: share all methods below with CSSGroupingRule.
 
 void CSSStyleRule::reattach(StyleRuleBase& rule)
 {
@@ -225,13 +213,18 @@ ExceptionOr<unsigned> CSSStyleRule::insertRule(const String& ruleString, unsigne
     if (!newRule)
         return Exception { SyntaxError };
     // We only accepts style rule or group rule (@media,...) inside style rules.
-    if (!newRule->isStyleRuleWithNesting() && !newRule->isGroupRule())
+    if (!newRule->isStyleRule() && !newRule->isGroupRule())
         return Exception { HierarchyRequestError };
 
-    if (m_styleRule->isStyleRule()) {
-        // Call the parent rule (or parent stylesheet if top-level) to transform the current StyleRule to StyleRuleWithNesting.
-        auto parent = parentRule();
-        auto styleRuleWithNesting = parent ? parent->prepareChildStyleRuleForNesting(m_styleRule) : styleSheet->prepareChildStyleRuleForNesting(WTFMove(m_styleRule.get()));
+    if (!m_styleRule->isStyleRuleWithNesting()) {
+        // Call the parent rule (or parent stylesheet if top-level or nothing if it's an orphaned rule) to transform the current StyleRule to StyleRuleWithNesting.
+        RefPtr<StyleRuleWithNesting> styleRuleWithNesting;
+        if (auto parent = parentRule())
+            styleRuleWithNesting = parent->prepareChildStyleRuleForNesting(m_styleRule);
+        else if (auto parent = parentStyleSheet())
+            styleRuleWithNesting = parent->prepareChildStyleRuleForNesting(WTFMove(m_styleRule.get()));
+        else
+            styleRuleWithNesting = StyleRuleWithNesting::create(WTFMove(m_styleRule.get()));
         ASSERT(styleRuleWithNesting);
         m_styleRule = *styleRuleWithNesting;
     }

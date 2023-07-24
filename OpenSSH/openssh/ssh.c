@@ -1360,7 +1360,6 @@ main(int ac, char **av)
 		    "to execute.");
 
 #if defined(ENABLE_PKCS11) && defined(__APPLE_KEYCHAIN__)
-#define APPLE_PKCS11_REEXEC_GUARD "X_SSH_APPLE_PKCS11_REEXEC"
 	/*
 	 * UseKeychain requires an entitlement to access passphrases
 	 * stored in Keychain.
@@ -1372,17 +1371,13 @@ main(int ac, char **av)
 	 */
 	if (options.pkcs11_provider != NULL) {
 		if (!entitled_to_clear_lv()) {
-			if (getenv(APPLE_PKCS11_REEXEC_GUARD) != NULL) {
-				fatal("Infinite reexec detected; aborting");
-			}
-			if (setenv(APPLE_PKCS11_REEXEC_GUARD, "1", 1) == -1) {
-				fatal("setenv failed: %s", strerror(errno));
-			}
+			// ssh will re-exec ssh-apple-pkcs11
 			debug("PKCS11Provider set, reexec to ssh-apple-pkcs11 "
 			      "so we can clear LV");
 			execv(_PATH_SSH_APPLE_PKCS11, reexec_av);
 			abort();
 		} else {
+			// ssh-apple-pkcs11
 			if (options.use_keychain == 1) {
 				debug("UseKeychain=yes is incompatible with "
 				      "PKCS11Provider; disabling");

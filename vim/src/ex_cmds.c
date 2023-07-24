@@ -2269,7 +2269,11 @@ do_wqall(exarg_T *eap)
     int		save_forceit = eap->forceit;
 
     if (eap->cmdidx == CMD_xall || eap->cmdidx == CMD_wqall)
+    {
+	if (before_quit_all(eap) == FAIL)
+	    return;
 	exiting = TRUE;
+    }
 
     FOR_ALL_BUFFERS(buf)
     {
@@ -5109,7 +5113,8 @@ ex_global(exarg_T *eap)
 	    *cmd++ = NUL;		    // replace it with a NUL
     }
 
-    if (search_regcomp(pat, &used_pat, RE_BOTH, which_pat, SEARCH_HIS, &regmatch) == FAIL)
+    if (search_regcomp(pat, &used_pat, RE_BOTH, which_pat, SEARCH_HIS,
+							    &regmatch) == FAIL)
     {
 	emsg(_(e_invalid_command));
 	return;

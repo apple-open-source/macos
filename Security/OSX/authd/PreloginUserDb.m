@@ -443,10 +443,12 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                 continue;
             }
             weMountedPreboot = [self mountPrebootVolume:prebootVolume];
+            DMDiskErrorType mountPointError = kDiskErrorNoError;
             if (weMountedPreboot) {
-                mountPoint = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:NULL];
-            } else {
-                os_log_error(AUTHD_LOG, "Unable to mount %{public}@", prebootVolume);
+                mountPoint = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:&mountPointError];
+            }
+            if (!mountPoint) {
+                os_log_error(AUTHD_LOG, "Unable to mount %{public}@: %{public}@", prebootVolume, weMountedPreboot ? soft_DMUnlocalizedTechnicalErrorString(mountPointError) : @"not mounted by authd");
                 continue;
             }
         }

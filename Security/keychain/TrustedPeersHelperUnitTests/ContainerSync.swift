@@ -250,7 +250,7 @@ extension Container {
         let expectation = XCTestExpectation(description: "setAllowedMachineIDs replied")
         var reterr: Error?
         let honorIDMSListChanges = accountIsDemo ? false : true
-        self.setAllowedMachineIDs(allowedMachineIDs, honorIDMSListChanges: honorIDMSListChanges) { differences, err in
+        self.setAllowedMachineIDs(allowedMachineIDs, honorIDMSListChanges: honorIDMSListChanges, version: nil) { differences, err in
             XCTAssertEqual(differences, listDifference, "Reported list difference should match expectation")
             reterr = err
             expectation.fulfill()

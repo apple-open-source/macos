@@ -369,6 +369,7 @@
 		4CD0539B103F3E92001C87D5 /* m_item_use.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF088960FFC2BB100CE4372 /* m_item_use.c */; };
 		4CE9808B1034D62D00BA0D88 /* tic.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089BC0FFC2BB200CE4372 /* tic.c */; };
 		4CE9808C1034D62D00BA0D88 /* dump_entry.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089B50FFC2BB200CE4372 /* dump_entry.c */; };
+		D07E99372A0021BD00DCA7E6 /* lib_ti.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089570FFC2BB200CE4372 /* lib_ti.c */; };
 		FC00FC3C14E9E5E9000AD1B3 /* comp_error.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0893B0FFC2BB200CE4372 /* comp_error.c */; };
 		FC00FC3F14E9E6CF000AD1B3 /* comp_scan.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0893F0FFC2BB200CE4372 /* comp_scan.c */; };
 		FC00FC4014E9E6F8000AD1B3 /* name_match.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089620FFC2BB200CE4372 /* name_match.c */; };
@@ -1473,7 +1474,7 @@
 		4CF089550FFC2BB200CE4372 /* lib_termname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_termname.c; sourceTree = "<group>"; };
 		4CF089560FFC2BB200CE4372 /* lib_tgoto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_tgoto.c; sourceTree = "<group>"; };
 		4CF089570FFC2BB200CE4372 /* lib_ti.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_ti.c; sourceTree = "<group>"; };
-		4CF089580FFC2BB200CE4372 /* lib_tparm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_tparm.c; sourceTree = "<group>"; };
+		4CF089580FFC2BB200CE4372 /* lib_tparm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_tparm.c; sourceTree = "<group>"; usesTabs = 1; };
 		4CF089590FFC2BB200CE4372 /* lib_tputs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_tputs.c; sourceTree = "<group>"; };
 		4CF0895A0FFC2BB200CE4372 /* lib_ttyflags.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_ttyflags.c; sourceTree = "<group>"; };
 		4CF0895B0FFC2BB200CE4372 /* make_keys.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = make_keys.c; sourceTree = "<group>"; };
@@ -3881,6 +3882,7 @@
 				FC00FC5114E9EA0F000AD1B3 /* lib_cur_term.c in Sources */,
 				FC00FC5214E9EA2C000AD1B3 /* lib_data.c in Sources */,
 				FC00FC6914E9ECAB000AD1B3 /* lib_has_cap.c in Sources */,
+				D07E99372A0021BD00DCA7E6 /* lib_ti.c in Sources */,
 				FC00FC6A14E9ECD3000AD1B3 /* lib_keyname.c in Sources */,
 				FC00FC6014E9EB8A000AD1B3 /* lib_napms.c in Sources */,
 				FC00FC6714E9EC71000AD1B3 /* lib_options.c in Sources */,

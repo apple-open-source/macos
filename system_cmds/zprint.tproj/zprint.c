@@ -103,16 +103,18 @@ __options_decl(kalloc_zone_type, uint32_t, {
     KALLOC_ZONE_NONE            = 0x00000000, /* Not kalloc zone */
     KALLOC_ZONE_DEFAULT         = 0x00000001, /* default.kalloc zone */
     KALLOC_ZONE_DATA            = 0x00000002, /* data.kalloc zone */
-    KALLOC_ZONE_KEXT            = 0x00000004, /* kext.kalloc zone*/
+    KALLOC_ZONE_KEXT            = 0x00000004, /* kext.kalloc zone */
     KALLOC_ZONE_TYPE            = 0x00000008, /* kalloc.type zone */
-#define KALLOC_ZONE_COUNT       5
+    KALLOC_ZONE_SHARED          = 0x00000010, /* shared.kalloc zone */
+#define KALLOC_ZONE_COUNT       6
 });
 const char *kalloc_zone_names[KALLOC_ZONE_COUNT] = {
     "",
     "default.kalloc.",
     "data.kalloc.",
     "kext.kalloc.",
-    "kalloc.type"
+    "kalloc.type",
+    "shared.kalloc."
 };
 #endif
 
@@ -312,9 +314,11 @@ main(int argc, char **argv)
 		} else if (streql(argv[i], "-H")) {
 			PrintHeader = FALSE;
         } else if (streql(argv[i], "-k")) {
-            CoalesceKalloc |= (KALLOC_ZONE_TYPE | KALLOC_ZONE_KEXT | KALLOC_ZONE_DATA);
+            CoalesceKalloc |= (KALLOC_ZONE_TYPE | KALLOC_ZONE_KEXT |
+                               KALLOC_ZONE_DATA | KALLOC_ZONE_SHARED);
         } else if (streql(argv[i], "-kt")) {
-            CoalesceKalloc |= (KALLOC_ZONE_TYPE | KALLOC_ZONE_KEXT);
+            CoalesceKalloc |= (KALLOC_ZONE_TYPE | KALLOC_ZONE_KEXT |
+                               KALLOC_ZONE_SHARED);
         } else if (streql(argv[i], "-kd")) {
             CoalesceKalloc |= KALLOC_ZONE_DATA;
 		} else if (streql(argv[i], "--")) {

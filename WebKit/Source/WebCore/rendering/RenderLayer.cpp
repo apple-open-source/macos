@@ -3258,6 +3258,9 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
         }
         GraphicsContext& currentContext = filterContext ? *filterContext : context;
 
+        if (filterContext)
+            localPaintingInfo.paintBehavior.add(PaintBehavior::DontShowVisitedLinks);
+
         // If this layer's renderer is a child of the subtreePaintRoot, we render unconditionally, which
         // is done by passing a nil subtreePaintRoot down to our renderer (as if no subtreePaintRoot was ever set).
         // Otherwise, our renderer tree may or may not contain the subtreePaintRoot root, so we pass that root along
@@ -3691,6 +3694,9 @@ void RenderLayer::paintForegroundForFragments(const LayerFragments& layerFragmen
 
     if (localPaintingInfo.paintBehavior & PaintBehavior::CompositedOverflowScrollContent)
         localPaintBehavior.add(PaintBehavior::CompositedOverflowScrollContent);
+
+    if (localPaintingInfo.paintBehavior & PaintBehavior::DontShowVisitedLinks)
+        localPaintBehavior.add(PaintBehavior::DontShowVisitedLinks);
 
     GraphicsContextStateSaver stateSaver(context, false);
     EventRegionContextStateSaver eventRegionStateSaver(localPaintingInfo.eventRegionContext);
@@ -4140,15 +4146,21 @@ RenderLayer::HitLayer RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLa
     }
 
     // Now check our overflow objects.
-    hitLayer = hitTestList(normalFlowLayers(), rootLayer, request, result, hitTestRect, hitTestLocation, localTransformState.get(), zOffsetForDescendantsPtr, zOffset, unflattenedTransformState.get(), depthSortDescendants);
-    if (hitLayer.layer) {
-        if (!depthSortDescendants)
-            return hitLayer;
-        if (using3DTransformsInterop) {
-            if (hitLayer.zOffset > candidateLayer.zOffset)
+    {
+        HitTestResult tempResult(result.hitTestLocation());
+        hitLayer = hitTestList(normalFlowLayers(), rootLayer, request, tempResult, hitTestRect, hitTestLocation, localTransformState.get(), zOffsetForDescendantsPtr, zOffset, unflattenedTransformState.get(), depthSortDescendants);
+        if (hitLayer.layer) {
+            if (!depthSortDescendants || !using3DTransformsInterop || hitLayer.zOffset > candidateLayer.zOffset) {
+                if (request.resultIsElementList())
+                    result.append(tempResult, request);
+                else
+                    result = tempResult;
                 candidateLayer = hitLayer;
-        } else
-            candidateLayer = hitLayer;
+            }
+
+            if (!depthSortDescendants)
+                return hitLayer;
+        }
     }
 
     // Collect the fragments. This will compute the clip rectangles for each layer fragment.
@@ -4187,15 +4199,21 @@ RenderLayer::HitLayer RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLa
     }
 
     // Now check our negative z-index children.
-    hitLayer = hitTestList(negativeZOrderLayers(), rootLayer, request, result, hitTestRect, hitTestLocation, localTransformState.get(), zOffsetForDescendantsPtr, zOffset, unflattenedTransformState.get(), depthSortDescendants);
-    if (hitLayer.layer) {
-        if (!depthSortDescendants)
-            return hitLayer;
-        if (using3DTransformsInterop) {
-            if (hitLayer.zOffset > candidateLayer.zOffset)
+    {
+        HitTestResult tempResult(result.hitTestLocation());
+        hitLayer = hitTestList(negativeZOrderLayers(), rootLayer, request, tempResult, hitTestRect, hitTestLocation, localTransformState.get(), zOffsetForDescendantsPtr, zOffset, unflattenedTransformState.get(), depthSortDescendants);
+        if (hitLayer.layer) {
+            if (!depthSortDescendants || !using3DTransformsInterop || hitLayer.zOffset > candidateLayer.zOffset) {
+                if (request.resultIsElementList())
+                    result.append(tempResult, request);
+                else
+                    result = tempResult;
                 candidateLayer = hitLayer;
-        } else
-            candidateLayer = hitLayer;
+            }
+
+            if (!depthSortDescendants)
+                return hitLayer;
+        }
     }
 
     // If we found a layer, return. Child layers, and foreground always render in front of background.
@@ -5352,9 +5370,11 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
                 dirtyZOrderLists();
         }
 
-        // Visibility is input to canUseCompositedScrolling().
-        if (visibilityChanged && m_scrollableArea)
-            m_scrollableArea->computeHasCompositedScrollableOverflow();
+        // Visibility and scrollability are input to canUseCompositedScrolling().
+        if (m_scrollableArea) {
+            if (visibilityChanged || oldStyle->isOverflowVisible() != renderer().style().isOverflowVisible())
+                m_scrollableArea->computeHasCompositedScrollableOverflow();
+        }
     }
 
     if (m_scrollableArea) {
@@ -5723,6 +5743,7 @@ TextStream& operator<<(TextStream& ts, PaintBehavior behavior)
     case PaintBehavior::AnnotateLinks: ts << "AnnotateLinks"; break;
     case PaintBehavior::EventRegionIncludeForeground: ts << "EventRegionIncludeForeground"; break;
     case PaintBehavior::EventRegionIncludeBackground: ts << "EventRegionIncludeBackground"; break;
+    case PaintBehavior::DontShowVisitedLinks: ts << "DontShowVisitedLinks"; break;
     }
 
     return ts;

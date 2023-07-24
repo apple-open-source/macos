@@ -578,6 +578,12 @@ typedef struct
     buffheader_T sr_old_redobuff;
 } save_redo_T;
 
+typedef enum {
+    XP_PREFIX_NONE,	// prefix not used
+    XP_PREFIX_NO,	// "no" prefix for bool option
+    XP_PREFIX_INV,	// "inv" prefix for bool option
+} xp_prefix_T;
+
 /*
  * used for completion on the command line
  */
@@ -586,6 +592,7 @@ typedef struct expand
     char_u	*xp_pattern;		// start of item to expand
     int		xp_context;		// type of expansion
     int		xp_pattern_len;		// bytes in xp_pattern before cursor
+    xp_prefix_T	xp_prefix;
 #if defined(FEAT_EVAL)
     char_u	*xp_arg;		// completion function
     sctx_T	xp_script_ctx;		// SCTX for completion function
@@ -1896,7 +1903,7 @@ struct funccall_S
 				// funccal
     int		fc_copyID;	// for garbage collection
     garray_T	fc_ufuncs;	// list of ufunc_T* which keep a reference to
-				// "func"
+				// "fc_func"
 };
 
 // structure used as item in "fc_defer"
@@ -1993,7 +2000,7 @@ typedef struct {
 
 /*
  * Info about an encountered script.
- * When sn_state has the SN_STATE_NOT_LOADED is has not been sourced yet.
+ * When sn_state has SN_STATE_NOT_LOADED, it has not been sourced yet.
  */
 typedef struct
 {
@@ -2102,9 +2109,8 @@ typedef struct {
     char_u	*eval_tofree_lambda;
 } evalarg_T;
 
-// Flags for expression evaluation.
+// Flag for expression evaluation.
 #define EVAL_EVALUATE	    1	    // when missing don't actually evaluate
-#define EVAL_CONSTANT	    2	    // when not a constant return FAIL
 
 # ifdef FEAT_PROFILE
 /*
@@ -2772,11 +2778,24 @@ typedef struct {
 # define CRYPT_M_BF	1
 # define CRYPT_M_BF2	2
 # define CRYPT_M_SOD    3
-# define CRYPT_M_COUNT	4 // number of crypt methods
+# define CRYPT_M_SOD2   4
+# define CRYPT_M_COUNT	5 // number of crypt methods
 
 // Currently all crypt methods work inplace.  If one is added that isn't then
 // define this.
 # define CRYPT_NOT_INPLACE 1
+
+// Struct for passing arguments down to the crypt_init functions
+typedef struct {
+    char_u	*cat_salt;
+    int		cat_salt_len;
+    char_u	*cat_seed;
+    int		cat_seed_len;
+    char_u	*cat_add;
+    int		cat_add_len;
+    int		cat_init_from_file;
+} crypt_arg_T;
+
 #endif
 
 #ifdef FEAT_PROP_POPUP
@@ -4274,6 +4293,7 @@ typedef struct
     bufref_T	new_curbuf;	    // new curbuf
     char_u	*globaldir;	    // saved value of globaldir
     int		save_VIsual_active; // saved VIsual_active
+    int		save_State;	    // saved State
 } aco_save_T;
 
 /*
@@ -4781,7 +4801,7 @@ typedef struct {
     int		cts_text_prop_count;	// number of text props; when zero
 					// cts_text_props is not used
     textprop_T	*cts_text_props;	// text props (allocated)
-    char	cts_has_prop_with_text; // TRUE if if a property inserts text
+    char	cts_has_prop_with_text; // TRUE if a property inserts text
     int		cts_cur_text_width;     // width of current inserted text
     int		cts_prop_lines;		// nr of properties above or below
     int		cts_first_char;		// width text props above the line

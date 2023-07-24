@@ -411,8 +411,10 @@ cups_create_localizations(
   {
     DEBUG_printf(("4cups_create_localizations: Unable to create temporary "
                   "file: %s", cupsLastErrorString()));
-    if (http2 != http)
+    if (http2 != http) {
       httpClose(http2);
+      http2 = NULL;
+    }
     return;
   }
 
@@ -439,7 +441,9 @@ cups_create_localizations(
 
   unlink(tempfile);
 
-  if (http2 != http)
+  if (http2 != http) {
     httpClose(http2);
+    http2 = NULL;
+  }
 }
 

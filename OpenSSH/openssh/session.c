@@ -1582,7 +1582,14 @@ do_child(struct ssh *ssh, Session *s, const char *command)
 	 * Get the shell from the password data.  An empty shell field is
 	 * legal, and means /bin/sh.
 	 */
+#if !TARGET_OS_OSX
+	shell = getenv("SSHD_PATH_BSHELL_OVERRIDE");
+	if (shell == NULL) {
+		shell = (pw->pw_shell[0] == '\0') ? _PATH_BSHELL : pw->pw_shell;
+	}
+#else
 	shell = (pw->pw_shell[0] == '\0') ? _PATH_BSHELL : pw->pw_shell;
+#endif
 
 	/*
 	 * Make sure $SHELL points to the shell from the password file,

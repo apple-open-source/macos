@@ -250,6 +250,16 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
 + (BOOL)preflightRecoverOctagonUsingRecoveryKey:(OTConfigurationContext*)ctx
                                     recoveryKey:(NSString*)recoveryKey
                                           error:(NSError**)error;
+/* *
+ * @abstract                        Register a recovery key in Octagon and SOS.
+ * @param ctx                       Containing parameters to setup OTClique
+ * @param recoveryKey               Recovery Key string
+ * @param error                     An error parameter: filled in if the call times out or if registration failed
+ * @return BOOL                     Returns YES if the recovery key is registered in Octagon and SOS
+ *                                  Returns NO if registration fails in either trust system
+ */
++ (BOOL)registerRecoveryKeyWithContext:(OTConfigurationContext*)ctx recoveryKey:(NSString*)recoveryKey error:(NSError**)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

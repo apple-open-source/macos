@@ -199,6 +199,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     printf("%s: ERROR (No protocol version - %d)\n", server, (int)err);
     httpClose(http);
+    http = NULL;
     return (1);
   }
 
@@ -225,6 +226,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     printf("%s: ERROR (No cipher suite - %d)\n", server, (int)err);
     httpClose(http);
+    http = NULL;
     return (1);
   }
 
@@ -698,6 +700,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     printf("%s: ERROR (Printers MUST NOT negotiate RC4 cipher suites.)\n", server);
     httpClose(http);
+    http = NULL;
     return (1);
   }
 
@@ -705,6 +708,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     printf("%s: ERROR (Unable to get Diffie-Hellman parameters - %d)\n", server, (int)err);
     httpClose(http);
+    http = NULL;
     return (1);
   }
 
@@ -712,6 +716,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     printf("%s: ERROR (Diffie-Hellman parameters MUST be at least 2048 bits, but Printer uses only %d bits/%d bytes)\n", server, (int)paramsLen * 8, (int)paramsLen);
     httpClose(http);
+    http = NULL;
     return (1);
   }
 
@@ -767,6 +772,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   }
 
   httpClose(http);
+  http = NULL;
 
   return (0);
 }

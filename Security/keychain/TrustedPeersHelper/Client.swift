@@ -176,11 +176,12 @@ class Client: TrustedPeersHelperProtocol {
     func setAllowedMachineIDsWith(_ user: TPSpecificUser?,
                                   allowedMachineIDs: Set<String>,
                                   honorIDMSListChanges: Bool,
+                                  version: String?,
                                   reply: @escaping (Bool, Error?) -> Void) {
         do {
             logger.info("Setting allowed machineIDs for \(String(describing: user), privacy: .public) to \(allowedMachineIDs, privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.setAllowedMachineIDs(allowedMachineIDs, honorIDMSListChanges: honorIDMSListChanges) { differences, error in
+            container.setAllowedMachineIDs(allowedMachineIDs, honorIDMSListChanges: honorIDMSListChanges, version: version) { differences, error in
                 self.logComplete(function: "Setting allowed machineIDs", container: container.name, error: error)
                 reply(differences, error?.sanitizeForClientXPC())
             }
@@ -808,6 +809,22 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
+    func findCustodianRecoveryKey(with user: TPSpecificUser?,
+                                  uuid: UUID,
+                                  reply: @escaping (TrustedPeersHelperCustodianRecoveryKey?, Error?) -> Void) {
+        do {
+            logger.info("FindCustodianRecoveryKey for \(String(describing: user), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.findCustodianRecoveryKey(uuid: uuid) { crk, error in
+                self.logComplete(function: "checkCustodianRecoveryKey", container: container.name, error: error)
+                reply(crk, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("FindCustodianRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
     func reportHealth(with user: TPSpecificUser?, stateMachineState: String, trustState: String, reply: @escaping (Error?) -> Void) {
         do {
             logger.info("ReportHealth for \(String(describing: user), privacy: .public)")
@@ -934,6 +951,19 @@ class Client: TrustedPeersHelperProtocol {
             }
         } catch {
             logger.error("performATOPRVActions failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(error.sanitizeForClientXPC())
+        }
+    }
+
+    func testSemaphore(with user: TPSpecificUser?, arg: String, reply: @escaping (Error?) -> Void) {
+        do {
+            logger.info("testSemaphore for \(String(describing: user), privacy: .public): \(arg, privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.testSemaphore(arg:arg) { error in
+                reply(error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("testSemaphore failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(error.sanitizeForClientXPC())
         }
     }

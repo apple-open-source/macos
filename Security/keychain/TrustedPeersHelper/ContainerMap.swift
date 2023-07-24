@@ -384,13 +384,16 @@ class ContainerMap {
     let ckCodeOperationRunnerCreator: ContainerNameToCKOperationRunner
     let darwinNotifier: CKKSNotifier.Type
     let personaAdapter: OTPersonaAdapter
+    let managedConfigurationAdapter: OTManagedConfigurationAdapter
 
     init (ckCodeOperationRunnerCreator: ContainerNameToCKOperationRunner,
           darwinNotifier: CKKSNotifier.Type,
-          personaAdapter: OTPersonaAdapter) {
+          personaAdapter: OTPersonaAdapter,
+          managedConfigurationAdapter: OTManagedConfigurationAdapter) {
         self.ckCodeOperationRunnerCreator = ckCodeOperationRunnerCreator
         self.darwinNotifier = darwinNotifier
         self.personaAdapter = personaAdapter
+        self.managedConfigurationAdapter = managedConfigurationAdapter
     }
     // Only access containers while executing on queue
     private var containers: [ContainerName: Container] = [:]
@@ -422,6 +425,7 @@ class ContainerMap {
                 let container = try Container(name: containerName,
                                               persistentStoreDescription: description,
                                               darwinNotifier: self.darwinNotifier,
+                                              managedConfigurationAdapter: self.managedConfigurationAdapter,
                                               cuttlefish: retryingCuttlefish)
                 self.containers[containerName] = container
 

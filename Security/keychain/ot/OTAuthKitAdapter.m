@@ -95,13 +95,13 @@
 }
 
 - (void)fetchCurrentDeviceListByAltDSID:(NSString*)altDSID
-                                  reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))complete
+                                  reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSString* _Nullable version, NSError* _Nullable error))complete
 {
     if([AKDeviceListRequestContext class] == nil || [AKAppleIDAuthenticationController class] == nil) {
         secnotice("authkit", "AuthKit not available");
-        complete(nil, [NSError errorWithDomain:OctagonErrorDomain
-                                          code:OctagonErrorRequiredLibrariesNotPresent
-                                   description:@"AKAnisette not available"]);
+        complete(nil, nil, [NSError errorWithDomain:OctagonErrorDomain
+                                               code:OctagonErrorRequiredLibrariesNotPresent
+                                        description:@"AKAnisette not available"]);
         return;
     }
 
@@ -111,7 +111,7 @@
                                              code:OctagonErrorAuthKitAKDeviceListRequestContextClass
                                       description:@"can't get AKDeviceListRequestContextClass"];
         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-        complete(nil, error);
+        complete(nil, nil, error);
         return;
     }
 
@@ -123,28 +123,28 @@
                                              code:OctagonErrorAuthKitNoAuthenticationController
                                       description:@"can't get authController"];
         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-        complete(nil, error);
+        complete(nil, nil, error);
         return;
     }
 
-    [authController fetchDeviceListWithContext:context completion:^(NSArray<AKRemoteDevice *> *deviceList, NSError *error) {
-        if (deviceList) {
+    [authController deviceListWithContext:context completion:^(AKDeviceListResponse *response, NSError *error) {
+            if (error != nil) {
+                [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
+                secnotice("authkit", "received no device list(%@): %@", altDSID, error);
+                complete(nil, nil, error);
+                return;
+            }
             NSMutableSet *mids = [[NSMutableSet alloc] init];
+            NSString* version = response.deviceListVersion;
 
-            for (AKRemoteDevice *device in deviceList) {
+            for (AKRemoteDevice *device in response.deviceList) {
                 [mids addObject:device.machineId];
-                secnotice("authkit", "Current machine ID on list (%@): %@", altDSID, device.machineId);
+                secnotice("authkit", "Current machine ID on list for (%@) version %@: %@", altDSID, version, device.machineId);
             }
 
-            complete(mids, error);
+            complete(mids, version, error);
             [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventAuthKitDeviceList];
-
-        } else {
-            [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-            secnotice("authkit", "received no device list(%@): %@", altDSID, error);
-            complete(nil, error);
-        }
-    }];
+        }];
 }
 
 - (void)registerNotification:(id<OTAuthKitAdapterNotifier>)newNotifier

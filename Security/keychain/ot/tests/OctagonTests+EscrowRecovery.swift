@@ -444,6 +444,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
                                                     accountsAdapter: self.mockAuthKit2,
                                                     authKitAdapter: self.mockAuthKit2,
                                                     tooManyPeersAdapter: self.mockTooManyPeers,
+                                                    tapToRadarAdapter: self.mockTapToRadar,
                                                     lockStateTracker: self.lockStateTracker,
                                                     deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
 
@@ -519,6 +520,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
                                                     accountsAdapter: self.mockAuthKit2,
                                                     authKitAdapter: self.mockAuthKit2,
                                                     tooManyPeersAdapter: self.mockTooManyPeers,
+                                                    tapToRadarAdapter: self.mockTapToRadar,
                                                     lockStateTracker: self.lockStateTracker,
                                                     deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
 
@@ -879,6 +881,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
                                                    accountsAdapter: deviceBmockAuthKit,
                                                    authKitAdapter: deviceBmockAuthKit,
                                                    tooManyPeersAdapter: self.mockTooManyPeers,
+                                                   tapToRadarAdapter: self.mockTapToRadar,
                                                    lockStateTracker: self.lockStateTracker,
                                                    deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
         bRestoreContext.startOctagonStateMachine()
@@ -903,6 +906,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
                                                   accountsAdapter: restoremockAuthKit,
                                                   authKitAdapter: restoremockAuthKit,
                                                   tooManyPeersAdapter: self.mockTooManyPeers,
+                                                  tapToRadarAdapter: self.mockTapToRadar,
                                                   lockStateTracker: self.lockStateTracker,
                                                   deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
 

@@ -20,7 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)accountIsDemoAccountByAltDSID:(NSString*)altDSID error:(NSError**)error NS_SWIFT_NOTHROW;
 
 - (NSString* _Nullable)machineID:(NSError**)error;
-- (void)fetchCurrentDeviceListByAltDSID:(NSString*)altDSID reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))complete;
+- (void)fetchCurrentDeviceListByAltDSID:(NSString*)altDSID reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSString* _Nullable version, NSError* _Nullable error))complete;
 - (void)registerNotification:(id<OTAuthKitAdapterNotifier>)notifier;
 
 - (void)deliverAKDeviceListDeltaMessagePayload:(NSDictionary* _Nullable)notificationDictionary;

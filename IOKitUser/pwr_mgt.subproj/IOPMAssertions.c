@@ -217,6 +217,7 @@ static CFMutableDictionaryRef       gInactiveAssertionsDict = NULL; // assertion
 static CFMutableArrayRef            gReleasedAssertionsList = NULL; // released assertions. Kept around for logging
 static CFMutableArrayRef            gTimedAssertionsList = NULL;
 static dispatch_source_t            gAssertionTimer = 0;
+bool                                assertion_timer_suspended = true;
 static uint64_t                     nextOffload_ts;
 static xpc_connection_t             gAssertionConnection;
 
@@ -1247,6 +1248,7 @@ void handleAssertionTimeout(void)
 {
     // look through list and release assertion
     uint64_t now = getMonotonicTime();
+    DEBUG_LOG("handleAssertionTimeout fired %llu", now);
     uint64_t timeout_ts = 0;
     int i = 0;
     for (i = 0; i < CFArrayGetCount(gTimedAssertionsList); i++) {
@@ -1297,7 +1299,11 @@ void handleAssertionTimeout(void)
         CFArrayRemoveValueAtIndex(gTimedAssertionsList, 0);
     }
 
-    dispatch_suspend(gAssertionTimer);
+    if (!assertion_timer_suspended) {
+        DEBUG_LOG("Suspending timer");
+        dispatch_suspend(gAssertionTimer);
+        assertion_timer_suspended = true;
+    }
     // find the next timeout and arm timer
     if (CFArrayGetCount(gTimedAssertionsList) != 0) {
         CFMutableDictionaryRef earliest_assertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(gTimedAssertionsList, 0);
@@ -1305,7 +1311,11 @@ void handleAssertionTimeout(void)
         CFNumberGetValue(nextTimeout, kCFNumberSInt64Type, &timeout_ts);
         uint64_t delta = timeout_ts - now;
         dispatch_source_set_timer(gAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
-        dispatch_resume(gAssertionTimer);
+        if (assertion_timer_suspended) {
+            DEBUG_LOG("Resuming timer");
+            dispatch_resume(gAssertionTimer);
+            assertion_timer_suspended = false;
+        }
         DEBUG_LOG("handleAssertionTimeout: Setting assertion timeout to fire in %llu secs", delta);
     }
 }
@@ -1338,7 +1348,11 @@ void insertIntoTimedList(CFMutableDictionaryRef props)
         }
     } else {
         // suspend the current timer and arm the new one
-        dispatch_suspend(gAssertionTimer);
+        if (!assertion_timer_suspended) {
+            DEBUG_LOG("Suspending timer");
+            dispatch_suspend(gAssertionTimer);
+            assertion_timer_suspended = true;
+        }
     }
     uint64_t now = getMonotonicTime();
     uint64_t earliest_timeout = 0;
@@ -1350,9 +1364,14 @@ void insertIntoTimedList(CFMutableDictionaryRef props)
         handleAssertionTimeout();
     } else {
         if (gAssertionTimer) {
-            DEBUG_LOG("Setting assertion timeout to fire in %d secs", delta);
+            DEBUG_LOG("Setting assertion timeout to fire in %d secs for timeout_ts %llu", delta, earliest_timeout);
             dispatch_source_set_timer(gAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
-            dispatch_resume(gAssertionTimer);
+            if (assertion_timer_suspended) {
+                INFO_LOG("Resuming timer")
+                assertion_timer_suspended = false;
+                dispatch_resume(gAssertionTimer);
+
+            }
         }
     }
 }

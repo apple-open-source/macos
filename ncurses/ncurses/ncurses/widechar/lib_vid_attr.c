@@ -159,7 +159,7 @@ vid_puts(attr_t newmode, short pair, void *opts GCC_UNUSED, int (*outc) (int))
     } else if (set_attributes) {
 	if (turn_on || turn_off) {
 	    TPUTS_TRACE("set_attributes");
-	    tputs(TPARM_9(set_attributes,
+	    tputs(TIPARM_9(set_attributes,
 			  (newmode & A_STANDOUT) != 0,
 			  (newmode & A_UNDERLINE) != 0,
 			  (newmode & A_REVERSE) != 0,

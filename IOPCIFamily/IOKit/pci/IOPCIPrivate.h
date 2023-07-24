@@ -160,7 +160,7 @@ struct IOPCIDeviceExpansionData
 	IONotifier*             _matchedNotifier;
 
 	uint32_t probeTimeMS;
-	bool clientCrashed;
+	bool deadMapper;
 };
 
 enum
@@ -661,6 +661,9 @@ private:
                                       void * messageArgument, vm_size_t argSize);
 public:
     uint16_t           _aspmDefault;
+	bool               systemActive(void);
+private:
+	uint32_t           _lastSystemPowerMessage;
 };
 
 class IOPCIHostBridge : public IOPCIBridge

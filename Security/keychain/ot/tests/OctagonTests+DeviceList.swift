@@ -105,6 +105,17 @@ class OctagonDeviceListTests: OctagonTestsBase {
 
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .excludes, target: peer2ID)),
                       "peer 1 should distrust peer 2 after update")
+
+        self.fakeCuttlefishServer.updateListener = nil
+        // Let peer2 receive the distrust
+        self.sendContainerChangeWaitForFetch(context: joiningContext)
+        self.assertConsidersSelfUntrusted(context: joiningContext)
+
+        if self.mockDeviceInfo.isHomePod() {
+            XCTAssertEqual(self.mockTapToRadar.timesHomePodTTRSent, 1, "Should have posted a HomePod TTR")
+        } else {
+            XCTAssertEqual(self.mockTapToRadar.timesHomePodTTRSent, 0, "Should not have posted a HomePod TTR")
+        }
     }
 
     func testNumberOfPeersInModel() throws {

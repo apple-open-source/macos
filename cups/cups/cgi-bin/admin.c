@@ -253,6 +253,7 @@ main(void)
   */
 
   httpClose(http);
+  http = NULL;
 
  /*
   * Return with no errors...
@@ -3801,6 +3802,7 @@ get_printer_ppd(const char *uri,	/* I - Printer URI */
 
   ippDelete(response);
   httpClose(http);
+  http = NULL;
 
   if (buffer[0])
     return (buffer);

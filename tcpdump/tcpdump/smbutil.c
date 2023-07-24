@@ -768,8 +768,8 @@ smb_fdata1(netdissect_options *ndo,
 	case 'T':
 	  {
 	    time_t t;
-	    struct tm *lt;
 	    const char *tstring;
+	    char buffer[sizeof("Www Mmm dd hh:mm:ss yyyyy")];
 	    uint32_t x;
 
 	    switch (atoi(fmt + 1)) {
@@ -799,14 +799,11 @@ smb_fdata1(netdissect_options *ndo,
 		break;
 	    }
 	    if (t != 0) {
-		lt = localtime(&t);
-		if (lt != NULL)
-		    tstring = asctime(lt);
-		else
-		    tstring = "(Can't convert time)\n";
+		    tstring = nd_format_time(buffer, sizeof(buffer), "%a %b %e %T %Y",
+		    localtime(&t));
 	    } else
-		tstring = "NULL\n";
-	    ND_PRINT("%s", tstring);
+		tstring = "NULL";
+	    ND_PRINT("%s\n", tstring);
 	    fmt++;
 	    while (ND_ASCII_ISDIGIT(*fmt))
 		fmt++;

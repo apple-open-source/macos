@@ -100,12 +100,18 @@ void IONetworkUserClient::free(void)
 
 IOReturn IONetworkUserClient::clientClose(void)
 {
+    IOReturn ret;
+
     if (_owner) {
         _owner->close(this);
         detach(_owner);
     }
 
-    return kIOReturnSuccess;
+    ret = kIOReturnError;
+    if (terminate(0))
+        ret = kIOReturnSuccess;
+
+    return ret;
 }
 
 //---------------------------------------------------------------------------

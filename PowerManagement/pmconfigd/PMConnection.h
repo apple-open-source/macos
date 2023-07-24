@@ -72,6 +72,8 @@ __private_extern__ void evaluatePerfMode(void);
 __private_extern__ bool _can_revert_sleep(void);
 __private_extern__ void _set_sleep_revert(bool state);
 
+__private_extern__ bool _woke_up_after_lastcall(void);
+
 __private_extern__ io_connect_t getRootDomainConnect(void);
 __private_extern__ bool isA_BTMtnceWake(void);
 __private_extern__ bool isA_SleepSrvcWake(void);

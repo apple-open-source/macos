@@ -1287,6 +1287,7 @@ main(int  argc,				/* I - Number of command-line args */
 
       ippDelete(supported);
       httpClose(http);
+      http = NULL;
 
      /*
       * Sleep 5 seconds to keep the job from requeuing too rapidly...
@@ -2228,6 +2229,7 @@ main(int  argc,				/* I - Number of command-line args */
   ppdClose(ppd);
 
   httpClose(http);
+  http = NULL;
 
   ippDelete(supported);
 
@@ -2737,6 +2739,7 @@ monitor_printer(
   */
 
   httpClose(http);
+  http = NULL;
 
   return (NULL);
 }

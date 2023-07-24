@@ -1429,7 +1429,7 @@ handle_did_throw(void)
 {
     char	*p = NULL;
     msglist_T	*messages = NULL;
-    ESTACK_CHECK_DECLARATION
+    ESTACK_CHECK_DECLARATION;
 
     /*
      * If the uncaught exception is a user exception, report it as an
@@ -1455,7 +1455,7 @@ handle_did_throw(void)
 
     estack_push(ETYPE_EXCEPT, current_exception->throw_name,
 					current_exception->throw_lnum);
-    ESTACK_CHECK_SETUP
+    ESTACK_CHECK_SETUP;
     current_exception->throw_name = NULL;
 
     discard_current_exception();	// uses IObuff if 'verbose'
@@ -1485,7 +1485,7 @@ handle_did_throw(void)
 	vim_free(p);
     }
     vim_free(SOURCING_NAME);
-    ESTACK_CHECK_NOW
+    ESTACK_CHECK_NOW;
     estack_pop();
 }
 
@@ -5973,10 +5973,11 @@ ex_cquit(exarg_T *eap UNUSED)
 }
 
 /*
- * ":qall": try to quit all windows
+ * Do preparations for "qall" and "wqall".
+ * Returns FAIL when quitting should be aborted.
  */
-    static void
-ex_quit_all(exarg_T *eap)
+    int
+before_quit_all(exarg_T *eap)
 {
     if (cmdwin_type != 0)
     {
@@ -5984,19 +5985,30 @@ ex_quit_all(exarg_T *eap)
 	    cmdwin_result = K_XF1;	// ex_window() takes care of this
 	else
 	    cmdwin_result = K_XF2;
-	return;
+	return FAIL;
     }
 
     // Don't quit while editing the command line.
     if (text_locked())
     {
 	text_locked_msg();
-	return;
+	return FAIL;
     }
 
     if (before_quit_autocmds(curwin, TRUE, eap->forceit))
-	return;
+	return FAIL;
 
+    return OK;
+}
+
+/*
+ * ":qall": try to quit all windows
+ */
+    static void
+ex_quit_all(exarg_T *eap)
+{
+    if (before_quit_all(eap) == FAIL)
+	return;
     exiting = TRUE;
     if (eap->forceit || !check_changed_any(FALSE, FALSE))
 	getout(0);
@@ -6166,7 +6178,8 @@ get_tabpage_arg(exarg_T *eap)
 		    tab_number = tabpage_index(lastused_tabpage);
 		else
 		{
-		    eap->errmsg = ex_errmsg(e_invalid_value_for_argument_str, eap->arg);
+		    eap->errmsg = ex_errmsg(e_invalid_value_for_argument_str,
+								     eap->arg);
 		    tab_number = 0;
 		    goto theend;
 		}
@@ -9404,7 +9417,7 @@ eval_vars(
 	case SPEC_ABUF:		// buffer number for autocommand
 		if (autocmd_bufnr <= 0)
 		{
-		    *errormsg = _(e_no_autocommand_buffer_name_to_substitute_for_abuf);
+		    *errormsg = _(e_no_autocommand_buffer_number_to_substitute_for_abuf);
 		    return NULL;
 		}
 		sprintf((char *)strbuf, "%d", autocmd_bufnr);

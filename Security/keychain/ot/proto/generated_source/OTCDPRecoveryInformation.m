@@ -21,12 +21,12 @@
 @synthesize useCachedSecret = _useCachedSecret;
 - (void)setUseCachedSecret:(BOOL)v
 {
-    _has.useCachedSecret = YES;
+    _has.useCachedSecret = (uint)YES;
     _useCachedSecret = v;
 }
 - (void)setHasUseCachedSecret:(BOOL)f
 {
-    _has.useCachedSecret = f;
+    _has.useCachedSecret = (uint)f;
 }
 - (BOOL)hasUseCachedSecret
 {
@@ -40,12 +40,12 @@
 @synthesize usePreviouslyCachedRecoveryKey = _usePreviouslyCachedRecoveryKey;
 - (void)setUsePreviouslyCachedRecoveryKey:(BOOL)v
 {
-    _has.usePreviouslyCachedRecoveryKey = YES;
+    _has.usePreviouslyCachedRecoveryKey = (uint)YES;
     _usePreviouslyCachedRecoveryKey = v;
 }
 - (void)setHasUsePreviouslyCachedRecoveryKey:(BOOL)f
 {
-    _has.usePreviouslyCachedRecoveryKey = f;
+    _has.usePreviouslyCachedRecoveryKey = (uint)f;
 }
 - (BOOL)hasUsePreviouslyCachedRecoveryKey
 {
@@ -54,12 +54,12 @@
 @synthesize silentRecoveryAttempt = _silentRecoveryAttempt;
 - (void)setSilentRecoveryAttempt:(BOOL)v
 {
-    _has.silentRecoveryAttempt = YES;
+    _has.silentRecoveryAttempt = (uint)YES;
     _silentRecoveryAttempt = v;
 }
 - (void)setHasSilentRecoveryAttempt:(BOOL)f
 {
-    _has.silentRecoveryAttempt = f;
+    _has.silentRecoveryAttempt = (uint)f;
 }
 - (BOOL)hasSilentRecoveryAttempt
 {
@@ -68,12 +68,12 @@
 @synthesize containsIcdpData = _containsIcdpData;
 - (void)setContainsIcdpData:(BOOL)v
 {
-    _has.containsIcdpData = YES;
+    _has.containsIcdpData = (uint)YES;
     _containsIcdpData = v;
 }
 - (void)setHasContainsIcdpData:(BOOL)f
 {
-    _has.containsIcdpData = f;
+    _has.containsIcdpData = (uint)f;
 }
 - (BOOL)hasContainsIcdpData
 {
@@ -82,12 +82,12 @@
 @synthesize usesMultipleIcsc = _usesMultipleIcsc;
 - (void)setUsesMultipleIcsc:(BOOL)v
 {
-    _has.usesMultipleIcsc = YES;
+    _has.usesMultipleIcsc = (uint)YES;
     _usesMultipleIcsc = v;
 }
 - (void)setHasUsesMultipleIcsc:(BOOL)f
 {
-    _has.usesMultipleIcsc = f;
+    _has.usesMultipleIcsc = (uint)f;
 }
 - (BOOL)hasUsesMultipleIcsc
 {
@@ -157,7 +157,7 @@ BOOL OTCDPRecoveryInformationReadFrom(__unsafe_unretained OTCDPRecoveryInformati
             break;
             case 2 /* useCachedSecret */:
             {
-                self->_has.useCachedSecret = YES;
+                self->_has.useCachedSecret = (uint)YES;
                 self->_useCachedSecret = PBReaderReadBOOL(reader);
             }
             break;
@@ -169,25 +169,25 @@ BOOL OTCDPRecoveryInformationReadFrom(__unsafe_unretained OTCDPRecoveryInformati
             break;
             case 4 /* usePreviouslyCachedRecoveryKey */:
             {
-                self->_has.usePreviouslyCachedRecoveryKey = YES;
+                self->_has.usePreviouslyCachedRecoveryKey = (uint)YES;
                 self->_usePreviouslyCachedRecoveryKey = PBReaderReadBOOL(reader);
             }
             break;
             case 5 /* silentRecoveryAttempt */:
             {
-                self->_has.silentRecoveryAttempt = YES;
+                self->_has.silentRecoveryAttempt = (uint)YES;
                 self->_silentRecoveryAttempt = PBReaderReadBOOL(reader);
             }
             break;
             case 6 /* containsIcdpData */:
             {
-                self->_has.containsIcdpData = YES;
+                self->_has.containsIcdpData = (uint)YES;
                 self->_containsIcdpData = PBReaderReadBOOL(reader);
             }
             break;
             case 7 /* usesMultipleIcsc */:
             {
-                self->_has.usesMultipleIcsc = YES;
+                self->_has.usesMultipleIcsc = (uint)YES;
                 self->_usesMultipleIcsc = PBReaderReadBOOL(reader);
             }
             break;

@@ -42,6 +42,7 @@
 #include "tool_parsecfg.h"
 #include "tool_main.h"
 #include "dynbuf.h"
+#include "tool_stderr.h"
 
 #include "memdebug.h" /* keep this as LAST include */
 
@@ -210,6 +211,7 @@ static const struct LongShort aliases[]= {
   {"04",  "http3",                   ARG_NONE},
   {"05",  "http3-only",              ARG_NONE},
   {"09",  "http0.9",                 ARG_BOOL},
+  {"0a",  "proxy-http2",             ARG_BOOL},
   {"1",  "tlsv1",                    ARG_NONE},
   {"10",  "tlsv1.0",                 ARG_NONE},
   {"11",  "tlsv1.1",                 ARG_NONE},
@@ -882,7 +884,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         ParameterError pe = GetSizeParameter(global, nextarg, "rate", &value);
 
         if(pe != PARAM_OK)
-           return pe;
+          return pe;
         config->recvpersecond = value;
         config->sendpersecond = value;
       }
@@ -1036,19 +1038,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         break;
 
       case 'v': /* --stderr */
-        if(strcmp(nextarg, "-")) {
-          FILE *newfile = fopen(nextarg, FOPEN_WRITETEXT);
-          if(!newfile)
-            warnf(global, "Failed to open %s!\n", nextarg);
-          else {
-            if(global->errors_fopened)
-              fclose(global->errors);
-            global->errors = newfile;
-            global->errors_fopened = TRUE;
-          }
-        }
-        else
-          global->errors = stdout;
+        tool_set_stderr_file(nextarg);
         break;
       case 'w': /* --interface */
         /* interface */
@@ -1070,7 +1060,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
             GetSizeParameter(global, nextarg, "max-filesize", &value);
 
           if(pe != PARAM_OK)
-             return pe;
+            return pe;
           config->max_filesize = value;
         }
         break;
@@ -1459,6 +1449,10 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       case '9':
         /* Allow HTTP/0.9 responses! */
         config->http09_allowed = toggle;
+        break;
+      case 'a':
+        /* --proxy-http2 */
+        config->proxyver = CURLPROXY_HTTPS2;
         break;
       }
       break;
@@ -2165,9 +2159,12 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       if(config->url_out)
         /* existing node */
         url = config->url_out;
-      else
+      else {
+        if(!toggle && !config->default_node_flags)
+          break;
         /* there was no free node, create one! */
         config->url_out = url = new_getout(config);
+      }
 
       if(!url)
         return PARAM_NO_MEM;
@@ -2381,7 +2378,8 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       default:
         /* --proxy */
         GetStr(&config->proxy, nextarg);
-        config->proxyver = CURLPROXY_HTTP;
+        if(config->proxyver != CURLPROXY_HTTPS2)
+          config->proxyver = CURLPROXY_HTTP;
         break;
       }
       break;
@@ -2534,6 +2532,10 @@ ParameterError parse_args(struct GlobalConfig *global, int argc,
             else
               result = PARAM_NO_MEM;
           }
+          else {
+            errorf(global, "missing URL before --next\n");
+            result = PARAM_BAD_USE;
+          }
         }
         else if(!result && passarg)
           i++; /* we're supposed to skip this */
@@ -2564,9 +2566,9 @@ ParameterError parse_args(struct GlobalConfig *global, int argc,
     const char *reason = param2text(result);
 
     if(orig_opt && strcmp(":", orig_opt))
-      helpf(global->errors, "option %s: %s\n", orig_opt, reason);
+      helpf(stderr, "option %s: %s\n", orig_opt, reason);
     else
-      helpf(global->errors, "%s\n", reason);
+      helpf(stderr, "%s\n", reason);
   }
 
   curlx_unicodefree(orig_opt);

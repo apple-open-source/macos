@@ -151,7 +151,7 @@ set_background_color(int bg, int (*outc) (int))
 {
     if (set_a_background) {
 	TPUTS_TRACE("set_a_background");
-	tputs(TPARM_1(set_a_background, bg), 1, outc);
+	tputs(TIPARM_1(set_a_background, bg), 1, outc);
     } else {
 	TPUTS_TRACE("set_background");
 	tputs(TPARM_1(set_background, toggled_colors(bg)), 1, outc);
@@ -163,10 +163,10 @@ set_foreground_color(int fg, int (*outc) (int))
 {
     if (set_a_foreground) {
 	TPUTS_TRACE("set_a_foreground");
-	tputs(TPARM_1(set_a_foreground, fg), 1, outc);
+	tputs(TIPARM_1(set_a_foreground, fg), 1, outc);
     } else {
 	TPUTS_TRACE("set_foreground");
-	tputs(TPARM_1(set_foreground, toggled_colors(fg)), 1, outc);
+	tputs(TIPARM_1(set_foreground, toggled_colors(fg)), 1, outc);
     }
 }
 
@@ -395,7 +395,7 @@ init_pair(short pair, short f, short b)
 	    tp[b].red, tp[b].green, tp[b].blue));
 
 	TPUTS_TRACE("initialize_pair");
-	putp(TPARM_7(initialize_pair,
+	putp(TIPARM_7(initialize_pair,
 		     pair,
 		     tp[f].red, tp[f].green, tp[f].blue,
 		     tp[b].red, tp[b].green, tp[b].blue));
@@ -436,7 +436,7 @@ init_color(short color, short r, short g, short b)
 	}
 
 	TPUTS_TRACE("initialize_color");
-	putp(TPARM_4(initialize_color, color, r, g, b));
+	putp(TIPARM_4(initialize_color, color, r, g, b));
 	SP->_color_defs = max(color + 1, SP->_color_defs);
 	result = OK;
     }
@@ -532,7 +532,7 @@ _nc_do_color(short old_pair, short pair, bool reverse, int (*outc) (int))
     } else if (pair != 0) {
 	if (set_color_pair) {
 	    TPUTS_TRACE("set_color_pair");
-	    tputs(TPARM_1(set_color_pair, pair), 1, outc);
+	    tputs(TIPARM_1(set_color_pair, pair), 1, outc);
 	    return;
 	} else if (SP != 0) {
 	    pair_content((short) pair, &fg, &bg);

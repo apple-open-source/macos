@@ -195,6 +195,7 @@ httpAcceptConnection(int fd,		/* I - Listen socket file descriptor */
   {
     _cupsSetHTTPError(HTTP_STATUS_ERROR);
     httpClose(http);
+    http = NULL;
 
     return (NULL);
   }
@@ -524,6 +525,7 @@ httpConnect2(
   */
 
   httpClose(http);
+  http = NULL;
 
   return (NULL);
 }

@@ -193,9 +193,9 @@ extension Container {
     }
 
     func fetchEscrowRecords(from source: OTEscrowRecordFetchSource, with reply: @escaping ([Data]?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         self.fetchEscrowRecordsWithSemaphore(from: source) { result in
-            self.semaphore.signal()
+            sem.release()
 
             switch result {
             case let .success(data):

@@ -55,6 +55,7 @@ static int createCustodianRecoveryKey = false;
 static int joinWithCustodianRecoveryKey = false;
 static int preflightJoinWithCustodianRecoveryKey = false;
 static int removeCustodianRecoveryKey = false;
+static int checkCustodianRecoveryKey = false;
 
 static int setRecoveryKey = false;
 static int removeRecoveryKey = false;
@@ -65,6 +66,7 @@ static int storeInheritanceKey = false;
 static int joinWithInheritanceKey = false;
 static int preflightJoinWithInheritanceKey = false;
 static int removeInheritanceKey = false;
+static int checkInheritanceKey = false;
 
 static int fetchAccountSettings = false;
 static int fetchAccountWideSettings = false;
@@ -163,14 +165,14 @@ int main(int argc, char** argv)
         {.command = "sign-out", .flag = &signOut, .flagval = true, .description = "Inform Cuttlefish container of sign out", .internal_only = true},
         {.command = "status", .flag = &status, .flagval = true, .description = "Report Octagon status"},
 
-        {.command = "resetoctagon", .flag = &resetoctagon, .flagval = true, .description = "Reset and establish new Octagon trust"},
+        {.command = "resetoctagon", .flag = &resetoctagon, .flagval = true, .description = "Reset and establish new Octagon trust", .internal_only = true},
         {.command = "resetProtectedData", .flag = &resetProtectedData, .flagval = true, .description = "Reset ProtectedData", .internal_only = true},
 
         {.command = "user-controllable-views", .flag = &userControllableViewsSyncStatus, .flagval = true, .description = "Modify or view user-controllable views status (If one of --enable or --pause is passed, will modify status)", .internal_only = true},
 
         {.command = "allBottles", .flag = &fetchAllBottles, .flagval = true, .description = "Fetch all viable bottles"},
         {.command = "recover", .flag = &recover, .flagval = true, .description = "Recover using this bottle"},
-        {.command = "depart", .flag = &depart, .flagval = true, .description = "Depart from Octagon Trust"},
+        {.command = "depart", .flag = &depart, .flagval = true, .description = "Depart from Octagon Trust", .internal_only = true},
 
         {.command = "er-trigger", .flag = &er_trigger, .flagval = true, .description = "Trigger an Escrow Request request", .internal_only = true},
         {.command = "er-status", .flag = &er_status, .flagval = true, .description = "Report status on any pending Escrow Request requests"},
@@ -180,7 +182,7 @@ int main(int argc, char** argv)
         {.command = "health", .flag = &health, .flagval = true, .description = "Check Octagon Health status"},
         {.command = "ckks-policy", .flag = &ckks_policy_flag, .flagval = true, .description = "Trigger a refetch of the CKKS policy"},
 
-        {.command = "taptoradar", .flag = &ttr_flag, .flagval = true, .description = "Trigger a TapToRadar"},
+        {.command = "taptoradar", .flag = &ttr_flag, .flagval = true, .description = "Trigger a TapToRadar", .internal_only = true},
 
         {.command = "fetchEscrowRecords", .flag = &fetch_escrow_records, .flagval = true, .description = "Fetch Escrow Records"},
         {.command = "fetchAllEscrowRecords", .flag = &fetch_all_escrow_records, .flagval = true, .description = "Fetch All Escrow Records"},
@@ -188,18 +190,21 @@ int main(int argc, char** argv)
         {.command = "recover-record", .flag = &recoverRecord, .flagval = true, .description = "Recover record"},
         {.command = "recover-record-silent", .flag = &recoverSilentRecord, .flagval = true, .description = "Silent record recovery"},
 
-        {.command = "reset-account-cdp-contents", .flag = &resetAccountCDPContent, .flagval = true, .description = "Reset an account's CDP contents (escrow records, kvs data, cuttlefish)"},
+        {.command = "reset-account-cdp-contents", .flag = &resetAccountCDPContent, .flagval = true, .description = "Reset an account's CDP contents (escrow records, kvs data, cuttlefish)", .internal_only = true},
 
         {.command = "create-custodian-recovery-key", .flag = &createCustodianRecoveryKey, .flagval = true, .description = "Create a custodian recovery key", .internal_only = true},
         {.command = "join-with-custodian-recovery-key", .flag = &joinWithCustodianRecoveryKey, .flagval = true, .description = "Join with a custodian recovery key", .internal_only = true},
         {.command = "preflight-join-with-custodian-recovery-key", .flag = &preflightJoinWithCustodianRecoveryKey, .flagval = true, .description = "Preflight join with a custodian recovery key", .internal_only = true},
         {.command = "remove-custodian-recovery-key", .flag = &removeCustodianRecoveryKey, .flagval = true, .description = "Remove a custodian recovery key", .internal_only = true},
+        {.command = "check-custodian-recovery-key", .flag = &checkCustodianRecoveryKey, .flagval = true, .description = "Check a custodian recovery key for existence", .internal_only = true},
         {.command = "create-inheritance-key", .flag = &createInheritanceKey, .flagval = true, .description = "Create an inheritance key", .internal_only = true},
         {.command = "generate-inheritance-key", .flag = &generateInheritanceKey, .flagval = true, .description = "Generate an inheritance key", .internal_only = true},
         {.command = "store-inheritance-key", .flag = &storeInheritanceKey, .flagval = true, .description = "Store an inheritance key", .internal_only = true},
         {.command = "join-with-inheritance-key", .flag = &joinWithInheritanceKey, .flagval = true, .description = "Join with an inheritance key", .internal_only = true},
         {.command = "preflight-join-with-inheritance-key", .flag = &preflightJoinWithInheritanceKey, .flagval = true, .description = "Preflight join with an inheritance key", .internal_only = true},
         {.command = "remove-inheritance-key", .flag = &removeInheritanceKey, .flagval = true, .description = "Remove an inheritance key", .internal_only = true},
+        {.command = "check-inheritance-key", .flag = &checkInheritanceKey, .flagval = true, .description = "Check an inheritance key for existence", .internal_only = true},
+
         {.command = "tlk-recoverability", .flag = &tlkRecoverability, .flagval = true, .description = "Evaluate tlk recoverability for an account", .internal_only = true},
         {.command = "set-machine-id-override", .flag = &machineIDOverride, .flagval = true, .description = "Set machineID override"},
         {.command = "remove-recovery-key", .flag = &removeRecoveryKey, .flagval = true, .description = "Remove a recovery key", .internal_only = true},
@@ -421,6 +426,16 @@ int main(int argc, char** argv)
                                                         timeout:timeout];
         }
         
+        if (checkCustodianRecoveryKey) {
+            if (!custodianUUIDString) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl checkCustodianRecoveryKeyWithArguments:arguments
+                                                    uuidString:custodianUUIDString
+                                                       timeout:timeout];
+        }
+        
         if (removeRecoveryKey) {
             return [ctl removeRecoveryKeyWithArguments:arguments];
         }
@@ -476,6 +491,15 @@ int main(int argc, char** argv)
             return [ctl removeInheritanceKeyWithArguments:arguments
                                                uuidString:inheritanceUUIDString
                                                   timeout:timeout];
+        }
+        if (checkInheritanceKey) {
+            if (!inheritanceUUIDString) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl checkInheritanceKeyWithArguments:arguments
+                                              uuidString:inheritanceUUIDString
+                                                 timeout:timeout];
         }
 
         if(enableWalrus) {

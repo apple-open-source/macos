@@ -401,6 +401,13 @@ def Test_assignment_with_operator()
       var f =  Foo.new(3)
       f.Add(17)
       assert_equal(20, f.x)
+
+      def AddToFoo(obj: Foo)
+        obj.x += 3
+      enddef
+
+      AddToFoo(f)
+      assert_equal(23, f.x)
   END
   v9.CheckScriptSuccess(lines)
 enddef
@@ -995,7 +1002,7 @@ def Test_interface_basics()
         def Method(count: number)
       endinterface
   END
-  v9.CheckScriptFailure(lines, 'E1340: Argument already declared in the class: count')
+  v9.CheckScriptFailure(lines, 'E1340: Argument already declared in the class: count', 5)
 
   lines =<< trim END
       vim9script
@@ -1005,7 +1012,9 @@ def Test_interface_basics()
         def Method(value: number)
       endinterface
   END
-  v9.CheckScriptFailure(lines, 'E1340: Argument already declared in the class: value')
+  # The argument name and the object member name are the same, but this is not a
+  # problem because object members are always accessed with the "this." prefix.
+  v9.CheckScriptSuccess(lines)
 
   lines =<< trim END
       vim9script

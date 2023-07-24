@@ -49,7 +49,6 @@
 __const char *fmtcheck(const char *, const char *) __attribute__((format_arg(2)));
 
 MODULE_ID("$Id: lib_tparm.c,v 1.76 2008/08/16 19:22:55 tom Exp $")
-
 /*
  *	char *
  *	tparm(string, ...)
@@ -327,6 +326,60 @@ parse_format(const char *s, char *format, int *len)
 #define isUPPER(c) ((c) >= 'A' && (c) <= 'Z')
 #define isLOWER(c) ((c) >= 'a' && (c) <= 'z')
 
+#ifdef CUR
+/*
+ * Only a few standard capabilities accept string parameters.  The others that
+ * are parameterized accept only numeric parameters.
+ */
+static bool
+check_string_caps(int expected, const char *string)
+{
+    bool result = FALSE;
+
+#define CHECK_CAP(name) (VALID_STRING(name) && !strcmp(name, string))
+
+    /*
+     * Disallow string parameters unless we can check them against a terminal
+     * description.
+     */
+	if (cur_term != NULL) {
+		int want_type = 0;
+
+
+		if (CHECK_CAP(pkey_key))
+			want_type = 2;	/* function key #1, type string #2 */
+		else if (CHECK_CAP(pkey_local))
+			want_type = 2;	/* function key #1, execute string #2 */
+		else if (CHECK_CAP(pkey_xmit))
+			want_type = 2;	/* function key #1, transmit string #2 */
+		else if (CHECK_CAP(plab_norm))
+			want_type = 2;	/* label #1, show string #2 */
+		else if (CHECK_CAP(pkey_plab))
+			want_type = 6;	/* function key #1, type string #2, show string #3 */
+	#if NCURSES_XNAMES
+		else {
+			char *check;
+
+			check = tigetstr("Cs");
+			if (CHECK_CAP(check))
+			want_type = 1;	/* style #1 */
+
+			check = tigetstr("Ms");
+			if (CHECK_CAP(check))
+			want_type = 3;	/* storage unit #1, content #2 */
+		}
+	#endif
+
+		if (want_type == expected) {
+			result = TRUE;
+		} else {
+			T(("unexpected string-parameter"));
+		}
+	}
+    return result;
+}
+#endif
+
 /*
  * Analyze the string to see how many parameters we need from the varargs list,
  * and what their types are.  We will only accept string parameters if they
@@ -456,7 +509,7 @@ _nc_tparm_analyze(const char *string, char *p_is_s[NUM_PARM], int *popcount)
 }
 
 static NCURSES_INLINE char *
-tparam_internal(const char *string, va_list ap)
+tparam_internal(int use_TPARM_ARG, int expected, int tparm_type, const char *string, va_list ap)
 {
     char *p_is_s[NUM_PARM];
     TPARM_ARG param[NUM_PARM];
@@ -468,6 +521,7 @@ tparam_internal(const char *string, va_list ap)
     int i;
     const char *cp = string;
     size_t len2;
+    int num_strings = 0;
 
     if (cp == NULL)
 	return NULL;
@@ -494,6 +548,9 @@ tparam_internal(const char *string, va_list ap)
 	 */
 	if (p_is_s[i] != 0) {
 	    p_is_s[i] = va_arg(ap, char *);
+	    num_strings |= (1 << i);
+	} else if (use_TPARM_ARG) {
+		param[i] = va_arg(ap, TPARM_ARG);
 	} else {
 	    param[i] = va_arg(ap, TPARM_ARG);
 	}
@@ -529,6 +586,63 @@ tparam_internal(const char *string, va_list ap)
 	_nc_unlock_global(tracef);
     }
 #endif /* TRACE */
+
+	if ((tparm_type != -1) && (num_strings != tparm_type)) {
+		if (num_strings && !check_string_caps(num_strings, string)) {
+			return NULL;
+		}
+	}
+
+	if (expected != -1) {
+		if (popcount != expected && cur_term != NULL) {
+			int needed = expected;
+			if (CHECK_CAP(to_status_line)) {
+			needed = 0;	/* allow for xterm's status line */
+			} else if (CHECK_CAP(set_a_background)) {
+			needed = 0;	/* allow for monochrome fakers */
+			} else if (CHECK_CAP(set_a_foreground)) {
+			needed = 0;
+			} else if (CHECK_CAP(set_background)) {
+			needed = 0;
+			} else if (CHECK_CAP(set_foreground)) {
+			needed = 0;
+			}
+#if NCURSES_XNAMES
+			else {
+				char *check;
+
+				check = tigetstr("xm");
+				if (CHECK_CAP(check)) {
+					needed = 3;
+				}
+				check = tigetstr("S0");
+				if (CHECK_CAP(check)) {
+					needed = 0;	/* used in screen-base */
+				}
+			}
+#endif
+			if (popcount >= needed && popcount <= expected)
+			expected = popcount;
+		}
+
+		if (popcount == 0 && expected) {
+			T(("missing parameter%s, expected %s%d",
+			expected > 1 ? "s" : "",
+			expected == 9 ? "up to " : "",
+			expected));
+			return NULL;
+		} else if (popcount > expected) {
+			T(("too many parameters, have %d, expected %d",
+			popcount,
+			expected));
+			return NULL;
+		} else if (expected != 9 && popcount != expected) {
+			T(("expected %d parameters, have %d",
+			number,
+			expected));
+			return NULL;
+		}
+	}
 
     while ((cp - string) < (int) len2) {
 	if (*cp != '%') {
@@ -777,7 +891,7 @@ tparm_varargs(NCURSES_CONST char *string,...)
 #ifdef TRACE
     TPS(tname) = "tparm";
 #endif /* TRACE */
-    result = tparam_internal(string, ap);
+    result = tparam_internal(TRUE, -1, -1, string, ap);
     va_end(ap);
     return result;
 }
@@ -798,3 +912,39 @@ tparm_proto(NCURSES_CONST char *string,
     return tparm_varargs(string, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 }
 #endif /* NCURSES_TPARM_VARARGS */
+
+NCURSES_EXPORT(char *)
+tiparm_s(int num_expected, int tparm_type, const char *string, ...)
+{
+    va_list ap;
+    char *result;
+
+    if (tparm_type >> 9) {
+        return NULL;
+    }
+
+    _nc_tparm_err = 0;
+    va_start(ap, string);
+#ifdef TRACE
+    TPS(tname) = "tiparm";
+#endif /* TRACE */
+    result = tparam_internal(FALSE, num_expected, tparm_type, string, ap);
+    va_end(ap);
+    return result;
+}
+
+NCURSES_EXPORT(char *)
+_nc_tiparm(int expected_params, const char *string,...)
+{
+    va_list ap;
+    char *result;
+
+    _nc_tparm_err = 0;
+    va_start(ap, string);
+#ifdef TRACE
+    TPS(tname) = "tiparm";
+#endif /* TRACE */
+    result = tparam_internal(FALSE, expected_params, -1, string, ap);
+    va_end(ap);
+    return result;
+}

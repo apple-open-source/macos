@@ -743,6 +743,7 @@ monitor_printer(
   */
 
   httpClose(http);
+  http = NULL;
 
   printf("FINISHED MONITORING JOB %d\n", data->job_id);
 
@@ -938,6 +939,7 @@ run_client(
   cleanup:
 
   httpClose(http);
+  http = NULL;
 
   if (tempfile[0] && !ldata.keepfile)
     unlink(tempfile);

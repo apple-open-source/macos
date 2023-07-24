@@ -323,7 +323,7 @@ main
 	params.want_full_screen = FALSE;
 
     /*
-     * When certain to start the GUI, don't check capabilities of terminal.
+     * When certain to start the GUI, don't check terminal capabilities.
      * For GTK we can't be sure, but when started from the desktop it doesn't
      * make sense to try using a terminal.
      */
@@ -1308,7 +1308,11 @@ main_loop(
 	 * update cursor and redraw.
 	 */
 	if (skip_redraw || exmode_active)
+	{
 	    skip_redraw = FALSE;
+	    setcursor();
+	    cursor_on();
+	}
 	else if (do_redraw || stuff_empty())
 	{
 #ifdef FEAT_GUI
@@ -1571,7 +1575,7 @@ getout_preserve_modified(int exitval)
     // Ignore SIGHUP, because a dropped connection causes a read error, which
     // makes Vim exit and then handling SIGHUP causes various reentrance
     // problems.
-    signal(SIGHUP, SIG_IGN);
+    mch_signal(SIGHUP, SIG_IGN);
 # endif
 
     ml_close_notmod();		    // close all not-modified buffers
@@ -3116,21 +3120,21 @@ exe_pre_commands(mparm_T *parmp)
     char_u	**cmds = parmp->pre_commands;
     int		cnt = parmp->n_pre_commands;
     int		i;
-    ESTACK_CHECK_DECLARATION
+    ESTACK_CHECK_DECLARATION;
 
     if (cnt <= 0)
 	return;
 
     curwin->w_cursor.lnum = 0; // just in case..
     estack_push(ETYPE_ARGS, (char_u *)_("pre-vimrc command line"), 0);
-    ESTACK_CHECK_SETUP
+    ESTACK_CHECK_SETUP;
 # ifdef FEAT_EVAL
-	current_sctx.sc_sid = SID_CMDARG;
+    current_sctx.sc_sid = SID_CMDARG;
 # endif
-	for (i = 0; i < cnt; ++i)
-	    do_cmdline_cmd(cmds[i]);
-    ESTACK_CHECK_NOW
-	estack_pop();
+    for (i = 0; i < cnt; ++i)
+	do_cmdline_cmd(cmds[i]);
+    ESTACK_CHECK_NOW;
+    estack_pop();
 # ifdef FEAT_EVAL
     current_sctx.sc_sid = 0;
 # endif
@@ -3144,7 +3148,7 @@ exe_pre_commands(mparm_T *parmp)
 exe_commands(mparm_T *parmp)
 {
     int		i;
-    ESTACK_CHECK_DECLARATION
+    ESTACK_CHECK_DECLARATION;
 
     /*
      * We start commands on line 0, make "vim +/pat file" match a
@@ -3155,7 +3159,7 @@ exe_commands(mparm_T *parmp)
     if (parmp->tagname == NULL && curwin->w_cursor.lnum <= 1)
 	curwin->w_cursor.lnum = 0;
     estack_push(ETYPE_ARGS, (char_u *)"command line", 0);
-    ESTACK_CHECK_SETUP
+    ESTACK_CHECK_SETUP;
 #ifdef FEAT_EVAL
     current_sctx.sc_sid = SID_CARG;
     current_sctx.sc_seq = 0;
@@ -3166,7 +3170,7 @@ exe_commands(mparm_T *parmp)
 	if (parmp->cmds_tofree[i])
 	    vim_free(parmp->commands[i]);
     }
-    ESTACK_CHECK_NOW
+    ESTACK_CHECK_NOW;
     estack_pop();
 #ifdef FEAT_EVAL
     current_sctx.sc_sid = 0;
@@ -3385,8 +3389,7 @@ process_env(
 {
     char_u	*initstr;
     sctx_T	save_current_sctx;
-
-    ESTACK_CHECK_DECLARATION
+    ESTACK_CHECK_DECLARATION;
 
     if ((initstr = mch_getenv(env)) == NULL || *initstr == NUL)
 	return FAIL;
@@ -3394,8 +3397,8 @@ process_env(
     if (is_viminit)
 	vimrc_found(NULL, NULL);
     estack_push(ETYPE_ENV, env, 0);
-    ESTACK_CHECK_SETUP
-	save_current_sctx = current_sctx;
+    ESTACK_CHECK_SETUP;
+    save_current_sctx = current_sctx;
     current_sctx.sc_version = 1;
 #ifdef FEAT_EVAL
     current_sctx.sc_sid = SID_ENV;
@@ -3405,8 +3408,8 @@ process_env(
 
     do_cmdline_cmd(initstr);
 
-    ESTACK_CHECK_NOW
-	estack_pop();
+    ESTACK_CHECK_NOW;
+    estack_pop();
     current_sctx = save_current_sctx;
     return OK;
 }

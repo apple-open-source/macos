@@ -36,6 +36,7 @@
 			<string>backport CVE-2020-36229 (ITS#9425)</string>
 			<string>backport CVE-2020-36230 (ITS#9423)</string>
 			<string>backport CVE-2021-27212 (ITS#9454)</string>
+			<string>backport CVE-2023-2953 (ITS#9904)</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>OpenLDAP</string>

@@ -32,6 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly, strong) NSArray* hardFailures;
 @property (readonly, strong) NSArray* softFailures;
+@property (readonly, strong) NSArray* rockwells;
 @property (readonly, strong) NSArray* allEvents;
 @property (readonly, strong) NSArray* samples;
 @property (readwrite, strong, nullable) NSDate* uploadDate;
@@ -48,6 +49,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSInteger)softFailureCountForEventType:(NSString*)eventType;
 - (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table;
 - (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
+- (void)addRockwellDict:(NSString *)eventName
+               userinfo:(NSDictionary*)eventDict
+                toTable:(NSString*)table
+        timestampBucket:(SFAnalyticsTimestampBucket)bucket;
 - (void)addSample:(NSNumber*)value forName:(NSString*)name;
 - (void)removeAllSamplesForName:(NSString*)name;
 - (void)clearAllData;

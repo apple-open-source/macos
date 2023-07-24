@@ -1086,6 +1086,48 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
+- (int)checkCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
+                                   uuidString:(NSString*)uuidString
+                                      timeout:(NSTimeInterval)timeout
+{
+#if OCTAGON
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
+    __block int ret = 1;
+    __block bool retry;
+
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if (uuid == nil) {
+        fprintf(stderr, "bad format for custodianUUID\n");
+        return 1;
+    }
+    do {
+        retry = false;
+        [self.control checkCustodianRecoveryKey:arguments
+                                           uuid:uuid
+                                          reply:^(bool exists, NSError* _Nullable error) {
+            if (error) {
+                fprintf(stderr, "checking custodian recovery key failed: %s\n", [[error description] UTF8String]);
+                if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
+                    retry = true;
+                    sleep([error retryInterval]);
+                }
+            } else {
+                printf("successful check of custodian recovery key: %s\n", exists ? "exists" : "does not exist");
+                if (exists) {
+                    ret = 0;
+                } else {
+                    ret = 1;
+                }
+            }
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
 - (int)removeRecoveryKeyWithArguments:(OTControlArguments*)arguments
 {
 #if OCTAGON
@@ -1470,6 +1512,48 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
             } else {
                 printf("successful removal of inheritance key\n");
                 ret = 0;
+            }
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)checkInheritanceKeyWithArguments:(OTControlArguments*)arguments
+                             uuidString:(NSString*)uuidString
+                                timeout:(NSTimeInterval)timeout
+{
+#if OCTAGON
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
+    __block int ret = 1;
+    __block bool retry;
+
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if (uuid == nil) {
+        fprintf(stderr, "bad format for inheritanceUUID\n");
+        return 1;
+    }
+    do {
+        retry = false;
+        [self.control checkInheritanceKey:arguments
+                                     uuid:uuid
+                                    reply:^(bool exists, NSError* _Nullable error) {
+            if (error) {
+                fprintf(stderr, "checking inheritance key failed: %s\n", [[error description] UTF8String]);
+                if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
+                    retry = true;
+                    sleep([error retryInterval]);
+                }
+            } else {
+                printf("successful check of inheritance key: %s\n", exists ? "exists" : "does not exist");
+                if (exists) {
+                    ret = 0;
+                } else {
+                    ret = 1;
+                }
             }
         }];
     } while (retry);

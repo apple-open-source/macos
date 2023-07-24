@@ -4,7 +4,7 @@
 #import <Foundation/Foundation.h>
 #import <CloudKit/CloudKit.h>
 
-#import "keychain/analytics/CKKSLaunchSequence.h"
+#import <Security/SecLaunchSequence.h>
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSStates.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
@@ -18,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) CKRecordZoneID* zoneID;
 @property (readonly) NSString* contextID;
 
-@property (nullable) CKKSLaunchSequence* launch;
+@property (nullable) SecLaunchSequence* launch;
 
 // Intended to track the current idea of the key hierarchy for a given zone.
 @property CKKSZoneKeyState* viewKeyHierarchyState;

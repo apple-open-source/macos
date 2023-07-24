@@ -159,6 +159,10 @@ class OTMockDeviceInfoAdapter: OTDeviceInformationAdapter {
     func clearOverride() {
         self.mockMachineID = nil
     }
+
+    func isHomePod() -> Bool {
+        return mockModelID.hasPrefix("AudioAccessory")
+    }
 }
 
 class OTMockTooManyPeersAdapter: OTTooManyPeersAdapter {
@@ -183,6 +187,14 @@ class OTMockTooManyPeersAdapter: OTTooManyPeersAdapter {
         lastPopCount = count
         lastPopLimit = limit
     }
+}
+
+class OTMockTapToRadarAdapter: OTTapToRadarAdapter {
+    func postHomePodLostTrustTTR() {
+        self.timesHomePodTTRSent += 1
+    }
+
+    var timesHomePodTTRSent: UInt = 0
 }
 
 class OTMockLogger: NSObject, SFAnalyticsProtocol {
@@ -274,6 +286,9 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
     var fakeCuttlefishServer: FakeCuttlefishServer!
     var fakeCuttlefishCreator: FakeCuttlefishCKOperationRunner!
+
+    var mcAdapterPlaceholder: FakeManagedConfiguration!
+
     var tphClient: Client!
     var tphXPCProxy: ProxyXPCConnection!
 
@@ -285,6 +300,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     var mockAuthKit3: CKKSTestsMockAccountsAuthKitAdapter!
 
     var mockTooManyPeers: OTMockTooManyPeersAdapter!
+    var mockTapToRadar: OTMockTapToRadarAdapter!
 
     var mockDeviceInfo: OTMockDeviceInfoAdapter!
 
@@ -368,14 +384,17 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         self.fakeCuttlefishCreator = FakeCuttlefishCKOperationRunner(server: self.fakeCuttlefishServer)
         self.mockPersonaAdapter = OTMockPersonaAdapter()
+        self.mcAdapterPlaceholder = FakeManagedConfiguration()
         self.tphClient = Client(endpoint: nil,
                                 containerMap: ContainerMap(ckCodeOperationRunnerCreator: self.fakeCuttlefishCreator,
                                                            darwinNotifier: FakeCKKSNotifier.self,
-                                                           personaAdapter: self.mockPersonaAdapter!))
+                                                           personaAdapter: self.mockPersonaAdapter!,
+                                                           managedConfigurationAdapter: self.mcAdapterPlaceholder))
 
         self.otFollowUpController = OTMockFollowUpController()
 
         self.mockTooManyPeers = OTMockTooManyPeersAdapter()
+        self.mockTapToRadar = OTMockTapToRadarAdapter()
 
         let tphInterface = TrustedPeersHelperSetupProtocol(NSXPCInterface(with: TrustedPeersHelperProtocol.self))
         self.tphXPCProxy = ProxyXPCConnection(self.tphClient!, interface: tphInterface)
@@ -436,6 +455,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
                                  accountsAdapter: self.mockAuthKit,
                                  authKitAdapter: self.mockAuthKit,
                                  tooManyPeersAdapter: self.mockTooManyPeers,
+                                 tapToRadarAdapter: self.mockTapToRadar,
                                  deviceInformationAdapter: self.mockDeviceInfo,
                                  personaAdapter: self.mockPersonaAdapter!,
                                  apsConnectionClass: FakeAPSConnection.self,
@@ -556,7 +576,8 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         self.tphClient.setAllowedMachineIDsWith(user,
                                                 allowedMachineIDs: self.mockAuthKit.currentDeviceList(),
-                                                honorIDMSListChanges: honorIDMSListChanges) { _, error in
+                                                honorIDMSListChanges: honorIDMSListChanges,
+                                                version: nil) { _, error in
             XCTAssertNil(error, "Should be no error setting allow list")
             allowListExpectation.fulfill()
         }
@@ -1246,6 +1267,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
                                     accountsAdapter: authKitAdapter,
                                     authKitAdapter: authKitAdapter,
                                     tooManyPeersAdapter: self.mockTooManyPeers,
+                                    tapToRadarAdapter: self.mockTapToRadar,
                                     lockStateTracker: self.lockStateTracker,
                                     deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
     }
@@ -2258,6 +2280,12 @@ class OctagonTests: OctagonTestsBase {
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 10 * NSEC_PER_SEC)
 
+        if self.mockDeviceInfo.isHomePod() {
+            XCTAssertEqual(self.mockTapToRadar.timesHomePodTTRSent, 1, "Should have posted a HomePod TTR")
+        } else {
+            XCTAssertEqual(self.mockTapToRadar.timesHomePodTTRSent, 0, "Should not have posted a HomePod TTR")
+        }
+
         XCTAssertTrue(self.mockSOSAdapter!.ckks4AllStatusIsSet, "SOS adapter should have been told that CKKS4All is not enabled")
         XCTAssertFalse(self.mockSOSAdapter!.ckks4AllStatus, "SOS adapter should have been told that CKKS4All is not enabled")
 
@@ -2375,6 +2403,7 @@ class OctagonTests: OctagonTestsBase {
                                          accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
                                          lockStateTracker: self.lockStateTracker,
                                          deviceInformationAdapter: peer2DeviceAdapter)
 
@@ -2763,6 +2792,7 @@ class OctagonTests: OctagonTestsBase {
                                                     accountsAdapter: self.mockAuthKit2,
                                                     authKitAdapter: self.mockAuthKit2,
                                                     tooManyPeersAdapter: self.mockTooManyPeers,
+                                                    tapToRadarAdapter: self.mockTapToRadar,
                                                     lockStateTracker: self.lockStateTracker,
                                                     deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -3920,6 +3950,7 @@ class OctagonTestsOverrideModelBase: OctagonTestsBase {
                                      accountsAdapter: self.mockAuthKit2,
                                      authKitAdapter: self.mockAuthKit2,
                                      tooManyPeersAdapter: self.mockTooManyPeers,
+                                     tapToRadarAdapter: self.mockTapToRadar,
                                      lockStateTracker: self.lockStateTracker,
                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 

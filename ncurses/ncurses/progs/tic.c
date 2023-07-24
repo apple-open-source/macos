@@ -1299,16 +1299,16 @@ check_sgr(TERMTYPE *tp, char *zero, int num, char *cap, const char *name)
     char *test;
 
     _nc_tparm_err = 0;
-    test = TPARM_9(set_attributes,
-		   num == 1,
-		   num == 2,
-		   num == 3,
-		   num == 4,
-		   num == 5,
-		   num == 6,
-		   num == 7,
-		   num == 8,
-		   num == 9);
+    test = TIPARM_9(set_attributes,
+	 	   num == 1,
+	 	   num == 2,
+	 	   num == 3,
+	 	   num == 4,
+	 	   num == 5,
+	 	   num == 6,
+	 	   num == 7,
+	 	   num == 8,
+	 	   num == 9);
     if (test != 0) {
 	if (PRESENT(cap)) {
 	    if (!similar_sgr(num, test, cap)) {
@@ -1439,7 +1439,7 @@ check_termtype(TERMTYPE *tp, bool literal)
 	if (PRESENT(exit_attribute_mode)) {
 	    zero = strdup(CHECK_SGR(0, exit_attribute_mode));
 	} else {
-	    zero = strdup(TPARM_9(set_attributes, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+	    zero = strdup(TIPARM_9(set_attributes, 0, 0, 0, 0, 0, 0, 0, 0, 0));
 	}
 	if (_nc_tparm_err)
 	    _nc_warning("stack error in sgr(0) string");

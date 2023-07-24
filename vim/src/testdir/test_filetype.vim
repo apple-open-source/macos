@@ -127,7 +127,7 @@ let s:filename_checks = {
     \ 'context': ['tex/context/any/file.tex', 'file.mkii', 'file.mkiv', 'file.mkvi', 'file.mkxl', 'file.mklx'],
     \ 'cook': ['file.cook'],
     \ 'cpon': ['file.cpon'],
-    \ 'cpp': ['file.cxx', 'file.c++', 'file.hh', 'file.hxx', 'file.hpp', 'file.ipp', 'file.moc', 'file.tcc', 'file.inl', 'file.tlh'],
+    \ 'cpp': ['file.cxx', 'file.c++', 'file.hh', 'file.hxx', 'file.hpp', 'file.ipp', 'file.moc', 'file.tcc', 'file.inl', 'file.tlh', 'file.cppm', 'file.ccm', 'file.cxxm', 'file.c++m'],
     \ 'cqlang': ['file.cql'],
     \ 'crm': ['file.crm'],
     \ 'crontab': ['crontab', 'crontab.file', '/etc/cron.d/file', 'any/etc/cron.d/file'],
@@ -248,7 +248,7 @@ let s:filename_checks = {
     \ 'grads': ['file.gs'],
     \ 'graphql': ['file.graphql', 'file.graphqls', 'file.gql'],
     \ 'gretl': ['file.gretl'],
-    \ 'groovy': ['file.gradle', 'file.groovy'],
+    \ 'groovy': ['file.gradle', 'file.groovy', 'Jenkinsfile'],
     \ 'group': ['any/etc/group', 'any/etc/group-', 'any/etc/group.edit', 'any/etc/gshadow', 'any/etc/gshadow-', 'any/etc/gshadow.edit', 'any/var/backups/group.bak', 'any/var/backups/gshadow.bak', '/etc/group', '/etc/group-', '/etc/group.edit', '/etc/gshadow', '/etc/gshadow-', '/etc/gshadow.edit', '/var/backups/group.bak', '/var/backups/gshadow.bak'],
     \ 'grub': ['/boot/grub/menu.lst', '/boot/grub/grub.conf', '/etc/grub.conf', 'any/boot/grub/grub.conf', 'any/boot/grub/menu.lst', 'any/etc/grub.conf'],
     \ 'gsp': ['file.gsp'],
@@ -336,6 +336,7 @@ let s:filename_checks = {
     \ 'lite': ['file.lite', 'file.lt'],
     \ 'litestep': ['/LiteStep/any/file.rc', 'any/LiteStep/any/file.rc'],
     \ 'logcheck': ['/etc/logcheck/file.d-some/file', '/etc/logcheck/file.d/file', 'any/etc/logcheck/file.d-some/file', 'any/etc/logcheck/file.d/file'],
+    \ 'livebook': ['file.livemd'],
     \ 'loginaccess': ['/etc/login.access', 'any/etc/login.access'],
     \ 'logindefs': ['/etc/login.defs', 'any/etc/login.defs'],
     \ 'logtalk': ['file.lgt'],
@@ -344,7 +345,8 @@ let s:filename_checks = {
     \ 'lpc': ['file.lpc', 'file.ulpc'],
     \ 'lsl': ['file.lsl'],
     \ 'lss': ['file.lss'],
-    \ 'lua': ['file.lua', 'file.rockspec', 'file.nse', '.luacheckrc'],
+    \ 'lua': ['file.lua', 'file.rockspec', 'file.nse', '.luacheckrc', '.busted'],
+    \ 'luau': ['file.luau'],
     \ 'lynx': ['lynx.cfg'],
     \ 'lyrics': ['file.lrc'],
     \ 'm3build': ['m3makefile', 'm3overrides'],
@@ -562,7 +564,7 @@ let s:filename_checks = {
     \ 'spice': ['file.sp', 'file.spice'],
     \ 'spup': ['file.speedup', 'file.spdata', 'file.spd'],
     \ 'spyce': ['file.spy', 'file.spi'],
-    \ 'sql': ['file.tyb', 'file.typ', 'file.tyc', 'file.pkb', 'file.pks'],
+    \ 'sql': ['file.tyb', 'file.tyc', 'file.pkb', 'file.pks'],
     \ 'sqlj': ['file.sqlj'],
     \ 'prql': ['file.prql'],
     \ 'sqr': ['file.sqr', 'file.sqi'],
@@ -645,7 +647,6 @@ let s:filename_checks = {
     \ 'vdmrt': ['file.vdmrt'],
     \ 'vdmsl': ['file.vdm', 'file.vdmsl'],
     \ 'vera': ['file.vr', 'file.vri', 'file.vrh'],
-    \ 'verilog': ['file.v'],
     \ 'verilogams': ['file.va', 'file.vams'],
     \ 'vgrindefs': ['vgrindefs'],
     \ 'vhdl': ['file.hdl', 'file.vhd', 'file.vhdl', 'file.vbe', 'file.vst', 'file.vhdl_123', 'file.vho', 'some.vhdl_1', 'some.vhdl_1-file'],
@@ -657,7 +658,8 @@ let s:filename_checks = {
     \ 'vrml': ['file.wrl'],
     \ 'vroom': ['file.vroom'],
     \ 'vue': ['file.vue'],
-    \ 'wast': ['file.wast', 'file.wat'],
+    \ 'wat': ['file.wat'],
+    \ 'wast': ['file.wast'],
     \ 'wdl': ['file.wdl'],
     \ 'webmacro': ['file.wm'],
     \ 'wget': ['.wgetrc', 'wgetrc'],
@@ -730,6 +732,11 @@ func Test_filetype_detection()
   endif
   filetype off
 endfunc
+
+" Content lines that should not result in filetype detection
+let s:false_positive_checks = {
+      \ '': [['test execve("/usr/bin/pstree", ["pstree"], 0x7ff0 /* 63 vars */) = 0']],
+      \ }
 
 " Filetypes detected from the file contents by scripts.vim
 let s:script_checks = {
@@ -822,6 +829,7 @@ func Run_script_detection(test_dict)
 endfunc
 
 func Test_script_detection()
+  call Run_script_detection(s:false_positive_checks)
   call Run_script_detection(s:script_checks)
   call Run_script_detection(s:script_env_checks)
 endfunc
@@ -1210,23 +1218,7 @@ func Test_fs_file()
   call assert_equal('forth', &filetype)
   bwipe!
 
-  call writefile(['.( Forth displayed inline comment )'], 'Xfile.fs')
-  split Xfile.fs
-  call assert_equal('forth', &filetype)
-  bwipe!
-
   call writefile(['\ Forth line comment'], 'Xfile.fs')
-  split Xfile.fs
-  call assert_equal('forth', &filetype)
-  bwipe!
-
-  " empty line comment - no space required
-  call writefile(['\'], 'Xfile.fs')
-  split Xfile.fs
-  call assert_equal('forth', &filetype)
-  bwipe!
-
-  call writefile(['\G Forth documentation comment '], 'Xfile.fs')
   split Xfile.fs
   call assert_equal('forth', &filetype)
   bwipe!
@@ -1779,6 +1771,27 @@ func Test_ttl_file()
   filetype off
 endfunc
 
+func Test_v_file()
+  filetype on
+
+  call writefile(['module tb; // Looks like a Verilog'], 'Xfile.v', 'D')
+  split Xfile.v
+  call assert_equal('verilog', &filetype)
+  bwipe!
+
+  call writefile(['module main'], 'Xfile.v')
+  split Xfile.v
+  call assert_equal('v', &filetype)
+  bwipe!
+
+  call writefile(['Definition x := 10.  (*'], 'Xfile.v')
+  split Xfile.v
+  call assert_equal('coq', &filetype)
+  bwipe!
+
+  filetype off
+endfunc
+
 func Test_xpm_file()
   filetype on
 
@@ -2030,6 +2043,37 @@ func Test_lsl_file()
   split Xfile.lsl
   call assert_equal('larch', &filetype)
   bwipe!
+
+  filetype off
+endfunc
+
+func Test_typ_file()
+  filetype on
+
+  " SQL type file
+
+  call writefile(['CASE = LOWER'], 'Xfile.typ', 'D')
+  split Xfile.typ
+  call assert_equal('sql', &filetype)
+  bwipe!
+
+  call writefile(['TYPE foo'], 'Xfile.typ')
+  split Xfile.typ
+  call assert_equal('sql', &filetype)
+  bwipe!
+
+  " typst document
+
+  call writefile(['this is a fallback'], 'Xfile.typ')
+  split Xfile.typ
+  call assert_equal('typst', &filetype)
+  bwipe!
+
+  let g:filetype_typ = 'typst'
+  split test.typ
+  call assert_equal('typst', &filetype)
+  bwipe!
+  unlet g:filetype_typ
 
   filetype off
 endfunc

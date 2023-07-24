@@ -215,7 +215,7 @@ NSString *OTASecExperimentMobileAssetType = @"com.apple.MobileAsset.SecExperimen
 #define kOTATrustCheckInNotification "com.apple.trustd.asset-check-in"
 #define kOTATrustKillSwitchNotification "com.apple.trustd.kill-switch"
 #define kOTASecExperimentNewAssetNotification "com.apple.trustd.secexperiment.asset-updated"
-const NSUInteger OTATrustMobileAssetCompatibilityVersion = 1;
+const NSUInteger OTATrustMobileAssetCompatibilityVersion = 2;
 const NSUInteger OTASecExperimentMobileAssetCompatibilityVersion = 1;
 #define kOTATrustDefaultUpdatePeriod 60*60*12 // 12 hours
 #define kOTATrustMinimumUpdatePeriod 60*5     // 5 min

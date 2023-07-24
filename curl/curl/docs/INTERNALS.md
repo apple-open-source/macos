@@ -6,7 +6,7 @@ versions of libs and build tools.
 
 ## Portability
 
- We write curl and libcurl to compile with C89 compilers. On 32-bit and up
+ We write curl and libcurl to compile with C89 compilers on 32-bit and up
  machines. Most of libcurl assumes more or less POSIX compliance but that is
  not a requirement.
 
@@ -43,7 +43,7 @@ versions of libs and build tools.
  - GNU Autoconf 2.59
  - GNU Automake 1.7
  - GNU M4       1.4
- - perl         5.004
+ - perl         5.6
  - roffit       0.5
  - nroff        any version that supports `-man [in] [out]`
  - cmake        3.7

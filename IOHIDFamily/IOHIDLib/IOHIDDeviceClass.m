@@ -39,7 +39,6 @@
 #import <IOKit/hidsystem/IOHIDLib.h>
 #import "IOHIDFamilyPrivate.h"
 #import "IOHIDFamilyProbe.h"
-#import <IOKit/usb/USBSpec.h>
 #if __has_include(<Rosetta/Rosetta.h>)
 #  include <Rosetta/Rosetta.h>
 #endif
@@ -573,20 +572,18 @@ static IOReturn _getProperty(void *iunknown,
             prop = CFNumberCreate(kCFAllocatorDefault,
                                   kCFNumberLongLongType,
                                   &regID);
-        }
-        else if ([key isEqualToString:@(kUSBDeviceContainerID)]) {
+        } else if ([key isEqualToString:@(kIOHIDBuiltInKey)]) {
+            prop = IORegistryEntryCreateCFProperty(_service,
+                                                   (__bridge CFStringRef)key,
+                                                   kCFAllocatorDefault,
+                                                   0);
+        } else {
             prop = IORegistryEntrySearchCFProperty(_service,
                                                    kIOServicePlane,
                                                    (__bridge CFStringRef)key,
                                                    kCFAllocatorDefault,
                                                    kIORegistryIterateRecursively
                                                    | kIORegistryIterateParents);
-        }
-        else {
-            prop = IORegistryEntryCreateCFProperty(_service,
-                                                   (__bridge CFStringRef)key,
-                                                   kCFAllocatorDefault,
-                                                   0);
         }
         
         if (prop) {

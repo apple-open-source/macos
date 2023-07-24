@@ -1661,6 +1661,17 @@ setnoshaping(const char *vname, int value, int s, const struct afswtch *afp)
 #endif /* SIOCSIFNOTRAFFICSHAPING */
 }
 
+void
+setmanagement(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_intval = value;
+#ifdef SIOCSIFMANAGEMENT
+	if (ioctl(s, SIOCSIFMANAGEMENT, (caddr_t)&ifr) < 0)
+		Perror(vname);
+#endif /* SIOCSIFMANAGEMENT */
+}
+
 struct str2num {
 	const char *str;
 	uint32_t num;
@@ -1772,7 +1783,8 @@ show_routermode6(void)
 
 #define	IFXFBITS \
 "\020\1WOL\2TIMESTAMP\3NOAUTONX\4LEGACY\5TXLOWINET\6RXLOWINET\7ALLOCKPI" \
-"\10LOWPOWER\11MPKLOG\12CONSTRAINED\13LOWLAT\14MARKWKPKT\15FPD\16NOSHAPING"
+"\10LOWPOWER\11MPKLOG\12CONSTRAINED\13LOWLAT\14MARKWKPKT\15FPD\16NOSHAPING" \
+"\17MANAGEMENT"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
@@ -2560,6 +2572,8 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-noackpri", 0,      setnoackpri),
 	DEF_CMD("noshaping",  1,      setnoshaping),
 	DEF_CMD("-noshaping", 0,      setnoshaping),
+	DEF_CMD("management", 1,      setmanagement),
+	DEF_CMD("-management", 0,      setmanagement),
 };
 
 static __constructor void

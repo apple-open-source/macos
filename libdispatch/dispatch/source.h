@@ -357,6 +357,8 @@ typedef unsigned long dispatch_source_timer_flags_t;
  * source and setting any desired attributes (i.e. the handler, context, etc.),
  * a call must be made to dispatch_activate() in order to begin event delivery.
  *
+ * A source must have been activated before being disposed.
+ *
  * Calling dispatch_set_target_queue() on a source once it has been activated
  * is not allowed (see dispatch_activate() and dispatch_set_target_queue()).
  *

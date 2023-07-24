@@ -122,8 +122,9 @@ static CURLcode mqtt_send(struct Curl_easy *data,
   struct MQTT *mq = data->req.p.mqtt;
   ssize_t n;
   result = Curl_write(data, sockfd, buf, len, &n);
-  if(!result)
-    Curl_debug(data, CURLINFO_HEADER_OUT, buf, (size_t)n);
+  if(result)
+    return result;
+  Curl_debug(data, CURLINFO_HEADER_OUT, buf, (size_t)n);
   if(len != (size_t)n) {
     size_t nsend = len - n;
     char *sendleftovers = Curl_memdup(&buf[n], nsend);
@@ -604,7 +605,7 @@ static CURLcode mqtt_read_publish(struct Curl_easy *data, bool *done)
   unsigned char packet;
 
   switch(mqtt->state) {
-  MQTT_SUBACK_COMING:
+MQTT_SUBACK_COMING:
   case MQTT_SUBACK_COMING:
     result = mqtt_verify_suback(data);
     if(result)
@@ -687,7 +688,7 @@ static CURLcode mqtt_read_publish(struct Curl_easy *data, bool *done)
     result = CURLE_WEIRD_SERVER_REPLY;
     goto end;
   }
-  end:
+end:
   return result;
 }
 

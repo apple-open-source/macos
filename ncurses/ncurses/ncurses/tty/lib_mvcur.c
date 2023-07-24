@@ -220,7 +220,7 @@ _nc_msec_cost(const char *const cap, int affcnt)
 	    if (cp[0] == '$' && cp[1] == '<' && strchr(cp, '>')) {
 		float number = 0.0;
 
-		for (cp += 2; *cp != '>'; cp++) {
+		for (cp += 2; *cp && *cp != '>'; cp++) {
 		    if (isdigit(UChar(*cp)))
 			number = number * 10 + (*cp - '0');
 		    else if (*cp == '*')
@@ -235,6 +235,10 @@ _nc_msec_cost(const char *const cap, int affcnt)
 		    cum_cost += number * 10;
 	    } else
 		cum_cost += SP->_char_padding;
+
+	    if (!*(cp)) {
+			break;
+	    }
 	}
 
 	return ((int) cum_cost);
@@ -257,7 +261,7 @@ reset_scroll_region(void)
 {
     if (change_scroll_region) {
 	TPUTS_TRACE("change_scroll_region");
-	putp(TPARM_2(change_scroll_region, 0, screen_lines - 1));
+	putp(TIPARM_2(change_scroll_region, 0, screen_lines - 1));
     }
 }
 
@@ -361,13 +365,13 @@ _nc_mvcur_init(void)
      * All these averages depend on the assumption that all parameter values
      * are equally probable.
      */
-    SP->_cup_cost = CostOf(TPARM_2(SP->_address_cursor, 23, 23), 1);
-    SP->_cub_cost = CostOf(TPARM_1(parm_left_cursor, 23), 1);
-    SP->_cuf_cost = CostOf(TPARM_1(parm_right_cursor, 23), 1);
-    SP->_cud_cost = CostOf(TPARM_1(parm_down_cursor, 23), 1);
-    SP->_cuu_cost = CostOf(TPARM_1(parm_up_cursor, 23), 1);
-    SP->_hpa_cost = CostOf(TPARM_1(column_address, 23), 1);
-    SP->_vpa_cost = CostOf(TPARM_1(row_address, 23), 1);
+    SP->_cup_cost = CostOf(TIPARM_2(SP->_address_cursor, 23, 23), 1);
+    SP->_cub_cost = CostOf(TIPARM_1(parm_left_cursor, 23), 1);
+    SP->_cuf_cost = CostOf(TIPARM_1(parm_right_cursor, 23), 1);
+    SP->_cud_cost = CostOf(TIPARM_1(parm_down_cursor, 23), 1);
+    SP->_cuu_cost = CostOf(TIPARM_1(parm_up_cursor, 23), 1);
+    SP->_hpa_cost = CostOf(TIPARM_1(column_address, 23), 1);
+    SP->_vpa_cost = CostOf(TIPARM_1(row_address, 23), 1);
 
     /* non-parameterized screen-update strings */
     SP->_ed_cost = NormalizedCost(clr_eos, 1);
@@ -384,14 +388,14 @@ _nc_mvcur_init(void)
 	SP->_el_cost = 0;
 
     /* parameterized screen-update strings */
-    SP->_dch_cost = NormalizedCost(TPARM_1(parm_dch, 23), 1);
-    SP->_ich_cost = NormalizedCost(TPARM_1(parm_ich, 23), 1);
-    SP->_ech_cost = NormalizedCost(TPARM_1(erase_chars, 23), 1);
-    SP->_rep_cost = NormalizedCost(TPARM_2(repeat_char, ' ', 23), 1);
+    SP->_dch_cost = NormalizedCost(TIPARM_1(parm_dch, 23), 1);
+    SP->_ich_cost = NormalizedCost(TIPARM_1(parm_ich, 23), 1);
+    SP->_ech_cost = NormalizedCost(TIPARM_1(erase_chars, 23), 1);
+    SP->_rep_cost = NormalizedCost(TIPARM_2(repeat_char, ' ', 23), 1);
 
-    SP->_cup_ch_cost = NormalizedCost(TPARM_2(SP->_address_cursor, 23, 23), 1);
-    SP->_hpa_ch_cost = NormalizedCost(TPARM_1(column_address, 23), 1);
-    SP->_cuf_ch_cost = NormalizedCost(TPARM_1(parm_right_cursor, 23), 1);
+    SP->_cup_ch_cost = NormalizedCost(TIPARM_2(SP->_address_cursor, 23, 23), 1);
+    SP->_hpa_ch_cost = NormalizedCost(TIPARM_1(column_address, 23), 1);
+    SP->_cuf_ch_cost = NormalizedCost(TIPARM_1(parm_right_cursor, 23), 1);
     SP->_inline_cost = min(SP->_cup_ch_cost,
 			   min(SP->_hpa_ch_cost,
 			       SP->_cuf_ch_cost));

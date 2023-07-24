@@ -831,6 +831,7 @@ recv_print_job(
       syslog(LOG_ERR, "Unable to get printer information for \"%s\"", queue);
 
     httpClose(http);
+    http = NULL;
 
     putchar(1);
 
@@ -1199,6 +1200,7 @@ recv_print_job(
   cupsFreeOptions(num_options, options);
 
   httpClose(http);
+  http = NULL;
 
  /*
   * Clean up all temporary files and return...
@@ -1285,6 +1287,7 @@ remove_jobs(const char *dest,		/* I - Destination */
       syslog(LOG_WARNING, "Cancel of job ID %d failed: %s\n", id,
              cupsLastErrorString());
       httpClose(http);
+      http = NULL;
       return (1);
     }
     else
@@ -1292,6 +1295,7 @@ remove_jobs(const char *dest,		/* I - Destination */
   }
 
   httpClose(http);
+  http = NULL;
 
   return (0);
 }
@@ -1556,6 +1560,7 @@ send_state(const char *queue,		/* I - Destination */
     puts("no entries");
 
   httpClose(http);
+  http = NULL;
 
   return (0);
 }

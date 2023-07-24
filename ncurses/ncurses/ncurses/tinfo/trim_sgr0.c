@@ -51,7 +51,7 @@ set_attribute_9(TERMTYPE *tp, int flag)
 {
     const char *result;
 
-    if ((result = tparm(set_attributes, 0, 0, 0, 0, 0, 0, 0, 0, flag)) == 0)
+    if ((result = TIPARM_9(set_attributes, 0, 0, 0, 0, 0, 0, 0, 0, flag)) == 0)
 	result = "";
     return strdup(result);
 }

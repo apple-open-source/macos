@@ -2401,7 +2401,7 @@ list_filter_map(
     if (l->lv_lock == 0)
 	l->lv_lock = VAR_LOCKED;
 
-    // Create one funccal_T for all eval_expr_typval() calls.
+    // Create one funccall_T for all eval_expr_typval() calls.
     fc = eval_expr_get_funccal(expr, &newtv);
 
     if (l->lv_first == &range_list_item)
@@ -2994,14 +2994,14 @@ list_reverse(list_T *l, typval_T *rettv)
     void
 f_reverse(typval_T *argvars, typval_T *rettv)
 {
-    if (in_vim9script() && check_for_list_or_blob_arg(argvars, 0) == FAIL)
+    if (check_for_string_or_list_or_blob_arg(argvars, 0) == FAIL)
 	return;
 
     if (argvars[0].v_type == VAR_BLOB)
 	blob_reverse(argvars[0].vval.v_blob, rettv);
-    else if (argvars[0].v_type != VAR_LIST)
-	semsg(_(e_argument_of_str_must_be_list_or_blob), "reverse()");
-    else
+    else if (argvars[0].v_type == VAR_STRING)
+	string_reverse(argvars[0].vval.v_string, rettv);
+    else if (argvars[0].v_type == VAR_LIST)
 	list_reverse(argvars[0].vval.v_list, rettv);
 }
 
@@ -3064,7 +3064,7 @@ list_reduce(
     if (l == NULL)
 	return;
 
-    // Create one funccal_T for all eval_expr_typval() calls.
+    // Create one funccall_T for all eval_expr_typval() calls.
     fc = eval_expr_get_funccal(expr, rettv);
 
     prev_locked = l->lv_lock;

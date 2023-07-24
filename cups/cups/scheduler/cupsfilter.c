@@ -1283,6 +1283,7 @@ get_job_file(const char *job)		/* I - Job ID */
   {
     _cupsLangPrintError("ERROR", _("Unable to create temporary file"));
     httpClose(http);
+    http = NULL;
     exit(1);
   }
 
@@ -1293,6 +1294,7 @@ get_job_file(const char *job)		/* I - Job ID */
   close(tempfd);
 
   httpClose(http);
+  http = NULL;
 
   if (cupsLastError() != IPP_OK)
   {

@@ -11723,7 +11723,7 @@
 					.,
 					..,
 				);
-				ONLY_ACTIVE_ARCH = NO;
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-D_CUPS_SOURCE",
 					"-Wno-shorten-64-to-32",
@@ -11774,6 +11774,7 @@
 					.,
 					..,
 				);
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-D_CUPS_SOURCE",
 					"-Wno-shorten-64-to-32",

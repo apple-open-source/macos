@@ -204,6 +204,8 @@ cupsdAcceptClient(cupsd_listener_t *lis)/* I - Listener socket */
     }
 
     httpClose(con->http);
+    con->http = NULL;
+
     free(con);
     return;
   }
@@ -223,11 +225,12 @@ cupsdAcceptClient(cupsd_listener_t *lis)/* I - Listener socket */
     * Can't have an unresolved IP address with double-lookups enabled...
     */
 
-    httpClose(con->http);
-
     cupsdLogClient(con, CUPSD_LOG_WARN,
                     "Name lookup failed - connection from %s closed!",
                     httpGetHostname(con->http, NULL, 0));
+
+    httpClose(con->http);
+    con->http = NULL;
 
     free(con);
     return;
@@ -264,11 +267,13 @@ cupsdAcceptClient(cupsd_listener_t *lis)/* I - Listener socket */
       * with double-lookups enabled...
       */
 
-      httpClose(con->http);
-
       cupsdLogClient(con, CUPSD_LOG_WARN,
                       "IP lookup failed - connection from %s closed!",
                       httpGetHostname(con->http, NULL, 0));
+
+      httpClose(con->http);
+      con->http = NULL;
+
       free(con);
       return;
     }
@@ -285,11 +290,13 @@ cupsdAcceptClient(cupsd_listener_t *lis)/* I - Listener socket */
 
   if (!hosts_access(&wrap_req))
   {
-    httpClose(con->http);
-
     cupsdLogClient(con, CUPSD_LOG_WARN,
                     "Connection from %s refused by /etc/hosts.allow and "
 		    "/etc/hosts.deny rules.", httpGetHostname(con->http, NULL, 0));
+
+    httpClose(con->http);
+    con->http = NULL;
+
     free(con);
     return;
   }
@@ -523,6 +530,7 @@ cupsdCloseClient(cupsd_client_t *con)	/* I - Client to close */
     cupsdRemoveSelect(httpGetFd(con->http));
 
     httpClose(con->http);
+    con->http = NULL;
 
     if (con->filename)
     {

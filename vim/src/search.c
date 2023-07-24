@@ -1089,7 +1089,9 @@ searchit(
 
 	    /*
 	     * If 'wrapscan' is set we continue at the other end of the file.
-	     * If 'shortmess' does not contain 's', we give a message.
+	     * If 'shortmess' does not contain 's', we give a message, but
+	     * only, if we won't show the search stat later anyhow,
+	     * (so SEARCH_COUNT must be absent).
 	     * This message is also remembered in keep_msg for when the screen
 	     * is redrawn. The keep_msg is cleared whenever another message is
 	     * written.
@@ -1098,7 +1100,9 @@ searchit(
 		lnum = buf->b_ml.ml_line_count;
 	    else
 		lnum = 1;
-	    if (!shortmess(SHM_SEARCH) && (options & SEARCH_MSG))
+	    if (!shortmess(SHM_SEARCH)
+		    && shortmess(SHM_SEARCHCOUNT)
+		    && (options & SEARCH_MSG))
 		give_warning((char_u *)_(dir == BACKWARD
 					  ? top_bot_msg : bot_top_msg), TRUE);
 	    if (extra_arg != NULL)
@@ -3237,8 +3241,10 @@ update_search_stat(
 	lbuf = curbuf;
     }
 
+    // when searching backwards and having jumped to the first occurrence,
+    // cur must remain greater than 1
     if (EQUAL_POS(lastpos, *cursor_pos) && !wraparound
-		&& (dirc == 0 || dirc == '/' ? cur < cnt : cur > 0))
+		&& (dirc == 0 || dirc == '/' ? cur < cnt : cur > 1))
 	cur += dirc == 0 ? 0 : dirc == '/' ? 1 : -1;
     else
     {
@@ -4422,13 +4428,13 @@ fuzzy_match_recursive(
 	// Found match
 	if (vim_tolower(c1) == vim_tolower(c2))
 	{
-	    int_u	recursiveMatches[MAX_FUZZY_MATCHES];
-	    int		recursiveScore = 0;
-	    char_u	*next_char;
-
 	    // Supplied matches buffer was too short
 	    if (nextMatch >= maxMatches)
 		return 0;
+
+	    int		recursiveScore = 0;
+	    int_u	recursiveMatches[MAX_FUZZY_MATCHES];
+	    CLEAR_FIELD(recursiveMatches);
 
 	    // "Copy-on-Write" srcMatches into matches
 	    if (first_match && srcMatches)
@@ -4438,10 +4444,7 @@ fuzzy_match_recursive(
 	    }
 
 	    // Recursive call that "skips" this match
-	    if (has_mbyte)
-		next_char = str + (*mb_ptr2len)(str);
-	    else
-		next_char = str + 1;
+	    char_u *next_char = str + (has_mbyte ? (*mb_ptr2len)(str) : 1);
 	    if (fuzzy_match_recursive(fuzpat, next_char, strIdx + 1,
 			&recursiveScore, strBegin, strLen, matches,
 			recursiveMatches,
@@ -4506,8 +4509,8 @@ fuzzy_match_recursive(
  * Uses char_u for match indices. Therefore patterns are limited to
  * MAX_FUZZY_MATCHES characters.
  *
- * Returns TRUE if 'pat_arg' matches 'str'. Also returns the match score in
- * 'outScore' and the matching character positions in 'matches'.
+ * Returns TRUE if "pat_arg" matches "str". Also returns the match score in
+ * "outScore" and the matching character positions in "matches".
  */
     int
 fuzzy_match(

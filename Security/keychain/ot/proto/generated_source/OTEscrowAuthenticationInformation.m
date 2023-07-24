@@ -36,12 +36,12 @@
 @synthesize fmipRecovery = _fmipRecovery;
 - (void)setFmipRecovery:(BOOL)v
 {
-    _has.fmipRecovery = YES;
+    _has.fmipRecovery = (uint)YES;
     _fmipRecovery = v;
 }
 - (void)setHasFmipRecovery:(BOOL)f
 {
-    _has.fmipRecovery = f;
+    _has.fmipRecovery = (uint)f;
 }
 - (BOOL)hasFmipRecovery
 {
@@ -50,12 +50,12 @@
 @synthesize idmsRecovery = _idmsRecovery;
 - (void)setIdmsRecovery:(BOOL)v
 {
-    _has.idmsRecovery = YES;
+    _has.idmsRecovery = (uint)YES;
     _idmsRecovery = v;
 }
 - (void)setHasIdmsRecovery:(BOOL)f
 {
-    _has.idmsRecovery = f;
+    _has.idmsRecovery = (uint)f;
 }
 - (BOOL)hasIdmsRecovery
 {
@@ -166,13 +166,13 @@ BOOL OTEscrowAuthenticationInformationReadFrom(__unsafe_unretained OTEscrowAuthe
             break;
             case 5 /* fmipRecovery */:
             {
-                self->_has.fmipRecovery = YES;
+                self->_has.fmipRecovery = (uint)YES;
                 self->_fmipRecovery = PBReaderReadBOOL(reader);
             }
             break;
             case 6 /* idmsRecovery */:
             {
-                self->_has.idmsRecovery = YES;
+                self->_has.idmsRecovery = (uint)YES;
                 self->_idmsRecovery = PBReaderReadBOOL(reader);
             }
             break;

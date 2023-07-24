@@ -3822,7 +3822,7 @@ post2nfa(int *postfix, int *end, int nfa_calc_size)
 
 	} // switch(*p)
 
-    } // for(p = postfix; *p; ++p)
+    } // for (p = postfix; *p; ++p)
 
     if (nfa_calc_size == TRUE)
     {
@@ -6678,7 +6678,9 @@ nfa_regmatch(
 		int subidx;
 		int bytelen;
 
-		if (t->state->c <= NFA_BACKREF9)
+#ifdef FEAT_SYN_HL
+		if (t->state->c >= NFA_BACKREF1 && t->state->c <= NFA_BACKREF9)
+#endif
 		{
 		    subidx = t->state->c - NFA_BACKREF1 + 1;
 		    result = match_backref(&t->subs.norm, subidx, &bytelen);

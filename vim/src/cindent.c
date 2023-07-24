@@ -769,7 +769,9 @@ cin_is_cpp_namespace(char_u *s)
 
     s = cin_skipcomment(s);
 
-    if (STRNCMP(s, "inline", 6) == 0 && (s[6] == NUL || !vim_iswordc(s[6])))
+    // skip over "inline" and "export" in any order
+    while ((STRNCMP(s, "inline", 6) == 0 || STRNCMP(s, "export", 6) == 0)
+					&& (s[6] == NUL || !vim_iswordc(s[6])))
 	s = cin_skipcomment(skipwhite(s + 6));
 
     if (STRNCMP(s, "namespace", 9) == 0 && (s[9] == NUL || !vim_iswordc(s[9])))
@@ -1852,8 +1854,8 @@ parse_cino(buf_T *buf)
     // Handle C++ namespace.
     buf->b_ind_cpp_namespace = 0;
 
-    // Handle continuation lines containing conditions of if(), for() and
-    // while().
+    // Handle continuation lines containing conditions of if (), for () and
+    // while ().
     buf->b_ind_if_for_while = 0;
 
     // indentation for # comments
@@ -3315,7 +3317,7 @@ get_c_indent(void)
 			}
 
 			// Special trick: when expecting the while () after a
-			// do, line up with the while()
+			// do, line up with the while ()
 			//     do
 			//	    x = 1;
 			// ->  here

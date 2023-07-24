@@ -16,7 +16,7 @@
 
 EXTERN int Unix2003_compat;
 /* Copy of -w value for unix2003 compatible use */
-EXTERN int p_window_unix2003;
+EXTERN long p_window_unix2003;
 
 /*
  * Number of Rows and Columns in the screen.

@@ -342,11 +342,13 @@ do_test(const char        *server,	/* I - Server to use */
 
 	  printf("failed: %s\n", cupsLastErrorString());
           httpClose(http);
+          http = NULL;
 	  return (1);
     }
   }
 
   httpClose(http);
+  http = NULL;
 
   printf("testspeed(%d): %d requests in %.1fs (%.3fs/r, %.1fr/s)\n",
          (int)getpid(), i, elapsed, elapsed / i, i / elapsed);

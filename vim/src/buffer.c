@@ -2362,8 +2362,8 @@ free_buf_options(
 #endif
 #ifdef FEAT_CRYPT
 # ifdef FEAT_SODIUM
-    if ((buf->b_p_key != NULL) && (*buf->b_p_key != NUL) &&
-				(crypt_get_method_nr(buf) == CRYPT_M_SOD))
+    if (buf->b_p_key != NULL && *buf->b_p_key != NUL
+			   && crypt_method_is_sodium(crypt_get_method_nr(buf)))
 	crypt_sodium_munlock(buf->b_p_key, STRLEN(buf->b_p_key));
 # endif
     clear_string_option(&buf->b_p_key);
@@ -5231,8 +5231,8 @@ build_stl_str_hl(
 #endif // FEAT_STL_OPT
 
 /*
- * Get relative cursor position in window into "buf[buflen]", in the form 99%,
- * using "Top", "Bot" or "All" when appropriate.
+ * Get relative cursor position in window into "buf[buflen]", in the localized
+ * percentage form like %99, 99%; using "Top", "Bot" or "All" when appropriate.
  */
     void
 get_rel_pos(
@@ -5256,13 +5256,27 @@ get_rel_pos(
     below = wp->w_buffer->b_ml.ml_line_count - wp->w_botline + 1;
     if (below <= 0)
 	vim_strncpy(buf, (char_u *)(above == 0 ? _("All") : _("Bot")),
-							(size_t)(buflen - 1));
+		    (size_t)(buflen - 1));
     else if (above <= 0)
 	vim_strncpy(buf, (char_u *)_("Top"), (size_t)(buflen - 1));
     else
-	vim_snprintf((char *)buf, (size_t)buflen, "%2d%%", above > 1000000L
-				    ? (int)(above / ((above + below) / 100L))
-				    : (int)(above * 100L / (above + below)));
+    {
+	int perc = (above > 1000000L)
+			?  (int)(above / ((above + below) / 100L))
+			:  (int)(above * 100L / (above + below));
+
+	char *p = (char *)buf;
+	size_t l = buflen;
+	if (perc < 10)
+	{
+	    // prepend one space
+	    buf[0] = ' ';
+	    ++p;
+	    --l;
+	}
+	// localized percentage value
+	vim_snprintf(p, l, _("%d%%"), perc);
+    }
 }
 
 /*
@@ -5641,8 +5655,7 @@ chk_modeline(
     int		end;
     int		retval = OK;
     sctx_T	save_current_sctx;
-
-    ESTACK_CHECK_DECLARATION
+    ESTACK_CHECK_DECLARATION;
 
     prev = -1;
     for (s = ml_get(lnum); *s != NUL; ++s)
@@ -5686,7 +5699,7 @@ chk_modeline(
 
 	// prepare for emsg()
 	estack_push(ETYPE_MODELINE, (char_u *)"modelines", lnum);
-	ESTACK_CHECK_SETUP
+	ESTACK_CHECK_SETUP;
 
 	end = FALSE;
 	while (end == FALSE)
@@ -5747,7 +5760,7 @@ chk_modeline(
 	    s = e + 1;			// advance to next part
 	}
 
-	ESTACK_CHECK_NOW
+	ESTACK_CHECK_NOW;
 	estack_pop();
 	vim_free(linecopy);
     }

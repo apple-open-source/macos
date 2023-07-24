@@ -1043,7 +1043,8 @@ win_redr_custom(
     {
 	row = statusline_row(wp);
 	fillchar = fillchar_status(&attr, wp);
-	maxwidth = wp->w_width;
+	int in_status_line = wp->w_status_height != 0;
+	maxwidth = in_status_line ? wp->w_width : Columns;
 
 	if (draw_ruler)
 	{
@@ -1060,11 +1061,11 @@ win_redr_custom(
 		if (*stl++ != '(')
 		    stl = p_ruf;
 	    }
-	    col = ru_col - (Columns - wp->w_width);
-	    if (col < (wp->w_width + 1) / 2)
-		col = (wp->w_width + 1) / 2;
-	    maxwidth = wp->w_width - col;
-	    if (!wp->w_status_height)
+	    col = ru_col - (Columns - maxwidth);
+	    if (col < (maxwidth + 1) / 2)
+		col = (maxwidth + 1) / 2;
+	    maxwidth -= col;
+	    if (!in_status_line)
 	    {
 		row = Rows - 1;
 		--maxwidth;	// writing in last column may cause scrolling
@@ -1084,7 +1085,8 @@ win_redr_custom(
 		stl = p_stl;
 	}
 
-	col += wp->w_wincol;
+	if (in_status_line)
+	    col += wp->w_wincol;
     }
 
     if (maxwidth <= 0)
@@ -4656,13 +4658,13 @@ get_encoded_char_adv(char_u **p)
 /*
  * Handle setting 'listchars' or 'fillchars'.
  * "value" points to either the global or the window-local value.
- * "opt_lcs" is TRUE for "listchars" and FALSE for "fillchars".
+ * "is_listchars" is TRUE for "listchars" and FALSE for "fillchars".
  * When "apply" is FALSE do not store the flags, only check for errors.
  * Assume monocell characters.
  * Returns error message, NULL if it's OK.
  */
     static char *
-set_chars_option(win_T *wp, char_u *value, int opt_lcs, int apply)
+set_chars_option(win_T *wp, char_u *value, int is_listchars, int apply)
 {
     int	    round, i, len, len2, entries;
     char_u  *p, *s;
@@ -4671,7 +4673,6 @@ set_chars_option(win_T *wp, char_u *value, int opt_lcs, int apply)
     char_u  *last_lmultispace = NULL; // Last occurrence of "leadmultispace:"
     int	    multispace_len = 0;	      // Length of lcs-multispace string
     int	    lead_multispace_len = 0;  // Length of lcs-leadmultispace string
-    int	    is_listchars = opt_lcs;
 
     struct charstab
     {
@@ -4718,14 +4719,14 @@ set_chars_option(win_T *wp, char_u *value, int opt_lcs, int apply)
 	tab = lcstab;
 	CLEAR_FIELD(lcs_chars);
 	entries = ARRAY_LENGTH(lcstab);
-	if (opt_lcs && wp->w_p_lcs[0] == NUL)
+	if (wp->w_p_lcs[0] == NUL)
 	    value = p_lcs;  // local value is empty, use the global value
     }
     else
     {
 	tab = filltab;
 	entries = ARRAY_LENGTH(filltab);
-	if (!opt_lcs && wp->w_p_fcs[0] == NUL)
+	if (wp->w_p_fcs[0] == NUL)
 	    value = p_fcs;  // local value is empty, us the global value
     }
 

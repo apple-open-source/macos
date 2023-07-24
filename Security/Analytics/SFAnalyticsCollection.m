@@ -161,12 +161,15 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 }
 
 
-- (SFAnalyticsMetricsHookActions)doAction:(id<SFAnalyticsCollectionAction>) actions logger:(SFAnalytics *)logger  {
+- (SFAnalyticsMetricsHookActions)doAction:(id<SFAnalyticsCollectionAction>)actions logger:(SFAnalytics *)logger  {
+
     SECSFAAction *action = self.rule.action;
     if (action == nil) {
         return 0;
     }
+
     if (action.hasTtr) {
+        os_log(OS_LOG_DEFAULT, "SFACollection action trigger ttr: %@", self.rule.eventType);
         if ([self shouldRatelimit:logger]) {
             return 0;
         }
@@ -180,6 +183,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
                 componentID:ttr.componentID];
         return 0;
     } else if (action.hasAbc) {
+        os_log(OS_LOG_DEFAULT, "SFACollection action trigger abc: %@", self.rule.eventType);
         if ([self shouldRatelimit:logger]) {
             return 0;
         }
@@ -191,6 +195,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
         [actions autoBugCaptureWithType:abc.type subType:abc.subtype domain:abc.domain];
         return 0;
     } else if (action.hasDrop) {
+        os_log(OS_LOG_DEFAULT, "SFACollection action trigger drop: %@", self.rule.eventType);
         SFAnalyticsMetricsHookActions dropActions = 0;
         SECSFAActionDropEvent *drop = action.drop;
         if (drop.excludeEvent) {
@@ -200,7 +205,8 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
             dropActions |= SFAnalyticsMetricsHookExcludeCount;
         }
         return dropActions;
-
+    } else {
+        os_log(OS_LOG_DEFAULT, "SFACollection unknown action: %@", self.rule.eventType);
     }
     return 0;
 }

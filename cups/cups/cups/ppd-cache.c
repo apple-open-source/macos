@@ -3184,8 +3184,10 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
       unlink(stringsfile);
     }
 
-    if (http)
+    if (http) {
       httpClose(http);
+      http = NULL;
+    }
   }
 
  /*

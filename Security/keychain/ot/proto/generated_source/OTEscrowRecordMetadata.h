@@ -25,8 +25,8 @@
     NSData *_peerInfo;
     NSString *_serial;
     struct {
-        int secureBackupTimestamp:1;
-        int secureBackupUsesMultipleIcscs:1;
+        uint secureBackupTimestamp:1;
+        uint secureBackupUsesMultipleIcscs:1;
     } _has;
 }
 

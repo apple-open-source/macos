@@ -706,6 +706,8 @@ def dfsRecurseIOBlockStorageDevice(root, dump, timeNow,  prefix = '', bsdDevices
 
     if bsdDevices is not None and IOMediaParser.isIOMediaCV(entry):
         attrDict = OrderedDict()
+        if 'BSD Name' not in parseDict:
+            parseDict['BSD Name'] = 'diskNA'
         attrDict[parseDict['BSD Name']] = OrderedDict()
         isInactive = state0 & IOServiceState0.kIOServiceInactiveState
         attrDict[parseDict['BSD Name']]['inactive'] = 'Yes' if isInactive else 'No'
@@ -713,6 +715,8 @@ def dfsRecurseIOBlockStorageDevice(root, dump, timeNow,  prefix = '', bsdDevices
         if "BSD Minor" in parseDict:
             bsdDevices.append(int(parseDict["BSD Minor"]))
             attrDict[parseDict['BSD Name']]["BSD Minor"] = str(hex(int(parseDict["BSD Minor"])))
+        else:
+            attrDict[parseDict['BSD Name']]["BSD Minor"] = str(hex(-1))
         reqAttr = ['Content', 'Open', 'Busy Count']
         for attr in reqAttr:
             if attr in d:
@@ -1255,7 +1259,11 @@ class IOBlockStorageDeviceParser(IOServiceParser):
         propDict = OrderedDict()
         if not dump:
             IOBlockStorageDriverParser.copyDictAttr(propDict, v, attrList if not dump else None)
-            IOBlockStorageDriverParser.copyDictAttr(propDict, v['Protocol Characteristics'], ['Physical Interconnect', 'Physical Interconnect Location'])
+            if 'Protocol Characteristics' in v:
+                IOBlockStorageDriverParser.copyDictAttr(propDict, v['Protocol Characteristics'], ['Physical Interconnect', 'Physical Interconnect Location'])
+            else:  
+                propDict['Physical Interconnect'] = 'N/A'
+                propDict['Physical Interconnect Location'] = 'N/A'
         else:
             propDict["PropertyTable"] = s
         return propDict

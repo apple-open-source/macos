@@ -51,7 +51,7 @@ mcprint(char *data, int len)
     }
 
     if (prtr_non) {
-	switchon = TPARM_1(prtr_non, len);
+	switchon = TIPARM_1(prtr_non, len);
 	onsize = strlen(switchon);
 	offsize = 0;
     } else {

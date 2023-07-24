@@ -239,6 +239,7 @@ CKKSAnalyticsActivity* const OctagonActivityJoinWithRecoveryKey = (CKKSAnalytics
 CKKSAnalyticsActivity* const OctagonActivityJoinWithCustodianRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityJoinWithCustodianRecoveryKey";
 CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithCustodianRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityPreflightJoinWithCustodianRecoveryKey";
 CKKSAnalyticsActivity* const OctagonActivityRemoveCustodianRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveCustodianRecoveryKey";
+CKKSAnalyticsActivity* const OctagonActivityCheckCustodianRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityCheckCustodianRecoveryKey";
 
 CKKSAnalyticsActivity* const OctagonActivityCreateInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityCreateInheritanceKey";
 CKKSAnalyticsActivity* const OctagonActivityGenerateInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityGenerateInheritanceKey";
@@ -246,6 +247,7 @@ CKKSAnalyticsActivity* const OctagonActivityStoreInheritanceKey = (CKKSAnalytics
 CKKSAnalyticsActivity* const OctagonActivityJoinWithInheritanceKey = (CKKSAnalyticsActivity*)@"OctagonActivityJoinWithInheritanceKey";
 CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithInheritanceKey = (CKKSAnalyticsActivity*)@"OctagonActivityPreflightJoinWithInheritanceKey";
 CKKSAnalyticsActivity* const OctagonActivityRemoveInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveInheritanceKey";
+CKKSAnalyticsActivity* const OctagonActivityCheckInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityCheckInheritanceKey";
 
 CKKSAnalyticsActivity* const OctagonActivityLeaveClique = (CKKSAnalyticsActivity *)@"OctagonActivityLeaveClique";
 CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveFriendsInClique";

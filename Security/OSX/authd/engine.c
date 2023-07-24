@@ -541,7 +541,7 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
         }
     }
     
-    if (!uname && uid != -1) {
+    if (!uname && uid > -1) {
         // we did not get user from Username or AHP username field but we have UID so try it
         struct passwd *pw = getpwuid(uid);
         if (pw) {
@@ -678,11 +678,13 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 					enum Reason reason = worldChanged;
 					auth_items_set_data(hints, AGENT_HINT_RETRY_REASON, &reason, sizeof(reason));
 					result = kAuthorizationResultAllow;
-					_cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
-						agent_t tempagent = (agent_t)value;
-						agent_clear_interrupt(tempagent);
-						return true;
-					});
+                    dispatch_sync(dispatch_get_main_queue(), ^{
+                        _cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
+                            agent_t tempagent = (agent_t)value;
+                            agent_clear_interrupt(tempagent);
+                            return true;
+                        });
+                    });
 				}
 			}
         }
@@ -890,9 +892,14 @@ _evaluate_class_user(engine_t engine, rule_t rule)
         return errAuthorizationSuccess;
     }
     
-    if (rule_get_allow_root(rule) && auth_token_get_uid(engine->auth) == 0) {
-        os_log_info(AUTHD_LOG, "Creator of authorization has uid == 0, granting right %{public}s (engine %llu)", engine->currentRightName, engine->engine_index);
-        return errAuthorizationSuccess;
+    if (rule_get_allow_root(rule)) {
+        uid_t uid = auth_token_get_uid(engine->auth);
+        if (uid == 0) {
+            os_log_info(AUTHD_LOG, "Creator of authorization has uid == 0, granting right %{public}s (engine %llu)", engine->currentRightName, engine->engine_index);
+            return errAuthorizationSuccess;
+        } else {
+            os_log_debug(AUTHD_LOG, "Creator of authorization has uid %d, NOT granting right %{public}s (engine %llu)", uid, engine->currentRightName, engine->engine_index);
+        }
     }
     
     if (!rule_get_authenticate_user(rule)) {
@@ -1740,8 +1747,9 @@ done:
     auth_items_clear(engine->context);
     auth_items_clear(engine->sticky_context);
     CFReleaseSafe(ccaudit);
-    CFDictionaryRemoveAllValues(engine->mechanism_agents);
-    
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        CFDictionaryRemoveAllValues(engine->mechanism_agents);
+    });
     return status;
 }
 
@@ -1863,22 +1871,27 @@ CFAbsoluteTime engine_get_time(engine_t engine)
 void engine_destroy_agents(engine_t engine)
 {
     engine->dismissed = true;
-
-    _cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
-        os_log_debug(AUTHD_LOG, "engine %llu: Destroying %{public}s", engine->engine_index, mechanism_get_string((mechanism_t)key));
-        agent_t agent = (agent_t)value;
-        agent_destroy(agent);
-        
-        return true;
+    
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        _cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
+            os_log_debug(AUTHD_LOG, "engine %llu: Destroying %{public}s", engine->engine_index, mechanism_get_string((mechanism_t)key));
+            agent_t agent = (agent_t)value;
+            agent_destroy(agent);
+            
+            return true;
+        });
+        CFDictionaryRemoveAllValues(engine->mechanism_agents);
     });
 }
 
 void engine_interrupt_agent(engine_t engine)
 {
-    _cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
-        agent_t agent = (agent_t)value;
-        agent_notify_interrupt(agent);
-        return true;
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        _cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
+            agent_t agent = (agent_t)value;
+            agent_notify_interrupt(agent);
+            return true;
+        });
     });
 }
 

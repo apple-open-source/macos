@@ -937,6 +937,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   puts("Closing connection to server...");
   httpClose(http);
+  http = NULL;
 
   if (out != stdout)
     fclose(out);

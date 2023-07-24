@@ -28,12 +28,12 @@
 @synthesize secureBackupUsesMultipleIcscs = _secureBackupUsesMultipleIcscs;
 - (void)setSecureBackupUsesMultipleIcscs:(uint64_t)v
 {
-    _has.secureBackupUsesMultipleIcscs = YES;
+    _has.secureBackupUsesMultipleIcscs = (uint)YES;
     _secureBackupUsesMultipleIcscs = v;
 }
 - (void)setHasSecureBackupUsesMultipleIcscs:(BOOL)f
 {
-    _has.secureBackupUsesMultipleIcscs = f;
+    _has.secureBackupUsesMultipleIcscs = (uint)f;
 }
 - (BOOL)hasSecureBackupUsesMultipleIcscs
 {
@@ -47,12 +47,12 @@
 @synthesize secureBackupTimestamp = _secureBackupTimestamp;
 - (void)setSecureBackupTimestamp:(uint64_t)v
 {
-    _has.secureBackupTimestamp = YES;
+    _has.secureBackupTimestamp = (uint)YES;
     _secureBackupTimestamp = v;
 }
 - (void)setHasSecureBackupTimestamp:(BOOL)f
 {
-    _has.secureBackupTimestamp = f;
+    _has.secureBackupTimestamp = (uint)f;
 }
 - (BOOL)hasSecureBackupTimestamp
 {
@@ -168,7 +168,7 @@ BOOL OTEscrowRecordMetadataReadFrom(__unsafe_unretained OTEscrowRecordMetadata *
             break;
             case 3 /* secureBackupUsesMultipleIcscs */:
             {
-                self->_has.secureBackupUsesMultipleIcscs = YES;
+                self->_has.secureBackupUsesMultipleIcscs = (uint)YES;
                 self->_secureBackupUsesMultipleIcscs = PBReaderReadUint64(reader);
             }
             break;
@@ -180,7 +180,7 @@ BOOL OTEscrowRecordMetadataReadFrom(__unsafe_unretained OTEscrowRecordMetadata *
             break;
             case 5 /* secureBackupTimestamp */:
             {
-                self->_has.secureBackupTimestamp = YES;
+                self->_has.secureBackupTimestamp = (uint)YES;
                 self->_secureBackupTimestamp = PBReaderReadUint64(reader);
             }
             break;

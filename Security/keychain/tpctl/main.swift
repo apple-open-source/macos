@@ -47,6 +47,7 @@ enum Command {
     case allow(Set<String>, Bool)
     case supportApp
     case performATOPRVActions
+    case testSemaphore(String)
 }
 
 func printUsage() {
@@ -77,6 +78,7 @@ func printUsage() {
     print("  fetchRecoverableTLKShares PEERID")
     print("                            Ask cuttlefish for the recoverable TLK shares for this peer.")
     print("  reset                     Resets Cuttlefish for this account")
+    print("  testSemaphore [arg]       Tests semaphore handling in TPH")
     print()
     print("Options applying to `join', `establish' and `update'")
     print("  --preapprove KEY...       Sets the (space-separated base64) list of public keys that are preapproved.")
@@ -486,6 +488,10 @@ while let arg = argIterator.next() {
     case "performATOPRVActions":
         commands.append(.performATOPRVActions)
 
+    case "testSemaphore":
+        let arg = argIterator.next() ?? ""
+        commands.append(.testSemaphore(arg))
+
     default:
         print("Unknown argument:", arg)
         exitUsage(1)
@@ -882,7 +888,8 @@ for command in commands {
         print("Setting allowed machineIDs to \(allMachineIDs)")
         tpHelper.setAllowedMachineIDsWith(specificUser,
                                           allowedMachineIDs: allMachineIDs,
-                                          honorIDMSListChanges: accountIsDemo) { listChanged, error in
+                                          honorIDMSListChanges: accountIsDemo,
+                                          version: nil) { listChanged, error in
             guard error == nil else {
                 print("Error during allow:", error!)
                 return
@@ -899,6 +906,16 @@ for command in commands {
                 return
             }
             print("ATOPRV actions complete")
+        }
+
+    case let .testSemaphore(arg):
+        logger.log("testing semaphore handling (\(arg))")
+        tpHelper.testSemaphore(with: specificUser, arg: arg) { error in
+            guard error == nil else {
+                print("Error testingSemaphore: \(error!)")
+                return
+            }
+            print("test complete")
         }
     }
 }

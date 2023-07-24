@@ -15,6 +15,7 @@ extension OctagonPairingTests {
                                                      accountsAdapter: self.mockAuthKit2,
                                                      authKitAdapter: self.mockAuthKit2,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
+                                                     tapToRadarAdapter: self.mockTapToRadar,
                                                      lockStateTracker: self.lockStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-initiator-2", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -329,6 +330,7 @@ extension OctagonPairingTests {
                                                      accountsAdapter: self.mockAuthKit2,
                                                      authKitAdapter: self.mockAuthKit2,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
+                                                     tapToRadarAdapter: self.mockTapToRadar,
                                                      lockStateTracker: self.lockStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-initiator-2", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -588,6 +590,7 @@ extension OctagonPairingTests {
                                                      accountsAdapter: self.mockAuthKit2,
                                                      authKitAdapter: self.mockAuthKit2,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
+                                                     tapToRadarAdapter: self.mockTapToRadar,
                                                      lockStateTracker: self.lockStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-initiator-2", serialNumber: "456", osVersion: "iOS (fake version)"))
 
@@ -874,6 +877,7 @@ extension OctagonPairingTests {
                                                      accountsAdapter: self.mockAuthKit2,
                                                      authKitAdapter: self.mockAuthKit2,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
+                                                     tapToRadarAdapter: self.mockTapToRadar,
                                                      lockStateTracker: self.lockStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-initiator-2", serialNumber: "456", osVersion: "iOS (fake version)"))
 

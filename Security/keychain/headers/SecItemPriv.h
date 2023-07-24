@@ -418,20 +418,6 @@ extern const CFStringRef kSecAttrViewHintMFi;
 extern const CFStringRef kSecAttrViewHintMail;
 extern const CFStringRef kSecAttrViewHintContacts;
 
-/*!
-    @enum kSecUseSystemKeychain Constants (Private)
-    @constant kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS Use the data protection system keychain.
-        On iOS, this cannot be used, and will cause errors.
-        On macOS, this only works in darwinOS, otherwise will cause errors. And it effectively sets kSecUseDataProtectionKeychain to true/YES.
-    @constant kSecUseSystemKeychainAlways Use the system keychain on iOS, regardless
-        of whether the device is a shared iPad (edu mode).
-        Currently gated behind a feature flag.
-     @constant kSecUseSystemKeychain Use the system keychain on shared iPad (edu mode).
-        Silently ignored when not on shared iPad (edu mode).
-        In the future, this will be deprecated in favor of the Always version above.
- */
-extern const CFStringRef kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS
-    SPI_AVAILABLE(macos(13.3)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, macCatalyst);
 
 extern const CFStringRef kSecUseSystemKeychainAlways
     SPI_AVAILABLE(ios(16.0)) API_UNAVAILABLE(macos, tvos, watchos, bridgeos, macCatalyst);

@@ -21,11 +21,11 @@
     BOOL _usePreviouslyCachedRecoveryKey;
     BOOL _usesMultipleIcsc;
     struct {
-        int containsIcdpData:1;
-        int silentRecoveryAttempt:1;
-        int useCachedSecret:1;
-        int usePreviouslyCachedRecoveryKey:1;
-        int usesMultipleIcsc:1;
+        uint containsIcdpData:1;
+        uint silentRecoveryAttempt:1;
+        uint useCachedSecret:1;
+        uint usePreviouslyCachedRecoveryKey:1;
+        uint usesMultipleIcsc:1;
     } _has;
 }
 

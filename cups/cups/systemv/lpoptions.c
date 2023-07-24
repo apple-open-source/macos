@@ -497,6 +497,7 @@ list_options(cups_dest_t *dest)		/* I - Destination to list */
   if ((filename = cupsGetPPD2(http, dest->name)) == NULL)
   {
     httpClose(http);
+    http = NULL;
 
     _cupsLangPrintf(stderr, _("lpoptions: Unable to get PPD file for %s: %s"),
 		    dest->name, cupsLastErrorString());
@@ -504,6 +505,7 @@ list_options(cups_dest_t *dest)		/* I - Destination to list */
   }
 
   httpClose(http);
+  http = NULL;
 
   if ((ppd = ppdOpenFile(filename)) == NULL)
   {

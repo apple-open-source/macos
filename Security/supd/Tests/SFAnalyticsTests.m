@@ -23,6 +23,7 @@
 
 #import <XCTest/XCTest.h>
 #import <Security/SFAnalytics.h>
+#import <Security/SecLaunchSequence.h>
 #import "SFAnalytics+Internal.h"
 #import "SFAnalyticsDefines.h"
 #import "SFAnalyticsSQLiteStore.h"
@@ -1370,6 +1371,60 @@ static NSString* modelID = nil;
     XCTAssertNotNil(binary, @"encodeSFACollection: %@", error);
     XCTAssertEqual(binary.length, 110);
 }
+
+- (void)testLaunchSeqence {
+    SecLaunchSequence *ls = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.sear.test"];
+    [ls addEvent:@"event1"];
+    [ls addEvent:@"event2"];
+    [ls launch];
+
+    [_analytics noteLaunchSequence:ls];
+
+    PQLResultSet* result = [_db fetch:@"select count(*) from rockwell"];
+    XCTAssertTrue([result next], @"Got a count from rockwell");
+    XCTAssertEqual([result unsignedIntAtIndex:0], 1, @"Should have one event");
+}
+
+- (void)testLaunchSeqenceTwoSame {
+    SecLaunchSequence *ls1 = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.sear.test"];
+    [ls1 launch];
+    [_analytics noteLaunchSequence:ls1];
+
+    SecLaunchSequence *ls2 = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.sear.test"];
+    [ls2 launch];
+    [_analytics noteLaunchSequence:ls2];
+
+    PQLResultSet* result = [_db fetch:@"select count(*) from rockwell"];
+    XCTAssertTrue([result next], @"Got a count from rockwell");
+    XCTAssertEqual([result unsignedIntAtIndex:0], 1, @"Should have one rockwell event");
+}
+
+- (void)testLaunchSeqenceTwoDifference {
+    SecLaunchSequence *ls1 = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.sear.test1"];
+    [ls1 launch];
+    [_analytics noteLaunchSequence:ls1];
+
+    SecLaunchSequence *ls2 = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.sear.test2"];
+    [ls2 launch];
+    [_analytics noteLaunchSequence:ls2];
+
+    PQLResultSet* result = [_db fetch:@"select count(*) from rockwell"];
+    XCTAssertTrue([result next], @"Got a count from rockwell");
+    XCTAssertEqual([result unsignedIntAtIndex:0], 2, @"Should have two rockwell events");
+}
+
+- (void)testLaunchSeqenceDeleted{
+    SecLaunchSequence *ls = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.sear.test"];
+    [ls launch];
+    [_analytics noteLaunchSequence:ls];
+
+    [_analytics.database clearAllData];
+
+    PQLResultSet* result = [_db fetch:@"select count(*) from rockwell"];
+    XCTAssertTrue([result next], @"Got a count from rockwell");
+    XCTAssertEqual([result unsignedIntAtIndex:0], 0, @"Should have zero rockwell events");
+}
+
 
 @end
 

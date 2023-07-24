@@ -255,6 +255,7 @@ extern CKKSAnalyticsActivity* const OctagonActivityJoinWithRecoveryKey;
 extern CKKSAnalyticsActivity* const OctagonActivityJoinWithCustodianRecoveryKey;
 extern CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithCustodianRecoveryKey;
 extern CKKSAnalyticsActivity* const OctagonActivityRemoveCustodianRecoveryKey;
+extern CKKSAnalyticsActivity* const OctagonActivityCheckCustodianRecoveryKey;
 extern CKKSAnalyticsActivity* const OctagonSOSAdapterUpdateKeys;
 extern CKKSAnalyticsActivity* const OctagonActivityCreateInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityGenerateInheritanceKey;
@@ -262,6 +263,7 @@ extern CKKSAnalyticsActivity* const OctagonActivityStoreInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityJoinWithInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityRemoveInheritanceKey;
+extern CKKSAnalyticsActivity* const OctagonActivityCheckInheritanceKey;
 
 @class TrustedPeersHelperTLKRecoveryResult;
 @class CKKSTLKShare;

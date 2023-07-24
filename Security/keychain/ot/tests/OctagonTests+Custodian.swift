@@ -34,6 +34,7 @@ class OctagonCustodianTests: OctagonTestsBase {
                                     accountsAdapter: self.mockAuthKit2,
                                     authKitAdapter: self.mockAuthKit2,
                                     tooManyPeersAdapter: self.mockTooManyPeers,
+                                    tapToRadarAdapter: self.mockTapToRadar,
                                     lockStateTracker: self.lockStateTracker,
                                     deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-RK-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
     }
@@ -1647,6 +1648,74 @@ class OctagonCustodianTests: OctagonTestsBase {
             joinWithCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [joinWithCustodianRecoveryKeyExpectation], timeout: 20)
+    }
+
+    func testCustodianRecoveryKeyExists() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // This flag gates whether or not we'll error while setting the recovery key
+        OctagonSetSOSFeatureEnabled(true)
+
+        let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiverPeerID: crk.peerID, senderPeerID: crk.peerID)
+
+        let checkCustodianRecoveryKeyExpectation = self.expectation(description: "checkCustodianRecoveryKey returns")
+        self.manager.checkCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { exists, error in
+            XCTAssertTrue(exists, "exists mismatch")
+            XCTAssertNil(error, "error should be nil")
+            checkCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [checkCustodianRecoveryKeyExpectation], timeout: 20)
+
+        let checkInheritanceKeyExpectation = self.expectation(description: "checkInheritanceKey returns")
+        self.manager.checkInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { exists, error in
+            XCTAssertFalse(exists, "exists mismatch")
+            XCTAssertNil(error, "error should be nil")
+            checkInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [checkInheritanceKeyExpectation], timeout: 20)
+
+        self.verifyDatabaseMocks()
+    }
+
+    func testCustodianRecoveryKeyNotExists() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // This flag gates whether or not we'll error while setting the recovery key
+        OctagonSetSOSFeatureEnabled(true)
+
+        let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiverPeerID: crk.peerID, senderPeerID: crk.peerID)
+
+        // Remove the CRK
+        let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [removeCustodianRecoveryKeyExpectation], timeout: 20)
+
+        let checkCustodianRecoveryKeyExpectation = self.expectation(description: "checkCustodianRecoveryKey returns")
+        self.manager.checkCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { exists, error in
+            XCTAssertFalse(exists, "exists mismatch")
+            XCTAssertNil(error, "error should be nil")
+            checkCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [checkCustodianRecoveryKeyExpectation], timeout: 20)
+
+        self.verifyDatabaseMocks()
     }
 }
 #endif

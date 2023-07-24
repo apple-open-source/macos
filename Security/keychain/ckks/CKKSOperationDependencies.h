@@ -60,7 +60,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly) id<OctagonStateFlagHandler> flagHandler;
 
-@property (readonly) CKKSLaunchSequence* overallLaunch;
+@property (readonly) SecLaunchSequence* overallLaunch;
 
 @property (readonly) CKKSAccountStateTracker* accountStateTracker;
 @property (readonly) CKKSLockStateTracker* lockStateTracker;
@@ -94,7 +94,7 @@ NS_ASSUME_NONNULL_BEGIN
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
                   ckoperationGroup:(CKOperationGroup* _Nullable)operationGroup
                        flagHandler:(id<OctagonStateFlagHandler>)flagHandler
-                     overallLaunch:(CKKSLaunchSequence*)overallLaunch
+                     overallLaunch:(SecLaunchSequence*)overallLaunch
                accountStateTracker:(CKKSAccountStateTracker*)accountStateTracker
                   lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker

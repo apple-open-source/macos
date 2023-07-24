@@ -1420,7 +1420,8 @@ SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname)
  @function SecPolicyCreateAppleExternalDeveloper
  @abstract Returns a policy object for verifying Apple-issued external developer
  certificates.
- @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ @param checkExpiry whether to include the temporal validity check in the policy
+ @discussion The resulting policy uses the Basic X.509 policy with optional validity check and
  pinning options:
     * The chain is anchored to any of the Apple Root CAs.
     * There are exactly 3 certs in the chain.
@@ -1445,6 +1446,11 @@ SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname)
  @result A policy object. The caller is responsible for calling CFRelease on this when
  it is no longer needed.
  */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleExternalDeveloperOptionalExpiry(bool checkExpiry)
+    API_AVAILABLE(macos(13.5), ios(16.6), watchos(9.6), tvos(16.6));
+
+/* Variant of the above with checkExpiry = true */
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleExternalDeveloper(void)
     __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);

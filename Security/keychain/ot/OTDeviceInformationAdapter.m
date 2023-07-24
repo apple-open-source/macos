@@ -146,6 +146,16 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
 
 #endif
 
+- (BOOL)isHomePod
+{
+#if TARGET_OS_TV
+    bool isHomePod = (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == MGDeviceClassAudioAccessory);
+    return isHomePod;
+#else // TARGET_OS_TV
+    return NO;
+#endif
+}
+
 
 - (void)setupDeviceNameListener {
     if (self.deviceNameUpdateListeners == nil) {

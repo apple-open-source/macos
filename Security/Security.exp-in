@@ -2112,6 +2112,7 @@ _SFAnalyticsTableHardFailures
 _SFAnalyticsTableSoftFailures
 _SFAnalyticsTableSamples
 _SFAnalyticsTableNotes
+_SFAnalyticsTableRockwell
 _SFAnalyticsColumnSuccessCount
 _SFAnalyticsColumnHardFailureCount
 _SFAnalyticsColumnSoftFailureCount
@@ -2197,4 +2198,6 @@ _SecCopyBaseFilesURL
 
 _SecSetCustomHomeURL
 _SecSetCustomHomeURLString
+
+SEC_EXP_CLASS(SecLaunchSequence)
 

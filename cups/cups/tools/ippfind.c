@@ -2335,6 +2335,7 @@ list_service(ippfind_srv_t *service)	/* I - Service */
 
     ippDelete(response);
     httpClose(http);
+    http = NULL;
 
     _cupsLangPrintf(stdout, "%s %s %s %s", service->uri, ippEnumString("printer-state", (int)pstate), paccepting ? "accepting-jobs" : "not-accepting-jobs", preasons);
   }
@@ -2381,6 +2382,7 @@ list_service(ippfind_srv_t *service)	/* I - Service */
 
     httpFlush(http);
     httpClose(http);
+    http = NULL;
 
     if (status >= HTTP_STATUS_BAD_REQUEST)
     {

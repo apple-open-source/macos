@@ -3139,7 +3139,7 @@ ServiceIPv4CopyMergedDNSAndCaptive(ServiceRef service_p,
 					     service_p->serviceID, 
 					     IS_IPV6);
     bzero(&info_v6, sizeof(info_v6));
-    if (ipv6_service_p != NULL) {
+    if (ipv6_service_p != NULL && ServiceIsPublished(ipv6_service_p)) {
 	(void)config_method_event(ipv6_service_p, IFEventID_get_ipv6_info_e,
 				  &info_v6);
     }
@@ -3724,7 +3724,7 @@ ServiceIPv6CopyMergedDNSAndCaptive(ServiceRef service_p,
 					     service_p->serviceID, 
 					     IS_IPV4);
     bzero(&info, sizeof(info));
-    if (ipv4_service_p != NULL) {
+    if (ipv4_service_p != NULL && ServiceIsPublished(ipv4_service_p)) {
 	(void)config_method_event(ipv4_service_p, IFEventID_get_dhcp_info_e,
 				  &info);
     }

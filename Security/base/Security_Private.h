@@ -70,6 +70,7 @@
 #include <Security/SecCodeSigner.h>
 #include <Security/SecCodeSignerRemote.h>
 #include <Security/SecCoreAnalytics.h>
+#include <Security/SecLaunchSequence.h>
 #include <Security/SecDH.h>
 #include <Security/SecECKey.h>
 #include <Security/SecEntitlements.h>

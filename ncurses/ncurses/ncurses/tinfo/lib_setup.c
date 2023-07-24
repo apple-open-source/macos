@@ -375,7 +375,14 @@ grab_entry(const char *const tn, TERMTYPE *const tp)
 	    if (tp->Strings[n] == CANCELLED_STRING)
 		tp->Strings[n] = ABSENT_STRING;
 	}
-    }
+
+	for (int i = 0; i < NUM_EXT_NAMES(tp); i++) {
+		if (tp->ext_Names[i] == CANCELLED_STRING) {
+			tp->ext_Names[i] = ABSENT_STRING;
+		}
+	}
+	}
+
     return (status);
 }
 #endif

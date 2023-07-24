@@ -793,9 +793,12 @@ pcap_compile(pcap_t *p, struct bpf_program *program,
 		goto quit;
 	}
 
-	if (pcap_lex_init(&scanner) != 0)
+	if (pcap_lex_init(&scanner) != 0) {
 		pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
-		    errno, "can't initialize scanner");
+					  errno, "can't initialize scanner");
+		rc = -1;
+		goto quit;
+	}
 	in_buffer = pcap__scan_string(xbuf ? xbuf : "", scanner);
 
 	/*

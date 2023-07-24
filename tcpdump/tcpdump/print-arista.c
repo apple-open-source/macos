@@ -32,16 +32,13 @@ arista_print_date_hms_time(netdissect_options *ndo, uint32_t seconds,
 		uint32_t nanoseconds)
 {
 	time_t ts;
-	struct tm *tm;
-	char buf[BUFSIZE];
+	char buf[sizeof("-yyyyyyyyyy-mm-dd hh:mm:ss")];
 
 	ts = seconds + (nanoseconds / 1000000000);
-	if (NULL == (tm = gmtime(&ts)))
-		ND_PRINT(": gmtime() error");
-	else if (0 == strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm))
-		ND_PRINT(": strftime() error");
-	else
-		ND_PRINT(": %s, %09u ns, ", buf, nanoseconds);
+	nanoseconds %= 1000000000;
+	ND_PRINT("%s, %09u ns, ",
+	    nd_format_time(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S",
+	       gmtime(&ts)), nanoseconds);
 }
 
 int
@@ -66,7 +63,7 @@ arista_ethertype_print(netdissect_options *ndo, const u_char *bp, u_int len _U_)
 	// TapAgg Header Timestamping
 	if (subTypeId == ARISTA_SUBTYPE_TIMESTAMP) {
 		// Timestamp has 32-bit lsb in nanosec and remaining msb in sec
-		ND_PRINT("Timestamp %s", tok2str(ts_version_name,
+		ND_PRINT("Timestamp %s: ", tok2str(ts_version_name,
 					"Unknown timestamp Version 0x%04x ", version));
 		switch (version) {
 		case ARISTA_TIMESTAMP_64_TAI:
@@ -78,7 +75,7 @@ arista_ethertype_print(netdissect_options *ndo, const u_char *bp, u_int len _U_)
 			break;
 		case ARISTA_TIMESTAMP_48_TAI:
 		case ARISTA_TIMESTAMP_48_UTC:
-			ND_PRINT(": Seconds %u,", GET_BE_U_2(bp));
+			ND_PRINT("Seconds %u,", GET_BE_U_2(bp));
 			ND_PRINT(" Nanoseconds %u, ", GET_BE_U_4(bp + 2));
 			bytesConsumed += size + 6;
 			break;

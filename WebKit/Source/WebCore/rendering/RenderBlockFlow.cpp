@@ -776,13 +776,29 @@ void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& max
     LayoutUnit afterEdge = borderAndPaddingAfter() + scrollbarLogicalHeight();
 
     setLogicalHeight(beforeEdge);
-    
+    auto* layoutState = view().frameView().layoutContext().layoutState(); 
     // Lay out our hypothetical grid line as though it occurs at the top of the block.
-    if (view().frameView().layoutContext().layoutState()->lineGrid() == this)
+    if (layoutState->lineGrid() == this)
         layoutLineGridBox();
 
     // The margin struct caches all our current margin collapsing state.
     MarginInfo marginInfo(*this, beforeEdge, afterEdge);
+
+    auto hasMarginTrimState = false;
+    auto updateMarginTrimStateIfNeeded = [&] {
+        auto containingBlockTrimmingState = layoutState->blockStartTrimming();
+        if (style().marginTrim().contains(MarginTrimType::BlockStart))
+            layoutState->pushBlockStartTrimming(true);
+        else if (!marginInfo.canCollapseMarginBeforeWithChildren() && containingBlockTrimmingState)
+            layoutState->pushBlockStartTrimming(false);
+        else if (marginInfo.canCollapseMarginBeforeWithChildren() && containingBlockTrimmingState)
+            layoutState->pushBlockStartTrimming(containingBlockTrimmingState.value());
+        else
+            return;
+        hasMarginTrimState = true;
+    };
+
+    updateMarginTrimStateIfNeeded();
 
     // Fieldsets need to find their legend and position it inside the border of the object.
     // The legend then gets skipped during normal layout. The same is true for ruby text.
@@ -823,11 +839,21 @@ void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& max
     // Now do the handling of the bottom of the block, adding in our bottom border/padding and
     // determining the correct collapsed bottom margin information.
     handleAfterSideOfBlock(beforeEdge, afterEdge, marginInfo);
+    if (hasMarginTrimState)
+        layoutState->popBlockStartTrimming();
 }
 
 
 void RenderBlockFlow::trimBlockEndChildrenMargins()
 {
+    auto trimSelfCollapsingChildDescendants = [&](RenderBox& child) {
+        ASSERT(child.isSelfCollapsingBlock());
+        for (auto itr = RenderIterator<RenderBox>(&child, child.firstChildBox()); itr; itr = itr.traverseNext()) {
+            setTrimmedMarginForChild(*itr, MarginTrimType::BlockStart);
+            setTrimmedMarginForChild(*itr, MarginTrimType::BlockEnd);
+        }
+    };
+
     ASSERT(style().marginTrim().contains(MarginTrimType::BlockEnd));
     // If we are trimming the block end margin, we need to make sure we trim the margin of the children
     // at the end of the block by walking back up the container. Any self collapsing children will also need to
@@ -840,10 +866,16 @@ void RenderBlockFlow::trimBlockEndChildrenMargins()
         }
 
         auto* childContainingBlock = child->containingBlock();
-        childContainingBlock->setMarginAfterForChild(*child, 0_lu);
+        setTrimmedMarginForChild(*child, MarginTrimType::BlockEnd);
         if (child->isSelfCollapsingBlock()) {
-            childContainingBlock->setMarginBeforeForChild(*child, 0_lu);
+            setTrimmedMarginForChild(*child, MarginTrimType::BlockStart);
             childContainingBlock->setLogicalTopForChild(*child, childContainingBlock->logicalHeight());
+            
+            // If this self-collapsing child has any other children, which must also be
+            // self-collapsing, we should trim the margins of all its descendants
+            if (child->firstChildBox() && !child->childrenInline())
+                trimSelfCollapsingChildDescendants(*child);
+
             child = child->previousSiblingBox();
         }  else if (auto* nestedBlock = dynamicDowncast<RenderBlockFlow>(child); nestedBlock && nestedBlock->isBlockContainer() && !nestedBlock->childrenInline() && !nestedBlock->style().marginTrim().contains(MarginTrimType::BlockEnd)) {
             MarginInfo nestedBlockMarginInfo(*nestedBlock, nestedBlock->borderAndPaddingBefore(), nestedBlock->borderAndPaddingAfter());
@@ -1024,9 +1056,14 @@ void RenderBlockFlow::layoutBlockChild(RenderBox& child, MarginInfo& marginInfo,
 
     // We are no longer at the top of the block if we encounter a non-empty child.  
     // This has to be done after checking for clear, so that margins can be reset if a clear occurred.
-    if (marginInfo.atBeforeSideOfBlock() && !child.isSelfCollapsingBlock())
+    if (marginInfo.atBeforeSideOfBlock() && !child.isSelfCollapsingBlock()) {
         marginInfo.setAtBeforeSideOfBlock(false);
 
+        if (auto* layoutState = frame().view()->layoutContext().layoutState(); layoutState && layoutState->blockStartTrimming()) {
+            layoutState->popBlockStartTrimming();
+            layoutState->pushBlockStartTrimming(false);
+        }
+    }
     // Now place the child in the correct left position
     determineLogicalLeftPositionForChild(child, ApplyLayoutDelta);
 
@@ -1287,18 +1324,20 @@ LayoutUnit RenderBlockFlow::collapseMarginsWithChildInfo(RenderBox* child, Rende
         auto childBlockFlow = dynamicDowncast<RenderBlockFlow>(child);
         if (childBlockFlow)
             childBlockFlow->setMaxMarginBeforeValues(0_lu, 0_lu);
-        child->setMarginBefore(0_lu, &style());
+        setTrimmedMarginForChild(*child, MarginTrimType::BlockStart);
 
         // The margin after for a self collapsing child should also be trimmed so it does not 
         // influence the margins of the first non collapsing child
         if (childIsSelfCollapsing) {
             if (childBlockFlow)
                 childBlockFlow->setMaxMarginAfterValues(0_lu, 0_lu);
-            child->setMarginAfter(0_lu, &style());
+            setTrimmedMarginForChild(*child, MarginTrimType::BlockEnd);
         }
     };
-    if (marginInfo.atBeforeSideOfBlock() && style().marginTrim().contains(MarginTrimType::BlockStart))
+    if (frame().view()->layoutContext().layoutState()->blockStartTrimming().value_or(false)) {
+        ASSERT(marginInfo.atBeforeSideOfBlock());
         trimChildBlockMargins();
+    }
 
     // Get the four margin values for the child and cache them.
     MarginValues childMargins = child ? marginValuesForChild(*child) : MarginValues(0, 0, 0, 0);
@@ -3972,13 +4011,6 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
         else if (!renderer.isOutOfFlowPositioned())
             renderer.clearNeedsLayout();
 
-        if (is<RenderCounter>(renderer)) {
-            // The counter content gets updated unconventionally by involving computePreferredLogicalWidths() (see RenderCounter::updateCounter())
-            // Here we assume that every time the content of a counter changes, we already handled the update by re-constructing the associated InlineTextBox (see BoxTree::buildTreeForInlineContent).
-            if (renderer.preferredLogicalWidthsDirty())
-                downcast<RenderCounter>(renderer).updateCounter();
-            continue;
-        }
         if (is<RenderCombineText>(renderer)) {
             downcast<RenderCombineText>(renderer).combineTextIfNeeded();
             continue;

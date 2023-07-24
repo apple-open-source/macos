@@ -21,7 +21,7 @@
 .\" * SPDX-License-Identifier: curl
 .\" *
 .\" **************************************************************************
-.TH libcurl 3 "January 02, 2023" "libcurl 7.88.1" "libcurl URL interface"
+.TH libcurl 3 "April 26, 2023" "libcurl 8.1.2" "libcurl"
 
 .SH NAME
 libcurl-url \- URL interface overview
@@ -138,6 +138,9 @@ Now the URL looks like
 .fi
 .SH AVAILABILITY
 The URL API was introduced in libcurl 7.62.0.
+
+A URL with a literal IPv6 address can be parsed even when IPv6 support is not
+enabled.
 .SH "SEE ALSO"
 .BR curl_url "(3), " curl_url_cleanup "(3), " curl_url_get "(3), "
 .BR curl_url_dup "(3), " curl_url_set "(3), " curl_url_strerror "(3), "

@@ -17,7 +17,7 @@ input="$2"
 output="$3"
 options="$4"
 
-echo "$" "${TCPDUMP_BIN}" "--apple-arp-plain -# -n -r $input $options" >>verbose-outputs.txt
+echo "$" "${TCPDUMP_BIN}" "--apple-ext-fmt 0 -# -n -r $input $options" >>verbose-outputs.txt
 
 #use eval otherwise $option may contain double quotes '"'
 eval ${TCPDUMP_BIN} 2>>verbose-outputs.txt --apple-ext-fmt 0 -\# -n -r $input $options >NEW/$output

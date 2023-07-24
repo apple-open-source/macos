@@ -46,6 +46,7 @@
 #import "keychain/ot/OTAccountsAdapter.h"
 #import "keychain/ot/OTAuthKitAdapter.h"
 #import "keychain/ot/OTTooManyPeersAdapter.h"
+#import "keychain/ot/OTTapToRadarAdapter.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
@@ -105,6 +106,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) id<OTPersonaAdapter> personaAdapter;
 @property (readonly) id<OTSOSAdapter> sosAdapter;
 @property (readonly) id<OTTooManyPeersAdapter> tooManyPeersAdapter;
+@property (readonly) id<OTTapToRadarAdapter> tapToRadarAdapter;
 
 // CKKSConditions (for testing teardowns)
 @property (nullable) CKKSCondition* pendingEscrowCacheWarmup;
@@ -121,6 +123,7 @@ NS_ASSUME_NONNULL_BEGIN
                        authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                        personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                   tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
+                    tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
                      lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                   reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                   accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer>)accountStateTracker
@@ -243,6 +246,10 @@ NS_ASSUME_NONNULL_BEGIN
                                         reply:(void (^)(NSError *_Nullable error))reply;
 - (void)rpcRemoveInheritanceKeyWithUUID:(NSUUID *)uuid
                                   reply:(void (^)(NSError *_Nullable error))reply;
+- (void)rpcCheckCustodianRecoveryKeyWithUUID:(NSUUID *)uuid
+                                       reply:(void (^)(bool exists, NSError *_Nullable error))reply;
+- (void)rpcCheckInheritanceKeyWithUUID:(NSUUID *)uuid
+                                 reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
 - (void)rpcRefetchCKKSPolicy:(void (^)(NSError * _Nullable error))reply;
 

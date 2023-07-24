@@ -4026,42 +4026,6 @@
     XCTAssertNotNil(interface, "Received a configured CKKS interface");
 }
 
-- (void)testMetricsUpload {
-
-    XCTestExpectation *upload = [self expectationWithDescription:@"CAMetrics"];
-    XCTestExpectation *collection = [self expectationWithDescription:@"CAMetrics"];
-
-    id saMock = OCMClassMock([SecCoreAnalytics class]);
-    OCMStub([saMock sendEvent:[OCMArg any] event:[OCMArg any]]).andDo(^(NSInvocation* invocation) {
-        [upload fulfill];
-    });
-
-    NSString *sampleSampler = @"stuff";
-
-    [[CKKSAnalytics logger] AddMultiSamplerForName:sampleSampler withTimeInterval:SFAnalyticsSamplerIntervalOncePerReport block:^NSDictionary<NSString *,NSNumber *> *{
-        [collection fulfill];
-        return @{ @"hej" : @1 };
-    }];
-
-
-    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
-    [self startCKKSSubsystem];
-
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should have arrived at ready");
-    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
-
-    [self expectCKModifyRecords:@{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-        deletedRecordTypeCounts:nil
-                         zoneID:self.keychainZoneID
-            checkModifiedRecord:nil
-           runAfterModification:nil];
-
-    [self.injectedManager xpc24HrNotification];
-
-    [self waitForExpectations: @[upload, collection] timeout:10];
-    [[CKKSAnalytics logger] removeMultiSamplerForName:sampleSampler];
-}
-
 - (void)testSaveManyTLKShares {
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];

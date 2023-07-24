@@ -2026,6 +2026,7 @@ delete_client(ippeve_client_t *client)	/* I - Client */
   */
 
   httpClose(client->http);
+  client->http = NULL;
 
   ippDelete(client->request);
   ippDelete(client->response);
@@ -2623,6 +2624,7 @@ finish_document_uri(
 
       unlink(filename);
       httpClose(http);
+      http = NULL;
 
       goto abort_job;
     }
@@ -2638,6 +2640,7 @@ finish_document_uri(
 
       unlink(filename);
       httpClose(http);
+      http = NULL;
 
       goto abort_job;
     }
@@ -2653,6 +2656,7 @@ finish_document_uri(
 
 	unlink(filename);
 	httpClose(http);
+	http = NULL;
 
 	respond_ipp(client, IPP_STATUS_ERROR_INTERNAL,
 		    "Unable to write print file: %s", strerror(error));
@@ -2662,6 +2666,7 @@ finish_document_uri(
     }
 
     httpClose(http);
+    http = NULL;
   }
 
   if (close(job->fd))

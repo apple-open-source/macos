@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 - 2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2018 - 2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -71,12 +71,11 @@ public enum ContainerError: Error {
     case missingDynamicInfo
     case nonMember
     case invalidPermanentInfoOrSig
-    case invalidStableInfoOrSig
     case invalidVoucherOrSig
+    case invalidStableInfoOrSig
     case sponsorNotRegistered(String)
     case unknownPolicyVersion(UInt64)
     case preparedIdentityNotOnAllowedList(String)
-    case couldNotLoadAllowedList
     case noPeersPreapprovePreparedIdentity
     case policyDocumentDoesNotValidate
     case tooManyBottlesForPeer
@@ -91,6 +90,7 @@ public enum ContainerError: Error {
     case signatureVerificationFailed
     case bottleDoesNotContainerEscrowKeySPKI
     case failedToFetchEscrowContents
+    case couldNotLoadAllowedList
     case failedToCreateRecoveryKey
     case untrustedRecoveryKeys
     case noBottlesPresent
@@ -100,9 +100,9 @@ public enum ContainerError: Error {
     case cloudkitResponseMissing
     case failedToLoadSecret(errorCode: Int)
     case failedToLoadSecretDueToType
+    case failedToStoreSecret(errorCode: Int)
     case failedToAssembleBottle
     case invalidPeerID
-    case failedToStoreSecret(errorCode: Int)
     case unknownSecurityFoundationError
     case failedToSerializeData
     case unknownInternalError
@@ -111,10 +111,12 @@ public enum ContainerError: Error {
     case peerRegisteredButNotStored(String)
     case configuredContainerDoesNotMatchSpecifiedUser(TPSpecificUser)
     case noSpecifiedUser
-    case failedToGetPeerViews
-    case cannotCreateRecoveryKeyPeer
     case noEscrowCache
     case recoveryKeyIsNotCorrect
+    case failedToGetPeerViews
+    case cannotCreateRecoveryKeyPeer
+    case custodianRecoveryKeyMalformed
+    case operationNotImplemented
 }
 
 extension ContainerError: LocalizedError {
@@ -136,18 +138,16 @@ extension ContainerError: LocalizedError {
             return "non member"
         case .invalidPermanentInfoOrSig:
             return "invalid permanent info or signature"
-        case .invalidStableInfoOrSig:
-            return "invalid stable info or signature"
         case .invalidVoucherOrSig:
             return "invalid voucher or signature"
+        case .invalidStableInfoOrSig:
+            return "invalid stable info or signature"
         case .sponsorNotRegistered(let s):
             return "sponsor not registered: \(s)"
         case .unknownPolicyVersion(let v):
             return "unknown policy version: \(v)"
         case .preparedIdentityNotOnAllowedList(let id):
             return "prepared identity (\(id)) not on allowed machineID list"
-        case .couldNotLoadAllowedList:
-            return "could not load allowed machineID list"
         case .noPeersPreapprovePreparedIdentity:
             return "no peers preapprove prepared identity"
         case .policyDocumentDoesNotValidate:
@@ -176,6 +176,8 @@ extension ContainerError: LocalizedError {
             return "bottle does not contain escrowed key spki"
         case .failedToFetchEscrowContents:
             return "failed to fetch escrow contents"
+        case .couldNotLoadAllowedList:
+            return "could not load allowed machineID list"
         case .failedToCreateRecoveryKey:
             return "failed to create recovery keys"
         case .untrustedRecoveryKeys:
@@ -194,12 +196,12 @@ extension ContainerError: LocalizedError {
             return "failed to load secret: \(errorCode)"
         case .failedToLoadSecretDueToType:
             return "Failed to load secret due to type mismatch (value was not dictionary)"
+        case .failedToStoreSecret(errorCode: let errorCode):
+            return "failed to store the secret in the keychain \(errorCode)"
         case .failedToAssembleBottle:
             return "failed to assemble bottle for peer"
         case .invalidPeerID:
             return "peerID is invalid"
-        case .failedToStoreSecret(errorCode: let errorCode):
-            return "failed to store the secret in the keychain \(errorCode)"
         case .unknownSecurityFoundationError:
             return "SecurityFoundation returned an unknown type"
         case .failedToSerializeData:
@@ -216,14 +218,18 @@ extension ContainerError: LocalizedError {
             return "Existing container configuration does not match user \(user)"
         case .noSpecifiedUser:
             return "No user specified"
-        case .failedToGetPeerViews:
-            return "failed to get peer views"
-        case .cannotCreateRecoveryKeyPeer:
-            return "failed to create recovery key peer"
         case .noEscrowCache:
             return "No escrow cache available"
         case .recoveryKeyIsNotCorrect:
             return "Preflighted recovery key is not correct"
+        case .failedToGetPeerViews:
+            return "failed to get peer views"
+        case .cannotCreateRecoveryKeyPeer:
+            return "failed to create recovery key peer"
+        case .custodianRecoveryKeyMalformed:
+            return "Custodian recovery key is malformed"
+        case .operationNotImplemented:
+            return "Operation not implemented"
         }
     }
 }
@@ -341,6 +347,10 @@ extension ContainerError: CustomNSError {
             return 53
         case .cannotCreateRecoveryKeyPeer:
             return 54
+        case .custodianRecoveryKeyMalformed:
+            return 55
+        case .operationNotImplemented:
+            return 56
         }
     }
 
@@ -829,7 +839,10 @@ class Container: NSObject, ConfiguredCloudKit {
     // fetching updates from Cuttlefish, with ensuing changeToken overwrites etc.
     // This applies for mutating requests -- requests that can only read the current
     // state (on the moc queue) do not need to.
-    internal let semaphore = DispatchSemaphore(value: 1)
+    fileprivate let semaphore = DispatchSemaphore(value: 1)
+
+    // For debugging hangs, current operation that has semaphore
+    internal var operationWithSempahore: String?
 
     // All Core Data access happens through moc: NSManagedObjectContext. The
     // moc insists on having its own queue, and all operations must happen on
@@ -853,6 +866,7 @@ class Container: NSObject, ConfiguredCloudKit {
     internal var testDontSetAccountSetting: Bool? = false
 
     internal let darwinNotifier: CKKSNotifier.Type
+    internal let managedConfigurationAdapter: OTManagedConfigurationAdapter
 
     // If you add a new field to the Cuttlefish Changes protocol, such that
     // old devices will ignore it silently, but still persist a change tag
@@ -862,6 +876,45 @@ class Container: NSObject, ConfiguredCloudKit {
     //
     // Refetch level 1: Custodian peers
     internal static let currentRefetchLevel: Int64 = 1
+
+    class SemaphoreWrapper {
+        private var parent: Container
+        private var function: String
+        private var signaled: Bool = false
+        init(parent: Container, function: String) {
+            self.parent = parent
+            self.function = function
+            let timeoutInS = 60 * 30
+            let timeout = DispatchTimeInterval.seconds(timeoutInS)
+            switch parent.semaphore.wait(timeout: DispatchTime.now().advanced(by: timeout)) {
+            case .success:
+                break
+            case .timedOut:
+                logger.fault("Timeout after \(String(describing: timeout), privacy: .public) waiting for semaphore (held by \(String(describing: parent.operationWithSempahore), privacy: .public))")
+                SecABC.triggerAutoBugCapture(withType: "TrustedPeersHelper", subType: "hang-timeout", subtypeContext: parent.operationWithSempahore ?? "", domain: "com.apple.security.keychain", events: nil, payload: nil, detectedProcess: nil)
+                _exit(1)
+            }
+            parent.operationWithSempahore = function
+        }
+        deinit {
+            guard signaled else {
+                logger.fault("Semaphore was not signaled by \(self.function, privacy: .public)")
+                SecABC.triggerAutoBugCapture(withType: "TrustedPeersHelper", subType: "hang-semaphore-not-signaled", subtypeContext: self.function, domain: "com.apple.security.keychain", events: nil, payload: nil, detectedProcess: nil)
+                _exit(1)
+            }
+        }
+        func release(function: String = #function) -> Void {
+            guard !signaled else {
+                logger.fault("Semaphore double signaled by \(function, privacy: .public)")
+                SecABC.triggerAutoBugCapture(withType: "TrustedPeersHelper", subType: "hang-semaphore-double-signaled", subtypeContext: function, domain: "com.apple.security.keychain", events: nil, payload: nil, detectedProcess: nil)
+                _exit(1)
+            }
+
+            signaled = true
+            parent.operationWithSempahore = nil
+            parent.semaphore.signal()
+        }
+    }
 
     /**
      Construct a Container.
@@ -878,12 +931,14 @@ class Container: NSObject, ConfiguredCloudKit {
     init(name: ContainerName,
          persistentStoreDescription: NSPersistentStoreDescription,
          darwinNotifier: CKKSNotifier.Type,
+         managedConfigurationAdapter: OTManagedConfigurationAdapter,
          cuttlefish: ConfiguredCuttlefishAPIAsync) throws {
         var initError: Error?
         var containerMO: ContainerMO?
         var model: TPModel?
 
         self.darwinNotifier = darwinNotifier
+        self.managedConfigurationAdapter = managedConfigurationAdapter
 
         // Set up Core Data stack
         let url = Bundle(for: type(of: self)).url(forResource: "TrustedPeersHelper", withExtension: "momd")!
@@ -975,6 +1030,10 @@ class Container: NSObject, ConfiguredCloudKit {
         self.model = model!
         self.escrowCacheTimeout = 60.0 * 15.0 // 15 minutes
         super.init()
+    }
+
+    func grabSemaphore(function: String = #function) -> SemaphoreWrapper {
+        return SemaphoreWrapper(parent: self, function: function)
     }
 
     func configuredFor(user: TPSpecificUser) -> Bool {
@@ -1153,6 +1212,10 @@ class Container: NSObject, ConfiguredCloudKit {
             ]
             if let stableInfo = peer.stableInfo {
                 peerDict["stableInfo"] = stableInfo.dictionaryRepresentation()
+                if !SecIsInternalRelease() {
+                    peerDict["serial_number"] = nil
+                    peerDict["device_name"] = nil
+                }
             }
             if let dynamicInfo = peer.dynamicInfo {
                 peerDict["dynamicInfo"] = dynamicInfo.dictionaryRepresentation()
@@ -1254,12 +1317,12 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func trustStatus(reply: @escaping (TrustedPeersHelperEgoPeerStatus, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (TrustedPeersHelperEgoPeerStatus, Error?) -> Void = {
             // Suppress logging of successful replies here; it's not that useful
             let logType: OSLogType = $1 == nil ? .debug : .error
             logger.log(level: logType, "trustStatus complete: \(TPPeerStatusToString($0.egoStatus), privacy: .public) \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
         self.moc.performAndWait {
@@ -1421,6 +1484,7 @@ class Container: NSObject, ConfiguredCloudKit {
             }
 
             let midList = self.onqueueCurrentMIDList()
+            d["idmsTrustedDevicesVersion"] = self.containerMO.idmsTrustedDevicesVersion
             d["machineIDsAllowed"] = midList.machineIDs(in: .allowed).sorted()
             d["machineIDsDisallowed"] = midList.machineIDs(in: .disallowed).sorted()
             d["modelRecoverySigningPublicKey"] = self.model.recoverySigningPublicKey()
@@ -1453,11 +1517,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func validatePeers(request: ValidatePeersRequest, reply: @escaping ([AnyHashable: Any]?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: ([AnyHashable: Any]?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "validatePeers complete \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
@@ -1478,11 +1542,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func reset(resetReason: CuttlefishResetReason, idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
             logger.log(level: logType, "reset complete \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -1523,11 +1587,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func localReset(reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
             logger.log(level: logType, "localReset complete \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -1576,11 +1640,11 @@ class Container: NSObject, ConfiguredCloudKit {
                  signingPrivateKeyPersistentRef: Data?,
                  encryptionPrivateKeyPersistentRef: Data?,
                  reply: @escaping (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, Error?) -> Void = {
             let logType: OSLogType = $6 == nil ? .info : .error
             logger.log(level: logType, "prepare complete peerID: \(String(describing: $0), privacy: .public) \(traceError($6), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3, $4, $5, $6)
         }
 
@@ -1728,11 +1792,11 @@ class Container: NSObject, ConfiguredCloudKit {
                                 encryptionPrivateKeyPersistentRef: Data?,
                                 crk: TrustedPeersHelperCustodianRecoveryKey,
                                 reply: @escaping (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, String?, [CKRecord]?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, String?, [CKRecord]?, Error?) -> Void = {
             let logType: OSLogType = $8 == nil ? .info : .error
             logger.log(level: logType, "prepareInheritancePeer complete peerID: \(String(describing: $0), privacy: .public) \(traceError($8), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3, $4, $5, $6, $7, $8)
         }
 
@@ -1761,13 +1825,19 @@ class Container: NSObject, ConfiguredCloudKit {
                 return
             }
 
+            guard let recoveryKeyString = crk.recoveryString, let recoverySalt = crk.salt else {
+                logger.info("Bad format CRK: recovery string or salt not set")
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.custodianRecoveryKeyMalformed)
+                return
+            }
+
             // create inheritance recovery key set
             let permanentInfo: TPPeerPermanentInfo
             let signingKeyPair: _SFECKeyPair
             let encryptionKeyPair: _SFECKeyPair
             let recoveryCRK: CustodianRecoveryKey
             do {
-                recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
+                recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: recoveryKeyString, recoverySalt: recoverySalt)
 
                 signingKeyPair = recoveryCRK.peerKeys.signingKey
                 encryptionKeyPair = recoveryCRK.peerKeys.encryptionKey
@@ -1950,11 +2020,11 @@ class Container: NSObject, ConfiguredCloudKit {
                    tlkShares: [CKKSTLKShare],
                    preapprovedKeys: [Data]?,
                    reply: @escaping (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void = {
             let logType: OSLogType = $3 == nil ? .info : .error
             logger.log(level: logType, "establish complete peer: \(String(describing: $0), privacy: .public) \(traceError($3), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3)
         }
 
@@ -2209,11 +2279,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func setRecoveryKey(recoveryKey: String, salt: String, ckksKeys: [CKKSKeychainBackedKeySet], reply: @escaping ([CKRecord]?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: ([CKRecord]?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "setRecoveryKey complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
@@ -2360,11 +2430,11 @@ class Container: NSObject, ConfiguredCloudKit {
                                     uuid: UUID,
                                     kind: TPPBCustodianRecoveryKey_Kind,
                                     reply: @escaping ([CKRecord]?, TrustedPeersHelperCustodianRecoveryKey?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: ([CKRecord]?, TrustedPeersHelperCustodianRecoveryKey?, Error?) -> Void = {
             let logType: OSLogType = $2 == nil ? .info : .error
             logger.log(level: logType, "createCustodianRecoveryKey complete: \(traceError($2), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2)
         }
 
@@ -2505,11 +2575,11 @@ class Container: NSObject, ConfiguredCloudKit {
 
     func removeCustodianRecoveryKey(uuid: UUID,
                                     reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
             logger.log(level: logType, "removeCustodianRecoveryKey complete: \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -2550,16 +2620,43 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
+    func findCustodianRecoveryKey(uuid: UUID,
+                                  reply: @escaping (TrustedPeersHelperCustodianRecoveryKey?, Error?) -> Void) {
+        let sem = self.grabSemaphore()
+        let reply: (TrustedPeersHelperCustodianRecoveryKey?, Error?) -> Void = {
+            let logType: OSLogType = $1 == nil ? .info : .error
+            logger.log(level: logType, "findCustodianRecoveryKey complete: \(traceError($1), privacy: .public)")
+            sem.release()
+            reply($0, $1)
+        }
+
+        self.moc.performAndWait {
+            let tpcrk = self.model.findCustodianRecoveryKey(with: uuid)
+            guard let tpcrk else {
+                reply(nil, nil)
+                return
+            }
+
+            let tphcrk = TrustedPeersHelperCustodianRecoveryKey(uuid: uuid.uuidString,
+                                                                encryptionKey: tpcrk.encryptionPublicKey.spki(),
+                                                                signingKey: tpcrk.signingPublicKey.spki(),
+                                                                recoveryString: nil,
+                                                                salt: nil,
+                                                                kind: tpcrk.kind)
+            reply(tphcrk, nil)
+        }
+    }
+
     func vouchWithBottle(bottleID: String,
                          entropy: Data,
                          bottleSalt: String,
                          tlkShares: [CKKSTLKShare],
                          reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void = {
             let logType: OSLogType = $4 == nil ? .info : .error
             logger.log(level: logType, "vouchWithBottle complete: \(traceError($4), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3, $4)
         }
 
@@ -2713,11 +2810,11 @@ class Container: NSObject, ConfiguredCloudKit {
                               salt: String,
                               tlkShares: [CKKSTLKShare],
                               reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void = {
             let logType: OSLogType = $4 == nil ? .info : .error
             logger.log(level: logType, "vouchWithRecoveryKey complete: \(traceError($4), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3, $4)
         }
 
@@ -2827,11 +2924,11 @@ class Container: NSObject, ConfiguredCloudKit {
     func recoverTLKSharesForInheritor(crk: TrustedPeersHelperCustodianRecoveryKey,
                                       tlkShares: [CKKSTLKShare],
                                       reply: @escaping ([CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: ([CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void = {
             let logType: OSLogType = $2 == nil ? .info : .error
             logger.log(level: logType, "recoverTLKSharesForInheritor complete: \(traceError($2), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2)
         }
 
@@ -2887,10 +2984,16 @@ class Container: NSObject, ConfiguredCloudKit {
                     return
                 }
 
+                guard let recoveryKeyString = crk.recoveryString, let recoverySalt = crk.salt else {
+                    logger.info("Bad format CRK: recovery string or salt not set")
+                    reply(nil, nil, ContainerError.custodianRecoveryKeyMalformed)
+                    return
+                }
+
                 // create recovery key set
                 let recoveryCRK: CustodianRecoveryKey
                 do {
-                    recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
+                    recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: recoveryKeyString, recoverySalt: recoverySalt)
                 } catch {
                     logger.error("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
@@ -2927,11 +3030,11 @@ class Container: NSObject, ConfiguredCloudKit {
     func vouchWithCustodianRecoveryKey(crk: TrustedPeersHelperCustodianRecoveryKey,
                                        tlkShares: [CKKSTLKShare],
                                        reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void = {
             let logType: OSLogType = $4 == nil ? .info : .error
             logger.log(level: logType, "vouchWithCustodianRecoveryKey complete: \(traceError($4), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3, $4)
         }
 
@@ -3001,10 +3104,16 @@ class Container: NSObject, ConfiguredCloudKit {
                     return
                 }
 
+                guard let recoveryKeyString = crk.recoveryString, let recoverySalt = crk.salt else {
+                    logger.info("Bad format CRK: recovery string or salt not set")
+                    reply(nil, nil, nil, nil, ContainerError.custodianRecoveryKeyMalformed)
+                    return
+                }
+
                 // create recovery key set
                 let recoveryCRK: CustodianRecoveryKey
                 do {
-                    recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
+                    recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: recoveryKeyString, recoverySalt: recoverySalt)
                 } catch {
                     logger.error("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
@@ -3053,11 +3162,11 @@ class Container: NSObject, ConfiguredCloudKit {
                stableInfoSig: Data,
                ckksKeys: [CKKSKeychainBackedKeySet],
                reply: @escaping (Data?, Data?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Data?, Data?, Error?) -> Void = {
             let logType: OSLogType = $2 == nil ? .info : .error
             logger.log(level: logType, "vouch complete: \(traceError($2), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2)
         }
 
@@ -3173,11 +3282,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func departByDistrustingSelf(reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
             logger.log(level: logType, "departByDistrustingSelf complete: \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -3194,11 +3303,11 @@ class Container: NSObject, ConfiguredCloudKit {
 
     func distrust(peerIDs: Set<String>,
                   reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
             logger.log(level: logType, "distrust complete: \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -3279,11 +3388,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func fetchEscrowContents(reply: @escaping (Data?, String?, Data?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Data?, String?, Data?, Error?) -> Void = {
             let logType: OSLogType = $3 == nil ? .info : .error
             logger.log(level: logType, "fetchEscrowContents complete: \(traceError($3), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3)
         }
         logger.info("beginning a fetchEscrowContents")
@@ -3333,9 +3442,9 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func fetchViableBottles(from source: OTEscrowRecordFetchSource, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         self.fetchViableBottlesWithSemaphore(from: source) { result in
-            self.semaphore.signal()
+            sem.release()
 
             switch result {
             case let .success((viableBottles, partialBottles)):
@@ -3488,11 +3597,11 @@ class Container: NSObject, ConfiguredCloudKit {
     func removeEscrowCache(reply: @escaping (Error?) -> Void) {
         logger.info("beginning a removeEscrowCache")
 
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
             logger.log(level: logType, "removeEscrowCache complete \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -3678,11 +3787,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func fetchCurrentPolicy(modelIDOverride: String?, isInheritedAccount: Bool, reply: @escaping (TPSyncingPolicy?, TPPBPeerStableInfoUserControllableViewStatus, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (TPSyncingPolicy?, TPPBPeerStableInfoUserControllableViewStatus, Error?) -> Void = {
             let logType: OSLogType = $2 == nil ? .info : .error
             logger.log(level: logType, "fetchCurrentPolicy complete: \(traceError($2), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2)
         }
 
@@ -3789,11 +3898,11 @@ class Container: NSObject, ConfiguredCloudKit {
     // Completion handler data format: [version : [hash, data]]
     func fetchPolicyDocuments(versions: Set<TPPolicyVersion>,
                               reply: @escaping ([TPPolicyVersion: Data]?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: ([TPPolicyVersion: Data]?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "fetchPolicyDocuments complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
@@ -4040,9 +4149,15 @@ class Container: NSObject, ConfiguredCloudKit {
                 newUserViewSyncability = .FOLLOWING
             } else {
                 // All other platforms select what the other devices say to do
-                newUserViewSyncability = self.model.userViewSyncabilityConsensusAmongTrustedPeers(dynamicInfo)
-            }
+                let consensusUserViewSyncability = self.model.userViewSyncabilityConsensusAmongTrustedPeers(dynamicInfo)
 
+                if consensusUserViewSyncability == .ENABLED && !self.managedConfigurationAdapter.isCloudKeychainSyncAllowed() {
+                    logger.info("user-controllable views disabled by profile")
+                    newUserViewSyncability = .DISABLED
+                } else {
+                    newUserViewSyncability = consensusUserViewSyncability
+                }
+            }
             logger.info("join: setting 'user view sync' control as: \(TPPBPeerStableInfoUserControllableViewStatusAsString(newUserViewSyncability), privacy: .public)")
             userViewSyncability = newUserViewSyncability
         }
@@ -4071,11 +4186,11 @@ class Container: NSObject, ConfiguredCloudKit {
               tlkShares: [CKKSTLKShare],
               preapprovedKeys: [Data]?,
               reply: @escaping (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void = {
             let logType: OSLogType = $3 == nil ? .info : .error
             logger.log(level: logType, "join complete: \(traceError($3), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3)
         }
 
@@ -4257,11 +4372,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func requestHealthCheck(requiresEscrowCheck: Bool, knownFederations: [String], reply: @escaping (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void = {
             let logType: OSLogType = $5 == nil ? .info : .error
             logger.log(level: logType, "health check complete: \(traceError($5), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3, $4, $5)
         }
 
@@ -4325,11 +4440,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func getSupportAppInfo(reply: @escaping (Data?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Data?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "getSupportAppInfo complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
@@ -4351,11 +4466,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func resetCDPAccountData(idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
             logger.log(level: logType, "resetCDPAccountData complete: \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -4381,11 +4496,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func fetchAccountSettings(forceFetch: Bool, reply: @escaping([String: TPPBPeerStableInfoSetting]?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: ([String: TPPBPeerStableInfoSetting]?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "fetchAccountSettings complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
         let block: (Error?) -> Void = { error in
@@ -4417,11 +4532,11 @@ class Container: NSObject, ConfiguredCloudKit {
 
     func preflightPreapprovedJoin(preapprovedKeys: [Data]?,
                                   reply: @escaping (Bool, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Bool, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "preflightPreapprovedJoin complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
@@ -4490,11 +4605,11 @@ class Container: NSObject, ConfiguredCloudKit {
                          tlkShares: [CKKSTLKShare],
                          preapprovedKeys: [Data]?,
                          reply: @escaping (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void = {
             let logType: OSLogType = $3 == nil ? .info : .error
             logger.log(level: logType, "preapprovedJoin complete: \(traceError($3), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2, $3)
         }
 
@@ -4676,11 +4791,11 @@ class Container: NSObject, ConfiguredCloudKit {
                 walrusSetting: TPPBPeerStableInfoSetting?,
                 webAccess: TPPBPeerStableInfoSetting?,
                 reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void = {
             let logType: OSLogType = $2 == nil ? .info : .error
             logger.log(level: logType, "update complete: \(traceError($2), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1, $2)
         }
 
@@ -4700,11 +4815,11 @@ class Container: NSObject, ConfiguredCloudKit {
 
     func set(preapprovedKeys: [Data],
              reply: @escaping (TrustedPeersHelperPeerState?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (TrustedPeersHelperPeerState?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "setPreapprovedKeys complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
@@ -4776,11 +4891,11 @@ class Container: NSObject, ConfiguredCloudKit {
     func updateTLKs(ckksKeys: [CKKSKeychainBackedKeySet],
                     tlkShares: [CKKSTLKShare],
                     reply: @escaping ([CKRecord]?, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: ([CKRecord]?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "updateTLKs complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
@@ -4859,10 +4974,10 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func getState(reply: @escaping (ContainerState) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (ContainerState) -> Void = {
             logger.info("getState complete: \(String(describing: $0.egoPeerID), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -5595,11 +5710,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func reportHealth(request: ReportHealthRequest, reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
             logger.log(level: logType, "reportHealth complete \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -5625,11 +5740,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func pushHealthInquiry(reply: @escaping (Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
             logger.log(level: logType, "reportHealth complete \(traceError($0), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0)
         }
 
@@ -5646,11 +5761,11 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
     func isRecoveryKeySet(reply: @escaping(Bool, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Bool, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "isRecoveryKeySet complete \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
@@ -5670,11 +5785,11 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func removeRecoveryKey(reply: @escaping (Bool, Error?) -> Void) {
-        self.semaphore.wait()
+        let sem = self.grabSemaphore()
         let reply: (Bool, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "removeRecoveryKey complete: \(traceError($1), privacy: .public)")
-            self.semaphore.signal()
+            sem.release()
             reply($0, $1)
         }
 
@@ -5839,6 +5954,40 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.error("performATOPRVActions failed: \(String(describing: error), privacy: .public)")
                 reply(error)
             }
+        }
+    }
+
+    func testSemaphore(arg:String, reply: @escaping (Error?) -> Void) {
+        guard SecIsInternalRelease() else {
+            reply(ContainerError.operationNotImplemented)
+            return
+        }
+
+        let sem = self.grabSemaphore()
+        let reply: (Error?) -> Void = {
+            let logType: OSLogType = $0 == nil ? .debug : .error
+            logger.log(level: logType, "testSemaphore complete: \(traceError($0), privacy: .public)")
+            sem.release()
+            reply($0)
+        }
+        switch arg {
+        case "noreply", "n":
+            return
+        case "dispatch", "d":
+            let oneSecond = DispatchTimeInterval.seconds(1)
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: DispatchTime.now().advanced(by: oneSecond)) {
+                reply(nil)
+            }
+        case "dispatch-noreply", "+", "dn", "d-n":
+            let oneSecond = DispatchTimeInterval.seconds(1)
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: DispatchTime.now().advanced(by: oneSecond)) {
+                let _ = reply
+            }
+        case "double-release":
+            reply(nil)
+            reply(nil)
+        default:
+            reply(nil)
         }
     }
 }

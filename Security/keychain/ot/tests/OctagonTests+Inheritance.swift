@@ -238,12 +238,13 @@ class OctagonInheritanceTests: OctagonTestsBase {
                                     accountsAdapter: self.mockAuthKit2,
                                     authKitAdapter: self.mockAuthKit2,
                                     tooManyPeersAdapter: self.mockTooManyPeers,
+                                    tapToRadarAdapter: self.mockTapToRadar,
                                     lockStateTracker: self.lockStateTracker,
                                     deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-IK-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
     }
 
     @discardableResult
-    func createAndSetInheritanceRecoveryKey(context: OTCuttlefishContext) throws -> (OTInheritanceKey, InheritanceKey) {
+    func createAndSetInheritanceKey(context: OTCuttlefishContext) throws -> (OTInheritanceKey, InheritanceKey) {
         var retirk: OTInheritanceKey?
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKey returns")
 
@@ -280,7 +281,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         // This flag gates whether or not we'll error while setting the recovery key
         OctagonSetSOSFeatureEnabled(true)
 
-        let (_, irk) = try self.createAndSetInheritanceRecoveryKey(context: self.cuttlefishContext)
+        let (_, irk) = try self.createAndSetInheritanceKey(context: self.cuttlefishContext)
 
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
@@ -330,7 +331,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         OctagonSetSOSFeatureEnabled(true)
 
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
         self.sendContainerChangeWaitForFetch(context: establishContext)
@@ -455,7 +456,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         OctagonSetSOSFeatureEnabled(true)
 
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
         self.sendContainerChangeWaitForFetch(context: establishContext)
@@ -540,7 +541,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertResetAndBecomeTrusted(context: remote)
 
         OctagonSetSOSFeatureEnabled(true)
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: remote)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: remote)
         OctagonSetSOSFeatureEnabled(false)
         self.sendContainerChangeWaitForFetch(context: remote)
 
@@ -598,7 +599,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertResetAndBecomeTrusted(context: remote)
 
         OctagonSetSOSFeatureEnabled(true)
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: remote)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: remote)
         OctagonSetSOSFeatureEnabled(false)
 
         // And TLKShares for the RK are sent from the Octagon peer
@@ -660,7 +661,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertSelfTLKSharesInCloudKit(context: remote)
 
         OctagonSetSOSFeatureEnabled(true)
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: remote)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: remote)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
 
@@ -947,7 +948,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         OctagonSetSOSFeatureEnabled(true)
 
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
         self.sendContainerChangeWaitForFetch(context: establishContext)
@@ -1047,7 +1048,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         OctagonSetSOSFeatureEnabled(true)
 
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
         self.sendContainerChangeWaitForFetch(context: establishContext)
@@ -1149,7 +1150,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         OctagonSetSOSFeatureEnabled(true)
 
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
         self.sendContainerChangeWaitForFetch(context: establishContext)
@@ -1438,7 +1439,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         OctagonSetSOSFeatureEnabled(true)
 
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
         self.sendContainerChangeWaitForFetch(context: establishContext)
@@ -1555,7 +1556,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         OctagonSetSOSFeatureEnabled(true)
 
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
         self.sendContainerChangeWaitForFetch(context: establishContext)
@@ -1651,7 +1652,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         OctagonSetSOSFeatureEnabled(true)
 
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
         self.sendContainerChangeWaitForFetch(context: establishContext)
@@ -1744,7 +1745,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         OctagonSetSOSFeatureEnabled(true)
 
-        let (otirk, irk) = try self.createAndSetInheritanceRecoveryKey(context: establishContext)
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
 
         self.putInheritanceTLKSharesInCloudKit(irk: irk)
         self.sendContainerChangeWaitForFetch(context: establishContext)
@@ -1793,6 +1794,74 @@ class OctagonInheritanceTests: OctagonTestsBase {
             fetchExpectation.fulfill()
         }
         self.wait(for: [fetchExpectation], timeout: 20)
+    }
+
+    func testInheritanceKeyExists() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // This flag gates whether or not we'll error while setting the recovery key
+        OctagonSetSOSFeatureEnabled(true)
+
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: self.cuttlefishContext)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiverPeerID: irk.peerID, senderPeerID: irk.peerID)
+
+        let checkCustodianRecoveryKeyExpectation = self.expectation(description: "checkCustodianRecoveryKey returns")
+        self.manager.checkCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otirk.uuid) { exists, error in
+            XCTAssertFalse(exists, "exists mismatch")
+            XCTAssertNil(error, "error should be nil")
+            checkCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [checkCustodianRecoveryKeyExpectation], timeout: 20)
+
+        let checkInheritanceKeyExpectation = self.expectation(description: "checkInheritanceKey returns")
+        self.manager.checkInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otirk.uuid) { exists, error in
+            XCTAssertTrue(exists, "exists mismatch")
+            XCTAssertNil(error, "error should be nil")
+            checkInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [checkInheritanceKeyExpectation], timeout: 20)
+
+        self.verifyDatabaseMocks()
+    }
+
+    func testInheritanceKeyNotExists() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // This flag gates whether or not we'll error while setting the recovery key
+        OctagonSetSOSFeatureEnabled(true)
+
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: self.cuttlefishContext)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiverPeerID: irk.peerID, senderPeerID: irk.peerID)
+
+        // Remove the IK
+        let removeInheritanceKeyExpectation = self.expectation(description: "removeInheritanceKey returns")
+        self.manager.removeInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otirk.uuid) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [removeInheritanceKeyExpectation], timeout: 20)
+
+        let checkInheritanceKeyExpectation = self.expectation(description: "checkInheritanceKey returns")
+        self.manager.checkInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otirk.uuid) { exists, error in
+            XCTAssertFalse(exists, "exists mismatch")
+            XCTAssertNil(error, "error should be nil")
+            checkInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [checkInheritanceKeyExpectation], timeout: 20)
+
+        self.verifyDatabaseMocks()
     }
 }
 #endif

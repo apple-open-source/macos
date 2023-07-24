@@ -1307,6 +1307,7 @@ win_split_ins(
 	// "new_size" of the current window goes to the new window, use
 	// one row for the status line
 	win_new_height(wp, new_size);
+	int old_status_height = oldwin->w_status_height;
 	if (flags & (WSP_TOP | WSP_BOT))
 	{
 	    int new_fr_height = curfrp->fr_height - new_size
@@ -1314,6 +1315,8 @@ win_split_ins(
 
 	    if (!((flags & WSP_BOT) && p_ls == 0))
 		new_fr_height -= STATUS_HEIGHT;
+	    if (flags & WSP_BOT)
+		frame_add_statusline(curfrp);
 	    frame_new_height(curfrp, new_fr_height, flags & WSP_TOP, FALSE);
 	}
 	else
@@ -1328,12 +1331,10 @@ win_split_ins(
 	{
 	    wp->w_winrow = oldwin->w_winrow + VISIBLE_HEIGHT(oldwin)
 							       + STATUS_HEIGHT;
-	    wp->w_status_height = oldwin->w_status_height;
+	    wp->w_status_height = old_status_height;
 	    if (!(flags & WSP_BOT))
 		oldwin->w_status_height = STATUS_HEIGHT;
 	}
-	if (flags & WSP_BOT)
-	    frame_add_statusline(curfrp);
 	frame_fix_height(wp);
 	frame_fix_height(oldwin);
     }
@@ -1452,6 +1453,8 @@ win_init(win_T *newp, win_T *oldp, int flags UNUSED)
 
     if (*p_spk != 'c')
     {
+	if (*p_spk == 't')
+	    newp->w_skipcol = oldp->w_skipcol;
 	newp->w_botline = oldp->w_botline;
 	newp->w_prev_height = oldp->w_height - WINBAR_HEIGHT(oldp);
 	newp->w_prev_winrow = oldp->w_winrow + 2 * WINBAR_HEIGHT(oldp);
@@ -2292,7 +2295,7 @@ win_equal_rec(
 }
 
 #ifdef FEAT_JOB_CHANNEL
-    static void
+    void
 leaving_window(win_T *win)
 {
     // Only matters for a prompt window.
@@ -3791,12 +3794,7 @@ frame_add_statusline(frame_T *frp)
     if (frp->fr_layout == FR_LEAF)
     {
 	wp = frp->fr_win;
-	if (wp->w_status_height == 0)
-	{
-	    if (wp->w_height > 0)	// don't make it negative
-		--wp->w_height;
-	    wp->w_status_height = STATUS_HEIGHT;
-	}
+	wp->w_status_height = STATUS_HEIGHT;
     }
     else if (frp->fr_layout == FR_ROW)
     {
@@ -4633,7 +4631,7 @@ tabpage_index(tabpage_T *ftp)
 leave_tabpage(
     buf_T	*new_curbuf UNUSED,    // what is going to be the new curbuf,
 				       // NULL if unknown
-    int		trigger_leave_autocmds UNUSED)
+    int		trigger_leave_autocmds)
 {
     tabpage_T	*tp = curtab;
 
@@ -6864,14 +6862,16 @@ win_new_height(win_T *wp, int height)
     }
 
     wp->w_height = height;
-    wp->w_skipcol = 0;
     wp->w_redr_status = TRUE;
     win_comp_scroll(wp);
 
     // There is no point in adjusting the scroll position when exiting.  Some
     // values might be invalid.
     if (!exiting && *p_spk == 'c')
+    {
+	wp->w_skipcol = 0;
 	scroll_to_fraction(wp, prev_height);
+    }
 }
 
     void

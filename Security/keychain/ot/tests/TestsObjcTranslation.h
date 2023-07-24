@@ -84,6 +84,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSString*)createAndSetRecoveryKeyWithContext:(OTConfigurationContext*)context error:(NSError**)error;
 
+- (BOOL)registerRecoveryKeyWithContext:(OTConfigurationContext*)context recoveryKey:(NSString*)recoveryKey error:(NSError**)error;
+
 + (BOOL)isRecoveryKeySet:(OTConfigurationContext*)ctx error:(NSError**)error;
 
 + (BOOL)recoverWithRecoveryKey:(OTConfigurationContext*)ctx

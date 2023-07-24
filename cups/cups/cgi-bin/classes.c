@@ -188,6 +188,7 @@ main(void)
   */
 
   httpClose(http);
+  http = NULL;
 
  /*
   * Return with no errors...

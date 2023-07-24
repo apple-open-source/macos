@@ -416,6 +416,7 @@ class OctagonPairingTests: OctagonTestsBase {
                                                                  accountsAdapter: self.mockAuthKit3,
                                                                  authKitAdapter: self.mockAuthKit3,
                                                                  tooManyPeersAdapter: self.mockTooManyPeers,
+                                                                 tapToRadarAdapter: self.mockTapToRadar,
                                                                  lockStateTracker: self.lockStateTracker,
                                                                  deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 

@@ -5341,6 +5341,7 @@ create_local_bg_thread(
 
   // TODO: Grab printer icon file...
   httpClose(http);
+  http = NULL;
 
  /*
   * Write the PPD for the queue...

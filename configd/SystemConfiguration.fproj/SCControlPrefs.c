@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -320,6 +320,7 @@ _SCControlPrefsGetBoolean(_SCControlPrefsRef	control,
 {
 	CFBooleanRef			bVal;
 	_SCControlPrefsPrivateRef	controlPrivate	= (_SCControlPrefsPrivateRef)control;
+	Boolean				done = FALSE;
 	Boolean				enabled		= FALSE;
 	SCPreferencesRef		prefs;
 
@@ -327,23 +328,24 @@ _SCControlPrefsGetBoolean(_SCControlPrefsRef	control,
 	prefs = get_managed_prefs(controlPrivate);
 	if (prefs != NULL) {
 		bVal = SCPreferencesGetValue(prefs, key);
-		if (isA_CFBoolean(bVal)) {
+		if (isA_CFBoolean(bVal) != NULL) {
 			enabled = CFBooleanGetValue(bVal);
+			done = TRUE;
 		}
 		SCPreferencesSynchronize(prefs);
-		return enabled;
 	}
 #endif	/* TARGET_OS_IPHONE */
 
-	prefs = get_prefs(controlPrivate);
-	if (prefs != NULL) {
-		bVal = SCPreferencesGetValue(prefs, key);
-		if (isA_CFBoolean(bVal)) {
-			enabled = CFBooleanGetValue(bVal);
+	if (!done) {
+		prefs = get_prefs(controlPrivate);
+		if (prefs != NULL) {
+			bVal = SCPreferencesGetValue(prefs, key);
+			if (isA_CFBoolean(bVal) != NULL) {
+				enabled = CFBooleanGetValue(bVal);
+			}
+			SCPreferencesSynchronize(prefs);
 		}
-		SCPreferencesSynchronize(prefs);
 	}
-
 	return enabled;
 }
 

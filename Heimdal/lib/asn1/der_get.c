@@ -360,6 +360,10 @@ der_get_octet_string_ber (const unsigned char *p, size_t len,
 	if (type == PRIM) {
 	    void *ptr;
 
+	    if (data->length == 0 && datalen == 0) {
+	        continue;
+	    }
+
 	    ptr = realloc(data->data, data->length + datalen);
 	    if (ptr == NULL) {
 		e = ENOMEM;

@@ -64,13 +64,13 @@ _agent_finalize(CFTypeRef value)
     dispatch_sync(agent->eventQueue, ^{
         // Mark the agent as dead
         agent->pluginState = dead;
-    });
                   
-    // We're going away, which means no outside references exist. It's safe to dispose of the XPC connection.
-    if (NULL != agent->agentConnection) {
-        xpc_release(agent->agentConnection);
-        agent->agentConnection = NULL;
-    }
+        // We're going away, which means no outside references exist. It's safe to dispose of the XPC connection.
+        if (NULL != agent->agentConnection) {
+            xpc_release(agent->agentConnection);
+            agent->agentConnection = NULL;
+        }
+    });
 
     // Now that we've released any XPC connection that may (or may not) be present
     // it's safe to go ahead and free our memory. This is provided that all other
@@ -350,32 +350,41 @@ agent_get_mechanism(agent_t agent)
 void
 agent_deactivate(agent_t agent)
 {
-    xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_string(requestObject, AUTH_XPC_REQUEST_METHOD_KEY, AUTH_XPC_REQUEST_METHOD_DEACTIVATE);
-
-    agent->pluginState = deactivating;
-
-    xpc_object_t object = xpc_connection_send_message_with_reply_sync(agent->agentConnection, requestObject);
-    if (xpc_get_type(object) == XPC_TYPE_DICTIONARY) {
-        const char *replyType = xpc_dictionary_get_string(object, AUTH_XPC_REPLY_METHOD_KEY);
-        if (0 == strcmp(replyType, AUTH_XPC_REPLY_METHOD_DEACTIVATE)) {
-            agent->pluginState = active; // This is strange, but true. We do actually want to set the state 'active'.
+    dispatch_sync(agent->actionQueue, ^{       
+        if (agent->pluginState != dead) {
+            xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
+            xpc_dictionary_set_string(requestObject, AUTH_XPC_REQUEST_METHOD_KEY, AUTH_XPC_REQUEST_METHOD_DEACTIVATE);
+            
+            agent->pluginState = deactivating;
+            
+            xpc_object_t object = xpc_connection_send_message_with_reply_sync(agent->agentConnection, requestObject);
+            if (xpc_get_type(object) == XPC_TYPE_DICTIONARY) {
+                const char *replyType = xpc_dictionary_get_string(object, AUTH_XPC_REPLY_METHOD_KEY);
+                if (0 == strcmp(replyType, AUTH_XPC_REPLY_METHOD_DEACTIVATE)) {
+                    agent->pluginState = active; // This is strange, but true. We do actually want to set the state 'active'.
+                }
+            } else if (xpc_get_type(object) == XPC_TYPE_ERROR) {
+                if ((object == XPC_ERROR_CONNECTION_INVALID) || (object == XPC_ERROR_CONNECTION_INTERRUPTED)) {
+                    agent->pluginState = dead;
+                }
+            }
+            xpc_release(object);
+            
+            xpc_release(requestObject);
         }
-    } else if (xpc_get_type(object) == XPC_TYPE_ERROR) {
-        if ((object == XPC_ERROR_CONNECTION_INVALID) || (object == XPC_ERROR_CONNECTION_INTERRUPTED)) {
-            agent->pluginState = dead;
-        }
-    }
-    xpc_release(object);
-    xpc_release(requestObject);
+    });
 }
 
 void agent_destroy(agent_t agent)
 {
-    xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_string(requestObject, AUTH_XPC_REQUEST_METHOD_KEY, AUTH_XPC_REQUEST_METHOD_DESTROY);
-    xpc_connection_send_message(agent->agentConnection, requestObject);
-    xpc_release(requestObject);
+    dispatch_sync(agent->actionQueue, ^{
+        if (agent->pluginState != dead) {
+            xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
+            xpc_dictionary_set_string(requestObject, AUTH_XPC_REQUEST_METHOD_KEY, AUTH_XPC_REQUEST_METHOD_DESTROY);
+            xpc_connection_send_message(agent->agentConnection, requestObject);
+            xpc_release(requestObject);
+        }
+    });
 }
 
 PluginState

@@ -370,6 +370,11 @@ API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15
           custodianRecoveryKeyUUID:(NSUUID *)uuid
                              reply:(void (^)(NSError *_Nullable error))reply;
 
+// Check for the existence of a custodian recovery key.
++ (void)checkCustodianRecoveryKey:(OTConfigurationContext*)ctx
+         custodianRecoveryKeyUUID:(NSUUID *)uuid
+                            reply:(void (^)(bool exists, NSError *_Nullable error))reply;
+
 // Create a new inheritance key.
 + (void)createInheritanceKey:(OTConfigurationContext*)ctx
                         uuid:(NSUUID *_Nullable)uuid
@@ -399,6 +404,11 @@ API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15
 + (void)removeInheritanceKey:(OTConfigurationContext*)ctx
           inheritanceKeyUUID:(NSUUID *)uuid
                        reply:(void (^)(NSError *_Nullable error))reply;
+
+// Check for the existence of an inheritance key.
++ (void)checkInheritanceKey:(OTConfigurationContext*)ctx
+         inheritanceKeyUUID:(NSUUID *)uuid
+                      reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
 // CoreCDP will call this function when they failed to complete a successful CDP state machine run.
 // Errors provided may be propagated from layers beneath CoreCDP, or contain the CoreCDP cause of failure.
